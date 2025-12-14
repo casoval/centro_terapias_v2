@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Pacientes - Centro de Terapias{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900">Pacientes</h1>
+        <a href="/admin/pacientes/paciente/add/" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block">
+            + Nuevo Paciente
+        </a>
+    </div>
+</div>
+
+<!-- Búsqueda -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="get" class="flex gap-4">
+        <input type="text" 
+               name="q" 
+               value="{{ buscar }}"
+               placeholder="Buscar por nombre o apellido..."
+               class="flex-1 border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+            Buscar
+        </button>
+    </form>
+</div>
+
+<!-- Lista de pacientes -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for paciente in pacientes %}
+    <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        {{ paciente.nombre_completo }}
+                    </h3>
+                    <p class="text-sm text-gray-500">{{ paciente.edad }} años</p>
+                </div>
+                <span class="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    Activo
+                </span>
+            </div>
+            
+            <div class="space-y-2 mb-4">
+                <p class="text-sm text-gray-600">
+                    <span class="font-medium">Tutor:</span> {{ paciente.nombre_tutor }}
+                </p>
+                <p class="text-sm text-gray-600">
+                    <span class="font-medium">Teléfono:</span> {{ paciente.telefono_tutor }}
+                </p>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{% url 'pacientes:detalle' paciente.id %}" 
+                   class="flex-1 text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                    Ver Detalle
+                </a>
+                <a href="/admin/pacientes/paciente/{{ paciente.id }}/change/" 
+                   class="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 text-sm">
+                    Editar
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12">
+        <p class="text-gray-500">No hay pacientes registrados</p>
+        <a href="/admin/pacientes/paciente/add/" 
+           class="mt-4 inline-block text-blue-600 hover:text-blue-800">
+            Agregar el primer paciente →
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

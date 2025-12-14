@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load fecha_tags %}
+
+{% block title %}Agenda - Centro de Terapias{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <!-- Header con filtros -->
+    <div class="bg-white shadow-sm border-b sticky top-0 z-40">
+        <div class="max-w-full mx-auto px-4 py-4">
+            <!-- Título y acciones -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">📅 Agenda</h1>
+                    <p class="text-sm text-gray-600 mt-1">
+                        {% if vista == 'diaria' %}
+                            {{ fecha_base|fecha_larga }}
+                        {% elif vista == 'semanal' %}
+                            Semana del {{ fecha_inicio|date:"d/m/Y" }} al {{ fecha_fin|date:"d/m/Y" }}
+                        {% elif vista == 'mensual' %}
+                            {{ fecha_base|mes_anio }}
+                        {% else %}
+                            {{ fecha_inicio|mes_anio }}
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="flex gap-2">
+                    <a href="{% url 'agenda:agendar_recurrente' %}" 
+                       class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                        <span class="text-xl">➕</span>
+                        Agendar Sesiones
+                    </a>
+                </div>
+            </div>
+
+            <!-- Navegación y cambio de vista -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <!-- Navegación de fechas -->
+                <div class="flex items-center gap-2">
+                    <a href="?vista={{ vista }}&fecha={{ fecha_anterior|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition">
+                        ← Anterior
+                    </a>
+                    
+                    <a href="?vista={{ vista }}" 
+                       class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-medium transition">
+                        Hoy
+                    </a>
+                    
+                    <a href="?vista={{ vista }}&fecha={{ fecha_siguiente|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition">
+                        Siguiente →
+                    </a>
+                </div>
+
+                <!-- Cambio de vista -->
+                <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                    <a href="?vista=diaria{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="px-3 py-2 rounded-lg transition text-sm {% if vista == 'diaria' %}bg-white text-blue-600 font-medium shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                        📄 Diaria
+                    </a>
+                    <a href="?vista=semanal{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="px-3 py-2 rounded-lg transition text-sm {% if vista == 'semanal' %}bg-white text-blue-600 font-medium shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                        📊 Semanal
+                    </a>
+                    <a href="?vista=mensual{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="px-3 py-2 rounded-lg transition text-sm {% if vista == 'mensual' %}bg-white text-blue-600 font-medium shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                        📅 Mensual
+                    </a>
+                    <a href="?vista=lista{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}" 
+                       class="px-3 py-2 rounded-lg transition text-sm {% if vista == 'lista' %}bg-white text-blue-600 font-medium shadow-sm{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                        📋 Lista
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filtros avanzados -->
+            <form method="get" class="bg-gray-50 p-4 rounded-lg border" id="filtrosForm">
+                <input type="hidden" name="vista" value="{{ vista }}">
+                <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <!-- Filtro Paciente -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">👤 Paciente</label>
+                        <select name="paciente" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
+                            <option value="">Todos</option>
+                            {% for p in pacientes %}
+                                <option value="{{ p.id }}" {% if paciente_id == p.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ p.nombre }} {{ p.apellido }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Filtro Profesional -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">👨‍⚕️ Profesional</label>
+                        <select name="profesional" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
+                            <option value="">Todos</option>
+                            {% for prof in profesionales %}
+                                <option value="{{ prof.id }}" {% if profesional_id == prof.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ prof.nombre }} {{ prof.apellido }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Filtro Servicio -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">🏥 Servicio</label>
+                        <select name="servicio" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
+                            <option value="">Todos</option>
+                            {% for srv in servicios %}
+                                <option value="{{ srv.id }}" {% if servicio_id == srv.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ srv.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Filtro Estado -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">📊 Estado</label>
+                        <select name="estado" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
+                            <option value="">Todos</option>
+                            {% for estado_val, estado_nombre in estados %}
+                                <option value="{{ estado_val }}" {% if estado_filtro == estado_val %}selected{% endif %}>
+                                    {{ estado_nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Botón limpiar -->
+                    <div class="flex items-end">
+                        <a href="?vista={{ vista }}" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-center transition">
+                            🔄 Limpiar Filtros
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenido según vista -->
+    <div class="max-w-full mx-auto p-4">
+        {% if vista == 'diaria' %}
+            {% include 'agenda/partials/calendario_diario.html' %}
+        {% elif vista == 'semanal' %}
+            {% include 'agenda/partials/calendario_semanal.html' %}
+        {% elif vista == 'mensual' %}
+            {% include 'agenda/partials/calendario_mensual.html' %}
+        {% else %}
+            {% include 'agenda/partials/calendario_lista.html' %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para editar sesión (HTMX) -->
+<div id="modal-editar" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div id="modal-content">
+            <!-- Contenido cargado por HTMX -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Abrir modal
+    document.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'modal-content') {
+            document.getElementById('modal-editar').classList.remove('hidden');
+        }
+    });
+
+    // Cerrar modal
+    function cerrarModal() {
+        document.getElementById('modal-editar').classList.add('hidden');
+        document.getElementById('modal-content').innerHTML = '';
+        // Recargar la página para ver los cambios
+        window.location.reload();
+    }
+
+    // Cerrar con ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            cerrarModal();
+        }
+    });
+
+    // Cerrar al hacer click fuera
+    document.getElementById('modal-editar').addEventListener('click', function(e) {
+        if (e.target === this) {
+            cerrarModal();
+        }
+    });
+</script>
+{% endblock %}
