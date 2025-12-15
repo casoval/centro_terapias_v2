@@ -70,7 +70,7 @@
         <select name="estado" 
                 id="estado-{{ sesion.id }}"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                onchange="aplicarPoliticas{{ sesion.id }}(true)" 
+                onchange="cambiarEstado{{ sesion.id }}()" 
                 required>
             <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
             <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
@@ -210,22 +210,31 @@
 </form>
 
 <script>
-const STATS = JSON.parse('{{ estadisticas|escapejs }}');
-const PRECIO_PACIENTE = parseFloat('{{ sesion.paciente.pacienteservicio_set.first.costo_sesion|default:sesion.servicio.costo_base }}');
-const PRECIO_BASE = parseFloat('{{ sesion.servicio.costo_base }}');
-const ESTADO_INICIAL = '{{ sesion.estado }}';
-const MONTO_GUARDADO = parseFloat('{{ sesion.monto_cobrado }}');
+// Constantes
+const STATS_{{ sesion.id }} = JSON.parse('{{ estadisticas|escapejs }}');
+const PRECIO_PACIENTE_{{ sesion.id }} = parseFloat('{{ sesion.paciente.pacienteservicio_set.first.costo_sesion|default:sesion.servicio.costo_base }}');
+const ESTADO_ORIGINAL_{{ sesion.id }} = '{{ sesion.estado }}';
+const MONTO_GUARDADO_{{ sesion.id }} = parseFloat('{{ sesion.monto_cobrado }}');
 
-// Inicializar
-window.addEventListener('load', function() {
-    const montoInput = document.getElementById('monto-{{ sesion.id }}');
-    // SIEMPRE establecer el monto guardado primero
-    montoInput.value = MONTO_GUARDADO.toFixed(2);
-    // Luego aplicar políticas sin cambiar el monto
-    aplicarPoliticas{{ sesion.id }}(false);
-});
+// EJECUTAR INMEDIATAMENTE
+(function() {
+    console.log('Inicializando formulario sesión {{ sesion.id }}...');
+    console.log('Estado original:', ESTADO_ORIGINAL_{{ sesion.id }});
+    console.log('Monto guardado:', MONTO_GUARDADO_{{ sesion.id }});
+    
+    setTimeout(function() {
+        // FORZAR el valor del monto PRIMERO
+        const montoInput = document.getElementById('monto-{{ sesion.id }}');
+        if (montoInput) {
+            montoInput.value = MONTO_GUARDADO_{{ sesion.id }}.toFixed(2);
+            console.log('Monto establecido a:', montoInput.value);
+        }
+        // LUEGO aplicar políticas
+        aplicarPoliticas{{ sesion.id }}();
+    }, 100);
+})();
 
-function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
+function aplicarPoliticas{{ sesion.id }}() {
     const estado = document.getElementById('estado-{{ sesion.id }}').value;
     const montoInput = document.getElementById('monto-{{ sesion.id }}');
     const containerMonto = document.getElementById('container-monto-{{ sesion.id }}');
@@ -235,6 +244,9 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
     const labelMonto = document.getElementById('label-monto-{{ sesion.id }}');
     const labelObs = document.getElementById('label-observaciones-{{ sesion.id }}');
     const stats = document.getElementById('estadistica-{{ sesion.id }}');
+    
+    console.log('Aplicando políticas para estado:', estado);
+    console.log('Monto actual en input:', montoInput.value);
     
     // Ocultar campos específicos
     camposRetraso.classList.add('hidden');
@@ -246,11 +258,8 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            // Solo cambiar monto si es un cambio de estado Y cambiarMonto es true
-            if (cambiarMonto && ESTADO_INICIAL !== estado) {
-                montoInput.value = PRECIO_PACIENTE.toFixed(2);
-            }
-            stats.innerHTML = `📊 ${STATS.asistencias} asistencias este mes`;
+            // NO cambiar el monto si ya está establecido y el estado no cambió
+            stats.innerHTML = `📊 ${STATS_{{ sesion.id }}.asistencias} asistencias este mes`;
             labelMonto.textContent = '';
             labelObs.textContent = 'Observaciones';
             break;
@@ -260,10 +269,7 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (cambiarMonto && ESTADO_INICIAL !== estado) {
-                montoInput.value = PRECIO_PACIENTE.toFixed(2);
-            }
-            stats.innerHTML = `⏰ ${STATS.retrasos} retrasos este mes`;
+            stats.innerHTML = `⏰ ${STATS_{{ sesion.id }}.retrasos} retrasos este mes`;
             labelMonto.textContent = '';
             labelObs.textContent = 'Motivo del retraso';
             break;
@@ -272,10 +278,7 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (cambiarMonto && ESTADO_INICIAL !== estado) {
-                montoInput.value = PRECIO_PACIENTE.toFixed(2);
-            }
-            stats.innerHTML = `❌ ${STATS.faltas} faltas sin aviso este mes`;
+            stats.innerHTML = `❌ ${STATS_{{ sesion.id }}.faltas} faltas sin aviso este mes`;
             labelMonto.textContent = '(Sugerido: monto completo)';
             labelObs.textContent = 'Motivo de la falta';
             break;
@@ -284,7 +287,7 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.add('hidden');
             containerPago.classList.add('hidden');
             montoInput.value = '0.00';
-            stats.innerHTML = `📋 ${STATS.permisos} permisos este mes`;
+            stats.innerHTML = `📋 ${STATS_{{ sesion.id }}.permisos} permisos este mes`;
             labelObs.textContent = 'Motivo del permiso';
             break;
             
@@ -292,10 +295,7 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (cambiarMonto && ESTADO_INICIAL !== estado) {
-                montoInput.value = '0.00';
-            }
-            stats.innerHTML = `🚫 ${STATS.cancelaciones} cancelaciones este mes`;
+            stats.innerHTML = `🚫 ${STATS_{{ sesion.id }}.cancelaciones} cancelaciones este mes`;
             labelMonto.textContent = '(Por defecto sin cobro, pero puedes modificar)';
             labelObs.textContent = 'Motivo de la cancelación';
             break;
@@ -305,7 +305,7 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
             containerMonto.classList.add('hidden');
             containerPago.classList.add('hidden');
             montoInput.value = '0.00';
-            stats.innerHTML = `🔄 ${STATS.reprogramaciones} reprogramaciones este mes`;
+            stats.innerHTML = `🔄 ${STATS_{{ sesion.id }}.reprogramaciones} reprogramaciones este mes`;
             labelObs.textContent = 'Motivo de la reprogramación';
             break;
             
@@ -321,6 +321,25 @@ function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
     calcularPorcentaje{{ sesion.id }}();
 }
 
+function cambiarEstado{{ sesion.id }}() {
+    const estadoNuevo = document.getElementById('estado-{{ sesion.id }}').value;
+    const montoInput = document.getElementById('monto-{{ sesion.id }}');
+    
+    console.log('Cambio de estado detectado:', ESTADO_ORIGINAL_{{ sesion.id }}, '->', estadoNuevo);
+    
+    // SOLO cambiar monto si es un cambio de estado que lo requiera
+    if (ESTADO_ORIGINAL_{{ sesion.id }} !== estadoNuevo) {
+        if (estadoNuevo === 'realizada' || estadoNuevo === 'realizada_retraso' || estadoNuevo === 'falta') {
+            montoInput.value = PRECIO_PACIENTE_{{ sesion.id }}.toFixed(2);
+            console.log('Aplicando precio del paciente:', PRECIO_PACIENTE_{{ sesion.id }});
+        } else if (estadoNuevo === 'cancelada') {
+            montoInput.value = '0.00';
+        }
+    }
+    
+    aplicarPoliticas{{ sesion.id }}();
+}
+
 function calcularPorcentaje{{ sesion.id }}() {
     const estado = document.getElementById('estado-{{ sesion.id }}').value;
     const monto = parseFloat(document.getElementById('monto-{{ sesion.id }}').value) || 0;
@@ -331,15 +350,15 @@ function calcularPorcentaje{{ sesion.id }}() {
         return;
     }
     
-    const porcentaje = PRECIO_PACIENTE > 0 ? ((monto / PRECIO_PACIENTE) * 100).toFixed(0) : 100;
+    const porcentaje = PRECIO_PACIENTE_{{ sesion.id }} > 0 ? ((monto / PRECIO_PACIENTE_{{ sesion.id }}) * 100).toFixed(0) : 100;
     
     if (monto === 0) {
         infoDiv.innerHTML = `<span class="text-gray-600">Sin cobro</span>`;
-    } else if (monto < PRECIO_PACIENTE) {
-        const desc = PRECIO_PACIENTE - monto;
+    } else if (monto < PRECIO_PACIENTE_{{ sesion.id }}) {
+        const desc = PRECIO_PACIENTE_{{ sesion.id }} - monto;
         infoDiv.innerHTML = `<span class="text-orange-600 font-medium">⚠️ ${porcentaje}% del precio • Descuento: Bs. ${desc.toFixed(2)}</span>`;
-    } else if (monto > PRECIO_PACIENTE) {
-        const extra = monto - PRECIO_PACIENTE;
+    } else if (monto > PRECIO_PACIENTE_{{ sesion.id }}) {
+        const extra = monto - PRECIO_PACIENTE_{{ sesion.id }};
         infoDiv.innerHTML = `<span class="text-blue-600 font-medium">ℹ️ ${porcentaje}% del precio • Extra: Bs. ${extra.toFixed(2)}</span>`;
     } else {
         infoDiv.innerHTML = `<span class="text-green-600 font-medium">✅ Precio normal para este paciente</span>`;
@@ -354,16 +373,31 @@ function toggleFechaPago{{ sesion.id }}() {
 
 function guardarSesion{{ sesion.id }}(event) {
     event.preventDefault();
+    console.log('Guardando sesión...');
     
     const form = document.getElementById('form-editar-{{ sesion.id }}');
     const formData = new FormData(form);
+    
+    console.log('Monto a guardar:', formData.get('monto_cobrado'));
+    console.log('Estado:', formData.get('estado'));
     
     fetch('{% url "agenda:editar_sesion" sesion.id %}', {
         method: 'POST',
         body: formData,
         headers: {'X-Requested-With': 'XMLHttpRequest'}
     })
-    .then(response => response.ok ? (cerrarModal(), window.location.reload()) : alert('Error al guardar'))
-    .catch(() => alert('Error al guardar'));
+    .then(response => {
+        console.log('Respuesta recibida:', response.status);
+        if (response.ok) {
+            cerrarModal();
+            window.location.reload();
+        } else {
+            alert('Error al guardar');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar');
+    });
 }
 </script>
