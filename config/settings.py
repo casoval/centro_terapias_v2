@@ -31,10 +31,12 @@ DEBUG = not IS_PRODUCTION
 
 # ALLOWED_HOSTS
 if IS_PRODUCTION:
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+    allowed = os.environ.get('ALLOWED_HOSTS', '').split(',')
+    # Añadir hosts internos para health checks de Render
+    ALLOWED_HOSTS = allowed + ['127.0.0.1', 'localhost']
 else:
     ALLOWED_HOSTS = ['*']  # Permitir todo en desarrollo
-
+    
 # --------------------------------------------------
 # APPLICATION DEFINITION
 # --------------------------------------------------
