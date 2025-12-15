@@ -31,14 +31,16 @@
                         <span class="text-lg font-bold {% if sesion.estado == 'programada' %}text-blue-700{% elif sesion.estado == 'realizada' %}text-green-700{% elif sesion.estado == 'realizada_retraso' %}text-yellow-700{% elif sesion.estado == 'falta' %}text-red-700{% elif sesion.estado == 'permiso' %}text-purple-700{% elif sesion.estado == 'cancelada' %}text-gray-700{% elif sesion.estado == 'reprogramada' %}text-orange-700{% endif %}">
                             🕐 {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
                         </span>
-                        {% if not sesion.pagado %}
-                        <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                            💰 Bs. {{ sesion.monto_cobrado }}
-                        </span>
-                        {% else %}
-                        <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                            ✅ Pagado
-                        </span>
+                        {% if sesion.monto_cobrado > 0 %}
+                            {% if not sesion.pagado %}
+                            <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                                💰 Bs. {{ sesion.monto_cobrado }}
+                            </span>
+                            {% else %}
+                            <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                                ✅ Pagado
+                            </span>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -53,9 +55,12 @@
                         {{ sesion.servicio.nombre }}
                     </div>
 
-                    <!-- Profesional -->
+                    <!-- Profesional y Sucursal -->
                     <div class="text-xs text-gray-600 flex items-center gap-1">
                         👨‍⚕️ {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                    </div>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                        🏢 {{ sesion.sucursal.nombre }}
                     </div>
 
                     <!-- Badge de estado -->

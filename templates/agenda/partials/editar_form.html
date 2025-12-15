@@ -70,7 +70,7 @@
         <select name="estado" 
                 id="estado-{{ sesion.id }}"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                onchange="aplicarPoliticas{{ sesion.id }}()" 
+                onchange="aplicarPoliticas{{ sesion.id }}(true)" 
                 required>
             <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
             <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
@@ -213,15 +213,19 @@
 const STATS = JSON.parse('{{ estadisticas|escapejs }}');
 const PRECIO_PACIENTE = parseFloat('{{ sesion.paciente.pacienteservicio_set.first.costo_sesion|default:sesion.servicio.costo_base }}');
 const PRECIO_BASE = parseFloat('{{ sesion.servicio.costo_base }}');
-const ESTADO_ACTUAL = '{{ sesion.estado }}';
+const ESTADO_INICIAL = '{{ sesion.estado }}';
 const MONTO_GUARDADO = parseFloat('{{ sesion.monto_cobrado }}');
 
 // Inicializar
 window.addEventListener('load', function() {
-    aplicarPoliticas{{ sesion.id }}();
+    const montoInput = document.getElementById('monto-{{ sesion.id }}');
+    // SIEMPRE establecer el monto guardado primero
+    montoInput.value = MONTO_GUARDADO.toFixed(2);
+    // Luego aplicar políticas sin cambiar el monto
+    aplicarPoliticas{{ sesion.id }}(false);
 });
 
-function aplicarPoliticas{{ sesion.id }}() {
+function aplicarPoliticas{{ sesion.id }}(cambiarMonto = true) {
     const estado = document.getElementById('estado-{{ sesion.id }}').value;
     const montoInput = document.getElementById('monto-{{ sesion.id }}');
     const containerMonto = document.getElementById('container-monto-{{ sesion.id }}');
@@ -232,21 +236,20 @@ function aplicarPoliticas{{ sesion.id }}() {
     const labelObs = document.getElementById('label-observaciones-{{ sesion.id }}');
     const stats = document.getElementById('estadistica-{{ sesion.id }}');
     
-    // Ocultar todos
+    // Ocultar campos específicos
     camposRetraso.classList.add('hidden');
     camposReprog.classList.add('hidden');
     
-    // Aplicar políticas
+    // Aplicar políticas según estado
     switch(estado) {
         case 'realizada':
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            // SI ES CAMBIO DE ESTADO, aplicar precio paciente
-            if (ESTADO_ACTUAL !== 'realizada' && estado === 'realizada') {
+            // Solo cambiar monto si es un cambio de estado Y cambiarMonto es true
+            if (cambiarMonto && ESTADO_INICIAL !== estado) {
                 montoInput.value = PRECIO_PACIENTE.toFixed(2);
             }
-            // SI YA ERA REALIZADA, mantener el monto guardado
             stats.innerHTML = `📊 ${STATS.asistencias} asistencias este mes`;
             labelMonto.textContent = '';
             labelObs.textContent = 'Observaciones';
@@ -257,7 +260,7 @@ function aplicarPoliticas{{ sesion.id }}() {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (ESTADO_ACTUAL !== 'realizada_retraso' && estado === 'realizada_retraso') {
+            if (cambiarMonto && ESTADO_INICIAL !== estado) {
                 montoInput.value = PRECIO_PACIENTE.toFixed(2);
             }
             stats.innerHTML = `⏰ ${STATS.retrasos} retrasos este mes`;
@@ -269,7 +272,7 @@ function aplicarPoliticas{{ sesion.id }}() {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (ESTADO_ACTUAL !== 'falta' && estado === 'falta') {
+            if (cambiarMonto && ESTADO_INICIAL !== estado) {
                 montoInput.value = PRECIO_PACIENTE.toFixed(2);
             }
             stats.innerHTML = `❌ ${STATS.faltas} faltas sin aviso este mes`;
@@ -289,7 +292,7 @@ function aplicarPoliticas{{ sesion.id }}() {
             containerMonto.classList.remove('hidden');
             containerPago.classList.remove('hidden');
             montoInput.readOnly = false;
-            if (ESTADO_ACTUAL !== 'cancelada' && estado === 'cancelada') {
+            if (cambiarMonto && ESTADO_INICIAL !== estado) {
                 montoInput.value = '0.00';
             }
             stats.innerHTML = `🚫 ${STATS.cancelaciones} cancelaciones este mes`;

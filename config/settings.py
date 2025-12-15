@@ -13,13 +13,27 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --------------------------------------------------
+# ENTORNO (Detectar si es desarrollo o producción)
+# --------------------------------------------------
+
+# Por defecto es desarrollo si no hay variable de entorno
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
+# --------------------------------------------------
 # SECURITY
 # --------------------------------------------------
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'unsafe-secret-key')
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-CHANGE-IN-PRODUCTION')
 
-ALLOWED_HOSTS = ['*']
+# DEBUG: True en desarrollo, False en producción
+DEBUG = not IS_PRODUCTION
+
+# ALLOWED_HOSTS
+if IS_PRODUCTION:
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+else:
+    ALLOWED_HOSTS = ['*']  # Permitir todo en desarrollo
 
 # --------------------------------------------------
 # APPLICATION DEFINITION
@@ -77,11 +91,21 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # DATABASE
 # --------------------------------------------------
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        os.environ.get('DATABASE_URL', f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-    )
-}
+if IS_PRODUCTION:
+    # En producción usa la DATABASE_URL de Render
+    DATABASES = {
+        'default': dj_database_url.parse(
+            os.environ.get('DATABASE_URL')
+        )
+    }
+else:
+    # En desarrollo usa SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # --------------------------------------------------
 # PASSWORD VALIDATION
@@ -106,12 +130,21 @@ USE_TZ = True
 
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
+# Formato de fecha en español
+DATE_FORMAT = 'd/m/Y'
+DATETIME_FORMAT = 'd/m/Y H:i'
+SHORT_DATE_FORMAT = 'd/m/Y'
+
 # --------------------------------------------------
 # STATIC FILES
 # --------------------------------------------------
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+if not IS_PRODUCTION:
+    # En desarrollo, también buscar archivos en la carpeta static/
+    STATICFILES_DIRS = [BASE_DIR / 'static']
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -135,3 +168,21 @@ LOGOUT_REDIRECT_URL = 'core:login'
 # --------------------------------------------------
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --------------------------------------------------
+# CONFIGURACIONES ADICIONALES SEGÚN ENTORNO
+# --------------------------------------------------
+
+if IS_PRODUCTION:
+    # Configuraciones de seguridad para producción
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+else:
+    # Configuraciones de desarrollo
+    print("🔧 MODO DESARROLLO ACTIVADO")
+    print(f"   DEBUG = {DEBUG}")
+    print(f"   Base de datos: SQLite local")
