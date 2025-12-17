@@ -1,6 +1,4 @@
-<!-- Vista Lista/Tabla con Filtro de Fechas -->
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- Filtro adicional de fechas -->
     <div class="p-4 bg-gray-50 border-b">
         <form method="get" class="flex items-end gap-3">
             <input type="hidden" name="vista" value="lista">
@@ -25,6 +23,18 @@
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
             </div>
             
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-700 mb-1">🏢 Sucursal</label>
+                <select name="sucursal" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas las sucursales</option>
+                    {% for sucursal in sucursales %}
+                    <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sucursal.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
                 🔍 Filtrar
             </button>
@@ -35,7 +45,6 @@
         </form>
     </div>
 
-    <!-- Header con resumen -->
     <div class="p-4 bg-gray-100 border-b">
         <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold text-gray-900">
@@ -48,7 +57,6 @@
     </div>
 
     {% if sesiones %}
-    <!-- Tabla responsive -->
     <div class="overflow-x-auto">
         <table class="w-full">
             <thead class="bg-gray-100 border-b">
@@ -67,6 +75,9 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                         Profesional
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Sucursal
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                         Estado
@@ -103,6 +114,11 @@
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-600">
                         {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">
+                        <span class="inline-flex items-center gap-1">
+                            🏢 {{ sesion.sucursal.nombre }}
+                        </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% if sesion.estado == 'programada' %}
@@ -167,32 +183,87 @@
         </table>
     </div>
 
-    <!-- Footer con totales -->
-    <div class="p-4 bg-gray-50 border-t">
-        <div class="grid grid-cols-3 gap-4 text-sm">
-            <div class="text-center">
-                <div class="text-gray-600">Total a Cobrar</div>
-                <div class="text-xl font-bold text-gray-900">
-                    Bs. {% widthratio sesiones|length 1 1 as count %}
-                    {{ sesiones|length|add:"0" }}
+    <div class="p-6 bg-gray-50 border-t">
+        
+        {% if request.GET.fecha_desde and request.GET.fecha_hasta %}
+        
+            <div class="mb-6">
+                <h3 class="text-sm font-bold text-gray-700 mb-3 uppercase">📊 Estadísticas del Período</h3>
+                <div class="grid grid-cols-4 lg:grid-cols-8 gap-3">
+                    <div class="text-center p-3 bg-white rounded-lg border">
+                        <div class="text-2xl font-bold text-gray-900">{{ sesiones|length }}</div>
+                        <div class="text-xs text-gray-600">Total</div>
+                    </div>
+                    <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="text-2xl font-bold text-blue-600">{{ count_programadas }}</div>
+                        <div class="text-xs text-blue-600">Programadas</div>
+                    </div>
+                    <div class="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div class="text-2xl font-bold text-green-600">{{ count_realizadas }}</div>
+                        <div class="text-xs text-green-600">Realizadas</div>
+                    </div>
+                    <div class="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div class="text-2xl font-bold text-yellow-600">{{ count_retraso }}</div>
+                        <div class="text-xs text-yellow-600">Con Retraso</div>
+                    </div>
+                    <div class="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div class="text-2xl font-bold text-red-600">{{ count_falta }}</div>
+                        <div class="text-xs text-red-600">Faltas</div>
+                    </div>
+                    <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <div class="text-2xl font-bold text-purple-600">{{ count_permiso }}</div>
+                        <div class="text-xs text-purple-600">Permisos</div>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="text-2xl font-bold text-gray-600">{{ count_cancelada }}</div>
+                        <div class="text-xs text-gray-600">Canceladas</div>
+                    </div>
+                    <div class="text-center p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <div class="text-2xl font-bold text-orange-600">{{ count_reprogramada }}</div>
+                        <div class="text-xs text-orange-600">Reprogramadas</div>
+                    </div>
                 </div>
             </div>
-            <div class="text-center">
-                <div class="text-gray-600">Pagado</div>
-                <div class="text-xl font-bold text-green-600">
-                    Bs. 0.00
+
+            <div>
+                <h3 class="text-sm font-bold text-gray-700 mb-3 uppercase">💰 Resumen Económico</h3>
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div class="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div class="text-xs text-red-600 font-semibold mb-1">Pendientes</div>
+                        <div class="text-lg font-bold text-red-700">{{ count_pendientes }} sesiones</div>
+                        <div class="text-xl font-bold text-red-600 mt-1">
+                            Bs. {{ total_pendiente }}
+                        </div>
+                    </div>
+
+                    <div class="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div class="text-xs text-green-600 font-semibold mb-1">Pagados</div>
+                        <div class="text-lg font-bold text-green-700">{{ count_pagados }} sesiones</div>
+                        <div class="text-xl font-bold text-green-600 mt-1">
+                            Bs. {{ total_pagado }}
+                        </div>
+                    </div>
+
+                    <div class="text-center p-3 bg-blue-50 rounded-lg border-2 border-blue-300">
+                        <div class="text-xs text-blue-700 font-semibold mb-1">Total del Período</div>
+                        <div class="text-2xl font-black text-blue-700 mt-2">
+                            Bs. {{ total_monto }}
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="text-center">
-                <div class="text-gray-600">Pendiente</div>
-                <div class="text-xl font-bold text-red-600">
-                    Bs. 0.00
-                </div>
+            
+        {% else %}
+            <div class="text-center py-8 bg-white border border-dashed border-gray-300 rounded-lg">
+                <div class="text-4xl mb-2">📅</div>
+                <h3 class="text-lg font-medium text-gray-900">Estadísticas no disponibles</h3>
+                <p class="text-gray-500 text-sm mt-1">
+                    Selecciona un rango de fechas (<b>Desde</b> y <b>Hasta</b>) para ver el resumen financiero y operativo.
+                </p>
             </div>
-        </div>
+        {% endif %}
     </div>
     {% else %}
-    <!-- Sin sesiones -->
     <div class="text-center py-16">
         <div class="text-6xl mb-4">📋</div>
         <p class="text-xl text-gray-500 font-medium">No hay sesiones</p>

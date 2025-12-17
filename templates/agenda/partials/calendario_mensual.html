@@ -1,6 +1,38 @@
 <!-- Vista Mensual Gigante -->
 {% load fecha_tags %}
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
+    <!-- Filtro de Sucursal -->
+    <div class="p-4 bg-gray-50 border-b">
+        <form method="get" class="flex items-end gap-3">
+            <input type="hidden" name="vista" value="mensual">
+            <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
+            {% if paciente_id %}<input type="hidden" name="paciente" value="{{ paciente_id }}">{% endif %}
+            {% if profesional_id %}<input type="hidden" name="profesional" value="{{ profesional_id }}">{% endif %}
+            {% if servicio_id %}<input type="hidden" name="servicio" value="{{ servicio_id }}">{% endif %}
+            {% if estado_filtro %}<input type="hidden" name="estado" value="{{ estado_filtro }}">{% endif %}
+            
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-700 mb-1">🏢 Sucursal</label>
+                <select name="sucursal" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas las sucursales</option>
+                    {% for sucursal in sucursales %}
+                    <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sucursal.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                🔍 Filtrar
+            </button>
+            
+            <a href="?vista=mensual&fecha={{ fecha_base|date:'Y-m-d' }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">
+                🔄 Limpiar
+            </a>
+        </form>
+    </div>
+
     <!-- Header días de la semana -->
     <div class="grid grid-cols-7 gap-0 border-b bg-gray-50">
         <div class="p-3 text-center font-semibold text-gray-700 border-r">Lunes</div>
@@ -15,7 +47,7 @@
     <!-- Grid de semanas y días -->
     <div class="divide-y">
         {% for semana in calendario_data.semanas %}
-        <div class="grid grid-cols-7 divide-x" style="min-height: 150px;">
+        <div class="grid grid-cols-7 divide-x" style="min-height: 180px;">
             {% for dia in semana %}
             <div class="p-2 {% if dia.es_hoy %}bg-blue-50{% elif dia.es_otro_mes %}bg-gray-50{% else %}bg-white{% endif %} relative">
                 {% if dia.fecha %}
@@ -26,7 +58,7 @@
                         </span>
                     </div>
 
-                    <!-- Sesiones del día (compacto) -->
+                    <!-- Sesiones del día (compacto con más info) -->
                     <div class="space-y-1">
                         {% for sesion in dia.sesiones %}
                         <div class="group relative cursor-pointer hover:shadow-md transition-all rounded border-l-2 {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50{% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50{% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50{% elif sesion.estado == 'falta' %}border-red-500 bg-red-50{% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50{% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50{% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50{% endif %} p-1.5 text-xs"
@@ -38,7 +70,7 @@
                                 <span class="font-bold">{{ sesion.hora_inicio|time:"H:i" }}</span>
                                 <span class="text-[10px]">-</span>
                                 <span class="font-bold">{{ sesion.hora_fin|time:"H:i" }}</span>
-                                {% if not sesion.pagado %}
+                                {% if not sesion.pagado and sesion.monto_cobrado > 0 %}
                                 <span class="text-red-600">💰</span>
                                 {% endif %}
                             </div>
@@ -51,6 +83,14 @@
                                 {{ sesion.servicio.nombre|slice:":15" }}
                             </div>
 
+                            <!-- Profesional y Sucursal -->
+                            <div class="text-gray-500 truncate text-[10px] mt-0.5">
+                                👨‍⚕️ {{ sesion.profesional.nombre|slice:":8" }}
+                            </div>
+                            <div class="text-gray-500 truncate text-[10px]">
+                                🏢 {{ sesion.sucursal.nombre|slice:":10" }}
+                            </div>
+
                             <!-- Tooltip detallado -->
                             <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-20 bg-gray-900 text-white p-3 rounded-lg shadow-xl w-64">
                                 <div class="space-y-1 text-xs">
@@ -58,6 +98,7 @@
                                     <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
                                     <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
                                     <div><strong>Profesional:</strong> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
+                                    <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
                                     <div><strong>Estado:</strong> {{ sesion.get_estado_display }}</div>
                                     <div><strong>Monto:</strong> Bs. {{ sesion.monto_cobrado }}</div>
                                     <div class="mt-2 pt-2 border-t border-gray-700 text-blue-300">

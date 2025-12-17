@@ -12,6 +12,43 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     
     {% block extra_css %}{% endblock %}
+    
+    <style>
+        /* Estilos para el dropdown */
+        .dropdown {
+            position: relative;
+        }
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1000;
+            min-width: 12rem;
+            padding: 0.5rem 0;
+            margin: 0.125rem 0 0;
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            border: 3px solid #e5e7eb;
+        }
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+        .dropdown-item {
+            display: block;
+            padding: 0.75rem 1.5rem;
+            color: #374151;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        .dropdown-item:hover {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            transform: translateX(5px);
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     
@@ -22,21 +59,46 @@
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <h1 class="text-xl font-bold text-blue-600">Centro de Terapias</h1>
+                        <h1 class="text-xl font-bold text-blue-600">Centro de Neurodesarrollo Infantil Misael</h1>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <!-- Menú Principal -->
                         <a href="{% url 'core:dashboard' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Dashboard
+                            Menu Principal
                         </a>
+                        
+                        <!-- Agenda -->
                         <a href="{% url 'agenda:calendario' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Agenda
                         </a>
-                        <a href="{% url 'pacientes:lista' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            Pacientes
-                        </a>
+                        
+                        <!-- Dropdown: Catálogos -->
+                        <div class="dropdown inline-flex items-center">
+                            <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer">
+                                Catálogos
+                                <svg class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
+                                    👶 Pacientes
+                                </a>
+                                <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
+                                    🏥 Servicios
+                                </a>
+                                <a href="{% url 'profesionales:lista' %}" class="dropdown-item">
+                                    👨‍⚕️ Profesionales
+                                </a>
+                                <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item">
+                                    🏢 Sucursales
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Admin -->
                         <a href="/admin/" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
                             Admin

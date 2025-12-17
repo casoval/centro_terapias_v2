@@ -116,6 +116,28 @@ def calendario(request):
     
     sesiones = sesiones.order_by('fecha', 'hora_inicio')
     
+    # =========================================================================
+    # ✅ CÁLCULO DE ESTADÍSTICAS (Suma en base de datos para evitar error 6060)
+    # =========================================================================
+    estadisticas = sesiones.aggregate(
+        total_monto=Sum('monto_cobrado'),
+        total_pagado=Sum('monto_cobrado', filter=Q(pagado=True)),
+        total_pendiente=Sum('monto_cobrado', filter=Q(pagado=False)),
+        
+        # Conteos por estado
+        count_programadas=Count('id', filter=Q(estado='programada')),
+        count_realizadas=Count('id', filter=Q(estado='realizada')),
+        count_retraso=Count('id', filter=Q(estado='realizada_retraso')),
+        count_falta=Count('id', filter=Q(estado='falta')),
+        count_permiso=Count('id', filter=Q(estado='permiso')),
+        count_cancelada=Count('id', filter=Q(estado='cancelada')),
+        count_reprogramada=Count('id', filter=Q(estado='reprogramada')),
+        
+        # Conteos de pago (sesiones con cobro > 0)
+        count_pagados=Count('id', filter=Q(pagado=True, monto_cobrado__gt=0)),
+        count_pendientes=Count('id', filter=Q(pagado=False, monto_cobrado__gt=0)),
+    )
+    
     # ✅ Datos para filtros (FILTRADOS POR SUCURSALES)
     if sucursales_usuario is not None and sucursales_usuario.exists():
         pacientes = Paciente.objects.filter(
@@ -192,6 +214,20 @@ def calendario(request):
         'servicio_id': servicio_id,
         'sucursal_id': sucursal_id,
         'sucursales_usuario': sucursales_usuario,
+        
+        # ✅ VARIABLES DE ESTADÍSTICAS
+        'total_monto': estadisticas['total_monto'] or 0,
+        'total_pagado': estadisticas['total_pagado'] or 0,
+        'total_pendiente': estadisticas['total_pendiente'] or 0,
+        'count_programadas': estadisticas['count_programadas'],
+        'count_realizadas': estadisticas['count_realizadas'],
+        'count_retraso': estadisticas['count_retraso'],
+        'count_falta': estadisticas['count_falta'],
+        'count_permiso': estadisticas['count_permiso'],
+        'count_cancelada': estadisticas['count_cancelada'],
+        'count_reprogramada': estadisticas['count_reprogramada'],
+        'count_pagados': estadisticas['count_pagados'],
+        'count_pendientes': estadisticas['count_pendientes'],
     }
     
     return render(request, 'agenda/calendario.html', context)
@@ -648,7 +684,6 @@ def vista_previa_recurrente(request):
         
         html = f'''
             <div class="{header_bg} border rounded-lg p-4">
-                <!-- Header compacto -->
                 <div class="flex items-center justify-between mb-3">
                     <div>
                         <h3 class="text-base font-bold {header_text} flex items-center gap-2">
@@ -665,7 +700,6 @@ def vista_previa_recurrente(request):
                     </div>
                 </div>
                 
-                <!-- Grid de sesiones -->
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto pr-1">
         '''
         
@@ -693,7 +727,6 @@ def vista_previa_recurrente(request):
             
             html += f'''
                     <div class="{card_bg} border-2 rounded-lg p-2 relative">
-                        <!-- ✅ Checkbox en la esquina superior derecha -->
                         <div class="absolute top-1 right-1">
                             <input type="checkbox" 
                                    name="sesiones_seleccionadas" 
@@ -720,7 +753,6 @@ def vista_previa_recurrente(request):
                             </button>
                         </div>
                         
-                        <!-- Panel de conflictos desplegable -->
                         <div id="panel-{i}" style="display: none;" class="mt-2 pt-2 border-t border-red-300 text-left">
                 '''
                 
@@ -759,7 +791,6 @@ def vista_previa_recurrente(request):
         html += f'''
                 </div>
                 
-                <!-- Resumen final con contador de seleccionadas -->
                 <div class="mt-3 pt-3 border-t border-gray-300">
                     <div class="grid grid-cols-3 gap-2 text-center text-sm">
                         <div class="bg-blue-100 rounded p-2">

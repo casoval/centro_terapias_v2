@@ -1,0 +1,131 @@
+<!-- ==========================================
+ARCHIVO: servicios/templates/servicios/lista_sucursales.html
+========================================== -->
+{% extends 'base.html' %}
+
+{% block title %}Sucursales - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .sucursal-card {
+        transition: all 0.3s ease;
+    }
+    .sucursal-card:hover {
+        transform: translateY(-5px) scale(1.02);
+    }
+</style>
+
+<div class="mb-8">
+    <div class="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-3xl p-8 shadow-2xl border-4 border-white">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-black text-white drop-shadow-lg flex items-center gap-3">
+                    <span class="text-5xl">🏢</span> Sucursales
+                </h1>
+                <p class="text-white text-xl mt-2 font-bold drop-shadow">Sedes del Centro de Neurodesarrollo</p>
+            </div>
+            <a href="/admin/servicios/sucursal/add/" 
+               class="bg-white hover:bg-gray-100 text-cyan-700 px-6 py-4 rounded-full font-black text-lg inline-flex items-center gap-3 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all border-4 border-cyan-200">
+                <span class="text-2xl">➕</span> Nueva Sucursal
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Búsqueda -->
+<div class="bg-white rounded-3xl shadow-xl p-6 mb-8 border-4 border-gray-100">
+    <form method="get" class="flex gap-4">
+        <div class="flex-1 relative">
+            <input type="text" 
+                   name="q" 
+                   value="{{ buscar }}"
+                   placeholder="🔍 Buscar sucursal por nombre o dirección..."
+                   class="w-full px-6 py-4 border-3 border-blue-300 rounded-2xl shadow-sm focus:ring-4 focus:ring-blue-400 focus:border-blue-500 text-base font-bold pl-12">
+            <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">🔎</span>
+        </div>
+        <button type="submit" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-3 border-blue-700">
+            Buscar
+        </button>
+    </form>
+</div>
+
+<!-- Lista de sucursales -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+    {% for sucursal in sucursales %}
+    <div class="sucursal-card bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all border-4 border-gray-100 overflow-hidden">
+        <!-- Header con color -->
+        <div class="bg-gradient-to-br from-cyan-400 to-blue-500 p-6 text-white">
+            <div class="flex items-start justify-between mb-2">
+                <div class="flex-1">
+                    <div class="text-5xl mb-3">🏢</div>
+                    <h3 class="text-2xl font-black text-white drop-shadow-lg">
+                        {{ sucursal.nombre }}
+                    </h3>
+                    <p class="text-lg font-bold text-cyan-100 mt-2">
+                        📍 {{ sucursal.direccion }}
+                    </p>
+                </div>
+                <span class="px-4 py-2 text-sm font-black rounded-full bg-green-400 text-green-900 shadow-lg border-2 border-white">
+                    ✅ Activa
+                </span>
+            </div>
+        </div>
+        
+        <!-- Contenido -->
+        <div class="p-6">
+            <div class="space-y-3 mb-6">
+                {% if sucursal.telefono %}
+                <div class="flex items-start gap-3 p-3 bg-green-50 rounded-xl border-2 border-green-200">
+                    <span class="text-2xl">📞</span>
+                    <div>
+                        <p class="text-xs font-bold text-green-800 uppercase">Teléfono</p>
+                        <p class="text-sm font-bold text-gray-900">{{ sucursal.telefono }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="flex flex-col items-center gap-1 p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
+                        <span class="text-2xl">👨‍⚕️</span>
+                        <p class="text-xs font-bold text-blue-800 uppercase text-center">Profesionales</p>
+                        <p class="text-lg font-black text-blue-900">{{ sucursal.profesionales_activos }}</p>
+                    </div>
+                    <div class="flex flex-col items-center gap-1 p-3 bg-purple-50 rounded-xl border-2 border-purple-200">
+                        <span class="text-2xl">👶</span>
+                        <p class="text-xs font-bold text-purple-800 uppercase text-center">Pacientes</p>
+                        <p class="text-lg font-black text-purple-900">{{ sucursal.pacientes_activos }}</p>
+                    </div>
+                    <div class="flex flex-col items-center gap-1 p-3 bg-yellow-50 rounded-xl border-2 border-yellow-200">
+                        <span class="text-2xl">🎯</span>
+                        <p class="text-xs font-bold text-yellow-800 uppercase text-center">Semana</p>
+                        <p class="text-lg font-black text-yellow-900">{{ sucursal.sesiones_semana }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+                   class="flex-1 text-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 font-black shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-2 border-blue-700">
+                    👁️ Ver Detalle
+                </a>
+                <a href="/admin/servicios/sucursal/{{ sucursal.id }}/change/" 
+                   class="px-4 py-3 border-3 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-black shadow-md hover:shadow-lg transition-all">
+                    ✏️
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-20">
+        <div class="bg-white rounded-3xl shadow-xl p-12 border-4 border-gray-200">
+            <div class="text-8xl mb-6">🏢</div>
+            <p class="text-2xl font-black text-gray-700 mb-2">No hay sucursales registradas</p>
+            <p class="text-base text-gray-500 mb-6">¡Comienza agregando la primera sucursal!</p>
+            <a href="/admin/servicios/sucursal/add/" 
+               class="inline-flex items-center gap-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-full font-black text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all border-3 border-blue-700">
+                <span class="text-2xl">➕</span> Agregar primera sucursal
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

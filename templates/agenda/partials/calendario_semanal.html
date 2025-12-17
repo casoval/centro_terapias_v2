@@ -1,6 +1,38 @@
 <!-- Vista Semanal Gigante -->
 {% load fecha_tags %}
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
+    <!-- Filtro de Sucursal -->
+    <div class="p-4 bg-gray-50 border-b">
+        <form method="get" class="flex items-end gap-3">
+            <input type="hidden" name="vista" value="semanal">
+            <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
+            {% if paciente_id %}<input type="hidden" name="paciente" value="{{ paciente_id }}">{% endif %}
+            {% if profesional_id %}<input type="hidden" name="profesional" value="{{ profesional_id }}">{% endif %}
+            {% if servicio_id %}<input type="hidden" name="servicio" value="{{ servicio_id }}">{% endif %}
+            {% if estado_filtro %}<input type="hidden" name="estado" value="{{ estado_filtro }}">{% endif %}
+            
+            <div class="flex-1">
+                <label class="block text-xs font-medium text-gray-700 mb-1">🏢 Sucursal</label>
+                <select name="sucursal" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas las sucursales</option>
+                    {% for sucursal in sucursales %}
+                    <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sucursal.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">
+                🔍 Filtrar
+            </button>
+            
+            <a href="?vista=semanal&fecha={{ fecha_base|date:'Y-m-d' }}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition">
+                🔄 Limpiar
+            </a>
+        </form>
+    </div>
+
     <!-- Header días de la semana -->
     <div class="grid grid-cols-7 gap-0 border-b bg-gray-50">
         {% for dia in calendario_data.dias %}

@@ -8,6 +8,8 @@ urlpatterns = [
     path('', include('core.urls')),
     path('pacientes/', include('pacientes.urls')),
     path('agenda/', include('agenda.urls')),
+    path('servicios/', include('servicios.urls')),  # ✅ NUEVA LÍNEA
+    path('profesionales/', include('profesionales.urls')),  # ✅ NUEVA LÍNEA
 ]
 
 if settings.DEBUG:

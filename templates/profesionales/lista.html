@@ -1,0 +1,150 @@
+<!-- ==========================================
+ARCHIVO: profesionales/templates/profesionales/lista.html
+========================================== -->
+{% extends 'base.html' %}
+
+{% block title %}Profesionales - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .profesional-card {
+        transition: all 0.3s ease;
+    }
+    .profesional-card:hover {
+        transform: translateY(-5px) scale(1.02);
+    }
+</style>
+
+<div class="mb-8">
+    <div class="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 rounded-3xl p-8 shadow-2xl border-4 border-white">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-black text-white drop-shadow-lg flex items-center gap-3">
+                    <span class="text-5xl">👨‍⚕️</span> Profesionales
+                </h1>
+                <p class="text-white text-xl mt-2 font-bold drop-shadow">Equipo terapéutico del centro</p>
+            </div>
+            <a href="/admin/profesionales/profesional/add/" 
+               class="bg-white hover:bg-gray-100 text-green-700 px-6 py-4 rounded-full font-black text-lg inline-flex items-center gap-3 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all border-4 border-green-200">
+                <span class="text-2xl">➕</span> Nuevo Profesional
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Búsqueda -->
+<div class="bg-white rounded-3xl shadow-xl p-6 mb-8 border-4 border-gray-100">
+    <form method="get" class="flex gap-4">
+        <div class="flex-1 relative">
+            <input type="text" 
+                   name="q" 
+                   value="{{ buscar }}"
+                   placeholder="🔍 Buscar por nombre, apellido o especialidad..."
+                   class="w-full px-6 py-4 border-3 border-green-300 rounded-2xl shadow-sm focus:ring-4 focus:ring-green-400 focus:border-green-500 text-base font-bold pl-12">
+            <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">🔎</span>
+        </div>
+        <button type="submit" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-3 border-green-700">
+            Buscar
+        </button>
+    </form>
+</div>
+
+<!-- Lista de profesionales -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for profesional in profesionales %}
+    <div class="profesional-card bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all border-4 border-gray-100 overflow-hidden">
+        <!-- Header con color -->
+        <div class="bg-gradient-to-br from-emerald-400 to-green-500 p-6 text-white">
+            <div class="flex items-start justify-between mb-2">
+                <div class="flex-1">
+                    <div class="text-5xl mb-3">👨‍⚕️</div>
+                    <h3 class="text-2xl font-black text-white drop-shadow-lg">
+                        {{ profesional.nombre_completo }}
+                    </h3>
+                    <p class="text-lg font-bold text-emerald-100 mt-1">
+                        🎓 {{ profesional.especialidad }}
+                    </p>
+                </div>
+                <span class="px-4 py-2 text-sm font-black rounded-full bg-green-400 text-green-900 shadow-lg border-2 border-white">
+                    ✅ Activo
+                </span>
+            </div>
+        </div>
+        
+        <!-- Contenido -->
+        <div class="p-6">
+            <div class="space-y-3 mb-6">
+                {% if profesional.telefono %}
+                <div class="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border-2 border-blue-200">
+                    <span class="text-2xl">📱</span>
+                    <div>
+                        <p class="text-xs font-bold text-blue-800 uppercase">Teléfono</p>
+                        <p class="text-sm font-bold text-gray-900">{{ profesional.telefono }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if profesional.email %}
+                <div class="flex items-start gap-3 p-3 bg-purple-50 rounded-xl border-2 border-purple-200">
+                    <span class="text-2xl">📧</span>
+                    <div>
+                        <p class="text-xs font-bold text-purple-800 uppercase">Email</p>
+                        <p class="text-sm font-bold text-gray-900 truncate">{{ profesional.email }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col items-center gap-1 p-3 bg-yellow-50 rounded-xl border-2 border-yellow-200">
+                        <span class="text-2xl">🎯</span>
+                        <p class="text-xs font-bold text-yellow-800 uppercase text-center">Semana</p>
+                        <p class="text-lg font-black text-yellow-900">{{ profesional.sesiones_semana }}</p>
+                    </div>
+                    <div class="flex flex-col items-center gap-1 p-3 bg-green-50 rounded-xl border-2 border-green-200">
+                        <span class="text-2xl">👶</span>
+                        <p class="text-xs font-bold text-green-800 uppercase text-center">Pacientes</p>
+                        <p class="text-lg font-black text-green-900">{{ profesional.total_pacientes }}</p>
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border-2 border-gray-200">
+                    <p class="text-xs font-bold text-gray-800 uppercase mb-2">🏥 Servicios</p>
+                    <div class="flex flex-wrap gap-1">
+                        {% for servicio in profesional.servicios.all|slice:":3" %}
+                        <span class="px-2 py-1 text-xs font-bold bg-white border border-gray-300 rounded-lg text-gray-700">
+                            {{ servicio.nombre|truncatewords:2 }}
+                        </span>
+                        {% endfor %}
+                        {% if profesional.servicios.count > 3 %}
+                        <span class="px-2 py-1 text-xs font-bold bg-gray-200 rounded-lg text-gray-700">
+                            +{{ profesional.servicios.count|add:"-3" }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <a href="{% url 'profesionales:detalle' profesional.id %}" 
+                   class="flex-1 text-center px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 font-black shadow-lg hover:shadow-xl transform hover:scale-105 transition-all border-2 border-green-700">
+                    👁️ Ver Detalle
+                </a>
+                <a href="/admin/profesionales/profesional/{{ profesional.id }}/change/" 
+                   class="px-4 py-3 border-3 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-black shadow-md hover:shadow-lg transition-all">
+                    ✏️
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-20">
+        <div class="bg-white rounded-3xl shadow-xl p-12 border-4 border-gray-200">
+            <div class="text-8xl mb-6">👨‍⚕️</div>
+            <p class="text-2xl font-black text-gray-700 mb-2">No hay profesionales registrados</p>
+            <p class="text-base text-gray-500 mb-6">¡Comienza agregando el primer profesional!</p>
+            <a href="/admin/profesionales/profesional/add/" 
+               class="inline-flex items-center gap-3 bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-full font-black text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all border-3 border-green-700">
+                <span class="text-2xl">➕</span> Agregar primer profesional
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

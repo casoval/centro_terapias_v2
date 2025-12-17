@@ -3,7 +3,7 @@ from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.db.models import Count, Sum, Q
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, time
 from decimal import Decimal
 
 
@@ -18,6 +18,8 @@ def dashboard(request):
         from profesionales.models import Profesional
         
         hoy = date.today()
+        ahora = datetime.now()
+        hora_actual = ahora.time()
         inicio_semana = hoy - timedelta(days=hoy.weekday())
         fin_semana = inicio_semana + timedelta(days=6)
         
@@ -86,19 +88,50 @@ def dashboard(request):
             ))
         ).order_by('-sesiones_semana')[:5]
         
-        # ===== SESIONES =====
+        # ===== PRÓXIMAS SESIONES CON FILTRADO INTELIGENTE =====
         
-        # Próximas sesiones (próximos 7 días)
-        proximas_sesiones = Sesion.objects.filter(
+        # Obtener todas las sesiones programadas desde hoy hasta 7 días
+        todas_sesiones = Sesion.objects.filter(
             fecha__gte=hoy,
             fecha__lte=hoy + timedelta(days=7),
             estado='programada'
-        ).select_related('paciente', 'servicio', 'profesional', 'sucursal').order_by('fecha', 'hora_inicio')[:10]
+        ).select_related(
+            'paciente', 'servicio', 'profesional', 'sucursal'
+        ).order_by('fecha', 'hora_inicio')
+        
+        # Filtrar sesiones según la hora actual
+        sesiones_filtradas = []
+        
+        for sesion in todas_sesiones:
+            # Si es HOY
+            if sesion.fecha == hoy:
+                # Solo mostrar si:
+                # 1. Está EN CURSO (hora_inicio <= ahora < hora_fin)
+                # 2. AÚN NO EMPEZÓ (hora_inicio > ahora)
+                # NO mostrar si ya terminó (hora_fin <= ahora)
+                
+                if sesion.hora_fin > hora_actual:
+                    # Determinar si está en curso o es próxima
+                    if sesion.hora_inicio <= hora_actual < sesion.hora_fin:
+                        sesion.estado_tiempo = 'en_curso'
+                    else:
+                        sesion.estado_tiempo = 'proxima'
+                    
+                    sesiones_filtradas.append(sesion)
+            else:
+                # Si es día futuro, siempre mostrar
+                sesion.estado_tiempo = 'proxima'
+                sesiones_filtradas.append(sesion)
+        
+        # Limitar a máximo 20 sesiones
+        proximas_sesiones = sesiones_filtradas[:20]
         
         # Sesiones recientes
         sesiones_recientes = Sesion.objects.filter(
             fecha__lte=hoy
-        ).select_related('paciente', 'servicio', 'profesional', 'sucursal').order_by('-fecha', '-hora_inicio')[:10]
+        ).select_related(
+            'paciente', 'servicio', 'profesional', 'sucursal'
+        ).order_by('-fecha', '-hora_inicio')[:10]
         
         context = {
             # Estadísticas principales
@@ -120,6 +153,10 @@ def dashboard(request):
             # Sesiones
             'proximas_sesiones': proximas_sesiones,
             'sesiones_recientes': sesiones_recientes,
+            
+            # Para el template
+            'hora_actual': hora_actual,
+            'fecha_actual': hoy,
         }
         
     except Exception as e:

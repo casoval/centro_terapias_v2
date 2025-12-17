@@ -1,20 +1,70 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Centro de Terapias</title>
+    <title>Iniciar Sesión - Centro Infantil Misael</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #FEF3C7 0%, #FED7AA 50%, #FECACA 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .animated-bg {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        .circle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float 20s infinite ease-in-out;
+        }
+        .circle1 { width: 200px; height: 200px; background: #EF4444; top: 10%; left: 10%; animation-delay: 0s; }
+        .circle2 { width: 150px; height: 150px; background: #FBBF24; top: 60%; left: 80%; animation-delay: 5s; }
+        .circle3 { width: 100px; height: 100px; background: #3B82F6; top: 80%; left: 20%; animation-delay: 10s; }
+        .circle4 { width: 180px; height: 180px; background: #10B981; top: 30%; left: 70%; animation-delay: 15s; }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.1); }
+        }
+        
+        .card-shadow {
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+        
+        .input-focus:focus {
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
+<body>
+    <div class="animated-bg">
+        <div class="circle circle1"></div>
+        <div class="circle circle2"></div>
+        <div class="circle circle3"></div>
+        <div class="circle circle4"></div>
+    </div>
+    
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8">
+        <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl card-shadow border-8 border-white">
             <div>
-                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Centro de Terapias
+                <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-40 h-40 mx-auto flex items-center justify-center border-4 border-white shadow-lg">
+                    <img class="h-32 w-auto" src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael">
+                </div>
+                
+                <h2 class="mt-6 text-center text-3xl font-extrabold bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 bg-clip-text text-transparent">
+                    Centro de Neurodesarrollo Infantil Misael
                 </h2>
-                <p class="mt-2 text-center text-sm text-gray-600">
-                    Inicia sesión para continuar
+                <p class="mt-3 text-center text-base text-gray-600 font-medium">
+                    🌟 Bienvenido, inicia sesión para continuar 🌟
                 </p>
             </div>
             
@@ -22,39 +72,61 @@
                 {% csrf_token %}
                 
                 {% if form.errors %}
-                <div class="rounded-md bg-red-50 p-4">
-                    <p class="text-sm text-red-800">Usuario o contraseña incorrectos</p>
+                <div class="rounded-2xl bg-red-50 p-4 border-2 border-red-200 animate-pulse">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-6 w-6 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-bold text-red-800">❌ Usuario o contraseña incorrectos</p>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
                 
-                <div class="rounded-md shadow-sm -space-y-px">
+                <div class="space-y-5">
                     <div>
-                        <label for="id_username" class="sr-only">Usuario</label>
+                        <label for="id_username" class="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                            👤 Usuario
+                        </label>
                         <input id="id_username" 
                                name="username" 
                                type="text" 
                                required 
-                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-                               placeholder="Usuario">
+                               class="input-focus appearance-none block w-full px-5 py-4 border-3 border-yellow-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-yellow-400 focus:border-yellow-500 text-base font-medium transition-all duration-300" 
+                               placeholder="Ingresa tu usuario">
                     </div>
                     <div>
-                        <label for="id_password" class="sr-only">Contraseña</label>
+                        <label for="id_password" class="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                            🔒 Contraseña
+                        </label>
                         <input id="id_password" 
                                name="password" 
                                type="password" 
                                required 
-                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" 
-                               placeholder="Contraseña">
+                               class="input-focus appearance-none block w-full px-5 py-4 border-3 border-blue-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-blue-500 text-base font-medium transition-all duration-300" 
+                               placeholder="Ingresa tu contraseña">
                     </div>
                 </div>
                 
                 <div>
                     <button type="submit" 
-                            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Iniciar Sesión
+                            class="group relative w-full flex justify-center py-4 px-6 border-4 border-red-700 text-lg font-black rounded-full text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:outline-none focus:ring-4 focus:ring-red-300 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+                        <span class="mr-2">🚀</span> Iniciar Sesión <span class="ml-2">✨</span>
                     </button>
                 </div>
             </form>
+            
+            <div class="text-center mt-6">
+                <div class="flex justify-center space-x-3">
+                    <div class="w-3 h-3 bg-red-500 rounded-full animate-bounce"></div>
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                    <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                    <div class="w-3 h-3 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
+                </div>
+            </div>
         </div>
     </div>
 </body>

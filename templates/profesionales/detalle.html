@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ profesional.nombre_completo }} - Centro de Terapias{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{% url 'profesionales:lista' %}" class="text-blue-600 hover:text-blue-800">← Volver a Profesionales</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Información del profesional -->
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">{{ profesional.nombre_completo }}</h2>
+            
+            <dl class="space-y-3">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Especialidad</dt>
+                    <dd class="text-sm text-gray-900">{{ profesional.especialidad }}</dd>
+                </div>
+                {% if profesional.telefono %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Teléfono</dt>
+                    <dd class="text-sm text-gray-900">{{ profesional.telefono }}</dd>
+                </div>
+                {% endif %}
+                {% if profesional.email %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Email</dt>
+                    <dd class="text-sm text-gray-900">{{ profesional.email }}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Estado</dt>
+                    <dd class="text-sm">
+                        <span class="px-2 py-1 rounded-full {% if profesional.activo %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} text-xs">
+                            {% if profesional.activo %}Activo{% else %}Inactivo{% endif %}
+                        </span>
+                    </dd>
+                </div>
+            </dl>
+            
+            <div class="mt-6">
+                <a href="/admin/profesionales/profesional/{{ profesional.id }}/change/" 
+                   class="block w-full text-center px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">
+                    Editar Información
+                </a>
+            </div>
+        </div>
+        
+        <!-- Estadísticas -->
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h3 class="font-semibold text-gray-900 mb-4">Estadísticas</h3>
+            <dl class="space-y-3">
+                <div class="flex justify-between">
+                    <dt class="text-sm font-medium text-gray-500">Servicios</dt>
+                    <dd class="text-sm font-bold text-gray-900">{{ servicios.count }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-sm font-medium text-gray-500">Sucursales</dt>
+                    <dd class="text-sm font-bold text-gray-900">{{ sucursales.count }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-sm font-medium text-gray-500">Pacientes</dt>
+                    <dd class="text-sm font-bold text-gray-900">{{ pacientes.count }}</dd>
+                </div>
+            </dl>
+        </div>
+        
+        <!-- Servicios que ofrece -->
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <h3 class="font-semibold text-gray-900 mb-4">Servicios que Ofrece</h3>
+            <div class="space-y-2">
+                {% for servicio in servicios %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <div class="flex-1">
+                        <p class="font-medium text-sm">{{ servicio.nombre }}</p>
+                        <p class="text-xs text-gray-500">{{ servicio.duracion_minutos }} min · Bs. {{ servicio.costo_base }}</p>
+                    </div>
+                    <a href="{% url 'servicios:detalle_servicio' servicio.id %}" 
+                       class="text-blue-600 hover:text-blue-800 text-sm">
+                        Ver
+                    </a>
+                </div>
+                {% empty %}
+                <p class="text-sm text-gray-500">No tiene servicios asignados</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenido principal -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Sucursales -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Sucursales donde Trabaja</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for sucursal in sucursales %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">{{ sucursal.nombre }}</p>
+                            <p class="text-sm text-gray-600 mt-1">{{ sucursal.direccion }}</p>
+                            {% if sucursal.telefono %}
+                            <p class="text-sm text-gray-500 mt-1">Tel: {{ sucursal.telefono }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ver detalles
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-gray-500">
+                    No tiene sucursales asignadas
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Pacientes que atiende -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Pacientes que Atiende</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for paciente in pacientes %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">{{ paciente.nombre_completo }}</p>
+                            <p class="text-sm text-gray-600 mt-1">{{ paciente.edad }} años</p>
+                            <p class="text-sm text-gray-500 mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+                        </div>
+                        <a href="{% url 'pacientes:detalle' paciente.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ver perfil
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-gray-500">
+                    No ha atendido pacientes aún
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Últimas Sesiones -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Últimas Sesiones</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for sesion in sesiones %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="text-sm font-medium text-gray-900">
+                                    {{ sesion.fecha|date:"d/m/Y" }} - {{ sesion.hora_inicio|time:"H:i" }}
+                                </span>
+                                <span class="px-2 py-1 rounded text-xs font-medium" 
+                                      style="background-color: {{ sesion.servicio.color }}20; color: {{ sesion.servicio.color }};">
+                                    {{ sesion.servicio.nombre }}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600">{{ sesion.paciente.nombre_completo }}</p>
+                            <p class="text-sm text-gray-500">{{ sesion.sucursal.nombre }}</p>
+                        </div>
+                        <div class="text-right">
+                            {% if sesion.estado == 'programada' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Programada</span>
+                            {% elif sesion.estado == 'realizada' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Realizada</span>
+                            {% elif sesion.estado == 'cancelada' %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Cancelada</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-gray-500">
+                    No hay sesiones registradas
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
