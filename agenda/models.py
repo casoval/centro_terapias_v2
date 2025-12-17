@@ -109,7 +109,6 @@ class Sesion(models.Model):
     )
     fecha_modificacion = models.DateTimeField(auto_now=True)
     
-    # Índices para optimizar consultas (importante para Render Free)
     class Meta:
         verbose_name = "Sesión"
         verbose_name_plural = "Sesiones"
@@ -121,7 +120,6 @@ class Sesion(models.Model):
             models.Index(fields=['estado']),
             models.Index(fields=['pagado']),
         ]
-        # Constraint para evitar duplicados exactos
         constraints = [
             models.UniqueConstraint(
                 fields=['paciente', 'fecha', 'hora_inicio'],
@@ -148,13 +146,34 @@ class Sesion(models.Model):
                 'hora_fin': 'La hora de fin debe ser posterior a la hora de inicio.'
             })
         
-        # 🚫 VALIDAR CHOQUES DE HORARIOS
+        # ✅ VALIDAR: Paciente debe tener la sucursal asignada
+        if not self.paciente.tiene_sucursal(self.sucursal):
+            raise ValidationError({
+                'sucursal': f'❌ El paciente {self.paciente} no está asignado a la sucursal {self.sucursal}.'
+            })
+        
+        # ✅ VALIDAR: Profesional debe tener la sucursal asignada
+        if not self.profesional.tiene_sucursal(self.sucursal):
+            raise ValidationError({
+                'sucursal': f'❌ El profesional {self.profesional} no trabaja en la sucursal {self.sucursal}.'
+            })
+        
+        # ✅ VALIDAR: Profesional debe ofrecer el servicio
+        if not self.profesional.puede_atender_servicio(self.servicio):
+            raise ValidationError({
+                'profesional': f'❌ El profesional {self.profesional} no ofrece el servicio {self.servicio}.'
+            })
+        
+        # 🚫 VALIDAR CHOQUES DE HORARIOS (SIN IMPORTAR SUCURSAL)
         self._validar_choque_paciente()
         self._validar_choque_profesional()
     
     def _validar_choque_paciente(self):
-        """Validar que el paciente no tenga otra sesión al mismo tiempo"""
-        # Buscar sesiones del mismo paciente en la misma fecha
+        """
+        ✅ CRÍTICO: El paciente NO puede tener otra sesión al mismo tiempo,
+        INDEPENDIENTEMENTE de la sucursal
+        """
+        # Buscar sesiones del mismo paciente en la misma fecha (EN CUALQUIER SUCURSAL)
         sesiones_existentes = Sesion.objects.filter(
             paciente=self.paciente,
             fecha=self.fecha,
@@ -164,11 +183,15 @@ class Sesion(models.Model):
         for sesion in sesiones_existentes:
             if self._hay_solapamiento(sesion):
                 raise ValidationError({
-                    'hora_inicio': f'⚠️ CHOQUE DE HORARIOS: El paciente {self.paciente} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} ({sesion.servicio}).'
+                    'hora_inicio': f'⚠️ CHOQUE DE HORARIOS: El paciente {self.paciente} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal} ({sesion.servicio}).'
                 })
     
     def _validar_choque_profesional(self):
-        """Validar que el profesional no tenga otra sesión al mismo tiempo"""
+        """
+        ✅ CRÍTICO: El profesional NO puede tener otra sesión al mismo tiempo,
+        INDEPENDIENTEMENTE de la sucursal
+        """
+        # Buscar sesiones del mismo profesional en la misma fecha (EN CUALQUIER SUCURSAL)
         sesiones_existentes = Sesion.objects.filter(
             profesional=self.profesional,
             fecha=self.fecha,
@@ -178,25 +201,17 @@ class Sesion(models.Model):
         for sesion in sesiones_existentes:
             if self._hay_solapamiento(sesion):
                 raise ValidationError({
-                    'profesional': f'⚠️ CHOQUE DE HORARIOS: El/la profesional {self.profesional} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} con {sesion.paciente}.'
+                    'profesional': f'⚠️ CHOQUE DE HORARIOS: El/la profesional {self.profesional} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal} con {sesion.paciente}.'
                 })
     
     def _hay_solapamiento(self, otra_sesion):
         """Verificar si hay solapamiento de horarios con otra sesión"""
-        # Convertir a datetime para comparar
         inicio1 = datetime.combine(self.fecha, self.hora_inicio)
         fin1 = datetime.combine(self.fecha, self.hora_fin)
         inicio2 = datetime.combine(otra_sesion.fecha, otra_sesion.hora_inicio)
         fin2 = datetime.combine(otra_sesion.fecha, otra_sesion.hora_fin)
         
-        # Hay solapamiento si:
-        # - El inicio de una está entre el inicio y fin de la otra
-        # - O el fin de una está entre el inicio y fin de la otra
-        # - O una contiene completamente a la otra
-        return (
-            (inicio1 < fin2 and fin1 > inicio2) or
-            (inicio2 < fin1 and fin2 > inicio1)
-        )
+        return (inicio1 < fin2 and fin1 > inicio2) or (inicio2 < fin1 and fin2 > inicio1)
     
     def save(self, *args, **kwargs):
         # Validar antes de guardar
@@ -216,20 +231,19 @@ class Sesion(models.Model):
             )
             cuenta.actualizar_saldo()
         except:
-            pass  # Si no existe el módulo de facturación, omitir
+            pass
     
     @classmethod
     def validar_disponibilidad(cls, paciente, profesional, fecha, hora_inicio, hora_fin, sesion_actual=None):
         """
-        Método de clase para validar disponibilidad antes de crear/editar
-        Útil para validaciones AJAX
+        ✅ CRÍTICO: Valida disponibilidad SIN IMPORTAR la sucursal
         
         Retorna: (disponible: bool, mensaje: str)
         """
         inicio = datetime.combine(fecha, hora_inicio)
         fin = datetime.combine(fecha, hora_fin)
         
-        # Validar paciente
+        # Validar paciente (EN CUALQUIER SUCURSAL)
         sesiones_paciente = cls.objects.filter(
             paciente=paciente,
             fecha=fecha,
@@ -242,9 +256,9 @@ class Sesion(models.Model):
             s_inicio = datetime.combine(fecha, sesion.hora_inicio)
             s_fin = datetime.combine(fecha, sesion.hora_fin)
             if (inicio < s_fin and fin > s_inicio):
-                return False, f"⚠️ Paciente ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')}"
+                return False, f"⚠️ Paciente ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
         
-        # Validar profesional
+        # Validar profesional (EN CUALQUIER SUCURSAL)
         sesiones_profesional = cls.objects.filter(
             profesional=profesional,
             fecha=fecha,
@@ -257,6 +271,6 @@ class Sesion(models.Model):
             s_inicio = datetime.combine(fecha, sesion.hora_inicio)
             s_fin = datetime.combine(fecha, sesion.hora_fin)
             if (inicio < s_fin and fin > s_inicio):
-                return False, f"⚠️ Profesional ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')}"
+                return False, f"⚠️ Profesional ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
         
         return True, "✅ Horario disponible"

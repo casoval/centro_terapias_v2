@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Count, Sum
 from datetime import datetime, timedelta, date
 from decimal import Decimal
@@ -9,22 +9,30 @@ from .models import Sesion
 from pacientes.models import Paciente, PacienteServicio
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
+from core.utils import (
+    get_sucursales_usuario, 
+    get_profesional_usuario, 
+    filtrar_por_sucursales,
+    solo_sus_sucursales
+)
 import json
 
 
 @login_required
+@solo_sus_sucursales
 def calendario(request):
-    """Calendario principal con filtros avanzados"""
+    """Calendario principal con filtros avanzados y permisos por sucursal"""
     
     # Obtener parámetros de filtro
-    vista = request.GET.get('vista', 'semanal')  # 'diaria', 'semanal', 'mensual', 'lista'
+    vista = request.GET.get('vista', 'semanal')
     fecha_str = request.GET.get('fecha', '')
     estado_filtro = request.GET.get('estado', '')
     paciente_id = request.GET.get('paciente', '')
     profesional_id = request.GET.get('profesional', '')
     servicio_id = request.GET.get('servicio', '')
+    sucursal_id = request.GET.get('sucursal', '')
     
-    # Fecha base (hoy si no se especifica)
+    # Fecha base
     if fecha_str:
         try:
             fecha_base = datetime.strptime(fecha_str, '%Y-%m-%d').date()
@@ -46,7 +54,6 @@ def calendario(request):
         fecha_inicio = primer_dia
         fecha_fin = ultimo_dia
     elif vista == 'lista':
-        # Para lista, permitir filtro de fechas personalizado
         fecha_desde_str = request.GET.get('fecha_desde', '')
         fecha_hasta_str = request.GET.get('fecha_hasta', '')
         
@@ -55,7 +62,6 @@ def calendario(request):
                 fecha_inicio = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
                 fecha_fin = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
             except:
-                # Si hay error, usar el mes actual
                 primer_dia = fecha_base.replace(day=1)
                 if fecha_base.month == 12:
                     ultimo_dia = fecha_base.replace(day=31)
@@ -64,7 +70,6 @@ def calendario(request):
                 fecha_inicio = primer_dia
                 fecha_fin = ultimo_dia
         else:
-            # Por defecto, mostrar todo el mes actual
             primer_dia = fecha_base.replace(day=1)
             if fecha_base.month == 12:
                 ultimo_dia = fecha_base.replace(day=31)
@@ -77,7 +82,7 @@ def calendario(request):
         fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
         fecha_fin = fecha_inicio + timedelta(days=6)
     
-    # Query base optimizado con select_related
+    # Query base
     sesiones = Sesion.objects.select_related(
         'paciente', 'profesional', 'servicio', 'sucursal'
     ).filter(
@@ -85,7 +90,21 @@ def calendario(request):
         fecha__lte=fecha_fin
     )
     
-    # Aplicar filtros
+    # ✅ FILTRAR POR SUCURSALES DEL USUARIO
+    sucursales_usuario = request.sucursales_usuario
+    
+    if sucursales_usuario is not None:
+        # Usuario tiene sucursales asignadas
+        if sucursales_usuario.exists():
+            sesiones = sesiones.filter(sucursal__in=sucursales_usuario)
+        else:
+            sesiones = sesiones.none()
+    
+    # Filtro adicional por sucursal específica
+    if sucursal_id:
+        sesiones = sesiones.filter(sucursal_id=sucursal_id)
+    
+    # Aplicar otros filtros
     if estado_filtro:
         sesiones = sesiones.filter(estado=estado_filtro)
     if paciente_id:
@@ -95,12 +114,38 @@ def calendario(request):
     if servicio_id:
         sesiones = sesiones.filter(servicio_id=servicio_id)
     
-    # Ordenar
     sesiones = sesiones.order_by('fecha', 'hora_inicio')
     
-    # Datos para filtros
-    pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
-    profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+    # ✅ Datos para filtros (FILTRADOS POR SUCURSALES)
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        pacientes = Paciente.objects.filter(
+            estado='activo',
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+        
+        profesionales = Profesional.objects.filter(
+            activo=True,
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+        
+        sucursales = sucursales_usuario
+    else:
+        # Superuser: todas las sucursales
+        if sucursal_id:
+            pacientes = Paciente.objects.filter(
+                estado='activo',
+                sucursales__id=sucursal_id
+            ).distinct().order_by('nombre', 'apellido')
+            profesionales = Profesional.objects.filter(
+                activo=True,
+                sucursales__id=sucursal_id
+            ).distinct().order_by('nombre', 'apellido')
+        else:
+            pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+            profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+        
+        sucursales = Sucursal.objects.filter(activa=True)
+    
     servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
     # Generar estructura del calendario
@@ -123,7 +168,7 @@ def calendario(request):
             fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1)
         else:
             fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1)
-    else:  # semanal o lista
+    else:
         fecha_anterior = fecha_inicio - timedelta(days=7)
         fecha_siguiente = fecha_inicio + timedelta(days=7)
     
@@ -137,14 +182,16 @@ def calendario(request):
         'pacientes': pacientes,
         'profesionales': profesionales,
         'servicios': servicios,
+        'sucursales': sucursales,
         'estados': Sesion.ESTADO_CHOICES,
         'fecha_anterior': fecha_anterior,
         'fecha_siguiente': fecha_siguiente,
-        # Filtros actuales
         'estado_filtro': estado_filtro,
         'paciente_id': paciente_id,
         'profesional_id': profesional_id,
         'servicio_id': servicio_id,
+        'sucursal_id': sucursal_id,
+        'sucursales_usuario': sucursales_usuario,
     }
     
     return render(request, 'agenda/calendario.html', context)
@@ -235,10 +282,11 @@ def _generar_calendario_mensual(fecha_base, sesiones):
         'mes_nombre': fecha_base.strftime('%B %Y'),
     }
 
-
 @login_required
+@solo_sus_sucursales
 def agendar_recurrente(request):
-    """Vista para agendar sesiones recurrentes"""
+    """Vista para agendar sesiones recurrentes CON FILTRO DE SUCURSAL Y DURACIÓN PERSONALIZABLE"""
+    
     if request.method == 'POST':
         try:
             paciente_id = request.POST.get('paciente')
@@ -253,10 +301,42 @@ def agendar_recurrente(request):
             dias_semana = request.POST.getlist('dias_semana')
             dias_semana = [int(d) for d in dias_semana]
             
+            # ✅ NUEVO: Obtener sesiones seleccionadas por el usuario
+            sesiones_seleccionadas = request.POST.getlist('sesiones_seleccionadas')
+            
+            if not sesiones_seleccionadas:
+                messages.error(request, '⚠️ Debes seleccionar al menos una sesión para agendar.')
+                return redirect('agenda:agendar_recurrente')
+            
+            # Convertir a conjunto de fechas para búsqueda rápida
+            fechas_seleccionadas = set([
+                datetime.strptime(f, '%Y-%m-%d').date() for f in sesiones_seleccionadas
+            ])
+            
+            # Obtener duración personalizada
+            duracion_personalizada = request.POST.get('duracion_personalizada')
+            
             paciente = Paciente.objects.get(id=paciente_id)
             servicio = TipoServicio.objects.get(id=servicio_id)
             profesional = Profesional.objects.get(id=profesional_id)
             sucursal = Sucursal.objects.get(id=sucursal_id)
+            
+            # ✅ VALIDACIÓN: Verificar permisos de sucursal
+            sucursales_usuario = request.sucursales_usuario
+            if sucursales_usuario is not None:
+                if not sucursales_usuario.filter(id=sucursal.id).exists():
+                    messages.error(request, '❌ No tienes permiso para agendar en esta sucursal.')
+                    return redirect('agenda:agendar_recurrente')
+            
+            # ✅ VALIDACIÓN: Paciente debe tener la sucursal
+            if not paciente.tiene_sucursal(sucursal):
+                messages.error(request, f'❌ El paciente no está asignado a la sucursal {sucursal}.')
+                return redirect('agenda:agendar_recurrente')
+            
+            # ✅ VALIDACIÓN: Profesional debe tener sucursal + servicio
+            if not profesional.puede_atender_en(sucursal, servicio):
+                messages.error(request, f'❌ El profesional no puede atender este servicio en esta sucursal.')
+                return redirect('agenda:agendar_recurrente')
             
             paciente_servicio = PacienteServicio.objects.get(
                 paciente=paciente,
@@ -264,8 +344,14 @@ def agendar_recurrente(request):
             )
             monto = paciente_servicio.costo_sesion
             
+            # ✅ DETERMINAR DURACIÓN: Personalizada o estándar
+            if duracion_personalizada:
+                duracion_minutos = int(duracion_personalizada)
+            else:
+                duracion_minutos = servicio.duracion_minutos
+            
             inicio_dt = datetime.combine(fecha_inicio, hora)
-            fin_dt = inicio_dt + timedelta(minutes=servicio.duracion_minutos)
+            fin_dt = inicio_dt + timedelta(minutes=duracion_minutos)
             hora_fin = fin_dt.time()
             
             sesiones_creadas = 0
@@ -273,7 +359,8 @@ def agendar_recurrente(request):
             fecha_actual = fecha_inicio
             
             while fecha_actual <= fecha_fin:
-                if fecha_actual.weekday() in dias_semana:
+                # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
+                if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
                     try:
                         disponible, mensaje = Sesion.validar_disponibilidad(
                             paciente, profesional, fecha_actual, hora, hora_fin
@@ -288,7 +375,7 @@ def agendar_recurrente(request):
                                 fecha=fecha_actual,
                                 hora_inicio=hora,
                                 hora_fin=hora_fin,
-                                duracion_minutos=servicio.duracion_minutos,
+                                duracion_minutos=duracion_minutos,
                                 monto_cobrado=monto,
                                 creada_por=request.user
                             )
@@ -307,7 +394,10 @@ def agendar_recurrente(request):
                 fecha_actual += timedelta(days=1)
             
             if sesiones_creadas > 0:
-                messages.success(request, f'✅ Se crearon {sesiones_creadas} sesiones correctamente.')
+                duracion_msg = f" de {duracion_minutos} minutos" if duracion_personalizada else ""
+                messages.success(request, f'✅ Se crearon {sesiones_creadas} sesiones{duracion_msg} correctamente.')
+            else:
+                messages.warning(request, '⚠️ No se pudo crear ninguna sesión. Verifica los conflictos de horario.')
             
             if sesiones_error:
                 error_msg = f'⚠️ {len(sesiones_error)} sesiones no se pudieron crear por conflictos de horario.'
@@ -319,24 +409,63 @@ def agendar_recurrente(request):
             messages.error(request, f'Error al crear sesiones: {str(e)}')
             return redirect('agenda:agendar_recurrente')
     
-    pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
-    profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
-    sucursales = Sucursal.objects.filter(activa=True)
+    # ✅ GET - Mostrar formulario
+    sucursales_usuario = request.sucursales_usuario
+    
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+        pacientes = Paciente.objects.filter(
+            estado='activo',
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+        profesionales = Profesional.objects.filter(
+            activo=True,
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+    else:
+        # Superuser
+        pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+        profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+        sucursales = Sucursal.objects.filter(activa=True)
     
     context = {
         'pacientes': pacientes,
         'profesionales': profesionales,
         'sucursales': sucursales,
+        'sucursales_usuario': sucursales_usuario,
     }
     
     return render(request, 'agenda/agendar_recurrente.html', context)
 
-
 # ============= APIs HTMX =============
 
 @login_required
+def cargar_pacientes_sucursal(request):
+    """✅ API: Cargar pacientes de una sucursal específica (HTMX)"""
+    sucursal_id = request.GET.get('sucursal')
+    
+    if not sucursal_id:
+        return render(request, 'agenda/partials/pacientes_select.html', {'pacientes': []})
+    
+    try:
+        pacientes = Paciente.objects.filter(
+            sucursales__id=sucursal_id,
+            estado='activo'
+        ).distinct().order_by('nombre', 'apellido')
+        
+        return render(request, 'agenda/partials/pacientes_select.html', {
+            'pacientes': pacientes
+        })
+    except Exception as e:
+        return render(request, 'agenda/partials/pacientes_select.html', {
+            'pacientes': [],
+            'error': str(e)
+        })
+
+
+@login_required
 def cargar_servicios_paciente(request):
-    """Cargar servicios contratados por un paciente (HTMX)"""
+    """API: Cargar servicios contratados por un paciente (HTMX)"""
     paciente_id = request.GET.get('paciente')
     
     if not paciente_id:
@@ -352,7 +481,6 @@ def cargar_servicios_paciente(request):
             'servicios': servicios
         })
     except Exception as e:
-        print(f"Error cargando servicios: {e}")
         return render(request, 'agenda/partials/servicios_select.html', {
             'servicios': [],
             'error': str(e)
@@ -360,47 +488,382 @@ def cargar_servicios_paciente(request):
 
 
 @login_required
-def vista_previa_recurrente(request):
-    """Vista previa de sesiones recurrentes (HTMX)"""
+def cargar_profesionales_por_servicio(request):
+    """✅ API: Cargar profesionales que ofrecen un servicio en una sucursal (HTMX)"""
+    servicio_id = request.GET.get('servicio')
+    sucursal_id = request.GET.get('sucursal')
+    
+    if not servicio_id or not sucursal_id:
+        return render(request, 'agenda/partials/profesionales_select.html', {'profesionales': []})
+    
     try:
-        fecha_inicio = datetime.strptime(request.GET.get('fecha_inicio'), '%Y-%m-%d').date()
-        fecha_fin = datetime.strptime(request.GET.get('fecha_fin'), '%Y-%m-%d').date()
-        hora = request.GET.get('hora')
-        dias_semana = request.GET.getlist('dias_semana')
-        dias_semana = [int(d) for d in dias_semana if d]
+        # Profesionales que:
+        # 1. Están activos
+        # 2. Tienen la sucursal asignada
+        # 3. Ofrecen el servicio seleccionado
+        profesionales = Profesional.objects.filter(
+            activo=True,
+            sucursales__id=sucursal_id,
+            servicios__id=servicio_id
+        ).distinct().order_by('nombre', 'apellido')
         
-        if not dias_semana:
-            return render(request, 'agenda/partials/vista_previa.html', {
-                'sesiones': [],
-                'total': 0
-            })
-        
-        fechas = []
-        fecha_actual = fecha_inicio
-        while fecha_actual <= fecha_fin:
-            if fecha_actual.weekday() in dias_semana:
-                fechas.append(fecha_actual)
-            fecha_actual += timedelta(days=1)
-        
-        context = {
-            'fechas': fechas,
-            'total': len(fechas),
-            'hora': hora
-        }
-        
-        return render(request, 'agenda/partials/vista_previa.html', context)
-        
+        return render(request, 'agenda/partials/profesionales_select.html', {
+            'profesionales': profesionales
+        })
     except Exception as e:
-        return render(request, 'agenda/partials/vista_previa.html', {
-            'sesiones': [],
-            'total': 0,
+        return render(request, 'agenda/partials/profesionales_select.html', {
+            'profesionales': [],
             'error': str(e)
         })
 
+@login_required
+def vista_previa_recurrente(request):
+    """Vista previa de sesiones recurrentes con validación detallada de disponibilidad"""
+    
+    # Obtener parámetros
+    fecha_inicio_str = request.GET.get('fecha_inicio')
+    fecha_fin_str = request.GET.get('fecha_fin')
+    hora_str = request.GET.get('hora')
+    dias_semana = request.GET.getlist('dias_semana')
+    paciente_id = request.GET.get('paciente')
+    profesional_id = request.GET.get('profesional')
+    servicio_id = request.GET.get('servicio')
+    duracion_str = request.GET.get('duracion', '60')
+    
+    # Validar parámetros básicos
+    if not all([fecha_inicio_str, fecha_fin_str, hora_str, dias_semana]):
+        return HttpResponse('''
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                <div class="text-4xl mb-3">📅</div>
+                <p class="text-gray-600">Selecciona las fechas, hora y días para ver la vista previa</p>
+            </div>
+        ''')
+    
+    try:
+        # Convertir strings a objetos
+        fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+        fecha_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').date()
+        hora = datetime.strptime(hora_str, '%H:%M').time()
+        dias_semana = [int(d) for d in dias_semana if d]
+        duracion_minutos = int(duracion_str)
+        
+        # Validaciones básicas
+        if not dias_semana:
+            return HttpResponse('''
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <div class="text-4xl mb-3">⚠️</div>
+                    <p class="text-yellow-700 font-medium">No has seleccionado ningún día de la semana</p>
+                </div>
+            ''')
+        
+        if fecha_inicio > fecha_fin:
+            return HttpResponse('''
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <div class="text-4xl mb-3">❌</div>
+                    <p class="text-red-700 font-medium">La fecha de inicio debe ser anterior a la fecha de fin</p>
+                </div>
+            ''')
+        
+        # Obtener objetos necesarios para validación
+        paciente = None
+        profesional = None
+        servicio = None
+        
+        if paciente_id:
+            try:
+                paciente = Paciente.objects.get(id=paciente_id)
+            except:
+                pass
+        
+        if profesional_id:
+            try:
+                profesional = Profesional.objects.get(id=profesional_id)
+            except:
+                pass
+        
+        if servicio_id:
+            try:
+                servicio = TipoServicio.objects.get(id=servicio_id)
+            except:
+                pass
+        
+        # Calcular hora_fin usando duración personalizada
+        inicio_dt = datetime.combine(fecha_inicio, hora)
+        fin_dt = inicio_dt + timedelta(minutes=duracion_minutos)
+        hora_fin = fin_dt.time()
+        
+        # Generar lista de fechas con validación DETALLADA
+        sesiones_data = []
+        fecha_actual = fecha_inicio
+        
+        while fecha_actual <= fecha_fin:
+            if fecha_actual.weekday() in dias_semana:
+                sesion_info = _validar_disponibilidad_detallada(
+                    paciente, profesional, fecha_actual, hora, hora_fin
+                )
+                
+                sesiones_data.append({
+                    'fecha': fecha_actual,
+                    'disponible': sesion_info['disponible'],
+                    'conflictos_paciente': sesion_info['conflictos_paciente'],
+                    'conflictos_profesional': sesion_info['conflictos_profesional'],
+                })
+            
+            fecha_actual += timedelta(days=1)
+        
+        if not sesiones_data:
+            return HttpResponse('''
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <div class="text-4xl mb-3">⚠️</div>
+                    <p class="text-yellow-700 font-medium">No se generarán sesiones con esta configuración</p>
+                </div>
+            ''')
+        
+        # Calcular estadísticas
+        total = len(sesiones_data)
+        disponibles = sum(1 for s in sesiones_data if s['disponible'])
+        conflictos = total - disponibles
+        
+        # Nombres de días
+        dias_nombres = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        
+        # Generar HTML
+        hora_formato = hora.strftime('%H:%M')
+        hora_fin_formato = hora_fin.strftime('%H:%M')
+        servicio_nombre = servicio.nombre if servicio else "Servicio"
+        
+        # Color del header
+        if disponibles == total:
+            header_bg = "bg-green-50 border-green-200"
+            header_text = "text-green-900"
+            header_icon = "✅"
+        elif disponibles > 0:
+            header_bg = "bg-yellow-50 border-yellow-200"
+            header_text = "text-yellow-900"
+            header_icon = "⚠️"
+        else:
+            header_bg = "bg-red-50 border-red-200"
+            header_text = "text-red-900"
+            header_icon = "❌"
+        
+        html = f'''
+            <div class="{header_bg} border rounded-lg p-4">
+                <!-- Header compacto -->
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 class="text-base font-bold {header_text} flex items-center gap-2">
+                            {header_icon} Vista Previa
+                        </h3>
+                        <p class="text-xs {header_text} mt-0.5">
+                            {servicio_nombre} · {hora_formato}-{hora_fin_formato} ({duracion_minutos}min)
+                        </p>
+                    </div>
+                    <div class="flex gap-1.5 text-xs">
+                        <span class="bg-gray-700 text-white px-2 py-1 rounded font-medium">{total}</span>
+                        <span class="bg-green-600 text-white px-2 py-1 rounded font-medium">✓{disponibles}</span>
+                        {f'<span class="bg-red-600 text-white px-2 py-1 rounded font-medium">✗{conflictos}</span>' if conflictos > 0 else ''}
+                    </div>
+                </div>
+                
+                <!-- Grid de sesiones -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto pr-1">
+        '''
+        
+        for i, sesion in enumerate(sesiones_data):
+            fecha = sesion['fecha']
+            fecha_formato = fecha.strftime('%d/%m')
+            dia_nombre = dias_nombres[fecha.weekday()]
+            disponible = sesion['disponible']
+            conflictos_p = sesion['conflictos_paciente']
+            conflictos_prof = sesion['conflictos_profesional']
+            
+            if disponible:
+                card_bg = "bg-white border-green-400"
+                icon = "✅"
+                checked = "checked"
+                disabled = ""
+            else:
+                card_bg = "bg-red-50 border-red-400"
+                icon = "🚫"
+                checked = ""
+                disabled = "disabled"
+            
+            # ✅ Agregar checkbox para seleccionar sesión
+            fecha_iso = fecha.strftime('%Y-%m-%d')
+            
+            html += f'''
+                    <div class="{card_bg} border-2 rounded-lg p-2 relative">
+                        <!-- ✅ Checkbox en la esquina superior derecha -->
+                        <div class="absolute top-1 right-1">
+                            <input type="checkbox" 
+                                   name="sesiones_seleccionadas" 
+                                   value="{fecha_iso}"
+                                   class="sesion-checkbox w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 {'cursor-pointer' if disponible else 'cursor-not-allowed opacity-50'}"
+                                   {checked}
+                                   {disabled}
+                                   onchange="actualizarContador()">
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <div class="text-2xl mb-1">{icon}</div>
+                            <p class="text-xs font-bold text-gray-900">{dia_nombre}</p>
+                            <p class="text-xs font-semibold text-gray-700">{fecha_formato}</p>
+            '''
+            
+            # Mostrar conflictos de forma desplegable
+            if not disponible and (conflictos_p or conflictos_prof):
+                html += f'''
+                            <button type="button" 
+                                    onclick="toggleConflicto('panel-{i}', this)"
+                                    class="mt-2 w-full text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded transition">
+                                ▼ Ver detalle
+                            </button>
+                        </div>
+                        
+                        <!-- Panel de conflictos desplegable -->
+                        <div id="panel-{i}" style="display: none;" class="mt-2 pt-2 border-t border-red-300 text-left">
+                '''
+                
+                if conflictos_p:
+                    html += '<div class="mb-2"><p class="text-xs font-bold text-red-700 mb-1">👤 Paciente ocupado:</p>'
+                    for c in conflictos_p:
+                        html += f'''
+                            <div class="text-xs bg-white rounded p-1.5 mb-1 border border-red-200">
+                                <p class="font-semibold">{c["servicio"]}</p>
+                                <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
+                                <p class="text-gray-500 text-[10px]">Dr/a: {c["profesional"]}</p>
+                                <p class="text-gray-500 text-[10px]">📍 {c.get("sucursal", "N/A")}</p>
+                            </div>
+                        '''
+                    html += '</div>'
+                
+                if conflictos_prof:
+                    html += '<div><p class="text-xs font-bold text-orange-700 mb-1">👨‍⚕️ Profesional ocupado:</p>'
+                    for c in conflictos_prof:
+                        html += f'''
+                            <div class="text-xs bg-white rounded p-1.5 mb-1 border border-orange-200">
+                                <p class="font-semibold">{c["paciente"]}</p>
+                                <p class="text-gray-600 text-[10px]">{c["servicio"]}</p>
+                                <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
+                                <p class="text-gray-500 text-[10px]">📍 {c.get("sucursal", "N/A")}</p>
+                            </div>
+                        '''
+                    html += '</div>'
+                
+                html += '</div>'
+            else:
+                html += '</div>'
+            
+            html += '</div>'
+        
+        html += f'''
+                </div>
+                
+                <!-- Resumen final con contador de seleccionadas -->
+                <div class="mt-3 pt-3 border-t border-gray-300">
+                    <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div class="bg-blue-100 rounded p-2">
+                            <p class="font-bold text-blue-700" id="contador-seleccionadas">{disponibles}</p>
+                            <p class="text-xs text-blue-600">Seleccionadas</p>
+                        </div>
+                        <div class="bg-green-100 rounded p-2">
+                            <p class="font-bold text-green-700">{disponibles}</p>
+                            <p class="text-xs text-green-600">Disponibles</p>
+                        </div>
+                        <div class="bg-red-100 rounded p-2">
+                            <p class="font-bold text-red-700">{conflictos}</p>
+                            <p class="text-xs text-red-600">Con conflictos</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 text-center mt-2">
+                        ℹ️ Solo se crearán las sesiones que selecciones
+                    </p>
+                </div>
+            </div>
+        '''
+        
+        return HttpResponse(html)
+        
+    except ValueError as e:
+        return HttpResponse(f'''
+            <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <div class="text-4xl mb-3">❌</div>
+                <p class="text-red-700 font-medium">Error en el formato de fecha u hora</p>
+                <p class="text-sm text-red-600 mt-2">{str(e)}</p>
+            </div>
+        ''')
+    except Exception as e:
+        return HttpResponse(f'''
+            <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <div class="text-4xl mb-3">❌</div>
+                <p class="text-red-700 font-medium">Error al generar la vista previa</p>
+                <p class="text-sm text-red-600 mt-2">{str(e)}</p>
+            </div>
+        ''')
+
+def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio, hora_fin):
+    """
+    Valida disponibilidad y retorna detalles COMPLETOS de los conflictos
+    """
+    resultado = {
+        'disponible': True,
+        'conflictos_paciente': [],
+        'conflictos_profesional': []
+    }
+    
+    if not paciente or not profesional:
+        return resultado
+    
+    inicio = datetime.combine(fecha, hora_inicio)
+    fin = datetime.combine(fecha, hora_fin)
+    
+    # Verificar conflictos del PACIENTE
+    sesiones_paciente = Sesion.objects.filter(
+        paciente=paciente,
+        fecha=fecha,
+        estado__in=['programada', 'realizada', 'realizada_retraso']
+    ).select_related('servicio', 'profesional', 'sucursal')
+    
+    for sesion in sesiones_paciente:
+        s_inicio = datetime.combine(fecha, sesion.hora_inicio)
+        s_fin = datetime.combine(fecha, sesion.hora_fin)
+        
+        if (inicio < s_fin and fin > s_inicio):
+            resultado['disponible'] = False
+            resultado['conflictos_paciente'].append({
+                'servicio': sesion.servicio.nombre,
+                'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
+                'hora_fin': sesion.hora_fin.strftime('%H:%M'),
+                'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
+                'sucursal': sesion.sucursal.nombre
+            })
+    
+    # Verificar conflictos del PROFESIONAL
+    sesiones_profesional = Sesion.objects.filter(
+        profesional=profesional,
+        fecha=fecha,
+        estado__in=['programada', 'realizada', 'realizada_retraso']
+    ).select_related('paciente', 'servicio', 'sucursal')
+    
+    for sesion in sesiones_profesional:
+        s_inicio = datetime.combine(fecha, sesion.hora_inicio)
+        s_fin = datetime.combine(fecha, sesion.hora_fin)
+        
+        if (inicio < s_fin and fin > s_inicio):
+            resultado['disponible'] = False
+            resultado['conflictos_profesional'].append({
+                'paciente': f"{sesion.paciente.nombre} {sesion.paciente.apellido}",
+                'servicio': sesion.servicio.nombre,
+                'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
+                'hora_fin': sesion.hora_fin.strftime('%H:%M'),
+                'sucursal': sesion.sucursal.nombre
+            })
+    
+    return resultado
 
 @login_required
 def editar_sesion(request, sesion_id):
-    """Editar sesión (HTMX modal)"""
+    """Editar sesiÃ³n (HTMX modal)"""
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
     if request.method == 'POST':
@@ -409,7 +872,7 @@ def editar_sesion(request, sesion_id):
             estado_nuevo = request.POST.get('estado')
             sesion.estado = estado_nuevo
             
-            # Aplicar políticas de cobro según estado
+            # Aplicar polÃ­ticas de cobro segÃºn estado
             if estado_nuevo == 'permiso':
                 # PERMISO: No se cobra
                 sesion.monto_cobrado = Decimal('0.00')
@@ -432,7 +895,7 @@ def editar_sesion(request, sesion_id):
             sesion.observaciones = request.POST.get('observaciones', '')
             sesion.notas_sesion = request.POST.get('notas_sesion', '')
             
-            # Campos específicos según estado
+            # Campos especÃ­ficos segÃºn estado
             if estado_nuevo == 'realizada_retraso':
                 hora_real = request.POST.get('hora_real_inicio')
                 if hora_real:
@@ -449,7 +912,7 @@ def editar_sesion(request, sesion_id):
                 if hora_nueva:
                     sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
                 sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
-                # Checkbox de reprogramación realizada
+                # Checkbox de reprogramaciÃ³n realizada
                 sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
             
             # Pago
@@ -468,7 +931,7 @@ def editar_sesion(request, sesion_id):
             sesion.modificada_por = request.user
             sesion.save()
             
-            messages.success(request, '✅ Sesión actualizada correctamente')
+            messages.success(request, 'âœ… SesiÃ³n actualizada correctamente')
             
             # Retornar respuesta exitosa para AJAX
             from django.http import JsonResponse
@@ -476,7 +939,7 @@ def editar_sesion(request, sesion_id):
             
         except Exception as e:
             messages.error(request, f'Error: {str(e)}')
-            # Calcular estadísticas
+            # Calcular estadÃ­sticas
             estadisticas = _calcular_estadisticas_mes(sesion)
             return render(request, 'agenda/partials/editar_form.html', {
                 'sesion': sesion,
@@ -485,7 +948,7 @@ def editar_sesion(request, sesion_id):
             })
     
     # GET - Mostrar formulario
-    # Calcular estadísticas del mes
+    # Calcular estadÃ­sticas del mes
     estadisticas = _calcular_estadisticas_mes(sesion)
     
     return render(request, 'agenda/partials/editar_form.html', {
@@ -495,7 +958,7 @@ def editar_sesion(request, sesion_id):
 
 
 def _calcular_estadisticas_mes(sesion):
-    """Calcular estadísticas del mes para el paciente"""
+    """Calcular estadÃ­sticas del mes para el paciente"""
     primer_dia = sesion.fecha.replace(day=1)
     if sesion.fecha.month == 12:
         ultimo_dia = sesion.fecha.replace(day=31)

@@ -10,6 +10,23 @@ class Paciente(models.Model):
         ('suspendido', 'Suspendido'),
     ]
     
+    PARENTESCO_CHOICES = [
+        ('padre', 'Padre'),
+        ('madre', 'Madre'),
+        ('tutor', 'Tutor Legal'),
+        ('abuelo', 'Abuelo/a'),
+        ('tio', 'Tío/a'),
+        ('hermano', 'Hermano/a'),
+        ('otro', 'Otro'),
+    ]
+    
+    # ✅ NUEVO: Relación ManyToMany con Sucursales
+    sucursales = models.ManyToManyField(
+        'servicios.Sucursal',
+        related_name='pacientes',
+        help_text="Sucursales donde puede ser atendido el paciente"
+    )
+    
     # Información del paciente
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
@@ -21,6 +38,13 @@ class Paciente(models.Model):
     
     # Información del tutor/responsable
     nombre_tutor = models.CharField(max_length=200)
+    # ✅ NUEVO: Campo parentesco
+    parentesco = models.CharField(
+        max_length=20,
+        choices=PARENTESCO_CHOICES,
+        default='tutor',
+        help_text="Relación del tutor con el paciente"
+    )
     telefono_tutor = models.CharField(max_length=20)
     email_tutor = models.EmailField(blank=True, null=True)
     direccion = models.TextField(blank=True)
@@ -45,6 +69,10 @@ class Paciente(models.Model):
         verbose_name = 'Paciente'
         verbose_name_plural = 'Pacientes'
         ordering = ['apellido', 'nombre']
+        indexes = [
+            models.Index(fields=['estado']),
+            models.Index(fields=['apellido', 'nombre']),
+        ]
     
     def __str__(self):
         return f"{self.apellido}, {self.nombre}"
@@ -62,6 +90,10 @@ class Paciente(models.Model):
            (today.month == self.fecha_nacimiento.month and today.day < self.fecha_nacimiento.day):
             edad -= 1
         return edad
+    
+    def tiene_sucursal(self, sucursal):
+        """Verifica si el paciente tiene asignada una sucursal"""
+        return self.sucursales.filter(id=sucursal.id).exists()
 
 
 class PacienteServicio(models.Model):
@@ -69,10 +101,11 @@ class PacienteServicio(models.Model):
     
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE)
     servicio = models.ForeignKey('servicios.TipoServicio', on_delete=models.CASCADE)
+    # ✅ El costo_sesion se autocompletará con el costo_base del servicio
     costo_sesion = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        help_text="Costo en Bs. por sesión (puede ser diferente al costo base)"
+        help_text="Costo en Bs. por sesión (puede personalizarse por paciente)"
     )
     activo = models.BooleanField(default=True)
     fecha_inicio = models.DateField(auto_now_add=True)
@@ -85,3 +118,9 @@ class PacienteServicio(models.Model):
     
     def __str__(self):
         return f"{self.paciente.nombre_completo} - {self.servicio.nombre}"
+    
+    def save(self, *args, **kwargs):
+        # ✅ Si no se especifica costo, usar el costo_base del servicio
+        if not self.costo_sesion and self.servicio:
+            self.costo_sesion = self.servicio.costo_base
+        super().save(*args, **kwargs)

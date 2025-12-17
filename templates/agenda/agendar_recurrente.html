@@ -19,52 +19,70 @@
         <form method="post" class="bg-white rounded-lg shadow-lg p-6 space-y-6">
             {% csrf_token %}
 
-            <!-- Paciente -->
+            <!-- ✅ PASO 1: SUCURSAL (PRIMERO) -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">👤 Paciente *</label>
-                <select name="paciente" 
-                        id="paciente-select"
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    🏢 Sucursal * <span class="text-xs text-gray-500">(Paso 1)</span>
+                </label>
+                <select name="sucursal" 
+                        id="sucursal-select"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        hx-get="{% url 'agenda:servicios_paciente' %}"
-                        hx-target="#servicios-container"
+                        hx-get="{% url 'agenda:pacientes_sucursal' %}"
+                        hx-target="#pacientes-container"
                         hx-swap="innerHTML"
                         hx-trigger="change"
                         hx-include="this"
+                        onchange="resetearCascada()"
                         required>
-                    <option value="">Seleccione un paciente</option>
-                    {% for paciente in pacientes %}
-                    <option value="{{ paciente.id }}">{{ paciente.nombre }} {{ paciente.apellido }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Servicio (se carga con HTMX) -->
-            <div id="servicios-container">
-                <label class="block text-sm font-medium text-gray-700 mb-2">🏥 Servicio *</label>
-                <select name="servicio" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-                    <option value="">Primero seleccione un paciente</option>
-                </select>
-            </div>
-
-            <!-- Profesional -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">👨‍⚕️ Profesional *</label>
-                <select name="profesional" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
-                    <option value="">Seleccione un profesional</option>
-                    {% for profesional in profesionales %}
-                    <option value="{{ profesional.id }}">{{ profesional.nombre }} {{ profesional.apellido }} - {{ profesional.especialidad }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Sucursal -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">🏢 Sucursal *</label>
-                <select name="sucursal" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required>
                     <option value="">Seleccione una sucursal</option>
                     {% for sucursal in sucursales %}
                     <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
                     {% endfor %}
+                </select>
+                {% if sucursales_usuario and sucursales_usuario.count == 1 %}
+                <p class="text-xs text-gray-500 mt-1">🔒 Solo tienes acceso a esta sucursal</p>
+                {% endif %}
+            </div>
+
+            <!-- ✅ PASO 2: PACIENTE (se carga con HTMX) -->
+            <div id="pacientes-container">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    👤 Paciente * <span class="text-xs text-gray-500">(Paso 2)</span>
+                </label>
+                <select name="paciente" 
+                        id="paciente-select"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
+                        disabled 
+                        required>
+                    <option value="">Primero seleccione una sucursal</option>
+                </select>
+            </div>
+
+            <!-- ✅ PASO 3: SERVICIO (se carga con HTMX) -->
+            <div id="servicios-container">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
+                </label>
+                <select name="servicio" 
+                        id="servicio-select"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
+                        disabled 
+                        required>
+                    <option value="">Primero seleccione un paciente</option>
+                </select>
+            </div>
+
+            <!-- ✅ PASO 4: PROFESIONAL (se carga con HTMX) -->
+            <div id="profesionales-container">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
+                </label>
+                <select name="profesional" 
+                        id="profesional-select"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
+                        disabled 
+                        required>
+                    <option value="">Primero seleccione un servicio</option>
                 </select>
             </div>
 
@@ -76,10 +94,7 @@
                            name="fecha_inicio" 
                            id="fecha-inicio"
                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           hx-get="{% url 'agenda:vista_previa' %}"
-                           hx-trigger="change, keyup changed delay:500ms"
-                           hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                           hx-target="#vista-previa"
+                           onchange="actualizarVistaPrevia()"
                            required>
                 </div>
                 <div>
@@ -88,10 +103,7 @@
                            name="fecha_fin" 
                            id="fecha-fin"
                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           hx-get="{% url 'agenda:vista_previa' %}"
-                           hx-trigger="change, keyup changed delay:500ms"
-                           hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                           hx-target="#vista-previa"
+                           onchange="actualizarVistaPrevia()"
                            required>
                 </div>
             </div>
@@ -103,11 +115,47 @@
                        name="hora" 
                        id="hora"
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                       hx-get="{% url 'agenda:vista_previa' %}"
-                       hx-trigger="change"
-                       hx-include="[name='paciente'], [name='profesional'], [name='servicio'], [name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                       hx-target="#vista-previa"
+                       onchange="actualizarVistaPrevia()"
                        required>
+            </div>
+
+            <!-- Duración de sesión -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-sm font-medium text-gray-700">⏱️ Duración de la Sesión</label>
+                    <div id="duracion-servicio-info" class="text-sm text-blue-600 font-semibold">
+                        Seleccione un servicio
+                    </div>
+                </div>
+                
+                <!-- Checkbox para usar duración estándar -->
+                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                    <input type="checkbox" 
+                           id="usar-duracion-estandar" 
+                           checked
+                           onchange="toggleDuracionPersonalizada()"
+                           class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
+                    <span class="text-sm text-gray-700">Usar duración estándar del servicio</span>
+                </label>
+                
+                <!-- Campo de duración personalizada (oculto por defecto) -->
+                <div id="duracion-personalizada-container" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Duración personalizada (minutos) *
+                    </label>
+                    <input type="number" 
+                           name="duracion_personalizada" 
+                           id="duracion-personalizada"
+                           min="15"
+                           max="240"
+                           step="5"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                           onchange="actualizarVistaPrevia()"
+                           placeholder="Ej: 45, 60, 90">
+                    <p class="text-xs text-gray-500 mt-1">
+                        💡 Esta duración se aplicará a todas las sesiones recurrentes
+                    </p>
+                </div>
             </div>
 
             <!-- Días de la semana -->
@@ -115,62 +163,31 @@
                 <label class="block text-sm font-medium text-gray-700 mb-3">📆 Días de la Semana *</label>
                 <div class="grid grid-cols-7 gap-2">
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" 
-                               name="dias_semana" 
-                               value="0"
-                               class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='paciente'], [name='profesional'], [name='servicio'], [name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="0" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Lun</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="1" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="1" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Mar</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="2" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="2" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Mié</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="3" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="3" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Jue</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="4" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="4" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Vie</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="5" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="5" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Sáb</span>
                     </label>
                     <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="6" class="mb-2"
-                               hx-get="{% url 'agenda:vista_previa' %}"
-                               hx-trigger="change"
-                               hx-include="[name='fecha_inicio'], [name='fecha_fin'], [name='hora'], [name='dias_semana']"
-                               hx-target="#vista-previa">
+                        <input type="checkbox" name="dias_semana" value="6" class="mb-2" onchange="actualizarVistaPrevia()">
                         <span class="text-sm font-medium">Dom</span>
                     </label>
                 </div>
@@ -193,4 +210,244 @@
         </form>
     </div>
 </div>
+
+<script>
+// Función para resetear la cascada cuando cambia la sucursal
+function resetearCascada() {
+    // Resetear paciente
+    const pacienteContainer = document.getElementById('pacientes-container');
+    pacienteContainer.innerHTML = `
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            👤 Paciente * <span class="text-xs text-gray-500">(Paso 2)</span>
+        </label>
+        <select name="paciente" id="paciente-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
+            <option value="">Cargando pacientes...</option>
+        </select>
+    `;
+    
+    // Resetear servicio
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
+        </label>
+        <select name="servicio" id="servicio-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
+            <option value="">Primero seleccione un paciente</option>
+        </select>
+    `;
+    
+    // Resetear profesional
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    profesionalesContainer.innerHTML = `
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
+        </label>
+        <select name="profesional" id="profesional-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
+            <option value="">Primero seleccione un servicio</option>
+        </select>
+    `;
+    
+    // Resetear duración
+    document.getElementById('duracion-servicio-info').textContent = 'Seleccione un servicio';
+    document.getElementById('usar-duracion-estandar').checked = true;
+    document.getElementById('duracion-personalizada-container').classList.add('hidden');
+    
+    // Limpiar vista previa
+    document.getElementById('vista-previa').innerHTML = 
+        '<p class="text-sm text-gray-600 text-center">Seleccione las fechas y días para ver la vista previa</p>';
+}
+
+// Función para toggle de duración personalizada
+function toggleDuracionPersonalizada() {
+    const checkbox = document.getElementById('usar-duracion-estandar');
+    const container = document.getElementById('duracion-personalizada-container');
+    const inputPersonalizado = document.getElementById('duracion-personalizada');
+    
+    if (checkbox.checked) {
+        container.classList.add('hidden');
+        inputPersonalizado.value = '';
+    } else {
+        container.classList.remove('hidden');
+        // Establecer valor por defecto desde el servicio seleccionado
+        const servicioSelect = document.getElementById('servicio-select');
+        if (servicioSelect && servicioSelect.value) {
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            const duracion = selectedOption.getAttribute('data-duracion');
+            if (duracion) {
+                inputPersonalizado.value = duracion;
+            }
+        }
+        inputPersonalizado.focus();
+    }
+    
+    actualizarVistaPrevia();
+}
+
+// Función para obtener la duración efectiva
+function obtenerDuracionEfectiva() {
+    const usarEstandar = document.getElementById('usar-duracion-estandar').checked;
+    
+    if (usarEstandar) {
+        const servicioSelect = document.getElementById('servicio-select');
+        if (servicioSelect && servicioSelect.value) {
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            return parseInt(selectedOption.getAttribute('data-duracion')) || 60;
+        }
+        return 60;
+    } else {
+        const duracionPersonalizada = document.getElementById('duracion-personalizada').value;
+        return parseInt(duracionPersonalizada) || 60;
+    }
+}
+
+function actualizarVistaPrevia() {
+    const fechaInicio = document.getElementById('fecha-inicio').value;
+    const fechaFin = document.getElementById('fecha-fin').value;
+    const hora = document.getElementById('hora').value;
+    
+    const diasSeleccionados = [];
+    document.querySelectorAll('input[name="dias_semana"]:checked').forEach(checkbox => {
+        diasSeleccionados.push(checkbox.value);
+    });
+    
+    if (!fechaInicio || !fechaFin || !hora || diasSeleccionados.length === 0) {
+        document.getElementById('vista-previa').innerHTML = 
+            '<p class="text-sm text-gray-600 text-center">Seleccione las fechas, hora y días para ver la vista previa</p>';
+        return;
+    }
+    
+    if (new Date(fechaInicio) > new Date(fechaFin)) {
+        document.getElementById('vista-previa').innerHTML = 
+            '<p class="text-sm text-red-600 text-center">⚠️ La fecha de inicio debe ser anterior a la fecha de fin</p>';
+        return;
+    }
+    
+    const pacienteId = document.getElementById('paciente-select')?.value || '';
+    const profesionalId = document.getElementById('profesional-select')?.value || '';
+    const servicioId = document.getElementById('servicio-select')?.value || '';
+    const duracionEfectiva = obtenerDuracionEfectiva();
+    
+    const params = new URLSearchParams({
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        hora: hora,
+        paciente: pacienteId,
+        profesional: profesionalId,
+        servicio: servicioId,
+        duracion: duracionEfectiva
+    });
+    
+    diasSeleccionados.forEach(dia => {
+        params.append('dias_semana', dia);
+    });
+    
+    document.getElementById('vista-previa').innerHTML = 
+        '<p class="text-sm text-gray-600 text-center">⏳ Cargando vista previa...</p>';
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const url = '{% url "agenda:vista_previa" %}?' + params.toString();
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor');
+            }
+            return response.text();
+        })
+        .then(html => {
+            const container = document.getElementById('vista-previa');
+            if (!container) {
+                console.error('❌ No se encontró el contenedor vista-previa');
+                return;
+            }
+            container.innerHTML = html;
+            
+            // ✅ Actualizar contador después de cargar la vista previa
+            actualizarContador();
+        })
+        .catch(error => {
+            console.error('❌ Error:', error);
+            document.getElementById('vista-previa').innerHTML = 
+                '<p class="text-sm text-red-600 text-center">❌ Error al cargar la vista previa. Por favor, intente nuevamente.</p>';
+        });
+}
+
+// ✅ NUEVA: Función para toggle de conflictos
+window.toggleConflicto = function(panelId, btn) {
+    var panel = document.getElementById(panelId);
+    if (panel) {
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            btn.innerHTML = '▲ Ocultar';
+        } else {
+            panel.style.display = 'none';
+            btn.innerHTML = '▼ Ver detalle';
+        }
+    }
+};
+
+// ✅ NUEVA: Función para actualizar el contador de sesiones seleccionadas
+window.actualizarContador = function() {
+    const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
+    const total = document.querySelectorAll('.sesion-checkbox').length;
+    const seleccionadas = checkboxes.length;
+    
+    const contadorElement = document.getElementById('contador-seleccionadas');
+    if (contadorElement) {
+        contadorElement.textContent = seleccionadas;
+    }
+    
+    const totalElement = document.getElementById('total-sesiones');
+    if (totalElement) {
+        totalElement.textContent = total;
+    }
+};
+
+// ✅ NUEVA: Validar antes de enviar el formulario
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                e.preventDefault();
+                alert('⚠️ Debes seleccionar al menos una sesión para agendar');
+                return false;
+            }
+        });
+    }
+});
+
+// Observer para detectar cuando se carga el select de servicios y actualizar la info de duración
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        const servicioSelect = document.getElementById('servicio-select');
+        if (servicioSelect && !servicioSelect.disabled) {
+            servicioSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const duracion = selectedOption.getAttribute('data-duracion');
+                
+                // ✅ CORREGIDO: Solo mostrar duración en minutos
+                if (duracion) {
+                    document.getElementById('duracion-servicio-info').textContent = 
+                        `${duracion} minutos`;
+                }
+            });
+        }
+    });
+});
+
+observer.observe(document.getElementById('servicios-container'), {
+    childList: true,
+    subtree: true
+});
+</script>
 {% endblock %}
