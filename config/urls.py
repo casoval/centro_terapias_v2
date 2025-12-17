@@ -10,6 +10,7 @@ urlpatterns = [
     path('agenda/', include('agenda.urls')),
     path('servicios/', include('servicios.urls')),  # ✅ NUEVA LÍNEA
     path('profesionales/', include('profesionales.urls')),  # ✅ NUEVA LÍNEA
+    path('facturacion/', include('facturacion.urls')),
 ]
 
 if settings.DEBUG:

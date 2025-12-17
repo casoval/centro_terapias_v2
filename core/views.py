@@ -123,8 +123,8 @@ def dashboard(request):
                 sesion.estado_tiempo = 'proxima'
                 sesiones_filtradas.append(sesion)
         
-        # Limitar a máximo 20 sesiones
-        proximas_sesiones = sesiones_filtradas[:20]
+        # Limitar a máximo 30 sesiones
+        proximas_sesiones = sesiones_filtradas[:30]
         
         # Sesiones recientes
         sesiones_recientes = Sesion.objects.filter(

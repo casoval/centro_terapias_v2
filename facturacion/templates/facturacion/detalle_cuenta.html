@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block title %}Cuenta - {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <a href="{% url 'facturacion:cuentas_corrientes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block">
+                ← Volver a Cuentas
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">{{ paciente.nombre_completo }}</h1>
+            <p class="text-gray-600">{{ paciente.nombre_tutor }} · {{ paciente.telefono_tutor }}</p>
+        </div>
+        <a href="{% url 'facturacion:registrar_pago' %}?paciente={{ paciente.id }}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            💰 Registrar Pago
+        </a>
+    </div>
+
+    <!-- Resumen de Cuenta -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-gray-50 border rounded-lg p-4">
+            <p class="text-xs text-gray-600 font-bold uppercase">Total Consumido</p>
+            <p class="text-2xl font-black text-gray-900">Bs. {{ cuenta.total_consumido|floatformat:2 }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ stats.total_sesiones }} sesiones</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p class="text-xs text-green-600 font-bold uppercase">Total Pagado</p>
+            <p class="text-2xl font-black text-green-700">Bs. {{ cuenta.total_pagado|floatformat:2 }}</p>
+        </div>
+        <div class="{% if cuenta.saldo < 0 %}bg-red-50 border-red-200{% elif cuenta.saldo > 0 %}bg-blue-50 border-blue-200{% else %}bg-green-50 border-green-200{% endif %} border-2 rounded-lg p-4">
+            <p class="text-xs font-bold uppercase {% if cuenta.saldo < 0 %}text-red-600{% elif cuenta.saldo > 0 %}text-blue-600{% else %}text-green-600{% endif %}">
+                Saldo
+            </p>
+            <p class="text-3xl font-black {% if cuenta.saldo < 0 %}text-red-700{% elif cuenta.saldo > 0 %}text-blue-700{% else %}text-green-700{% endif %}">
+                Bs. {{ cuenta.saldo|floatformat:2 }}
+            </p>
+            <p class="text-xs font-bold mt-1 {% if cuenta.saldo < 0 %}text-red-600{% elif cuenta.saldo > 0 %}text-blue-600{% else %}text-green-600{% endif %}">
+                {% if cuenta.saldo < 0 %}DEBE{% elif cuenta.saldo > 0 %}A FAVOR{% else %}AL DÍA{% endif %}
+            </p>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p class="text-xs text-yellow-700 font-bold uppercase">Pendientes Pago</p>
+            <p class="text-2xl font-black text-yellow-800">{{ stats.pendientes_pago }}</p>
+            <p class="text-xs text-yellow-600 mt-1">sesiones sin pagar</p>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-6 border-b">
+        <nav class="flex gap-4">
+            <button onclick="showTab('sesiones')" 
+                    id="tab-sesiones"
+                    class="tab-button px-4 py-2 font-medium border-b-2 border-blue-600 text-blue-600">
+                📅 Sesiones ({{ sesiones.paginator.count }})
+            </button>
+            <button onclick="showTab('pagos')" 
+                    id="tab-pagos"
+                    class="tab-button px-4 py-2 font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-900">
+                💵 Pagos ({{ pagos.paginator.count }})
+            </button>
+        </nav>
+    </div>
+
+    <!-- Tab: Sesiones -->
+    <div id="content-sesiones" class="tab-content">
+        <div class="bg-white border rounded-lg overflow-hidden mb-4">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Servicio</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Profesional</th>
+                        <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Estado</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Pago</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for sesion in sesiones %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2">
+                            <p class="font-medium">{{ sesion.fecha|date:"d/m/Y" }}</p>
+                            <p class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"H:i" }}</p>
+                        </td>
+                        <td class="px-3 py-2">
+                            <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{ sesion.servicio.color }}"></span>
+                            {{ sesion.servicio.nombre }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-700">
+                            {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                        </td>
+                        <td class="px-3 py-2 text-right font-bold">
+                            Bs. {{ sesion.monto_cobrado|floatformat:2 }}
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            <span class="text-xs px-2 py-1 rounded {% if sesion.estado == 'realizada' %}bg-green-100 text-green-700{% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">
+                                {{ sesion.get_estado_display }}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            {% if sesion.pagado %}
+                                <span class="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-medium">
+                                    ✓ Pagado
+                                </span>
+                            {% else %}
+                                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
+                                   class="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 font-medium inline-block">
+                                    💰 Pagar
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-3 py-8 text-center text-gray-500">
+                            No hay sesiones registradas
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginación Sesiones -->
+        {% if sesiones.has_other_pages %}
+        <div class="flex justify-center gap-2">
+            {% if sesiones.has_previous %}
+                <a href="?page_sesiones={{ sesiones.previous_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">Anterior</a>
+            {% endif %}
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ sesiones.number }} / {{ sesiones.paginator.num_pages }}</span>
+            {% if sesiones.has_next %}
+                <a href="?page_sesiones={{ sesiones.next_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">Siguiente</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tab: Pagos -->
+    <div id="content-pagos" class="tab-content hidden">
+        <div class="bg-white border rounded-lg overflow-hidden mb-4">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Recibo</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Concepto</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Método</th>
+                        <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Registrado por</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for pago in pagos %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-mono text-xs">{{ pago.numero_recibo }}</td>
+                        <td class="px-3 py-2">{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+                        <td class="px-3 py-2 text-gray-700">{{ pago.concepto|truncatewords:8 }}</td>
+                        <td class="px-3 py-2">
+                            <span class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                                {{ pago.metodo_pago.nombre }}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-right font-bold text-green-700">
+                            Bs. {{ pago.monto|floatformat:2 }}
+                        </td>
+                        <td class="px-3 py-2 text-xs text-gray-600">
+                            {{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-3 py-8 text-center text-gray-500">
+                            No hay pagos registrados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginación Pagos -->
+        {% if pagos.has_other_pages %}
+        <div class="flex justify-center gap-2">
+            {% if pagos.has_previous %}
+                <a href="?page_pagos={{ pagos.previous_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">Anterior</a>
+            {% endif %}
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">{{ pagos.number }} / {{ pagos.paginator.num_pages }}</span>
+            {% if pagos.has_next %}
+                <a href="?page_pagos={{ pagos.next_page_number }}" class="px-3 py-1 border rounded hover:bg-gray-50">Siguiente</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+function showTab(tabName) {
+    // Ocultar todos
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-button').forEach(el => {
+        el.classList.remove('border-blue-600', 'text-blue-600');
+        el.classList.add('border-transparent', 'text-gray-600');
+    });
+    
+    // Mostrar seleccionado
+    document.getElementById('content-' + tabName).classList.remove('hidden');
+    document.getElementById('tab-' + tabName).classList.remove('border-transparent', 'text-gray-600');
+    document.getElementById('tab-' + tabName).classList.add('border-blue-600', 'text-blue-600');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Pagos Masivos{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+    
+    <a href="{% url 'facturacion:cuentas_corrientes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
+        ← Volver
+    </a>
+    
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">💰 Pagos Masivos</h1>
+    
+    <!-- PASO 1: Seleccionar Paciente -->
+    <div class="bg-white border rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 mb-4">Paso 1: Seleccionar Paciente</h2>
+        
+        <form method="get" class="flex gap-3">
+            <select name="paciente" 
+                    onchange="this.form.submit()"
+                    class="flex-1 px-3 py-2 border rounded-lg">
+                <option value="">Seleccionar paciente con deuda...</option>
+                {% for p in pacientes_con_deuda %}
+                <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
+                    {{ p.nombre_completo }} - DEBE: Bs. {{ p.cuenta_corriente.saldo|floatformat:2 }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    
+    {% if paciente %}
+    <!-- Resumen del Paciente -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="font-bold text-gray-900 text-lg">{{ paciente.nombre_completo }}</p>
+                <p class="text-sm text-gray-600">{{ paciente.nombre_tutor }} · {{ paciente.telefono_tutor }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xs text-red-600 font-bold uppercase">Saldo Actual</p>
+                <p class="text-2xl font-black text-red-700">Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</p>
+            </div>
+        </div>
+    </div>
+    
+    {% if sesiones_pendientes %}
+    <!-- PASO 2: Seleccionar Sesiones -->
+    <form method="post" action="{% url 'facturacion:procesar_pagos_masivos' %}" id="form-pago-masivo">
+        {% csrf_token %}
+        <input type="hidden" name="paciente_id" value="{{ paciente.id }}">
+        
+        <div class="bg-white border rounded-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-900">Paso 2: Seleccionar Sesiones a Pagar</h2>
+                <div class="flex gap-2">
+                    <button type="button" onclick="seleccionarTodas()" class="text-sm text-blue-600 hover:text-blue-800">
+                        ✓ Todas
+                    </button>
+                    <button type="button" onclick="deseleccionarTodas()" class="text-sm text-gray-600 hover:text-gray-800">
+                        ✗ Ninguna
+                    </button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-3 py-2 text-center">
+                                <input type="checkbox" 
+                                       id="check-all"
+                                       onchange="toggleAll(this)"
+                                       class="w-4 h-4 rounded">
+                            </th>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Servicio</th>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Profesional</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for sesion in sesiones_pendientes %}
+                        <tr class="hover:bg-gray-50 sesion-row">
+                            <td class="px-3 py-2 text-center">
+                                <input type="checkbox" 
+                                       name="sesiones_ids"
+                                       value="{{ sesion.id }}"
+                                       data-monto="{{ sesion.monto_cobrado }}"
+                                       onchange="calcularTotal()"
+                                       class="w-4 h-4 rounded sesion-checkbox">
+                            </td>
+                            <td class="px-3 py-2">
+                                <p class="font-medium">{{ sesion.fecha|date:"d/m/Y" }}</p>
+                                <p class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"H:i" }}</p>
+                            </td>
+                            <td class="px-3 py-2">
+                                <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{ sesion.servicio.color }}"></span>
+                                {{ sesion.servicio.nombre }}
+                            </td>
+                            <td class="px-3 py-2 text-gray-700">
+                                {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                            </td>
+                            <td class="px-3 py-2 text-right font-bold">
+                                Bs. {{ sesion.monto_cobrado|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50 border-t-2">
+                        <tr>
+                            <td colspan="4" class="px-3 py-3 text-right font-bold text-gray-900">
+                                Total Seleccionado:
+                            </td>
+                            <td class="px-3 py-3 text-right">
+                                <span id="total-display" class="text-xl font-black text-blue-700">Bs. 0.00</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <!-- PASO 3: Datos del Pago -->
+        <div class="bg-white border rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Paso 3: Datos del Pago</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Método de Pago *</label>
+                    <select name="metodo_pago" required class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Seleccione...</option>
+                        {% for metodo in metodos_pago %}
+                        <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Pago *</label>
+                    <input type="date" 
+                           name="fecha_pago" 
+                           value="{{ fecha_hoy|date:'Y-m-d' }}"
+                           required
+                           class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Observaciones (opcional)</label>
+                    <textarea name="observaciones" 
+                              rows="2"
+                              class="w-full px-3 py-2 border rounded-lg"></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botón de envío -->
+        <div class="flex gap-3">
+            <button type="submit" 
+                    id="btn-submit"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold disabled:bg-gray-400 disabled:cursor-not-allowed">
+                ✓ Procesar Pago Masivo
+            </button>
+            <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+               class="px-6 py-3 border rounded-lg hover:bg-gray-50">
+                Cancelar
+            </a>
+        </div>
+    </form>
+    
+    {% else %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+        <p class="text-yellow-700 font-medium">✅ Este paciente no tiene sesiones pendientes de pago</p>
+    </div>
+    {% endif %}
+    
+    {% endif %}
+</div>
+
+<script>
+let totalSeleccionado = 0;
+
+// Calcular total
+function calcularTotal() {
+    totalSeleccionado = 0;
+    const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
+    
+    checkboxes.forEach(cb => {
+        totalSeleccionado += parseFloat(cb.dataset.monto);
+    });
+    
+    document.getElementById('total-display').textContent = 'Bs. ' + totalSeleccionado.toFixed(2);
+    
+    // Habilitar/deshabilitar botón
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = checkboxes.length === 0;
+}
+
+// Seleccionar todas
+function seleccionarTodas() {
+    document.querySelectorAll('.sesion-checkbox').forEach(cb => cb.checked = true);
+    document.getElementById('check-all').checked = true;
+    calcularTotal();
+}
+
+// Deseleccionar todas
+function deseleccionarTodas() {
+    document.querySelectorAll('.sesion-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('check-all').checked = false;
+    calcularTotal();
+}
+
+// Toggle all
+function toggleAll(checkbox) {
+    if (checkbox.checked) {
+        seleccionarTodas();
+    } else {
+        deseleccionarTodas();
+    }
+}
+
+// Deshabilitar botón al inicio
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btn-submit');
+    if (btn) btn.disabled = true;
+});
+</script>
+{% endblock %}

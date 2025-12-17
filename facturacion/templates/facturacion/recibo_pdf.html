@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo {{ pago.numero_recibo }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            padding: 20mm;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 24px;
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 10px;
+            color: #666;
+        }
+        .recibo-numero {
+            text-align: right;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2563eb;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+        }
+        .data-row {
+            display: flex;
+            padding: 5px 0;
+        }
+        .data-label {
+            width: 150px;
+            font-weight: bold;
+            color: #6b7280;
+        }
+        .data-value {
+            flex: 1;
+            color: #1f2937;
+        }
+        .monto-total {
+            background: #f3f4f6;
+            border: 2px solid #2563eb;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .monto-total .label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        .monto-total .valor {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+        .firma {
+            margin-top: 60px;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+            text-align: center;
+            width: 300px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>RECIBO DE PAGO</h1>
+        <p>Centro de Terapias</p>
+    </div>
+    
+    <!-- Número de Recibo -->
+    <div class="recibo-numero">
+        N° {{ pago.numero_recibo }}
+    </div>
+    
+    <!-- Datos del Paciente -->
+    <div class="section">
+        <div class="section-title">Datos del Paciente</div>
+        <div class="data-row">
+            <div class="data-label">Paciente:</div>
+            <div class="data-value">{{ pago.paciente.nombre_completo }}</div>
+        </div>
+        <div class="data-row">
+            <div class="data-label">Tutor/Responsable:</div>
+            <div class="data-value">{{ pago.paciente.nombre_tutor }}</div>
+        </div>
+        <div class="data-row">
+            <div class="data-label">Teléfono:</div>
+            <div class="data-value">{{ pago.paciente.telefono_tutor }}</div>
+        </div>
+    </div>
+    
+    <!-- Datos del Pago -->
+    <div class="section">
+        <div class="section-title">Datos del Pago</div>
+        <div class="data-row">
+            <div class="data-label">Fecha de Pago:</div>
+            <div class="data-value">{{ pago.fecha_pago|date:"d/m/Y" }}</div>
+        </div>
+        <div class="data-row">
+            <div class="data-label">Método de Pago:</div>
+            <div class="data-value">{{ pago.metodo_pago.nombre }}</div>
+        </div>
+        {% if pago.numero_transaccion %}
+        <div class="data-row">
+            <div class="data-label">N° Transacción:</div>
+            <div class="data-value">{{ pago.numero_transaccion }}</div>
+        </div>
+        {% endif %}
+        <div class="data-row">
+            <div class="data-label">Concepto:</div>
+            <div class="data-value">{{ pago.concepto }}</div>
+        </div>
+        {% if pago.observaciones %}
+        <div class="data-row">
+            <div class="data-label">Observaciones:</div>
+            <div class="data-value">{{ pago.observaciones }}</div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Monto Total -->
+    <div class="monto-total">
+        <div class="label">MONTO PAGADO</div>
+        <div class="valor">Bs. {{ pago.monto|floatformat:2 }}</div>
+    </div>
+    
+    <!-- Firma -->
+    <div class="firma">
+        <strong>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</strong><br>
+        <small>Recibí conforme</small>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+        Recibo generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }}<br>
+        Este documento es un comprobante válido de pago
+    </div>
+</body>
+</html>

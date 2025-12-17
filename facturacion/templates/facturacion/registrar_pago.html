@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Pago{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+    
+    <a href="{% url 'facturacion:cuentas_corrientes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
+        ← Volver
+    </a>
+    
+    <div class="bg-white border rounded-lg p-6">
+        <h1 class="text-2xl font-bold text-gray-900 mb-6">💰 Registrar Pago</h1>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <!-- Paciente (si viene de sesión) -->
+            {% if sesion %}
+                <input type="hidden" name="paciente_id" value="{{ sesion.paciente.id }}">
+                <input type="hidden" name="sesion_id" value="{{ sesion.id }}">
+                
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-blue-700 font-bold mb-2">Pago para sesión específica:</p>
+                    <p class="font-bold text-gray-900">{{ sesion.paciente.nombre_completo }}</p>
+                    <p class="text-sm text-gray-600">
+                        {{ sesion.fecha|date:"d/m/Y" }} · {{ sesion.hora_inicio|time:"H:i" }} · {{ sesion.servicio.nombre }}
+                    </p>
+                    <p class="text-lg font-bold text-blue-700 mt-2">Bs. {{ sesion.monto_cobrado }}</p>
+                </div>
+            {% else %}
+                <!-- Buscar paciente -->
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Paciente *</label>
+                    <input type="text" 
+                           id="buscar-paciente"
+                           placeholder="Buscar por nombre..."
+                           class="w-full px-3 py-2 border rounded-lg mb-2"
+                           hx-get="{% url 'facturacion:buscar_pacientes' %}"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#pacientes-list"
+                           hx-vals='{"q": "value"}'>
+                    
+                    <div id="pacientes-list" class="space-y-1"></div>
+                    <input type="hidden" name="paciente_id" id="paciente_id" required>
+                </div>
+                
+                <!-- Sesión (opcional) -->
+                <div id="sesiones-container" class="mb-4 hidden">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        Asignar a sesión (opcional)
+                    </label>
+                    <select name="sesion_id" id="sesion_id" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Pago general (no asignar a sesión)</option>
+                    </select>
+                </div>
+            {% endif %}
+            
+            <!-- Monto -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Monto (Bs.) *</label>
+                <input type="number" 
+                       name="monto" 
+                       step="0.01" 
+                       min="0.01"
+                       {% if sesion %}value="{{ sesion.monto_cobrado }}"{% endif %}
+                       required
+                       class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            
+            <!-- Método de Pago -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Método de Pago *</label>
+                <select name="metodo_pago" required class="w-full px-3 py-2 border rounded-lg">
+                    <option value="">Seleccione...</option>
+                    {% for metodo in metodos_pago %}
+                    <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Fecha -->
+            <div class="mb-4">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Pago *</label>
+                <input type="date" 
+                       name="fecha_pago" 
+                       value="{{ fecha_hoy|date:'Y-m-d' }}"
+                       required
+                       class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            
+            <!-- Observaciones -->
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Observaciones (opcional)</label>
+                <textarea name="observaciones" 
+                          rows="3"
+                          class="w-full px-3 py-2 border rounded-lg"></textarea>
+            </div>
+            
+            <!-- Botones -->
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-bold">
+                    ✓ Registrar Pago
+                </button>
+                <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+                   class="px-4 py-3 border rounded-lg hover:bg-gray-50">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not sesion %}
+<script>
+// Seleccionar paciente de la lista
+function seleccionarPaciente(id, nombre) {
+    document.getElementById('paciente_id').value = id;
+    document.getElementById('buscar-paciente').value = nombre;
+    document.getElementById('pacientes-list').innerHTML = '';
+    
+    // Cargar sesiones pendientes
+    cargarSesionesPendientes(id);
+}
+
+// Cargar sesiones pendientes
+function cargarSesionesPendientes(pacienteId) {
+    fetch(`/facturacion/api/sesiones-pendientes/${pacienteId}/`)
+        .then(response => response.text())
+        .then(html => {
+            const container = document.getElementById('sesiones-container');
+            const select = document.getElementById('sesion_id');
+            
+            // Limpiar
+            select.innerHTML = '<option value="">Pago general (no asignar a sesión)</option>';
+            
+            // Parsear HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const sesiones = doc.querySelectorAll('[data-sesion-id]');
+            
+            if (sesiones.length > 0) {
+                sesiones.forEach(el => {
+                    const option = document.createElement('option');
+                    option.value = el.dataset.sesionId;
+                    option.text = el.textContent.trim();
+                    select.appendChild(option);
+                });
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        });
+}
+</script>
+{% endif %}
+{% endblock %}

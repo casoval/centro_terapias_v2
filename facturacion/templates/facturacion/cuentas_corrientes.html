@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Cuentas Corrientes{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">💳 Cuentas Corrientes</h1>
+        <a href="{% url 'facturacion:registrar_pago' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            💰 Registrar Pago
+        </a>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p class="text-xs text-red-600 font-bold uppercase">Deudores</p>
+            <p class="text-2xl font-black text-red-700">{{ estadisticas.deudores }}</p>
+            <p class="text-lg font-bold text-red-600">Bs. {{ estadisticas.total_debe|floatformat:2 }}</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p class="text-xs text-green-600 font-bold uppercase">Al Día</p>
+            <p class="text-2xl font-black text-green-700">{{ estadisticas.al_dia }}</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p class="text-xs text-blue-600 font-bold uppercase">A Favor</p>
+            <p class="text-2xl font-black text-blue-700">{{ page_obj.paginator.count|add:"-"|add:estadisticas.deudores|add:"-"|add:estadisticas.al_dia }}</p>
+            <p class="text-lg font-bold text-blue-600">Bs. {{ estadisticas.total_favor|floatformat:2 }}</p>
+        </div>
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p class="text-xs text-gray-600 font-bold uppercase">Total Pacientes</p>
+            <p class="text-2xl font-black text-gray-700">{{ page_obj.paginator.count }}</p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white border rounded-lg p-4 mb-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input type="text" 
+                   name="q" 
+                   value="{{ buscar }}"
+                   placeholder="Buscar paciente..."
+                   class="px-3 py-2 border rounded-lg">
+            
+            <select name="estado" class="px-3 py-2 border rounded-lg">
+                <option value="">Todos los estados</option>
+                <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>Deudores</option>
+                <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>Al día</option>
+                <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>A favor</option>
+            </select>
+            
+            <select name="sucursal" class="px-3 py-2 border rounded-lg">
+                <option value="">Todas las sucursales</option>
+                {% for sucursal in sucursales %}
+                <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                    {{ sucursal.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    🔍 Filtrar
+                </button>
+                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">
+                    🔄
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white border rounded-lg overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Paciente</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Sucursales</th>
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Consumido</th>
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Pagado</th>
+                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Saldo</th>
+                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for paciente in page_obj %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3">
+                        <p class="font-bold text-gray-900">{{ paciente.nombre_completo }}</p>
+                        <p class="text-xs text-gray-500">{{ paciente.nombre_tutor }}</p>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        {% for sucursal in paciente.sucursales.all %}
+                            <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">{{ sucursal.nombre }}</span>
+                        {% endfor %}
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold text-gray-900">
+                        Bs. {{ paciente.cuenta_corriente.total_consumido|floatformat:2 }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold text-green-700">
+                        Bs. {{ paciente.cuenta_corriente.total_pagado|floatformat:2 }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        {% if paciente.cuenta_corriente.saldo < 0 %}
+                            <span class="font-black text-red-700">Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</span>
+                            <span class="block text-xs text-red-600">DEBE</span>
+                        {% elif paciente.cuenta_corriente.saldo > 0 %}
+                            <span class="font-black text-blue-700">Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</span>
+                            <span class="block text-xs text-blue-600">A FAVOR</span>
+                        {% else %}
+                            <span class="font-black text-green-700">Bs. 0.00</span>
+                            <span class="block text-xs text-green-600">AL DÍA</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                           class="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            Ver Detalle →
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        No hay pacientes que coincidan con los filtros
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if page_obj.has_other_pages %}
+    <div class="mt-6 flex justify-center">
+        <nav class="flex gap-2">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Primera</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Anterior</a>
+            {% endif %}
+            
+            <span class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">
+                {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+            
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Siguiente</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Última</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

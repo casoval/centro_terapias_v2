@@ -78,7 +78,18 @@ class Pago(models.Model):
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
     
-    # Índices para optimizar búsquedas
+    # NUEVOS CAMPOS: Anulación
+    anulado = models.BooleanField(default=False)
+    motivo_anulacion = models.TextField(blank=True)
+    anulado_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='pagos_anulados'
+    )
+    fecha_anulacion = models.DateTimeField(null=True, blank=True)
+    
     class Meta:
         verbose_name = "Pago"
         verbose_name_plural = "Pagos"
@@ -99,6 +110,26 @@ class Pago(models.Model):
             numero = 1 if not ultimo else ultimo.id + 1
             self.numero_recibo = f"REC-{numero:06d}"
         super().save(*args, **kwargs)
+    
+    def anular(self, user, motivo):
+        """Anular un pago"""
+        from django.utils import timezone
+        
+        self.anulado = True
+        self.motivo_anulacion = motivo
+        self.anulado_por = user
+        self.fecha_anulacion = timezone.now()
+        self.save()
+        
+        # Si tenía sesión asociada, desmarcarla como pagada
+        if self.sesion:
+            self.sesion.pagado = False
+            self.sesion.fecha_pago = None
+            self.sesion.save()
+        
+        # Actualizar cuenta corriente
+        cuenta, created = CuentaCorriente.objects.get_or_create(paciente=self.paciente)
+        cuenta.actualizar_saldo()
 
 
 class CuentaCorriente(models.Model):
@@ -145,7 +176,7 @@ class CuentaCorriente(models.Model):
     
     def actualizar_saldo(self):
         """Recalcular saldo basado en sesiones y pagos"""
-        from django.db.models import Sum, Q
+        from django.db.models import Sum
         
         # Total consumido (sesiones realizadas)
         consumido = Sesion.objects.filter(
@@ -157,7 +188,8 @@ class CuentaCorriente(models.Model):
         
         # Total pagado
         pagado = Pago.objects.filter(
-            paciente=self.paciente
+            paciente=self.paciente,
+            anulado=False
         ).aggregate(
             total=Sum('monto')
         )['total'] or Decimal('0.00')

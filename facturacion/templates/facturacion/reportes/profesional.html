@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Reporte por Profesional{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
+        ← Volver a Reportes
+    </a>
+    
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">👨‍⚕️ Reporte por Profesional</h1>
+    
+    <!-- Filtros -->
+    <div class="bg-white border rounded-lg p-4 mb-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <select name="profesional" onchange="this.form.submit()" required class="px-3 py-2 border rounded-lg">
+                <option value="">Seleccionar profesional...</option>
+                {% for prof in profesionales %}
+                <option value="{{ prof.id }}" {% if profesional and profesional.id == prof.id %}selected{% endif %}>
+                    {{ prof.nombre_completo }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <select name="sucursal" class="px-3 py-2 border rounded-lg">
+                <option value="">Todas las sucursales</option>
+                {% for s in sucursales %}
+                <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>
+                    {{ s.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-3 py-2 border rounded-lg">
+            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-3 py-2 border rounded-lg">
+            
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                🔍 Generar
+            </button>
+        </form>
+    </div>
+    
+    {% if profesional and datos %}
+    <!-- Info del Profesional -->
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <h2 class="text-xl font-bold text-gray-900">{{ profesional.nombre_completo }}</h2>
+        <p class="text-sm text-gray-600">{{ profesional.especialidad }}</p>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border rounded-lg p-4 text-center">
+            <p class="text-xs text-gray-600 uppercase font-bold">Total Sesiones</p>
+            <p class="text-3xl font-black text-gray-900">{{ datos.stats.total_sesiones }}</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+            <p class="text-xs text-green-600 uppercase font-bold">Realizadas</p>
+            <p class="text-3xl font-black text-green-700">{{ datos.stats.realizadas }}</p>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <p class="text-xs text-blue-600 uppercase font-bold">Pacientes</p>
+            <p class="text-3xl font-black text-blue-700">{{ datos.stats.pacientes_unicos }}</p>
+        </div>
+        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+            <p class="text-xs text-green-600 uppercase font-bold">Ingresos</p>
+            <p class="text-2xl font-black text-green-700">Bs. {{ datos.stats.total_generado|default:0|floatformat:2 }}</p>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Por Servicio -->
+        <div class="bg-white border rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4">📋 Por Servicio</h3>
+            <div class="space-y-3">
+                {% for s in datos.por_servicio %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-bold text-gray-900">{{ s.servicio__nombre }}</p>
+                        <p class="text-xs text-gray-500">{{ s.cantidad }} sesiones</p>
+                    </div>
+                    <p class="text-lg font-black text-green-700">Bs. {{ s.ingresos|default:0|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Sin datos</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Top Pacientes -->
+        <div class="bg-white border rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4">👥 Top Pacientes Atendidos</h3>
+            <div class="space-y-3">
+                {% for p in datos.top_pacientes %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <p class="font-bold text-gray-900">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</p>
+                    <p class="text-lg font-black text-blue-700">{{ p.sesiones }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Sin datos</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

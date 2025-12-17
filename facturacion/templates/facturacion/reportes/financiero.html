@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Reporte Financiero{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
+        ← Volver a Reportes
+    </a>
+    
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">💰 Reporte Financiero</h1>
+    
+    <!-- Filtros -->
+    <div class="bg-white border rounded-lg p-4 mb-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <select name="sucursal" class="px-3 py-2 border rounded-lg">
+                <option value="">Todas las sucursales</option>
+                {% for s in sucursales %}
+                <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>
+                    {{ s.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+            
+            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-3 py-2 border rounded-lg">
+            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-3 py-2 border rounded-lg">
+            
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                🔍 Generar
+            </button>
+        </form>
+    </div>
+    
+    <!-- Resumen Financiero -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
+            <p class="text-xs text-blue-600 uppercase font-bold mb-2">Total Generado</p>
+            <p class="text-4xl font-black text-blue-700">Bs. {{ ingresos.total_generado|default:0|floatformat:2 }}</p>
+            <p class="text-xs text-blue-600 mt-2">Sesiones realizadas</p>
+        </div>
+        
+        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 text-center">
+            <p class="text-xs text-green-600 uppercase font-bold mb-2">Total Cobrado</p>
+            <p class="text-4xl font-black text-green-700">Bs. {{ ingresos.total_cobrado|default:0|floatformat:2 }}</p>
+            <p class="text-xs text-green-600 mt-2">Pagos recibidos</p>
+        </div>
+        
+        <div class="bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
+            <p class="text-xs text-red-600 uppercase font-bold mb-2">Pendiente</p>
+            <p class="text-4xl font-black text-red-700">Bs. {{ ingresos.total_pendiente|default:0|floatformat:2 }}</p>
+            <p class="text-xs text-red-600 mt-2">Por cobrar</p>
+        </div>
+    </div>
+    
+    <!-- Gráfico de Evolución -->
+    <div class="bg-white border rounded-lg p-6 mb-6">
+        <h3 class="font-bold text-gray-900 mb-4">📈 Evolución de Ingresos (últimos 6 meses)</h3>
+        <canvas id="grafico-ingresos" height="80"></canvas>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Por Método de Pago -->
+        <div class="bg-white border rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4">💳 Por Método de Pago</h3>
+            <div class="space-y-3">
+                {% for metodo in por_metodo %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-bold text-gray-900">{{ metodo.metodo_pago__nombre }}</p>
+                        <p class="text-xs text-gray-500">{{ metodo.cantidad }} pagos</p>
+                    </div>
+                    <p class="text-lg font-black text-blue-700">Bs. {{ metodo.monto|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Sin datos</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Top Servicios -->
+        <div class="bg-white border rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4">🏆 Top 5 Servicios Rentables</h3>
+            <div class="space-y-3">
+                {% for servicio in por_servicio %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-bold text-gray-900">{{ servicio.servicio__nombre }}</p>
+                        <p class="text-xs text-gray-500">{{ servicio.sesiones }} sesiones</p>
+                    </div>
+                    <p class="text-lg font-black text-green-700">Bs. {{ servicio.ingresos|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Sin datos</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const ctx = document.getElementById('grafico-ingresos');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ grafico_data.labels|safe }},
+        datasets: [
+            {
+                label: 'Generado',
+                data: {{ grafico_data.ingresos|safe }},
+                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 2
+            },
+            {
+                label: 'Cobrado',
+                data: {{ grafico_data.cobrado|safe }},
+                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                borderColor: 'rgb(34, 197, 94)',
+                borderWidth: 2
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { position: 'top' }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+</script>
+{% endblock %}
