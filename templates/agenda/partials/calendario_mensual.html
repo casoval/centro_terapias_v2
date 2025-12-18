@@ -1,64 +1,106 @@
+<!-- Vista Mensual 40% COMPACTA -->
 {% load fecha_tags %}
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- Header días de la semana -->
+    <!-- Header días de la semana COMPACTO -->
     <div class="grid grid-cols-7 gap-0 border-b bg-gray-50">
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">L</div>
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">M</div>
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">X</div>
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">J</div>
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">V</div>
-        <div class="p-1 text-center font-semibold text-gray-700 border-r text-[9px]">S</div>
-        <div class="p-1 text-center font-semibold text-gray-700 text-[9px]">D</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Lun</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Mar</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Mié</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Jue</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Vie</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700 border-r">Sáb</div>
+        <div class="p-1.5 text-center text-[9px] font-semibold text-gray-700">Dom</div>
     </div>
 
-    <!-- Grid de semanas y días -->
+    <!-- Grid de semanas y días COMPACTO -->
     <div class="divide-y">
         {% for semana in calendario_data.semanas %}
-        <div class="grid grid-cols-7 divide-x" style="min-height: 70px;">
+        <div class="grid grid-cols-7 divide-x" style="min-height: 120px;">
             {% for dia in semana %}
-            <div class="p-0.5 {% if dia.es_hoy %}bg-blue-50{% elif dia.es_otro_mes %}bg-gray-50{% else %}bg-white{% endif %} relative">
+            <div class="p-1 {% if dia.es_hoy %}bg-blue-50{% elif dia.es_otro_mes %}bg-gray-50{% else %}bg-white{% endif %} relative">
                 {% if dia.fecha %}
-                    <div class="text-right mb-0.5">
-                        <span class="{% if dia.es_hoy %}bg-blue-600 text-white px-1 py-0.5 rounded-full font-bold{% elif dia.es_otro_mes %}text-gray-400{% else %}text-gray-700 font-semibold{% endif %} text-[9px]">
+                    <!-- Número del día -->
+                    <div class="text-right mb-1">
+                        <span class="{% if dia.es_hoy %}bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-bold{% elif dia.es_otro_mes %}text-gray-400{% else %}text-gray-700 font-semibold{% endif %} text-[10px]">
                             {{ dia.dia_numero }}
                         </span>
                     </div>
 
+                    <!-- Sesiones del día con LÍNEA DIVISORIA -->
                     <div class="space-y-0.5">
-                        {% for sesion in dia.sesiones %}
-                        <div class="group relative cursor-pointer hover:shadow transition rounded border-l {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50{% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50{% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50{% elif sesion.estado == 'falta' %}border-red-500 bg-red-50{% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50{% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50{% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50{% endif %} p-0.5 text-[7px]"
-                             hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
-                             hx-target="#modal-content"
-                             hx-swap="innerHTML">
+                        {% regroup dia.sesiones by hora_inicio|time:"H" as sesiones_por_hora %}
+                        {% for grupo in sesiones_por_hora %}
+                            {% if grupo.grouper|add:"0" >= 13 and forloop.first %}
+                                <!-- LÍNEA DIVISORIA TARDE -->
+                                <div class="my-0.5 border-t border-orange-400"></div>
+                            {% endif %}
                             
-                            <div class="flex items-center gap-0.5">
-                                <span class="font-bold">{{ sesion.hora_inicio|time:"H:i" }}</span>
-                                {% if not sesion.pagado and sesion.monto_cobrado > 0 %}
-                                <span class="text-red-600">💰</span>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="font-medium text-gray-800 truncate">
-                                {{ sesion.paciente.nombre|slice:":6" }}
-                            </div>
+                            {% for sesion in grupo.list %}
+                            <div class="group relative cursor-pointer hover:shadow-md transition-all rounded border-l-2 
+                                {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50
+                                {% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50
+                                {% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50
+                                {% elif sesion.estado == 'falta' %}border-red-500 bg-red-50
+                                {% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50
+                                {% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50
+                                {% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50
+                                {% endif %} p-1"
+                                 hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                                 hx-target="#modal-content"
+                                 hx-swap="innerHTML">
+                                
+                                <div class="flex items-center gap-0.5 mb-0.5">
+                                    <span class="text-[9px] font-bold">{{ sesion.hora_inicio|time:"H:i" }}</span>
+                                    {% if not sesion.pagado and sesion.monto_cobrado > 0 %}
+                                    <span class="text-red-600 text-[8px]">💰</span>
+                                    {% endif %}
+                                    {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                    <span class="text-yellow-600 text-[8px] animate-pulse">⚠️</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="text-[9px] font-medium text-gray-800 truncate">
+                                    {{ sesion.paciente.nombre|slice:":8" }}
+                                </div>
+                                
+                                <div class="text-[8px] text-gray-600 truncate">
+                                    {{ sesion.servicio.nombre|slice:":10" }}
+                                </div>
 
-                            <!-- Tooltip -->
-                            <div class="absolute left-0 top-full mt-0.5 hidden group-hover:block z-20 bg-gray-900 text-white p-2 rounded shadow-xl w-48">
-                                <div class="space-y-0.5 text-[9px]">
-                                    <div><strong>Hora:</strong> {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</div>
-                                    <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
-                                    <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
-                                    <div><strong>Prof:</strong> {{ sesion.profesional.nombre }}</div>
-                                    <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
-                                    <div><strong>Monto:</strong> Bs. {{ sesion.monto_cobrado }}</div>
+                                <div class="text-[7px] text-gray-500 truncate">
+                                    👨‍⚕️{{ sesion.profesional.nombre|slice:":1" }}.{{ sesion.profesional.apellido|slice:":4" }}
+                                </div>
+                                <div class="text-[7px] text-gray-500 truncate">
+                                    🏢{{ sesion.sucursal.nombre|slice:":6" }}
+                                </div>
+
+                                <!-- Tooltip -->
+                                <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-20 bg-gray-900 text-white p-2 rounded shadow-xl w-48">
+                                    <div class="space-y-0.5 text-[9px]">
+                                        <div><strong>Hora:</strong> {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}</div>
+                                        <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
+                                        <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
+                                        <div><strong>Prof:</strong> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
+                                        <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
+                                        <div><strong>Estado:</strong> {{ sesion.get_estado_display }}</div>
+                                        <div><strong>Monto:</strong> Bs. {{ sesion.monto_cobrado }}</div>
+                                        <div class="mt-1 pt-1 border-t border-gray-700 text-blue-300">
+                                            {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                            ⚠️ Última sesión de este servicio
+                                            {% else %}
+                                            💡 Click para editar
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                            {% endfor %}
                         {% endfor %}
 
+                        <!-- Indicador de más sesiones -->
                         {% if dia.sesiones|length > 2 %}
                         <div class="text-center">
-                            <span class="text-[7px] text-blue-600 font-medium">
+                            <span class="text-[8px] text-blue-600 font-medium">
                                 +{{ dia.sesiones|length|add:"-2" }}
                             </span>
                         </div>
@@ -71,9 +113,9 @@
         {% endfor %}
     </div>
 
-    <!-- Leyenda -->
-    <div class="p-1.5 bg-gray-50 border-t">
-        <div class="flex flex-wrap gap-1 items-center justify-center text-[8px]">
+    <!-- Leyenda COMPACTA -->
+    <div class="p-2 bg-gray-50 border-t">
+        <div class="flex flex-wrap gap-2 items-center justify-center text-[9px]">
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-blue-500 rounded"></div>
                 <span>Prog.</span>
@@ -84,7 +126,7 @@
             </div>
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-yellow-500 rounded"></div>
-                <span>Retr.</span>
+                <span>Retraso</span>
             </div>
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-red-500 rounded"></div>
@@ -92,15 +134,15 @@
             </div>
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-purple-500 rounded"></div>
-                <span>Perm.</span>
+                <span>Permiso</span>
             </div>
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-gray-500 rounded"></div>
-                <span>Canc.</span>
+                <span>Cancel.</span>
             </div>
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-orange-500 rounded"></div>
-                <span>Repr.</span>
+                <span>Reprog.</span>
             </div>
         </div>
     </div>

@@ -170,6 +170,20 @@ def calendario(request):
     
     servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
+    # ✅ MARCAR ÚLTIMA SESIÓN POR PACIENTE+SERVICIO
+    # Agrupar sesiones por paciente+servicio y marcar la última de cada grupo
+    from collections import defaultdict
+    ultima_por_paciente_servicio = defaultdict(lambda: None)
+    
+    for sesion in sesiones.order_by('fecha', 'hora_inicio'):
+        key = f"{sesion.paciente_id}_{sesion.servicio_id}"
+        ultima_por_paciente_servicio[key] = sesion.id
+    
+    # Agregar atributo temporal a cada sesión
+    for sesion in sesiones:
+        key = f"{sesion.paciente_id}_{sesion.servicio_id}"
+        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == ultima_por_paciente_servicio[key])
+    
     # Generar estructura del calendario
     if vista == 'diaria':
         calendario_data = _generar_calendario_diario(fecha_base, sesiones)
@@ -180,16 +194,19 @@ def calendario(request):
     else:
         calendario_data = _generar_calendario_semanal(fecha_inicio, sesiones)
     
-    # Navegación de fechas
+    # ✅ NAVEGACIÓN DE FECHAS CORREGIDA (evita días inválidos)
     if vista == 'diaria':
         fecha_anterior = fecha_base - timedelta(days=1)
         fecha_siguiente = fecha_base + timedelta(days=1)
     elif vista == 'mensual':
-        fecha_anterior = (fecha_base.replace(day=1) - timedelta(days=1))
+        # Anterior: ir al primer día del mes anterior
+        fecha_anterior = (fecha_base.replace(day=1) - timedelta(days=1)).replace(day=1)
+        
+        # Siguiente: ir al primer día del mes siguiente
         if fecha_base.month == 12:
-            fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1)
+            fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
         else:
-            fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1)
+            fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1, day=1)
     else:
         fecha_anterior = fecha_inicio - timedelta(days=7)
         fecha_siguiente = fecha_inicio + timedelta(days=7)

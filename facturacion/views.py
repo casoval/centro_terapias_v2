@@ -4,7 +4,11 @@ from django.contrib import messages
 from django.db.models import Q, Sum, Count, F
 from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from django.utils import timezone
+from io import BytesIO
+import base64
+import os
 from decimal import Decimal
 from datetime import date, datetime
 
@@ -535,11 +539,45 @@ def historial_pagos(request):
 
 # ==================== RECIBOS PDF ====================
 
+def encontrar_logo():
+    """
+    Buscar logo en múltiples ubicaciones posibles
+    Funciona tanto en desarrollo como en producción (Render)
+    """
+    posibles_rutas = [
+        # Desarrollo
+        os.path.join(settings.BASE_DIR, 'static', 'img', 'logo_misael.png'),
+        # Producción (después de collectstatic)
+        os.path.join(settings.BASE_DIR, 'staticfiles', 'img', 'logo_misael.png'),
+    ]
+    
+    # Agregar STATIC_ROOT si existe (Render.com)
+    if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
+        posibles_rutas.append(
+            os.path.join(settings.STATIC_ROOT, 'img', 'logo_misael.png')
+        )
+    
+    # Agregar STATICFILES_DIRS si existe
+    if hasattr(settings, 'STATICFILES_DIRS'):
+        for static_dir in settings.STATICFILES_DIRS:
+            posibles_rutas.append(
+                os.path.join(static_dir, 'img', 'logo_misael.png')
+            )
+    
+    # Devolver la primera ruta que existe
+    for ruta in posibles_rutas:
+        if os.path.exists(ruta):
+            return ruta
+    
+    return None
+
+
 @login_required
 def generar_recibo_pdf(request, pago_id):
     """
-    Generar recibo en PDF
-    OPTIMIZADO: HTML simple convertido a PDF con WeasyPrint
+    Generar recibo en PDF usando xhtml2pdf con logo en Base64
+    OPTIMIZADO para Render.com (plan gratuito)
+    Logo embebido directamente en el HTML
     """
     
     pago = get_object_or_404(
@@ -549,34 +587,70 @@ def generar_recibo_pdf(request, pago_id):
         id=pago_id
     )
     
-    # Renderizar HTML
-    html_string = render(request, 'facturacion/recibo_pdf.html', {
-        'pago': pago,
-    }).content.decode('utf-8')
-    
     try:
-        from weasyprint import HTML, CSS
-        from io import BytesIO
+        from xhtml2pdf import pisa
         
-        # Generar PDF
-        pdf_file = BytesIO()
-        HTML(string=html_string).write_pdf(pdf_file)
-        pdf_file.seek(0)
+        # Cargar logo como Base64
+        logo_base64 = None
+        logo_path = encontrar_logo()
         
-        # Retornar como descarga
-        response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+        if logo_path:
+            try:
+                with open(logo_path, 'rb') as logo_file:
+                    logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8')
+            except Exception as e:
+                # Si falla la carga del logo, continuar sin él
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'No se pudo cargar el logo: {str(e)}')
+        
+        # Renderizar template HTML con logo embebido
+        html_string = render(request, 'facturacion/recibo_pdf.html', {
+            'pago': pago,
+            'para_pdf': True,
+            'logo_base64': logo_base64,
+        }).content.decode('utf-8')
+        
+        # Crear buffer para el PDF
+        result = BytesIO()
+        
+        # Convertir HTML a PDF
+        pdf = pisa.pisaDocument(
+            BytesIO(html_string.encode("UTF-8")), 
+            result,
+            encoding='UTF-8'
+        )
+        
+        # Verificar si hubo errores
+        if pdf.err:
+            raise Exception(f"Error en la generación del PDF: código {pdf.err}")
+        
+        # Preparar respuesta
+        result.seek(0)
+        response = HttpResponse(result.read(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="recibo_{pago.numero_recibo}.pdf"'
         
         return response
         
     except ImportError:
-        # Si WeasyPrint no está instalado, mostrar HTML simple
-        messages.warning(request, '⚠️ WeasyPrint no instalado. Mostrando versión HTML.')
-        return render(request, 'facturacion/recibo_pdf.html', {'pago': pago})
+        # Fallback: mostrar HTML si xhtml2pdf no está instalado
+        messages.warning(
+            request, 
+            '⚠️ PDF no disponible temporalmente. Mostrando versión para imprimir.'
+        )
+        return render(request, 'facturacion/recibo_pdf.html', {
+            'pago': pago,
+            'para_impresion': True
+        })
+        
     except Exception as e:
-        messages.error(request, f'❌ Error al generar PDF: {str(e)}')
+        # Log del error para debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error generando PDF para pago {pago_id}: {str(e)}')
+        
+        messages.error(request, f'❌ Error al generar PDF. Intenta nuevamente.')
         return redirect('facturacion:historial_pagos')
-
 
 # ==================== ANULAR PAGOS ====================
 

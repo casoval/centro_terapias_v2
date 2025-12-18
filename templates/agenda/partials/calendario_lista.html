@@ -1,220 +1,255 @@
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- Filtros de período -->
-    <div class="p-2 bg-gray-50 border-b">
-        <form method="get" class="flex flex-col sm:flex-row gap-1.5">
-            <input type="hidden" name="vista" value="lista">
-            {% if paciente_id %}<input type="hidden" name="paciente" value="{{ paciente_id }}">{% endif %}
-            {% if profesional_id %}<input type="hidden" name="profesional" value="{{ profesional_id }}">{% endif %}
-            {% if servicio_id %}<input type="hidden" name="servicio" value="{{ servicio_id }}">{% endif %}
-            {% if estado_filtro %}<input type="hidden" name="estado" value="{{ estado_filtro }}">{% endif %}
-            {% if sucursal_id %}<input type="hidden" name="sucursal" value="{{ sucursal_id }}">{% endif %}
-            
-            <div class="flex-1">
-                <label class="block text-[9px] font-medium text-gray-700 mb-0.5">📅 Desde</label>
-                <input type="date" name="fecha_desde" value="{{ request.GET.fecha_desde }}"
-                       class="w-full px-2 py-1 border rounded text-[10px]">
-            </div>
-            
-            <div class="flex-1">
-                <label class="block text-[9px] font-medium text-gray-700 mb-0.5">📅 Hasta</label>
-                <input type="date" name="fecha_hasta" value="{{ request.GET.fecha_hasta }}"
-                       class="w-full px-2 py-1 border rounded text-[10px]">
-            </div>
-            
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold">
-                🔍 Filtrar
-            </button>
-            
-            <a href="?vista=lista" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-center text-[10px] font-bold">
-                🔄 Limpiar
-            </a>
-        </form>
-    </div>
-
     <div class="p-2 bg-gray-100 border-b">
         <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold text-gray-900">📋 Lista de Sesiones</h3>
-            <div class="text-[9px] text-gray-600">
-                Total: <span class="font-bold">{{ sesiones|length }}</span>
+            <h3 class="text-sm font-semibold text-gray-900">
+                📋 Lista de Sesiones
+            </h3>
+            <div class="text-xs text-gray-600">
+                Total: <span class="font-bold text-gray-900">{{ sesiones|length }}</span> sesiones
             </div>
         </div>
     </div>
 
     {% if sesiones %}
-    <!-- Versión tabla desktop -->
-    <div class="hidden lg:block overflow-x-auto">
-        <table class="w-full">
-            <thead class="bg-gray-100 border-b">
+    <!-- ✅ SCROLL HORIZONTAL PERMANENTE Y VISIBLE -->
+    <div class="overflow-x-auto overflow-y-auto max-h-[600px]" style="scrollbar-width: thin;">
+        <table class="w-full min-w-max">
+            <thead class="bg-gray-100 border-b sticky top-0 z-10">
                 <tr>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Fecha</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Horario</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Paciente</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Servicio</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Profesional</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Sucursal</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Estado</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Monto</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Pago</th>
-                    <th class="px-2 py-1 text-left text-[9px] font-medium text-gray-700 uppercase">Acc.</th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Fecha
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Horario
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Paciente
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Servicio
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Profesional
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Sucursal
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Estado
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Monto
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Pago
+                    </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Acciones
+                    </th>
                 </tr>
             </thead>
-            <tbody class="bg-white divide-y">
-                {% for sesion in sesiones %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-2 py-1.5 text-[10px]">{{ sesion.fecha|date:"d/m/Y" }}</td>
-                    <td class="px-2 py-1.5 text-[10px] font-semibold">
-                        {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}
-                        <div class="text-[8px] text-gray-500">{{ sesion.duracion_minutos }}min</div>
-                    </td>
-                    <td class="px-2 py-1.5 text-[10px]">{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</td>
-                    <td class="px-2 py-1.5 text-[10px]">
-                        <span class="inline-flex items-center gap-0.5">
-                            <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
-                            {{ sesion.servicio.nombre|slice:":15" }}
-                        </span>
-                    </td>
-                    <td class="px-2 py-1.5 text-[10px]">{{ sesion.profesional.nombre|slice:":10" }}</td>
-                    <td class="px-2 py-1.5 text-[10px]">{{ sesion.sucursal.nombre|slice:":10" }}</td>
-                    <td class="px-2 py-1.5">
-                        <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800{% elif sesion.estado == 'realizada' %}bg-green-100 text-green-800{% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-800{% elif sesion.estado == 'falta' %}bg-red-100 text-red-800{% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800{% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800{% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800{% endif %}">
-                            {{ sesion.get_estado_display|slice:":4" }}
-                        </span>
-                    </td>
-                    <td class="px-2 py-1.5 text-[10px] font-semibold">Bs.{{ sesion.monto_cobrado }}</td>
-                    <td class="px-2 py-1.5">
-                        {% if sesion.monto_cobrado > 0 %}
-                            {% if sesion.pagado %}
-                            <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full bg-green-100 text-green-800">✅</span>
-                            {% else %}
-                            <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full bg-red-100 text-red-800">💰</span>
-                            {% endif %}
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% regroup sesiones by fecha as sesiones_por_fecha %}
+                {% for grupo_fecha in sesiones_por_fecha %}
+                    {% regroup grupo_fecha.list by hora_inicio|time:"H" as sesiones_por_hora %}
+                    {% for grupo in sesiones_por_hora %}
+                        {% if grupo.grouper|add:"0" >= 13 and forloop.first %}
+                            <!-- LÍNEA DIVISORIA TARDE 13:00 -->
+                            <tr>
+                                <td colspan="10" class="px-3 py-1 bg-orange-50 border-y-2 border-orange-400">
+                                    <div class="flex items-center justify-center">
+                                        <span class="text-[10px] font-bold text-orange-600">
+                                            🌅 TARDE (13:00+) - {{ grupo_fecha.grouper|date:"d/m/Y" }}
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
                         {% endif %}
-                    </td>
-                    <td class="px-2 py-1.5">
-                        <button hx-get="{% url 'agenda:editar_sesion' sesion.id %}" hx-target="#modal-content" hx-swap="innerHTML"
-                                class="text-blue-600 hover:text-blue-900 text-[9px] font-medium">
-                            ✏️
-                        </button>
-                    </td>
-                </tr>
+                        
+                        {% for sesion in grupo.list %}
+                        <tr id="sesion-{{ sesion.id }}" class="hover:bg-gray-50 transition">
+                            <td class="px-3 py-2 whitespace-nowrap text-[10px] text-gray-900">
+                                {{ sesion.fecha|date:"d/m/Y" }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-[10px] text-gray-900 font-semibold">
+                                {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
+                                <div class="text-[8px] text-gray-500">{{ sesion.duracion_minutos }}m</div>
+                            </td>
+                            <td class="px-3 py-2 text-[10px] text-gray-900 whitespace-nowrap">
+                                {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                            </td>
+                            <td class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
+                                <span class="inline-flex items-center gap-0.5">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
+                                    {{ sesion.servicio.nombre }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
+                                {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                            </td>
+                            <td class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
+                                🏢 {{ sesion.sucursal.nombre }}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap">
+                                {% if sesion.estado == 'programada' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-blue-100 text-blue-800">
+                                    📅 Prog.
+                                </span>
+                                {% elif sesion.estado == 'realizada' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-green-100 text-green-800">
+                                    ✅ Real.
+                                </span>
+                                {% elif sesion.estado == 'realizada_retraso' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                    🕐 Retraso
+                                </span>
+                                {% elif sesion.estado == 'falta' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-red-100 text-red-800">
+                                    ❌ Falta
+                                </span>
+                                {% elif sesion.estado == 'permiso' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-purple-100 text-purple-800">
+                                    📋 Permiso
+                                </span>
+                                {% elif sesion.estado == 'cancelada' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-gray-100 text-gray-800">
+                                    🚫 Cancel.
+                                </span>
+                                {% elif sesion.estado == 'reprogramada' %}
+                                <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-orange-100 text-orange-800">
+                                    🔄 Reprog.
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-[10px]">
+                                <span class="font-semibold text-gray-900">Bs. {{ sesion.monto_cobrado }}</span>
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap">
+                                {% if sesion.monto_cobrado > 0 %}
+                                    {% if sesion.pagado %}
+                                    <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-green-100 text-green-800">
+                                        ✅ Pagado
+                                    </span>
+                                    {% else %}
+                                    <span class="px-2 py-0.5 text-[9px] font-medium rounded-full bg-red-100 text-red-800">
+                                        💰 Pend.
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="text-[9px] text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 whitespace-nowrap text-[10px]">
+                                <button hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                                        hx-target="#modal-content"
+                                        hx-swap="innerHTML"
+                                        class="text-blue-600 hover:text-blue-900 font-medium transition">
+                                    ✏️
+                                </button>
+                                <!-- ALERTA ÚLTIMA SESIÓN VISIBLE -->
+                                {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                <span class="ml-1 px-1.5 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800 animate-pulse">
+                                    ⚠️
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- Versión cards móvil -->
-    <div class="lg:hidden divide-y">
-        {% for sesion in sesiones %}
-        <div class="p-2 hover:bg-gray-50 cursor-pointer"
-             hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
-             hx-target="#modal-content"
-             hx-swap="innerHTML">
-            
-            <div class="flex justify-between items-start mb-1">
-                <div>
-                    <div class="font-bold text-gray-900 text-[10px]">{{ sesion.fecha|date:"d/m/Y" }}</div>
-                    <div class="text-[9px] text-gray-600 font-semibold">
-                        {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}
-                    </div>
-                </div>
-                <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800{% elif sesion.estado == 'realizada' %}bg-green-100 text-green-800{% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-800{% elif sesion.estado == 'falta' %}bg-red-100 text-red-800{% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800{% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800{% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800{% endif %}">
-                    {{ sesion.get_estado_display|slice:":4" }}
-                </span>
-            </div>
-
-            <div class="font-bold text-gray-900 text-[10px] mb-1">👤 {{ sesion.paciente.nombre }}</div>
-
-            <div class="grid grid-cols-2 gap-1 text-[9px] text-gray-600 mb-1">
-                <div class="truncate">{{ sesion.servicio.nombre }}</div>
-                <div class="truncate">👨‍⚕️ {{ sesion.profesional.nombre|slice:":8" }}</div>
-            </div>
-
-            <div class="flex justify-between items-center mt-1 pt-1 border-t">
-                <div class="font-bold text-[10px]">Bs.{{ sesion.monto_cobrado }}</div>
-                {% if sesion.monto_cobrado > 0 %}
-                    {% if sesion.pagado %}
-                    <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full bg-green-100 text-green-800">✅</span>
-                    {% else %}
-                    <span class="px-1.5 py-0.5 text-[8px] font-medium rounded-full bg-red-100 text-red-800">💰 Pend.</span>
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Estadísticas -->
-    <div class="p-2 bg-gray-50 border-t">
+    <div class="p-3 bg-gray-50 border-t">
         {% if request.GET.fecha_desde and request.GET.fecha_hasta %}
-            <div class="mb-2">
-                <h3 class="text-[10px] font-bold text-gray-700 mb-1 uppercase">📊 Estadísticas</h3>
-                <div class="grid grid-cols-4 lg:grid-cols-8 gap-1">
-                    <div class="text-center p-1 bg-white rounded border text-[9px]">
-                        <div class="font-bold">{{ sesiones|length }}</div>
-                        <div class="text-gray-600">Total</div>
+            <div class="mb-3">
+                <h3 class="text-xs font-bold text-gray-700 mb-2 uppercase">📊 Estadísticas</h3>
+                <div class="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
+                    <div class="text-center p-1.5 bg-white rounded border">
+                        <div class="text-base font-bold text-gray-900">{{ sesiones|length }}</div>
+                        <div class="text-[8px] text-gray-600">Total</div>
                     </div>
-                    <div class="text-center p-1 bg-blue-50 rounded border border-blue-200 text-[9px]">
-                        <div class="font-bold text-blue-600">{{ count_programadas }}</div>
-                        <div class="text-blue-600">Prog.</div>
+                    <div class="text-center p-1.5 bg-blue-50 rounded border border-blue-200">
+                        <div class="text-base font-bold text-blue-600">{{ count_programadas }}</div>
+                        <div class="text-[8px] text-blue-600">Prog.</div>
                     </div>
-                    <div class="text-center p-1 bg-green-50 rounded border border-green-200 text-[9px]">
-                        <div class="font-bold text-green-600">{{ count_realizadas }}</div>
-                        <div class="text-green-600">Real.</div>
+                    <div class="text-center p-1.5 bg-green-50 rounded border border-green-200">
+                        <div class="text-base font-bold text-green-600">{{ count_realizadas }}</div>
+                        <div class="text-[8px] text-green-600">Real.</div>
                     </div>
-                    <div class="text-center p-1 bg-yellow-50 rounded border border-yellow-200 text-[9px]">
-                        <div class="font-bold text-yellow-600">{{ count_retraso }}</div>
-                        <div class="text-yellow-600">Retr.</div>
+                    <div class="text-center p-1.5 bg-yellow-50 rounded border border-yellow-200">
+                        <div class="text-base font-bold text-yellow-600">{{ count_retraso }}</div>
+                        <div class="text-[8px] text-yellow-600">Retraso</div>
                     </div>
-                    <div class="text-center p-1 bg-red-50 rounded border border-red-200 text-[9px]">
-                        <div class="font-bold text-red-600">{{ count_falta }}</div>
-                        <div class="text-red-600">Faltas</div>
+                    <div class="text-center p-1.5 bg-red-50 rounded border border-red-200">
+                        <div class="text-base font-bold text-red-600">{{ count_falta }}</div>
+                        <div class="text-[8px] text-red-600">Faltas</div>
                     </div>
-                    <div class="text-center p-1 bg-purple-50 rounded border border-purple-200 text-[9px]">
-                        <div class="font-bold text-purple-600">{{ count_permiso }}</div>
-                        <div class="text-purple-600">Perm.</div>
+                    <div class="text-center p-1.5 bg-purple-50 rounded border border-purple-200">
+                        <div class="text-base font-bold text-purple-600">{{ count_permiso }}</div>
+                        <div class="text-[8px] text-purple-600">Permisos</div>
                     </div>
-                    <div class="text-center p-1 bg-gray-50 rounded border border-gray-200 text-[9px]">
-                        <div class="font-bold text-gray-600">{{ count_cancelada }}</div>
-                        <div class="text-gray-600">Canc.</div>
+                    <div class="text-center p-1.5 bg-gray-50 rounded border border-gray-200">
+                        <div class="text-base font-bold text-gray-600">{{ count_cancelada }}</div>
+                        <div class="text-[8px] text-gray-600">Cancel.</div>
                     </div>
-                    <div class="text-center p-1 bg-orange-50 rounded border border-orange-200 text-[9px]">
-                        <div class="font-bold text-orange-600">{{ count_reprogramada }}</div>
-                        <div class="text-orange-600">Repr.</div>
+                    <div class="text-center p-1.5 bg-orange-50 rounded border border-orange-200">
+                        <div class="text-base font-bold text-orange-600">{{ count_reprogramada }}</div>
+                        <div class="text-[8px] text-orange-600">Reprog.</div>
                     </div>
                 </div>
             </div>
 
             <div>
-                <h3 class="text-[10px] font-bold text-gray-700 mb-1 uppercase">💰 Resumen</h3>
+                <h3 class="text-xs font-bold text-gray-700 mb-2 uppercase">💰 Resumen</h3>
                 <div class="grid grid-cols-3 gap-2">
-                    <div class="text-center p-1.5 bg-red-50 rounded border border-red-200">
-                        <div class="text-[8px] text-red-600 font-semibold">Pendientes</div>
-                        <div class="text-[10px] font-bold text-red-700">{{ count_pendientes }}</div>
-                        <div class="text-xs font-black text-red-600">Bs.{{ total_pendiente }}</div>
+                    <div class="text-center p-2 bg-red-50 rounded border border-red-200">
+                        <div class="text-[8px] text-red-600 font-semibold uppercase">Pendientes</div>
+                        <div class="text-xs font-bold text-red-700">{{ count_pendientes }}</div>
+                        <div class="text-sm font-black text-red-600">Bs. {{ total_pendiente }}</div>
                     </div>
-                    <div class="text-center p-1.5 bg-green-50 rounded border border-green-200">
-                        <div class="text-[8px] text-green-600 font-semibold">Pagados</div>
-                        <div class="text-[10px] font-bold text-green-700">{{ count_pagados }}</div>
-                        <div class="text-xs font-black text-green-600">Bs.{{ total_pagado }}</div>
+                    <div class="text-center p-2 bg-green-50 rounded border border-green-200">
+                        <div class="text-[8px] text-green-600 font-semibold uppercase">Pagados</div>
+                        <div class="text-xs font-bold text-green-700">{{ count_pagados }}</div>
+                        <div class="text-sm font-black text-green-600">Bs. {{ total_pagado }}</div>
                     </div>
-                    <div class="text-center p-1.5 bg-blue-50 rounded border-2 border-blue-300">
-                        <div class="text-[8px] text-blue-700 font-semibold">Total</div>
-                        <div class="text-sm font-black text-blue-700 mt-0.5">Bs.{{ total_monto }}</div>
+                    <div class="text-center p-2 bg-blue-50 rounded border-2 border-blue-300">
+                        <div class="text-[8px] text-blue-700 font-semibold uppercase">Total</div>
+                        <div class="text-base font-black text-blue-700">Bs. {{ total_monto }}</div>
                     </div>
                 </div>
             </div>
         {% else %}
-            <div class="text-center py-4 bg-white border border-dashed rounded">
+            <div class="text-center py-4 bg-white border border-dashed border-gray-300 rounded">
                 <div class="text-2xl mb-1">📅</div>
-                <h3 class="text-xs font-medium text-gray-900">Estadísticas no disponibles</h3>
-                <p class="text-[9px] text-gray-500 mt-1">Selecciona fechas</p>
+                <p class="text-xs text-gray-500">
+                    Selecciona un rango de fechas para ver estadísticas
+                </p>
             </div>
         {% endif %}
     </div>
     {% else %}
     <div class="text-center py-8">
-        <div class="text-3xl mb-2">📋</div>
-        <p class="text-sm text-gray-500">No hay sesiones</p>
+        <div class="text-4xl mb-2">📋</div>
+        <p class="text-base text-gray-500 font-medium">No hay sesiones</p>
     </div>
     {% endif %}
 </div>
+
+<style>
+/* Hacer scroll horizontal siempre visible */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 12px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
