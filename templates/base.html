@@ -42,6 +42,7 @@
             text-decoration: none;
             transition: all 0.2s;
             font-weight: 600;
+            font-size: 0.85rem;
         }
         .dropdown-item:hover {
             background-color: #f3f4f6;
@@ -72,24 +73,54 @@
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <h1 class="text-lg lg:text-xl font-bold text-blue-600">Centro de Neurodesarrollo Infantil Misael</h1>
+                        <h1 class="text-lg lg:text-xl font-bold text-blue-600">
+                            Centro de Neurodesarrollo Infantil Misael
+                        </h1>
+
+                        <!-- 👤 Usuario y rol debajo del título -->
+                        <div class="text-xs text-gray-600 leading-tight">
+                            <span class="font-semibold">
+                                {{ user.get_full_name|default:user.username }}
+                            </span>
+                            {% if user.is_superuser %}
+                                <span class="ml-1 text-blue-600 font-bold">⭐ Super Admin</span>
+                            {% elif user.perfil.rol %}
+                                <span class="ml-1 text-gray-500">
+                                    ({{ user.perfil.get_rol_display }})
+                                </span>
+                            {% endif %}
+                        </div>
                     </div>
                     
-                    <!-- Menú Desktop (≥1024px) -->
+                    <!-- ✅ MENÚ DESKTOP CON PERMISOS -->
                     <div class="hidden lg:ml-6 lg:flex lg:space-x-4 xl:space-x-8">
-                        <!-- Menú Principal -->
+                        
+                        <!-- Menú Principal - TODOS EXCEPTO PROFESIONALES -->
+                        {% if not user.perfil.es_profesional or user.is_superuser %}
                         <a href="{% url 'core:dashboard' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
                             Menu Principal
                         </a>
+                        {% endif %}
                         
-                        <!-- Agenda -->
+                        <!-- ✅ PROFESIONALES: Solo ven su agenda -->
+                        {% if user.is_superuser or user.perfil.es_profesional %}
+                        <a href="{% url 'agenda:calendario' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
+                            {% if user.perfil.es_profesional %}Mi Agenda{% else %}Agenda{% endif %}
+                        </a>
+                        {% endif %}
+                        
+                        <!-- ✅ RECEPCIONISTAS Y GERENTES: Agenda completa -->
+                        {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                        {% if not user.perfil.es_profesional %}
                         <a href="{% url 'agenda:calendario' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
                             Agenda
                         </a>
+                        {% endif %}
                         
-                        <!-- Dropdown: Catálogos -->
+                        <!-- ✅ Dropdown: Catálogos (Recepcionistas/Gerentes/Superadmin) -->
                         <div class="dropdown inline-flex items-center">
                             <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
                                 Catálogos
@@ -98,22 +129,37 @@
                                 </svg>
                             </button>
                             <div class="dropdown-menu">
-                                <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
-                                    👶Pacientes
+                                <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item">
+                                    📅 Agendar Sesión
                                 </a>
+                                <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item">
+                                    📦 Proy/Evaluación
+                                </a>
+                                <div class="border-t border-gray-200 my-1"></div>
+                                <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
+                                    👶 Pacientes
+                                </a>
+                                
+                                <!-- ✅ Solo Gerentes y Superadmin -->
+                                {% if user.is_superuser or user.perfil.es_gerente %}
                                 <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
-                                    🏥Servicios
+                                    🏥 Servicios
                                 </a>
                                 <a href="{% url 'profesionales:lista' %}" class="dropdown-item">
-                                    👨‍⚕️Profesionales
+                                    👨‍⚕️ Profesionales
                                 </a>
+                                {% endif %}
+                                
+                                <!-- ✅ Solo Superadmin -->
+                                {% if user.is_superuser %}
                                 <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item">
-                                    🏢Sucursales
+                                    🏢 Sucursales
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
 
-                        <!-- Dropdown: Facturación -->
+                        <!-- ✅ Dropdown: Facturación -->
                         <div class="dropdown inline-flex items-center">
                             <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
                                 Facturación
@@ -123,34 +169,40 @@
                             </button>
                             <div class="dropdown-menu">
                                 <a href="{% url 'facturacion:cuentas_corrientes' %}" class="dropdown-item">
-                                    📋Cuentas Corrientes
+                                    📋 Cuentas Corrientes
                                 </a>
                                 <a href="{% url 'facturacion:pagos_masivos' %}" class="dropdown-item">
-                                    💰Pagos Masivos
+                                    💰 Pagos Masivos
                                 </a>
                                 <a href="{% url 'facturacion:historial_pagos' %}" class="dropdown-item">
-                                    📜Historial de Pagos
+                                    📜 Historial de Pagos
                                 </a>
                                 <a href="{% url 'facturacion:registrar_pago' %}" class="dropdown-item">
-                                    ➕Registrar Pago
+                                    ➕ Registrar Pago
                                 </a>
+                                
+                                <!-- ✅ Reportes: Solo Gerentes y Superadmin -->
+                                {% if user.is_superuser or user.perfil.es_gerente %}
                                 <a href="{% url 'facturacion:dashboard_reportes' %}" class="dropdown-item">
-                                    📊Reportes
+                                    📊 Reportes
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
+                        {% endif %}
                         
-                        <!-- Admin -->
+                        <!-- ✅ Admin: Solo Superadmin -->
+                        {% if user.is_superuser %}
                         <a href="/admin/" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
-                            ⭐Admin
+                            ⭐ Admin
                         </a>
+                        {% endif %}
                     </div>
                 </div>
                 
-                <!-- Usuario y botón hamburguesa -->
+                <!-- Botón cerrar sesión y hamburguesa -->
                 <div class="flex items-center space-x-4">
-                    <span class="text-gray-700 text-sm hidden sm:inline">{{ user.username }}</span>
                     <a href="{% url 'core:logout' %}" 
                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap hidden sm:inline-block">
                         Cerrar Sesión
@@ -166,20 +218,27 @@
             </div>
         </div>
         
-        <!-- Menú móvil (<1024px) -->
+        <!-- ✅ MENÚ MÓVIL CON PERMISOS -->
         <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-gray-200">
             <div class="px-2 pt-2 pb-3 space-y-1">
+                <!-- Menú Principal - TODOS EXCEPTO PROFESIONALES -->
+                {% if not user.perfil.es_profesional or user.is_superuser %}
                 <a href="{% url 'core:dashboard' %}" 
                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
                     Menú Principal
                 </a>
+                {% endif %}
                 
+                <!-- ✅ Agenda según rol -->
+                {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                 <a href="{% url 'agenda:calendario' %}" 
                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
-                    Agenda
+                    {% if user.perfil.es_profesional %}Mi Agenda{% else %}Agenda{% endif %}
                 </a>
+                {% endif %}
                 
-                <!-- Catálogos expandible -->
+                <!-- ✅ Catálogos: Recepcionistas/Gerentes/Superadmin -->
+                {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                 <div>
                     <button id="catalogos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 focus:outline-none">
                         <span>Catálogos</span>
@@ -188,22 +247,35 @@
                         </svg>
                     </button>
                     <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1">
+                        <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                            📅 Agendar Sesión
+                        </a>
+                        <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                            📦 Proy/Evaluación
+                        </a>
+                        <div class="border-t border-gray-300 my-2"></div>
                         <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👶 Pacientes
                         </a>
+                        
+                        {% if user.is_superuser or user.perfil.es_gerente %}
                         <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             🏥 Servicios
                         </a>
                         <a href="{% url 'profesionales:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👨‍⚕️ Profesionales
                         </a>
+                        {% endif %}
+                        
+                        {% if user.is_superuser %}
                         <a href="{% url 'servicios:lista_sucursales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             🏢 Sucursales
                         </a>
+                        {% endif %}
                     </div>
                 </div>
                 
-                <!-- Facturación expandible -->
+                <!-- ✅ Facturación -->
                 <div>
                     <button id="facturacion-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 focus:outline-none">
                         <span>Facturación</span>
@@ -224,20 +296,31 @@
                         <a href="{% url 'facturacion:registrar_pago' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             ➕ Registrar Pago
                         </a>
+                        
+                        {% if user.is_superuser or user.perfil.es_gerente %}
                         <a href="{% url 'facturacion:dashboard_reportes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             📊 Reportes
                         </a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
                 
+                {% if user.is_superuser %}
                 <a href="/admin/" 
                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
                     ⭐ Admin
                 </a>
+                {% endif %}
                 
                 <div class="border-t border-gray-200 pt-2 mt-2">
-                    <div class="px-3 py-2 text-sm text-gray-600">
-                        Usuario: {{ user.username }}
+                    <div class="px-3 py-2 text-sm">
+                        <p class="text-gray-900 font-semibold">{{ user.get_full_name|default:user.username }}</p>
+                        {% if user.is_superuser %}
+                        <p class="text-xs text-blue-600 font-bold">⭐ Super Admin</p>
+                        {% elif user.perfil.rol %}
+                        <p class="text-xs text-gray-500">{{ user.perfil.get_rol_display }}</p>
+                        {% endif %}
                     </div>
                     <a href="{% url 'core:logout' %}" 
                        class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">

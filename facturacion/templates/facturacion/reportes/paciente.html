@@ -14,7 +14,7 @@
     <!-- Filtros -->
     <div class="bg-white border rounded-lg p-4 mb-6">
         <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <select name="paciente" onchange="this.form.submit()" required class="px-3 py-2 border rounded-lg">
+            <select name="paciente" onchange="this.form.submit()" required class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">Seleccionar paciente...</option>
                 {% for p in pacientes %}
                 <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
@@ -23,10 +23,10 @@
                 {% endfor %}
             </select>
             
-            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-3 py-2 border rounded-lg">
-            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-3 py-2 border rounded-lg">
+            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
                 🔍 Generar
             </button>
         </form>
@@ -34,17 +34,36 @@
     
     {% if paciente and datos %}
     <!-- Información del Paciente -->
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6 shadow-sm">
         <div class="flex justify-between items-start">
-            <div>
-                <h2 class="text-xl font-bold text-gray-900">{{ paciente.nombre_completo }}</h2>
-                <p class="text-sm text-gray-600">{{ paciente.nombre_tutor }} · {{ paciente.telefono_tutor }}</p>
-                <p class="text-xs text-gray-500 mt-1">Edad: {{ paciente.edad }} años · {{ paciente.get_genero_display }}</p>
+            <div class="flex-1">
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ paciente.nombre_completo }}</h2>
+                <div class="space-y-1">
+                    <p class="text-sm text-gray-700">
+                        <span class="font-semibold">👨‍👩‍👧 Tutor:</span> {{ paciente.nombre_tutor }}
+                    </p>
+                    <p class="text-sm text-gray-700">
+                        <span class="font-semibold">📱 Teléfono:</span> {{ paciente.telefono_tutor }}
+                    </p>
+                    <p class="text-sm text-gray-700">
+                        <span class="font-semibold">📅 Edad:</span> {{ paciente.edad }} años
+                        <span class="ml-3 font-semibold">⚧ Género:</span> {{ paciente.get_genero_display }}
+                    </p>
+                </div>
             </div>
-            <div class="text-right">
-                <p class="text-xs text-gray-600 uppercase font-bold">Saldo Actual</p>
-                <p class="text-2xl font-black {% if paciente.cuenta_corriente.saldo < 0 %}text-red-700{% elif paciente.cuenta_corriente.saldo > 0 %}text-blue-700{% else %}text-green-700{% endif %}">
+            <div class="text-right bg-white rounded-lg p-4 shadow-sm border-2 border-blue-300">
+                <p class="text-xs text-gray-600 uppercase font-bold mb-1">💰 Saldo Actual</p>
+                <p class="text-3xl font-black {% if paciente.cuenta_corriente.saldo < 0 %}text-red-700{% elif paciente.cuenta_corriente.saldo > 0 %}text-blue-700{% else %}text-green-700{% endif %}">
                     Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    {% if paciente.cuenta_corriente.saldo > 0 %}
+                        Crédito disponible
+                    {% elif paciente.cuenta_corriente.saldo < 0 %}
+                        Debe al centro
+                    {% else %}
+                        Al día
+                    {% endif %}
                 </p>
             </div>
         </div>
@@ -52,95 +71,266 @@
     
     <!-- Estadísticas Principales -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white border rounded-lg p-4 text-center">
-            <p class="text-xs text-gray-600 uppercase font-bold">Total Sesiones</p>
-            <p class="text-3xl font-black text-gray-900">{{ datos.stats.total_sesiones }}</p>
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+            <p class="text-xs text-gray-600 uppercase font-bold mb-2">📊 Total Sesiones</p>
+            <p class="text-4xl font-black text-gray-900">{{ datos.stats.total_sesiones }}</p>
         </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <p class="text-xs text-green-600 uppercase font-bold">Realizadas</p>
-            <p class="text-3xl font-black text-green-700">{{ datos.stats.realizadas }}</p>
+        <div class="bg-green-50 border-2 border-green-200 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+            <p class="text-xs text-green-600 uppercase font-bold mb-2">✅ Realizadas</p>
+            <p class="text-4xl font-black text-green-700">{{ datos.stats.realizadas }}</p>
         </div>
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-            <p class="text-xs text-yellow-600 uppercase font-bold">Retrasos</p>
-            <p class="text-3xl font-black text-yellow-700">{{ datos.stats.retrasos }}</p>
+        <div class="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+            <p class="text-xs text-yellow-600 uppercase font-bold mb-2">⏰ Retrasos</p>
+            <p class="text-4xl font-black text-yellow-700">{{ datos.stats.retrasos }}</p>
         </div>
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-            <p class="text-xs text-red-600 uppercase font-bold">Faltas</p>
-            <p class="text-3xl font-black text-red-700">{{ datos.stats.faltas }}</p>
+        <div class="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+            <p class="text-xs text-red-600 uppercase font-bold mb-2">❌ Faltas</p>
+            <p class="text-4xl font-black text-red-700">{{ datos.stats.faltas }}</p>
         </div>
-        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 text-center">
-            <p class="text-xs text-blue-600 uppercase font-bold">Asistencia</p>
-            <p class="text-3xl font-black text-blue-700">{{ datos.tasa_asistencia }}%</p>
+        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+            <p class="text-xs text-blue-600 uppercase font-bold mb-2">📈 Asistencia</p>
+            <p class="text-4xl font-black text-blue-700">{{ datos.tasa_asistencia }}%</p>
         </div>
     </div>
     
-    <!-- Financiero -->
+    <!-- Resumen Financiero -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white border rounded-lg p-4">
-            <p class="text-sm text-gray-600 font-bold mb-2">Total Generado</p>
-            <p class="text-2xl font-black text-gray-900">Bs. {{ datos.stats.total_cobrado|default:0|floatformat:2 }}</p>
+        <div class="bg-white border-2 border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm text-gray-600 font-bold uppercase">💵 Total Generado</p>
+                <span class="text-2xl">📊</span>
+            </div>
+            <p class="text-3xl font-black text-gray-900">Bs. {{ datos.stats.total_cobrado|default:0|floatformat:2 }}</p>
+            <p class="text-xs text-gray-500 mt-2">Monto total de sesiones realizadas</p>
         </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p class="text-sm text-green-600 font-bold mb-2">Total Pagado</p>
-            <p class="text-2xl font-black text-green-700">Bs. {{ datos.stats.total_pagado|default:0|floatformat:2 }}</p>
+        
+        <div class="bg-green-50 border-2 border-green-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-sm text-green-600 font-bold uppercase">✅ Total Pagado</p>
+                <span class="text-2xl">💰</span>
+            </div>
+            <p class="text-3xl font-black text-green-700">Bs. {{ datos.stats.total_pagado|default:0|floatformat:2 }}</p>
+            <p class="text-xs text-green-600 mt-2">
+                Tasa de pago: {{ datos.tasa_pago }}%
+            </p>
         </div>
-        <div class="bg-gray-50 border rounded-lg p-4">
-            <p class="text-sm text-gray-600 font-bold mb-2">Por Servicio</p>
-            <div class="space-y-1">
+        
+        <div class="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            <p class="text-sm text-purple-600 font-bold uppercase mb-3">🥼 Por Servicio</p>
+            <div class="space-y-2">
                 {% for s in datos.por_servicio|slice:":3" %}
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-700">{{ s.servicio__nombre|truncatewords:2 }}</span>
-                    <span class="font-bold">{{ s.cantidad }}</span>
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full" style="background-color: {{ s.servicio__color }}"></span>
+                        <span class="text-sm text-gray-700 font-medium">{{ s.servicio__nombre|truncatewords:2 }}</span>
+                    </div>
+                    <span class="text-lg font-black text-purple-700">{{ s.cantidad }}</span>
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
     
+    <!-- Proyectos del Paciente -->
+    {% if datos.proyectos %}
+    <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-6 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                📦 Proyectos Especiales
+                <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full font-bold">
+                    {{ datos.proyectos_stats.total }}
+                </span>
+            </h3>
+            <div class="flex gap-3 text-sm">
+                <span class="text-blue-600 font-semibold">
+                    🔵 Activos: {{ datos.proyectos_stats.activos }}
+                </span>
+                <span class="text-green-600 font-semibold">
+                    ✅ Finalizados: {{ datos.proyectos_stats.finalizados }}
+                </span>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for proyecto in datos.proyectos %}
+            <div class="bg-white border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded font-bold">
+                                {{ proyecto.codigo }}
+                            </span>
+                            <span class="text-xs px-2 py-1 rounded font-bold
+                                {% if proyecto.estado == 'planificado' %}bg-blue-100 text-blue-700
+                                {% elif proyecto.estado == 'en_progreso' %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-green-100 text-green-700{% endif %}">
+                                {{ proyecto.get_estado_display }}
+                            </span>
+                        </div>
+                        <p class="font-bold text-gray-900 text-sm">{{ proyecto.nombre }}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            📅 {{ proyecto.fecha_inicio|date:"d/m/Y" }}
+                            {% if proyecto.fecha_fin %}→ {{ proyecto.fecha_fin|date:"d/m/Y" }}{% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-3 pt-3 border-t">
+                    <div class="text-xs text-gray-600">
+                        <span class="font-semibold">Costo:</span> Bs. {{ proyecto.costo_total|floatformat:2 }}
+                    </div>
+                    <div class="text-xs">
+                        {% if proyecto.pagado_completo %}
+                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded font-bold">
+                            ✅ PAGADO
+                        </span>
+                        {% else %}
+                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded font-bold">
+                            Pendiente: Bs. {{ proyecto.saldo_pendiente|floatformat:2 }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-4 pt-4 border-t flex justify-between items-center">
+            <div class="text-sm text-gray-700">
+                <span class="font-bold">💰 Total invertido en proyectos:</span>
+                <span class="text-lg font-black text-purple-700 ml-2">
+                    Bs. {{ datos.proyectos_stats.monto_total|floatformat:2 }}
+                </span>
+            </div>
+            <a href="{% url 'agenda:proyectos_paciente' paciente.id %}" 
+               class="text-sm text-blue-600 hover:text-blue-800 font-semibold">
+                Ver todos los proyectos →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Gráfico de Evolución -->
     {% if grafico_data %}
-    <div class="bg-white border rounded-lg p-6 mb-6">
-        <h3 class="font-bold text-gray-900 mb-4">📈 Evolución Mensual</h3>
+    <div class="bg-white border-2 border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
+        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            📈 Evolución Mensual
+            <span class="text-sm text-gray-500 font-normal">
+                (Últimos 6 meses)
+            </span>
+        </h3>
         <canvas id="grafico-evolucion" height="80"></canvas>
     </div>
     {% endif %}
     
-    <!-- Sesiones Recientes -->
-    <div class="bg-white border rounded-lg overflow-hidden">
-        <div class="p-4 border-b bg-gray-50">
-            <h3 class="font-bold text-gray-900">📅 Sesiones Recientes</h3>
+    <!-- Estadísticas por Profesional -->
+    {% if datos.por_profesional %}
+    <div class="bg-white border-2 border-gray-200 rounded-lg p-6 mb-6 shadow-sm">
+        <h3 class="font-bold text-gray-900 mb-4">👨‍⚕️ Profesionales que lo atienden</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for prof in datos.por_profesional %}
+            <div class="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                <div>
+                    <p class="font-bold text-gray-900">
+                        {{ prof.profesional__nombre }} {{ prof.profesional__apellido }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        {{ prof.cantidad }} sesión{{ prof.cantidad|pluralize:"es" }} · 
+                        Bs. {{ prof.monto_total|floatformat:2 }}
+                    </p>
+                </div>
+                <p class="text-2xl font-black text-blue-700">{{ prof.cantidad }}</p>
+            </div>
+            {% endfor %}
         </div>
-        <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 border-b">
-                <tr>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Servicio</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Profesional</th>
-                    <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Estado</th>
-                    <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                {% for sesion in datos.sesiones_recientes %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2">{{ sesion.fecha|date:"d/m/Y" }}</td>
-                    <td class="px-3 py-2">
-                        <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{ sesion.servicio.color }}"></span>
-                        {{ sesion.servicio.nombre }}
-                    </td>
-                    <td class="px-3 py-2 text-gray-700">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</td>
-                    <td class="px-3 py-2 text-center">
-                        <span class="text-xs px-2 py-1 rounded {% if sesion.estado == 'realizada' %}bg-green-100 text-green-700{% elif sesion.estado == 'falta' %}bg-red-100 text-red-700{% else %}bg-gray-100 text-gray-700{% endif %}">
-                            {{ sesion.get_estado_display }}
-                        </span>
-                    </td>
-                    <td class="px-3 py-2 text-right font-bold">Bs. {{ sesion.monto_cobrado|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    </div>
+    {% endif %}
+    
+    <!-- Sesiones Recientes -->
+    <div class="bg-white border-2 border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <div class="p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100">
+            <h3 class="font-bold text-gray-900 flex items-center gap-2">
+                📅 Sesiones Recientes
+                <span class="text-sm text-gray-500 font-normal">
+                    (Últimas 15)
+                </span>
+            </h3>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Fecha</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Servicio</th>
+                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Profesional</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Estado</th>
+                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">Monto</th>
+                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Pago</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for sesion in datos.sesiones_recientes %}
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="font-semibold">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }}"></span>
+                                <span class="font-medium text-gray-900">{{ sesion.servicio.nombre }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-gray-700">
+                            {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="text-xs px-2 py-1 rounded-full font-bold
+                                {% if sesion.estado == 'realizada' %}bg-green-100 text-green-700
+                                {% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
+                                {% elif sesion.estado == 'falta' %}bg-red-100 text-red-700
+                                {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ sesion.get_estado_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold text-gray-900">
+                            Bs. {{ sesion.monto_cobrado|floatformat:2 }}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if sesion.monto_cobrado == 0 %}
+                                <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-bold">
+                                    GRATUITA
+                                </span>
+                            {% elif sesion.pagado %}
+                                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">
+                                    ✅ PAGADA
+                                </span>
+                            {% else %}
+                                <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold">
+                                    ❌ PENDIENTE
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            No hay sesiones registradas en este período
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     
+    {% else %}
+    <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-8 text-center">
+        <div class="text-6xl mb-4">👤</div>
+        <p class="text-lg text-gray-700 mb-2">Selecciona un paciente para ver su reporte</p>
+        <p class="text-sm text-gray-500">Usa el selector arriba para elegir un paciente</p>
+    </div>
     {% endif %}
 </div>
 
@@ -158,25 +348,78 @@ new Chart(ctx, {
                 data: {{ grafico_data.realizadas|safe }},
                 borderColor: 'rgb(34, 197, 94)',
                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                tension: 0.3
+                tension: 0.3,
+                fill: true,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 6
             },
             {
                 label: 'Faltas',
                 data: {{ grafico_data.faltas|safe }},
                 borderColor: 'rgb(239, 68, 68)',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                tension: 0.3
+                tension: 0.3,
+                fill: true,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 6
             }
         ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
         plugins: {
-            legend: { position: 'top' }
+            legend: { 
+                position: 'top',
+                labels: {
+                    padding: 15,
+                    font: {
+                        size: 12,
+                        weight: 'bold'
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                titleFont: {
+                    size: 14,
+                    weight: 'bold'
+                },
+                bodyFont: {
+                    size: 13
+                }
+            }
         },
         scales: {
-            y: { beginAtZero: true }
+            y: { 
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    font: {
+                        size: 11
+                    }
+                },
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                }
+            },
+            x: {
+                ticks: {
+                    font: {
+                        size: 11
+                    }
+                },
+                grid: {
+                    display: false
+                }
+            }
         }
     }
 });

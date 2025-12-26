@@ -4,12 +4,9 @@
     <meta charset="UTF-8">
     <title>Recibo {{ pago.numero_recibo }}</title>
     <style>
-        /* IMPORTANTE: xhtml2pdf tiene limitaciones con CSS3 */
-        /* Usar CSS básico y propiedades compatibles */
-        
         @page {
-            size: letter;
-            margin: 2cm;
+            size: letter landscape;
+            margin: 0.5cm;
         }
         
         * {
@@ -20,232 +17,576 @@
         
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 12px;
-            line-height: 1.6;
+            font-size: 10px;
+            line-height: 1.3;
             color: #333;
         }
         
+        /* Contenedor principal - dos columnas */
+        .contenedor-recibos {
+            display: table;
+            width: 100%;
+            height: 19cm;
+        }
+        
+        /* Cada copia ocupa el 50% */
+        .recibo-copia {
+            display: table-cell;
+            width: 49%;
+            padding: 0.4cm;
+            vertical-align: top;
+            border: 2px solid #1e88e5;
+            position: relative;
+            background: linear-gradient(to bottom, #fff 0%, #e3f2fd 100%);
+        }
+        
+        .recibo-copia.izquierda {
+            border-right: 1px dashed #999;
+        }
+        
+        /* Línea divisoria central */
+        .linea-divisoria {
+            display: table-cell;
+            width: 2%;
+            text-align: center;
+            background: linear-gradient(to bottom, #FFD700 0%, #1e88e5 50%, #E63946 100%);
+            position: relative;
+        }
+        
+        .linea-divisoria::before {
+            content: "✂";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(90deg);
+            font-size: 20px;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        /* Etiqueta de copia */
+        .etiqueta-copia {
+            position: absolute;
+            top: 0.3cm;
+            right: 0.3cm;
+            background: linear-gradient(135deg, #E63946 0%, #c62828 100%);
+            padding: 4px 12px;
+            border: 2px solid #FFD700;
+            border-radius: 15px;
+            font-size: 9px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        
+        .etiqueta-copia.sucursal {
+            background: linear-gradient(135deg, #FFD700 0%, #fbc02d 100%);
+            border-color: #1e88e5;
+            color: #1e88e5;
+        }
+        
+        /* Header */
         .header {
             text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #2563eb;
-            padding-bottom: 15px;
+            margin-bottom: 10px;
+            border-bottom: 3px solid;
+            border-image: linear-gradient(to right, #E63946, #FFD700, #1e88e5) 1;
+            padding-bottom: 8px;
+            background: linear-gradient(135deg, #fff 0%, #e3f2fd 50%, #fff5e1 100%);
+            padding-top: 8px;
+            border-radius: 5px 5px 0 0;
         }
         
         .header .logo {
-            max-width: 150px;
-            max-height: 80px;
-            margin-bottom: 15px;
+            max-width: 80px;
+            max-height: 40px;
+            margin-bottom: 5px;
             display: block;
             margin-left: auto;
             margin-right: auto;
         }
         
         .header h1 {
-            font-size: 26px;
-            color: #2563eb;
-            margin-bottom: 8px;
+            font-size: 15px;
+            background: linear-gradient(135deg, #E63946 0%, #1e88e5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 3px;
             font-weight: bold;
+            text-transform: uppercase;
         }
         
         .header p {
-            font-size: 11px;
-            color: #666;
+            font-size: 9px;
+            color: #1e88e5;
+            font-weight: bold;
         }
         
         .recibo-numero {
             text-align: right;
-            font-size: 15px;
+            font-size: 11px;
             font-weight: bold;
-            margin-bottom: 25px;
-            color: #2563eb;
+            margin-bottom: 8px;
+            color: white;
+            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+            padding: 4px 10px;
+            display: inline-block;
+            float: right;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .clear {
+            clear: both;
         }
         
         .section {
-            margin-bottom: 25px;
+            margin-bottom: 8px;
+            clear: both;
         }
         
         .section-title {
             font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 10px;
-            color: #1f2937;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 6px;
+            font-size: 10px;
+            margin-bottom: 4px;
+            color: white;
+            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+            padding: 3px 8px;
+            border-radius: 3px;
+            text-transform: uppercase;
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 15px;
+            margin-bottom: 6px;
+            font-size: 9px;
+            background: white;
+            border-radius: 5px;
+            overflow: hidden;
         }
         
         table td {
-            padding: 8px 10px;
-            border: 1px solid #e5e7eb;
+            padding: 4px 6px;
+            border: 1px solid #90caf9;
         }
         
         table td:first-child {
-            width: 35%;
+            width: 40%;
             font-weight: bold;
-            color: #6b7280;
-            background-color: #f9fafb;
+            color: #1e88e5;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
         }
         
         table td:last-child {
-            width: 65%;
-            color: #1f2937;
+            width: 60%;
+            color: #333;
+            background-color: white;
+        }
+        
+        /* 🆕 TABLA DE SESIONES (PARA PAGO MASIVO) */
+        .tabla-sesiones {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+            font-size: 8px;
+            background: white;
+        }
+        
+        .tabla-sesiones thead {
+            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
+            color: white;
+        }
+        
+        .tabla-sesiones th {
+            padding: 4px;
+            text-align: left;
+            font-size: 8px;
+            border: 1px solid #90caf9;
+        }
+        
+        .tabla-sesiones td {
+            padding: 3px 4px;
+            border: 1px solid #e3f2fd;
+            font-size: 8px;
+        }
+        
+        .tabla-sesiones tbody tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+        
+        .tabla-sesiones tfoot {
+            background: linear-gradient(135deg, #FFD700 0%, #fff9c4 100%);
+            font-weight: bold;
+        }
+        
+        .tabla-sesiones tfoot td {
+            padding: 5px;
+            font-size: 9px;
+            color: #E63946;
         }
         
         .monto-total {
-            background-color: #f3f4f6;
-            border: 3px solid #2563eb;
-            padding: 20px;
-            margin: 30px 0;
+            background: linear-gradient(135deg, #FFD700 0%, #fff9c4 100%);
+            border: 3px solid #E63946;
+            padding: 8px;
+            margin: 8px 0;
             text-align: center;
+            border-radius: 8px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
         }
         
         .monto-total .label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 8px;
+            font-size: 9px;
+            color: #E63946;
+            margin-bottom: 3px;
             font-weight: bold;
+            text-transform: uppercase;
         }
         
         .monto-total .valor {
-            font-size: 36px;
+            font-size: 22px;
             font-weight: bold;
-            color: #2563eb;
+            color: #E63946;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         
         .firma-container {
-            margin-top: 60px;
+            margin-top: 10px;
             text-align: center;
         }
         
         .firma {
             display: inline-block;
-            border-top: 2px solid #333;
-            padding-top: 10px;
-            min-width: 300px;
+            border-top: 2px solid #1e88e5;
+            padding-top: 4px;
+            min-width: 150px;
             text-align: center;
         }
         
         .firma strong {
-            font-size: 13px;
-            color: #1f2937;
+            font-size: 9px;
+            color: #E63946;
         }
         
         .firma small {
-            font-size: 10px;
-            color: #6b7280;
+            font-size: 8px;
+            color: #1e88e5;
         }
         
         .footer {
-            margin-top: 50px;
-            padding-top: 15px;
+            margin-top: 8px;
+            padding-top: 6px;
             text-align: center;
-            font-size: 10px;
-            color: #9ca3af;
-            border-top: 1px solid #e5e7eb;
+            font-size: 7px;
+            color: #666;
+            border-top: 1px solid #90caf9;
+        }
+        
+        /* Decoración adicional */
+        .recibo-copia::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(to right, #E63946, #FFD700, #1e88e5);
+        }
+        
+        .recibo-copia::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(to right, #1e88e5, #FFD700, #E63946);
         }
         
         /* Estilos para impresión */
         @media print {
             body {
                 margin: 0;
-                padding: 20px;
+                padding: 0;
             }
             
-            .no-imprimir {
-                display: none;
+            .contenedor-recibos {
+                page-break-inside: avoid;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Header con Logo -->
-    <div class="header">
-        {% if logo_base64 %}
-        <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo Centro de Terapias" class="logo">
-        {% endif %}
-        <h1>RECIBO DE PAGO</h1>
-        <p>Centro de Terapias</p>
-    </div>
-    
-    <!-- Número de Recibo -->
-    <div class="recibo-numero">
-        N° {{ pago.numero_recibo }}
-    </div>
-    
-    <!-- Datos del Paciente -->
-    <div class="section">
-        <div class="section-title">DATOS DEL PACIENTE</div>
-        <table>
-            <tr>
-                <td>Paciente:</td>
-                <td>{{ pago.paciente.nombre_completo }}</td>
-            </tr>
-            <tr>
-                <td>Tutor/Responsable:</td>
-                <td>{{ pago.paciente.nombre_tutor|default:"N/A" }}</td>
-            </tr>
-            <tr>
-                <td>Teléfono:</td>
-                <td>{{ pago.paciente.telefono_tutor|default:"N/A" }}</td>
-            </tr>
-        </table>
-    </div>
-    
-    <!-- Datos del Pago -->
-    <div class="section">
-        <div class="section-title">DATOS DEL PAGO</div>
-        <table>
-            <tr>
-                <td>Fecha de Pago:</td>
-                <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
-            </tr>
-            <tr>
-                <td>Método de Pago:</td>
-                <td>{{ pago.metodo_pago.nombre }}</td>
-            </tr>
-            {% if pago.numero_transaccion %}
-            <tr>
-                <td>N° Transacción:</td>
-                <td>{{ pago.numero_transaccion }}</td>
-            </tr>
+    <div class="contenedor-recibos">
+        <!-- COPIA 1: CLIENTE (IZQUIERDA) -->
+        <div class="recibo-copia izquierda">
+            <div class="etiqueta-copia cliente">COPIA CLIENTE</div>
+            
+            <!-- Header con Logo -->
+            <div class="header">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Centro Infantil Misael" class="logo">
+                {% endif %}
+                <h1>Recibo de Pago</h1>
+                <p>Centro de Neurodesarrollo Infantil Misael</p>
+            </div>
+            
+            <!-- Número de Recibo -->
+            <div class="recibo-numero">
+                N° {{ pago.numero_recibo }}
+            </div>
+            <div class="clear"></div>
+            
+            <!-- Datos del Paciente -->
+            <div class="section">
+                <div class="section-title">Datos del Paciente</div>
+                <table>
+                    <tr>
+                        <td>Paciente:</td>
+                        <td>{{ pago.paciente.nombre_completo }}</td>
+                    </tr>
+                    <tr>
+                        <td>Tutor/Responsable:</td>
+                        <td>{{ pago.paciente.nombre_tutor|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Teléfono:</td>
+                        <td>{{ pago.paciente.telefono_tutor|default:"N/A" }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Datos del Pago -->
+            <div class="section">
+                <div class="section-title">Datos del Pago</div>
+                <table>
+                    <tr>
+                        <td>Fecha de Pago:</td>
+                        <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Método de Pago:</td>
+                        <td>{{ pago.metodo_pago.nombre }}</td>
+                    </tr>
+                    {% if pago.numero_transaccion %}
+                    <tr>
+                        <td>N° Transacción:</td>
+                        <td>{{ pago.numero_transaccion }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+            
+            <!-- 🆕 DETALLE DE ITEMS (SESIONES Y PROYECTOS) -->
+            {% if es_pago_masivo %}
+            <div class="section">
+                <div class="section-title">Detalle de Items Pagados</div>
+                <table class="tabla-sesiones">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Código</th>
+                            <th>Descripción</th>
+                            <th>Tipo</th>
+                            <th style="text-align: right;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago_rel in pagos_relacionados %}
+                        <tr>
+                            {% if pago_rel.sesion %}
+                                <!-- SESIÓN NORMAL -->
+                                <td>{{ pago_rel.sesion.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ pago_rel.sesion.servicio.nombre }}</td>
+                                <td style="font-size: 7px;">📄 Sesión</td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% elif pago_rel.proyecto %}
+                                <!-- PROYECTO -->
+                                <td style="color: #6a1b9a; font-weight: bold;">{{ pago_rel.proyecto.codigo }}</td>
+                                <td>{{ pago_rel.proyecto.nombre }}</td>
+                                <td style="font-size: 7px;">📦 Proyecto</td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align: right;">TOTAL:</td>
+                            <td style="text-align: right;">Bs. {{ total_recibo|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <!-- PAGO INDIVIDUAL -->
+            <div class="section">
+                <table>
+                    <tr>
+                        <td>Concepto:</td>
+                        <td>{{ pago.concepto }}</td>
+                    </tr>
+                </table>
+            </div>
             {% endif %}
-            <tr>
-                <td>Concepto:</td>
-                <td>{{ pago.concepto }}</td>
-            </tr>
-            {% if pago.observaciones %}
-            <tr>
-                <td>Observaciones:</td>
-                <td>{{ pago.observaciones }}</td>
-            </tr>
-            {% endif %}
-        </table>
-    </div>
-    
-    <!-- Monto Total -->
-    <div class="monto-total">
-        <div class="label">MONTO PAGADO</div>
-        <div class="valor">Bs. {{ pago.monto|floatformat:2 }}</div>
-    </div>
-    
-    <!-- Firma -->
-    <div class="firma-container">
-        <div class="firma">
-            <strong>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</strong><br>
-            <small>Recibí conforme</small>
+            
+            <!-- Monto Total -->
+            <div class="monto-total">
+                <div class="label">Monto Total Pagado</div>
+                <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
+            </div>
+            
+            <!-- Firma -->
+            <div class="firma-container">
+                <div class="firma">
+                    <strong>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</strong><br>
+                    <small>Recibí conforme</small>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                Generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }}<br>
+                Comprobante válido de pago
+            </div>
         </div>
-    </div>
-    
-    <!-- Footer -->
-    <div class="footer">
-        Recibo generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }}<br>
-        Este documento es un comprobante válido de pago
+        
+        <!-- LÍNEA DIVISORIA CENTRAL -->
+        <div class="linea-divisoria"></div>
+        
+        <!-- COPIA 2: SUCURSAL (DERECHA) - IDÉNTICO A COPIA 1 -->
+        <div class="recibo-copia">
+            <div class="etiqueta-copia sucursal">COPIA ADMINISTRACIÓN</div>
+            
+            <!-- Header con Logo -->
+            <div class="header">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Centro Infantil Misael" class="logo">
+                {% endif %}
+                <h1>Recibo de Pago</h1>
+                <p>Centro de Neurodesarrollo Infantil Misael</p>
+            </div>
+            
+            <!-- Número de Recibo -->
+            <div class="recibo-numero">
+                N° {{ pago.numero_recibo }}
+            </div>
+            <div class="clear"></div>
+            
+            <!-- Datos del Paciente -->
+            <div class="section">
+                <div class="section-title">Datos del Paciente</div>
+                <table>
+                    <tr>
+                        <td>Paciente:</td>
+                        <td>{{ pago.paciente.nombre_completo }}</td>
+                    </tr>
+                    <tr>
+                        <td>Tutor/Responsable:</td>
+                        <td>{{ pago.paciente.nombre_tutor|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Teléfono:</td>
+                        <td>{{ pago.paciente.telefono_tutor|default:"N/A" }}</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Datos del Pago -->
+            <div class="section">
+                <div class="section-title">Datos del Pago</div>
+                <table>
+                    <tr>
+                        <td>Fecha de Pago:</td>
+                        <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+                    </tr>
+                    <tr>
+                        <td>Método de Pago:</td>
+                        <td>{{ pago.metodo_pago.nombre }}</td>
+                    </tr>
+                    {% if pago.numero_transaccion %}
+                    <tr>
+                        <td>N° Transacción:</td>
+                        <td>{{ pago.numero_transaccion }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+            
+            <!-- 🆕 DETALLE DE ITEMS (SESIONES Y PROYECTOS) -->
+            {% if es_pago_masivo %}
+            <div class="section">
+                <div class="section-title">Detalle de Items Pagados</div>
+                <table class="tabla-sesiones">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Código</th>
+                            <th>Descripción</th>
+                            <th>Tipo</th>
+                            <th style="text-align: right;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago_rel in pagos_relacionados %}
+                        <tr>
+                            {% if pago_rel.sesion %}
+                                <!-- SESIÓN NORMAL -->
+                                <td>{{ pago_rel.sesion.fecha|date:"d/m/Y" }}</td>
+                                <td>{{ pago_rel.sesion.servicio.nombre }}</td>
+                                <td style="font-size: 7px;">📄 Sesión</td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% elif pago_rel.proyecto %}
+                                <!-- PROYECTO -->
+                                <td style="color: #6a1b9a; font-weight: bold;">{{ pago_rel.proyecto.codigo }}</td>
+                                <td>{{ pago_rel.proyecto.nombre }}</td>
+                                <td style="font-size: 7px;">📦 Proyecto</td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align: right;">TOTAL:</td>
+                            <td style="text-align: right;">Bs. {{ total_recibo|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <!-- PAGO INDIVIDUAL -->
+            <div class="section">
+                <table>
+                    <tr>
+                        <td>Concepto:</td>
+                        <td>{{ pago.concepto }}</td>
+                    </tr>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Monto Total -->
+            <div class="monto-total">
+                <div class="label">Monto Total Pagado</div>
+                <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
+            </div>
+            
+            <!-- Firma -->
+            <div class="firma-container">
+                <div class="firma">
+                    <strong>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</strong><br>
+                    <small>Recibí conforme</small>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                Generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }}<br>
+                Comprobante válido de pago
+            </div>
+        </div>
     </div>
 </body>
 </html>

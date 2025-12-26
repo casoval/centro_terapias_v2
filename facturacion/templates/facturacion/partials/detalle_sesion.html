@@ -1,0 +1,183 @@
+<!-- facturacion/templates/facturacion/partials/detalle_sesion.html -->
+
+<div class="space-y-4">
+    <!-- Información Principal -->
+    <div class="bg-gray-50 rounded-lg p-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-xs text-gray-600 font-semibold">📅 Fecha y Hora</p>
+                <p class="text-lg font-bold text-gray-900">
+                    {{ sesion.fecha|date:"d/m/Y" }} {{ sesion.hora_inicio|time:"H:i" }}
+                </p>
+                <p class="text-xs text-gray-500">
+                    Duración: {{ sesion.duracion_minutos }} minutos
+                </p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-600 font-semibold">👤 Paciente</p>
+                <p class="text-lg font-bold text-gray-900">
+                    {{ sesion.paciente.nombre_completo }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Servicio y Profesional -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-blue-50 rounded-lg p-4">
+            <p class="text-xs text-blue-600 font-semibold mb-1">🏥 Servicio</p>
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-3 h-3 rounded-full" style="background-color: {{ sesion.servicio.color }}"></span>
+                <p class="font-bold text-gray-900">{{ sesion.servicio.nombre }}</p>
+            </div>
+            <p class="text-xs text-gray-600 mt-1">📍 {{ sesion.sucursal.nombre }}</p>
+        </div>
+        <div class="bg-green-50 rounded-lg p-4">
+            <p class="text-xs text-green-600 font-semibold mb-1">👨‍⚕️ Profesional</p>
+            <p class="font-bold text-gray-900">
+                {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+            </p>
+            <p class="text-xs text-gray-600 mt-1">{{ sesion.profesional.especialidad }}</p>
+        </div>
+    </div>
+
+    <!-- Estado y Monto -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-600 font-semibold mb-2">📊 Estado</p>
+            <span class="inline-block px-3 py-1 rounded-lg text-sm font-bold
+                {% if sesion.estado == 'realizada' %}bg-green-100 text-green-700
+                {% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
+                {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-700
+                {% elif sesion.estado == 'falta' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ sesion.get_estado_display }}
+            </span>
+            
+            {% if sesion.estado == 'realizada_retraso' and sesion.minutos_retraso %}
+            <p class="text-xs text-yellow-600 mt-1">
+                ⏰ Retraso: {{ sesion.minutos_retraso }} minutos
+            </p>
+            {% endif %}
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-xs text-gray-600 font-semibold mb-2">💰 Costo</p>
+            <p class="text-2xl font-black text-gray-900">
+                Bs. {{ sesion.monto_cobrado|floatformat:2 }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Proyecto (si aplica) -->
+    {% if sesion.proyecto %}
+    <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+        <p class="text-xs text-purple-600 font-semibold mb-2">📦 Proyecto Asociado</p>
+        <p class="font-bold text-purple-900">{{ sesion.proyecto.codigo }} - {{ sesion.proyecto.nombre }}</p>
+        <p class="text-xs text-purple-700 mt-1">{{ sesion.proyecto.get_tipo_display }}</p>
+    </div>
+    {% endif %}
+
+    <!-- 💰 PAGOS ASOCIADOS -->
+    <div class="border-t pt-4">
+        <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <span class="text-xl">💰</span>
+            Pagos Asociados
+        </h3>
+        
+        {% if pagos %}
+            <div class="space-y-2">
+                {% for pago in pagos %}
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-mono text-sm font-bold text-green-900">{{ pago.numero_recibo }}</p>
+                            <p class="text-xs text-green-700">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
+                        </div>
+                        <p class="text-lg font-black text-green-700">Bs. {{ pago.monto|floatformat:2 }}</p>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-2 py-1 rounded bg-blue-100 text-blue-700">
+                            {{ pago.metodo_pago.nombre }}
+                        </span>
+                        <span class="text-gray-600">
+                            Por: {{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}
+                        </span>
+                    </div>
+                    {% if pago.observaciones %}
+                    <p class="text-xs text-gray-600 mt-2">💬 {{ pago.observaciones }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Resumen de pagos -->
+            <div class="bg-gray-100 rounded-lg p-3 mt-3">
+                <div class="flex justify-between text-sm">
+                    <span class="font-semibold">Total Pagado:</span>
+                    <span class="font-black text-green-700">Bs. {{ sesion.total_pagado|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between text-sm mt-1">
+                    <span class="font-semibold">Saldo Pendiente:</span>
+                    <span class="font-black {% if sesion.saldo_pendiente > 0 %}text-red-700{% else %}text-green-700{% endif %}">
+                        Bs. {{ sesion.saldo_pendiente|floatformat:2 }}
+                    </span>
+                </div>
+                <div class="flex justify-between text-sm mt-1 pt-2 border-t border-gray-300">
+                    <span class="font-semibold">Estado de Pago:</span>
+                    <span class="font-bold {% if sesion.pagado %}text-green-700{% else %}text-red-700{% endif %}">
+                        {% if sesion.pagado %}✅ Pagado{% else %}❌ Pendiente{% endif %}
+                    </span>
+                </div>
+            </div>
+        {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <p class="text-yellow-700">⚠️ No hay pagos registrados para esta sesión</p>
+                {% if sesion.requiere_pago %}
+                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
+                   class="inline-block mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                    💵 Registrar Pago
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Observaciones -->
+    {% if sesion.observaciones or sesion.notas_sesion %}
+    <div class="border-t pt-4">
+        <h3 class="text-sm font-bold text-gray-900 mb-3">📝 Observaciones</h3>
+        
+        {% if sesion.observaciones %}
+        <div class="bg-gray-50 rounded-lg p-3 mb-2">
+            <p class="text-xs text-gray-600 font-semibold mb-1">Observaciones generales:</p>
+            <p class="text-sm text-gray-700">{{ sesion.observaciones }}</p>
+        </div>
+        {% endif %}
+        
+        {% if sesion.notas_sesion %}
+        <div class="bg-blue-50 rounded-lg p-3">
+            <p class="text-xs text-blue-600 font-semibold mb-1">Notas clínicas:</p>
+            <p class="text-sm text-gray-700">{{ sesion.notas_sesion }}</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Información de control -->
+    <div class="border-t pt-4">
+        <div class="grid grid-cols-2 gap-4 text-xs text-gray-500">
+            <div>
+                <p class="font-semibold">Creada por:</p>
+                <p>{{ sesion.creada_por.get_full_name|default:sesion.creada_por.username }}</p>
+                <p>{{ sesion.fecha_creacion|date:"d/m/Y H:i" }}</p>
+            </div>
+            {% if sesion.modificada_por %}
+            <div>
+                <p class="font-semibold">Última modificación:</p>
+                <p>{{ sesion.modificada_por.get_full_name|default:sesion.modificada_por.username }}</p>
+                <p>{{ sesion.fecha_modificacion|date:"d/m/Y H:i" }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

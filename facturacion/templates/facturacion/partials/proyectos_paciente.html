@@ -1,0 +1,106 @@
+<!-- templates/facturacion/partials/proyectos_paciente.html -->
+<!-- Este partial se incluye en detalle_cuenta.html -->
+
+{% if proyectos_paciente %}
+<div class="bg-white border-2 border-purple-300 rounded-lg overflow-hidden shadow-md mb-6">
+    <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span class="text-2xl">📦</span>
+            Proyectos del Paciente ({{ proyectos_paciente.count }})
+        </h2>
+    </div>
+    
+    <div class="p-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {% for proyecto in proyectos_paciente %}
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-4 hover:shadow-lg transition">
+                <!-- Header del proyecto -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1">
+                        <p class="font-mono text-xs text-purple-700 font-bold">{{ proyecto.codigo }}</p>
+                        <h3 class="font-bold text-gray-900 text-sm mt-1">{{ proyecto.nombre }}</h3>
+                    </div>
+                    <span class="text-xs px-3 py-1 rounded-full font-bold
+                        {% if proyecto.estado == 'planificado' %}bg-yellow-100 text-yellow-700
+                        {% elif proyecto.estado == 'en_progreso' %}bg-green-100 text-green-700
+                        {% elif proyecto.estado == 'finalizado' %}bg-purple-100 text-purple-700
+                        {% else %}bg-red-100 text-red-700{% endif %}">
+                        {{ proyecto.get_estado_display }}
+                    </span>
+                </div>
+                
+                <!-- Información básica -->
+                <div class="space-y-2 mb-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-600">Tipo:</span>
+                        <span class="font-semibold text-gray-900">{{ proyecto.get_tipo_display }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-600">Servicio:</span>
+                        <span class="font-semibold text-gray-900">{{ proyecto.servicio_base.nombre }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-600">Inicio:</span>
+                        <span class="font-semibold text-gray-900">{{ proyecto.fecha_inicio|date:"d/m/Y" }}</span>
+                    </div>
+                </div>
+                
+                <!-- Financiero -->
+                <div class="bg-white/70 rounded-lg p-3 mb-3">
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase">Costo</p>
+                            <p class="text-sm font-black text-blue-700">{{ proyecto.costo_total }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase">Pagado</p>
+                            <p class="text-sm font-black text-green-700">{{ proyecto.total_pagado }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase">Pendiente</p>
+                            <p class="text-sm font-black text-red-700">{{ proyecto.saldo_pendiente }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Barra de progreso -->
+                    <div class="mt-2">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            {% widthratio proyecto.total_pagado proyecto.costo_total 100 as porcentaje %}
+                            <div class="h-2 rounded-full {% if porcentaje >= 100 %}bg-green-500{% elif porcentaje >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}" 
+                                 style="width: {{ porcentaje }}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-600 text-center mt-1">{{ porcentaje }}% pagado</p>
+                    </div>
+                </div>
+                
+                <!-- Estadísticas -->
+                <div class="bg-white/70 rounded-lg p-2 mb-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-600">📅 Sesiones:</span>
+                        <span class="font-bold text-gray-900">{{ proyecto.sesiones.count }}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs mt-1">
+                        <span class="text-gray-600">⏱️ Duración:</span>
+                        <span class="font-bold text-gray-900">{{ proyecto.duracion_dias }} días</span>
+                    </div>
+                </div>
+                
+                <!-- Acciones -->
+                <div class="flex gap-2">
+                    <a href="{% url 'agenda:detalle_proyecto' proyecto.id %}" 
+                       class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-bold text-center">
+                        📋 Ver Detalle
+                    </a>
+                    {% if proyecto.saldo_pendiente > 0 %}
+                    <a href="{% url 'facturacion:registrar_pago' %}?proyecto={{ proyecto.id }}" 
+                       class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold text-center">
+                        💵 Pagar
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

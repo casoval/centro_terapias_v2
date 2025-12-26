@@ -1,11 +1,166 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Q, Sum
 from pacientes.models import Paciente
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
 from datetime import datetime, timedelta
+from decimal import Decimal
+
+
+class Proyecto(models.Model):
+    """
+    Para servicios de duración variable (evaluaciones, tratamientos especiales)
+    Ejemplo: Evaluación Psicológica de 500 Bs que puede durar 1-10 días
+    """
+    
+    TIPO_CHOICES = [
+        ('evaluacion', 'Evaluación'),
+        ('tratamiento_especial', 'Tratamiento Especial'),
+        ('otro', 'Otro'),
+    ]
+    
+    ESTADO_CHOICES = [
+        ('planificado', 'Planificado'),
+        ('en_progreso', 'En Progreso'),
+        ('finalizado', 'Finalizado'),
+        ('cancelado', 'Cancelado'),
+    ]
+    
+    # Identificación
+    codigo = models.CharField(
+        max_length=20,
+        unique=True,
+        help_text="Código único del proyecto (ej: EVAL-PSI-001)"
+    )
+    nombre = models.CharField(
+        max_length=200,
+        help_text="Nombre descriptivo del proyecto"
+    )
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES)
+    
+    # Relaciones
+    paciente = models.ForeignKey(
+        Paciente,
+        on_delete=models.PROTECT,
+        related_name='proyectos'
+    )
+    servicio_base = models.ForeignKey(
+        TipoServicio,
+        on_delete=models.PROTECT,
+        help_text="Servicio base (ej: Evaluación Psicológica)"
+    )
+    profesional_responsable = models.ForeignKey(
+        Profesional,
+        on_delete=models.PROTECT,
+        related_name='proyectos_responsable'
+    )
+    sucursal = models.ForeignKey(
+        Sucursal,
+        on_delete=models.PROTECT
+    )
+    
+    # Fechas
+    fecha_inicio = models.DateField()
+    fecha_fin_estimada = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha estimada de finalización"
+    )
+    fecha_fin_real = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha real de finalización"
+    )
+    
+    # Costos
+    costo_total = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Costo FIJO del proyecto completo"
+    )
+    
+    # Estado
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='planificado'
+    )
+    
+    # Descripción
+    descripcion = models.TextField(
+        blank=True,
+        help_text="Descripción del alcance del proyecto"
+    )
+    observaciones = models.TextField(blank=True)
+    
+    # Control
+    creado_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='proyectos_creados'
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    modificado_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='proyectos_modificados',
+        null=True,
+        blank=True
+    )
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Proyecto"
+        verbose_name_plural = "Proyectos"
+        ordering = ['-fecha_inicio']
+        indexes = [
+            models.Index(fields=['paciente', '-fecha_inicio']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['codigo']),
+        ]
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre} ({self.paciente})"
+    
+    @property
+    def total_pagado(self):
+        """Total de pagos recibidos para este proyecto"""
+        from facturacion.models import Pago
+        return Pago.objects.filter(
+            proyecto=self,
+            anulado=False
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    @property
+    def saldo_pendiente(self):
+        """Monto que aún falta por pagar"""
+        return self.costo_total - self.total_pagado
+    
+    @property
+    def pagado_completo(self):
+        """Verifica si el proyecto está pagado completamente"""
+        return self.total_pagado >= self.costo_total
+    
+    @property
+    def duracion_dias(self):
+        """Duración real en días"""
+        if self.fecha_fin_real:
+            return (self.fecha_fin_real - self.fecha_inicio).days + 1
+        elif self.estado == 'en_progreso':
+            from datetime import date
+            return (date.today() - self.fecha_inicio).days + 1
+        return 0
+    
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            # Generar código automático
+            ultimo = Proyecto.objects.order_by('-id').first()
+            numero = 1 if not ultimo else ultimo.id + 1
+            prefijo = self.tipo[:4].upper()
+            self.codigo = f"{prefijo}-{numero:04d}"
+        super().save(*args, **kwargs)
 
 
 class Sesion(models.Model):
@@ -43,6 +198,16 @@ class Sesion(models.Model):
         related_name='sesiones'
     )
     
+    # 🆕 NUEVO: Relación con Proyecto (opcional)
+    proyecto = models.ForeignKey(
+        Proyecto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sesiones',
+        help_text="Si pertenece a un proyecto (evaluación, tratamiento especial)"
+    )
+    
     # Fecha y hora
     fecha = models.DateField()
     hora_inicio = models.TimeField()
@@ -77,14 +242,15 @@ class Sesion(models.Model):
         help_text="Minutos de retraso"
     )
     
-    # Cobros
+    # 🔥 CAMBIO CRÍTICO: Monto a cobrar (puede ser 0)
     monto_cobrado = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        help_text="Monto a cobrar por esta sesión"
+        default=Decimal('0.00'),
+        help_text="Monto a cobrar por esta sesión (0 si es parte de proyecto/evaluación o gratuita)"
     )
-    pagado = models.BooleanField(default=False)
-    fecha_pago = models.DateField(null=True, blank=True)
+    
+    # 🔥 ELIMINADOS: pagado y fecha_pago (ahora son @property)
     
     # Observaciones
     observaciones = models.TextField(blank=True)
@@ -118,7 +284,7 @@ class Sesion(models.Model):
             models.Index(fields=['paciente', 'fecha']),
             models.Index(fields=['profesional', 'fecha']),
             models.Index(fields=['estado']),
-            models.Index(fields=['pagado']),
+            models.Index(fields=['proyecto']),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -129,6 +295,69 @@ class Sesion(models.Model):
     
     def __str__(self):
         return f"{self.fecha} {self.hora_inicio} - {self.paciente} - {self.servicio}"
+    
+    # 🆕 NUEVAS PROPIEDADES CALCULADAS
+    @property
+    def total_pagado(self):
+        """Total de pagos recibidos para esta sesión específica"""
+        return self.pagos.filter(anulado=False).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+    
+    @property
+    def saldo_pendiente(self):
+        """Monto que aún falta por pagar"""
+        return self.monto_cobrado - self.total_pagado
+    
+    @property
+    def pagado(self):
+        """
+        Verifica si la sesión está pagada completamente
+        - Si monto_cobrado = 0 → Siempre True (no requiere pago)
+        - Si monto_cobrado > 0 → True si total_pagado >= monto_cobrado
+        """
+        if self.monto_cobrado == 0:
+            return True  # Sesiones gratuitas o de proyecto
+        return self.total_pagado >= self.monto_cobrado
+    
+    @property
+    def fecha_pago(self):
+        """Obtiene la fecha del último pago"""
+        pago = self.pagos.filter(anulado=False).order_by('-fecha_pago').first()
+        return pago.fecha_pago if pago else None
+    
+    @property
+    def pago_activo(self):
+        """Obtiene el primer pago válido (para compatibilidad)"""
+        return self.pagos.filter(anulado=False).first()
+    
+    @property
+    def requiere_pago(self):
+        """Verifica si esta sesión debe ser cobrada"""
+        # Estados que NO se cobran
+        if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+            return False
+        # Si es parte de un proyecto, el pago es del proyecto
+        if self.proyecto:
+            return False
+        # Si el monto es 0 (sesión gratuita)
+        if self.monto_cobrado == 0:
+            return False
+        return True
+    
+    @property
+    def estado_pago(self):
+        """
+        Retorna el estado del pago como string
+        Útil para mostrar en templates
+        """
+        if not self.requiere_pago:
+            return 'no_aplica'
+        if self.pagado:
+            return 'pagado'
+        if self.total_pagado > 0:
+            return 'parcial'
+        return 'pendiente'
     
     def clean(self):
         """Validación de choques de horarios"""
@@ -164,34 +393,26 @@ class Sesion(models.Model):
                 'profesional': f'❌ El profesional {self.profesional} no ofrece el servicio {self.servicio}.'
             })
         
-        # 🚫 VALIDAR CHOQUES DE HORARIOS (SIN IMPORTAR SUCURSAL)
+        # 🚫 VALIDAR CHOQUES DE HORARIOS
         self._validar_choque_paciente()
         self._validar_choque_profesional()
     
     def _validar_choque_paciente(self):
-        """
-        ✅ CRÍTICO: El paciente NO puede tener otra sesión al mismo tiempo,
-        INDEPENDIENTEMENTE de la sucursal
-        """
-        # Buscar sesiones del mismo paciente en la misma fecha (EN CUALQUIER SUCURSAL)
+        """El paciente NO puede tener otra sesión al mismo tiempo"""
         sesiones_existentes = Sesion.objects.filter(
             paciente=self.paciente,
             fecha=self.fecha,
             estado__in=['programada', 'realizada', 'realizada_retraso']
-        ).exclude(pk=self.pk)  # Excluir la sesión actual si está editando
+        ).exclude(pk=self.pk)
         
         for sesion in sesiones_existentes:
             if self._hay_solapamiento(sesion):
                 raise ValidationError({
-                    'hora_inicio': f'⚠️ CHOQUE DE HORARIOS: El paciente {self.paciente} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal} ({sesion.servicio}).'
+                    'hora_inicio': f'⚠️ CHOQUE: El paciente ya tiene sesión de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal}.'
                 })
     
     def _validar_choque_profesional(self):
-        """
-        ✅ CRÍTICO: El profesional NO puede tener otra sesión al mismo tiempo,
-        INDEPENDIENTEMENTE de la sucursal
-        """
-        # Buscar sesiones del mismo profesional en la misma fecha (EN CUALQUIER SUCURSAL)
+        """El profesional NO puede tener otra sesión al mismo tiempo"""
         sesiones_existentes = Sesion.objects.filter(
             profesional=self.profesional,
             fecha=self.fecha,
@@ -201,11 +422,11 @@ class Sesion(models.Model):
         for sesion in sesiones_existentes:
             if self._hay_solapamiento(sesion):
                 raise ValidationError({
-                    'profesional': f'⚠️ CHOQUE DE HORARIOS: El/la profesional {self.profesional} ya tiene una sesión programada de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal} con {sesion.paciente}.'
+                    'profesional': f'⚠️ CHOQUE: El profesional ya tiene sesión de {sesion.hora_inicio.strftime("%H:%M")} a {sesion.hora_fin.strftime("%H:%M")} en {sesion.sucursal}.'
                 })
     
     def _hay_solapamiento(self, otra_sesion):
-        """Verificar si hay solapamiento de horarios con otra sesión"""
+        """Verificar si hay solapamiento de horarios"""
         inicio1 = datetime.combine(self.fecha, self.hora_inicio)
         fin1 = datetime.combine(self.fecha, self.hora_fin)
         inicio2 = datetime.combine(otra_sesion.fecha, otra_sesion.hora_inicio)
@@ -216,12 +437,13 @@ class Sesion(models.Model):
     def save(self, *args, **kwargs):
         # Validar antes de guardar
         self.full_clean()
-        super().save(*args, **kwargs)
         
-        # Actualizar cuenta corriente del paciente si cambió el estado o monto
-        if self.estado in ['realizada', 'realizada_retraso']:
-            self._actualizar_cuenta_corriente()
-    
+        # 🆕 NUEVA LÓGICA: Ajustar monto según estado
+        if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+            self.monto_cobrado = Decimal('0.00')
+        
+        super().save(*args, **kwargs)
+            
     def _actualizar_cuenta_corriente(self):
         """Actualizar la cuenta corriente del paciente"""
         try:
@@ -236,14 +458,13 @@ class Sesion(models.Model):
     @classmethod
     def validar_disponibilidad(cls, paciente, profesional, fecha, hora_inicio, hora_fin, sesion_actual=None):
         """
-        ✅ CRÍTICO: Valida disponibilidad SIN IMPORTAR la sucursal
-        
+        Valida disponibilidad SIN IMPORTAR la sucursal
         Retorna: (disponible: bool, mensaje: str)
         """
         inicio = datetime.combine(fecha, hora_inicio)
         fin = datetime.combine(fecha, hora_fin)
         
-        # Validar paciente (EN CUALQUIER SUCURSAL)
+        # Validar paciente
         sesiones_paciente = cls.objects.filter(
             paciente=paciente,
             fecha=fecha,
@@ -258,7 +479,7 @@ class Sesion(models.Model):
             if (inicio < s_fin and fin > s_inicio):
                 return False, f"⚠️ Paciente ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
         
-        # Validar profesional (EN CUALQUIER SUCURSAL)
+        # Validar profesional
         sesiones_profesional = cls.objects.filter(
             profesional=profesional,
             fecha=fecha,

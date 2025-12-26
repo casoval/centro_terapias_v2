@@ -11,6 +11,11 @@ from decimal import Decimal
 def dashboard(request):
     """Dashboard principal con estadísticas"""
     
+    # ✅ REDIRECCIONAR PROFESIONALES A SU AGENDA
+    if not request.user.is_superuser:
+        if hasattr(request.user, 'perfil') and request.user.perfil.es_profesional():
+            return redirect('agenda:calendario')
+    
     try:
         from agenda.models import Sesion
         from pacientes.models import Paciente
@@ -37,13 +42,21 @@ def dashboard(request):
             fecha__lte=fin_semana
         ).count()
         
-        # Pendientes de pago
-        pendientes_pago = Sesion.objects.filter(
+        # ✅ CORREGIDO: Pendientes de pago
+        # Obtener sesiones realizadas con monto > 0
+        sesiones_pendientes = Sesion.objects.filter(
             estado__in=['realizada', 'realizada_retraso', 'falta'],
-            pagado=False
-        ).aggregate(
-            total=Sum('monto_cobrado')
-        )['total'] or Decimal('0.00')
+            proyecto__isnull=True,  # Excluir sesiones de proyectos
+            monto_cobrado__gt=0
+        ).select_related('paciente')
+        
+        # Calcular total pendiente sumando saldo_pendiente de cada sesión
+        total_pendiente = Decimal('0.00')
+        for sesion in sesiones_pendientes:
+            if sesion.saldo_pendiente > 0:
+                total_pendiente += sesion.saldo_pendiente
+        
+        pendientes_pago = total_pendiente
         
         # ===== NUEVAS ESTADÍSTICAS =====
         
@@ -160,7 +173,11 @@ def dashboard(request):
         }
         
     except Exception as e:
-        # Si hay error, mostrar dashboard básico
+        # Si hay error, mostrar dashboard básico con el error para debugging
+        import traceback
+        print("❌ ERROR EN DASHBOARD:")
+        print(traceback.format_exc())
+        
         context = {
             'sesiones_hoy': 0,
             'pacientes_activos': 0,
@@ -183,6 +200,18 @@ def dashboard(request):
 class CustomLoginView(LoginView):
     template_name = 'core/login.html'
     redirect_authenticated_user = True
+    
+    def get_success_url(self):
+        """Redirigir según el rol del usuario después del login"""
+        user = self.request.user
+        
+        # ✅ Si es profesional, ir directo a agenda
+        if not user.is_superuser:
+            if hasattr(user, 'perfil') and user.perfil.es_profesional():
+                return '/agenda/'
+        
+        # Para otros roles, ir al dashboard
+        return '/'
 
 
 def logout_view(request):

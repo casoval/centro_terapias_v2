@@ -1,7 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from decimal import Decimal
-from agenda.models import Sesion
 from pacientes.models import Paciente
 from django.contrib.auth.models import User
 
@@ -22,7 +21,14 @@ class MetodoPago(models.Model):
 
 
 class Pago(models.Model):
-    """Registro detallado de pagos"""
+    """
+    Registro detallado de pagos
+    
+    🆕 NUEVO: Soporta 3 tipos de pago:
+    1. Pago de sesión específica (sesion != None, proyecto = None)
+    2. Pago de proyecto (proyecto != None, sesion = None)
+    3. Pago adelantado/a cuenta (sesion = None, proyecto = None)
+    """
     
     # Relaciones
     paciente = models.ForeignKey(
@@ -30,13 +36,23 @@ class Pago(models.Model):
         on_delete=models.PROTECT,
         related_name='pagos'
     )
+    
     sesion = models.ForeignKey(
-        Sesion,
+        'agenda.Sesion',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='pagos',
-        help_text="Sesión específica (opcional si es pago adelantado)"
+        help_text="Sesión específica (opcional si es pago adelantado o de proyecto)"
+    )
+    
+    proyecto = models.ForeignKey(
+        'agenda.Proyecto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos',
+        help_text="Proyecto asociado (evaluaciones, tratamientos especiales)"
     )
     
     # Datos del pago
@@ -44,7 +60,7 @@ class Pago(models.Model):
     monto = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.01'))]
+        validators=[MinValueValidator(Decimal('0.00'))]
     )
     metodo_pago = models.ForeignKey(
         MetodoPago,
@@ -66,7 +82,6 @@ class Pago(models.Model):
     # Recibo
     numero_recibo = models.CharField(
         max_length=20,
-        unique=True,
         help_text="Número de recibo generado automáticamente"
     )
     
@@ -78,7 +93,7 @@ class Pago(models.Model):
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
     
-    # NUEVOS CAMPOS: Anulación
+    # Anulación
     anulado = models.BooleanField(default=False)
     motivo_anulacion = models.TextField(blank=True)
     anulado_por = models.ForeignKey(
@@ -98,18 +113,63 @@ class Pago(models.Model):
             models.Index(fields=['paciente', '-fecha_pago']),
             models.Index(fields=['fecha_pago']),
             models.Index(fields=['numero_recibo']),
+            models.Index(fields=['-numero_recibo']),  # ✅ NUEVO: Para búsquedas descendentes
+            models.Index(fields=['sesion']),
+            models.Index(fields=['proyecto']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(sesion__isnull=False, proyecto__isnull=True) |
+                    models.Q(sesion__isnull=True, proyecto__isnull=False) |
+                    models.Q(sesion__isnull=True, proyecto__isnull=True)
+                ),
+                name='pago_sesion_o_proyecto_o_ninguno'
+            )
         ]
     
     def __str__(self):
-        return f"Pago {self.numero_recibo} - {self.paciente} - Bs. {self.monto}"
+        if self.proyecto:
+            return f"Pago {self.numero_recibo} - {self.paciente} - Proyecto: {self.proyecto.codigo} - Bs. {self.monto}"
+        elif self.sesion:
+            return f"Pago {self.numero_recibo} - {self.paciente} - Sesión - Bs. {self.monto}"
+        else:
+            return f"Pago {self.numero_recibo} - {self.paciente} - A cuenta - Bs. {self.monto}"
+    
+    @property
+    def tipo_pago(self):
+        """Retorna el tipo de pago como string"""
+        if self.proyecto:
+            return 'proyecto'
+        elif self.sesion:
+            return 'sesion'
+        else:
+            return 'adelantado'
     
     def save(self, *args, **kwargs):
-        if not self.numero_recibo:
-            # Generar número de recibo automático
-            ultimo = Pago.objects.order_by('-id').first()
-            numero = 1 if not ultimo else ultimo.id + 1
-            self.numero_recibo = f"REC-{numero:06d}"
+        """
+        Genera numero_recibo automáticamente SOLO si no existe
+        """
+        if not self.numero_recibo or self.numero_recibo == '':
+            ultimo_pago = Pago.objects.filter(
+                numero_recibo__startswith='REC-'
+            ).order_by('-numero_recibo').first()
+            
+            if ultimo_pago:
+                try:
+                    ultimo_numero = int(ultimo_pago.numero_recibo.split('-')[1])
+                    nuevo_numero = ultimo_numero + 1
+                except (ValueError, IndexError):
+                    nuevo_numero = Pago.objects.filter(
+                        numero_recibo__startswith='REC-'
+                    ).count() + 1
+            else:
+                nuevo_numero = 1
+            
+            self.numero_recibo = f"REC-{nuevo_numero:04d}"
+        
         super().save(*args, **kwargs)
+
     
     def anular(self, user, motivo):
         """Anular un pago"""
@@ -120,16 +180,6 @@ class Pago(models.Model):
         self.anulado_por = user
         self.fecha_anulacion = timezone.now()
         self.save()
-        
-        # Si tenía sesión asociada, desmarcarla como pagada
-        if self.sesion:
-            self.sesion.pagado = False
-            self.sesion.fecha_pago = None
-            self.sesion.save()
-        
-        # Actualizar cuenta corriente
-        cuenta, created = CuentaCorriente.objects.get_or_create(paciente=self.paciente)
-        cuenta.actualizar_saldo()
 
 
 class CuentaCorriente(models.Model):
@@ -146,7 +196,7 @@ class CuentaCorriente(models.Model):
         max_digits=10,
         decimal_places=2,
         default=Decimal('0.00'),
-        help_text="Total de sesiones realizadas"
+        help_text="Total de sesiones realizadas (NO incluye proyectos)"
     )
     total_pagado = models.DecimalField(
         max_digits=10,
@@ -175,30 +225,208 @@ class CuentaCorriente(models.Model):
         return f"CC {self.paciente} - Saldo: Bs. {self.saldo}"
     
     def actualizar_saldo(self):
-        """Recalcular saldo basado en sesiones y pagos"""
-        from django.db.models import Sum
+        """Recalcular saldo (crédito disponible) del paciente"""
+        from django.db.models import Sum, Q
+        from agenda.models import Sesion
+        from decimal import Decimal
         
-        # Total consumido (sesiones realizadas)
-        consumido = Sesion.objects.filter(
+        # 1️⃣ PAGOS ADELANTADOS (sin sesión asignada)
+        pagos_sin_sesion = Pago.objects.filter(
             paciente=self.paciente,
-            estado__in=['realizada', 'realizada_retraso']
-        ).aggregate(
-            total=Sum('monto_cobrado')
-        )['total'] or Decimal('0.00')
-        
-        # Total pagado
-        pagado = Pago.objects.filter(
-            paciente=self.paciente,
-            anulado=False
+            anulado=False,
+            sesion__isnull=True,
+            proyecto__isnull=True
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
         ).aggregate(
             total=Sum('monto')
         )['total'] or Decimal('0.00')
         
-        self.total_consumido = consumido
-        self.total_pagado = pagado
-        self.saldo = pagado - consumido  # Positivo = a favor, Negativo = debe
+        # 2️⃣ PAGOS DE SESIONES NO REALIZADAS
+        pagos_sesiones_no_realizadas = Pago.objects.filter(
+            paciente=self.paciente,
+            anulado=False,
+            sesion__isnull=False,
+            sesion__estado='programada'
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+        
+        # 3️⃣ EXCEDENTES DE SOBREPAGOS
+        excedentes_total = Decimal('0.00')
+        
+        sesiones_realizadas = Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True,
+            monto_cobrado__gt=0
+        )
+        
+        for sesion in sesiones_realizadas:
+            total_pagado_sesion = Pago.objects.filter(
+                sesion=sesion,
+                anulado=False
+            ).exclude(
+                metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(
+                total=Sum('monto')
+            )['total'] or Decimal('0.00')
+            
+            excedente = total_pagado_sesion - sesion.monto_cobrado
+            if excedente > 0:
+                excedentes_total += excedente
+        
+        # 4️⃣ USO MANUAL DE CRÉDITO
+        uso_manual_credito = Pago.objects.filter(
+            paciente=self.paciente,
+            anulado=False,
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+        
+        # 5️⃣ CALCULAR CRÉDITO DISPONIBLE
+        credito_disponible = (
+            pagos_sin_sesion +
+            pagos_sesiones_no_realizadas +
+            excedentes_total -
+            uso_manual_credito
+        )
+        
+        # 6️⃣ CALCULAR TOTALES
+        total_consumido = Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True,
+            monto_cobrado__gt=0
+        ).aggregate(
+            total=Sum('monto_cobrado')
+        )['total'] or Decimal('0.00')
+        
+        total_pagado = Pago.objects.filter(
+            paciente=self.paciente,
+            anulado=False
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+        
+        # 💾 GUARDAR
+        self.total_consumido = total_consumido
+        self.total_pagado = total_pagado
+        self.saldo = credito_disponible
+        
         self.save()
 
+    @property
+    def deuda_pendiente(self):
+        """Calcula cuánto debe el paciente por sesiones realizadas sin pagar"""
+        from django.db.models import Sum
+        from agenda.models import Sesion
+        
+        sesiones = Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True,
+            monto_cobrado__gt=0
+        )
+        
+        deuda_total = Decimal('0.00')
+        
+        for sesion in sesiones:
+            pendiente = sesion.saldo_pendiente
+            if pendiente > 0:
+                deuda_total += pendiente
+        
+        return deuda_total
+
+    @property
+    def balance_neto(self):
+        """Balance neto: Crédito - Deuda"""
+        return self.saldo - self.deuda_pendiente
+
+    @property
+    def balance_general(self):
+        """Balance general: Total Pagado - Total Consumido"""
+        return self.total_pagado - self.total_consumido
+
+    @property
+    def consumo_sesiones(self):
+        """Total consumido en sesiones normales (sin proyecto)"""
+        from django.db.models import Sum
+        from agenda.models import Sesion
+        return Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True,
+            monto_cobrado__gt=0
+        ).aggregate(total=Sum('monto_cobrado'))['total'] or Decimal('0.00')
+
+    @property
+    def pagado_sesiones(self):
+        """Total pagado en sesiones normales (sin proyecto)"""
+        from agenda.models import Sesion
+        sesiones_normales = Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True,
+            monto_cobrado__gt=0
+        )
+        
+        total = Decimal('0.00')
+        for sesion in sesiones_normales:
+            total += sesion.total_pagado
+        
+        return total
+
+    @property
+    def deuda_sesiones(self):
+        """Deuda pendiente de sesiones normales"""
+        return max(self.consumo_sesiones - self.pagado_sesiones, Decimal('0.00'))
+
+    @property
+    def consumo_proyectos(self):
+        """Total consumido en proyectos"""
+        from django.db.models import Sum
+        from agenda.models import Proyecto
+        return Proyecto.objects.filter(
+            paciente=self.paciente
+        ).aggregate(total=Sum('costo_total'))['total'] or Decimal('0.00')
+
+    @property
+    def pagado_proyectos(self):
+        """Total pagado en proyectos"""
+        from agenda.models import Proyecto
+        proyectos = Proyecto.objects.filter(paciente=self.paciente)
+        return sum(p.total_pagado for p in proyectos)
+
+    @property
+    def deuda_proyectos(self):
+        """Deuda pendiente de proyectos"""
+        return max(self.consumo_proyectos - self.pagado_proyectos, Decimal('0.00'))
+
+    @property
+    def total_consumo_general(self):
+        """Total consumido (sesiones + proyectos)"""
+        return self.consumo_sesiones + self.consumo_proyectos
+
+    @property
+    def total_pagado_general(self):
+        """Total pagado (sesiones + proyectos)"""
+        return self.pagado_sesiones + self.pagado_proyectos
+
+    @property
+    def total_deuda_general(self):
+        """Total deuda pendiente (sesiones + proyectos)"""
+        return self.deuda_sesiones + self.deuda_proyectos
+
+    @property
+    def balance_final(self):
+        """Balance final: Crédito - Deuda Total"""
+        return self.saldo - self.total_deuda_general
 
 class Factura(models.Model):
     """Facturas agrupando múltiples pagos/sesiones"""
@@ -209,54 +437,18 @@ class Factura(models.Model):
         ('anulada', 'Anulada'),
     ]
     
-    # Identificación
-    numero_factura = models.CharField(
-        max_length=20,
-        unique=True
-    )
+    numero_factura = models.CharField(max_length=20, unique=True)
     fecha_emision = models.DateField()
-    
-    # Cliente
-    paciente = models.ForeignKey(
-        Paciente,
-        on_delete=models.PROTECT,
-        related_name='facturas'
-    )
-    
-    # Datos fiscales (del tutor)
+    paciente = models.ForeignKey(Paciente, on_delete=models.PROTECT, related_name='facturas')
     nombre_fiscal = models.CharField(max_length=200)
     nit_ci = models.CharField(max_length=20)
-    
-    # Detalle
     concepto = models.TextField()
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
-    descuento = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00')
-    )
+    descuento = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total = models.DecimalField(max_digits=10, decimal_places=2)
-    
-    # Estado
-    estado = models.CharField(
-        max_length=20,
-        choices=ESTADO_CHOICES,
-        default='borrador'
-    )
-    
-    # Relación con pagos
-    pagos = models.ManyToManyField(
-        Pago,
-        related_name='facturas',
-        blank=True
-    )
-    
-    # Control
-    emitida_por = models.ForeignKey(
-        User,
-        on_delete=models.PROTECT,
-        related_name='facturas_emitidas'
-    )
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')
+    pagos = models.ManyToManyField(Pago, related_name='facturas', blank=True)
+    emitida_por = models.ForeignKey(User, on_delete=models.PROTECT, related_name='facturas_emitidas')
     fecha_registro = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -273,7 +465,6 @@ class Factura(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.numero_factura:
-            # Generar número automático
             ultimo = Factura.objects.order_by('-id').first()
             numero = 1 if not ultimo else ultimo.id + 1
             self.numero_factura = f"FACT-{numero:06d}"

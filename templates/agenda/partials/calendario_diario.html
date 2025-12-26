@@ -93,7 +93,7 @@
                         <div class="my-3 flex items-center">
                             <div class="flex-1 border-t-2 border-orange-400"></div>
                             <span class="px-3 text-xs font-bold text-orange-600 bg-orange-50 rounded-full py-1">
-                                🌅 TARDE (13:00+)
+                                🌅 Medio Dia
                             </span>
                             <div class="flex-1 border-t-2 border-orange-400"></div>
                         </div>
@@ -141,6 +141,12 @@
                                     <h3 class="text-xs font-bold text-gray-900 truncate">
                                         {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
                                     </h3>
+                                    <!-- ✅ INDICADOR DE PROYECTO/EVALUACIÓN -->
+                                    {% if sesion.proyecto %}
+                                    <span class="inline-block px-1 py-0.5 bg-purple-100 border border-purple-300 rounded text-[8px] font-bold text-purple-700" title="Proyecto: {{ sesion.proyecto.codigo }}">
+                                        📦
+                                    </span>
+                                    {% endif %}
                                 </div>
                                 <div class="flex items-center gap-1 text-[10px] text-gray-700 mb-0.5">
                                     <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
@@ -174,16 +180,22 @@
                                     {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
                                     {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
                                     {% endif %}">
-                                    {{ sesion.get_estado_display|slice:":3" }}
+                                    {{ sesion.get_estado_display }}
                                 </span>
 
-                                <div class="flex items-center gap-1">
-                                    <span class="text-sm font-bold text-gray-900">{{ sesion.monto_cobrado }}</span>
+                                <div class="flex flex-col items-end gap-0.5">
+                                    <span class="text-sm font-bold text-gray-900">Bs. {{ sesion.monto_cobrado }}</span>
                                     {% if sesion.monto_cobrado > 0 %}
                                         {% if sesion.pagado %}
-                                        <span class="text-green-600 text-xs">✅</span>
+                                        <div class="flex items-center gap-1">
+                                            <span class="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                                            <span class="text-[9px] font-semibold text-green-600">Pagado 💰</span>
+                                        </div>
                                         {% else %}
-                                        <span class="text-red-600 text-xs">💰</span>
+                                        <div class="flex items-center gap-1">
+                                            <span class="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
+                                            <span class="text-[9px] font-semibold text-red-600">Pendiente 💰</span>
+                                        </div>
                                         {% endif %}
                                     {% endif %}
                                 </div>
@@ -239,6 +251,11 @@
             <div class="flex items-center gap-0.5">
                 <div class="w-2 h-2 bg-orange-500 rounded"></div>
                 <span>Reprog.</span>
+            </div>
+            <!-- ✅ NUEVO: Leyenda de proyecto -->
+            <div class="flex items-center gap-0.5 ml-2 border-l pl-2">
+                <span class="text-purple-600">📦</span>
+                <span>Evaluación</span>
             </div>
         </div>
     </div>

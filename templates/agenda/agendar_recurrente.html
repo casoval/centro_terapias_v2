@@ -4,206 +4,218 @@
 {% block title %}Agendar Sesiones Recurrentes{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-4xl mx-auto px-4">
-        <!-- Header -->
-        <div class="mb-6">
-            <a href="{% url 'agenda:calendario' %}" class="text-blue-600 hover:text-blue-800 flex items-center gap-2 mb-4">
-                ← Volver a la Agenda
+<div class="min-h-screen bg-gray-50 py-5 text-xs font-medium text-gray-600">
+    <div class="max-w-5xl mx-auto px-4">
+        
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-600 p-1.5 rounded-lg">🗓️</span> 
+                    Agendar Sesiones Múltiples
+                </h1>
+                <p class="text-gray-400 text-[11px] mt-1 ml-10">Configura múltiples citas automáticas en tres pasos.</p>
+            </div>
+            <a href="{% url 'agenda:calendario' %}" class="group flex items-center gap-1 text-xs font-semibold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition shadow-sm">
+                <span class="group-hover:-translate-x-0.5 transition-transform">←</span> Volver
             </a>
-            <h1 class="text-3xl font-bold text-gray-900">➕ Agendar Sesiones Recurrentes</h1>
-            <p class="text-gray-600 mt-2">Programa múltiples sesiones de forma automática</p>
         </div>
 
-        <!-- Formulario -->
-        <form method="post" class="bg-white rounded-lg shadow-lg p-6 space-y-6">
+        <form method="post" class="space-y-4">
             {% csrf_token %}
 
-            <!-- ✅ PASO 1: SUCURSAL (PRIMERO) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    🏢 Sucursal * <span class="text-xs text-gray-500">(Paso 1)</span>
-                </label>
-                <select name="sucursal" 
-                        id="sucursal-select"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        hx-get="{% url 'agenda:pacientes_sucursal' %}"
-                        hx-target="#pacientes-container"
-                        hx-swap="innerHTML"
-                        hx-trigger="change"
-                        hx-include="this"
-                        onchange="resetearCascada()"
-                        required>
-                    <option value="">Seleccione una sucursal</option>
-                    {% for sucursal in sucursales %}
-                    <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
-                    {% endfor %}
-                </select>
-                {% if sucursales_usuario and sucursales_usuario.count == 1 %}
-                <p class="text-xs text-gray-500 mt-1">🔒 Solo tienes acceso a esta sucursal</p>
-                {% endif %}
-            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden border-t-4 border-t-blue-500">
+                    <div class="bg-gradient-to-r from-blue-50 to-white px-4 py-2 border-b border-blue-100 flex items-center justify-between">
+                        <h3 class="font-bold text-blue-800 uppercase tracking-wide text-[11px]">1. Datos Clínicos</h3>
+                        <span class="text-blue-300">🏢</span>
+                    </div>
+                    
+                    <div class="p-4 space-y-3">
+                        <div>
+                            <label class="block text-gray-700 mb-1">Sucursal</label>
+                            <select name="sucursal" id="sucursal-select"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition outline-none"
+                                    hx-get="{% url 'agenda:pacientes_sucursal' %}"
+                                    hx-target="#pacientes-container"
+                                    hx-swap="innerHTML"
+                                    hx-trigger="change"
+                                    hx-include="this"
+                                    onchange="resetearCascada()"
+                                    required>
+                                <option value="">Seleccione sucursal...</option>
+                                {% for sucursal in sucursales %}
+                                <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-            <!-- ✅ PASO 2: PACIENTE (se carga con HTMX) -->
-            <div id="pacientes-container">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    👤 Paciente * <span class="text-xs text-gray-500">(Paso 2)</span>
-                </label>
-                <select name="paciente" 
-                        id="paciente-select"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
-                        disabled 
-                        required>
-                    <option value="">Primero seleccione una sucursal</option>
-                </select>
-            </div>
+                        <div id="pacientes-container">
+                            <label class="block text-gray-700 mb-1">Paciente</label>
+                            <select name="paciente" id="paciente-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                                <option value="">⏳ Esperando sucursal...</option>
+                            </select>
+                        </div>
 
-            <!-- ✅ PASO 3: SERVICIO (se carga con HTMX) -->
-            <div id="servicios-container">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
-                </label>
-                <select name="servicio" 
-                        id="servicio-select"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
-                        disabled 
-                        required>
-                    <option value="">Primero seleccione un paciente</option>
-                </select>
-            </div>
+                        <div id="servicios-container">
+                            <label class="block text-gray-700 mb-1">Servicio</label>
+                            <select name="servicio" id="servicio-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                                <option value="">⏳ Esperando paciente...</option>
+                            </select>
+                        </div>
 
-            <!-- ✅ PASO 4: PROFESIONAL (se carga con HTMX) -->
-            <div id="profesionales-container">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
-                </label>
-                <select name="profesional" 
-                        id="profesional-select"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" 
-                        disabled 
-                        required>
-                    <option value="">Primero seleccione un servicio</option>
-                </select>
-            </div>
-
-            <!-- Rango de fechas -->
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">📅 Fecha de Inicio *</label>
-                    <input type="date" 
-                           name="fecha_inicio" 
-                           id="fecha-inicio"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           onchange="actualizarVistaPrevia()"
-                           required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">📅 Fecha de Fin *</label>
-                    <input type="date" 
-                           name="fecha_fin" 
-                           id="fecha-fin"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           onchange="actualizarVistaPrevia()"
-                           required>
-                </div>
-            </div>
-
-            <!-- Hora -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">🕐 Hora de Inicio *</label>
-                <input type="time" 
-                       name="hora" 
-                       id="hora"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                       onchange="actualizarVistaPrevia()"
-                       required>
-            </div>
-
-            <!-- Duración de sesión -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-sm font-medium text-gray-700">⏱️ Duración de la Sesión</label>
-                    <div id="duracion-servicio-info" class="text-sm text-blue-600 font-semibold">
-                        Seleccione un servicio
+                        <div id="profesionales-container">
+                            <label class="block text-gray-700 mb-1">Profesional</label>
+                            <select name="profesional" id="profesional-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                                <option value="">⏳ Esperando servicio...</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Checkbox para usar duración estándar -->
-                <label class="flex items-center gap-2 cursor-pointer mb-3">
-                    <input type="checkbox" 
-                           id="usar-duracion-estandar" 
-                           checked
-                           onchange="toggleDuracionPersonalizada()"
-                           class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500">
-                    <span class="text-sm text-gray-700">Usar duración estándar del servicio</span>
-                </label>
-                
-                <!-- Campo de duración personalizada (oculto por defecto) -->
-                <div id="duracion-personalizada-container" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Duración personalizada (minutos) *
-                    </label>
-                    <input type="number" 
-                           name="duracion_personalizada" 
-                           id="duracion-personalizada"
-                           min="15"
-                           max="240"
-                           step="5"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           onchange="actualizarVistaPrevia()"
-                           placeholder="Ej: 45, 60, 90">
-                    <p class="text-xs text-gray-500 mt-1">
-                        💡 Esta duración se aplicará a todas las sesiones recurrentes
-                    </p>
+
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden border-t-4 border-t-purple-500">
+                    <div class="bg-gradient-to-r from-purple-50 to-white px-4 py-2 border-b border-purple-100 flex items-center justify-between">
+                        <h3 class="font-bold text-purple-800 uppercase tracking-wide text-[11px]">2. Configuración</h3>
+                        <span class="text-purple-300">⚙️</span>
+                    </div>
+
+                    <div class="p-4 space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-gray-700 mb-1">📅 Inicio</label>
+                                <input type="date" name="fecha_inicio" id="fecha-inicio"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                       onchange="actualizarVistaPrevia()" required>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 mb-1">📅 Fin</label>
+                                <input type="date" name="fecha_fin" id="fecha-fin"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                       onchange="actualizarVistaPrevia()" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 mb-1">🕐 Hora Inicio</label>
+                            <input type="time" name="hora" id="hora"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                   onchange="actualizarVistaPrevia()" required>
+                        </div>
+
+                        <div class="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-blue-800 font-semibold">⏱️ Duración</label>
+                                <span id="duracion-servicio-info" class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">-- min</span>
+                            </div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <input type="checkbox" id="usar-duracion-estandar" checked onchange="toggleDuracionPersonalizada()" 
+                                       class="rounded text-blue-600 focus:ring-blue-400 border-gray-300">
+                                <span class="text-gray-500">Usar estándar del servicio</span>
+                            </div>
+                            <div id="duracion-personalizada-container" class="hidden animate-fade-in-down">
+                                <input type="number" name="duracion_personalizada" id="duracion-personalizada" min="15" max="240" step="5"
+                                       class="w-full px-2 py-1.5 bg-white border border-blue-200 rounded text-xs"
+                                       onchange="actualizarVistaPrevia()" placeholder="Minutos personalizados...">
+                            </div>
+                        </div>
+
+                        <div class="bg-purple-50/50 rounded-lg p-3 border border-purple-100">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <div class="relative">
+                                    <input type="checkbox" id="asignar_proyecto" name="asignar_proyecto" class="sr-only peer" onchange="toggleProyectoSelect()">
+                                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                                </div>
+                                <span class="font-bold text-purple-900">Asignar a Proyecto (Evaluación)</span>
+                            </label>
+
+                            <div id="proyecto-select-container" class="hidden mt-3 pt-2 border-t border-purple-200">
+                                <select name="proyecto_id" id="proyecto_id" class="w-full px-2 py-1.5 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-200 outline-none mb-2" onchange="mostrarInfoProyecto()">
+                                    <option value="">-- Seleccionar Proyecto --</option>
+                                </select>
+                                
+                                <div id="sin-proyectos" class="hidden text-[10px] bg-yellow-50 text-yellow-800 p-2 rounded border border-yellow-200 flex items-center gap-2">
+                                    ⚠️ <span>Sin proyectos o evaluaciones activos.</span> <a href="{% url 'agenda:crear_proyecto' %}" class="underline font-bold">Crear uno nuevo</a>
+                                </div>
+                                
+                                <div id="proyecto-info" class="hidden bg-white p-2 rounded border border-purple-100 shadow-sm">
+                                    <div class="flex justify-between text-[10px] mb-1">
+                                        <span class="text-gray-500">Tipo:</span>
+                                        <span id="proyecto-tipo" class="font-bold text-gray-800">-</span>
+                                    </div>
+                                    <div class="flex justify-between text-[10px]">
+                                        <span class="text-gray-500">Saldo:</span>
+                                        <span class="font-bold text-green-600">Bs. <span id="proyecto-costo">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Días de la semana -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">📆 Días de la Semana *</label>
-                <div class="grid grid-cols-7 gap-2">
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="0" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Lun</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="1" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Mar</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="2" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Mié</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="3" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Jue</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="4" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Vie</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="5" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Sáb</span>
-                    </label>
-                    <label class="flex flex-col items-center p-3 border rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                        <input type="checkbox" name="dias_semana" value="6" class="mb-2" onchange="actualizarVistaPrevia()">
-                        <span class="text-sm font-medium">Dom</span>
-                    </label>
+            <!-- ✅ RECUADRO VERDE SIN ALTURA FIJA -->
+            <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden border-t-4 border-t-green-500">
+                <div class="bg-gradient-to-r from-green-50 to-white px-4 py-2 border-b border-green-100 flex items-center justify-between">
+                    <h3 class="font-bold text-green-800 uppercase tracking-wide text-[11px]">3. Selección de Días y Vista Previa</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-gray-500 bg-white px-2 py-0.5 rounded border shadow-sm">
+                            Seleccionadas: <strong id="contador-seleccionadas" class="text-green-600">0</strong> / <span id="total-sesiones">0</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="p-4 space-y-4">
+                    <div>
+                        <label class="block text-gray-700 text-[10px] uppercase font-bold mb-2">Días de la semana a repetir:</label>
+                        <div class="flex gap-2">
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="0" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-600 group-hover:bg-gray-100">Lun</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="1" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-600 group-hover:bg-gray-100">Mar</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="2" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-600 group-hover:bg-gray-100">Mié</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="3" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-600 group-hover:bg-gray-100">Jue</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="4" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-600 group-hover:bg-gray-100">Vie</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="5" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-gray-400 font-bold transition-all peer-checked:border-blue-400 peer-checked:bg-blue-50 peer-checked:text-blue-600 group-hover:bg-gray-100">Sáb</div>
+                            </label>
+                            <label class="flex-1 cursor-pointer group">
+                                <input type="checkbox" name="dias_semana" value="6" class="peer hidden" onchange="actualizarVistaPrevia()">
+                                <div class="h-9 flex items-center justify-center border-2 border-gray-100 bg-gray-50 rounded-lg text-red-300 font-bold transition-all peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-600 group-hover:bg-gray-100">Dom</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ✅ SIN SCROLL, SIN ALTURA FIJA -->
+                    <div class="border rounded-lg bg-gray-50/50">
+                        <div id="vista-previa" class="p-4">
+                            <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                                <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <p class="text-xs">Seleccione fechas y días para generar la vista previa</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Vista previa -->
-            <div id="vista-previa" class="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <p class="text-sm text-gray-600 text-center">Seleccione las fechas y días para ver la vista previa</p>
-            </div>
-
-            <!-- Botones -->
-            <div class="flex gap-4 pt-4">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition">
-                    ✅ Generar Sesiones
+            <!-- ✅ BOTONES FUERA DEL RECUADRO VERDE -->
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md shadow-green-200 transition-all transform hover:-translate-y-0.5 text-xs uppercase tracking-wide flex items-center justify-center gap-2">
+                    <span>🚀</span> Generar Sesiones
                 </button>
-                <a href="{% url 'agenda:calendario' %}" class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition">
+                <a href="{% url 'agenda:calendario' %}" class="px-6 py-2.5 border border-gray-300 text-gray-600 font-semibold rounded-lg hover:bg-gray-100 text-xs flex items-center transition">
                     Cancelar
                 </a>
             </div>
@@ -212,49 +224,129 @@
 </div>
 
 <script>
+// Toggle de proyecto
+function toggleProyectoSelect() {
+    const checkbox = document.getElementById('asignar_proyecto');
+    const container = document.getElementById('proyecto-select-container');
+    
+    if (checkbox.checked) {
+        container.classList.remove('hidden');
+        cargarProyectosDelPaciente();
+    } else {
+        container.classList.add('hidden');
+        document.getElementById('proyecto_id').value = '';
+        document.getElementById('proyecto-info').classList.add('hidden');
+    }
+}
+
+// Cargar proyectos del paciente
+function cargarProyectosDelPaciente() {
+    const pacienteSelect = document.getElementById('paciente-select');
+    const pacienteId = pacienteSelect?.value;
+    
+    if (!pacienteId) {
+        alert('⚠️ Primero selecciona un paciente');
+        document.getElementById('asignar_proyecto').checked = false;
+        document.getElementById('proyecto-select-container').classList.add('hidden');
+        return;
+    }
+    
+    const select = document.getElementById('proyecto_id');
+    const sinProyectos = document.getElementById('sin-proyectos');
+    
+    select.innerHTML = '<option value="">Cargando...</option>';
+    select.disabled = true;
+    
+    fetch(`/facturacion/api/proyectos-paciente/${pacienteId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            select.innerHTML = '<option value="">-- Seleccione Proyecto --</option>';
+            select.disabled = false;
+            
+            if (data.success && data.proyectos && data.proyectos.length > 0) {
+                data.proyectos.forEach(proyecto => {
+                    const option = document.createElement('option');
+                    option.value = proyecto.id;
+                    option.textContent = `${proyecto.nombre} (Saldo: ${proyecto.saldo_pendiente.toFixed(2)})`;
+                    option.dataset.tipo = proyecto.tipo;
+                    option.dataset.costo = proyecto.costo_total;
+                    option.dataset.pagado = proyecto.total_pagado;
+                    option.dataset.sesiones = proyecto.sesiones_completadas || 0;
+                    option.dataset.estado = data.proyectos[0].tipo; 
+                    select.appendChild(option);
+                });
+                sinProyectos.classList.add('hidden');
+            } else {
+                sinProyectos.classList.remove('hidden');
+            }
+        })
+        .catch(error => {
+            console.error('Error cargando proyectos:', error);
+            select.innerHTML = '<option value="">Error</option>';
+            select.disabled = false;
+        });
+}
+
+// Mostrar info del proyecto
+function mostrarInfoProyecto() {
+    const select = document.getElementById('proyecto_id');
+    const info = document.getElementById('proyecto-info');
+    
+    if (!select.value) {
+        info.classList.add('hidden');
+        return;
+    }
+    
+    const selectedOption = select.options[select.selectedIndex];
+    
+    document.getElementById('proyecto-tipo').textContent = selectedOption.dataset.tipo || '-';
+    document.getElementById('proyecto-costo').textContent = parseFloat(selectedOption.dataset.costo || '0').toFixed(2);
+    
+    info.classList.remove('hidden');
+}
+
 // Función para resetear la cascada cuando cambia la sucursal
 function resetearCascada() {
     // Resetear paciente
     const pacienteContainer = document.getElementById('pacientes-container');
     pacienteContainer.innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            👤 Paciente * <span class="text-xs text-gray-500">(Paso 2)</span>
-        </label>
-        <select name="paciente" id="paciente-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Cargando pacientes...</option>
+        <label class="block text-gray-700 mb-1">Paciente</label>
+        <select name="paciente" id="paciente-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+            <option value="">⏳ Cargando...</option>
         </select>
     `;
     
     // Resetear servicio
     const serviciosContainer = document.getElementById('servicios-container');
     serviciosContainer.innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
-        </label>
-        <select name="servicio" id="servicio-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Primero seleccione un paciente</option>
+        <label class="block text-gray-700 mb-1">Servicio</label>
+        <select name="servicio" id="servicio-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+            <option value="">⏳ Esperando paciente...</option>
         </select>
     `;
     
     // Resetear profesional
     const profesionalesContainer = document.getElementById('profesionales-container');
     profesionalesContainer.innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
-        </label>
-        <select name="profesional" id="profesional-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Primero seleccione un servicio</option>
+        <label class="block text-gray-700 mb-1">Profesional</label>
+        <select name="profesional" id="profesional-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+            <option value="">⏳ Esperando servicio...</option>
         </select>
     `;
     
     // Resetear duración
-    document.getElementById('duracion-servicio-info').textContent = 'Seleccione un servicio';
+    document.getElementById('duracion-servicio-info').textContent = '-- min';
     document.getElementById('usar-duracion-estandar').checked = true;
     document.getElementById('duracion-personalizada-container').classList.add('hidden');
     
     // Limpiar vista previa
     document.getElementById('vista-previa').innerHTML = 
-        '<p class="text-sm text-gray-600 text-center">Seleccione las fechas y días para ver la vista previa</p>';
+        '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><p class="text-xs">Seleccione fechas y días para generar la vista previa</p></div>';
 }
 
 // Función para toggle de duración personalizada
@@ -268,7 +360,6 @@ function toggleDuracionPersonalizada() {
         inputPersonalizado.value = '';
     } else {
         container.classList.remove('hidden');
-        // Establecer valor por defecto desde el servicio seleccionado
         const servicioSelect = document.getElementById('servicio-select');
         if (servicioSelect && servicioSelect.value) {
             const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
@@ -283,7 +374,6 @@ function toggleDuracionPersonalizada() {
     actualizarVistaPrevia();
 }
 
-// Función para obtener la duración efectiva
 function obtenerDuracionEfectiva() {
     const usarEstandar = document.getElementById('usar-duracion-estandar').checked;
     
@@ -312,13 +402,13 @@ function actualizarVistaPrevia() {
     
     if (!fechaInicio || !fechaFin || !hora || diasSeleccionados.length === 0) {
         document.getElementById('vista-previa').innerHTML = 
-            '<p class="text-sm text-gray-600 text-center">Seleccione las fechas, hora y días para ver la vista previa</p>';
+            '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><p class="text-xs">Complete fecha inicio, fin, hora y seleccione días</p></div>';
         return;
     }
     
     if (new Date(fechaInicio) > new Date(fechaFin)) {
         document.getElementById('vista-previa').innerHTML = 
-            '<p class="text-sm text-red-600 text-center">⚠️ La fecha de inicio debe ser anterior a la fecha de fin</p>';
+            '<p class="text-red-500 text-center mt-4 bg-red-50 p-2 rounded border border-red-200">⚠️ La fecha de inicio no puede ser mayor a la fecha fin</p>';
         return;
     }
     
@@ -342,7 +432,7 @@ function actualizarVistaPrevia() {
     });
     
     document.getElementById('vista-previa').innerHTML = 
-        '<p class="text-sm text-gray-600 text-center">⏳ Cargando vista previa...</p>';
+        '<div class="flex items-center justify-center h-full text-blue-500"><span class="animate-pulse">⏳ Calculando sesiones...</span></div>';
     
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     const url = '{% url "agenda:vista_previa" %}?' + params.toString();
@@ -355,78 +445,70 @@ function actualizarVistaPrevia() {
         },
         credentials: 'same-origin'
     })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error en la respuesta del servidor');
-            }
-            return response.text();
-        })
-        .then(html => {
-            const container = document.getElementById('vista-previa');
-            if (!container) {
-                console.error('❌ No se encontró el contenedor vista-previa');
-                return;
-            }
+    .then(response => {
+        if (!response.ok) throw new Error('Error');
+        return response.text();
+    })
+    .then(html => {
+        const container = document.getElementById('vista-previa');
+        if (container) {
             container.innerHTML = html;
-            
-            // ✅ Actualizar contador después de cargar la vista previa
             actualizarContador();
-        })
-        .catch(error => {
-            console.error('❌ Error:', error);
-            document.getElementById('vista-previa').innerHTML = 
-                '<p class="text-sm text-red-600 text-center">❌ Error al cargar la vista previa. Por favor, intente nuevamente.</p>';
-        });
+            // ✅ Agregar event listeners a los nuevos checkboxes
+            agregarEventListenersCheckboxes();
+        }
+    })
+    .catch(error => {
+        document.getElementById('vista-previa').innerHTML = 
+            '<p class="text-red-500 text-center">❌ Error de conexión</p>';
+    });
 }
 
-// ✅ NUEVA: Función para toggle de conflictos
+// ✅ Función para agregar event listeners a checkboxes dinámicos
+function agregarEventListenersCheckboxes() {
+    const checkboxes = document.querySelectorAll('.sesion-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', actualizarContador);
+    });
+}
+
 window.toggleConflicto = function(panelId, btn) {
     var panel = document.getElementById(panelId);
     if (panel) {
         if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
-            btn.innerHTML = '▲ Ocultar';
+            btn.innerHTML = '▲';
         } else {
             panel.style.display = 'none';
-            btn.innerHTML = '▼ Ver detalle';
+            btn.innerHTML = '▼';
         }
     }
 };
 
-// ✅ NUEVA: Función para actualizar el contador de sesiones seleccionadas
 window.actualizarContador = function() {
     const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
     const total = document.querySelectorAll('.sesion-checkbox').length;
-    const seleccionadas = checkboxes.length;
-    
     const contadorElement = document.getElementById('contador-seleccionadas');
-    if (contadorElement) {
-        contadorElement.textContent = seleccionadas;
-    }
+    if (contadorElement) contadorElement.textContent = checkboxes.length;
     
     const totalElement = document.getElementById('total-sesiones');
-    if (totalElement) {
-        totalElement.textContent = total;
-    }
+    if (totalElement) totalElement.textContent = total;
 };
 
-// ✅ NUEVA: Validar antes de enviar el formulario
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function(e) {
             const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
-            
             if (checkboxes.length === 0) {
                 e.preventDefault();
-                alert('⚠️ Debes seleccionar al menos una sesión para agendar');
+                alert('⚠️ Seleccione al menos una sesión');
                 return false;
             }
         });
     }
 });
 
-// Observer para detectar cuando se carga el select de servicios y actualizar la info de duración
 const observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(mutation) {
         const servicioSelect = document.getElementById('servicio-select');
@@ -434,11 +516,9 @@ const observer = new MutationObserver(function(mutations) {
             servicioSelect.addEventListener('change', function() {
                 const selectedOption = this.options[this.selectedIndex];
                 const duracion = selectedOption.getAttribute('data-duracion');
-                
-                // ✅ CORREGIDO: Solo mostrar duración en minutos
                 if (duracion) {
                     document.getElementById('duracion-servicio-info').textContent = 
-                        `${duracion} minutos`;
+                        `${duracion} min`;
                 }
             });
         }

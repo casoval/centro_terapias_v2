@@ -1,10 +1,23 @@
 <!-- Vista Semanal 40% COMPACTA -->
 {% load fecha_tags %}
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
+    <!-- ✅ NUEVO: Botón para mostrar/ocultar domingo -->
+    <div class="p-2 bg-gray-100 border-b flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-700">📅 Vista Semanal</h3>
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" 
+                   id="toggle-domingo" 
+                   class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                   onchange="toggleDomingo(this.checked)">
+            <span class="text-xs text-gray-600 font-medium">Mostrar Domingo</span>
+        </label>
+    </div>
+
     <!-- Header días de la semana COMPACTO -->
-    <div class="grid grid-cols-7 gap-0 border-b bg-gray-50">
+    <div id="header-dias" class="grid grid-cols-7 gap-0 border-b bg-gray-50">
         {% for dia in calendario_data.dias %}
-        <div class="p-2 text-center border-r last:border-r-0 {% if dia.es_hoy %}bg-blue-50{% endif %}">
+        <div class="dia-header p-2 text-center border-r last:border-r-0 {% if dia.es_hoy %}bg-blue-50{% endif %} {% if forloop.last %}columna-domingo{% endif %}" 
+             data-dia="{{ forloop.counter0 }}">
             <div class="text-[9px] font-semibold text-gray-500 uppercase">{{ dia.fecha|dia_semana|slice:":3" }}</div>
             <div class="text-lg font-bold {% if dia.es_hoy %}text-blue-600{% else %}text-gray-900{% endif %}">
                 {{ dia.dia_numero }}
@@ -15,126 +28,140 @@
     </div>
 
     <!-- Grid de sesiones COMPACTO -->
-    <div class="grid grid-cols-7 gap-0 divide-x" style="min-height: 400px;">
+    <div id="grid-sesiones" class="grid grid-cols-7 gap-0 divide-x" style="min-height: 400px;">
         {% for dia in calendario_data.dias %}
-        <div class="{% if dia.es_hoy %}bg-blue-50{% else %}bg-white{% endif %} p-1">
+        <div class="{% if dia.es_hoy %}bg-blue-50{% else %}bg-white{% endif %} p-1 {% if forloop.last %}columna-domingo{% endif %}" 
+             data-dia="{{ forloop.counter0 }}">
             <!-- Sesiones del día -->
             <div class="space-y-1">
-                {% regroup dia.sesiones by hora_inicio|time:"H" as sesiones_por_hora %}
-                {% for grupo in sesiones_por_hora %}
-                    {% if grupo.grouper|add:"0" >= 13 and forloop.first %}
-                        <!-- LÍNEA DIVISORIA TARDE -->
-                        <div class="my-1 border-t-2 border-orange-400 relative">
-                            <span class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-orange-50 px-1 text-[8px] font-bold text-orange-600">
-                                TARDE
-                            </span>
-                        </div>
-                    {% endif %}
-                    
-                    {% for sesion in grupo.list %}
-                    <div class="group relative cursor-pointer hover:shadow-lg transition-all duration-200 rounded border-l-2 
-                        {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50
-                        {% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50
-                        {% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50
-                        {% elif sesion.estado == 'falta' %}border-red-500 bg-red-50
-                        {% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50
-                        {% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50
-                        {% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50
-                        {% endif %} p-1.5"
-                         hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
-                         hx-target="#modal-content"
-                         hx-swap="innerHTML">
-                        
-                        <!-- Hora + Estado pago -->
-                        <div class="flex items-center justify-between gap-1 mb-0.5">
-                            <span class="text-xs font-bold 
-                                {% if sesion.estado == 'programada' %}text-blue-700
-                                {% elif sesion.estado == 'realizada' %}text-green-700
-                                {% elif sesion.estado == 'realizada_retraso' %}text-yellow-700
-                                {% elif sesion.estado == 'falta' %}text-red-700
-                                {% elif sesion.estado == 'permiso' %}text-purple-700
-                                {% elif sesion.estado == 'cancelada' %}text-gray-700
-                                {% elif sesion.estado == 'reprogramada' %}text-orange-700
-                                {% endif %}">
-                                {{ sesion.hora_inicio|time:"H:i" }}
-                            </span>
-                            {% if sesion.monto_cobrado > 0 %}
-                                {% if not sesion.pagado %}
-                                <span class="text-[8px] bg-red-100 text-red-700 px-1 rounded-full font-medium">
-                                    💰{{ sesion.monto_cobrado }}
+                {% if dia.sesiones_agrupadas %}
+                    {% for grupo in dia.sesiones_agrupadas %}
+                        {# ✅ SIMPLE: Backend ya calculó si mostrar la línea #}
+                        {% if grupo.mostrar_linea_tarde %}
+                            <!-- LÍNEA DIVISORIA TARDE -->
+                            <div class="my-1 border-t-2 border-orange-400 relative">
+                                <span class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-orange-50 px-1 text-[8px] font-bold text-orange-600">
+                                    Medio Dia
                                 </span>
-                                {% else %}
-                                <span class="text-xs text-green-700">✅</span>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-
-                        <!-- Paciente -->
-                        <div class="font-semibold text-gray-900 text-[10px] truncate">
-                            {{ sesion.paciente.nombre|slice:":10" }}
-                        </div>
-
-                        <!-- Servicio -->
-                        <div class="text-[9px] text-gray-600 flex items-center gap-0.5 truncate">
-                            <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
-                            {{ sesion.servicio.nombre|slice:":12" }}
-                        </div>
-
-                        <!-- Profesional y Sucursal ULTRA ABREVIADOS -->
-                        <div class="text-[8px] text-gray-600 truncate" title="Profesional: {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}">
-                            👨‍⚕️{{ sesion.profesional.nombre|slice:":1" }}.{{ sesion.profesional.apellido|slice:":4" }}
-                        </div>
-                        <div class="text-[8px] text-gray-500 truncate" title="Sucursal: {{ sesion.sucursal.nombre }}">
-                            🏢{{ sesion.sucursal.nombre|slice:":6" }}
-                        </div>
-
-                        <!-- Badge de estado -->
-                        <div class="mt-1">
-                            <span class="text-[8px] px-1 py-0.5 rounded-full font-medium
-                                {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800
-                                {% elif sesion.estado == 'realizada' %}bg-green-100 text-green-800
-                                {% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-800
-                                {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
-                                {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800
-                                {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
-                                {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
-                                {% endif %}">
-                                {{ sesion.get_estado_display|slice:":3" }}
-                            </span>
-                        </div>
-
-                        <!-- ALERTA ÚLTIMA SESIÓN VISIBLE -->
-                        {% if sesion.es_ultima_sesion_paciente_servicio %}
-                        <div class="mt-1 px-1 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800 text-center animate-pulse">
-                            ⚠️ ÚLTIMA
-                        </div>
+                            </div>
                         {% endif %}
-
-                        <!-- Tooltip -->
-                        <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-10 bg-gray-900 text-white p-2 rounded shadow-xl text-[10px] w-48">
-                            <div class="space-y-0.5">
-                                <div><strong>Hora:</strong> {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}</div>
-                                <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
-                                <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
-                                <div><strong>Prof:</strong> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
-                                <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
-                                {% if sesion.observaciones %}
-                                <div><strong>Obs:</strong> {{ sesion.observaciones|truncatewords:8 }}</div>
-                                {% endif %}
-                                <div class="mt-1 pt-1 border-t border-gray-700 text-blue-300">
-                                    {% if sesion.es_ultima_sesion_paciente_servicio %}
-                                    ⚠️ Última sesión de este servicio
+                        
+                        {% for sesion in grupo.sesiones %}
+                        <div class="group relative cursor-pointer hover:shadow-md rounded border-l-2 
+                            {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50
+                            {% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50
+                            {% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50
+                            {% elif sesion.estado == 'falta' %}border-red-500 bg-red-50
+                            {% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50
+                            {% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50
+                            {% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50
+                            {% endif %} p-1.5"
+                             hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                             hx-target="#modal-content"
+                             hx-swap="innerHTML">
+                            
+                            <!-- Hora + Estado pago -->
+                            <div class="flex items-center justify-between gap-1 mb-0.5">
+                                <div>
+                                    <span class="text-xs font-bold 
+                                        {% if sesion.estado == 'programada' %}text-blue-700
+                                        {% elif sesion.estado == 'realizada' %}text-green-700
+                                        {% elif sesion.estado == 'realizada_retraso' %}text-yellow-700
+                                        {% elif sesion.estado == 'falta' %}text-red-700
+                                        {% elif sesion.estado == 'permiso' %}text-purple-700
+                                        {% elif sesion.estado == 'cancelada' %}text-gray-700
+                                        {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                        {% endif %}">
+                                        {{ sesion.hora_inicio|time:"H:i" }}
+                                    </span>
+                                    <span class="text-[8px] text-gray-500">{{ sesion.hora_fin|time:"H:i" }}</span>
+                                </div>
+                                {% if sesion.monto_cobrado > 0 %}
+                                    {% if not sesion.pagado %}
+                                    <span class="text-[8px] bg-red-100 text-red-700 px-1 rounded-full font-medium">
+                                        💰{{ sesion.monto_cobrado }}
+                                    </span>
                                     {% else %}
-                                    💡 Click para editar
+                                    <span class="text-xs text-green-700">✅</span>
                                     {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <!-- Paciente + ✅ INDICADOR DE PROYECTO -->
+                            <div class="flex items-center gap-0.5 mb-0.5">
+                                <div class="font-semibold text-gray-900 text-[10px] truncate flex-1">
+                                    {{ sesion.paciente.nombre|slice:":10" }} {{ sesion.paciente.apellido|slice:":1" }}.
+                                </div>
+                                {% if sesion.proyecto %}
+                                <span class="inline-block text-[10px]" title="Proyecto: {{ sesion.proyecto.codigo }}">
+                                    📦
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Servicio -->
+                            <div class="text-[9px] text-gray-600 flex items-center gap-0.5 truncate">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
+                                {{ sesion.servicio.nombre|slice:":12" }}
+                            </div>
+
+                            <!-- Profesional y Sucursal ULTRA ABREVIADOS -->
+                            <div class="text-[8px] text-gray-600 truncate" title="Profesional: {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}">
+                                👨‍⚕️{{ sesion.profesional.nombre|slice:":1" }}.{{ sesion.profesional.apellido|slice:":4" }}
+                            </div>
+                            <div class="text-[8px] text-gray-500 truncate" title="Sucursal: {{ sesion.sucursal.nombre }}">
+                                🏢{{ sesion.sucursal.nombre|slice:":6" }}
+                            </div>
+
+                            <!-- Badge de estado -->
+                            <div class="mt-1">
+                                <span class="text-[8px] px-1 py-0.5 rounded-full font-medium
+                                    {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800
+                                    {% elif sesion.estado == 'realizada' %}bg-green-100 text-green-800
+                                    {% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-800
+                                    {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
+                                    {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800
+                                    {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
+                                    {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
+                                    {% endif %}">
+                                    {{ sesion.get_estado_display|slice:":3" }}
+                                </span>
+                            </div>
+
+                            <!-- ALERTA ÚLTIMA SESIÓN VISIBLE -->
+                            {% if sesion.es_ultima_sesion_paciente_servicio %}
+                            <div class="mt-1 px-1 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800 text-center">
+                                ⚠️ ÚLTIMA
+                            </div>
+                            {% endif %}
+
+                            <!-- Tooltip -->
+                            <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-10 bg-gray-900 text-white p-2 rounded shadow-xl text-[10px] w-48">
+                                <div class="space-y-0.5">
+                                    <div><strong>Hora:</strong> {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}</div>
+                                    <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
+                                    <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
+                                    <div><strong>Prof:</strong> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
+                                    <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
+                                    {% if sesion.proyecto %}
+                                    <div><strong>📦 Proyecto:</strong> {{ sesion.proyecto.codigo }}</div>
+                                    {% endif %}
+                                    {% if sesion.observaciones %}
+                                    <div><strong>Obs:</strong> {{ sesion.observaciones|truncatewords:8 }}</div>
+                                    {% endif %}
+                                    <div class="mt-1 pt-1 border-t border-gray-700 text-blue-300">
+                                        {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                        ⚠️ Última sesión de este servicio
+                                        {% else %}
+                                        💡 Click para editar
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                        {% endfor %}
                     {% endfor %}
-                {% endfor %}
-                
-                {% if not dia.sesiones %}
+                {% else %}
                 <div class="text-center text-gray-400 py-4 text-[10px]">
                     Sin sesiones
                 </div>
@@ -175,6 +202,96 @@
                 <div class="w-2 h-2 bg-orange-500 rounded"></div>
                 <span>Reprog.</span>
             </div>
+            <!-- ✅ NUEVO: Leyenda de proyecto -->
+            <div class="flex items-center gap-0.5 ml-2 border-l pl-2">
+                <span class="text-purple-600">📦</span>
+                <span>Evaluación</span>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+// ✅ SCRIPT PARA CONTROLAR VISIBILIDAD DEL DOMINGO
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('toggle-domingo');
+    const headerDias = document.getElementById('header-dias');
+    const gridSesiones = document.getElementById('grid-sesiones');
+    
+    // Verificar si hay sesiones en domingo (día 6)
+    const columnaDomingo = document.querySelectorAll('[data-dia="6"]');
+    let tieneSesiones = false;
+    
+    columnaDomingo.forEach(col => {
+        const sesiones = col.querySelectorAll('.group');
+        if (sesiones.length > 0) {
+            tieneSesiones = true;
+        }
+    });
+    
+    // Si no hay sesiones, ocultar por defecto
+    if (!tieneSesiones) {
+        ocultarDomingo();
+        toggle.checked = false;
+    } else {
+        toggle.checked = true;
+    }
+});
+
+function toggleDomingo(mostrar) {
+    if (mostrar) {
+        mostrarDomingo();
+    } else {
+        ocultarDomingo();
+    }
+}
+
+function ocultarDomingo() {
+    const columnasDomingo = document.querySelectorAll('.columna-domingo');
+    const headerDias = document.getElementById('header-dias');
+    const gridSesiones = document.getElementById('grid-sesiones');
+    
+    columnasDomingo.forEach(col => {
+        col.style.display = 'none';
+    });
+    
+    // Cambiar grid a 6 columnas (sin transición)
+    headerDias.style.transition = 'none';
+    gridSesiones.style.transition = 'none';
+    
+    headerDias.classList.remove('grid-cols-7');
+    headerDias.classList.add('grid-cols-6');
+    gridSesiones.classList.remove('grid-cols-7');
+    gridSesiones.classList.add('grid-cols-6');
+}
+
+function mostrarDomingo() {
+    const columnasDomingo = document.querySelectorAll('.columna-domingo');
+    const headerDias = document.getElementById('header-dias');
+    const gridSesiones = document.getElementById('grid-sesiones');
+    
+    columnasDomingo.forEach(col => {
+        col.style.display = '';
+    });
+    
+    // Cambiar grid a 7 columnas (sin transición)
+    headerDias.style.transition = 'none';
+    gridSesiones.style.transition = 'none';
+    
+    headerDias.classList.remove('grid-cols-6');
+    headerDias.classList.add('grid-cols-7');
+    gridSesiones.classList.remove('grid-cols-6');
+    gridSesiones.classList.add('grid-cols-7');
+}
+</script>
+
+<style>
+/* ✅ Desactivar todas las transiciones para cambio rápido de semana */
+#header-dias, #grid-sesiones {
+    transition: none !important;
+}
+
+#header-dias *, #grid-sesiones * {
+    transition: none !important;
+}
+</style>

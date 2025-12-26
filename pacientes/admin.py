@@ -1,26 +1,28 @@
 from django.contrib import admin
 from django.db import models
-from django.forms import TextInput
+from django.forms import Textarea
 from .models import Paciente, PacienteServicio
+
 
 class PacienteServicioInline(admin.TabularInline):
     model = PacienteServicio
     extra = 1
-    fields = ['servicio', 'costo_sesion', 'get_precio_base', 'activo', 'observaciones']
-    readonly_fields = ['get_precio_base']
+    fields = ['servicio', 'costo_sesion', 'activo', 'observaciones']
     
-    def get_precio_base(self, obj):
-        """Mostrar precio base del servicio como referencia"""
-        if obj.servicio:
-            return f"💡 Precio recomendado: Bs. {obj.servicio.costo_base}"
-        return "Seleccione un servicio"
-    get_precio_base.short_description = 'Precio Base'
+    # ✅ Reducir el tamaño de observaciones
+    formfield_overrides = {
+        models.TextField: {
+            'widget': Textarea(attrs={
+                'rows': 2,
+                'cols': 40,
+                'style': 'width: 300px;'
+            })
+        },
+    }
     
     class Media:
-        css = {
-            'all': ('admin/css/paciente_servicio.css',)
-        }
         js = ('admin/js/paciente_servicio.js',)
+
 
 @admin.register(Paciente)
 class PacienteAdmin(admin.ModelAdmin):
@@ -41,7 +43,7 @@ class PacienteAdmin(admin.ModelAdmin):
         ('👨‍👩‍👧 Información del Tutor', {
             'fields': ('nombre_tutor', 'parentesco', 'telefono_tutor', 'email_tutor', 'direccion')
         }),
-        ('🏥 Información Clínica', {
+        ('🥼 Información Clínica', {
             'fields': ('diagnostico', 'observaciones_medicas', 'alergias')
         }),
         ('📊 Estado', {
@@ -59,6 +61,7 @@ class PacienteAdmin(admin.ModelAdmin):
         else:
             return f"🏢 {sucursales.count()} sucursales"
     get_sucursales.short_description = 'Sucursales'
+
 
 @admin.register(PacienteServicio)
 class PacienteServicioAdmin(admin.ModelAdmin):
@@ -83,7 +86,8 @@ class PacienteServicioAdmin(admin.ModelAdmin):
     
     def get_precio_base_info(self, obj):
         """Mostrar información del precio base"""
-        if obj.servicio:
+        if obj and obj.servicio:
+            from django.utils.html import format_html
             diferencia = obj.costo_sesion - obj.servicio.costo_base if obj.costo_sesion else 0
             html = f"""
             <div style="padding: 10px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
@@ -96,14 +100,16 @@ class PacienteServicioAdmin(admin.ModelAdmin):
             else:
                 html += '<p style="margin: 5px 0 0 0; color: #6b7280;">✓ Precio estándar</p>'
             html += '</div>'
-            return html
+            return format_html(html)
         return "Seleccione un servicio primero"
+    
     get_precio_base_info.short_description = 'Información de Precio'
-    get_precio_base_info.allow_tags = True
     
     def get_costo_base(self, obj):
         """Mostrar costo base del servicio"""
-        return f"Bs. {obj.servicio.costo_base}"
+        if obj and obj.servicio:
+            return f"Bs. {obj.servicio.costo_base}"
+        return "-"
     get_costo_base.short_description = 'Precio Base'
     
     def get_diferencia(self, obj):
@@ -120,7 +126,9 @@ class PacienteServicioAdmin(admin.ModelAdmin):
     get_diferencia.short_description = 'Diferencia'
     
     def save_model(self, request, obj, form, change):
-        """Autocompletar costo_sesion si está vacío"""
+        """
+        ✅ Autocompletar costo_sesion con el precio base si está vacío
+        """
         if not obj.costo_sesion and obj.servicio:
             obj.costo_sesion = obj.servicio.costo_base
         super().save_model(request, obj, form, change)

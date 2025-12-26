@@ -7,15 +7,42 @@
     
     <h1 class="text-2xl font-bold text-gray-900 mb-6">📜 Historial de Pagos</h1>
     
-    <!-- Estadísticas -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="text-xs text-blue-600 font-bold uppercase">Total de Pagos</p>
-            <p class="text-2xl font-black text-blue-700">{{ stats.total_pagos|default:0 }}</p>
+    <!-- ✅ ESTADÍSTICAS MEJORADAS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <!-- PRIMERA FILA: Contadores -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p class="text-[10px] text-blue-600 font-bold uppercase">Total de Pagos</p>
+            <p class="text-xl font-black text-blue-700">{{ stats.total_pagos|default:0 }}</p>
+            <p class="text-[10px] text-blue-600 mt-0.5">Todos los pagos (incluye crédito)</p>
         </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p class="text-xs text-green-600 font-bold uppercase">Monto Total</p>
-            <p class="text-2xl font-black text-green-700">Bs. {{ stats.monto_total|default:0|floatformat:2 }}</p>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p class="text-[10px] text-green-600 font-bold uppercase">Total Pagos Válidos</p>
+            <p class="text-xl font-black text-green-700">{{ stats.total_pagos_validos|default:0 }}</p>
+            <p class="text-[10px] text-green-600 mt-0.5">Pagos sin crédito</p>
+        </div>
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p class="text-[10px] text-purple-600 font-bold uppercase">Total Pagos al Crédito</p>
+            <p class="text-xl font-black text-purple-700">{{ stats.total_pagos_credito|default:0 }}</p>
+            <p class="text-[10px] text-purple-600 mt-0.5">Uso de saldo a favor</p>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <!-- SEGUNDA FILA: Montos -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p class="text-[10px] text-blue-600 font-bold uppercase">Monto Total</p>
+            <p class="text-xl font-black text-blue-700">Bs. {{ stats.monto_total|default:0|floatformat:2 }}</p>
+            <p class="text-[10px] text-blue-600 mt-0.5">Todos los pagos</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p class="text-[10px] text-green-600 font-bold uppercase">Monto Pagos Válidos</p>
+            <p class="text-xl font-black text-green-700">Bs. {{ stats.monto_pagos_validos|default:0|floatformat:2 }}</p>
+            <p class="text-[10px] text-green-600 mt-0.5">Solo pagos sin crédito</p>
+        </div>
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p class="text-[10px] text-purple-600 font-bold uppercase">Monto Pagos al Crédito</p>
+            <p class="text-xl font-black text-purple-700">Bs. {{ stats.monto_pagos_credito|default:0|floatformat:2 }}</p>
+            <p class="text-[10px] text-purple-600 mt-0.5">Uso de crédito</p>
         </div>
     </div>
     
@@ -60,77 +87,125 @@
         </form>
     </div>
     
-    <!-- Tabla de Pagos -->
+    <!-- ✅ Tabla de Pagos CON COLUMNA TIPO -->
     <div class="bg-white border rounded-lg overflow-hidden">
-        <table class="min-w-full text-sm">
-            <thead class="bg-gray-50 border-b">
-                <tr>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Recibo</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Paciente</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Concepto</th>
-                    <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Método</th>
-                    <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
-                    <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                {% for pago in page_obj %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2 font-mono text-xs">
-                        {{ pago.numero_recibo }}
-                    </td>
-                    <td class="px-3 py-2">
-                        <p class="font-medium">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
-                        <p class="text-xs text-gray-500">{{ pago.fecha_registro|date:"H:i" }}</p>
-                    </td>
-                    <td class="px-3 py-2">
-                        <p class="font-medium">{{ pago.paciente.nombre_completo }}</p>
-                        <p class="text-xs text-gray-500">{{ pago.paciente.nombre_tutor }}</p>
-                    </td>
-                    <td class="px-3 py-2 text-gray-700">
-                        {{ pago.concepto|truncatewords:6 }}
-                        {% if pago.sesion %}
-                            <br><span class="text-xs text-gray-500">{{ pago.sesion.servicio.nombre }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-3 py-2">
-                        <span class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
-                            {{ pago.metodo_pago.nombre }}
-                        </span>
-                    </td>
-                    <td class="px-3 py-2 text-right font-bold text-green-700">
-                        Bs. {{ pago.monto|floatformat:2 }}
-                    </td>
-                    <td class="px-3 py-2 text-center">
-                        <div class="flex gap-1 justify-center">
-                            <a href="{% url 'facturacion:recibo_pdf' pago.id %}" 
-                               class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                               title="Descargar PDF">
-                                📄
-                            </a>
-                            <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 
-                               class="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                               title="Ver cuenta">
-                                👤
-                            </a>
-                            <button onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
-                                    class="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                                    title="Anular">
-                                ✗
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="px-3 py-8 text-center text-gray-500">
-                        No hay pagos que coincidan con los filtros
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Recibo</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Fecha</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Paciente</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Concepto</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Tipo</th>
+                        <th class="px-3 py-2 text-left text-xs font-bold text-gray-700">Método</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Estado Sesión</th>
+                        <th class="px-3 py-2 text-right text-xs font-bold text-gray-700">Monto</th>
+                        <th class="px-3 py-2 text-center text-xs font-bold text-gray-700">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for pago in page_obj %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-mono text-xs">
+                            {{ pago.numero_recibo }}
+                        </td>
+                        <td class="px-3 py-2">
+                            <p class="font-medium">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
+                            <p class="text-xs text-gray-500">{{ pago.fecha_registro|date:"H:i" }}</p>
+                        </td>
+                        <td class="px-3 py-2">
+                            <p class="font-medium">{{ pago.paciente.nombre_completo }}</p>
+                            <p class="text-xs text-gray-500">{{ pago.paciente.nombre_tutor }}</p>
+                        </td>
+                        <td class="px-3 py-2 text-gray-700">
+                            {{ pago.concepto|truncatewords:6 }}
+                            {% if pago.sesion %}
+                                <br><span class="text-xs text-gray-500">{{ pago.sesion.servicio.nombre }}</span>
+                            {% elif pago.proyecto %}
+                                <br><span class="text-xs text-purple-600">📦 {{ pago.proyecto.codigo }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2">
+                            {% if pago.proyecto %}
+                                <span class="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 font-bold">
+                                    📦 Proyecto
+                                </span>
+                            {% elif pago.sesion %}
+                                {% if pago.sesion.proyecto %}
+                                    <span class="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 font-bold">
+                                        📦 Proyecto
+                                    </span>
+                                {% else %}
+                                    <span class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold">
+                                        📝 Normal
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-xs px-2 py-1 rounded bg-green-100 text-green-700 font-bold">
+                                    💳 Adelanto
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2">
+                            <span class="text-xs px-2 py-1 rounded 
+                                {% if pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-purple-100 text-purple-700
+                                {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                {{ pago.metodo_pago.nombre }}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            {% if pago.sesion %}
+                                <span class="text-xs px-2 py-1 rounded font-bold
+                                    {% if pago.sesion.estado == 'realizada' %}bg-green-100 text-green-700
+                                    {% elif pago.sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
+                                    {% elif pago.sesion.estado == 'programada' %}bg-blue-100 text-blue-700
+                                    {% elif pago.sesion.estado == 'falta' %}bg-red-100 text-red-700
+                                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                    {{ pago.sesion.get_estado_display }}
+                                </span>
+                            {% else %}
+                                <span class="text-xs text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-right font-bold 
+                            {% if pago.metodo_pago.nombre == 'Uso de Crédito' %}text-purple-700
+                            {% else %}text-green-700{% endif %}">
+                            Bs. {{ pago.monto|floatformat:2 }}
+                        </td>
+                        <td class="px-3 py-2 text-center">
+                            <div class="flex gap-1 justify-center">
+                                {% if pago.metodo_pago.nombre != "Uso de Crédito" %}
+                                <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+                                   class="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                   title="Descargar PDF"
+                                   target="_blank">
+                                    📄
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 
+                                   class="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                   title="Ver cuenta">
+                                    👤
+                                </a>
+                                <button onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
+                                        class="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                                        title="Anular">
+                                    ✗
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-3 py-8 text-center text-gray-500">
+                            No hay pagos que coincidan con los filtros
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     
     <!-- Paginación -->

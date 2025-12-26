@@ -2,10 +2,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Q, Count, Sum
+from django.db.models import Q, Count, Sum, F  # ✅ F en lugar de Proyecto
+from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
 from decimal import Decimal
-from .models import Sesion
+
+from agenda.models import Sesion, Proyecto  # ✅ AGREGAR ESTA LÍNEA
 from pacientes.models import Paciente, PacienteServicio
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
@@ -20,17 +22,279 @@ import json
 
 @login_required
 @solo_sus_sucursales
+
+def lista_proyectos(request):
+    """Lista de proyectos con filtros"""
+    
+    # Filtros
+    buscar = request.GET.get('q', '').strip()
+    estado_filtro = request.GET.get('estado', '')
+    tipo_filtro = request.GET.get('tipo', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    
+    # Query base
+    proyectos = Proyecto.objects.select_related(
+        'paciente', 'servicio_base', 'profesional_responsable', 'sucursal'
+    ).all()
+    
+    # Filtrar por sucursales del usuario
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if sucursales_usuario.exists():
+            proyectos = proyectos.filter(sucursal__in=sucursales_usuario)
+        else:
+            proyectos = proyectos.none()
+    
+    # Aplicar filtros
+    if buscar:
+        proyectos = proyectos.filter(
+            Q(codigo__icontains=buscar) |
+            Q(nombre__icontains=buscar) |
+            Q(paciente__nombre__icontains=buscar) |
+            Q(paciente__apellido__icontains=buscar)
+        )
+    
+    if estado_filtro:
+        proyectos = proyectos.filter(estado=estado_filtro)
+    
+    if tipo_filtro:
+        proyectos = proyectos.filter(tipo=tipo_filtro)
+    
+    if sucursal_id:
+        proyectos = proyectos.filter(sucursal_id=sucursal_id)
+    
+    proyectos = proyectos.order_by('-fecha_inicio')
+    
+    # Paginación
+    paginator = Paginator(proyectos, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    # Estadísticas
+    estadisticas = {
+        'total': proyectos.count(),
+        'en_progreso': proyectos.filter(estado='en_progreso').count(),
+        'planificados': proyectos.filter(estado='planificado').count(),
+        'finalizados': proyectos.filter(estado='finalizado').count(),
+    }
+    
+    # Sucursales para filtro
+    from servicios.models import Sucursal
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+    else:
+        sucursales = Sucursal.objects.filter(activa=True)
+    
+    context = {
+        'page_obj': page_obj,
+        'estadisticas': estadisticas,
+        'buscar': buscar,
+        'estado_filtro': estado_filtro,
+        'tipo_filtro': tipo_filtro,
+        'sucursal_id': sucursal_id,
+        'sucursales': sucursales,
+        'estados': Proyecto.ESTADO_CHOICES,
+        'tipos': Proyecto.TIPO_CHOICES,
+    }
+    
+    return render(request, 'agenda/lista_proyectos.html', context)
+
+
+@login_required
+@solo_sus_sucursales
+def detalle_proyecto(request, proyecto_id):
+    """Detalle completo de un proyecto"""
+    
+    proyecto = get_object_or_404(
+        Proyecto.objects.select_related(
+            'paciente', 'servicio_base', 'profesional_responsable', 'sucursal'
+        ),
+        id=proyecto_id
+    )
+    
+    # Verificar permisos de sucursal
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if not sucursales_usuario.filter(id=proyecto.sucursal.id).exists():
+            messages.error(request, '❌ No tienes permiso para ver este proyecto')
+            return redirect('agenda:lista_proyectos')
+    
+    # Sesiones del proyecto
+    sesiones = proyecto.sesiones.select_related(
+        'profesional', 'servicio'
+    ).order_by('-fecha', '-hora_inicio')
+    
+    # Pagos del proyecto
+    from facturacion.models import Pago
+    pagos = proyecto.pagos.filter(anulado=False).select_related(
+        'metodo_pago', 'registrado_por'
+    ).order_by('-fecha_pago')
+    
+    # Estadísticas
+    stats = {
+        'total_sesiones': sesiones.count(),
+        'sesiones_realizadas': sesiones.filter(estado='realizada').count(),
+        'total_horas': sum(s.duracion_minutos for s in sesiones) / 60,
+    }
+    
+    context = {
+        'proyecto': proyecto,
+        'sesiones': sesiones,
+        'pagos': pagos,
+        'stats': stats,
+    }
+    
+    return render(request, 'agenda/detalle_proyecto.html', context)
+
+
+@login_required
+@solo_sus_sucursales
+def crear_proyecto(request):
+    """Crear nuevo proyecto"""
+    
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            nombre = request.POST.get('nombre')
+            tipo = request.POST.get('tipo')
+            paciente_id = request.POST.get('paciente_id')
+            servicio_id = request.POST.get('servicio_id')
+            profesional_id = request.POST.get('profesional_id')
+            sucursal_id = request.POST.get('sucursal_id')
+            fecha_inicio_str = request.POST.get('fecha_inicio')
+            fecha_fin_estimada_str = request.POST.get('fecha_fin_estimada')
+            costo_total = Decimal(request.POST.get('costo_total'))
+            descripcion = request.POST.get('descripcion', '')
+            
+            # Validaciones
+            if not all([nombre, tipo, paciente_id, servicio_id, profesional_id, sucursal_id, fecha_inicio_str, costo_total]):
+                messages.error(request, '❌ Faltan datos obligatorios')
+                return redirect('agenda:crear_proyecto')
+            
+            from datetime import datetime
+            fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+            fecha_fin_estimada = None
+            if fecha_fin_estimada_str:
+                fecha_fin_estimada = datetime.strptime(fecha_fin_estimada_str, '%Y-%m-%d').date()
+            
+            paciente = Paciente.objects.get(id=paciente_id)
+            servicio = TipoServicio.objects.get(id=servicio_id)
+            profesional = Profesional.objects.get(id=profesional_id)
+            from servicios.models import Sucursal
+            sucursal = Sucursal.objects.get(id=sucursal_id)
+            
+            # Verificar permisos
+            sucursales_usuario = request.sucursales_usuario
+            if sucursales_usuario is not None:
+                if not sucursales_usuario.filter(id=sucursal.id).exists():
+                    messages.error(request, '❌ No tienes permiso para crear proyectos en esta sucursal')
+                    return redirect('agenda:crear_proyecto')
+            
+            # Crear proyecto
+            proyecto = Proyecto.objects.create(
+                nombre=nombre,
+                tipo=tipo,
+                paciente=paciente,
+                servicio_base=servicio,
+                profesional_responsable=profesional,
+                sucursal=sucursal,
+                fecha_inicio=fecha_inicio,
+                fecha_fin_estimada=fecha_fin_estimada,
+                costo_total=costo_total,
+                descripcion=descripcion,
+                creado_por=request.user
+            )
+            
+            messages.success(request, f'✅ Proyecto {proyecto.codigo} creado correctamente')
+            return redirect('agenda:detalle_proyecto', proyecto_id=proyecto.id)
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            return redirect('agenda:crear_proyecto')
+    
+    # GET - Mostrar formulario
+    sucursales_usuario = request.sucursales_usuario
+    
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+        pacientes = Paciente.objects.filter(
+            estado='activo',
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+        profesionales = Profesional.objects.filter(
+            activo=True,
+            sucursales__in=sucursales_usuario
+        ).distinct().order_by('nombre', 'apellido')
+    else:
+        pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+        profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+        from servicios.models import Sucursal
+        sucursales = Sucursal.objects.filter(activa=True)
+    
+    servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
+    
+    context = {
+        'pacientes': pacientes,
+        'servicios': servicios,
+        'profesionales': profesionales,
+        'sucursales': sucursales,
+        'tipos': Proyecto.TIPO_CHOICES,
+        'fecha_hoy': date.today(),
+    }
+    
+    return render(request, 'agenda/crear_proyecto.html', context)
+
+
+@login_required
+def actualizar_estado_proyecto(request, proyecto_id):
+    """Actualizar estado de un proyecto (AJAX)"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        proyecto = Proyecto.objects.get(id=proyecto_id)
+        nuevo_estado = request.POST.get('estado')
+        
+        if nuevo_estado not in dict(Proyecto.ESTADO_CHOICES):
+            return JsonResponse({'error': 'Estado inválido'}, status=400)
+        
+        proyecto.estado = nuevo_estado
+        proyecto.modificado_por = request.user
+        
+        # Si se finaliza, establecer fecha_fin_real
+        if nuevo_estado == 'finalizado' and not proyecto.fecha_fin_real:
+            from datetime import date
+            proyecto.fecha_fin_real = date.today()
+        
+        proyecto.save()
+        
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Estado actualizado a: {proyecto.get_estado_display()}'
+        })
+        
+    except Proyecto.DoesNotExist:
+        return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@solo_sus_sucursales
 def calendario(request):
     """Calendario principal con filtros avanzados y permisos por sucursal"""
     
     # Obtener parámetros de filtro
     vista = request.GET.get('vista', 'semanal')
     fecha_str = request.GET.get('fecha', '')
-    estado_filtro = request.GET.get('estado', '')
-    paciente_id = request.GET.get('paciente', '')
-    profesional_id = request.GET.get('profesional', '')
-    servicio_id = request.GET.get('servicio', '')
-    sucursal_id = request.GET.get('sucursal', '')
+    
+    # ✅ CORRECCIÓN: Convertir strings vacíos a None
+    estado_filtro = request.GET.get('estado', '').strip() or None
+    paciente_id = request.GET.get('paciente', '').strip() or None
+    profesional_id = request.GET.get('profesional', '').strip() or None
+    servicio_id = request.GET.get('servicio', '').strip() or None
+    sucursal_id = request.GET.get('sucursal', '').strip() or None
+    tipo_sesion = request.GET.get('tipo_sesion', '').strip() or None
     
     # Fecha base
     if fecha_str:
@@ -82,9 +346,9 @@ def calendario(request):
         fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
         fecha_fin = fecha_inicio + timedelta(days=6)
     
-    # Query base
+    # ✅ Query base - MOSTRAR TODAS LAS SESIONES
     sesiones = Sesion.objects.select_related(
-        'paciente', 'profesional', 'servicio', 'sucursal'
+        'paciente', 'profesional', 'servicio', 'sucursal', 'proyecto'
     ).filter(
         fecha__gte=fecha_inicio,
         fecha__lte=fecha_fin
@@ -94,37 +358,42 @@ def calendario(request):
     sucursales_usuario = request.sucursales_usuario
     
     if sucursales_usuario is not None:
-        # Usuario tiene sucursales asignadas
         if sucursales_usuario.exists():
             sesiones = sesiones.filter(sucursal__in=sucursales_usuario)
         else:
             sesiones = sesiones.none()
     
-    # Filtro adicional por sucursal específica
+    # ✅ CORRECCIÓN: Solo aplicar filtros si tienen valor (no None)
     if sucursal_id:
         sesiones = sesiones.filter(sucursal_id=sucursal_id)
     
-    # Aplicar otros filtros
+    if tipo_sesion == 'normal':
+        sesiones = sesiones.filter(proyecto__isnull=True)
+    elif tipo_sesion == 'evaluacion':
+        sesiones = sesiones.filter(proyecto__isnull=False)
+    # Si tipo_sesion es None: mostrar todas
+    
     if estado_filtro:
         sesiones = sesiones.filter(estado=estado_filtro)
+    
     if paciente_id:
         sesiones = sesiones.filter(paciente_id=paciente_id)
+    
     if profesional_id:
         sesiones = sesiones.filter(profesional_id=profesional_id)
+    
     if servicio_id:
         sesiones = sesiones.filter(servicio_id=servicio_id)
     
     sesiones = sesiones.order_by('fecha', 'hora_inicio')
     
     # =========================================================================
-    # ✅ CÁLCULO DE ESTADÍSTICAS (Suma en base de datos para evitar error 6060)
+    # CÁLCULO DE ESTADÍSTICAS
     # =========================================================================
+    from decimal import Decimal
+    
     estadisticas = sesiones.aggregate(
         total_monto=Sum('monto_cobrado'),
-        total_pagado=Sum('monto_cobrado', filter=Q(pagado=True)),
-        total_pendiente=Sum('monto_cobrado', filter=Q(pagado=False)),
-        
-        # Conteos por estado
         count_programadas=Count('id', filter=Q(estado='programada')),
         count_realizadas=Count('id', filter=Q(estado='realizada')),
         count_retraso=Count('id', filter=Q(estado='realizada_retraso')),
@@ -132,32 +401,72 @@ def calendario(request):
         count_permiso=Count('id', filter=Q(estado='permiso')),
         count_cancelada=Count('id', filter=Q(estado='cancelada')),
         count_reprogramada=Count('id', filter=Q(estado='reprogramada')),
-        
-        # Conteos de pago (sesiones con cobro > 0)
-        count_pagados=Count('id', filter=Q(pagado=True, monto_cobrado__gt=0)),
-        count_pendientes=Count('id', filter=Q(pagado=False, monto_cobrado__gt=0)),
     )
     
-    # ✅ Datos para filtros (FILTRADOS POR SUCURSALES)
+    # Calcular pagos
+    sesiones_con_pagos = sesiones.annotate(
+        total_pagado_sesion=Sum('pagos__monto', filter=Q(pagos__anulado=False))
+    )
+    
+    total_pagado = sesiones_con_pagos.aggregate(
+        total=Sum('total_pagado_sesion')
+    )['total'] or Decimal('0.00')
+    
+    sesiones_list = list(sesiones_con_pagos)
+    total_pendiente = sum(
+        max(s.monto_cobrado - (s.total_pagado_sesion or Decimal('0.00')), Decimal('0.00'))
+        for s in sesiones_list
+    )
+    
+    count_pagados = sum(
+        1 for s in sesiones_list 
+        if s.monto_cobrado > 0 and (s.total_pagado_sesion or Decimal('0.00')) >= s.monto_cobrado
+    )
+    count_pendientes = sum(
+        1 for s in sesiones_list 
+        if s.monto_cobrado > 0 and (s.total_pagado_sesion or Decimal('0.00')) < s.monto_cobrado
+    )
+    
+    estadisticas['total_pagado'] = total_pagado
+    estadisticas['total_pendiente'] = total_pendiente
+    estadisticas['count_pagados'] = count_pagados
+    estadisticas['count_pendientes'] = count_pendientes
+    
+    # ✅ CORRECCIÓN: Datos para filtros - DEPENDEN DE LA SUCURSAL SELECCIONADA
     if sucursales_usuario is not None and sucursales_usuario.exists():
-        pacientes = Paciente.objects.filter(
-            estado='activo',
-            sucursales__in=sucursales_usuario
-        ).distinct().order_by('nombre', 'apellido')
-        
-        profesionales = Profesional.objects.filter(
-            activo=True,
-            sucursales__in=sucursales_usuario
-        ).distinct().order_by('nombre', 'apellido')
+        # Si hay sucursales asignadas al usuario
+        if sucursal_id:
+            # Si hay una sucursal específica seleccionada
+            pacientes = Paciente.objects.filter(
+                estado='activo',
+                sucursales__id=sucursal_id
+            ).distinct().order_by('nombre', 'apellido')
+            
+            profesionales = Profesional.objects.filter(
+                activo=True,
+                sucursales__id=sucursal_id
+            ).distinct().order_by('nombre', 'apellido')
+        else:
+            # Mostrar todos de las sucursales del usuario
+            pacientes = Paciente.objects.filter(
+                estado='activo',
+                sucursales__in=sucursales_usuario
+            ).distinct().order_by('nombre', 'apellido')
+            
+            profesionales = Profesional.objects.filter(
+                activo=True,
+                sucursales__in=sucursales_usuario
+            ).distinct().order_by('nombre', 'apellido')
         
         sucursales = sucursales_usuario
     else:
-        # Superuser: todas las sucursales
+        # Superuser sin restricciones
         if sucursal_id:
             pacientes = Paciente.objects.filter(
                 estado='activo',
                 sucursales__id=sucursal_id
             ).distinct().order_by('nombre', 'apellido')
+            
             profesionales = Profesional.objects.filter(
                 activo=True,
                 sucursales__id=sucursal_id
@@ -168,21 +477,36 @@ def calendario(request):
         
         sucursales = Sucursal.objects.filter(activa=True)
     
-    servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
+    # ✅ CORRECCIÓN: Servicios dependen del paciente seleccionado
+    if paciente_id:
+        servicios = TipoServicio.objects.filter(
+            pacienteservicio__paciente_id=paciente_id,
+            pacienteservicio__activo=True,
+            activo=True
+        ).distinct().order_by('nombre')
+    else:
+        servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
-    # ✅ MARCAR ÚLTIMA SESIÓN POR PACIENTE+SERVICIO
-    # Agrupar sesiones por paciente+servicio y marcar la última de cada grupo
+    # Marcar última sesión por paciente+servicio
     from collections import defaultdict
-    ultima_por_paciente_servicio = defaultdict(lambda: None)
     
-    for sesion in sesiones.order_by('fecha', 'hora_inicio'):
-        key = f"{sesion.paciente_id}_{sesion.servicio_id}"
-        ultima_por_paciente_servicio[key] = sesion.id
-    
-    # Agregar atributo temporal a cada sesión
+    combinaciones_paciente_servicio = set()
     for sesion in sesiones:
-        key = f"{sesion.paciente_id}_{sesion.servicio_id}"
-        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == ultima_por_paciente_servicio[key])
+        combinaciones_paciente_servicio.add((sesion.paciente_id, sesion.servicio_id))
+    
+    ultimas_sesiones_ids = set()
+    for paciente_id_combo, servicio_id_combo in combinaciones_paciente_servicio:
+        ultima_sesion = Sesion.objects.filter(
+            paciente_id=paciente_id_combo,
+            servicio_id=servicio_id_combo,
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        ).order_by('-fecha', '-hora_inicio').first()
+        
+        if ultima_sesion:
+            ultimas_sesiones_ids.add(ultima_sesion.id)
+    
+    for sesion in sesiones:
+        sesion.es_ultima_sesion_paciente_servicio = sesion.id in ultimas_sesiones_ids
     
     # Generar estructura del calendario
     if vista == 'diaria':
@@ -194,15 +518,12 @@ def calendario(request):
     else:
         calendario_data = _generar_calendario_semanal(fecha_inicio, sesiones)
     
-    # ✅ NAVEGACIÓN DE FECHAS CORREGIDA (evita días inválidos)
+    # Navegación de fechas
     if vista == 'diaria':
         fecha_anterior = fecha_base - timedelta(days=1)
         fecha_siguiente = fecha_base + timedelta(days=1)
     elif vista == 'mensual':
-        # Anterior: ir al primer día del mes anterior
         fecha_anterior = (fecha_base.replace(day=1) - timedelta(days=1)).replace(day=1)
-        
-        # Siguiente: ir al primer día del mes siguiente
         if fecha_base.month == 12:
             fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
         else:
@@ -225,14 +546,18 @@ def calendario(request):
         'estados': Sesion.ESTADO_CHOICES,
         'fecha_anterior': fecha_anterior,
         'fecha_siguiente': fecha_siguiente,
-        'estado_filtro': estado_filtro,
-        'paciente_id': paciente_id,
-        'profesional_id': profesional_id,
-        'servicio_id': servicio_id,
-        'sucursal_id': sucursal_id,
+        
+        # ✅ CORRECCIÓN: Pasar valores originales (pueden ser None)
+        'estado_filtro': estado_filtro or '',
+        'paciente_id': paciente_id or '',
+        'profesional_id': profesional_id or '',
+        'servicio_id': servicio_id or '',
+        'sucursal_id': sucursal_id or '',
+        'tipo_sesion': tipo_sesion or '',
+        
         'sucursales_usuario': sucursales_usuario,
         
-        # ✅ VARIABLES DE ESTADÍSTICAS
+        # Estadísticas
         'total_monto': estadisticas['total_monto'] or 0,
         'total_pagado': estadisticas['total_pagado'] or 0,
         'total_pendiente': estadisticas['total_pendiente'] or 0,
@@ -249,7 +574,6 @@ def calendario(request):
     
     return render(request, 'agenda/calendario.html', context)
 
-
 def _generar_calendario_diario(fecha, sesiones):
     """Generar estructura para vista diaria"""
     sesiones_dia = [s for s in sesiones if s.fecha == fecha]
@@ -261,25 +585,60 @@ def _generar_calendario_diario(fecha, sesiones):
         'tipo': 'diaria'
     }
 
-
 def _generar_calendario_semanal(fecha_inicio, sesiones):
-    """Generar estructura para vista semanal"""
+    """Generar estructura para vista semanal CON OPTIMIZACIÓN"""
+    from datetime import time
+    from itertools import groupby
+    
     dias = []
     for i in range(7):
         dia = fecha_inicio + timedelta(days=i)
         sesiones_dia = [s for s in sesiones if s.fecha == dia]
+        
+        # ✅ OPTIMIZACIÓN: Pre-calcular si hay sesiones de mañana Y tarde
+        tiene_manana = any(s.hora_inicio.hour < 13 for s in sesiones_dia)
+        tiene_tarde = any(s.hora_inicio.hour >= 13 for s in sesiones_dia)
+        
+        # ✅ NUEVO: Agrupar sesiones y marcar el primer grupo de tarde
+        sesiones_agrupadas = []
+        if sesiones_dia:
+            # Ordenar por hora
+            sesiones_ordenadas = sorted(sesiones_dia, key=lambda s: s.hora_inicio)
+            
+            # Agrupar por hora
+            grupos = []
+            for hora, grupo_sesiones in groupby(sesiones_ordenadas, key=lambda s: s.hora_inicio.hour):
+                grupos.append({
+                    'hora': hora,
+                    'sesiones': list(grupo_sesiones)
+                })
+            
+            # Marcar el primer grupo >= 13
+            primer_tarde_encontrado = False
+            for grupo in grupos:
+                grupo['mostrar_linea_tarde'] = False
+                if grupo['hora'] >= 13 and not primer_tarde_encontrado and tiene_manana:
+                    grupo['mostrar_linea_tarde'] = True
+                    primer_tarde_encontrado = True
+            
+            sesiones_agrupadas = grupos
+        
         dias.append({
             'fecha': dia,
             'es_hoy': dia == date.today(),
             'sesiones': sesiones_dia,
+            'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
             'dia_nombre': dia.strftime('%A'),
             'dia_numero': dia.day,
+            'tiene_sesiones_manana': tiene_manana,
+            'tiene_sesiones_tarde': tiene_tarde,
         })
     return {'dias': dias, 'tipo': 'semanal'}
 
-
 def _generar_calendario_mensual(fecha_base, sesiones):
-    """Generar estructura para vista mensual tipo cuadrícula"""
+    """Generar estructura para vista mensual tipo cuadrícula CON OPTIMIZACIÓN"""
+    from itertools import groupby
+    
     primer_dia = fecha_base.replace(day=1)
     
     if fecha_base.month == 12:
@@ -296,17 +655,45 @@ def _generar_calendario_mensual(fecha_base, sesiones):
                 'fecha': dia,
                 'es_otro_mes': True,
                 'sesiones': [],
+                'sesiones_agrupadas': [],
             })
     
     dias_mes_actual = []
     for dia_num in range(1, ultimo_dia.day + 1):
         dia = fecha_base.replace(day=dia_num)
         sesiones_dia = [s for s in sesiones if s.fecha == dia]
+        
+        # ✅ OPTIMIZACIÓN: Pre-calcular mañana/tarde y agrupar
+        tiene_manana = any(s.hora_inicio.hour < 13 for s in sesiones_dia)
+        tiene_tarde = any(s.hora_inicio.hour >= 13 for s in sesiones_dia)
+        
+        sesiones_agrupadas = []
+        if sesiones_dia:
+            sesiones_ordenadas = sorted(sesiones_dia, key=lambda s: s.hora_inicio)
+            grupos = []
+            
+            for hora, grupo_sesiones in groupby(sesiones_ordenadas, key=lambda s: s.hora_inicio.hour):
+                grupos.append({
+                    'hora': hora,
+                    'sesiones': list(grupo_sesiones)
+                })
+            
+            # Marcar primer grupo >= 13 si hay mañana
+            primer_tarde_encontrado = False
+            for grupo in grupos:
+                grupo['mostrar_linea_tarde'] = False
+                if grupo['hora'] >= 13 and not primer_tarde_encontrado and tiene_manana:
+                    grupo['mostrar_linea_tarde'] = True
+                    primer_tarde_encontrado = True
+            
+            sesiones_agrupadas = grupos
+        
         dias_mes_actual.append({
             'fecha': dia,
             'es_hoy': dia == date.today(),
             'es_otro_mes': False,
             'sesiones': sesiones_dia,
+            'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
             'dia_numero': dia_num,
         })
     
@@ -326,6 +713,7 @@ def _generar_calendario_mensual(fecha_base, sesiones):
                 'fecha': None,
                 'es_otro_mes': True,
                 'sesiones': [],
+                'sesiones_agrupadas': [],
             })
         semanas.append(semana_actual)
     
@@ -366,6 +754,19 @@ def agendar_recurrente(request):
                 datetime.strptime(f, '%Y-%m-%d').date() for f in sesiones_seleccionadas
             ])
             
+            # 🆕 NUEVO: Obtener proyecto si fue seleccionado
+            asignar_proyecto = request.POST.get('asignar_proyecto') == 'on'
+            proyecto_id = request.POST.get('proyecto_id')
+            proyecto = None
+            
+            if asignar_proyecto and proyecto_id:
+                try:
+                    proyecto = Proyecto.objects.get(id=proyecto_id)
+                    print(f"✅ Proyecto seleccionado: {proyecto.codigo}")
+                except Proyecto.DoesNotExist:
+                    messages.error(request, '❌ El proyecto seleccionado no existe')
+                    return redirect('agenda:agendar_recurrente')
+            
             # Obtener duración personalizada
             duracion_personalizada = request.POST.get('duracion_personalizada')
             
@@ -391,11 +792,17 @@ def agendar_recurrente(request):
                 messages.error(request, f'❌ El profesional no puede atender este servicio en esta sucursal.')
                 return redirect('agenda:agendar_recurrente')
             
-            paciente_servicio = PacienteServicio.objects.get(
-                paciente=paciente,
-                servicio=servicio
-            )
-            monto = paciente_servicio.costo_sesion
+            # 🆕 DETERMINAR MONTO: Si es proyecto, monto = 0
+            if proyecto:
+                monto = Decimal('0.00')
+                print(f"💰 Sesiones de proyecto: monto = Bs. 0.00")
+            else:
+                paciente_servicio = PacienteServicio.objects.get(
+                    paciente=paciente,
+                    servicio=servicio
+                )
+                monto = paciente_servicio.costo_sesion
+                print(f"💰 Sesiones normales: monto = Bs. {monto}")
             
             # ✅ DETERMINAR DURACIÓN: Personalizada o estándar
             if duracion_personalizada:
@@ -420,16 +827,18 @@ def agendar_recurrente(request):
                         )
                         
                         if disponible:
+                            # 🆕 CREAR SESIÓN CON PROYECTO
                             Sesion.objects.create(
                                 paciente=paciente,
                                 servicio=servicio,
                                 profesional=profesional,
                                 sucursal=sucursal,
+                                proyecto=proyecto,  # 🆕 NUEVO
                                 fecha=fecha_actual,
                                 hora_inicio=hora,
                                 hora_fin=hora_fin,
                                 duracion_minutos=duracion_minutos,
-                                monto_cobrado=monto,
+                                monto_cobrado=monto,  # 0 si es proyecto
                                 creada_por=request.user
                             )
                             sesiones_creadas += 1
@@ -448,7 +857,8 @@ def agendar_recurrente(request):
             
             if sesiones_creadas > 0:
                 duracion_msg = f" de {duracion_minutos} minutos" if duracion_personalizada else ""
-                messages.success(request, f'✅ Se crearon {sesiones_creadas} sesiones{duracion_msg} correctamente.')
+                proyecto_msg = f" vinculadas al proyecto {proyecto.codigo}" if proyecto else ""
+                messages.success(request, f'✅ Se crearon {sesiones_creadas} sesiones{duracion_msg}{proyecto_msg} correctamente.')
             else:
                 messages.warning(request, '⚠️ No se pudo crear ninguna sesión. Verifica los conflictos de horario.')
             
@@ -460,6 +870,8 @@ def agendar_recurrente(request):
             
         except Exception as e:
             messages.error(request, f'Error al crear sesiones: {str(e)}')
+            import traceback
+            print(traceback.format_exc())  # Para debugging
             return redirect('agenda:agendar_recurrente')
     
     # ✅ GET - Mostrar formulario
@@ -495,12 +907,16 @@ def agendar_recurrente(request):
 @login_required
 def cargar_pacientes_sucursal(request):
     """✅ API: Cargar pacientes de una sucursal específica (HTMX)"""
-    sucursal_id = request.GET.get('sucursal')
+    sucursal_id = request.GET.get('sucursal', '').strip()
     
+    # ✅ Si no hay sucursal, devolver lista vacía
     if not sucursal_id:
-        return render(request, 'agenda/partials/pacientes_select.html', {'pacientes': []})
+        return render(request, 'agenda/partials/pacientes_select.html', {
+            'pacientes': []
+        })
     
     try:
+        # Filtrar pacientes de la sucursal
         pacientes = Paciente.objects.filter(
             sucursales__id=sucursal_id,
             estado='activo'
@@ -518,17 +934,30 @@ def cargar_pacientes_sucursal(request):
 
 @login_required
 def cargar_servicios_paciente(request):
-    """API: Cargar servicios contratados por un paciente (HTMX)"""
-    paciente_id = request.GET.get('paciente')
+    """✅ API: Cargar servicios contratados por un paciente (HTMX)"""
+    paciente_id = request.GET.get('paciente', '').strip()
     
+    # ✅ Si no hay paciente, devolver lista vacía
     if not paciente_id:
-        return render(request, 'agenda/partials/servicios_select.html', {'servicios': []})
+        return render(request, 'agenda/partials/servicios_select.html', {
+            'servicios': []
+        })
     
     try:
+        # ✅ CORRECCIÓN CRÍTICA: Filtrar SOLO servicios ACTIVOS del paciente
         servicios = PacienteServicio.objects.filter(
             paciente_id=paciente_id,
-            activo=True
-        ).select_related('servicio')
+            activo=True  # Solo servicios activos
+        ).select_related('servicio').filter(
+            servicio__activo=True  # Y el servicio debe estar activo
+        )
+        
+        # Verificar si hay servicios
+        if not servicios.exists():
+            return render(request, 'agenda/partials/servicios_select.html', {
+                'servicios': [],
+                'error': 'Este paciente no tiene servicios contratados activos'
+            })
         
         return render(request, 'agenda/partials/servicios_select.html', {
             'servicios': servicios
@@ -543,14 +972,18 @@ def cargar_servicios_paciente(request):
 @login_required
 def cargar_profesionales_por_servicio(request):
     """✅ API: Cargar profesionales que ofrecen un servicio en una sucursal (HTMX)"""
-    servicio_id = request.GET.get('servicio')
-    sucursal_id = request.GET.get('sucursal')
+    servicio_id = request.GET.get('servicio', '').strip()
+    sucursal_id = request.GET.get('sucursal', '').strip()
     
+    # ✅ Si falta servicio o sucursal, devolver lista vacía
     if not servicio_id or not sucursal_id:
-        return render(request, 'agenda/partials/profesionales_select.html', {'profesionales': []})
+        return render(request, 'agenda/partials/profesionales_select.html', {
+            'profesionales': [],
+            'error': 'Faltan datos requeridos' if not servicio_id or not sucursal_id else None
+        })
     
     try:
-        # Profesionales que:
+        # ✅ CORRECCIÓN: Profesionales que:
         # 1. Están activos
         # 2. Tienen la sucursal asignada
         # 3. Ofrecen el servicio seleccionado
@@ -559,6 +992,13 @@ def cargar_profesionales_por_servicio(request):
             sucursales__id=sucursal_id,
             servicios__id=servicio_id
         ).distinct().order_by('nombre', 'apellido')
+        
+        # Verificar si hay profesionales
+        if not profesionales.exists():
+            return render(request, 'agenda/partials/profesionales_select.html', {
+                'profesionales': [],
+                'error': 'No hay profesionales disponibles para este servicio en esta sucursal'
+            })
         
         return render(request, 'agenda/partials/profesionales_select.html', {
             'profesionales': profesionales
@@ -911,39 +1351,42 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
 
 @login_required
 def editar_sesion(request, sesion_id):
-    """Editar sesiÃ³n (HTMX modal)"""
+    """Editar sesión con validación de pagos"""
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
     if request.method == 'POST':
         try:
-            # Actualizar estado
             estado_nuevo = request.POST.get('estado')
+            
+            # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos
+            if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+                pagos_activos = sesion.pagos.filter(anulado=False)
+                
+                if pagos_activos.exists():
+                    # ✅ AJAX: Devolver JSON indicando que necesita confirmación
+                    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
+                    
+                    return JsonResponse({
+                        'requiere_confirmacion': True,
+                        'sesion_id': sesion.id,
+                        'estado_nuevo': estado_nuevo,
+                        'total_pagado': float(total_pagado),
+                        'cantidad_pagos': pagos_activos.count(),
+                        'mensaje': f'Esta sesión tiene {pagos_activos.count()} pago(s) registrado(s) por Bs. {total_pagado}'
+                    })
+            
+            # Si no hay pagos o no es estado sin cobro, continuar normal
             sesion.estado = estado_nuevo
             
-            # Aplicar polÃ­ticas de cobro segÃºn estado
-            if estado_nuevo == 'permiso':
-                # PERMISO: No se cobra
+            # Aplicar políticas de cobro según estado
+            if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                 sesion.monto_cobrado = Decimal('0.00')
-                sesion.pagado = False
-            elif estado_nuevo == 'reprogramada':
-                # REPROGRAMADA: Siempre gratis
-                sesion.monto_cobrado = Decimal('0.00')
-                sesion.pagado = False
-            elif estado_nuevo == 'cancelada':
-                # CANCELADA: Por defecto 0, pero se puede modificar
-                monto_input = request.POST.get('monto_cobrado', '0')
-                sesion.monto_cobrado = Decimal(monto_input) if monto_input else Decimal('0.00')
-            else:
-                # OTROS ESTADOS: Se puede modificar el monto
-                monto_input = request.POST.get('monto_cobrado')
-                if monto_input:
-                    sesion.monto_cobrado = Decimal(monto_input)
             
             # Observaciones y notas
             sesion.observaciones = request.POST.get('observaciones', '')
             sesion.notas_sesion = request.POST.get('notas_sesion', '')
             
-            # Campos especÃ­ficos segÃºn estado
+            # Campos específicos según estado
             if estado_nuevo == 'realizada_retraso':
                 hora_real = request.POST.get('hora_real_inicio')
                 if hora_real:
@@ -960,43 +1403,22 @@ def editar_sesion(request, sesion_id):
                 if hora_nueva:
                     sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
                 sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
-                # Checkbox de reprogramaciÃ³n realizada
                 sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
-            
-            # Pago
-            if estado_nuevo not in ['permiso', 'reprogramada']:
-                if request.POST.get('pagado') == 'on':
-                    sesion.pagado = True
-                    fecha_pago_input = request.POST.get('fecha_pago')
-                    if fecha_pago_input:
-                        sesion.fecha_pago = datetime.strptime(fecha_pago_input, '%Y-%m-%d').date()
-                    elif not sesion.fecha_pago:
-                        sesion.fecha_pago = date.today()
-                else:
-                    sesion.pagado = False
-                    sesion.fecha_pago = None
             
             sesion.modificada_por = request.user
             sesion.save()
             
-            messages.success(request, 'âœ… SesiÃ³n actualizada correctamente')
+            messages.success(request, '✅ Sesión actualizada correctamente')
             
-            # Retornar respuesta exitosa para AJAX
-            from django.http import JsonResponse
             return JsonResponse({'success': True})
             
         except Exception as e:
-            messages.error(request, f'Error: {str(e)}')
-            # Calcular estadÃ­sticas
-            estadisticas = _calcular_estadisticas_mes(sesion)
-            return render(request, 'agenda/partials/editar_form.html', {
-                'sesion': sesion,
-                'error': str(e),
-                'estadisticas': json.dumps(estadisticas),
-            })
+            return JsonResponse({
+                'error': True,
+                'mensaje': str(e)
+            }, status=400)
     
     # GET - Mostrar formulario
-    # Calcular estadÃ­sticas del mes
     estadisticas = _calcular_estadisticas_mes(sesion)
     
     return render(request, 'agenda/partials/editar_form.html', {
@@ -1005,8 +1427,122 @@ def editar_sesion(request, sesion_id):
     })
 
 
+@login_required
+def modal_confirmar_cambio_estado(request, sesion_id):
+    """
+    API: Generar contenido del modal de confirmación (HTMX)
+    Esta vista devuelve SOLO el HTML del modal, no una página completa
+    """
+    sesion = get_object_or_404(Sesion, id=sesion_id)
+    estado_nuevo = request.GET.get('estado')
+    
+    pagos_activos = sesion.pagos.filter(anulado=False)
+    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
+    
+    return render(request, 'agenda/partials/modal_confirmar_cambio.html', {
+        'sesion': sesion,
+        'estado_nuevo': estado_nuevo,
+        'pagos': pagos_activos,
+        'total_pagado': total_pagado
+    })
+
+@login_required
+def procesar_cambio_estado(request, sesion_id):
+    """
+    Procesar cambio de estado con manejo de pagos
+    🆕 NUEVO: Gestiona conversión a crédito, anulación, o transferencia
+    """
+    
+    if request.method != 'POST':
+        return redirect('agenda:calendario')
+    
+    sesion = get_object_or_404(Sesion, id=sesion_id)
+    
+    try:
+        from django.db import transaction
+        
+        estado_nuevo = request.POST.get('estado_nuevo')
+        accion_pago = request.POST.get('accion_pago')
+        observaciones_cambio = request.POST.get('observaciones_cambio', '')
+        
+        with transaction.atomic():
+            # Obtener pagos activos
+            pagos_activos = sesion.pagos.filter(anulado=False)
+            
+            # ACCIÓN 1: CONVERTIR A CRÉDITO (A FAVOR)
+            if accion_pago == 'convertir_credito':
+                for pago in pagos_activos:
+                    # Desvincular de la sesión
+                    pago.sesion = None
+                    
+                    # Actualizar concepto
+                    pago.concepto = f"Crédito por sesión {sesion.fecha} ({estado_nuevo})"
+                    
+                    # Agregar observación
+                    if observaciones_cambio:
+                        pago.observaciones += f"\n\n[Sistema] {observaciones_cambio}"
+                    pago.observaciones += f"\n[Sistema] Convertido a crédito el {date.today()} - Sesión cambió a {estado_nuevo}"
+                    
+                    pago.save()
+                
+                messages.success(
+                    request, 
+                    f'✅ Estado cambiado a "{estado_nuevo}". '
+                    f'Bs. {pagos_activos.aggregate(Sum("monto"))["monto__sum"]} convertidos a saldo a favor'
+                )
+            
+            # ACCIÓN 2: ANULAR PAGO
+            elif accion_pago == 'anular_pago':
+                motivo_anulacion = request.POST.get('motivo_anulacion', '').strip()
+                
+                if not motivo_anulacion:
+                    messages.error(request, '❌ Debe especificar un motivo de anulación')
+                    return redirect('agenda:calendario')
+                
+                for pago in pagos_activos:
+                    pago.anular(
+                        user=request.user,
+                        motivo=f"Sesión cambió a {estado_nuevo}. {motivo_anulacion}"
+                    )
+                
+                messages.warning(
+                    request,
+                    f'⚠️ Estado cambiado a "{estado_nuevo}". '
+                    f'{pagos_activos.count()} pago(s) anulado(s). DEBE devolver el dinero al paciente.'
+                )
+            
+            # ACCIÓN 3: TRANSFERIR (SOLO REPROGRAMADA)
+            elif accion_pago == 'transferir_pago':
+                # Los pagos quedan vinculados a la sesión
+                # Cuando se cree la nueva sesión, se pueden transferir manualmente
+                
+                # Agregar nota
+                sesion.observaciones += f"\n[Sistema] Pagos pendientes de transferir a nueva sesión"
+                
+                messages.info(
+                    request,
+                    f'ℹ️ Estado cambiado a "Reprogramada". '
+                    f'Los pagos quedarán disponibles para transferir a la nueva sesión.'
+                )
+            
+            # ✅ CRÍTICO: Cambiar estado de la sesión
+            sesion.estado = estado_nuevo
+            sesion.monto_cobrado = Decimal('0.00')
+            
+            if observaciones_cambio:
+                sesion.observaciones += f"\n\n{observaciones_cambio}"
+            
+            sesion.modificada_por = request.user
+            sesion.save()
+                    
+        return redirect('agenda:calendario')
+        
+    except Exception as e:
+        messages.error(request, f'❌ Error: {str(e)}')
+        return redirect('agenda:calendario')
+
 def _calcular_estadisticas_mes(sesion):
-    """Calcular estadÃ­sticas del mes para el paciente"""
+    """Calcular estadísticas del mes para el paciente"""
     primer_dia = sesion.fecha.replace(day=1)
     if sesion.fecha.month == 12:
         ultimo_dia = sesion.fecha.replace(day=31)
@@ -1068,3 +1604,58 @@ def validar_horario(request):
             'disponible': False,
             'mensaje': f'Error: {str(e)}'
         }, status=400)
+    
+@login_required
+def obtener_proyectos_paciente(request, paciente_id):
+    """
+    🆕 API JSON: Obtener proyectos activos de un paciente
+    Usado en agendar_recurrente.html para cargar proyectos dinámicamente
+    """
+    try:
+        # Validar que el paciente existe
+        paciente = get_object_or_404(Paciente, id=paciente_id)
+        
+        # Obtener proyectos activos (no finalizados ni cancelados)
+        proyectos = Proyecto.objects.filter(
+            paciente=paciente,
+            estado__in=['planificado', 'en_progreso']
+        ).select_related('servicio_base', 'sucursal').order_by('-fecha_inicio')
+        
+        # Verificar permisos de sucursal del usuario
+        sucursales_usuario = request.sucursales_usuario
+        if sucursales_usuario is not None and sucursales_usuario.exists():
+            proyectos = proyectos.filter(sucursal__in=sucursales_usuario)
+        
+        # Construir respuesta JSON
+        proyectos_data = []
+        for proyecto in proyectos:
+            proyectos_data.append({
+                'id': proyecto.id,
+                'codigo': proyecto.codigo,
+                'nombre': proyecto.nombre,
+                'tipo': proyecto.get_tipo_display(),
+                'costo_total': float(proyecto.costo_total),
+                'total_pagado': float(proyecto.total_pagado),
+                'saldo_pendiente': float(proyecto.saldo_pendiente),
+                'sesiones_completadas': proyecto.sesiones.filter(
+                    estado__in=['realizada', 'realizada_retraso']
+                ).count(),
+                'estado': proyecto.get_estado_display(),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'proyectos': proyectos_data
+        })
+        
+    except Paciente.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Paciente no encontrado'
+        }, status=404)
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -55,7 +55,7 @@ INSTALLED_APPS = [
     'servicios',
     'agenda',
     'profesionales',
-    'facturacion',
+    'facturacion.apps.FacturacionConfig',
 ]
 
 MIDDLEWARE = [

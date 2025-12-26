@@ -27,7 +27,8 @@ class TipoServicio(models.Model):
         ordering = ['nombre']
     
     def __str__(self):
-        return self.nombre
+        # ✅ Incluir el precio en el string para que aparezca en el dropdown
+        return f"{self.nombre} - Bs. {self.costo_base}"
 
 
 class Sucursal(models.Model):

@@ -1,10 +1,30 @@
 """
 Utilidades para gestión de permisos y filtros por sucursal
+✅ Sistema completo de permisos por roles
 """
 from functools import wraps
 from django.shortcuts import redirect
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from profesionales.models import Profesional
+
+
+# ====================================
+# FUNCIONES AUXILIARES
+# ====================================
+
+def get_perfil_usuario(user):
+    """Obtiene el perfil del usuario"""
+    if user.is_superuser:
+        return None  # Superuser no necesita perfil
+    
+    if hasattr(user, 'perfil'):
+        return user.perfil
+    
+    # Crear perfil si no existe
+    from core.models import PerfilUsuario
+    perfil, created = PerfilUsuario.objects.get_or_create(user=user)
+    return perfil
 
 
 def get_sucursales_usuario(user):
@@ -12,29 +32,31 @@ def get_sucursales_usuario(user):
     Obtiene las sucursales del usuario actual.
     
     Returns:
-        - QuerySet de Sucursales si el usuario tiene un perfil de Profesional
         - None si es superuser (puede ver todas)
-        - QuerySet vacío si no tiene perfil asociado
+        - QuerySet de Sucursales según el rol
+        - QuerySet vacío si no tiene perfil o sucursales
     """
     if user.is_superuser:
-        return None  # Superuser ve todas las sucursales
+        return None  # Superuser ve todas
     
-    try:
-        profesional = Profesional.objects.get(user=user)
-        return profesional.sucursales.all()
-    except Profesional.DoesNotExist:
+    perfil = get_perfil_usuario(user)
+    
+    if not perfil or not perfil.rol:
         from servicios.models import Sucursal
         return Sucursal.objects.none()
+    
+    return perfil.get_sucursales()
 
 
 def get_profesional_usuario(user):
     """
     Obtiene el objeto Profesional asociado al usuario actual.
-    
-    Returns:
-        - Profesional si existe
-        - None si no existe
     """
+    perfil = get_perfil_usuario(user)
+    if perfil and perfil.profesional:
+        return perfil.profesional
+    
+    # Fallback: buscar por relación directa (compatibilidad)
     try:
         return Profesional.objects.get(user=user)
     except Profesional.DoesNotExist:
@@ -44,13 +66,6 @@ def get_profesional_usuario(user):
 def filtrar_por_sucursales(queryset, user):
     """
     Filtra un queryset por las sucursales del usuario.
-    
-    Args:
-        queryset: QuerySet a filtrar
-        user: Usuario actual
-    
-    Returns:
-        QuerySet filtrado por sucursales del usuario, o sin filtrar si es superuser
     """
     sucursales = get_sucursales_usuario(user)
     
@@ -63,7 +78,6 @@ def filtrar_por_sucursales(queryset, user):
         return queryset.none()
     
     # Filtrar por sucursales del usuario
-    # Detectar si el modelo tiene 'sucursales' (ManyToMany) o 'sucursal' (ForeignKey)
     if hasattr(queryset.model, 'sucursales'):
         return queryset.filter(sucursales__in=sucursales).distinct()
     elif hasattr(queryset.model, 'sucursal'):
@@ -75,49 +89,76 @@ def filtrar_por_sucursales(queryset, user):
 def puede_ver_sucursal(user, sucursal):
     """
     Verifica si un usuario puede ver datos de una sucursal específica.
-    
-    Args:
-        user: Usuario a verificar
-        sucursal: Objeto Sucursal
-    
-    Returns:
-        bool: True si puede ver, False si no
     """
     if user.is_superuser:
         return True
     
-    sucursales_usuario = get_sucursales_usuario(user)
+    perfil = get_perfil_usuario(user)
+    if perfil:
+        return perfil.tiene_acceso_sucursal(sucursal)
     
-    if sucursales_usuario is None:
-        return False
-    
-    return sucursales_usuario.filter(id=sucursal.id).exists()
+    return False
 
 
 # ====================================
-# DECORADORES
+# DECORADORES DE PERMISOS
 # ====================================
 
-def requiere_profesional(view_func):
+def requiere_perfil(view_func):
     """
-    Decorador que requiere que el usuario tenga un perfil de Profesional.
+    Decorador que requiere que el usuario tenga un perfil válido con rol.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if request.user.is_superuser:
-            # Superuser siempre tiene acceso
             return view_func(request, *args, **kwargs)
         
-        profesional = get_profesional_usuario(request.user)
+        perfil = get_perfil_usuario(request.user)
         
-        if profesional is None:
+        if not perfil or not perfil.rol:
             messages.error(
-                request, 
-                '⚠️ No tienes un perfil de profesional asignado. Contacta al administrador.'
+                request,
+                '⚠️ Tu cuenta no tiene un rol asignado. Contacta al administrador.'
             )
             return redirect('core:dashboard')
         
-        # Adjuntar profesional al request para uso posterior
+        # Adjuntar perfil al request
+        request.perfil = perfil
+        request.sucursales_usuario = perfil.get_sucursales()
+        
+        return view_func(request, *args, **kwargs)
+    
+    return wrapper
+
+
+def requiere_profesional(view_func):
+    """
+    Decorador que requiere que el usuario sea un profesional.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if request.user.is_superuser:
+            return view_func(request, *args, **kwargs)
+        
+        perfil = get_perfil_usuario(request.user)
+        
+        if not perfil or not perfil.es_profesional():
+            messages.error(
+                request,
+                '⚠️ Esta función es solo para profesionales.'
+            )
+            return redirect('core:dashboard')
+        
+        profesional = perfil.profesional
+        if not profesional:
+            messages.error(
+                request,
+                '⚠️ No tienes un perfil de profesional vinculado.'
+            )
+            return redirect('core:dashboard')
+        
+        # Adjuntar al request
+        request.perfil = perfil
         request.profesional = profesional
         request.sucursales_usuario = profesional.sucursales.all()
         
@@ -126,25 +167,110 @@ def requiere_profesional(view_func):
     return wrapper
 
 
+def requiere_permiso(permiso_method):
+    """
+    Decorador genérico para verificar permisos.
+    
+    Uso: @requiere_permiso('puede_crear_pacientes')
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+            
+            perfil = get_perfil_usuario(request.user)
+            
+            if not perfil:
+                raise PermissionDenied("No tienes permiso para esta acción.")
+            
+            # Verificar permiso
+            tiene_permiso = getattr(perfil, permiso_method, lambda: False)()
+            
+            if not tiene_permiso:
+                messages.error(
+                    request,
+                    '⚠️ No tienes permiso para realizar esta acción.'
+                )
+                return redirect('core:dashboard')
+            
+            request.perfil = perfil
+            request.sucursales_usuario = perfil.get_sucursales()
+            
+            return view_func(request, *args, **kwargs)
+        
+        return wrapper
+    return decorator
+
+
 def solo_sus_sucursales(view_func):
     """
     Decorador que filtra automáticamente por las sucursales del usuario.
-    Adjunta 'sucursales_usuario' al request.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         sucursales = get_sucursales_usuario(request.user)
         request.sucursales_usuario = sucursales
+        
+        if not request.user.is_superuser:
+            request.perfil = get_perfil_usuario(request.user)
+        
         return view_func(request, *args, **kwargs)
     
     return wrapper
+
+
+# Decoradores específicos para acciones comunes
+puede_crear_pacientes = lambda f: requiere_permiso('puede_crear_pacientes')(f)
+puede_crear_sesiones = lambda f: requiere_permiso('puede_crear_sesiones')(f)
+puede_crear_proyectos = lambda f: requiere_permiso('puede_crear_proyectos')(f)
+puede_registrar_pagos = lambda f: requiere_permiso('puede_registrar_pagos')(f)
+puede_crear_servicios = lambda f: requiere_permiso('puede_crear_servicios')(f)
+puede_crear_profesionales = lambda f: requiere_permiso('puede_crear_profesionales')(f)
+puede_crear_sucursales = lambda f: requiere_permiso('puede_crear_sucursales')(f)
+puede_eliminar_sesiones = lambda f: requiere_permiso('puede_eliminar_sesiones')(f)
+puede_eliminar_proyectos = lambda f: requiere_permiso('puede_eliminar_proyectos')(f)
+puede_anular_pagos = lambda f: requiere_permiso('puede_anular_pagos')(f)
+puede_ver_reportes = lambda f: requiere_permiso('puede_ver_reportes')(f)
 
 
 # ====================================
 # MIXINS PARA VISTAS BASADAS EN CLASES
 # ====================================
 
-class SucursalMixin:
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic.base import ContextMixin
+
+
+class PerfilRequiredMixin(LoginRequiredMixin):
+    """
+    Mixin que requiere que el usuario tenga perfil con rol.
+    """
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        
+        if request.user.is_superuser:
+            return super().dispatch(request, *args, **kwargs)
+        
+        perfil = get_perfil_usuario(request.user)
+        
+        if not perfil or not perfil.rol:
+            messages.error(
+                request,
+                '⚠️ Tu cuenta no tiene un rol asignado.'
+            )
+            return redirect('core:dashboard')
+        
+        # Adjuntar al request
+        request.perfil = perfil
+        request.sucursales_usuario = perfil.get_sucursales()
+        
+        return super().dispatch(request, *args, **kwargs)
+
+
+class SucursalMixin(ContextMixin):
     """
     Mixin para vistas basadas en clases que filtra por sucursales del usuario.
     """
@@ -156,29 +282,77 @@ class SucursalMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['sucursales_usuario'] = get_sucursales_usuario(self.request.user)
+        
+        if not self.request.user.is_superuser:
+            context['perfil'] = get_perfil_usuario(self.request.user)
+        
         return context
 
 
-class ProfesionalRequiredMixin:
+class ProfesionalRequiredMixin(LoginRequiredMixin):
     """
-    Mixin que requiere que el usuario tenga perfil de Profesional.
+    Mixin que requiere que el usuario sea profesional.
     """
     
     def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        
         if request.user.is_superuser:
             return super().dispatch(request, *args, **kwargs)
         
-        profesional = get_profesional_usuario(request.user)
+        perfil = get_perfil_usuario(request.user)
         
-        if profesional is None:
-            messages.error(
-                request,
-                '⚠️ No tienes un perfil de profesional asignado.'
-            )
+        if not perfil or not perfil.es_profesional():
+            messages.error(request, '⚠️ Acceso solo para profesionales.')
+            return redirect('core:dashboard')
+        
+        profesional = perfil.profesional
+        if not profesional:
+            messages.error(request, '⚠️ No tienes perfil de profesional vinculado.')
             return redirect('core:dashboard')
         
         # Adjuntar al request
+        request.perfil = perfil
         request.profesional = profesional
         request.sucursales_usuario = profesional.sucursales.all()
+        
+        return super().dispatch(request, *args, **kwargs)
+
+
+class PermisoMixin(LoginRequiredMixin):
+    """
+    Mixin genérico para verificar permisos.
+    
+    Uso: 
+    class MiVista(PermisoMixin, View):
+        permiso_requerido = 'puede_crear_pacientes'
+    """
+    permiso_requerido = None
+    
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        
+        if request.user.is_superuser:
+            return super().dispatch(request, *args, **kwargs)
+        
+        if not self.permiso_requerido:
+            raise ValueError("permiso_requerido no está definido en la vista")
+        
+        perfil = get_perfil_usuario(request.user)
+        
+        if not perfil:
+            raise PermissionDenied("No tienes perfil asignado.")
+        
+        # Verificar permiso
+        tiene_permiso = getattr(perfil, self.permiso_requerido, lambda: False)()
+        
+        if not tiene_permiso:
+            messages.error(request, '⚠️ No tienes permiso para esta acción.')
+            return redirect('core:dashboard')
+        
+        request.perfil = perfil
+        request.sucursales_usuario = perfil.get_sucursales()
         
         return super().dispatch(request, *args, **kwargs)

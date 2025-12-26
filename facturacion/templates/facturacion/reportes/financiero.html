@@ -13,7 +13,12 @@
     
     <!-- Filtros -->
     <div class="bg-white border rounded-lg p-4 mb-6">
-        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <select name="vista" class="px-3 py-2 border rounded-lg">
+                <option value="mensual" {% if vista == 'mensual' %}selected{% endif %}>Vista Mensual</option>
+                <option value="diaria" {% if vista == 'diaria' %}selected{% endif %}>Vista Diaria (Cierre Caja)</option>
+            </select>
+            
             <select name="sucursal" class="px-3 py-2 border rounded-lg">
                 <option value="">Todas las sucursales</option>
                 {% for s in sucursales %}
@@ -32,24 +37,630 @@
         </form>
     </div>
     
-    <!-- Resumen Financiero -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <!-- ✅ CIERRE DE CAJA DIARIO -->
+    {% if vista == 'diaria' and cierre_diario %}
+    <div class="bg-gradient-to-br from-blue-50 to-green-50 border-2 border-blue-300 rounded-lg p-6 mb-6">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <h2 class="text-2xl font-black text-gray-900">📋 Cierre de Caja</h2>
+                <p class="text-lg text-gray-700 font-semibold">{{ cierre_diario.dia_semana }}, {{ cierre_diario.fecha_formato }}</p>
+            </div>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
+                🖨️ Imprimir
+            </button>
+        </div>
+        
+        <!-- Resumen del Día -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg p-4 text-center shadow">
+                <p class="text-xs text-gray-600 uppercase font-bold">Total Cobrado</p>
+                <p class="text-4xl font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ cierre_diario.pagos_total }} pagos</p>
+            </div>
+            
+            <div class="bg-white rounded-lg p-4 text-center shadow">
+                <p class="text-xs text-gray-600 uppercase font-bold">Efectivo</p>
+                <p class="text-4xl font-black text-blue-700">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500 mt-1">Esperado en caja</p>
+            </div>
+            
+            <div class="bg-white rounded-lg p-4 text-center shadow">
+                <p class="text-xs text-gray-600 uppercase font-bold">Sesiones</p>
+                <p class="text-4xl font-black text-purple-700">{{ cierre_diario.sesiones_realizadas }}</p>
+                <p class="text-xs text-gray-500 mt-1">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:2 }}</p>
+            </div>
+            
+            <div class="bg-white rounded-lg p-4 text-center shadow">
+                <p class="text-xs text-gray-600 uppercase font-bold">Proyectos</p>
+                <p class="text-3xl font-black text-orange-700">{{ cierre_diario.proyectos_iniciados }}</p>
+                <p class="text-xs text-gray-500 mt-1">Bs. {{ cierre_diario.monto_proyectos|floatformat:2 }}</p>
+            </div>
+        </div>
+        
+        <!-- Movimiento de Créditos del Día -->
+        <div class="bg-white rounded-lg p-4 mb-6 shadow">
+            <h3 class="font-bold text-gray-900 mb-3">💳 Movimiento de Créditos</h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p class="text-xs text-green-600 font-bold">Créditos Generados</p>
+                    <p class="text-2xl font-black text-green-700">Bs. {{ cierre_diario.creditos_generados|floatformat:2 }}</p>
+                    <p class="text-xs text-gray-500">Pagos adelantados</p>
+                </div>
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                    <p class="text-xs text-orange-600 font-bold">Créditos Utilizados</p>
+                    <p class="text-2xl font-black text-orange-700">Bs. {{ cierre_diario.creditos_utilizados|floatformat:2 }}</p>
+                    <p class="text-xs text-gray-500">Aplicados a pagos</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detalle por Método de Pago -->
+        <div class="bg-white rounded-lg p-6 shadow mb-6">
+            <h3 class="font-bold text-gray-900 mb-4 text-lg">💳 Detalle por Método de Pago</h3>
+            <div class="space-y-3">
+                {% for metodo in cierre_diario.por_metodo %}
+                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div>
+                        <p class="font-bold text-gray-900 text-lg">{{ metodo.metodo_pago__nombre }}</p>
+                        <p class="text-sm text-gray-500">{{ metodo.cantidad }} transacción{{ metodo.cantidad|pluralize:"es" }}</p>
+                    </div>
+                    <p class="text-2xl font-black text-green-700">Bs. {{ metodo.monto|floatformat:2 }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Sin pagos registrados</p>
+                {% endfor %}
+            </div>
+            
+            <!-- Verificación de Efectivo -->
+            <div class="mt-6 pt-6 border-t-2 border-gray-300">
+                <h4 class="font-bold text-gray-900 mb-3">✅ Verificación de Efectivo</h4>
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="font-semibold text-gray-700">Efectivo esperado:</p>
+                        <p class="text-xl font-black text-gray-900">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="font-semibold text-gray-700">Efectivo contado:</label>
+                        <input type="number" step="0.01" class="px-3 py-2 border-2 border-gray-300 rounded-lg w-48 text-right text-xl font-bold" 
+                               placeholder="0.00" id="efectivo-contado" onchange="verificarEfectivo()">
+                    </div>
+                    <div id="diferencia-efectivo" class="mt-3 text-center hidden">
+                        <!-- Se llenará con JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estadísticas Adicionales del Día -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- Asistencia -->
+            <div class="bg-white rounded-lg p-6 shadow">
+                <h3 class="font-bold text-gray-900 mb-4 text-sm">📊 Asistencia del Día</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center p-2 bg-green-50 rounded">
+                        <span class="text-xs text-gray-700">Realizadas</span>
+                        <span class="font-bold text-green-700">{{ cierre_diario.sesiones_realizadas }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-yellow-50 rounded">
+                        <span class="text-xs text-gray-700">Retrasos</span>
+                        <span class="font-bold text-yellow-700">{{ cierre_diario.estadisticas.retrasos_dia }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-red-50 rounded">
+                        <span class="text-xs text-gray-700">Faltas</span>
+                        <span class="font-bold text-red-700">{{ cierre_diario.estadisticas.faltas_dia }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span class="text-xs text-gray-700">Canceladas</span>
+                        <span class="font-bold text-gray-700">{{ cierre_diario.estadisticas.canceladas_dia }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-blue-50 rounded border-t-2 border-blue-300 mt-2">
+                        <span class="text-xs text-gray-700 font-bold">Programadas</span>
+                        <span class="font-bold text-blue-700">{{ cierre_diario.estadisticas.programadas_dia }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Métricas Operativas -->
+            <div class="bg-white rounded-lg p-6 shadow">
+                <h3 class="font-bold text-gray-900 mb-4 text-sm">⚙️ Métricas Operativas</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center p-2 bg-purple-50 rounded">
+                        <span class="text-xs text-gray-700">Pacientes únicos</span>
+                        <span class="font-bold text-purple-700">{{ cierre_diario.estadisticas.pacientes_unicos }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-indigo-50 rounded">
+                        <span class="text-xs text-gray-700">Horas trabajadas</span>
+                        <span class="font-bold text-indigo-700">{{ cierre_diario.estadisticas.horas_trabajadas|floatformat:1 }}h</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-cyan-50 rounded">
+                        <span class="text-xs text-gray-700">Ticket promedio</span>
+                        <span class="font-bold text-cyan-700">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-teal-50 rounded border-t-2 border-teal-300 mt-2">
+                        <span class="text-xs text-gray-700 font-bold">Ingreso/hora</span>
+                        <span class="font-bold text-teal-700">Bs. {{ cierre_diario.estadisticas.ingreso_por_hora|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Por Servicio del Día -->
+            <div class="bg-white rounded-lg p-6 shadow">
+                <h3 class="font-bold text-gray-900 mb-4 text-sm">🎯 Servicios del Día</h3>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    {% for servicio in cierre_diario.estadisticas.por_servicio %}
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full" style="background-color: {{ servicio.servicio__color }}"></span>
+                            <span class="text-xs text-gray-700">{{ servicio.servicio__nombre|truncatewords:3 }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-gray-900 text-xs">{{ servicio.cantidad }}</span>
+                            <span class="text-xs text-gray-500 ml-1">Bs. {{ servicio.ingresos|floatformat:0 }}</span>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-xs text-gray-500 text-center py-2">Sin servicios</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Por Profesional del Día -->
+        <div class="bg-white rounded-lg p-6 shadow mb-6">
+            <h3 class="font-bold text-gray-900 mb-4 text-lg">👨‍⚕️ Desempeño por Profesional</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for prof in cierre_diario.estadisticas.por_profesional %}
+                <div class="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4">
+                    <p class="font-bold text-gray-900 text-sm mb-2">{{ prof.profesional__nombre }} {{ prof.profesional__apellido }}</p>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-600">Sesiones</p>
+                            <p class="text-2xl font-black text-blue-700">{{ prof.sesiones }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-600">Ingresos</p>
+                            <p class="text-lg font-black text-green-700">Bs. {{ prof.ingresos|floatformat:0 }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4 col-span-3">Sin datos</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Comparativa con Días Anteriores -->
+        <div class="bg-white rounded-lg p-6 shadow mb-6">
+            <h3 class="font-bold text-gray-900 mb-4 text-lg">📈 Comparativa Últimos 7 Días</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-bold text-gray-600">Día</th>
+                            <th class="px-3 py-2 text-center text-xs font-bold text-gray-600">Sesiones</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-gray-600">Generado</th>
+                            <th class="px-3 py-2 text-right text-xs font-bold text-gray-600">Cobrado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for dia in cierre_diario.comparativa_dias %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-sm text-gray-900">
+                                <span class="font-semibold">{{ dia.dia_semana }}</span>
+                                <span class="text-xs text-gray-500 ml-1">{{ dia.fecha|date:"d/m" }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-center text-sm font-bold text-gray-900">{{ dia.sesiones }}</td>
+                            <td class="px-3 py-2 text-right text-sm font-bold text-blue-700">Bs. {{ dia.ingresos|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right text-sm font-bold text-green-700">Bs. {{ dia.cobrado|floatformat:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Día actual resaltado -->
+                        <tr class="bg-blue-100 font-bold">
+                            <td class="px-3 py-2 text-sm text-blue-900">
+                                <span class="font-black">HOY</span>
+                                <span class="text-xs ml-1">{{ cierre_diario.fecha|date:"d/m" }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-center text-sm text-blue-900">{{ cierre_diario.sesiones_realizadas }}</td>
+                            <td class="px-3 py-2 text-right text-sm text-blue-900">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:0 }}</td>
+                            <td class="px-3 py-2 text-right text-sm text-blue-900">Bs. {{ cierre_diario.monto_total|floatformat:0 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Detalle COMPLETO de Pagos del Día con Agrupación -->
+        <div class="bg-white rounded-lg p-6 shadow">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-gray-900 text-lg">📋 Detalle Completo de Pagos ({{ cierre_diario.pagos_total }} transacciones)</h3>
+                <div class="text-right">
+                    <p class="text-xs text-gray-600">Total</p>
+                    <p class="text-2xl font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</p>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gradient-to-r from-blue-50 to-purple-50 sticky top-0">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300 w-8"></th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Recibo</th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Paciente</th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Concepto</th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Método</th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Observaciones</th>
+                            <th class="px-3 py-3 text-left text-xs font-bold text-gray-700 border-b-2 border-blue-300">Registrado</th>
+                            <th class="px-3 py-3 text-right text-xs font-bold text-gray-700 border-b-2 border-blue-300">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for grupo in cierre_diario.pagos_agrupados %}
+                        <!-- Fila Principal (Agrupada o Individual) -->
+                        <tr class="hover:bg-blue-50 transition-colors {% if grupo.es_masivo %}cursor-pointer bg-yellow-50{% endif %}" 
+                            {% if grupo.es_masivo %}onclick="toggleDetalle('{{ grupo.recibo }}')"{% endif %}>
+                            <td class="px-3 py-3 text-center">
+                                {% if grupo.es_masivo %}
+                                <button class="text-blue-600 hover:text-blue-800 font-bold text-lg focus:outline-none transition-transform" 
+                                        id="toggle-{{ grupo.recibo }}">
+                                    ▶
+                                </button>
+                                {% else %}
+                                <span class="text-gray-400">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3 text-xs">
+                                <span class="font-mono font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded">
+                                    {{ grupo.recibo }}
+                                </span>
+                                {% if grupo.es_masivo %}
+                                <span class="ml-2 inline-block px-2 py-1 bg-yellow-200 text-yellow-800 text-xs font-bold rounded">
+                                    MASIVO
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3">
+                                <p class="font-semibold text-gray-900">{{ grupo.paciente.nombre_completo }}</p>
+                                {% if grupo.paciente.telefono_tutor %}
+                                <p class="text-xs text-gray-500">📱 {{ grupo.paciente.telefono_tutor }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3">
+                                {% if grupo.es_masivo %}
+                                    <!-- Resumen del pago masivo -->
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-2xl">📦</span>
+                                        <div>
+                                            <p class="font-bold text-purple-900">Pago Masivo</p>
+                                            <p class="text-xs text-gray-600">
+                                                {% if grupo.sesiones_count > 0 %}{{ grupo.sesiones_count }} sesión{{ grupo.sesiones_count|pluralize:"es" }}{% endif %}
+                                                {% if grupo.proyectos_count > 0 %}
+                                                    {% if grupo.sesiones_count > 0 %} + {% endif %}
+                                                    {{ grupo.proyectos_count }} proyecto{{ grupo.proyectos_count|pluralize:"s" }}
+                                                {% endif %}
+                                                {% if grupo.adelantados_count > 0 %}
+                                                    {% if grupo.sesiones_count > 0 or grupo.proyectos_count > 0 %} + {% endif %}
+                                                    {{ grupo.adelantados_count }} adelantado{{ grupo.adelantados_count|pluralize:"s" }}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <!-- Pago individual -->
+                                    {% with pago=grupo.pagos.0 %}
+                                        {% if pago.sesion %}
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                <div>
+                                                    <p class="font-semibold text-blue-900">{{ pago.sesion.servicio.nombre }}</p>
+                                                    <p class="text-xs text-gray-500">Sesión {{ pago.sesion.fecha|date:"d/m/Y" }}</p>
+                                                </div>
+                                            </div>
+                                        {% elif pago.proyecto %}
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                                <div>
+                                                    <p class="font-semibold text-orange-900">{{ pago.proyecto.nombre }}</p>
+                                                    <p class="text-xs text-gray-500">Proyecto {{ pago.proyecto.codigo }}</p>
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                                <div>
+                                                    <p class="font-semibold text-green-900">Pago Adelantado</p>
+                                                    <p class="text-xs text-gray-500">Genera crédito</p>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3">
+                                <span class="inline-block px-2 py-1 rounded text-xs font-semibold
+                                    {% if grupo.metodo_pago.nombre == 'Efectivo' %}
+                                        bg-green-100 text-green-800
+                                    {% elif grupo.metodo_pago.nombre == 'QR' %}
+                                        bg-purple-100 text-purple-800
+                                    {% elif grupo.metodo_pago.nombre == 'Tarjeta' %}
+                                        bg-blue-100 text-blue-800
+                                    {% elif grupo.metodo_pago.nombre == 'Transferencia' %}
+                                        bg-indigo-100 text-indigo-800
+                                    {% else %}
+                                        bg-gray-100 text-gray-800
+                                    {% endif %}
+                                ">
+                                    {{ grupo.metodo_pago.nombre }}
+                                </span>
+                                {% if grupo.numero_transaccion %}
+                                <p class="text-xs text-gray-500 mt-1 font-mono">{{ grupo.numero_transaccion }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3 max-w-xs">
+                                {% if grupo.observaciones %}
+                                    <div class="text-xs text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-2">
+                                        <p class="font-semibold text-yellow-800 mb-1">📝 Detalles:</p>
+                                        <p class="whitespace-pre-line">{{ grupo.observaciones|truncatewords:15 }}</p>
+                                    </div>
+                                {% else %}
+                                    <span class="text-xs text-gray-400 italic">Sin observaciones</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-3">
+                                <p class="text-xs text-gray-700 font-medium">{{ grupo.registrado_por.get_full_name|default:grupo.registrado_por.username }}</p>
+                                <p class="text-xs text-gray-500">{{ grupo.fecha_registro|date:"H:i" }}</p>
+                            </td>
+                            <td class="px-3 py-3 text-right">
+                                <p class="text-lg font-black text-gray-900">Bs. {{ grupo.total|floatformat:2 }}</p>
+                                {% if grupo.es_masivo %}
+                                <p class="text-xs text-gray-500">({{ grupo.pagos|length }} ítems)</p>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Sub-filas de detalle (solo para pagos masivos) -->
+                        {% if grupo.es_masivo %}
+                        <tr id="detalle-{{ grupo.recibo }}" class="hidden bg-gray-50">
+                            <td colspan="8" class="px-6 py-4">
+                                <div class="bg-white border-2 border-blue-200 rounded-lg p-4">
+                                    <h4 class="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
+                                        <span>📋</span> Desglose del Pago Masivo {{ grupo.recibo }}
+                                    </h4>
+                                    <table class="w-full text-xs">
+                                        <thead class="bg-blue-50">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">Tipo</th>
+                                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">Servicio</th>
+                                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">Fecha</th>
+                                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">Observaciones</th>
+                                                <th class="px-3 py-2 text-right text-xs font-semibold text-gray-700">Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200">
+                                            {% for pago_detalle in grupo.pagos %}
+                                            <tr class="hover:bg-blue-50">
+                                                <td class="px-3 py-2">
+                                                    {% if pago_detalle.sesion %}
+                                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded font-semibold">
+                                                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                            Sesión
+                                                        </span>
+                                                    {% elif pago_detalle.proyecto %}
+                                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded font-semibold">
+                                                            <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                                            Proyecto
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded font-semibold">
+                                                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                                            Adelantado
+                                                        </span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                    {% if pago_detalle.sesion %}
+                                                        <p class="font-semibold text-gray-900">{{ pago_detalle.sesion.servicio.nombre }}</p>
+                                                        <p class="text-xs text-gray-500">Con {{ pago_detalle.sesion.profesional.nombre_completo }}</p>
+                                                    {% elif pago_detalle.proyecto %}
+                                                        <p class="font-semibold text-gray-900">{{ pago_detalle.proyecto.nombre }}</p>
+                                                        <p class="text-xs text-gray-500">{{ pago_detalle.proyecto.codigo }}</p>
+                                                    {% else %}
+                                                        <p class="font-semibold text-gray-900">Pago a cuenta</p>
+                                                        <p class="text-xs text-gray-500">Genera crédito disponible</p>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-700">
+                                                    {% if pago_detalle.sesion %}
+                                                        {{ pago_detalle.sesion.fecha|date:"d/m/Y" }}
+                                                        <span class="text-xs text-gray-500">{{ pago_detalle.sesion.hora_inicio|time:"H:i" }}</span>
+                                                    {% elif pago_detalle.proyecto %}
+                                                        {{ pago_detalle.proyecto.fecha_inicio|date:"d/m/Y" }}
+                                                    {% else %}
+                                                        <span class="text-gray-500">—</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="px-3 py-2 text-xs text-gray-600 max-w-xs">
+                                                    {% if pago_detalle.observaciones %}
+                                                        <p class="truncate">{{ pago_detalle.observaciones }}</p>
+                                                    {% else %}
+                                                        <span class="text-gray-400 italic">—</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="px-3 py-2 text-right">
+                                                    <span class="font-bold text-gray-900">Bs. {{ pago_detalle.monto|floatformat:2 }}</span>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot class="bg-blue-100 border-t-2 border-blue-300">
+                                            <tr>
+                                                <td colspan="4" class="px-3 py-2 text-right font-bold text-gray-900">
+                                                    SUBTOTAL:
+                                                </td>
+                                                <td class="px-3 py-2 text-right font-black text-blue-900">
+                                                    Bs. {{ grupo.total|floatformat:2 }}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-4xl">📭</span>
+                                    <p class="font-semibold">Sin pagos registrados en este día</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gradient-to-r from-green-50 to-blue-50 sticky bottom-0">
+                        <tr class="border-t-4 border-green-400">
+                            <td colspan="7" class="px-3 py-4 text-right">
+                                <span class="text-lg font-black text-gray-900">TOTAL DEL DÍA:</span>
+                            </td>
+                            <td class="px-3 py-4 text-right">
+                                <span class="text-2xl font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <script>
+        // Toggle detalle de pagos masivos
+        function toggleDetalle(recibo) {
+            const detalleRow = document.getElementById('detalle-' + recibo);
+            const toggleBtn = document.getElementById('toggle-' + recibo);
+            
+            if (detalleRow.classList.contains('hidden')) {
+                detalleRow.classList.remove('hidden');
+                toggleBtn.textContent = '▼';
+                toggleBtn.style.transform = 'rotate(90deg)';
+            } else {
+                detalleRow.classList.add('hidden');
+                toggleBtn.textContent = '▶';
+                toggleBtn.style.transform = 'rotate(0deg)';
+            }
+        }
+        </script>
+    </div>
+    {% endif %}
+    
+    <!-- Vista Mensual (Resumen) -->
+    {% if vista == 'mensual' or not cierre_diario %}
+    
+    <!-- Resumen General -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-6 text-center">
             <p class="text-xs text-blue-600 uppercase font-bold mb-2">Total Generado</p>
-            <p class="text-4xl font-black text-blue-700">Bs. {{ ingresos.total_generado|default:0|floatformat:2 }}</p>
-            <p class="text-xs text-blue-600 mt-2">Sesiones realizadas</p>
+            <p class="text-4xl font-black text-blue-700">Bs. {{ ingresos.total_generado|floatformat:2 }}</p>
+            <p class="text-xs text-blue-600 mt-2">Sesiones + Proyectos</p>
         </div>
         
         <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 text-center">
             <p class="text-xs text-green-600 uppercase font-bold mb-2">Total Cobrado</p>
-            <p class="text-4xl font-black text-green-700">Bs. {{ ingresos.total_cobrado|default:0|floatformat:2 }}</p>
+            <p class="text-4xl font-black text-green-700">Bs. {{ ingresos.total_cobrado|floatformat:2 }}</p>
             <p class="text-xs text-green-600 mt-2">Pagos recibidos</p>
         </div>
         
         <div class="bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
             <p class="text-xs text-red-600 uppercase font-bold mb-2">Pendiente</p>
-            <p class="text-4xl font-black text-red-700">Bs. {{ ingresos.total_pendiente|default:0|floatformat:2 }}</p>
+            <p class="text-4xl font-black text-red-700">Bs. {{ ingresos.total_pendiente|floatformat:2 }}</p>
             <p class="text-xs text-red-600 mt-2">Por cobrar</p>
+        </div>
+        
+        <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-6 text-center">
+            <p class="text-xs text-purple-600 uppercase font-bold mb-2">Tasa Cobranza</p>
+            <p class="text-3xl font-black text-purple-700">{{ ingresos.tasa_cobranza|floatformat:1 }}%</p>
+            <p class="text-xs text-purple-600 mt-2">Promedio: Bs. {{ ingresos.promedio_por_item|floatformat:2 }}</p>
+        </div>
+    </div>
+    
+    <!-- Desglose: Sesiones vs Proyectos -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Sesiones -->
+        <div class="bg-white border-2 border-blue-200 rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4 text-lg flex items-center gap-2">
+                <span class="text-2xl">🔵</span> Sesiones Individuales
+            </h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Generado:</span>
+                    <span class="font-black text-blue-700">Bs. {{ ingresos.sesiones.total_generado|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Cobrado:</span>
+                    <span class="font-black text-green-700">Bs. {{ ingresos.sesiones.total_cobrado|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Pendiente:</span>
+                    <span class="font-black text-red-700">Bs. {{ ingresos.sesiones.total_pendiente|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border-t-2 border-gray-300 mt-4">
+                    <span class="text-sm text-gray-700 font-bold">Total Sesiones:</span>
+                    <span class="font-black text-gray-900">{{ ingresos.sesiones.cantidad_sesiones }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Proyectos -->
+        <div class="bg-white border-2 border-orange-200 rounded-lg p-6">
+            <h3 class="font-bold text-gray-900 mb-4 text-lg flex items-center gap-2">
+                <span class="text-2xl">📦</span> Proyectos
+            </h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Generado:</span>
+                    <span class="font-black text-orange-700">Bs. {{ ingresos.proyectos.total_generado|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Cobrado:</span>
+                    <span class="font-black text-green-700">Bs. {{ ingresos.proyectos.total_cobrado|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <span class="text-sm text-gray-700">Pendiente:</span>
+                    <span class="font-black text-red-700">Bs. {{ ingresos.proyectos.total_pendiente|floatformat:2 }}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4">
+                    <div class="p-3 bg-gray-50 rounded-lg border-t-2 border-gray-300">
+                        <p class="text-xs text-gray-600">Activos</p>
+                        <p class="font-black text-gray-900">{{ ingresos.proyectos.proyectos_activos }}</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg border-t-2 border-gray-300">
+                        <p class="text-xs text-gray-600">Finalizados</p>
+                        <p class="font-black text-gray-900">{{ ingresos.proyectos.proyectos_finalizados }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Movimiento de Créditos -->
+    <div class="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-6 mb-6">
+        <h3 class="font-bold text-gray-900 mb-4 text-lg flex items-center gap-2">
+            <span class="text-2xl">💳</span> Movimiento de Créditos
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-lg p-4 shadow">
+                <p class="text-xs text-green-600 uppercase font-bold">Créditos Generados</p>
+                <p class="text-3xl font-black text-green-700">Bs. {{ ingresos.creditos.generados|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ ingresos.creditos.generados_cantidad }} pagos adelantados</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow">
+                <p class="text-xs text-orange-600 uppercase font-bold">Créditos Utilizados</p>
+                <p class="text-3xl font-black text-orange-700">Bs. {{ ingresos.creditos.utilizados|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ ingresos.creditos.utilizados_cantidad }} aplicaciones</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow">
+                <p class="text-xs text-blue-600 uppercase font-bold">Saldo Neto</p>
+                <p class="text-3xl font-black text-blue-700">Bs. {{ ingresos.creditos.saldo_neto|floatformat:2 }}</p>
+                <p class="text-xs text-gray-500 mt-1">Generados - Utilizados</p>
+            </div>
         </div>
     </div>
     
@@ -80,13 +691,22 @@
         
         <!-- Top Servicios -->
         <div class="bg-white border rounded-lg p-6">
-            <h3 class="font-bold text-gray-900 mb-4">🏆 Top 5 Servicios Rentables</h3>
-            <div class="space-y-3">
+            <h3 class="font-bold text-gray-900 mb-4">🏆 Top Servicios</h3>
+            <div class="space-y-3 max-h-96 overflow-y-auto">
                 {% for servicio in por_servicio %}
                 <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <div>
-                        <p class="font-bold text-gray-900">{{ servicio.servicio__nombre }}</p>
-                        <p class="text-xs text-gray-500">{{ servicio.sesiones }} sesiones</p>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-block w-3 h-3 rounded-full" style="background-color: {{ servicio.color }}"></span>
+                            <p class="font-bold text-gray-900">{{ servicio.nombre }}</p>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            {% if servicio.sesiones > 0 %}{{ servicio.sesiones }} sesión{{ servicio.sesiones|pluralize:"es" }}{% endif %}
+                            {% if servicio.proyectos > 0 %}
+                                {% if servicio.sesiones > 0 %} + {% endif %}
+                                {{ servicio.proyectos }} proyecto{{ servicio.proyectos|pluralize:"s" }}
+                            {% endif %}
+                        </p>
                     </div>
                     <p class="text-lg font-black text-green-700">Bs. {{ servicio.ingresos|floatformat:2 }}</p>
                 </div>
@@ -96,10 +716,12 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+{% if vista == 'mensual' or not cierre_diario %}
 const ctx = document.getElementById('grafico-ingresos');
 new Chart(ctx, {
     type: 'bar',
@@ -107,18 +729,29 @@ new Chart(ctx, {
         labels: {{ grafico_data.labels|safe }},
         datasets: [
             {
-                label: 'Generado',
+                label: 'Ingresos Totales',
                 data: {{ grafico_data.ingresos|safe }},
                 backgroundColor: 'rgba(59, 130, 246, 0.7)',
                 borderColor: 'rgb(59, 130, 246)',
                 borderWidth: 2
             },
             {
-                label: 'Cobrado',
-                data: {{ grafico_data.cobrado|safe }},
-                backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                borderColor: 'rgb(34, 197, 94)',
-                borderWidth: 2
+                label: 'Sesiones',
+                data: {{ grafico_data.sesiones|safe }},
+                type: 'line',
+                borderColor: 'rgb(168, 85, 247)',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                tension: 0.3,
+                yAxisID: 'y1'
+            },
+            {
+                label: 'Proyectos',
+                data: {{ grafico_data.proyectos|safe }},
+                type: 'line',
+                borderColor: 'rgb(249, 115, 22)',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                tension: 0.3,
+                yAxisID: 'y1'
             }
         ]
     },
@@ -129,9 +762,67 @@ new Chart(ctx, {
             legend: { position: 'top' }
         },
         scales: {
-            y: { beginAtZero: true }
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Ingresos (Bs.)'
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Cantidad'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                }
+            }
         }
     }
 });
+{% endif %}
+
+// Verificación de efectivo
+function verificarEfectivo() {
+    const esperado = {{ cierre_diario.efectivo_esperado|default:0 }};
+    const contado = parseFloat(document.getElementById('efectivo-contado').value) || 0;
+    const diferencia = contado - esperado;
+    const divDiferencia = document.getElementById('diferencia-efectivo');
+    
+    divDiferencia.classList.remove('hidden');
+    
+    if (Math.abs(diferencia) < 0.01) {
+        divDiferencia.innerHTML = `
+            <div class="bg-green-100 border-2 border-green-400 rounded-lg p-3">
+                <p class="text-green-800 font-bold text-lg">✅ CUADRE CORRECTO</p>
+                <p class="text-green-700 text-sm">El efectivo coincide</p>
+            </div>
+        `;
+    } else if (diferencia > 0) {
+        divDiferencia.innerHTML = `
+            <div class="bg-blue-100 border-2 border-blue-400 rounded-lg p-3">
+                <p class="text-blue-800 font-bold text-lg">💰 SOBRANTE</p>
+                <p class="text-blue-700 text-xl font-black">Bs. ${diferencia.toFixed(2)}</p>
+                <p class="text-blue-600 text-sm">Hay más efectivo del esperado</p>
+            </div>
+        `;
+    } else {
+        divDiferencia.innerHTML = `
+            <div class="bg-red-100 border-2 border-red-400 rounded-lg p-3">
+                <p class="text-red-800 font-bold text-lg">⚠️ FALTANTE</p>
+                <p class="text-red-700 text-xl font-black">Bs. ${Math.abs(diferencia).toFixed(2)}</p>
+                <p class="text-red-600 text-sm">Falta efectivo en caja</p>
+            </div>
+        `;
+    }
+}
 </script>
 {% endblock %}

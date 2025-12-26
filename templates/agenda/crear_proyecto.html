@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}📦 Crear Proyecto{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-2 py-3 text-sm">
+    
+    <div class="flex flex-wrap items-center justify-between mb-2 p-3 bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg shadow-md">
+        <div>
+            <h1 class="text-xl font-extrabold text-white flex items-center gap-2">
+                <span class="bg-white text-slate-900 p-1 rounded-md">📦</span> 
+                Crear Nuevo Proyecto
+            </h1>
+            <p class="text-xs text-slate-300">Gestión de evaluaciones y tratamientos especiales.</p>
+        </div>
+        <a href="{% url 'agenda:lista_proyectos' %}" class="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-md border border-white/20 transition text-xs font-bold backdrop-blur-sm">
+            ← Volver
+        </a>
+    </div>
+
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="p-3 rounded-lg border-2 flex items-center gap-3 animate-bounce shadow-sm
+            {% if message.tags == 'success' %}
+                bg-emerald-50 border-emerald-500 text-emerald-800
+            {% else %}
+                bg-red-50 border-red-500 text-red-800
+            {% endif %}">
+            <span class="text-xl">{% if message.tags == 'success' %}✅{% else %}⚠️{% endif %}</span>
+            <span class="font-bold">{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+
+        <div class="bg-white border border-blue-100 rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2 border-b border-blue-200">
+                <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
+                    <span class="text-base">📋</span> Información Principal
+                </h2>
+            </div>
+            <div class="p-3 grid grid-cols-1 md:grid-cols-3 gap-3 bg-blue-50/30">
+                <div class="md:col-span-1">
+                    <label class="block text-xs font-bold text-blue-900 mb-1">Nombre del Proyecto *</label>
+                    <input type="text" name="nombre" required placeholder="Ej: Evaluación Psicológica"
+                           class="w-full px-2 py-1.5 border-2 border-blue-100 rounded-lg focus:border-blue-500 focus:ring-0 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-blue-900 mb-1">Tipo de Proyecto *</label>
+                    <select name="tipo" required class="w-full px-2 py-1.5 border-2 border-blue-100 rounded-lg focus:border-blue-500 text-sm">
+                        <option value="">Seleccione...</option>
+                        {% for tipo_val, tipo_nombre in tipos %}
+                        <option value="{{ tipo_val }}">{{ tipo_nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-blue-900 mb-1">Sucursal *</label>
+                    <select name="sucursal_id" required class="w-full px-2 py-1.5 border-2 border-blue-100 rounded-lg focus:border-blue-500 text-sm">
+                        <option value="">Seleccione...</option>
+                        {% for sucursal in sucursales %}
+                        <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white border border-emerald-100 rounded-xl shadow-sm overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 border-b border-emerald-200">
+                    <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="text-base">👥</span> Participantes
+                    </h2>
+                </div>
+                <div class="p-3 space-y-3 bg-emerald-50/30">
+                    <div>
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">Paciente *</label>
+                        <select name="paciente_id" required class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-sm">
+                            <option value="">Seleccione...</option>
+                            {% for paciente in pacientes %}
+                            <option value="{{ paciente.id }}">{{ paciente.nombre_completo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">Responsable *</label>
+                        <select name="profesional_id" required class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-sm">
+                            <option value="">Seleccione...</option>
+                            {% for profesional in profesionales %}
+                            <option value="{{ profesional.id }}">{{ profesional.nombre }} {{ profesional.apellido }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border border-purple-100 rounded-xl shadow-sm overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-4 py-2 border-b border-purple-200">
+                    <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="text-base">💰</span> Servicio y Costo
+                    </h2>
+                </div>
+                <div class="p-3 space-y-3 bg-purple-50/30">
+                    <div>
+                        <label class="block text-xs font-bold text-purple-900 mb-1">Servicio Base *</label>
+                        <select name="servicio_id" required class="w-full px-2 py-1.5 border-2 border-purple-100 rounded-lg text-sm">
+                            <option value="">Seleccione...</option>
+                            {% for servicio in servicios %}
+                            <option value="{{ servicio.id }}" data-costo="{{ servicio.costo_base }}">
+                                {{ servicio.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-purple-900 mb-1">Costo Total (Bs.) *</label>
+                        <input type="number" name="costo_total" required step="0.01"
+                               class="w-full px-2 py-1.5 border-2 border-purple-200 rounded-lg font-black text-purple-700 text-base bg-white focus:ring-2 focus:ring-purple-500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-amber-100 rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 border-b border-amber-200">
+                <h2 class="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-2">
+                    <span class="text-base">📅</span> Cronograma de Proyecto
+                </h2>
+            </div>
+            <div class="p-3 grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-amber-50/30">
+                <div>
+                    <label class="block text-xs font-bold text-amber-900 mb-1">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" required value="{{ fecha_hoy|date:'Y-m-d' }}"
+                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-amber-900 mb-1">Fin Estimado</label>
+                    <input type="date" name="fecha_fin_estimada" 
+                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm">
+                </div>
+                <div class="md:col-span-2 flex items-center justify-center bg-white border-2 border-amber-200 rounded-xl p-2 shadow-inner">
+                    <div class="text-center">
+                        <p class="text-[10px] font-black text-amber-600 uppercase">Duración Total</p>
+                        <div class="flex items-baseline justify-center gap-1">
+                            <span class="text-2xl font-black text-amber-700" id="duracion-estimada">-</span>
+                            <span class="text-xs font-bold text-amber-500">días</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="p-3 bg-slate-50">
+                <label class="block text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-2">
+                    <span class="text-base">📝</span> Notas y Descripción del Proyecto
+                </label>
+                <textarea name="descripcion" rows="2" 
+                          class="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-slate-500 focus:ring-0"
+                          placeholder="Escribe aquí los detalles importantes..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-3 pt-2">
+            <button type="submit" 
+                    class="flex-[2] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3 px-6 rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 text-base uppercase">
+                🚀 Crear Proyecto Ahora
+            </button>
+            <a href="{% url 'agenda:lista_proyectos' %}" 
+               class="flex-1 px-4 py-3 border-2 border-slate-300 text-slate-600 font-bold rounded-xl hover:bg-slate-100 transition text-center flex items-center justify-center">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Funcionalidad original optimizada
+document.querySelector('select[name="servicio_id"]')?.addEventListener('change', function() {
+    const cost = this.options[this.selectedIndex]?.getAttribute('data-costo');
+    if (cost) {
+        const inputCosto = document.querySelector('input[name="costo_total"]');
+        inputCosto.value = cost;
+        inputCosto.classList.add('bg-purple-100');
+        setTimeout(() => inputCosto.classList.remove('bg-purple-100'), 300);
+    }
+});
+
+function calcularDuracion() {
+    const f1 = document.querySelector('input[name="fecha_inicio"]').value;
+    const f2 = document.querySelector('input[name="fecha_fin_estimada"]').value;
+    const display = document.getElementById('duracion-estimada');
+    
+    if (f1 && f2) {
+        const diff = Math.ceil((new Date(f2) - new Date(f1)) / (1000 * 60 * 60 * 24)) + 1;
+        display.textContent = diff > 0 ? diff : '-';
+    } else {
+        display.textContent = '-';
+    }
+}
+
+document.querySelector('input[name="fecha_inicio"]')?.addEventListener('change', calcularDuracion);
+document.querySelector('input[name="fecha_fin_estimada"]')?.addEventListener('change', calcularDuracion);
+</script>
+{% endblock %}

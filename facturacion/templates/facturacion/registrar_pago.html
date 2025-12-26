@@ -1,157 +1,499 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Registrar Pago{% endblock %}
+{% block title %}💵 Registrar Pago{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-6">
+<div class="max-w-7xl mx-auto px-4 py-6">
     
-    <a href="{% url 'facturacion:cuentas_corrientes' %}" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">
-        ← Volver
-    </a>
-    
-    <div class="bg-white border rounded-lg p-6">
-        <h1 class="text-2xl font-bold text-gray-900 mb-6">💰 Registrar Pago</h1>
-        
-        <form method="post">
-            {% csrf_token %}
-            
-            <!-- Paciente (si viene de sesión) -->
-            {% if sesion %}
-                <input type="hidden" name="paciente_id" value="{{ sesion.paciente.id }}">
-                <input type="hidden" name="sesion_id" value="{{ sesion.id }}">
-                
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <p class="text-sm text-blue-700 font-bold mb-2">Pago para sesión específica:</p>
-                    <p class="font-bold text-gray-900">{{ sesion.paciente.nombre_completo }}</p>
-                    <p class="text-sm text-gray-600">
-                        {{ sesion.fecha|date:"d/m/Y" }} · {{ sesion.hora_inicio|time:"H:i" }} · {{ sesion.servicio.nombre }}
-                    </p>
-                    <p class="text-lg font-bold text-blue-700 mt-2">Bs. {{ sesion.monto_cobrado }}</p>
-                </div>
-            {% else %}
-                <!-- Buscar paciente -->
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Paciente *</label>
-                    <input type="text" 
-                           id="buscar-paciente"
-                           placeholder="Buscar por nombre..."
-                           class="w-full px-3 py-2 border rounded-lg mb-2"
-                           hx-get="{% url 'facturacion:buscar_pacientes' %}"
-                           hx-trigger="keyup changed delay:300ms"
-                           hx-target="#pacientes-list"
-                           hx-vals='{"q": "value"}'>
-                    
-                    <div id="pacientes-list" class="space-y-1"></div>
-                    <input type="hidden" name="paciente_id" id="paciente_id" required>
-                </div>
-                
-                <!-- Sesión (opcional) -->
-                <div id="sesiones-container" class="mb-4 hidden">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">
-                        Asignar a sesión (opcional)
-                    </label>
-                    <select name="sesion_id" id="sesion_id" class="w-full px-3 py-2 border rounded-lg">
-                        <option value="">Pago general (no asignar a sesión)</option>
-                    </select>
-                </div>
-            {% endif %}
-            
-            <!-- Monto -->
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Monto (Bs.) *</label>
-                <input type="number" 
-                       name="monto" 
-                       step="0.01" 
-                       min="0.01"
-                       {% if sesion %}value="{{ sesion.monto_cobrado }}"{% endif %}
-                       required
-                       class="w-full px-3 py-2 border rounded-lg">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <div class="p-3 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            
-            <!-- Método de Pago -->
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Método de Pago *</label>
-                <select name="metodo_pago" required class="w-full px-3 py-2 border rounded-lg">
-                    <option value="">Seleccione...</option>
-                    {% for metodo in metodos_pago %}
-                    <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
-                    {% endfor %}
-                </select>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Registrar Pago</h1>
+                <p class="text-sm text-gray-500 font-medium">
+                    {% if sesion %}Sesión <span class="text-indigo-600">#{{ sesion.id }}</span> &bull; {{ sesion.fecha|date:"d M Y" }}
+                    {% elif proyecto %}Proyecto <span class="text-purple-600">{{ proyecto.codigo }}</span>
+                    {% elif modo == 'adelantado' %}Depósito a Billetera/Credito (Adelantado)
+                    {% else %}Nueva Transacción{% endif %}
+                </p>
             </div>
-            
-            <!-- Fecha -->
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Fecha de Pago *</label>
-                <input type="date" 
-                       name="fecha_pago" 
-                       value="{{ fecha_hoy|date:'Y-m-d' }}"
-                       required
-                       class="w-full px-3 py-2 border rounded-lg">
-            </div>
-            
-            <!-- Observaciones -->
-            <div class="mb-6">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Observaciones (opcional)</label>
-                <textarea name="observaciones" 
-                          rows="3"
-                          class="w-full px-3 py-2 border rounded-lg"></textarea>
-            </div>
-            
-            <!-- Botones -->
-            <div class="flex gap-3">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-bold">
-                    ✓ Registrar Pago
-                </button>
-                <a href="{% url 'facturacion:cuentas_corrientes' %}" 
-                   class="px-4 py-3 border rounded-lg hover:bg-gray-50">
-                    Cancelar
-                </a>
-            </div>
-        </form>
+        </div>
+        <a href="javascript:history.back()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">
+            Esc Cancelar
+        </a>
     </div>
+
+    <form method="post" id="form-pago">
+        {% csrf_token %}
+        
+        {% if sesion %}<input type="hidden" name="tipo_pago" value="sesion"><input type="hidden" name="sesion_id" value="{{ sesion.id }}">
+        {% elif proyecto %}<input type="hidden" name="tipo_pago" value="proyecto"><input type="hidden" name="proyecto_id" value="{{ proyecto.id }}">
+        {% elif paciente %}<input type="hidden" name="tipo_pago" value="adelantado"><input type="hidden" name="paciente_adelantado" value="{{ paciente.id }}">
+        {% endif %}
+
+        {% if not paciente %}
+        <div class="max-w-lg mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mt-10">
+            <div class="text-center mb-6">
+                <div class="inline-flex p-3 bg-blue-50 rounded-full text-blue-600 mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Buscar Paciente</h3>
+                <p class="text-sm text-gray-500">Selecciona a quién se le realizará el cobro</p>
+            </div>
+            
+            <select name="paciente_id" id="paciente_select" class="w-full px-4 py-3 border border-gray-300 rounded-xl text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-sm" onchange="cargarOpcionesPaciente()">
+                <option value="">-- Seleccionar de la lista --</option>
+                {% for pac in pacientes_lista %}
+                <option value="{{ pac.id }}">{{ pac.apellido }} {{ pac.nombre }}</option>
+                {% endfor %}
+            </select>
+            
+            <div id="opciones-tipo-pago" class="hidden mt-6 space-y-4 animate-fade-in-down">
+                <div class="p-4 bg-purple-50 rounded-xl border border-purple-100 transition hover:border-purple-300 cursor-pointer">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="es_proyecto_checkbox" class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500" onchange="toggleSelectorProyecto()">
+                        <span class="font-semibold text-purple-800">Es pago de un Proyecto/Evaluación</span>
+                    </label>
+                    <div id="selector-proyectos" class="hidden mt-3 pl-8">
+                        <select id="proyecto_select" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"></select>
+                        <button type="button" onclick="irAProyecto()" class="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium transition shadow-sm">Continuar con Proyecto/Evaluación</button>
+                    </div>
+                </div>
+
+                <button type="button" id="boton-adelantado" onclick="irAPagoAdelantado()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-200 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <span>Ir a Caja / Pago Adelantado</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </button>
+            </div>
+        </div>
+        
+        {% else %}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-5 space-y-6">
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-gray-50 to-white px-5 py-3 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            Datos del Paciente
+                        </h3>
+                        {% if credito_disponible > 0 %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                            Saldo a favor: Bs. {{ credito_disponible }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="p-5">
+                        <h2 class="text-xl font-bold text-gray-900">{{ paciente.nombre_completo }}</h2>
+                        <div class="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                            <span>🎂 {{ paciente.fecha_nacimiento|date:"d/m/Y" }}</span>
+                            {% if paciente.edad %}<span class="bg-gray-100 px-2 rounded text-xs text-gray-600">{{ paciente.edad }} años</span>{% endif %}
+                        </div>
+
+                        {% if paciente.nombre_tutor %}
+                        <div class="mt-4 pt-4 border-t border-dashed border-gray-200">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] text-gray-400 uppercase font-bold">Tutor Responsable</label>
+                                    <p class="text-sm font-semibold text-gray-700">{{ paciente.nombre_tutor }}</p>
+                                    <p class="text-xs text-gray-500 capitalize">{{ paciente.parentesco|default:"Parentesco no registrado" }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <label class="block text-[10px] text-gray-400 uppercase font-bold">Contacto Tutor</label>
+                                    <a href="tel:{{ paciente.telefono_tutor }}" class="text-sm font-bold text-indigo-600 hover:underline">
+                                        {{ paciente.telefono_tutor|default:"S/N" }} 📞
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if sesion %}
+                <div class="bg-white rounded-2xl shadow-sm border border-indigo-100 overflow-hidden relative group">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                    <div class="bg-indigo-50/50 px-5 py-3 border-b border-indigo-100">
+                        <h3 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                            Detalle del Servicio
+                        </h3>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        <div>
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-lg font-bold text-gray-900 leading-tight">{{ sesion.servicio.nombre }}</p>
+                                    <p class="text-xs text-indigo-600 font-medium mt-0.5">{{ sesion.profesional.nombre_completo }}</p>
+                                </div>
+                                <div class="text-right bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                    <label class="block text-[10px] text-gray-400 uppercase">Precio Base</label>
+                                    <span class="font-mono text-xs font-bold text-gray-600">Bs. {{ sesion.servicio.costo_base|default:'0.00' }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
+                            <div class="bg-white p-3 text-center">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold">Acordado</span>
+                                <span class="block text-base font-bold text-gray-800">{{ sesion.monto_cobrado }}</span>
+                            </div>
+                            <div class="bg-green-50 p-3 text-center">
+                                <span class="block text-[10px] text-green-700 uppercase font-bold">Pagado</span>
+                                <span class="block text-base font-bold text-green-700">{{ sesion.total_pagado }}</span>
+                            </div>
+                            <div class="bg-red-50 p-3 text-center">
+                                <span class="block text-[10px] text-red-700 uppercase font-bold">Pendiente</span>
+                                <span class="block text-xl font-black text-red-600" id="pendiente-display">{{ sesion.saldo_pendiente }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% elif proyecto %}
+                <div class="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden relative">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+                    <div class="bg-purple-50 px-5 py-3 border-b border-purple-100">
+                        <h3 class="text-xs font-bold text-purple-900 uppercase tracking-wider">Proyecto {{ proyecto.codigo }}</h3>
+                    </div>
+                    <div class="p-5">
+                        <p class="text-lg font-bold text-gray-900 mb-4">{{ proyecto.nombre }}</p>
+                        <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-3">
+                            <span class="text-gray-500">Costo Total:</span>
+                            <span class="font-bold text-gray-800">Bs. {{ proyecto.costo_total }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-2">
+                            <span class="text-gray-500">Saldo Pendiente:</span>
+                            <span class="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">Bs. {{ proyecto.saldo_pendiente }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="lg:col-span-7">
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-200 h-full flex flex-col relative overflow-hidden">
+                    
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h2 class="font-bold text-gray-800 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            Detalle de Transacción
+                        </h2>
+                        <input type="date" name="fecha_pago" value="{{ fecha_hoy|date:'Y-m-d' }}" max="{{ fecha_hoy|date:'Y-m-d' }}" class="text-sm border-gray-200 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-600 font-medium">
+                    </div>
+
+                    <div class="p-6 space-y-6 flex-1 overflow-y-auto">
+                        
+                        {% if credito_disponible > 0 and modo != 'adelantado' %}
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 transition-all duration-300 hover:shadow-md">
+                            <div class="flex items-center justify-between mb-3">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <div class="relative flex items-center">
+                                        <input type="checkbox" name="usar_credito" id="usar_credito" class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-emerald-400 bg-white checked:bg-emerald-500 transition-all" onchange="toggleCredito()">
+                                        <svg class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none"><path d="M3 8L6 11L11 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                    </div>
+                                    <span class="font-bold text-emerald-900">Usar Saldo a Favor (Credito)</span>
+                                </label>
+                                <span class="text-xs font-bold text-emerald-600 bg-white px-2 py-1 rounded border border-emerald-100">
+                                    Disponible: Bs. {{ credito_disponible }}
+                                </span>
+                            </div>
+
+                            <div id="campo-credito" class="hidden pl-8 animate-fade-in">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-full max-w-[200px]">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">Bs.</span>
+                                        <input type="number" name="monto_credito" id="monto_credito" min="0" max="{{ credito_disponible }}" step="0.01" value="0" class="w-full pl-10 pr-3 py-2 text-emerald-800 font-bold border-emerald-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white" oninput="calcularTotal()">
+                                    </div>
+                                    <button type="button" onclick="usarSoloPendiente()" class="text-xs bg-emerald-200 hover:bg-emerald-300 text-emerald-800 px-3 py-2 rounded-lg font-bold transition">
+                                        Cubrir Todo
+                                    </button>
+                                </div>
+                                <p class="text-[11px] text-emerald-600 mt-2">Este monto se descontará del Credito del paciente.</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if sesion and sesion.monto_cobrado == 0 %}
+                        <div class="mb-4 p-4 bg-green-50 border-2 border-green-400 rounded-xl">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🎁</span>
+                                <div>
+                                    <h3 class="font-bold text-green-800">Sesión Gratuita</h3>
+                                    <p class="text-sm text-green-700">Esta sesión no requiere pago (monto = Bs. 0)</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %} 
+
+                        <div class="rounded-xl border border-gray-200 bg-slate-50 p-5 relative">
+                            <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-100 rounded shadow-sm">
+                                Pago Al Contado
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-1">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 mb-2">Método de Pago *</label>
+                                    <select name="metodo_pago" id="metodo_pago" class="w-full px-4 py-2.5 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm" required>
+                                        <option value="">-- Seleccionar --</option>
+                                        {% for metodo in metodos_pago %}
+                                        <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-600 mb-2">Monto a Recibir (Dinero) *</label>
+                                    <div class="relative">
+                                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span>
+                                        <input type="number" name="monto" id="monto" 
+                                            step="0.01" min="0" 
+                                            value="{{ monto_sugerido|default:'0' }}" 
+                                            class="w-full pl-12 pr-4 py-2.5 text-xl font-bold text-gray-800 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors" 
+                                            oninput="calcularTotal()" 
+                                            placeholder="0.00">                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            {% if modo == 'sesion' or modo == 'proyecto' %}
+                            <label class="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition border border-transparent hover:border-gray-200 cursor-pointer">
+                                <input type="checkbox" name="pago_completo" id="pago_completo" class="mt-1 rounded text-blue-600 focus:ring-blue-500" onchange="togglePagoCompleto()">
+                                <div>
+                                    <span class="block text-sm font-bold text-gray-700">Marcar deuda como Saldada</span>
+                                    <span class="block text-xs text-gray-500">Ajusta automáticamente el monto para dejar la deuda en 0.</span>
+                                </div>
+                            </label>
+                            {% endif %}
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nota / Observación</label>
+                                <textarea name="observaciones" rows="2" class="w-full px-4 py-2 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 bg-white placeholder-gray-300" placeholder="Ej: Pago realizado por el padre..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-6 border-t border-gray-200">
+                        <div class="flex justify-between items-end mb-5">
+                            <div class="space-y-1 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-20 text-gray-500">Contado:</span>
+                                    <span id="resumen-adicional" class="font-bold text-gray-800">Bs. 0.00</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-20 text-gray-500">Credito:</span>
+                                    <span id="resumen-credito" class="font-bold text-emerald-600">Bs. 0.00</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Transacción</span>
+                                <span class="text-3xl font-black text-indigo-700 leading-none tracking-tight" id="resumen-total">Bs. {{ monto_sugerido|default:'0.00' }}</span>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-[0.98] flex justify-center items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Confirmar Pago
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </form>
 </div>
 
-{% if not sesion %}
 <script>
-// Seleccionar paciente de la lista
-function seleccionarPaciente(id, nombre) {
-    document.getElementById('paciente_id').value = id;
-    document.getElementById('buscar-paciente').value = nombre;
-    document.getElementById('pacientes-list').innerHTML = '';
-    
-    // Cargar sesiones pendientes
-    cargarSesionesPendientes(id);
+let pacienteSeleccionadoId = null;
+const creditoDisponible = parseFloat("{{ credito_disponible }}".replace(',','.')) || 0;
+const montoPendiente = parseFloat("{{ monto_sugerido }}".replace(',','.')) || 0;
+
+function cargarOpcionesPaciente() {
+    const select = document.getElementById('paciente_select');
+    const opciones = document.getElementById('opciones-tipo-pago');
+    if (select && select.value) {
+        pacienteSeleccionadoId = select.value;
+        opciones.classList.remove('hidden');
+        cargarProyectosPaciente(pacienteSeleccionadoId);
+    } else {
+        pacienteSeleccionadoId = null;
+        opciones.classList.add('hidden');
+    }
 }
 
-// Cargar sesiones pendientes
-function cargarSesionesPendientes(pacienteId) {
-    fetch(`/facturacion/api/sesiones-pendientes/${pacienteId}/`)
-        .then(response => response.text())
-        .then(html => {
-            const container = document.getElementById('sesiones-container');
-            const select = document.getElementById('sesion_id');
-            
-            // Limpiar
-            select.innerHTML = '<option value="">Pago general (no asignar a sesión)</option>';
-            
-            // Parsear HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const sesiones = doc.querySelectorAll('[data-sesion-id]');
-            
-            if (sesiones.length > 0) {
-                sesiones.forEach(el => {
-                    const option = document.createElement('option');
-                    option.value = el.dataset.sesionId;
-                    option.text = el.textContent.trim();
-                    select.appendChild(option);
-                });
-                container.classList.remove('hidden');
-            } else {
-                container.classList.add('hidden');
-            }
-        });
+function toggleSelectorProyecto() {
+    const checkbox = document.getElementById('es_proyecto_checkbox');
+    const selectorProyectos = document.getElementById('selector-proyectos');
+    const botonAdelantado = document.getElementById('boton-adelantado');
+    
+    if (checkbox.checked) {
+        selectorProyectos.classList.remove('hidden');
+        if(botonAdelantado) botonAdelantado.classList.add('hidden');
+        if (pacienteSeleccionadoId) cargarProyectosPaciente(pacienteSeleccionadoId);
+    } else {
+        selectorProyectos.classList.add('hidden');
+        if(botonAdelantado) botonAdelantado.classList.remove('hidden');
+    }
 }
+
+async function cargarProyectosPaciente(pacienteId) {
+    const select = document.getElementById('proyecto_select');
+    if(!select) return;
+    
+    select.innerHTML = '<option value="">⏳ Buscando...</option>';
+    select.disabled = true;
+    
+    try {
+        const response = await fetch(`/facturacion/api/proyectos-paciente/${pacienteId}/`);
+        const data = await response.json();
+        
+        select.innerHTML = '';
+        select.disabled = false;
+        
+        if (data.success && data.proyectos && data.proyectos.length > 0) {
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '-- Seleccionar Tratamiento --';
+            select.appendChild(defaultOption);
+            data.proyectos.forEach(proyecto => {
+                const option = document.createElement('option');
+                option.value = proyecto.id;
+                option.textContent = `${proyecto.codigo} - ${proyecto.nombre} (Debe: Bs. ${proyecto.saldo_pendiente})`;
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">✓ Sin deudas de proyectos</option>';
+        }
+    } catch (error) {
+        select.innerHTML = '<option value="">❌ Error de conexión</option>';
+    }
+}
+
+function irAProyecto() {
+    const proyectoId = document.getElementById('proyecto_select').value;
+    if (!proyectoId) { alert('⚠️ Por favor selecciona un proyecto'); return; }
+    window.location.href = `/facturacion/pago/registrar/?proyecto=${proyectoId}`;
+}
+
+function irAPagoAdelantado() {
+    if (!pacienteSeleccionadoId) { alert('⚠️ Selecciona un paciente primero'); return; }
+    window.location.href = `/facturacion/pago/registrar/?paciente=${pacienteSeleccionadoId}`;
+}
+
+function toggleCredito() {
+    const checkbox = document.getElementById('usar_credito');
+    const campo = document.getElementById('campo-credito');
+    
+    if (checkbox && checkbox.checked) {
+        campo.classList.remove('hidden');
+        usarSoloPendiente();
+    } else if (campo) {
+        campo.classList.add('hidden');
+        const inputCred = document.getElementById('monto_credito');
+        if(inputCred) inputCred.value = 0;
+        calcularTotal();
+    }
+}
+
+function usarSoloPendiente() {
+    // Si hay deuda específica (sesion/proyecto), cubrir hasta el monto de deuda. Si es adelanto, cubrir todo el crédito
+    let objetivo = montoPendiente > 0 ? montoPendiente : creditoDisponible;
+    
+    // El crédito no puede exceder lo que el usuario tiene
+    const montoCubrir = Math.min(creditoDisponible, objetivo);
+    
+    const inputCred = document.getElementById('monto_credito');
+    if(inputCred) {
+        inputCred.value = montoCubrir.toFixed(2);
+        calcularTotal();
+    }
+}
+
+function calcularTotal() {
+    const usarCredito = document.getElementById('usar_credito')?.checked || false;
+    const montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
+    const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
+    
+    // Validacion visual
+    if (montoCredito > creditoDisponible) {
+        alert("El monto supera el crédito disponible");
+        document.getElementById('monto_credito').value = creditoDisponible.toFixed(2);
+        return calcularTotal();
+    }
+    
+    const total = montoCredito + montoAdicional;
+    
+    document.getElementById('resumen-credito').textContent = `Bs. ${montoCredito.toFixed(2)}`;
+    document.getElementById('resumen-adicional').textContent = `Bs. ${montoAdicional.toFixed(2)}`;
+    document.getElementById('resumen-total').textContent = `Bs. ${total.toFixed(2)}`;
+    
+    // Lógica de requeridos
+    const metodo = document.getElementById('metodo_pago');
+    const montoInput = document.getElementById('monto');
+    
+    // Si se cubre todo con crédito Y hay deuda que pagar, el efectivo no es obligatorio
+    // PERO si el usuario pone monto efectivo > 0, debe elegir metodo
+    
+    if (montoAdicional > 0) {
+        metodo.setAttribute('required', 'required');
+    } else {
+        metodo.removeAttribute('required');
+    }
+}
+
+function togglePagoCompleto() {
+    const check = document.getElementById('pago_completo');
+    const montoInput = document.getElementById('monto');
+    
+    if (check && check.checked) {
+        montoInput.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-800');
+    } else {
+        montoInput.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-800');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    calcularTotal();
+});
+
+// ✅ Validación personalizada antes de enviar
+document.getElementById('form-pago').addEventListener('submit', function(e) {
+    const pagoCompleto = document.getElementById('pago_completo')?.checked || false;
+    const usarCredito = document.getElementById('usar_credito')?.checked || false;
+    const montoCredito = parseFloat(document.getElementById('monto_credito')?.value) || 0;
+    const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
+    const totalPago = montoCredito + montoAdicional;
+    
+    // Si el total es 0 y NO es "Pago Completo" ni usa crédito
+    if (totalPago === 0 && !pagoCompleto && !usarCredito) {
+        e.preventDefault();
+        alert('⚠️ Debes especificar un monto a pagar o marcar "Pago Completo"');
+        return false;
+    }
+    
+    // Si monto adicional > 0, debe haber método de pago
+    if (montoAdicional > 0) {
+        const metodo = document.getElementById('metodo_pago').value;
+        if (!metodo) {
+            e.preventDefault();
+            alert('⚠️ Selecciona un método de pago');
+            document.getElementById('metodo_pago').focus();
+            return false;
+        }
+    }
+    
+    return true;
+});
 </script>
-{% endif %}
+
+<style>
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
 {% endblock %}

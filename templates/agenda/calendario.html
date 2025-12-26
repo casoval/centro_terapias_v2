@@ -14,7 +14,7 @@
     }
 </style>
 
-    <div class="min-h-screen">
+<div class="min-h-screen">
     <!-- Header con filtros -->
     <div class="bg-white shadow-lg border-b-2 border-blue-200 rounded-b-2xl">
         <div class="max-w-full mx-auto px-2 py-3">
@@ -42,68 +42,82 @@
                     </p>
                 </div>
                 
+                <!-- ✅ Botones solo para NO profesionales -->
+                {% if not user.perfil.es_profesional or user.is_superuser %}
                 <div class="flex gap-2">
+                    <!-- Botón Proyectos -->
+                    <a href="{% url 'agenda:lista_proyectos' %}" 
+                       class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-3 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg font-bold text-xs">
+                        <span class="text-base">📦</span>
+                        <span>Proyecto/Evaluación</span>
+                    </a>
+                    
                     <a href="{% url 'agenda:agendar_recurrente' %}" 
                        class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg font-bold text-xs">
                         <span class="text-base">➕</span>
-                        <span>Agendar</span>
+                        <span>Agendar Sesión</span>
                     </a>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Navegación y cambio de vista -->
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <!-- Navegación de fechas -->
+                <!-- ✅ Navegación de fechas CON TODOS LOS FILTROS -->
                 <div class="flex items-center gap-1">
-                    <a href="?vista={{ vista }}&fecha={{ fecha_anterior|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
+                    <a href="?vista={{ vista }}&fecha={{ fecha_anterior|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
                         ←
                     </a>
                     
-                    <a href="?vista={{ vista }}" 
-                       class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-xs">
+                    <a href="?vista={{ vista }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-xs">
                         🎯 Hoy
                     </a>
                     
-                    <a href="?vista={{ vista }}&fecha={{ fecha_siguiente|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
+                    <a href="?vista={{ vista }}&fecha={{ fecha_siguiente|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
                         →
                     </a>
                 </div>
 
-                <!-- Cambio de vista -->
+                <!-- ✅ Cambio de vista CON TODOS LOS FILTROS -->
                 <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                    <a href="?vista=diaria{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'diaria' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    <a href="?vista=diaria{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'diaria' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
                         📄 Diaria
                     </a>
-                    <a href="?vista=semanal{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'semanal' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    <a href="?vista=semanal{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'semanal' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
                         📊 Semanal
                     </a>
-                    <a href="?vista=mensual{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'mensual' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    <a href="?vista=mensual{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'mensual' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
                         📅 Mensual
                     </a>
-                    <a href="?vista=lista{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                       class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'lista' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    <a href="?vista=lista{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
+                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'lista' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
                         📋 Lista
                     </a>
                 </div>
             </div>
 
-            <!-- Filtros avanzados -->
+            <!-- ✅ FILTROS AVANZADOS -->
             <form method="get" class="bg-yellow-50 p-2 rounded-lg border-2 border-yellow-200" id="filtrosForm">
+                <!-- ✅ MANTENER VISTA Y FECHA EN HIDDEN -->
                 <input type="hidden" name="vista" value="{{ vista }}">
                 <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
                 
-                <div class="grid grid-cols-2 lg:grid-cols-6 gap-2">
+                <div class="grid grid-cols-2 lg:grid-cols-7 gap-2">
                     <!-- Filtro Paciente -->
                     <div>
                         <label class="block text-[10px] font-bold text-gray-700 mb-1">
                             👶 Paciente
                         </label>
-                        <select name="paciente" class="w-full px-2 py-1 border border-blue-300 rounded-lg text-[10px] font-bold" onchange="this.form.submit()">
+                        <select name="paciente" 
+                                id="filtro-paciente"
+                                class="w-full px-2 py-1 border border-blue-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for p in pacientes %}
                                 <option value="{{ p.id }}" {% if paciente_id == p.id|stringformat:"s" %}selected{% endif %}>
@@ -118,7 +132,10 @@
                         <label class="block text-[10px] font-bold text-gray-700 mb-1">
                             👨‍⚕️ Profesional
                         </label>
-                        <select name="profesional" class="w-full px-2 py-1 border border-green-300 rounded-lg text-[10px] font-bold" onchange="this.form.submit()">
+                        <select name="profesional" 
+                                id="filtro-profesional"
+                                class="w-full px-2 py-1 border border-green-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for prof in profesionales %}
                                 <option value="{{ prof.id }}" {% if profesional_id == prof.id|stringformat:"s" %}selected{% endif %}>
@@ -131,9 +148,12 @@
                     <!-- Filtro Servicio -->
                     <div>
                         <label class="block text-[10px] font-bold text-gray-700 mb-1">
-                            🏥 Servicio
+                            🥼 Servicio
                         </label>
-                        <select name="servicio" class="w-full px-2 py-1 border border-purple-300 rounded-lg text-[10px] font-bold" onchange="this.form.submit()">
+                        <select name="servicio" 
+                                id="filtro-servicio"
+                                class="w-full px-2 py-1 border border-purple-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for srv in servicios %}
                                 <option value="{{ srv.id }}" {% if servicio_id == srv.id|stringformat:"s" %}selected{% endif %}>
@@ -148,7 +168,10 @@
                         <label class="block text-[10px] font-bold text-gray-700 mb-1">
                             🏢 Sucursal
                         </label>
-                        <select name="sucursal" class="w-full px-2 py-1 border border-cyan-300 rounded-lg text-[10px] font-bold" onchange="this.form.submit()">
+                        <select name="sucursal" 
+                                id="filtro-sucursal"
+                                class="w-full px-2 py-1 border border-cyan-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
                             <option value="">Todas</option>
                             {% for sucursal in sucursales %}
                                 <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
@@ -158,12 +181,30 @@
                         </select>
                     </div>
 
+                    <!-- ✅ Filtro Tipo de Sesión -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                            📦 Tipo
+                        </label>
+                        <select name="tipo_sesion" 
+                                id="filtro-tipo"
+                                class="w-full px-2 py-1 border border-indigo-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
+                            <option value="" {% if not tipo_sesion %}selected{% endif %}>Todas</option>
+                            <option value="normal" {% if tipo_sesion == 'normal' %}selected{% endif %}>Sesiones Normales</option>
+                            <option value="evaluacion" {% if tipo_sesion == 'evaluacion' %}selected{% endif %}>Proyecto/Evaluación</option>
+                        </select>
+                    </div>
+
                     <!-- Filtro Estado -->
                     <div>
                         <label class="block text-[10px] font-bold text-gray-700 mb-1">
                             📊 Estado
                         </label>
-                        <select name="estado" class="w-full px-2 py-1 border border-pink-300 rounded-lg text-[10px] font-bold" onchange="this.form.submit()">
+                        <select name="estado" 
+                                id="filtro-estado"
+                                class="w-full px-2 py-1 border border-pink-300 rounded-lg text-[10px] font-bold"
+                                onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for estado_val, estado_nombre in estados %}
                                 <option value="{{ estado_val }}" {% if estado_filtro == estado_val %}selected{% endif %}>
@@ -173,11 +214,13 @@
                         </select>
                     </div>
 
-                    <!-- Botón limpiar -->
+                    <!-- ✅ Botón limpiar -->
                     <div class="flex items-end">
-                        <a href="?vista={{ vista }}" class="w-full bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-lg text-center text-[10px] font-bold">
+                        <button type="button"
+                                onclick="limpiarFiltros()"
+                                class="w-full bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-lg text-center text-[10px] font-bold">
                             🔄 Limpiar
-                        </a>
+                        </button>
                     </div>
                 </div>
             </form>
@@ -208,32 +251,63 @@
 </div>
 
 <script>
-    // Abrir modal
-    document.addEventListener('htmx:afterSwap', function(event) {
-        if (event.detail.target.id === 'modal-content') {
-            document.getElementById('modal-editar').classList.remove('hidden');
-        }
-    });
+// ============= MANEJO DEL MODAL =============
+function abrirModal() {
+    const modal = document.getElementById('modal-editar');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
 
-    // Cerrar modal
-    function cerrarModal() {
-        document.getElementById('modal-editar').classList.add('hidden');
-        document.getElementById('modal-content').innerHTML = '';
-        window.location.reload();
+function cerrarModal() {
+    const modal = document.getElementById('modal-editar');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    document.getElementById('modal-content').innerHTML = '';
+}
+
+// ✅ CRÍTICO: Detectar cuando HTMX carga contenido en el modal
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'modal-content') {
+        abrirModal();
     }
+});
 
-    // Cerrar con ESC
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            cerrarModal();
-        }
-    });
+// Cerrar modal al hacer clic fuera
+document.getElementById('modal-editar').addEventListener('click', function(e) {
+    if (e.target.id === 'modal-editar') {
+        cerrarModal();
+    }
+});
 
-    // Cerrar al hacer click fuera
-    document.getElementById('modal-editar').addEventListener('click', function(e) {
-        if (e.target === this) {
-            cerrarModal();
-        }
-    });
+// Cerrar modal con tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        cerrarModal();
+    }
+});
+
+// ============= FILTROS =============
+function aplicarFiltros() {
+    const form = document.getElementById('filtrosForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    params.set('vista', formData.get('vista'));
+    params.set('fecha', formData.get('fecha'));
+    
+    if (formData.get('paciente')) params.set('paciente', formData.get('paciente'));
+    if (formData.get('profesional')) params.set('profesional', formData.get('profesional'));
+    if (formData.get('servicio')) params.set('servicio', formData.get('servicio'));
+    if (formData.get('sucursal')) params.set('sucursal', formData.get('sucursal'));
+    if (formData.get('tipo_sesion')) params.set('tipo_sesion', formData.get('tipo_sesion'));
+    if (formData.get('estado')) params.set('estado', formData.get('estado'));
+    
+    window.location.href = '?' + params.toString();
+}
+
+function limpiarFiltros() {
+    const vista = document.querySelector('input[name="vista"]').value;
+    window.location.href = '?vista=' + vista;
+}
 </script>
 {% endblock %}
