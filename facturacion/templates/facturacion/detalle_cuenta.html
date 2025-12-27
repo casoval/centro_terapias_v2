@@ -11,220 +11,163 @@
 <div class="max-w-7xl mx-auto px-4 py-6">
     
     <!-- Header Mejorado con Info del Paciente -->
-    <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6 mb-6">
-        <div class="flex justify-between items-start">
+    <div class="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4 mb-4">
+        <div class="flex justify-between items-center">
             <div>
-                <p class="text-sm text-blue-600 font-bold uppercase mb-1">💰 Cuenta Corriente</p>
-                <h1 class="text-4xl font-black text-gray-900 mb-2">{{ paciente.nombre_completo }}</h1>
-                <div class="flex items-center gap-4 text-gray-700">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">👤</span>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-xs">💰</span>
+                    <p class="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Cuenta Corriente</p>
+                </div>
+                <h1 class="text-2xl font-black text-gray-900 leading-none mb-2">{{ paciente.nombre_completo }}</h1>
+                <div class="flex items-center gap-4 text-gray-600 text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span>👤</span>
                         <span class="font-semibold">{{ paciente.nombre_tutor }}</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">📱</span>
+                    <div class="flex items-center gap-1.5">
+                        <span>📱</span>
                         <span class="font-semibold">{{ paciente.telefono_tutor }}</span>
                     </div>
                 </div>
             </div>
             <a href="{% url 'facturacion:cuentas_corrientes' %}" 
-               class="bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 px-4 py-2 rounded-lg font-bold">
+               class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md text-xs font-bold transition shadow-sm">
                 ← Volver
             </a>
         </div>
     </div>
-
     <!-- ==================== SECCIÓN 1: SESIONES NORMALES ==================== -->
-    <div class="mb-4">
-        <h2 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-            <span class="text-xl">📝</span> Sesiones Normales
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Consumo Sesiones -->
-            <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-                <p class="text-xs text-blue-600 font-bold uppercase mb-1">Consumo Sesiones</p>
-                <p class="text-2xl font-black text-blue-700 mb-1">Bs. {{ cuenta.consumo_sesiones|floatformat:2 }}</p>
-                <p class="text-xs text-blue-600">Costo de sesiones realizadas</p>
-            </div>
-            
-            <!-- Pagado Sesiones -->
-            <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                <p class="text-xs text-green-600 font-bold uppercase mb-1">Pagado Sesiones</p>
-                <p class="text-2xl font-black text-green-700 mb-1">Bs. {{ cuenta.pagado_sesiones|floatformat:2 }}</p>
-                <p class="text-xs text-green-600">Total pagado en sesiones</p>
-            </div>
-            
-            <!-- Deuda Sesiones -->
-            <div class="{% if cuenta.deuda_sesiones > 0 %}bg-red-50 border-red-300{% else %}bg-gray-50 border-gray-300{% endif %} border-2 rounded-lg p-4">
-                <p class="text-xs {% if cuenta.deuda_sesiones > 0 %}text-red-600{% else %}text-gray-600{% endif %} font-bold uppercase mb-1">
-                    Deuda Sesiones
-                </p>
-                <p class="text-2xl font-black {% if cuenta.deuda_sesiones > 0 %}text-red-700{% else %}text-gray-700{% endif %} mb-1">
-                    Bs. {{ cuenta.deuda_sesiones|floatformat:2 }}
-                </p>
-                <p class="text-xs {% if cuenta.deuda_sesiones > 0 %}text-red-600{% else %}text-gray-600{% endif %}">
-                    {% if cuenta.deuda_sesiones > 0 %}Pendiente por pagar{% else %}Sin deuda{% endif %}
-                </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        
+        <div class="bg-white border-2 border-blue-200 rounded-lg p-3 shadow-sm">
+            <h2 class="text-[10px] font-bold text-blue-600 uppercase mb-2 flex items-center gap-1">
+                <span>📝</span> Sesiones
+            </h2>
+            <div class="space-y-1">
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Consumo:</span>
+                    <span class="text-sm font-bold text-blue-700">Bs. {{ cuenta.consumo_sesiones|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Pagado:</span>
+                    <span class="text-sm font-bold text-green-700">Bs. {{ cuenta.pagado_sesiones|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline pt-1 border-t border-blue-100">
+                    <span class="text-xs font-bold text-gray-700">Deuda:</span>
+                    <span class="text-sm font-black {% if cuenta.deuda_sesiones > 0 %}text-red-600{% else %}text-gray-700{% endif %}">
+                        Bs. {{ cuenta.deuda_sesiones|floatformat:2 }}
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- ==================== SECCIÓN 2: PROYECTOS ==================== -->
-    <div class="mb-4">
-        <h2 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-            <span class="text-xl">📦</span> Proyectos/Evaluaciones
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Consumo Proyectos -->
-            <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-4">
-                <p class="text-xs text-purple-600 font-bold uppercase mb-1">Consumo Proyectos</p>
-                <p class="text-2xl font-black text-purple-700 mb-1">Bs. {{ cuenta.consumo_proyectos|floatformat:2 }}</p>
-                <p class="text-xs text-purple-600">Costo total de proyectos</p>
-            </div>
-            
-            <!-- Pagado Proyectos -->
-            <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                <p class="text-xs text-green-600 font-bold uppercase mb-1">Pagado Proyectos</p>
-                <p class="text-2xl font-black text-green-700 mb-1">Bs. {{ cuenta.pagado_proyectos|floatformat:2 }}</p>
-                <p class="text-xs text-green-600">Total pagado en proyectos</p>
-            </div>
-            
-            <!-- Deuda Proyectos -->
-            <div class="{% if cuenta.deuda_proyectos > 0 %}bg-red-50 border-red-300{% else %}bg-gray-50 border-gray-300{% endif %} border-2 rounded-lg p-4">
-                <p class="text-xs {% if cuenta.deuda_proyectos > 0 %}text-red-600{% else %}text-gray-600{% endif %} font-bold uppercase mb-1">
-                    Deuda Proyectos
-                </p>
-                <p class="text-2xl font-black {% if cuenta.deuda_proyectos > 0 %}text-red-700{% else %}text-gray-700{% endif %} mb-1">
-                    Bs. {{ cuenta.deuda_proyectos|floatformat:2 }}
-                </p>
-                <p class="text-xs {% if cuenta.deuda_proyectos > 0 %}text-red-600{% else %}text-gray-600{% endif %}">
-                    {% if cuenta.deuda_proyectos > 0 %}Pendiente por pagar{% else %}Sin deuda{% endif %}
-                </p>
+        <div class="bg-white border-2 border-purple-200 rounded-lg p-3 shadow-sm">
+            <h2 class="text-[10px] font-bold text-purple-600 uppercase mb-2 flex items-center gap-1">
+                <span>📦</span> Proyectos/Evaluaciones
+            </h2>
+            <div class="space-y-1">
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Consumo:</span>
+                    <span class="text-sm font-bold text-purple-700">Bs. {{ cuenta.consumo_proyectos|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Pagado:</span>
+                    <span class="text-sm font-bold text-green-700">Bs. {{ cuenta.pagado_proyectos|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline pt-1 border-t border-purple-100">
+                    <span class="text-xs font-bold text-gray-700">Deuda:</span>
+                    <span class="text-sm font-black {% if cuenta.deuda_proyectos > 0 %}text-red-600{% else %}text-gray-700{% endif %}">
+                        Bs. {{ cuenta.deuda_proyectos|floatformat:2 }}
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- ==================== SECCIÓN 3: TOTALES GENERALES ==================== -->
-    <div class="mb-4">
-        <h2 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-            <span class="text-xl">📊</span> Totales Generales
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Total Consumo -->
-            <div class="bg-indigo-50 border-2 border-indigo-300 rounded-lg p-4">
-                <p class="text-xs text-indigo-600 font-bold uppercase mb-1">Total Consumo</p>
-                <p class="text-2xl font-black text-indigo-700 mb-1">Bs. {{ cuenta.total_consumo_general|floatformat:2 }}</p>
-                <p class="text-xs text-indigo-600">Sesiones + Proyectos</p>
-            </div>
-            
-            <!-- Total Pagado -->
-            <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                <p class="text-xs text-green-600 font-bold uppercase mb-1">Total Pagado</p>
-                <p class="text-2xl font-black text-green-700 mb-1">Bs. {{ cuenta.total_pagado_general|floatformat:2 }}</p>
-                <p class="text-xs text-green-600">Sesiones + Proyectos</p>
-            </div>
-            
-            <!-- Total Deuda -->
-            <div class="{% if cuenta.total_deuda_general > 0 %}bg-red-50 border-red-300{% else %}bg-gray-50 border-gray-300{% endif %} border-2 rounded-lg p-4">
-                <p class="text-xs {% if cuenta.total_deuda_general > 0 %}text-red-600{% else %}text-gray-600{% endif %} font-bold uppercase mb-1">
-                    Total Deuda Pendiente
-                </p>
-                <p class="text-2xl font-black {% if cuenta.total_deuda_general > 0 %}text-red-700{% else %}text-gray-700{% endif %} mb-1">
-                    Bs. {{ cuenta.total_deuda_general|floatformat:2 }}
-                </p>
-                <p class="text-xs {% if cuenta.total_deuda_general > 0 %}text-red-600{% else %}text-gray-600{% endif %}">
-                    {% if cuenta.total_deuda_general > 0 %}Total por pagar{% else %}Sin deudas{% endif %}
-                </p>
+        <div class="bg-white border-2 border-indigo-200 rounded-lg p-3 shadow-sm">
+            <h2 class="text-[10px] font-bold text-indigo-600 uppercase mb-2 flex items-center gap-1">
+                <span>📊</span> Totales
+            </h2>
+            <div class="space-y-1">
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Consumo Gral:</span>
+                    <span class="text-sm font-bold text-indigo-700">Bs. {{ cuenta.total_consumo_general|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Pagado Gral:</span>
+                    <span class="text-sm font-bold text-green-700">Bs. {{ cuenta.total_pagado_general|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between items-baseline pt-1 border-t border-indigo-100">
+                    <span class="text-xs font-bold text-gray-700">Deuda Total:</span>
+                    <span class="text-sm font-black {% if cuenta.total_deuda_general > 0 %}text-red-600{% else %}text-gray-700{% endif %}">
+                        Bs. {{ cuenta.total_deuda_general|floatformat:2 }}
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- ==================== SECCIÓN 4: BALANCE FINANCIERO ==================== -->
-    <div class="mb-6">
-        <h2 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
-            <span class="text-xl">💰</span> Balance Financiero
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Crédito Disponible -->
-            <div class="{% if cuenta.saldo < 0 %}bg-red-50 border-red-300{% elif cuenta.saldo > 0 %}bg-yellow-50 border-yellow-300{% else %}bg-gray-50 border-gray-300{% endif %} border-2 rounded-lg p-4">
-                <p class="text-xs {% if cuenta.saldo < 0 %}text-red-600{% elif cuenta.saldo > 0 %}text-yellow-600{% else %}text-gray-600{% endif %} font-bold uppercase mb-1">
-                    Crédito Disponible
-                </p>
-                <p class="text-2xl font-black {% if cuenta.saldo < 0 %}text-red-700{% elif cuenta.saldo > 0 %}text-yellow-700{% else %}text-gray-700{% endif %} mb-1">
-                    Bs. {{ cuenta.saldo|floatformat:2 }}
-                </p>
-                <p class="text-xs {% if cuenta.saldo < 0 %}text-red-600{% elif cuenta.saldo > 0 %}text-yellow-600{% else %}text-gray-600{% endif %}">
-                    {% if cuenta.saldo > 0 %}
-                        Saldo a favor (pagos adelantados)
-                    {% elif cuenta.saldo < 0 %}
-                        Debe al centro
-                    {% else %}
-                        Sin crédito ni deuda
-                    {% endif %}
-                </p>
-            </div>
-            
-            <!-- Balance Final -->
-            <div class="{% if cuenta.balance_final < 0 %}bg-red-50 border-red-300{% elif cuenta.balance_final > 0 %}bg-green-50 border-green-300{% else %}bg-blue-50 border-blue-300{% endif %} border-2 rounded-lg p-4">
-                <p class="text-xs {% if cuenta.balance_final < 0 %}text-red-600{% elif cuenta.balance_final > 0 %}text-green-600{% else %}text-blue-600{% endif %} font-bold uppercase mb-1">
-                    Balance Final
-                </p>
-                <p class="text-2xl font-black {% if cuenta.balance_final < 0 %}text-red-700{% elif cuenta.balance_final > 0 %}text-green-700{% else %}text-blue-700{% endif %} mb-1">
-                    Bs. {{ cuenta.balance_final|floatformat:2 }}
-                </p>
-                <p class="text-xs {% if cuenta.balance_final < 0 %}text-red-600{% elif cuenta.balance_final > 0 %}text-green-600{% else %}text-blue-600{% endif %}">
-                    {% if cuenta.balance_final > 0 %}
-                        💚 Cuenta positiva
-                    {% elif cuenta.balance_final < 0 %}
-                        ⚠️ Saldo deudor total
-                    {% else %}
-                        ✅ Cuenta saldada
-                    {% endif %}
+        <div class="bg-gray-50 border-2 border-gray-300 rounded-lg p-3 shadow-sm">
+            <h2 class="text-[10px] font-bold text-gray-600 uppercase mb-2 flex items-center gap-1">
+                <span>💰</span> Balance Final
+            </h2>
+            <div class="space-y-1">
+                <div class="flex justify-between items-baseline">
+                    <span class="text-xs text-gray-500">Crédito:</span>
+                    <span class="text-sm font-bold {% if cuenta.saldo > 0 %}text-yellow-600{% else %}text-gray-600{% endif %}">
+                        Bs. {{ cuenta.saldo|floatformat:2 }}
+                    </span>
+                </div>
+                <div class="flex justify-between items-baseline pt-1 border-t border-gray-200 mt-4">
+                    <span class="text-xs font-bold text-gray-700">Estado (Cred-Deu):</span>
+                    <span class="text-sm font-black {% if cuenta.balance_final < 0 %}text-red-700{% elif cuenta.balance_final > 0 %}text-green-700{% else %}text-blue-700{% endif %}">
+                        Bs. {{ cuenta.balance_final|floatformat:2 }}
+                    </span>
+                </div>
+                <p class="text-[10px] text-right italic text-gray-500">
+                    {% if cuenta.balance_final > 0 %}Favor del paciente{% elif cuenta.balance_final < 0 %}Saldo deudor{% else %}Saldado{% endif %}
                 </p>
             </div>
         </div>
+
     </div>
 
 
     <!-- Acciones Rápidas -->
-    <div class="flex gap-3 mb-6">
+    <div class="flex gap-2 mb-4">
         <a href="{% url 'facturacion:registrar_pago' %}?paciente={{ paciente.id }}" 
-           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold">
+           class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-bold">
             💵 Registrar Pago
         </a>
-        <a href="{% url 'agenda:calendario' %}?paciente={{ paciente.id }}" 
-           class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold">
+        <a href="{% url 'agenda:calendario' %}" 
+           class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-bold">
             📅 Ver Sesiones
         </a>
     </div>
 
+
     <!-- 🆕 NUEVO: PROYECTOS DEL PACIENTE -->
     {% if proyectos_paciente %}
-    <div class="bg-white border-2 border-purple-300 rounded-lg overflow-hidden shadow-md mb-6">
-        <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-5 py-4">
-            <div class="flex items-center justify-between">
-                <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                    <span class="text-2xl">📦</span>
-                    Proyectos del Paciente ({{ proyectos_paciente.count }})
-                </h2>
-                <a href="{% url 'agenda:crear_proyecto' %}?paciente={{ paciente.id }}" 
-                   class="bg-white text-purple-700 px-3 py-1 rounded-lg font-bold text-sm hover:bg-purple-50">
-                    ➕ Nuevo Proyecto
-                </a>
-            </div>
+    <div class="bg-white border-2 border-purple-200 rounded-lg overflow-hidden shadow-sm mb-6">
+        <div class="bg-purple-600 px-4 py-2 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <span class="text-lg">📦</span>
+                Proyectos del Paciente ({{ proyectos_paciente.count }})
+            </h2>
+            <a href="{% url 'agenda:crear_proyecto' %}?paciente={{ paciente.id }}" 
+               class="text-[10px] bg-white text-purple-700 px-2 py-1 rounded font-bold hover:bg-purple-50 transition">
+                ➕ Nuevo Proyecto
+            </a>
         </div>
         
-        <div class="p-4">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="p-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for proyecto in proyectos_paciente %}
-                <div class="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 rounded-lg p-4 hover:shadow-lg transition">
-                    <!-- Header del proyecto -->
-                    <div class="flex items-start justify-between mb-3">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 hover:shadow-md transition flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-2">
                         <div class="flex-1">
-                            <p class="font-mono text-xs text-purple-700 font-bold">{{ proyecto.codigo }}</p>
-                            <h3 class="font-bold text-gray-900 text-sm mt-1">{{ proyecto.nombre }}</h3>
+                            <p class="font-mono text-[10px] text-purple-700 font-bold uppercase">{{ proyecto.codigo }}</p>
+                            <h3 class="font-bold text-gray-900 text-sm leading-tight">{{ proyecto.nombre }}</h3>
                         </div>
-                        <span class="text-xs px-3 py-1 rounded-full font-bold
+                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ml-2
                             {% if proyecto.estado == 'planificado' %}bg-yellow-100 text-yellow-700
                             {% elif proyecto.estado == 'en_progreso' %}bg-green-100 text-green-700
                             {% elif proyecto.estado == 'finalizado' %}bg-purple-100 text-purple-700
@@ -233,71 +176,63 @@
                         </span>
                     </div>
                     
-                    <!-- Información básica -->
-                    <div class="space-y-2 mb-3">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-600">Tipo:</span>
-                            <span class="font-semibold text-gray-900">{{ proyecto.get_tipo_display }}</span>
+                    <div class="space-y-1.5 mb-3">
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-gray-500 font-medium">Tipo:</span>
+                            <span class="font-bold text-gray-800">{{ proyecto.get_tipo_display }}</span>
                         </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-600">Servicio:</span>
-                            <span class="font-semibold text-gray-900">{{ proyecto.servicio_base.nombre }}</span>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-gray-500 font-medium">Servicio:</span>
+                            <span class="font-bold text-gray-800">{{ proyecto.servicio_base.nombre }}</span>
                         </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-600">Inicio:</span>
-                            <span class="font-semibold text-gray-900">{{ proyecto.fecha_inicio|date:"d/m/Y" }}</span>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-gray-500 font-medium">Inicio:</span>
+                            <span class="font-bold text-gray-800">{{ proyecto.fecha_inicio|date:"d/m/Y" }}</span>
+                        </div>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-gray-500 font-medium">Sesiones:</span>
+                            <span class="font-bold text-gray-800">{{ proyecto.sesiones.count }}</span>
+                        </div>
+                        <div class="flex justify-between text-[11px]">
+                            <span class="text-gray-500 font-medium">Duración:</span>
+                            <span class="font-bold text-gray-800">{{ proyecto.duracion_dias }} días</span>
                         </div>
                     </div>
-                    
-                    <!-- Financiero -->
-                    <div class="bg-white/70 rounded-lg p-3 mb-3">
-                        <div class="grid grid-cols-3 gap-2 text-center">
+
+                    <div class="bg-white/60 rounded-md p-2 mb-3 border border-purple-100">
+                        <div class="grid grid-cols-3 gap-1 text-center mb-2">
                             <div>
-                                <p class="text-[9px] text-gray-600 font-bold uppercase">Costo</p>
-                                <p class="text-sm font-black text-blue-700">{{ proyecto.costo_total }}</p>
+                                <p class="text-[8px] text-gray-500 uppercase font-bold">Costo</p>
+                                <p class="text-xs font-black text-blue-700">{{ proyecto.costo_total }}</p>
                             </div>
                             <div>
-                                <p class="text-[9px] text-gray-600 font-bold uppercase">Pagado</p>
-                                <p class="text-sm font-black text-green-700">{{ proyecto.total_pagado }}</p>
+                                <p class="text-[8px] text-gray-500 uppercase font-bold">Pagado</p>
+                                <p class="text-xs font-black text-green-700">{{ proyecto.total_pagado }}</p>
                             </div>
                             <div>
-                                <p class="text-[9px] text-gray-600 font-bold uppercase">Pendiente</p>
-                                <p class="text-sm font-black text-red-700">{{ proyecto.saldo_pendiente }}</p>
+                                <p class="text-[8px] text-gray-500 uppercase font-bold">Saldo</p>
+                                <p class="text-xs font-black text-red-700">{{ proyecto.saldo_pendiente }}</p>
                             </div>
                         </div>
                         
-                        <!-- Barra de progreso -->
-                        <div class="mt-2">
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                {% widthratio proyecto.total_pagado proyecto.costo_total 100 as porcentaje %}
-                                <div class="h-2 rounded-full {% if porcentaje >= 100 %}bg-green-500{% elif porcentaje >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}" 
+                        <div class="px-1">
+                            {% widthratio proyecto.total_pagado proyecto.costo_total 100 as porcentaje %}
+                            <div class="w-full bg-gray-200 rounded-full h-1.5">
+                                <div class="h-1.5 rounded-full {% if porcentaje >= 100 %}bg-green-500{% elif porcentaje >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}" 
                                      style="width: {{ porcentaje }}%"></div>
                             </div>
-                            <p class="text-xs text-gray-600 text-center mt-1">{{ porcentaje }}% pagado</p>
+                            <p class="text-[9px] text-gray-500 text-center mt-1 font-bold">{{ porcentaje }}% pagado</p>
                         </div>
                     </div>
                     
-                    <!-- Estadísticas -->
-                    <div class="bg-white/70 rounded-lg p-2 mb-3">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-600">📅 Sesiones:</span>
-                            <span class="font-bold text-gray-900">{{ proyecto.sesiones.count }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs mt-1">
-                            <span class="text-gray-600">⏱️ Duración:</span>
-                            <span class="font-bold text-gray-900">{{ proyecto.duracion_dias }} días</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Acciones -->
-                    <div class="flex gap-2">
+                    <div class="mt-auto flex gap-2">
                         <a href="{% url 'agenda:detalle_proyecto' proyecto.id %}" 
-                           class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-xs font-bold text-center">
-                            📋 Ver Detalle
+                           class="flex-1 bg-white border border-purple-400 text-purple-700 py-1.5 rounded text-[10px] font-bold text-center hover:bg-purple-100 transition">
+                            📋 Detalle
                         </a>
                         {% if proyecto.saldo_pendiente > 0 %}
                         <a href="{% url 'facturacion:registrar_pago' %}?proyecto={{ proyecto.id }}" 
-                           class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold text-center">
+                           class="flex-1 bg-green-600 text-white py-1.5 rounded text-[10px] font-bold text-center hover:bg-green-700 transition shadow-sm">
                             💵 Pagar
                         </a>
                         {% endif %}
@@ -310,28 +245,28 @@
     {% endif %}
 
     <!-- 4 Tabs -->
-    <div class="mb-6">
+    <div class="mb-4">
         <div class="border-b border-gray-200">
-            <nav class="flex gap-4">
+            <nav class="flex gap-2">
                 <button onclick="mostrarTab('sesiones')" 
                         id="tab-sesiones"
-                        class="tab-btn border-b-2 border-blue-600 text-blue-600 px-4 py-2 font-bold">
-                    📋 Sesiones ({{ sesiones.paginator.count }})
+                        class="tab-btn border-b-2 border-blue-600 text-blue-600 px-2 py-2 font-bold text-[14px] flex items-center gap-1">
+                    <span>📋</span> Sesiones ({{ sesiones.paginator.count }})
                 </button>
                 <button onclick="mostrarTab('pagos-validos')" 
                         id="tab-pagos-validos"
-                        class="tab-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-4 py-2 font-bold">
-                    💰 Pagos Válidos ({{ pagos_validos.paginator.count }})
+                        class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-900 px-2 py-2 font-bold text-[14px] flex items-center gap-1">
+                    <span>💰</span> Válidos ({{ pagos_validos.paginator.count }})
                 </button>
                 <button onclick="mostrarTab('pagos-credito')" 
                         id="tab-pagos-credito"
-                        class="tab-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-4 py-2 font-bold">
-                    🏦 Pagos con Crédito ({{ pagos_credito.paginator.count }})
+                        class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-900 px-2 py-2 font-bold text-[14px] flex items-center gap-1">
+                    <span>🏦</span> Crédito ({{ pagos_credito.paginator.count }})
                 </button>
                 <button onclick="mostrarTab('pagos-anulados')" 
                         id="tab-pagos-anulados"
-                        class="tab-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-4 py-2 font-bold">
-                    🚫 Pagos Anulados ({{ pagos_anulados.paginator.count }})
+                        class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-900 px-2 py-2 font-bold text-[14px] flex items-center gap-1">
+                    <span>🚫</span> Anulados ({{ pagos_anulados.paginator.count }})
                 </button>
             </nav>
         </div>

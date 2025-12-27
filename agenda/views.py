@@ -856,9 +856,34 @@ def agendar_recurrente(request):
                 fecha_actual += timedelta(days=1)
             
             if sesiones_creadas > 0:
+                # 🆕 Preparar datos para confirmación
+                dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                dias_seleccionados_nombres = [dias_nombres[int(d)] for d in dias_semana]
+                
                 duracion_msg = f" de {duracion_minutos} minutos" if duracion_personalizada else ""
-                proyecto_msg = f" vinculadas al proyecto {proyecto.codigo}" if proyecto else ""
-                messages.success(request, f'✅ Se crearon {sesiones_creadas} sesiones{duracion_msg}{proyecto_msg} correctamente.')
+                proyecto_msg = f" - Proyecto {proyecto.codigo}" if proyecto else ""
+                
+                # Construir período
+                periodo = f"{fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}"
+                
+                # Construir horario
+                horario = f"{hora.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')}{duracion_msg}"
+                
+                # 🆕 Almacenar en session
+                request.session['sesiones_creadas'] = {
+                    'mensaje': f'Se crearon exitosamente {sesiones_creadas} sesión(es)',
+                    'total_creadas': sesiones_creadas,
+                    'paciente': paciente.nombre_completo,
+                    'profesional': f"{profesional.nombre} {profesional.apellido}",
+                    'servicio': servicio.nombre,
+                    'periodo': periodo,
+                    'horario': horario,
+                    'dias': ', '.join(dias_seleccionados_nombres),
+                    'proyecto': f"{proyecto.codigo} - {proyecto.nombre}" if proyecto else None,
+                    'errores': len(sesiones_error),
+                }
+                
+                return redirect('agenda:confirmacion_sesiones')
             else:
                 messages.warning(request, '⚠️ No se pudo crear ninguna sesión. Verifica los conflictos de horario.')
             
@@ -901,6 +926,28 @@ def agendar_recurrente(request):
     }
     
     return render(request, 'agenda/agendar_recurrente.html', context)
+
+@login_required
+def confirmacion_sesiones(request):
+    """
+    🆕 Vista de confirmación después de crear sesiones recurrentes
+    """
+    
+    # Obtener datos de la sesión
+    datos_sesiones = request.session.get('sesiones_creadas')
+    
+    if not datos_sesiones:
+        messages.error(request, '❌ No hay datos de sesiones para mostrar')
+        return redirect('agenda:calendario')
+    
+    # Limpiar sesión después de obtener datos
+    del request.session['sesiones_creadas']
+    
+    context = {
+        'datos_sesiones': datos_sesiones,
+    }
+    
+    return render(request, 'agenda/confirmacion_sesiones.html', context)
 
 # ============= APIs HTMX =============
 
@@ -1011,7 +1058,7 @@ def cargar_profesionales_por_servicio(request):
 
 @login_required
 def vista_previa_recurrente(request):
-    """Vista previa de sesiones recurrentes con validación detallada de disponibilidad"""
+    """Vista previa de sesiones recurrentes ULTRA COMPACTA"""
     
     # Obtener parámetros
     fecha_inicio_str = request.GET.get('fecha_inicio')
@@ -1026,9 +1073,9 @@ def vista_previa_recurrente(request):
     # Validar parámetros básicos
     if not all([fecha_inicio_str, fecha_fin_str, hora_str, dias_semana]):
         return HttpResponse('''
-            <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-                <div class="text-4xl mb-3">📅</div>
-                <p class="text-gray-600">Selecciona las fechas, hora y días para ver la vista previa</p>
+            <div class="bg-gray-50 border border-gray-200 rounded p-4 text-center">
+                <div class="text-2xl mb-2">📅</div>
+                <p class="text-xs text-gray-600">Selecciona fechas, hora y días</p>
             </div>
         ''')
     
@@ -1043,21 +1090,19 @@ def vista_previa_recurrente(request):
         # Validaciones básicas
         if not dias_semana:
             return HttpResponse('''
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                    <div class="text-4xl mb-3">⚠️</div>
-                    <p class="text-yellow-700 font-medium">No has seleccionado ningún día de la semana</p>
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                    <p class="text-xs text-yellow-700">⚠️ Selecciona al menos un día</p>
                 </div>
             ''')
         
         if fecha_inicio > fecha_fin:
             return HttpResponse('''
-                <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                    <div class="text-4xl mb-3">❌</div>
-                    <p class="text-red-700 font-medium">La fecha de inicio debe ser anterior a la fecha de fin</p>
+                <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                    <p class="text-xs text-red-700">❌ Fecha inicio debe ser antes de fecha fin</p>
                 </div>
             ''')
         
-        # Obtener objetos necesarios para validación
+        # Obtener objetos
         paciente = None
         profesional = None
         servicio = None
@@ -1080,12 +1125,12 @@ def vista_previa_recurrente(request):
             except:
                 pass
         
-        # Calcular hora_fin usando duración personalizada
+        # Calcular hora_fin
         inicio_dt = datetime.combine(fecha_inicio, hora)
         fin_dt = inicio_dt + timedelta(minutes=duracion_minutos)
         hora_fin = fin_dt.time()
         
-        # Generar lista de fechas con validación DETALLADA
+        # Generar lista de fechas con validación
         sesiones_data = []
         fecha_actual = fecha_inicio
         
@@ -1106,13 +1151,12 @@ def vista_previa_recurrente(request):
         
         if not sesiones_data:
             return HttpResponse('''
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                    <div class="text-4xl mb-3">⚠️</div>
-                    <p class="text-yellow-700 font-medium">No se generarán sesiones con esta configuración</p>
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                    <p class="text-xs text-yellow-700">⚠️ No se generarán sesiones</p>
                 </div>
             ''')
         
-        # Calcular estadísticas
+        # Estadísticas
         total = len(sesiones_data)
         disponibles = sum(1 for s in sesiones_data if s['disponible'])
         conflictos = total - disponibles
@@ -1120,44 +1164,37 @@ def vista_previa_recurrente(request):
         # Nombres de días
         dias_nombres = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
         
-        # Generar HTML
+        # Info del header
         hora_formato = hora.strftime('%H:%M')
-        hora_fin_formato = hora_fin.strftime('%H:%M')
         servicio_nombre = servicio.nombre if servicio else "Servicio"
         
         # Color del header
         if disponibles == total:
-            header_bg = "bg-green-50 border-green-200"
-            header_text = "text-green-900"
             header_icon = "✅"
         elif disponibles > 0:
-            header_bg = "bg-yellow-50 border-yellow-200"
-            header_text = "text-yellow-900"
             header_icon = "⚠️"
         else:
-            header_bg = "bg-red-50 border-red-200"
-            header_text = "text-red-900"
             header_icon = "❌"
         
+        # 🆕 HTML ULTRA COMPACTO EN GRID
         html = f'''
-            <div class="{header_bg} border rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                        <h3 class="text-base font-bold {header_text} flex items-center gap-2">
-                            {header_icon} Vista Previa
-                        </h3>
-                        <p class="text-xs {header_text} mt-0.5">
-                            {servicio_nombre} · {hora_formato}-{hora_fin_formato} ({duracion_minutos}min)
-                        </p>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
+                <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-green-800 uppercase">{header_icon} Vista Previa</span>
+                        <span class="text-green-600">{servicio_nombre} · {hora_formato} ({duracion_minutos}min)</span>
                     </div>
-                    <div class="flex gap-1.5 text-xs">
-                        <span class="bg-gray-700 text-white px-2 py-1 rounded font-medium">{total}</span>
-                        <span class="bg-green-600 text-white px-2 py-1 rounded font-medium">✓{disponibles}</span>
-                        {f'<span class="bg-red-600 text-white px-2 py-1 rounded font-medium">✗{conflictos}</span>' if conflictos > 0 else ''}
+                    <div class="flex gap-2">
+                        <div class="bg-white rounded px-2 py-0.5 border border-green-300">
+                            <span class="text-green-700 font-bold">{disponibles}</span>
+                            <span class="text-gray-500 text-[10px]"> OK</span>
+                        </div>
+                        {f'<div class="bg-white rounded px-2 py-0.5 border border-red-300"><span class="text-red-700 font-bold">{conflictos}</span><span class="text-gray-500 text-[10px]"> ⚠️</span></div>' if conflictos > 0 else ''}
                     </div>
                 </div>
-                
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-96 overflow-y-auto pr-1">
+            </div>
+            
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 mb-2">
         '''
         
         for i, sesion in enumerate(sesiones_data):
@@ -1168,105 +1205,92 @@ def vista_previa_recurrente(request):
             conflictos_p = sesion['conflictos_paciente']
             conflictos_prof = sesion['conflictos_profesional']
             
+            fecha_iso = fecha.strftime('%Y-%m-%d')
+            
             if disponible:
-                card_bg = "bg-white border-green-400"
+                card_bg = "border-green-400 bg-green-50"
+                icon_color = "text-green-600"
                 icon = "✅"
                 checked = "checked"
                 disabled = ""
             else:
-                card_bg = "bg-red-50 border-red-400"
+                card_bg = "border-red-400 bg-red-50 opacity-70"
+                icon_color = "text-red-600"
                 icon = "🚫"
                 checked = ""
                 disabled = "disabled"
             
-            # ✅ Agregar checkbox para seleccionar sesión
-            fecha_iso = fecha.strftime('%Y-%m-%d')
-            
             html += f'''
-                    <div class="{card_bg} border-2 rounded-lg p-2 relative">
-                        <div class="absolute top-1 right-1">
-                            <input type="checkbox" 
-                                   name="sesiones_seleccionadas" 
-                                   value="{fecha_iso}"
-                                   class="sesion-checkbox w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 {'cursor-pointer' if disponible else 'cursor-not-allowed opacity-50'}"
-                                   {checked}
-                                   {disabled}
-                                   onchange="actualizarContador()">
+                <label class="relative cursor-pointer group">
+                    <input type="checkbox" 
+                           name="sesiones_seleccionadas" 
+                           value="{fecha_iso}"
+                           class="sesion-checkbox peer absolute top-1 right-1 w-4 h-4 rounded border-2 border-green-400 checked:bg-blue-500"
+                           {checked}
+                           {disabled}
+                           onchange="actualizarContador()">
+                    
+                    <div class="border-2 {card_bg} rounded-lg p-1.5 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:shadow-sm">
+                        <div class="{icon_color} text-xs text-center mb-0.5">{icon}</div>
+                        <div class="text-[10px] font-bold text-gray-700 text-center mb-0.5">{dia_nombre}</div>
+                        <div class="text-center">
+                            <div class="text-sm font-black text-gray-800">{fecha_formato}</div>
                         </div>
-                        
-                        <div class="text-center mt-4">
-                            <div class="text-2xl mb-1">{icon}</div>
-                            <p class="text-xs font-bold text-gray-900">{dia_nombre}</p>
-                            <p class="text-xs font-semibold text-gray-700">{fecha_formato}</p>
             '''
             
-            # Mostrar conflictos de forma desplegable
+            # Mostrar conflictos de forma desplegable COMPACTA
             if not disponible and (conflictos_p or conflictos_prof):
                 html += f'''
-                            <button type="button" 
-                                    onclick="toggleConflicto('panel-{i}', this)"
-                                    class="mt-2 w-full text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded transition">
-                                ▼ Ver detalle
-                            </button>
-                        </div>
-                        
-                        <div id="panel-{i}" style="display: none;" class="mt-2 pt-2 border-t border-red-300 text-left">
+                        <button type="button" 
+                                onclick="toggleConflicto('panel-{i}', this)"
+                                class="mt-1 w-full text-[9px] bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 rounded">
+                            ▼ Ver detalle
+                        </button>
+                    </div>
+                    
+                    <div id="panel-{i}" style="display: none;" class="absolute z-10 mt-1 w-48 bg-white border-2 border-red-400 rounded-lg p-2 shadow-lg text-left">
                 '''
                 
                 if conflictos_p:
-                    html += '<div class="mb-2"><p class="text-xs font-bold text-red-700 mb-1">👤 Paciente ocupado:</p>'
-                    for c in conflictos_p:
+                    html += '<div class="mb-1"><p class="text-[9px] font-bold text-red-700 mb-0.5">👤 Paciente ocupado:</p>'
+                    for c in conflictos_p[:2]:  # Solo mostrar 2
                         html += f'''
-                            <div class="text-xs bg-white rounded p-1.5 mb-1 border border-red-200">
-                                <p class="font-semibold">{c["servicio"]}</p>
+                            <div class="text-[9px] bg-red-50 rounded p-1 mb-0.5 border border-red-200">
+                                <p class="font-semibold">{c["servicio"][:15]}</p>
                                 <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
-                                <p class="text-gray-500 text-[10px]">Dr/a: {c["profesional"]}</p>
-                                <p class="text-gray-500 text-[10px]">📍 {c.get("sucursal", "N/A")}</p>
                             </div>
                         '''
+                    if len(conflictos_p) > 2:
+                        html += f'<p class="text-[8px] text-gray-500">+{len(conflictos_p)-2} más</p>'
                     html += '</div>'
                 
                 if conflictos_prof:
-                    html += '<div><p class="text-xs font-bold text-orange-700 mb-1">👨‍⚕️ Profesional ocupado:</p>'
-                    for c in conflictos_prof:
+                    html += '<div><p class="text-[9px] font-bold text-orange-700 mb-0.5">👨‍⚕️ Prof. ocupado:</p>'
+                    for c in conflictos_prof[:2]:
                         html += f'''
-                            <div class="text-xs bg-white rounded p-1.5 mb-1 border border-orange-200">
-                                <p class="font-semibold">{c["paciente"]}</p>
-                                <p class="text-gray-600 text-[10px]">{c["servicio"]}</p>
+                            <div class="text-[9px] bg-orange-50 rounded p-1 mb-0.5 border border-orange-200">
+                                <p class="font-semibold">{c["paciente"][:15]}</p>
                                 <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
-                                <p class="text-gray-500 text-[10px]">📍 {c.get("sucursal", "N/A")}</p>
                             </div>
                         '''
+                    if len(conflictos_prof) > 2:
+                        html += f'<p class="text-[8px] text-gray-500">+{len(conflictos_prof)-2} más</p>'
                     html += '</div>'
                 
                 html += '</div>'
             else:
                 html += '</div>'
             
-            html += '</div>'
+            html += '</label>'
         
         html += f'''
-                </div>
-                
-                <div class="mt-3 pt-3 border-t border-gray-300">
-                    <div class="grid grid-cols-3 gap-2 text-center text-sm">
-                        <div class="bg-blue-100 rounded p-2">
-                            <p class="font-bold text-blue-700" id="contador-seleccionadas">{disponibles}</p>
-                            <p class="text-xs text-blue-600">Seleccionadas</p>
-                        </div>
-                        <div class="bg-green-100 rounded p-2">
-                            <p class="font-bold text-green-700">{disponibles}</p>
-                            <p class="text-xs text-green-600">Disponibles</p>
-                        </div>
-                        <div class="bg-red-100 rounded p-2">
-                            <p class="font-bold text-red-700">{conflictos}</p>
-                            <p class="text-xs text-red-600">Con conflictos</p>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 text-center mt-2">
-                        ℹ️ Solo se crearán las sesiones que selecciones
-                    </p>
-                </div>
+            </div>
+            
+            {f'<div class="bg-orange-50 border border-orange-200 rounded p-2 mb-2"><div class="flex items-start gap-1.5 text-xs"><span class="text-orange-600 flex-shrink-0">⚠️</span><p class="text-orange-800"><strong>{conflictos}</strong> sesión(es) con conflicto no se crearán. Solo se crearán las <strong>{disponibles}</strong> disponibles.</p></div></div>' if conflictos > 0 else ''}
+            
+            <div class="bg-blue-50 border border-blue-200 rounded p-2 text-[10px] text-blue-700 flex items-center gap-1">
+                <span>ℹ️</span>
+                <span>Solo se crearán las sesiones que selecciones</span>
             </div>
         '''
         
@@ -1274,18 +1298,14 @@ def vista_previa_recurrente(request):
         
     except ValueError as e:
         return HttpResponse(f'''
-            <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <div class="text-4xl mb-3">❌</div>
-                <p class="text-red-700 font-medium">Error en el formato de fecha u hora</p>
-                <p class="text-sm text-red-600 mt-2">{str(e)}</p>
+            <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                <p class="text-xs text-red-700">❌ Error en formato: {str(e)}</p>
             </div>
         ''')
     except Exception as e:
         return HttpResponse(f'''
-            <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <div class="text-4xl mb-3">❌</div>
-                <p class="text-red-700 font-medium">Error al generar la vista previa</p>
-                <p class="text-sm text-red-600 mt-2">{str(e)}</p>
+            <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                <p class="text-xs text-red-700">❌ Error: {str(e)}</p>
             </div>
         ''')
 

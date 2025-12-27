@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}✅ Pago Registrado{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 px-3 py-4 sm:px-4 sm:py-8">
+    <div class="max-w-xl w-full">
+        
+        <!-- 🎉 ANIMACIÓN DE ÉXITO -->
+        <div class="text-center mb-4 sm:mb-6 animate-bounce-in">
+            <div class="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full shadow-xl mb-3 animate-scale-in">
+                <svg class="w-9 h-9 sm:w-12 sm:h-12 text-white animate-check" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black text-gray-900 mb-1">¡Pago Registrado!</h1>
+            <p class="text-sm sm:text-base text-gray-600">{{ datos_pago.mensaje }}</p>
+        </div>
+        
+        <!-- 📋 TARJETA DE DETALLES -->
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden border-2 border-green-200 animate-slide-up">
+            
+            <!-- Header compacto -->
+            <div class="bg-gradient-to-r from-green-500 to-blue-600 p-3 sm:p-4 text-white">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] sm:text-xs opacity-90 mb-0.5">Tipo de Pago</p>
+                        <p class="text-base sm:text-lg font-bold truncate">{{ datos_pago.tipo }}</p>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <p class="text-[10px] sm:text-xs opacity-90 mb-0.5">Monto</p>
+                        <p class="text-xl sm:text-2xl font-black">{{ datos_pago.total }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cuerpo compacto -->
+            <div class="p-3 sm:p-4 space-y-2 sm:space-y-3">
+                
+                <!-- Paciente -->
+                <div class="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                    <div class="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Paciente</p>
+                        <p class="text-xs sm:text-sm font-bold text-gray-900 truncate">{{ datos_pago.paciente }}</p>
+                    </div>
+                </div>
+                
+                <!-- Concepto -->
+                <div class="flex items-start gap-2 p-2.5 sm:p-3 bg-purple-50 rounded-lg">
+                    <div class="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-purple-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Concepto</p>
+                        <p class="text-xs sm:text-sm font-bold text-gray-900 line-clamp-2">{{ datos_pago.concepto }}</p>
+                    </div>
+                </div>
+                
+                <!-- Detalle -->
+                <div class="flex items-center gap-2 p-2.5 sm:p-3 bg-green-50 rounded-lg">
+                    <div class="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Detalle</p>
+                        <p class="text-xs sm:text-sm font-bold text-gray-900">{{ datos_pago.detalle }}</p>
+                    </div>
+                </div>
+                
+                <!-- Estado -->
+                <div class="flex items-center gap-2 p-2.5 sm:p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Estado</p>
+                        <p class="text-xs sm:text-sm font-bold text-blue-700 truncate">{{ datos_pago.info_estado }}</p>
+                    </div>
+                </div>
+                
+                <!-- Recibo -->
+                {% if datos_pago.genero_recibo and datos_pago.numero_recibo %}
+                <div class="flex items-center gap-2 p-2.5 sm:p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div class="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Recibo</p>
+                        <p class="text-sm sm:text-base font-black text-yellow-700">{{ datos_pago.numero_recibo }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+            </div>
+            
+            <!-- Footer con botones -->
+            <div class="bg-gray-50 p-3 sm:p-4 border-t border-gray-200">
+                
+                {% if datos_pago.genero_recibo and datos_pago.pago_id %}
+                <div class="space-y-2">
+                    <p class="text-center text-xs sm:text-sm text-gray-600 font-medium mb-2 sm:mb-3">
+                        📄 ¿Imprimir recibo?
+                    </p>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="{% url 'facturacion:generar_recibo_pdf' datos_pago.pago_id %}" 
+                           target="_blank"
+                           class="flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm shadow-md transition transform active:scale-95">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                            <span class="hidden xs:inline">Imprimir</span>
+                            <span class="xs:hidden">PDF</span>
+                        </a>
+                        
+                        <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+                           class="flex items-center justify-center gap-1.5 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm shadow-md transition transform active:scale-95">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                            Continuar
+                        </a>
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="space-y-2">
+                    <div class="bg-blue-100 border border-blue-300 rounded-lg p-2.5 sm:p-3 mb-2">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div>
+                                <p class="text-xs sm:text-sm font-bold text-blue-900 mb-0.5">Sin recibo físico</p>
+                                <p class="text-[10px] sm:text-xs text-blue-700">
+                                    Pago con crédito. El comprobante se emitió al realizar el depósito inicial.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+                       class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-2.5 sm:py-3 rounded-lg text-sm shadow-md transition transform active:scale-95">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Finalizar
+                    </a>
+                </div>
+                {% endif %}
+                
+            </div>
+            
+        </div>
+        
+        <!-- Links compactos -->
+        <div class="mt-3 sm:mt-4 flex justify-center gap-3 sm:gap-4 text-xs sm:text-sm">
+            <a href="{% url 'facturacion:historial_pagos' %}" 
+               class="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
+                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="hidden xs:inline">Ver Historial</span>
+                <span class="xs:hidden">Historial</span>
+            </a>
+            <span class="text-gray-400">•</span>
+            <a href="{% url 'facturacion:registrar_pago' %}" 
+               class="text-green-600 hover:text-green-800 font-medium flex items-center gap-1">
+                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span class="hidden xs:inline">Nuevo Pago</span>
+                <span class="xs:hidden">Nuevo</span>
+            </a>
+        </div>
+        
+    </div>
+</div>
+
+<style>
+@keyframes bounce-in {
+    0% { opacity: 0; transform: scale(0.3); }
+    50% { opacity: 1; transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes check {
+    0% { stroke-dasharray: 50; stroke-dashoffset: 50; }
+    100% { stroke-dashoffset: 0; }
+}
+
+.animate-bounce-in { animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+.animate-slide-up { animation: slide-up 0.5s ease-out 0.3s both; }
+.animate-scale-in { animation: scale-in 0.4s ease-out; }
+.animate-check { stroke-dasharray: 50; animation: check 0.5s ease-out 0.4s forwards; }
+
+@media (min-width: 475px) {
+    .xs\:inline { display: inline; }
+    .xs\:hidden { display: none; }
+}
+</style>
+{% endblock %}

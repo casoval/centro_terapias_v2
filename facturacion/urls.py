@@ -12,8 +12,9 @@ urlpatterns = [
     
     # ==================== PAGOS ====================
     path('pago/registrar/', views.registrar_pago, name='registrar_pago'),
+    path('pago/confirmacion/', views.confirmacion_pago, name='confirmacion_pago'),  # ✅ NUEVA RUTA
     path('pago/<int:pago_id>/anular/', views.anular_pago, name='anular_pago'),
-    path('pago/<int:pago_id>/pdf/', views.generar_recibo_pdf, name='generar_recibo_pdf'),  # ✅ ESTA ES LA RUTA CRÍTICA
+    path('pago/<int:pago_id>/pdf/', views.generar_recibo_pdf, name='generar_recibo_pdf'),
     path('pagos/', views.historial_pagos, name='historial_pagos'),
     path('pagos/masivos/', views.pagos_masivos, name='pagos_masivos'),
     path('pagos/masivos/procesar/', views.procesar_pagos_masivos, name='procesar_pagos_masivos'),

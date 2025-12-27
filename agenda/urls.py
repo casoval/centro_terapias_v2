@@ -36,4 +36,6 @@ urlpatterns = [
     path('sesion/<int:sesion_id>/procesar-cambio-estado/', 
          views.procesar_cambio_estado, 
          name='procesar_cambio_estado'),
+
+    path('confirmacion-sesiones/', views.confirmacion_sesiones, name='confirmacion_sesiones'),
 ]

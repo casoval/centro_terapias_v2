@@ -390,6 +390,7 @@ def registrar_pago(request):
                         )
                     
                     # 2️⃣ Pago ADICIONAL (efectivo/otro) - GENERA RECIBO REAL
+                    pago_adicional = None
                     if monto_adicional > 0:
                         pago_adicional = Pago.objects.create(
                             paciente=paciente,
@@ -407,31 +408,46 @@ def registrar_pago(request):
                     # Actualizar cuenta
                     cuenta.actualizar_saldo()
                     
-                    # Mensaje de éxito
+                    # 🆕 PREPARAR RESPUESTA CON DATOS DEL PAGO
                     msg_extra = " (Precio ajustado para saldar)" if es_pago_completo else ""
                     
+                    # Determinar si se generó recibo físico
+                    genero_recibo = monto_adicional > 0
+                    numero_recibo = recibos_generados[0] if recibos_generados else None
+                    
+                    # Construir mensaje
                     if usar_credito and monto_adicional > 0:
-                        mensaje = f'✅ Pago mixto registrado{msg_extra}: Bs. {monto_credito} (crédito) + Bs. {monto_adicional} (efectivo). '
-                        if recibos_generados:
-                            mensaje += f'Recibo: {recibos_generados[0]}'
-                        messages.success(request, mensaje)
+                        tipo_pago_display = "Mixto"
+                        mensaje = f'Pago mixto registrado{msg_extra}'
+                        detalle = f'Crédito: Bs. {monto_credito} + Efectivo: Bs. {monto_adicional}'
                     elif usar_credito:
-                        messages.success(
-                            request,
-                            f'✅ Pago aplicado con crédito{msg_extra} (Bs. {monto_credito}). Sin recibo físico.'
-                        )
+                        tipo_pago_display = "100% Crédito"
+                        mensaje = f'Pago aplicado con crédito{msg_extra}'
+                        detalle = f'Monto: Bs. {monto_credito}'
+                        genero_recibo = False
                     else:
-                        mensaje = f'✅ Pago registrado{msg_extra}. '
-                        if recibos_generados:
-                            mensaje += f'Recibo: {recibos_generados[0]}'
-                        messages.success(request, mensaje)
+                        tipo_pago_display = "Efectivo"
+                        mensaje = f'Pago registrado{msg_extra}'
+                        detalle = f'Monto: Bs. {monto_adicional}'
                     
-                    if sesion.pagado:
-                        messages.info(request, '✔ Sesión marcada como PAGADA')
-                    else:
-                        messages.info(request, f'ℹ️ Falta: Bs. {sesion.saldo_pendiente}')
+                    # Info adicional
+                    info_estado = 'Sesión PAGADA' if sesion.pagado else f'Falta: Bs. {sesion.saldo_pendiente}'
                     
-                    return redirect('facturacion:detalle_cuenta', paciente_id=paciente.id)
+                    # 🆕 ALMACENAR EN SESSION para mostrar en modal
+                    request.session['pago_exitoso'] = {
+                        'tipo': tipo_pago_display,
+                        'mensaje': mensaje,
+                        'detalle': detalle,
+                        'total': float(monto_aportado_ahora),
+                        'paciente': paciente.nombre_completo,
+                        'concepto': f"Sesión {sesion.fecha} - {sesion.servicio.nombre}",
+                        'info_estado': info_estado,
+                        'genero_recibo': genero_recibo,
+                        'numero_recibo': numero_recibo,
+                        'pago_id': pago_adicional.id if pago_adicional else None,
+                    }
+                    
+                    return redirect('facturacion:confirmacion_pago')
             
             # ========== CASO 2: PAGO DE PROYECTO ==========
             elif tipo_pago == 'proyecto':
@@ -491,6 +507,7 @@ def registrar_pago(request):
                         )
                     
                     # Pago adicional
+                    pago_adicional = None
                     if monto_adicional > 0:
                         pago_adicional = Pago.objects.create(
                             paciente=paciente,
@@ -507,27 +524,41 @@ def registrar_pago(request):
                     
                     cuenta.actualizar_saldo()
                     
+                    # 🆕 PREPARAR RESPUESTA
                     msg_extra = " (Proyecto saldado)" if es_pago_completo else ""
+                    genero_recibo = monto_adicional > 0
+                    numero_recibo = recibos_generados[0] if recibos_generados else None
                     
                     if usar_credito and monto_adicional > 0:
-                        mensaje = f'✅ Pago mixto{msg_extra}: Bs. {monto_credito} (crédito) + Bs. {monto_adicional} (efectivo). '
-                        if recibos_generados:
-                            mensaje += f'Recibo: {recibos_generados[0]}'
-                        messages.success(request, mensaje)
+                        tipo_pago_display = "Mixto"
+                        mensaje = f'Pago mixto{msg_extra}'
+                        detalle = f'Crédito: Bs. {monto_credito} + Efectivo: Bs. {monto_adicional}'
                     elif usar_credito:
-                        messages.success(request, f'✅ Pago aplicado con crédito{msg_extra} (Bs. {monto_credito}).')
+                        tipo_pago_display = "100% Crédito"
+                        mensaje = f'Pago aplicado con crédito{msg_extra}'
+                        detalle = f'Monto: Bs. {monto_credito}'
+                        genero_recibo = False
                     else:
-                        mensaje = f'✅ Pago registrado{msg_extra}. '
-                        if recibos_generados:
-                            mensaje += f'Recibo: {recibos_generados[0]}'
-                        messages.success(request, mensaje)
+                        tipo_pago_display = "Efectivo"
+                        mensaje = f'Pago registrado{msg_extra}'
+                        detalle = f'Monto: Bs. {monto_adicional}'
                     
-                    if proyecto.pagado_completo:
-                        messages.info(request, '✔ Proyecto PAGADO COMPLETO')
-                    else:
-                        messages.info(request, f'ℹ️ Falta: Bs. {proyecto.saldo_pendiente}')
+                    info_estado = 'Proyecto PAGADO COMPLETO' if proyecto.pagado_completo else f'Falta: Bs. {proyecto.saldo_pendiente}'
                     
-                    return redirect('agenda:detalle_proyecto', proyecto_id=proyecto.id)
+                    request.session['pago_exitoso'] = {
+                        'tipo': tipo_pago_display,
+                        'mensaje': mensaje,
+                        'detalle': detalle,
+                        'total': float(monto_aportado_ahora),
+                        'paciente': paciente.nombre_completo,
+                        'concepto': f"Proyecto {proyecto.codigo} - {proyecto.nombre}",
+                        'info_estado': info_estado,
+                        'genero_recibo': genero_recibo,
+                        'numero_recibo': numero_recibo,
+                        'pago_id': pago_adicional.id if pago_adicional else None,
+                    }
+                    
+                    return redirect('facturacion:confirmacion_pago')
             
             # ========== CASO 3: PAGO ADELANTADO ==========
             elif tipo_pago == 'adelantado':
@@ -560,10 +591,21 @@ def registrar_pago(request):
                     cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
                     cuenta.actualizar_saldo()
                 
-                messages.success(request, f'✅ Pago adelantado registrado. Recibo: {pago.numero_recibo}')
-                messages.info(request, f'💰 Nuevo crédito disponible: Bs. {cuenta.saldo}')
+                # 🆕 PREPARAR RESPUESTA
+                request.session['pago_exitoso'] = {
+                    'tipo': 'Adelantado',
+                    'mensaje': 'Pago adelantado registrado',
+                    'detalle': f'Monto: Bs. {monto_adicional}',
+                    'total': float(monto_adicional),
+                    'paciente': paciente.nombre_completo,
+                    'concepto': 'Depósito a crédito / billetera',
+                    'info_estado': f'Nuevo crédito disponible: Bs. {cuenta.saldo}',
+                    'genero_recibo': True,
+                    'numero_recibo': pago.numero_recibo,
+                    'pago_id': pago.id,
+                }
                 
-                return redirect('facturacion:detalle_cuenta', paciente_id=paciente.id)
+                return redirect('facturacion:confirmacion_pago')
             
             else:
                 messages.error(request, '❌ Tipo de pago no válido')
@@ -648,6 +690,28 @@ def registrar_pago(request):
     }
     
     return render(request, 'facturacion/registrar_pago.html', context)
+
+@login_required
+def confirmacion_pago(request):
+    """
+    🆕 NUEVA VISTA: Mostrar modal de confirmación de pago exitoso
+    """
+    
+    # Obtener datos de la sesión
+    datos_pago = request.session.get('pago_exitoso')
+    
+    if not datos_pago:
+        messages.error(request, '❌ No hay datos de pago para mostrar')
+        return redirect('facturacion:cuentas_corrientes')
+    
+    # Limpiar sesión después de obtener datos
+    del request.session['pago_exitoso']
+    
+    context = {
+        'datos_pago': datos_pago,
+    }
+    
+    return render(request, 'facturacion/confirmacion_pago.html', context)
 
 # ✅ NUEVA: API para cargar proyectos de un paciente (AJAX)
 @login_required
@@ -864,12 +928,12 @@ def pagos_masivos(request):
     
     return render(request, 'facturacion/pagos_masivos.html', context)
 
-
 @login_required
 def procesar_pagos_masivos(request):
     """
     Procesar pago masivo de múltiples sesiones Y PROYECTOS
     ✅ ACTUALIZADO: Soporta proyectos y sesiones en el mismo pago
+    ✅ NUEVO: Redirige a confirmación de pago
     """
     
     if request.method != 'POST':
@@ -881,7 +945,7 @@ def procesar_pagos_masivos(request):
         # Datos del formulario
         paciente_id = request.POST.get('paciente_id')
         sesiones_ids = request.POST.getlist('sesiones_ids')
-        proyectos_ids = request.POST.getlist('proyectos_ids')  # ✅ NUEVO
+        proyectos_ids = request.POST.getlist('proyectos_ids')
         metodo_pago_id = request.POST.get('metodo_pago')
         fecha_pago_str = request.POST.get('fecha_pago')
         observaciones = request.POST.get('observaciones', '')
@@ -905,13 +969,13 @@ def procesar_pagos_masivos(request):
             paciente=paciente
         ).select_related('servicio') if sesiones_ids else []
         
-        # ✅ NUEVO: Obtener proyectos seleccionados
+        # Obtener proyectos seleccionados
         proyectos = Proyecto.objects.filter(
             id__in=proyectos_ids,
             paciente=paciente
         ).select_related('servicio_base') if proyectos_ids else []
         
-        # 🆕 CALCULAR TOTAL Y PREPARAR AJUSTES
+        # CALCULAR TOTAL Y PREPARAR AJUSTES
         items_ajustados = []
         total_pago = Decimal('0.00')
         
@@ -944,7 +1008,7 @@ def procesar_pagos_masivos(request):
             
             total_pago += monto_pagar
         
-        # ✅ NUEVO: Procesar PROYECTOS
+        # Procesar PROYECTOS
         for proyecto in proyectos:
             monto_personalizado_key = f'monto_personalizado_proyecto_{proyecto.id}'
             monto_personalizado = request.POST.get(monto_personalizado_key)
@@ -979,7 +1043,7 @@ def procesar_pagos_masivos(request):
         
         # 🔒 TRANSACCIÓN ATÓMICA
         with transaction.atomic():
-            # 🆕 GENERAR UN SOLO NÚMERO DE RECIBO
+            # GENERAR UN SOLO NÚMERO DE RECIBO
             ultimo_pago = Pago.objects.filter(
                 numero_recibo__startswith='REC-'
             ).order_by('-numero_recibo').first()
@@ -1010,6 +1074,8 @@ def procesar_pagos_masivos(request):
                 concepto_items += f" (+{len(items_ajustados) - 3} más)"
             
             # 💾 CREAR PAGOS INDIVIDUALES
+            primer_pago_id = None
+            
             for ajuste in items_ajustados:
                 tipo = ajuste['tipo']
                 objeto = ajuste['objeto']
@@ -1019,7 +1085,7 @@ def procesar_pagos_masivos(request):
                 if tipo == 'sesion':
                     sesion = objeto
                     
-                    # ✅ Ajustar monto_cobrado si es personalizado
+                    # Ajustar monto_cobrado si es personalizado
                     if tiene_monto_personalizado:
                         monto_original = sesion.monto_cobrado
                         nuevo_monto_cobrado = sesion.total_pagado + monto_pagar
@@ -1030,7 +1096,7 @@ def procesar_pagos_masivos(request):
                             sesion.observaciones = (sesion.observaciones or "") + nota_ajuste
                     
                     # Crear pago vinculado a sesión
-                    Pago.objects.create(
+                    pago_creado = Pago.objects.create(
                         paciente=paciente,
                         sesion=sesion,
                         proyecto=None,
@@ -1043,12 +1109,15 @@ def procesar_pagos_masivos(request):
                         numero_recibo=numero_recibo_compartido
                     )
                     
+                    if not primer_pago_id:
+                        primer_pago_id = pago_creado.id
+                    
                     sesion.save()
                 
                 else:  # tipo == 'proyecto'
                     proyecto = objeto
                     
-                    # ✅ Ajustar costo_total si es personalizado
+                    # Ajustar costo_total si es personalizado
                     if tiene_monto_personalizado:
                         costo_original = proyecto.costo_total
                         nuevo_costo = proyecto.total_pagado + monto_pagar
@@ -1058,7 +1127,7 @@ def procesar_pagos_masivos(request):
                             proyecto.observaciones = (proyecto.observaciones or "") + f"\n[{fecha_pago}] Costo ajustado de Bs. {costo_original} a Bs. {nuevo_costo} en pago masivo"
                     
                     # Crear pago vinculado a proyecto
-                    Pago.objects.create(
+                    pago_creado = Pago.objects.create(
                         paciente=paciente,
                         sesion=None,
                         proyecto=proyecto,
@@ -1071,13 +1140,16 @@ def procesar_pagos_masivos(request):
                         numero_recibo=numero_recibo_compartido
                     )
                     
+                    if not primer_pago_id:
+                        primer_pago_id = pago_creado.id
+                    
                     proyecto.save()
             
             # Actualizar cuenta corriente
             cuenta, created = CuentaCorriente.objects.get_or_create(paciente=paciente)
             cuenta.actualizar_saldo()
         
-        # Mensaje de éxito con detalle
+        # 🆕 PREPARAR DATOS PARA CONFIRMACIÓN
         sesiones_count = sum(1 for i in items_ajustados if i['tipo'] == 'sesion')
         proyectos_count = sum(1 for i in items_ajustados if i['tipo'] == 'proyecto')
         
@@ -1087,14 +1159,27 @@ def procesar_pagos_masivos(request):
         if proyectos_count > 0:
             mensaje_detalle.append(f"{proyectos_count} proyecto(s)")
         
-        messages.success(
-            request,
-            f'✅ Pago masivo registrado correctamente. '
-            f'{" y ".join(mensaje_detalle)} procesados por Bs. {total_pago}. '
-            f'Recibo: {numero_recibo_compartido}'
-        )
+        # Construir concepto detallado
+        concepto_completo = f"Pago masivo: {concepto_items}"
         
-        return redirect('facturacion:detalle_cuenta', paciente_id=paciente.id)
+        # Información de estado
+        info_estado = f"{' y '.join(mensaje_detalle)} procesados correctamente"
+        
+        # 🆕 ALMACENAR EN SESSION para mostrar en confirmación
+        request.session['pago_exitoso'] = {
+            'tipo': 'Pago Masivo',
+            'mensaje': f'Pago masivo registrado exitosamente',
+            'detalle': f'{" y ".join(mensaje_detalle)} pagados',
+            'total': float(total_pago),
+            'paciente': paciente.nombre_completo,
+            'concepto': concepto_completo,
+            'info_estado': info_estado,
+            'genero_recibo': True,
+            'numero_recibo': numero_recibo_compartido,
+            'pago_id': primer_pago_id,
+        }
+        
+        return redirect('facturacion:confirmacion_pago')
         
     except Exception as e:
         messages.error(request, f'❌ Error al procesar pago masivo: {str(e)}')

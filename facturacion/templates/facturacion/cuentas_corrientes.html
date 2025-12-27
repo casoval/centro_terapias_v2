@@ -3,96 +3,90 @@
 {% block title %}Cuentas Corrientes{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6">
+<div class="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
     
     <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">💳 Cuentas Corrientes</h1>
-        <a href="{% url 'facturacion:registrar_pago' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-            💰 Registrar Pago
+    <div class="flex justify-between items-center mb-2 sm:mb-4 gap-2">
+        <h1 class="text-base sm:text-xl font-bold text-gray-900">💳 Cuentas</h1>
+        <a href="{% url 'facturacion:registrar_pago' %}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
+            💰 <span class="hidden xs:inline">Registrar </span>Pago
         </a>
     </div>
 
     <!-- Estadísticas -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-        <!-- Total Consumido (Sesiones + Proyectos) -->
-        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <p class="text-[10px] text-purple-600 font-bold uppercase">Total Consumido</p>
-            <p class="text-xl font-black text-purple-700">Bs. {{ estadisticas.total_consumido|floatformat:2 }}</p>
-            <p class="text-[10px] text-purple-500">Sesiones + Proyectos</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-1.5 sm:p-2">
+            <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase">Consumido</p>
+            <p class="text-sm sm:text-lg font-black text-purple-700 truncate">{{ estadisticas.total_consumido|floatformat:2 }}</p>
+            <p class="text-[7px] sm:text-[9px] text-purple-500">S + P</p>
         </div>
         
-        <!-- Total Pagado -->
-        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-            <p class="text-[10px] text-green-600 font-bold uppercase">Total Pagado</p>
-            <p class="text-xl font-black text-green-700">Bs. {{ estadisticas.total_pagado|floatformat:2 }}</p>
-            <p class="text-[10px] text-green-500">Todo lo recibido</p>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-1.5 sm:p-2">
+            <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase">Pagado</p>
+            <p class="text-sm sm:text-lg font-black text-green-700 truncate">{{ estadisticas.total_pagado|floatformat:2 }}</p>
+            <p class="text-[7px] sm:text-[9px] text-green-500">Recibido</p>
         </div>
         
-        <!-- Deudores -->
-        <div class="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p class="text-[10px] text-red-600 font-bold uppercase">Deudores</p>
-            <p class="text-xl font-black text-red-700">{{ estadisticas.deudores }}</p>
-            <p class="text-base font-bold text-red-600">Bs. {{ estadisticas.total_debe|floatformat:2 }}</p>
+        <div class="bg-red-50 border border-red-200 rounded-lg p-1.5 sm:p-2">
+            <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase">Deudores</p>
+            <p class="text-sm sm:text-lg font-black text-red-700">{{ estadisticas.deudores }}</p>
+            <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">{{ estadisticas.total_debe|floatformat:2 }}</p>
         </div>
         
-        <!-- A Favor -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p class="text-[10px] text-blue-600 font-bold uppercase">A Favor</p>
-            <p class="text-xl font-black text-blue-700">{{ estadisticas.a_favor }}</p>
-            <p class="text-base font-bold text-blue-600">Bs. {{ estadisticas.total_favor|floatformat:2 }}</p>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 sm:p-2">
+            <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase">A Favor</p>
+            <p class="text-sm sm:text-lg font-black text-blue-700">{{ estadisticas.a_favor }}</p>
+            <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">{{ estadisticas.total_favor|floatformat:2 }}</p>
         </div>
     </div>
 
     <!-- Estadísticas secundarias -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <p class="text-[10px] text-gray-600 font-bold uppercase">Al Día</p>
-            <p class="text-xl font-black text-gray-700">{{ estadisticas.al_dia }}</p>
+    <div class="hidden sm:grid grid-cols-3 gap-2 mb-4">
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
+            <p class="text-[9px] text-gray-600 font-bold uppercase">Al Día</p>
+            <p class="text-lg font-black text-gray-700">{{ estadisticas.al_dia }}</p>
         </div>
         
-        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-            <p class="text-[10px] text-indigo-600 font-bold uppercase">Balance Total</p>
-            <p class="text-xl font-black {% if estadisticas.total_balance < 0 %}text-red-700{% elif estadisticas.total_balance > 0 %}text-green-700{% else %}text-gray-700{% endif %}">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+            <p class="text-[9px] text-indigo-600 font-bold uppercase">Balance Total</p>
+            <p class="text-lg font-black {% if estadisticas.total_balance < 0 %}text-red-700{% elif estadisticas.total_balance > 0 %}text-green-700{% else %}text-gray-700{% endif %}">
                 Bs. {{ estadisticas.total_balance|floatformat:2 }}
             </p>
         </div>
         
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <p class="text-[10px] text-gray-600 font-bold uppercase">Total Pacientes</p>
-            <p class="text-xl font-black text-gray-700">{{ page_obj.paginator.count }}</p>
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
+            <p class="text-[9px] text-gray-600 font-bold uppercase">Total Pacientes</p>
+            <p class="text-lg font-black text-gray-700">{{ page_obj.paginator.count }}</p>
         </div>
     </div>
 
-    <!-- ✅ Filtros CON AUTOCOMPLETADO -->
-    <div class="bg-white border rounded-lg p-4 mb-6">
-        <form method="get" id="form-filtros" class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <!-- 🔍 Buscador con Autocompletado -->
+    <!-- Filtros -->
+    <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">
+        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-4 sm:gap-2">
             <div class="relative">
                 <input type="text" 
                        id="buscar-paciente"
                        name="q" 
                        value="{{ buscar }}"
-                       placeholder="Buscar paciente..."
+                       placeholder="Buscar..."
                        autocomplete="off"
-                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                       class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 
-                <!-- Dropdown de resultados -->
                 <div id="resultados-busqueda" 
-                     class="hidden absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                    <!-- Resultados dinámicos aquí -->
+                     class="hidden absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 sm:max-h-52 overflow-y-auto">
                 </div>
             </div>
             
-            <select name="estado" class="px-3 py-2 border rounded-lg">
-                <option value="">Todos los estados</option>
+            <select name="estado" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
+                <option value="">Todos</option>
                 <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>Deudores</option>
                 <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>Al día</option>
                 <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>A favor</option>
             </select>
             
-            <select name="sucursal" class="px-3 py-2 border rounded-lg">
-                <option value="">Todas las sucursales</option>
+            <select name="sucursal" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
+                <option value="">Todas</option>
                 {% for sucursal in sucursales %}
                 <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
                     {{ sucursal.nombre }}
@@ -100,101 +94,136 @@
                 {% endfor %}
             </select>
             
-            <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            <div class="flex gap-1.5">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium">
                     🔍 Filtrar
                 </button>
-                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg">
+                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
                     🔄
                 </a>
             </div>
         </form>
     </div>
 
-    <!-- Tabla -->
-    <div class="bg-white border rounded-lg overflow-hidden">
-        <table class="min-w-full">
+    <!-- Vista móvil: Tarjetas -->
+    <div class="sm:hidden space-y-2 mb-3">
+        {% for paciente in page_obj %}
+        <div class="bg-white border rounded-lg p-2 shadow-sm">
+            <div class="mb-1.5">
+                <p class="font-bold text-xs text-gray-900 mb-0.5">{{ paciente.nombre_completo }}</p>
+                <p class="text-[10px] text-gray-500">{{ paciente.nombre_tutor }}</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-1 mb-1.5">
+                {% for sucursal in paciente.sucursales.all %}
+                <span class="inline-block bg-gray-100 text-gray-700 text-[9px] px-1 py-0.5 rounded">{{ sucursal.nombre }}</span>
+                {% endfor %}
+            </div>
+            
+            <div class="grid grid-cols-3 gap-1.5 text-center text-[10px] mb-1.5">
+                <div class="bg-purple-50 rounded p-1">
+                    <p class="text-[8px] text-purple-600 font-bold uppercase mb-0.5">Consumido</p>
+                    <p class="font-bold text-purple-700">{{ paciente.cuenta_corriente.total_consumo_general|floatformat:2 }}</p>
+                </div>
+                <div class="bg-green-50 rounded p-1">
+                    <p class="text-[8px] text-green-600 font-bold uppercase mb-0.5">Pagado</p>
+                    <p class="font-bold text-green-700">{{ paciente.cuenta_corriente.total_pagado_general|floatformat:2 }}</p>
+                </div>
+                <div class="{% if paciente.cuenta_corriente.balance_final < 0 %}bg-red-50{% elif paciente.cuenta_corriente.balance_final > 0 %}bg-blue-50{% else %}bg-green-50{% endif %} rounded p-1">
+                    <p class="text-[8px] {% if paciente.cuenta_corriente.balance_final < 0 %}text-red-600{% elif paciente.cuenta_corriente.balance_final > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-bold uppercase mb-0.5">Balance</p>
+                    <p class="font-bold {% if paciente.cuenta_corriente.balance_final < 0 %}text-red-700{% elif paciente.cuenta_corriente.balance_final > 0 %}text-blue-700{% else %}text-green-700{% endif %}">
+                        {{ paciente.cuenta_corriente.balance_final|floatformat:2 }}
+                    </p>
+                </div>
+            </div>
+            
+            <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+               class="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-[10px] py-1 rounded border border-blue-200 transition">
+                Ver Detalle →
+            </a>
+        </div>
+        {% empty %}
+        <div class="bg-white border rounded-lg p-4 text-center text-gray-500 text-xs">
+            No hay pacientes
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Vista escritorio: Tabla -->
+    <div class="hidden sm:block bg-white border rounded-lg overflow-hidden overflow-x-auto">
+        <table class="min-w-full text-xs">
             <thead class="bg-gray-50 border-b">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Paciente</th>
-                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Sucursales</th>
-                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Paciente</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase">Sucursales</th>
+                    <th class="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">
                         Consumido
-                        <span class="block text-[10px] font-normal text-gray-500">(Sesiones + Proyectos)</span>
+                        <span class="block text-[9px] font-normal text-gray-500">(S + P)</span>
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">
                         Pagado
-                        <span class="block text-[10px] font-normal text-gray-500">(Total recibido)</span>
+                        <span class="block text-[9px] font-normal text-gray-500">(Total)</span>
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase">
+                    <th class="px-3 py-2 text-right text-[10px] font-bold text-gray-700 uppercase">
                         Balance
-                        <span class="block text-[10px] font-normal text-gray-500">(Crédito - Deuda)</span>
+                        <span class="block text-[9px] font-normal text-gray-500">(C - D)</span>
                     </th>
-                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Acciones</th>
+                    <th class="px-3 py-2 text-center text-[10px] font-bold text-gray-700 uppercase">Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 {% for paciente in page_obj %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3">
+                    <td class="px-3 py-2">
                         <p class="font-bold text-gray-900">{{ paciente.nombre_completo }}</p>
-                        <p class="text-xs text-gray-500">{{ paciente.nombre_tutor }}</p>
+                        <p class="text-[10px] text-gray-500">{{ paciente.nombre_tutor }}</p>
                     </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">
+                    <td class="px-3 py-2 text-gray-600">
                         {% for sucursal in paciente.sucursales.all %}
-                            <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">{{ sucursal.nombre }}</span>
+                            <span class="inline-block bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded">{{ sucursal.nombre }}</span>
                         {% endfor %}
                     </td>
-                    
-                    <!-- CONSUMIDO: Total general (sesiones + proyectos) -->
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-3 py-2 text-right">
                         <p class="font-bold text-purple-700">Bs. {{ paciente.cuenta_corriente.total_consumo_general|floatformat:2 }}</p>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-[10px] text-gray-500">
                             S: {{ paciente.cuenta_corriente.consumo_sesiones|floatformat:2 }} + 
                             P: {{ paciente.cuenta_corriente.consumo_proyectos|floatformat:2 }}
                         </p>
                     </td>
-                    
-                    <!-- PAGADO: Total general -->
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-3 py-2 text-right">
                         <p class="font-bold text-green-700">Bs. {{ paciente.cuenta_corriente.total_pagado_general|floatformat:2 }}</p>
-                        <p class="text-xs text-gray-500">
+                        <p class="text-[10px] text-gray-500">
                             S: {{ paciente.cuenta_corriente.pagado_sesiones|floatformat:2 }} + 
                             P: {{ paciente.cuenta_corriente.pagado_proyectos|floatformat:2 }}
                         </p>
                     </td>
-                    
-                    <!-- BALANCE: balance_final (crédito - deuda total) -->
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-3 py-2 text-right">
                         {% if paciente.cuenta_corriente.balance_final < 0 %}
                             <span class="font-black text-red-700">Bs. {{ paciente.cuenta_corriente.balance_final|floatformat:2 }}</span>
-                            <span class="block text-xs text-red-600 font-bold">DEBE</span>
+                            <span class="block text-[10px] text-red-600 font-bold">DEBE</span>
                         {% elif paciente.cuenta_corriente.balance_final > 0 %}
                             <span class="font-black text-blue-700">Bs. {{ paciente.cuenta_corriente.balance_final|floatformat:2 }}</span>
-                            <span class="block text-xs text-blue-600 font-bold">A FAVOR</span>
+                            <span class="block text-[10px] text-blue-600 font-bold">A FAVOR</span>
                         {% else %}
                             <span class="font-black text-green-700">Bs. 0.00</span>
-                            <span class="block text-xs text-green-600 font-bold">AL DÍA</span>
+                            <span class="block text-[10px] text-green-600 font-bold">AL DÍA</span>
                         {% endif %}
-                        
-                        <!-- Desglose -->
-                        <div class="mt-1 text-xs text-gray-500">
-                            <p>💰 Crédito: {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</p>
-                            <p>📊 Deuda: {{ paciente.cuenta_corriente.total_deuda_general|floatformat:2 }}</p>
+                        <div class="mt-0.5 text-[10px] text-gray-500">
+                            <p>💰 C: {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</p>
+                            <p>📊 D: {{ paciente.cuenta_corriente.total_deuda_general|floatformat:2 }}</p>
                         </div>
                     </td>
-                    
-                    <td class="px-4 py-3 text-center">
+                    <td class="px-3 py-2 text-center">
                         <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-                           class="text-blue-600 hover:text-blue-800 font-medium text-sm">
-                            Ver Detalle →
+                           class="text-blue-600 hover:text-blue-800 font-medium">
+                            Ver →
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                        No hay pacientes que coincidan con los filtros
+                    <td colspan="6" class="px-3 py-6 text-center text-gray-500">
+                        No hay pacientes
                     </td>
                 </tr>
                 {% endfor %}
@@ -204,24 +233,24 @@
 
     <!-- Paginación -->
     {% if page_obj.has_other_pages %}
-    <div class="mt-6 flex justify-center">
-        <nav class="flex gap-2">
+    <div class="mt-3 sm:mt-4 flex justify-center">
+        <nav class="flex gap-1 sm:gap-1.5 text-[10px] sm:text-xs">
             {% if page_obj.has_previous %}
                 <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Primera</a>
+                   class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Primera</a>
                 <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Anterior</a>
+                   class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">‹</a>
             {% endif %}
             
-            <span class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">
-                {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            <span class="px-2 py-1 sm:px-3 sm:py-1.5 bg-blue-600 text-white rounded font-medium">
+                {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}
             </span>
             
             {% if page_obj.has_next %}
                 <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Siguiente</a>
+                   class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">›</a>
                 <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
-                   class="px-3 py-2 border rounded-lg hover:bg-gray-50">Última</a>
+                   class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Última</a>
             {% endif %}
         </nav>
     </div>
@@ -229,65 +258,47 @@
 
 </div>
 
-<!-- ✅ JavaScript para Autocompletado -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const inputBuscar = document.getElementById('buscar-paciente');
     const resultadosDiv = document.getElementById('resultados-busqueda');
     let timeoutId = null;
     
-    // Escuchar cambios en el input
     inputBuscar.addEventListener('input', function() {
         const query = this.value.trim();
-        
-        // Limpiar timeout anterior
         clearTimeout(timeoutId);
         
-        // Si hay menos de 1 caracter, ocultar resultados
         if (query.length < 1) {
             resultadosDiv.classList.add('hidden');
             resultadosDiv.innerHTML = '';
             return;
         }
         
-        // Esperar 300ms antes de buscar (debounce)
-        timeoutId = setTimeout(() => {
-            buscarPacientes(query);
-        }, 300);
+        timeoutId = setTimeout(() => buscarPacientes(query), 300);
     });
     
-    // Función para buscar pacientes
     function buscarPacientes(query) {
         fetch(`/facturacion/api/buscar-pacientes/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
-            .then(data => {
-                mostrarResultados(data.pacientes);
-            })
-            .catch(error => {
-                console.error('Error al buscar:', error);
-            });
+            .then(data => mostrarResultados(data.pacientes))
+            .catch(error => console.error('Error:', error));
     }
     
-    // Función para mostrar resultados
     function mostrarResultados(pacientes) {
         if (pacientes.length === 0) {
-            resultadosDiv.innerHTML = `
-                <div class="px-4 py-3 text-sm text-gray-500 text-center">
-                    No se encontraron pacientes
-                </div>
-            `;
+            resultadosDiv.innerHTML = '<div class="px-2 py-1.5 text-[10px] text-gray-500 text-center">No encontrado</div>';
             resultadosDiv.classList.remove('hidden');
             return;
         }
         
         let html = '';
-        pacientes.forEach(paciente => {
+        pacientes.forEach(p => {
             html += `
                 <button type="button" 
-                        onclick="seleccionarPaciente('${paciente.nombre} ${paciente.apellido}')"
-                        class="w-full px-4 py-3 text-left hover:bg-blue-50 focus:bg-blue-50 border-b last:border-b-0">
-                    <p class="font-semibold text-gray-900">${paciente.nombre} ${paciente.apellido}</p>
-                    <p class="text-xs text-gray-500">ID: ${paciente.id}</p>
+                        onclick="seleccionarPaciente('${p.nombre} ${p.apellido}')"
+                        class="w-full px-2 py-1.5 text-left hover:bg-blue-50 border-b last:border-b-0 text-xs">
+                    <p class="font-semibold text-gray-900">${p.nombre} ${p.apellido}</p>
+                    <p class="text-[10px] text-gray-500">ID: ${p.id}</p>
                 </button>
             `;
         });
@@ -296,20 +307,23 @@ document.addEventListener('DOMContentLoaded', function() {
         resultadosDiv.classList.remove('hidden');
     }
     
-    // Cerrar dropdown al hacer clic fuera
     document.addEventListener('click', function(e) {
         if (!inputBuscar.contains(e.target) && !resultadosDiv.contains(e.target)) {
             resultadosDiv.classList.add('hidden');
         }
     });
     
-    // Función para seleccionar paciente (global)
     window.seleccionarPaciente = function(nombreCompleto) {
         inputBuscar.value = nombreCompleto;
         resultadosDiv.classList.add('hidden');
-        // Auto-enviar formulario
         document.getElementById('form-filtros').submit();
     };
 });
 </script>
+
+<style>
+@media (min-width: 475px) {
+    .xs\:inline { display: inline; }
+}
+</style>
 {% endblock %}
