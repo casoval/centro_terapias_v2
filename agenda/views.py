@@ -2,7 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.db.models import Q, Count, Sum, F  # ✅ F en lugar de Proyecto
+from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, Value, DecimalField
+from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
 from decimal import Decimal
@@ -404,33 +405,39 @@ def calendario(request):
     )
     
     # Calcular pagos
+    # ✅ OPTIMIZACIÓN: Calcular todo en base de datos
     sesiones_con_pagos = sesiones.annotate(
-        total_pagado_sesion=Sum('pagos__monto', filter=Q(pagos__anulado=False))
+        total_pagado_sesion=Coalesce(Sum('pagos__monto', filter=Q(pagos__anulado=False)), Decimal('0.00'))
     )
     
-    total_pagado = sesiones_con_pagos.aggregate(
-        total=Sum('total_pagado_sesion')
-    )['total'] or Decimal('0.00')
-    
-    sesiones_list = list(sesiones_con_pagos)
-    total_pendiente = sum(
-        max(s.monto_cobrado - (s.total_pagado_sesion or Decimal('0.00')), Decimal('0.00'))
-        for s in sesiones_list
+    # Calcular totales globales con agregación
+    stats_pagos = sesiones_con_pagos.aggregate(
+        total_pagado=Sum('total_pagado_sesion'),
+        total_pendiente=Sum(
+             Case(
+                 When(monto_cobrado__gt=F('total_pagado_sesion'), then=F('monto_cobrado') - F('total_pagado_sesion')),
+                 default=Decimal('0.00'),
+                 output_field=DecimalField()
+             )
+        ),
+        count_pagados=Count(
+            Case(
+                When(monto_cobrado__gt=0, total_pagado_sesion__gte=F('monto_cobrado'), then=1),
+                output_field=DecimalField()
+            )
+        ),
+        count_pendientes=Count(
+            Case(
+                When(monto_cobrado__gt=0, total_pagado_sesion__lt=F('monto_cobrado'), then=1),
+                output_field=DecimalField()
+            )
+        )
     )
-    
-    count_pagados = sum(
-        1 for s in sesiones_list 
-        if s.monto_cobrado > 0 and (s.total_pagado_sesion or Decimal('0.00')) >= s.monto_cobrado
-    )
-    count_pendientes = sum(
-        1 for s in sesiones_list 
-        if s.monto_cobrado > 0 and (s.total_pagado_sesion or Decimal('0.00')) < s.monto_cobrado
-    )
-    
-    estadisticas['total_pagado'] = total_pagado
-    estadisticas['total_pendiente'] = total_pendiente
-    estadisticas['count_pagados'] = count_pagados
-    estadisticas['count_pendientes'] = count_pendientes
+
+    estadisticas['total_pagado'] = stats_pagos['total_pagado'] or Decimal('0.00')
+    estadisticas['total_pendiente'] = stats_pagos['total_pendiente'] or Decimal('0.00')
+    estadisticas['count_pagados'] = stats_pagos['count_pagados']
+    estadisticas['count_pendientes'] = stats_pagos['count_pendientes']
     
     # ✅ CORRECCIÓN: Datos para filtros - DEPENDEN DE LA SUCURSAL SELECCIONADA
     if sucursales_usuario is not None and sucursales_usuario.exists():
@@ -488,25 +495,19 @@ def calendario(request):
         servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
     # Marcar última sesión por paciente+servicio
-    from collections import defaultdict
+    # ✅ OPTIMIZACIÓN: Subquery para marcar última sesión en una sola consulta
+    latest_sesion_sq = Sesion.objects.filter(
+        paciente=OuterRef('paciente'),
+        servicio=OuterRef('servicio'),
+        estado__in=['programada', 'realizada', 'realizada_retraso']
+    ).order_by('-fecha', '-hora_inicio').values('id')[:1]
     
-    combinaciones_paciente_servicio = set()
-    for sesion in sesiones:
-        combinaciones_paciente_servicio.add((sesion.paciente_id, sesion.servicio_id))
-    
-    ultimas_sesiones_ids = set()
-    for paciente_id_combo, servicio_id_combo in combinaciones_paciente_servicio:
-        ultima_sesion = Sesion.objects.filter(
-            paciente_id=paciente_id_combo,
-            servicio_id=servicio_id_combo,
-            estado__in=['programada', 'realizada', 'realizada_retraso']
-        ).order_by('-fecha', '-hora_inicio').first()
-        
-        if ultima_sesion:
-            ultimas_sesiones_ids.add(ultima_sesion.id)
+    sesiones = sesiones.annotate(
+        latest_sesion_id=Subquery(latest_sesion_sq)
+    )
     
     for sesion in sesiones:
-        sesion.es_ultima_sesion_paciente_servicio = sesion.id in ultimas_sesiones_ids
+        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
     
     # Generar estructura del calendario
     if vista == 'diaria':

@@ -189,6 +189,6 @@ if IS_PRODUCTION:
     X_FRAME_OPTIONS = 'DENY'
 else:
     # Configuraciones de desarrollo
-    print("🔧 MODO DESARROLLO ACTIVADO")
+    print("MODO DESARROLLO ACTIVADO")
     print(f"   DEBUG = {DEBUG}")
     print(f"   Base de datos: SQLite local")
