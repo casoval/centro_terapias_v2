@@ -1,4 +1,4 @@
-from multiprocessing import context
+# -*- coding: utf-8 -*-
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -12,8 +12,6 @@ import base64
 import os
 from decimal import Decimal
 from datetime import date, datetime
-
-from urllib3 import request
 
 from .models import CuentaCorriente, Pago, MetodoPago
 from pacientes.models import Paciente
@@ -1207,29 +1205,19 @@ def historial_pagos(request):
 def encontrar_logo():
     """
     Buscar logo en múltiples ubicaciones posibles
-    Funciona tanto en desarrollo como en producción (Render)
+    Funciona tanto en desarrollo como en producción
     """
     posibles_rutas = [
-        # Desarrollo
+        os.path.join(settings.BASE_DIR, 'core', 'static', 'img', 'logo_misael.png'),
+        os.path.join(settings.STATIC_ROOT, 'img', 'logo_misael.png'),
         os.path.join(settings.BASE_DIR, 'static', 'img', 'logo_misael.png'),
-        # Producción (después de collectstatic)
-        os.path.join(settings.BASE_DIR, 'staticfiles', 'img', 'logo_misael.png'),
     ]
     
-    # Agregar STATIC_ROOT si existe (Render.com)
-    if hasattr(settings, 'STATIC_ROOT') and settings.STATIC_ROOT:
-        posibles_rutas.append(
-            os.path.join(settings.STATIC_ROOT, 'img', 'logo_misael.png')
-        )
-    
-    # Agregar STATICFILES_DIRS si existe
     if hasattr(settings, 'STATICFILES_DIRS'):
         for static_dir in settings.STATICFILES_DIRS:
-            posibles_rutas.append(
-                os.path.join(static_dir, 'img', 'logo_misael.png')
-            )
+            ruta_adicional = os.path.join(static_dir, 'img', 'logo_misael.png')
+            posibles_rutas.append(ruta_adicional)
     
-    # Devolver la primera ruta que existe
     for ruta in posibles_rutas:
         if os.path.exists(ruta):
             return ruta
@@ -1240,7 +1228,6 @@ def encontrar_logo():
 def generar_recibo_pdf(request, pago_id):
     """
     Generar recibo en PDF
-    ✅ CORREGIDO: Si el pago pertenece a un recibo masivo, muestra TODAS las sesiones
     """
     
     pago = get_object_or_404(
@@ -1250,7 +1237,7 @@ def generar_recibo_pdf(request, pago_id):
         id=pago_id
     )
     
-    # ✅ VALIDACIÓN: NO permitir generar PDF para pagos con crédito
+    # Validación: NO permitir generar PDF para pagos con crédito
     if pago.metodo_pago.nombre == "Uso de Crédito":
         messages.warning(
             request,
@@ -1262,15 +1249,15 @@ def generar_recibo_pdf(request, pago_id):
     try:
         from xhtml2pdf import pisa
         
-        # 🆕 BUSCAR TODOS LOS PAGOS CON EL MISMO NÚMERO DE RECIBO
+        # Buscar todos los pagos con el mismo número de recibo
         pagos_relacionados = Pago.objects.filter(
             numero_recibo=pago.numero_recibo,
             anulado=False
         ).select_related(
-            'sesion__servicio', 'sesion__profesional', 'sesion__sucursal'
+            'sesion__servicio', 'sesion__profesional', 'sesion__sucursal',
+            'proyecto'
         ).order_by('sesion__fecha')
         
-        # Calcular total del recibo
         total_recibo = sum(p.monto for p in pagos_relacionados)
         
         # Cargar logo como Base64
@@ -1285,12 +1272,12 @@ def generar_recibo_pdf(request, pago_id):
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f'❌ Error al cargar logo: {str(e)}')
+                logger.warning(f'Error al cargar logo: {str(e)}')
         
-        # Renderizar template HTML con TODAS las sesiones del recibo
+        # Renderizar template HTML
         html_string = render(request, 'facturacion/recibo_pdf.html', {
-            'pago': pago,  # Pago principal (para datos generales)
-            'pagos_relacionados': pagos_relacionados,  # Todos los pagos del recibo
+            'pago': pago,
+            'pagos_relacionados': pagos_relacionados,
             'total_recibo': total_recibo,
             'es_pago_masivo': pagos_relacionados.count() > 1,
             'para_pdf': True,
@@ -1307,7 +1294,6 @@ def generar_recibo_pdf(request, pago_id):
             encoding='UTF-8'
         )
         
-        # Verificar si hubo errores
         if pdf.err:
             raise Exception(f"Error en la generación del PDF: código {pdf.err}")
         
@@ -1319,37 +1305,44 @@ def generar_recibo_pdf(request, pago_id):
         return response
         
     except ImportError:
-        # Fallback: mostrar HTML si xhtml2pdf no está instalado
         messages.warning(
             request, 
             '⚠️ PDF no disponible temporalmente. Mostrando versión para imprimir.'
         )
         
-        # Buscar pagos relacionados
         pagos_relacionados = Pago.objects.filter(
             numero_recibo=pago.numero_recibo,
             anulado=False
-        ).select_related('sesion__servicio').order_by('sesion__fecha')
+        ).select_related('sesion__servicio', 'proyecto').order_by('sesion__fecha')
         
         total_recibo = sum(p.monto for p in pagos_relacionados)
+        
+        logo_base64 = None
+        logo_path = encontrar_logo()
+        if logo_path and os.path.exists(logo_path):
+            try:
+                with open(logo_path, 'rb') as logo_file:
+                    logo_data = logo_file.read()
+                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+            except:
+                pass
         
         return render(request, 'facturacion/recibo_pdf.html', {
             'pago': pago,
             'pagos_relacionados': pagos_relacionados,
             'total_recibo': total_recibo,
             'es_pago_masivo': pagos_relacionados.count() > 1,
-            'para_impresion': True
+            'para_impresion': True,
+            'logo_base64': logo_base64,
         })
         
     except Exception as e:
-        # Log del error para debugging
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f'Error generando PDF para pago {pago_id}: {str(e)}')
         
-        messages.error(request, f'❌ Error al generar PDF. Intenta nuevamente.')
+        messages.error(request, '❌ Error al generar PDF. Intenta nuevamente.')
         return redirect('facturacion:historial_pagos')
-
 # ==================== ANULAR PAGOS ====================
 
 @login_required

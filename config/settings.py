@@ -144,10 +144,14 @@ SHORT_DATE_FORMAT = 'd/m/Y'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-if not IS_PRODUCTION:
-    # En desarrollo, también buscar archivos en la carpeta static/
-    STATICFILES_DIRS = [BASE_DIR / 'static']
+# Esta configuración busca en las carpetas 'static' de cada app (como core/static)
+# y ADEMÁS puedes definir carpetas extras si quieres.
+STATICFILES_DIRS = [
+    # Si borraste la carpeta de la raíz, puedes comentar o borrar esta línea:
+    # BASE_DIR / 'static', 
+]
 
+# Esto es lo que usas para Render (mantenlo igual)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # --------------------------------------------------
