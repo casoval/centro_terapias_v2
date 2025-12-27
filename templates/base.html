@@ -103,23 +103,16 @@
                         </a>
                         {% endif %}
                         
-                        <!-- ✅ PROFESIONALES: Solo ven su agenda -->
-                        {% if user.is_superuser or user.perfil.es_profesional %}
+                        <!-- ✅ Agenda: Para todos los roles que tienen acceso -->
+                        {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                         <a href="{% url 'agenda:calendario' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
-                            {% if user.perfil.es_profesional %}Mi Agenda{% else %}Agenda{% endif %}
+                            {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
                         </a>
                         {% endif %}
                         
-                        <!-- ✅ RECEPCIONISTAS Y GERENTES: Agenda completa -->
+                        <!-- ✅ RECEPCIONISTAS Y GERENTES: Catálogos -->
                         {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                        {% if not user.perfil.es_profesional %}
-                        <a href="{% url 'agenda:calendario' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
-                            Agenda
-                        </a>
-                        {% endif %}
-                        
                         <!-- ✅ Dropdown: Catálogos (Recepcionistas/Gerentes/Superadmin) -->
                         <div class="dropdown inline-flex items-center">
                             <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
@@ -129,19 +122,16 @@
                                 </svg>
                             </button>
                             <div class="dropdown-menu">
-                                <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item">
-                                    📅 Agendar Sesión
-                                </a>
                                 <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item">
                                     📦 Proy/Evaluación
                                 </a>
-                                <div class="border-t border-gray-200 my-1"></div>
                                 <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
                                     👶 Pacientes
                                 </a>
                                 
                                 <!-- ✅ Solo Gerentes y Superadmin -->
                                 {% if user.is_superuser or user.perfil.es_gerente %}
+                                <div class="border-t border-gray-200 my-1"></div>
                                 <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
                                     🏥 Servicios
                                 </a>
@@ -233,7 +223,7 @@
                 {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                 <a href="{% url 'agenda:calendario' %}" 
                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
-                    {% if user.perfil.es_profesional %}Mi Agenda{% else %}Agenda{% endif %}
+                    {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
                 </a>
                 {% endif %}
                 
@@ -247,18 +237,15 @@
                         </svg>
                     </button>
                     <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1">
-                        <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
-                            📅 Agendar Sesión
-                        </a>
                         <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             📦 Proy/Evaluación
                         </a>
-                        <div class="border-t border-gray-300 my-2"></div>
                         <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👶 Pacientes
                         </a>
                         
                         {% if user.is_superuser or user.perfil.es_gerente %}
+                        <div class="border-t border-gray-300 my-2"></div>
                         <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             🏥 Servicios
                         </a>
