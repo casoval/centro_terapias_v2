@@ -13,13 +13,19 @@ class CalendarService:
     def get_calendar_data(vista, fecha_base, sesiones):
         """
         Generate calendar structure based on view type.
+        ✅ NUEVO: vista 'lista' no genera estructura especial
         """
         if vista == 'diaria':
             return CalendarService._generate_daily(fecha_base, sesiones)
         elif vista == 'mensual':
             return CalendarService._generate_monthly(fecha_base, sesiones)
         elif vista == 'lista':
-            return None
+            # Vista lista no necesita estructura especial
+            return {
+                'sesiones': sesiones,
+                'fecha': fecha_base,
+                'tipo': 'lista'
+            }
         else: # semanal
             dias_desde_lunes = fecha_base.weekday()
             fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
@@ -164,19 +170,26 @@ class CalendarService:
 
     @staticmethod
     def get_filtered_sessions(
-        fecha_inicio, fecha_fin, sucursales_usuario,
+        fecha_inicio=None, fecha_fin=None, sucursales_usuario=None,
         sucursal_id=None, tipo_sesion=None, estado=None,
         paciente_id=None, profesional_id=None, servicio_id=None
     ):
         """
         Efficiently retrieve and filter sessions for the calendar.
+        ✅ CORREGIDO: fecha_inicio y fecha_fin pueden ser None para vista lista sin límites
         """
         sesiones = Sesion.objects.select_related(
             'paciente', 'profesional', 'servicio', 'sucursal', 'proyecto'
-        ).filter(
-            fecha__gte=fecha_inicio,
-            fecha__lte=fecha_fin
         )
+        
+        # ✅ Filtro de fechas (opcional para vista lista)
+        if fecha_inicio is not None and fecha_fin is not None:
+            sesiones = sesiones.filter(fecha__gte=fecha_inicio, fecha__lte=fecha_fin)
+        elif fecha_inicio is not None:
+            sesiones = sesiones.filter(fecha__gte=fecha_inicio)
+        elif fecha_fin is not None:
+            sesiones = sesiones.filter(fecha__lte=fecha_fin)
+        # Si ambos son None, no aplicar filtro de fecha (mostrar todo)
         
         # Sucursal permission filter
         if sucursales_usuario is not None:

@@ -307,9 +307,28 @@ def calendario(request):
     else:
         fecha_base = date.today()
         
-    # Calcular rango según la vista (Solo para UI navigation, el servicio calcula su propio rango si fuera necesario, 
-    # pero aquí lo hacemos para pasar fechas correctas al filtro)
-    if vista == 'diaria':
+    # ✅ CORREGIDO: Calcular rango según la vista
+    if vista == 'lista':
+        # Para vista lista, usar filtros de fecha del usuario o None (sin límite)
+        fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+        fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+        
+        if fecha_desde_str:
+            try:
+                fecha_inicio = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            except:
+                fecha_inicio = None
+        else:
+            fecha_inicio = None
+        
+        if fecha_hasta_str:
+            try:
+                fecha_fin = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            except:
+                fecha_fin = None
+        else:
+            fecha_fin = None
+    elif vista == 'diaria':
         fecha_inicio = fecha_base
         fecha_fin = fecha_base
     elif vista == 'mensual':
@@ -320,8 +339,6 @@ def calendario(request):
             ultimo_dia = (fecha_base.replace(day=1, month=fecha_base.month + 1) - timedelta(days=1))
         fecha_inicio = primer_dia
         fecha_fin = ultimo_dia
-    # El resto de lógica de fecha inicio/fin para 'semanal' o 'lista' se maneja mejor si reutilizamos la lógica del servicio 
-    # o la mantenemos simple aqui para el filtro:
     else: # semanal por defecto
         dias_desde_lunes = fecha_base.weekday()
         fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
@@ -352,24 +369,46 @@ def calendario(request):
         latest_sesion_id=Subquery(latest_sesion_sq)
     )
     
-    # Evaluación en memoria de la anotación (esto dispara la query)
-    # Notas: iterar quita la naturaleza de QuerySet, pero CalendarService._generate_* espera lista o QuerySet iterable.
-    # Sin embargo, si iteramos aquí, perdemos la capacidad de hacer .aggregate después.
-    # Así que hacemos una COPIA lista para el calendario y mantenemos el queryset para stats.
-    # PERO, 'es_ultima_sesion_paciente_servicio' es un atributo efímero.
-    
-    # Solución: Iterar sesiones y usar esa lista para el calendario.
-    # Para estadísticas, usar el queryset original 'sesiones' (con annotations ya aplicadas, no afecta)
-    
     sesiones_lista = []
     for sesion in sesiones:
         sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
         sesiones_lista.append(sesion)
     
+    # ✅ NUEVO: Paginación para vista lista
+    if vista == 'lista':
+        # Obtener cantidad de items por página (default: 50)
+        por_pagina = request.GET.get('por_pagina', '50')
+        try:
+            por_pagina = int(por_pagina)
+            # Validar que esté en rango permitido
+            if por_pagina not in [25, 50, 100, 200]:
+                por_pagina = 50
+        except:
+            por_pagina = 50
+        
+        # Aplicar paginación
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+        
+        paginator = Paginator(sesiones_lista, por_pagina)
+        page_number = request.GET.get('page', 1)
+        
+        try:
+            sesiones_paginadas = paginator.get_page(page_number)
+        except PageNotAnInteger:
+            sesiones_paginadas = paginator.get_page(1)
+        except EmptyPage:
+            sesiones_paginadas = paginator.get_page(paginator.num_pages)
+        
+        # Para vista lista, usar sesiones paginadas
+        sesiones_lista = list(sesiones_paginadas)
+        page_obj = sesiones_paginadas
+    else:
+        page_obj = None
+
     # 3. Generar estructura del calendario
     calendario_data = CalendarService.get_calendar_data(vista, fecha_base, sesiones_lista)
     
-    # 4. Estadísticas (Usando el queryset para eficiencia DB)
+    # 4. Estadísticas
     estadisticas = sesiones.aggregate(
         total_monto=Sum('monto_cobrado'),
         count_programadas=Count('id', filter=Q(estado='programada')),
@@ -381,7 +420,7 @@ def calendario(request):
         count_reprogramada=Count('id', filter=Q(estado='reprogramada')),
     )
     
-    # Calcular pagos (Optimizado)
+    # Calcular pagos
     sesiones_con_pagos = sesiones.annotate(
         total_pagado_sesion=Coalesce(Sum('pagos__monto', filter=Q(pagos__anulado=False)), Decimal('0.00'))
     )
@@ -433,17 +472,22 @@ def calendario(request):
             profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
         sucursales = Sucursal.objects.filter(activa=True)
     
+    # ✅ CORREGIDO: Filtrar servicios correctamente
     if paciente_id:
+        # Usar la relación ManyToMany directa 'pacientes'
         servicios = TipoServicio.objects.filter(
-            pacienteservicio__paciente_id=paciente_id,
-            pacienteservicio__activo=True,
+            pacientes__id=paciente_id,
             activo=True
         ).distinct().order_by('nombre')
     else:
         servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
     # Navegación
-    if vista == 'diaria':
+    if vista == 'lista':
+        # ✅ Para vista lista, la navegación no aplica (no hay anterior/siguiente)
+        fecha_anterior = None
+        fecha_siguiente = None
+    elif vista == 'diaria':
         fecha_anterior = fecha_base - timedelta(days=1)
         fecha_siguiente = fecha_base + timedelta(days=1)
     elif vista == 'mensual':
@@ -452,17 +496,21 @@ def calendario(request):
             fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
         else:
             fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1, day=1)
-    else: # semanal
+    elif vista == 'semanal':  # ✅ IMPORTANTE: Cambiar else por elif
         fecha_anterior = fecha_inicio - timedelta(days=7)
         fecha_siguiente = fecha_inicio + timedelta(days=7)
-    
+    else:
+        # Fallback para cualquier otra vista
+        fecha_anterior = None
+        fecha_siguiente = None
+
     context = {
         'vista': vista,
         'fecha_base': fecha_base,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'calendario_data': calendario_data,
-        'sesiones': sesiones_lista, # Pasamos la lista con flags
+        'sesiones': sesiones_lista,
         'pacientes': pacientes,
         'profesionales': profesionales,
         'servicios': servicios,
@@ -489,6 +537,8 @@ def calendario(request):
         'count_reprogramada': estadisticas['count_reprogramada'],
         'count_pagados': estadisticas['count_pagados'],
         'count_pendientes': estadisticas['count_pendientes'],
+        'page_obj': page_obj,  # Objeto de paginación
+        'por_pagina': request.GET.get('por_pagina', '50'),
     }
     
     return render(request, 'agenda/calendario.html', context)

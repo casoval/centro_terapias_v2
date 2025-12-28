@@ -1,16 +1,22 @@
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- ✅ NUEVO: Header con filtros de periodo -->
+    <!-- ✅ Header con filtros de periodo y selector de cantidad -->
     <div class="p-3 bg-gray-100 border-b">
         <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-gray-900">
                 📋 Lista de Sesiones
             </h3>
             <div class="text-xs text-gray-600">
-                Total: <span class="font-bold text-gray-900">{{ sesiones|length }}</span> sesiones
+                {% if page_obj %}
+                    Mostrando <span class="font-bold text-gray-900">{{ page_obj.start_index }}</span> 
+                    a <span class="font-bold text-gray-900">{{ page_obj.end_index }}</span> 
+                    de <span class="font-bold text-gray-900">{{ page_obj.paginator.count }}</span> sesiones
+                {% else %}
+                    Total: <span class="font-bold text-gray-900">{{ sesiones|length }}</span> sesiones
+                {% endif %}
             </div>
         </div>
 
-        <!-- ✅ FILTROS DE PERIODO -->
+        <!-- ✅ FILTROS DE PERIODO Y CANTIDAD -->
         <form method="get" class="flex flex-wrap gap-2 items-end">
             <!-- Mantener parámetros existentes -->
             <input type="hidden" name="vista" value="lista">
@@ -49,22 +55,34 @@
                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
             </div>
 
+            <!-- ✅ NUEVO: Selector de cantidad por página -->
+            <div class="min-w-[120px]">
+                <label class="block text-xs font-medium text-gray-700 mb-1">📊 Mostrar</label>
+                <select name="por_pagina" 
+                        class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="25" {% if por_pagina == "25" %}selected{% endif %}>25 por página</option>
+                    <option value="50" {% if por_pagina == "50" %}selected{% endif %}>50 por página</option>
+                    <option value="100" {% if por_pagina == "100" %}selected{% endif %}>100 por página</option>
+                    <option value="200" {% if por_pagina == "200" %}selected{% endif %}>200 por página</option>
+                </select>
+            </div>
+
             <button type="submit" 
                     class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-                🔍 Filtrar
+                🔍 Aplicar
             </button>
 
             {% if request.GET.fecha_desde or request.GET.fecha_hasta %}
-            <a href="?vista=lista" 
+            <a href="?vista=lista&por_pagina={{ por_pagina }}" 
                class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition">
-                ✕ Limpiar
+                ✕ Limpiar fechas
             </a>
             {% endif %}
         </form>
     </div>
 
     {% if sesiones %}
-    <!-- ✅ SIN SCROLL - TABLA COMPLETA -->
+    <!-- ✅ TABLA DE SESIONES -->
     <div class="overflow-x-auto">
         <table class="w-full min-w-max">
             <thead class="bg-gray-100 border-b sticky top-0 z-10">
@@ -114,7 +132,6 @@
                     <td class="px-3 py-2 text-[10px] text-gray-900 whitespace-nowrap">
                         <div class="flex items-center gap-1">
                             <span>{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</span>
-                            <!-- ✅ INDICADOR DE PROYECTO -->
                             {% if sesion.proyecto %}
                             <span class="inline-block px-1 py-0.5 bg-purple-100 border border-purple-300 rounded text-[8px] font-bold text-purple-700" title="Proyecto: {{ sesion.proyecto.codigo }} - {{ sesion.proyecto.nombre }}">
                                 📦
@@ -190,7 +207,6 @@
                                 class="text-blue-600 hover:text-blue-900 font-medium transition">
                             ✏️
                         </button>
-                        <!-- ALERTA ÚLTIMA SESIÓN VISIBLE -->
                         {% if sesion.es_ultima_sesion_paciente_servicio %}
                         <span class="ml-1 px-1.5 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800">
                             ⚠️
@@ -203,14 +219,84 @@
         </table>
     </div>
 
+    <!-- ✅ PAGINACIÓN -->
+    {% if page_obj %}
+    <div class="p-3 bg-gray-50 border-t">
+        <div class="flex items-center justify-between">
+            <!-- Info de página -->
+            <div class="text-xs text-gray-600">
+                Página <span class="font-bold text-gray-900">{{ page_obj.number }}</span> 
+                de <span class="font-bold text-gray-900">{{ page_obj.paginator.num_pages }}</span>
+                <span class="mx-2">|</span>
+                Total: <span class="font-bold text-gray-900">{{ page_obj.paginator.count }}</span> sesiones
+            </div>
+
+            <!-- Controles de navegación -->
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?vista=lista&page=1&por_pagina={{ por_pagina }}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.paciente %}&paciente={{ request.GET.paciente }}{% endif %}{% if request.GET.profesional %}&profesional={{ request.GET.profesional }}{% endif %}{% if request.GET.servicio %}&servicio={{ request.GET.servicio }}{% endif %}{% if request.GET.sucursal %}&sucursal={{ request.GET.sucursal }}{% endif %}{% if request.GET.tipo_sesion %}&tipo_sesion={{ request.GET.tipo_sesion }}{% endif %}" 
+                   class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    « Primera
+                </a>
+                <a href="?vista=lista&page={{ page_obj.previous_page_number }}&por_pagina={{ por_pagina }}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.paciente %}&paciente={{ request.GET.paciente }}{% endif %}{% if request.GET.profesional %}&profesional={{ request.GET.profesional }}{% endif %}{% if request.GET.servicio %}&servicio={{ request.GET.servicio }}{% endif %}{% if request.GET.sucursal %}&sucursal={{ request.GET.sucursal }}{% endif %}{% if request.GET.tipo_sesion %}&tipo_sesion={{ request.GET.tipo_sesion }}{% endif %}" 
+                   class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    ◀ Anterior
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                    « Primera
+                </span>
+                <span class="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                    ◀ Anterior
+                </span>
+                {% endif %}
+
+                <!-- Páginas numéricas -->
+                <div class="hidden sm:flex items-center gap-1">
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <span class="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 border border-blue-600 rounded-lg">
+                            {{ num }}
+                        </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <a href="?vista=lista&page={{ num }}&por_pagina={{ por_pagina }}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.paciente %}&paciente={{ request.GET.paciente }}{% endif %}{% if request.GET.profesional %}&profesional={{ request.GET.profesional }}{% endif %}{% if request.GET.servicio %}&servicio={{ request.GET.servicio }}{% endif %}{% if request.GET.sucursal %}&sucursal={{ request.GET.sucursal }}{% endif %}{% if request.GET.tipo_sesion %}&tipo_sesion={{ request.GET.tipo_sesion }}{% endif %}" 
+                           class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                            {{ num }}
+                        </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% if page_obj.has_next %}
+                <a href="?vista=lista&page={{ page_obj.next_page_number }}&por_pagina={{ por_pagina }}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.paciente %}&paciente={{ request.GET.paciente }}{% endif %}{% if request.GET.profesional %}&profesional={{ request.GET.profesional }}{% endif %}{% if request.GET.servicio %}&servicio={{ request.GET.servicio }}{% endif %}{% if request.GET.sucursal %}&sucursal={{ request.GET.sucursal }}{% endif %}{% if request.GET.tipo_sesion %}&tipo_sesion={{ request.GET.tipo_sesion }}{% endif %}" 
+                   class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    Siguiente ▶
+                </a>
+                <a href="?vista=lista&page={{ page_obj.paginator.num_pages }}&por_pagina={{ por_pagina }}{% if request.GET.fecha_desde %}&fecha_desde={{ request.GET.fecha_desde }}{% endif %}{% if request.GET.fecha_hasta %}&fecha_hasta={{ request.GET.fecha_hasta }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}{% if request.GET.paciente %}&paciente={{ request.GET.paciente }}{% endif %}{% if request.GET.profesional %}&profesional={{ request.GET.profesional }}{% endif %}{% if request.GET.servicio %}&servicio={{ request.GET.servicio }}{% endif %}{% if request.GET.sucursal %}&sucursal={{ request.GET.sucursal }}{% endif %}{% if request.GET.tipo_sesion %}&tipo_sesion={{ request.GET.tipo_sesion }}{% endif %}" 
+                   class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    Última »
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                    Siguiente ▶
+                </span>
+                <span class="px-3 py-1.5 text-xs font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                    Última »
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ✅ ESTADÍSTICAS (solo si hay filtro de fechas) -->
     <div class="p-3 bg-gray-50 border-t">
-        {% if request.GET.fecha_desde and request.GET.fecha_hasta %}
+        {% if request.GET.fecha_desde or request.GET.fecha_hasta %}
             <div class="mb-3">
                 <h3 class="text-xs font-bold text-gray-700 mb-2 uppercase">📊 Estadísticas del Periodo</h3>
                 <div class="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
                     <div class="text-center p-1.5 bg-white rounded border">
-                        <div class="text-base font-bold text-gray-900">{{ sesiones|length }}</div>
+                        <div class="text-base font-bold text-gray-900">{% if page_obj %}{{ page_obj.paginator.count }}{% else %}{{ sesiones|length }}{% endif %}</div>
                         <div class="text-[8px] text-gray-600">Total</div>
                     </div>
                     <div class="text-center p-1.5 bg-blue-50 rounded border border-blue-200">
@@ -264,10 +350,18 @@
                 </div>
             </div>
         {% else %}
-            <div class="text-center py-4 bg-white border border-dashed border-gray-300 rounded">
-                <div class="text-2xl mb-1">📅</div>
-                <p class="text-xs text-gray-500">
-                    Selecciona un periodo de fechas para ver estadísticas
+            <div class="text-center py-4 bg-blue-50 border border-blue-200 rounded">
+                <div class="text-2xl mb-1">💡</div>
+                <p class="text-xs text-blue-700 font-medium mb-1">
+                    Mostrando {% if page_obj %}{{ page_obj.paginator.count }}{% else %}todas las{% endif %} sesiones registradas
+                </p>
+                {% if page_obj %}
+                <p class="text-[10px] text-blue-600">
+                    Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                </p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-2">
+                    💡 Usa los filtros de fecha arriba para ver estadísticas de un periodo específico
                 </p>
             </div>
         {% endif %}
