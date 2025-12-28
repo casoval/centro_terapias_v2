@@ -284,12 +284,13 @@ def actualizar_estado_proyecto(request, proyecto_id):
 @solo_sus_sucursales
 def calendario(request):
     """Calendario principal con filtros avanzados y permisos por sucursal"""
+    from .services import CalendarService
     
     # Obtener parámetros de filtro
     vista = request.GET.get('vista', 'semanal')
     fecha_str = request.GET.get('fecha', '')
     
-    # ✅ CORRECCIÓN: Convertir strings vacíos a None
+    # Filtros
     estado_filtro = request.GET.get('estado', '').strip() or None
     paciente_id = request.GET.get('paciente', '').strip() or None
     profesional_id = request.GET.get('profesional', '').strip() or None
@@ -305,8 +306,9 @@ def calendario(request):
             fecha_base = date.today()
     else:
         fecha_base = date.today()
-    
-    # Calcular rango según la vista
+        
+    # Calcular rango según la vista (Solo para UI navigation, el servicio calcula su propio rango si fuera necesario, 
+    # pero aquí lo hacemos para pasar fechas correctas al filtro)
     if vista == 'diaria':
         fecha_inicio = fecha_base
         fecha_fin = fecha_base
@@ -318,81 +320,56 @@ def calendario(request):
             ultimo_dia = (fecha_base.replace(day=1, month=fecha_base.month + 1) - timedelta(days=1))
         fecha_inicio = primer_dia
         fecha_fin = ultimo_dia
-    elif vista == 'lista':
-        fecha_desde_str = request.GET.get('fecha_desde', '')
-        fecha_hasta_str = request.GET.get('fecha_hasta', '')
-        
-        if fecha_desde_str and fecha_hasta_str:
-            try:
-                fecha_inicio = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
-            except:
-                primer_dia = fecha_base.replace(day=1)
-                if fecha_base.month == 12:
-                    ultimo_dia = fecha_base.replace(day=31)
-                else:
-                    ultimo_dia = (fecha_base.replace(day=1, month=fecha_base.month + 1) - timedelta(days=1))
-                fecha_inicio = primer_dia
-                fecha_fin = ultimo_dia
-        else:
-            primer_dia = fecha_base.replace(day=1)
-            if fecha_base.month == 12:
-                ultimo_dia = fecha_base.replace(day=31)
-            else:
-                ultimo_dia = (fecha_base.replace(day=1, month=fecha_base.month + 1) - timedelta(days=1))
-            fecha_inicio = primer_dia
-            fecha_fin = ultimo_dia
-    else:  # semanal
+    # El resto de lógica de fecha inicio/fin para 'semanal' o 'lista' se maneja mejor si reutilizamos la lógica del servicio 
+    # o la mantenemos simple aqui para el filtro:
+    else: # semanal por defecto
         dias_desde_lunes = fecha_base.weekday()
         fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
         fecha_fin = fecha_inicio + timedelta(days=6)
-    
-    # ✅ Query base - MOSTRAR TODAS LAS SESIONES
-    sesiones = Sesion.objects.select_related(
-        'paciente', 'profesional', 'servicio', 'sucursal', 'proyecto'
-    ).filter(
-        fecha__gte=fecha_inicio,
-        fecha__lte=fecha_fin
+
+    # 1. Obtener sesiones filtradas usando el servicio
+    sesiones = CalendarService.get_filtered_sessions(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        sucursales_usuario=request.sucursales_usuario,
+        sucursal_id=sucursal_id,
+        tipo_sesion=tipo_sesion,
+        estado=estado_filtro,
+        paciente_id=paciente_id,
+        profesional_id=profesional_id,
+        servicio_id=servicio_id
     )
     
-    # ✅ FILTRAR POR SUCURSALES DEL USUARIO
-    sucursales_usuario = request.sucursales_usuario
+    # 2. Anotaciones extra (Business Logic específica de la vista)
+    # Marcar última sesión por paciente+servicio
+    latest_sesion_sq = Sesion.objects.filter(
+        paciente=OuterRef('paciente'),
+        servicio=OuterRef('servicio'),
+        estado__in=['programada', 'realizada', 'realizada_retraso']
+    ).order_by('-fecha', '-hora_inicio').values('id')[:1]
     
-    if sucursales_usuario is not None:
-        if sucursales_usuario.exists():
-            sesiones = sesiones.filter(sucursal__in=sucursales_usuario)
-        else:
-            sesiones = sesiones.none()
+    sesiones = sesiones.annotate(
+        latest_sesion_id=Subquery(latest_sesion_sq)
+    )
     
-    # ✅ CORRECCIÓN: Solo aplicar filtros si tienen valor (no None)
-    if sucursal_id:
-        sesiones = sesiones.filter(sucursal_id=sucursal_id)
+    # Evaluación en memoria de la anotación (esto dispara la query)
+    # Notas: iterar quita la naturaleza de QuerySet, pero CalendarService._generate_* espera lista o QuerySet iterable.
+    # Sin embargo, si iteramos aquí, perdemos la capacidad de hacer .aggregate después.
+    # Así que hacemos una COPIA lista para el calendario y mantenemos el queryset para stats.
+    # PERO, 'es_ultima_sesion_paciente_servicio' es un atributo efímero.
     
-    if tipo_sesion == 'normal':
-        sesiones = sesiones.filter(proyecto__isnull=True)
-    elif tipo_sesion == 'evaluacion':
-        sesiones = sesiones.filter(proyecto__isnull=False)
-    # Si tipo_sesion es None: mostrar todas
+    # Solución: Iterar sesiones y usar esa lista para el calendario.
+    # Para estadísticas, usar el queryset original 'sesiones' (con annotations ya aplicadas, no afecta)
     
-    if estado_filtro:
-        sesiones = sesiones.filter(estado=estado_filtro)
+    sesiones_lista = []
+    for sesion in sesiones:
+        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
+        sesiones_lista.append(sesion)
     
-    if paciente_id:
-        sesiones = sesiones.filter(paciente_id=paciente_id)
+    # 3. Generar estructura del calendario
+    calendario_data = CalendarService.get_calendar_data(vista, fecha_base, sesiones_lista)
     
-    if profesional_id:
-        sesiones = sesiones.filter(profesional_id=profesional_id)
-    
-    if servicio_id:
-        sesiones = sesiones.filter(servicio_id=servicio_id)
-    
-    sesiones = sesiones.order_by('fecha', 'hora_inicio')
-    
-    # =========================================================================
-    # CÁLCULO DE ESTADÍSTICAS
-    # =========================================================================
-    from decimal import Decimal
-    
+    # 4. Estadísticas (Usando el queryset para eficiencia DB)
     estadisticas = sesiones.aggregate(
         total_monto=Sum('monto_cobrado'),
         count_programadas=Count('id', filter=Q(estado='programada')),
@@ -404,13 +381,11 @@ def calendario(request):
         count_reprogramada=Count('id', filter=Q(estado='reprogramada')),
     )
     
-    # Calcular pagos
-    # ✅ OPTIMIZACIÓN: Calcular todo en base de datos
+    # Calcular pagos (Optimizado)
     sesiones_con_pagos = sesiones.annotate(
         total_pagado_sesion=Coalesce(Sum('pagos__monto', filter=Q(pagos__anulado=False)), Decimal('0.00'))
     )
     
-    # Calcular totales globales con agregación
     stats_pagos = sesiones_con_pagos.aggregate(
         total_pagado=Sum('total_pagado_sesion'),
         total_pendiente=Sum(
@@ -439,52 +414,25 @@ def calendario(request):
     estadisticas['count_pagados'] = stats_pagos['count_pagados']
     estadisticas['count_pendientes'] = stats_pagos['count_pendientes']
     
-    # ✅ CORRECCIÓN: Datos para filtros - DEPENDEN DE LA SUCURSAL SELECCIONADA
+    # 5. Datos para Selectores (Filtros)
+    sucursales_usuario = request.sucursales_usuario
     if sucursales_usuario is not None and sucursales_usuario.exists():
-        # Si hay sucursales asignadas al usuario
         if sucursal_id:
-            # Si hay una sucursal específica seleccionada
-            pacientes = Paciente.objects.filter(
-                estado='activo',
-                sucursales__id=sucursal_id
-            ).distinct().order_by('nombre', 'apellido')
-            
-            profesionales = Profesional.objects.filter(
-                activo=True,
-                sucursales__id=sucursal_id
-            ).distinct().order_by('nombre', 'apellido')
+            pacientes = Paciente.objects.filter(estado='activo', sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
+            profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
         else:
-            # Mostrar todos de las sucursales del usuario
-            pacientes = Paciente.objects.filter(
-                estado='activo',
-                sucursales__in=sucursales_usuario
-            ).distinct().order_by('nombre', 'apellido')
-            
-            profesionales = Profesional.objects.filter(
-                activo=True,
-                sucursales__in=sucursales_usuario
-            ).distinct().order_by('nombre', 'apellido')
-        
+            pacientes = Paciente.objects.filter(estado='activo', sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
+            profesionales = Profesional.objects.filter(activo=True, sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
         sucursales = sucursales_usuario
     else:
-        # Superuser sin restricciones
         if sucursal_id:
-            pacientes = Paciente.objects.filter(
-                estado='activo',
-                sucursales__id=sucursal_id
-            ).distinct().order_by('nombre', 'apellido')
-            
-            profesionales = Profesional.objects.filter(
-                activo=True,
-                sucursales__id=sucursal_id
-            ).distinct().order_by('nombre', 'apellido')
+            pacientes = Paciente.objects.filter(estado='activo', sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
+            profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
         else:
             pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
             profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
-        
         sucursales = Sucursal.objects.filter(activa=True)
     
-    # ✅ CORRECCIÓN: Servicios dependen del paciente seleccionado
     if paciente_id:
         servicios = TipoServicio.objects.filter(
             pacienteservicio__paciente_id=paciente_id,
@@ -494,32 +442,7 @@ def calendario(request):
     else:
         servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
-    # Marcar última sesión por paciente+servicio
-    # ✅ OPTIMIZACIÓN: Subquery para marcar última sesión en una sola consulta
-    latest_sesion_sq = Sesion.objects.filter(
-        paciente=OuterRef('paciente'),
-        servicio=OuterRef('servicio'),
-        estado__in=['programada', 'realizada', 'realizada_retraso']
-    ).order_by('-fecha', '-hora_inicio').values('id')[:1]
-    
-    sesiones = sesiones.annotate(
-        latest_sesion_id=Subquery(latest_sesion_sq)
-    )
-    
-    for sesion in sesiones:
-        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
-    
-    # Generar estructura del calendario
-    if vista == 'diaria':
-        calendario_data = _generar_calendario_diario(fecha_base, sesiones)
-    elif vista == 'mensual':
-        calendario_data = _generar_calendario_mensual(fecha_base, sesiones)
-    elif vista == 'lista':
-        calendario_data = None
-    else:
-        calendario_data = _generar_calendario_semanal(fecha_inicio, sesiones)
-    
-    # Navegación de fechas
+    # Navegación
     if vista == 'diaria':
         fecha_anterior = fecha_base - timedelta(days=1)
         fecha_siguiente = fecha_base + timedelta(days=1)
@@ -529,7 +452,7 @@ def calendario(request):
             fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
         else:
             fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1, day=1)
-    else:
+    else: # semanal
         fecha_anterior = fecha_inicio - timedelta(days=7)
         fecha_siguiente = fecha_inicio + timedelta(days=7)
     
@@ -539,7 +462,7 @@ def calendario(request):
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
         'calendario_data': calendario_data,
-        'sesiones': sesiones,
+        'sesiones': sesiones_lista, # Pasamos la lista con flags
         'pacientes': pacientes,
         'profesionales': profesionales,
         'servicios': servicios,
@@ -547,18 +470,13 @@ def calendario(request):
         'estados': Sesion.ESTADO_CHOICES,
         'fecha_anterior': fecha_anterior,
         'fecha_siguiente': fecha_siguiente,
-        
-        # ✅ CORRECCIÓN: Pasar valores originales (pueden ser None)
         'estado_filtro': estado_filtro or '',
         'paciente_id': paciente_id or '',
         'profesional_id': profesional_id or '',
         'servicio_id': servicio_id or '',
         'sucursal_id': sucursal_id or '',
         'tipo_sesion': tipo_sesion or '',
-        
         'sucursales_usuario': sucursales_usuario,
-        
-        # Estadísticas
         'total_monto': estadisticas['total_monto'] or 0,
         'total_pagado': estadisticas['total_pagado'] or 0,
         'total_pendiente': estadisticas['total_pendiente'] or 0,
@@ -574,155 +492,6 @@ def calendario(request):
     }
     
     return render(request, 'agenda/calendario.html', context)
-
-def _generar_calendario_diario(fecha, sesiones):
-    """Generar estructura para vista diaria"""
-    sesiones_dia = [s for s in sesiones if s.fecha == fecha]
-    return {
-        'fecha': fecha,
-        'es_hoy': fecha == date.today(),
-        'sesiones': sesiones_dia,
-        'dia_nombre': fecha.strftime('%A'),
-        'tipo': 'diaria'
-    }
-
-def _generar_calendario_semanal(fecha_inicio, sesiones):
-    """Generar estructura para vista semanal CON OPTIMIZACIÓN"""
-    from datetime import time
-    from itertools import groupby
-    
-    dias = []
-    for i in range(7):
-        dia = fecha_inicio + timedelta(days=i)
-        sesiones_dia = [s for s in sesiones if s.fecha == dia]
-        
-        # ✅ OPTIMIZACIÓN: Pre-calcular si hay sesiones de mañana Y tarde
-        tiene_manana = any(s.hora_inicio.hour < 13 for s in sesiones_dia)
-        tiene_tarde = any(s.hora_inicio.hour >= 13 for s in sesiones_dia)
-        
-        # ✅ NUEVO: Agrupar sesiones y marcar el primer grupo de tarde
-        sesiones_agrupadas = []
-        if sesiones_dia:
-            # Ordenar por hora
-            sesiones_ordenadas = sorted(sesiones_dia, key=lambda s: s.hora_inicio)
-            
-            # Agrupar por hora
-            grupos = []
-            for hora, grupo_sesiones in groupby(sesiones_ordenadas, key=lambda s: s.hora_inicio.hour):
-                grupos.append({
-                    'hora': hora,
-                    'sesiones': list(grupo_sesiones)
-                })
-            
-            # Marcar el primer grupo >= 13
-            primer_tarde_encontrado = False
-            for grupo in grupos:
-                grupo['mostrar_linea_tarde'] = False
-                if grupo['hora'] >= 13 and not primer_tarde_encontrado and tiene_manana:
-                    grupo['mostrar_linea_tarde'] = True
-                    primer_tarde_encontrado = True
-            
-            sesiones_agrupadas = grupos
-        
-        dias.append({
-            'fecha': dia,
-            'es_hoy': dia == date.today(),
-            'sesiones': sesiones_dia,
-            'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
-            'dia_nombre': dia.strftime('%A'),
-            'dia_numero': dia.day,
-            'tiene_sesiones_manana': tiene_manana,
-            'tiene_sesiones_tarde': tiene_tarde,
-        })
-    return {'dias': dias, 'tipo': 'semanal'}
-
-def _generar_calendario_mensual(fecha_base, sesiones):
-    """Generar estructura para vista mensual tipo cuadrícula CON OPTIMIZACIÓN"""
-    from itertools import groupby
-    
-    primer_dia = fecha_base.replace(day=1)
-    
-    if fecha_base.month == 12:
-        ultimo_dia = fecha_base.replace(day=31)
-    else:
-        ultimo_dia = (fecha_base.replace(month=fecha_base.month + 1) - timedelta(days=1))
-    
-    primer_dia_semana = primer_dia.weekday()
-    dias_mes_anterior = []
-    if primer_dia_semana > 0:
-        for i in range(primer_dia_semana):
-            dia = primer_dia - timedelta(days=primer_dia_semana - i)
-            dias_mes_anterior.append({
-                'fecha': dia,
-                'es_otro_mes': True,
-                'sesiones': [],
-                'sesiones_agrupadas': [],
-            })
-    
-    dias_mes_actual = []
-    for dia_num in range(1, ultimo_dia.day + 1):
-        dia = fecha_base.replace(day=dia_num)
-        sesiones_dia = [s for s in sesiones if s.fecha == dia]
-        
-        # ✅ OPTIMIZACIÓN: Pre-calcular mañana/tarde y agrupar
-        tiene_manana = any(s.hora_inicio.hour < 13 for s in sesiones_dia)
-        tiene_tarde = any(s.hora_inicio.hour >= 13 for s in sesiones_dia)
-        
-        sesiones_agrupadas = []
-        if sesiones_dia:
-            sesiones_ordenadas = sorted(sesiones_dia, key=lambda s: s.hora_inicio)
-            grupos = []
-            
-            for hora, grupo_sesiones in groupby(sesiones_ordenadas, key=lambda s: s.hora_inicio.hour):
-                grupos.append({
-                    'hora': hora,
-                    'sesiones': list(grupo_sesiones)
-                })
-            
-            # Marcar primer grupo >= 13 si hay mañana
-            primer_tarde_encontrado = False
-            for grupo in grupos:
-                grupo['mostrar_linea_tarde'] = False
-                if grupo['hora'] >= 13 and not primer_tarde_encontrado and tiene_manana:
-                    grupo['mostrar_linea_tarde'] = True
-                    primer_tarde_encontrado = True
-            
-            sesiones_agrupadas = grupos
-        
-        dias_mes_actual.append({
-            'fecha': dia,
-            'es_hoy': dia == date.today(),
-            'es_otro_mes': False,
-            'sesiones': sesiones_dia,
-            'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
-            'dia_numero': dia_num,
-        })
-    
-    todos_dias = dias_mes_anterior + dias_mes_actual
-    semanas = []
-    semana_actual = []
-    
-    for dia in todos_dias:
-        semana_actual.append(dia)
-        if len(semana_actual) == 7:
-            semanas.append(semana_actual)
-            semana_actual = []
-    
-    if semana_actual:
-        while len(semana_actual) < 7:
-            semana_actual.append({
-                'fecha': None,
-                'es_otro_mes': True,
-                'sesiones': [],
-                'sesiones_agrupadas': [],
-            })
-        semanas.append(semana_actual)
-    
-    return {
-        'semanas': semanas,
-        'tipo': 'mensual',
-        'mes_nombre': fecha_base.strftime('%B %Y'),
-    }
 
 @login_required
 @solo_sus_sucursales

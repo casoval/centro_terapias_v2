@@ -225,101 +225,11 @@ class CuentaCorriente(models.Model):
         return f"CC {self.paciente} - Saldo: Bs. {self.saldo}"
     
     def actualizar_saldo(self):
-        """Recalcular saldo (crédito disponible) del paciente"""
-        from django.db.models import Sum, Q
-        from agenda.models import Sesion
-        from decimal import Decimal
-        
-        # 1️⃣ PAGOS ADELANTADOS (sin sesión asignada)
-        pagos_sin_sesion = Pago.objects.filter(
-            paciente=self.paciente,
-            anulado=False,
-            sesion__isnull=True,
-            proyecto__isnull=True
-        ).exclude(
-            metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(
-            total=Sum('monto')
-        )['total'] or Decimal('0.00')
-        
-        # 2️⃣ PAGOS DE SESIONES NO REALIZADAS
-        pagos_sesiones_no_realizadas = Pago.objects.filter(
-            paciente=self.paciente,
-            anulado=False,
-            sesion__isnull=False,
-            sesion__estado='programada'
-        ).exclude(
-            metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(
-            total=Sum('monto')
-        )['total'] or Decimal('0.00')
-        
-        # 3️⃣ EXCEDENTES DE SOBREPAGOS
-        excedentes_total = Decimal('0.00')
-        
-        sesiones_realizadas = Sesion.objects.filter(
-            paciente=self.paciente,
-            estado__in=['realizada', 'realizada_retraso', 'falta'],
-            proyecto__isnull=True,
-            monto_cobrado__gt=0
-        )
-        
-        for sesion in sesiones_realizadas:
-            total_pagado_sesion = Pago.objects.filter(
-                sesion=sesion,
-                anulado=False
-            ).exclude(
-                metodo_pago__nombre="Uso de Crédito"
-            ).aggregate(
-                total=Sum('monto')
-            )['total'] or Decimal('0.00')
-            
-            excedente = total_pagado_sesion - sesion.monto_cobrado
-            if excedente > 0:
-                excedentes_total += excedente
-        
-        # 4️⃣ USO MANUAL DE CRÉDITO
-        uso_manual_credito = Pago.objects.filter(
-            paciente=self.paciente,
-            anulado=False,
-            metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(
-            total=Sum('monto')
-        )['total'] or Decimal('0.00')
-        
-        # 5️⃣ CALCULAR CRÉDITO DISPONIBLE
-        credito_disponible = (
-            pagos_sin_sesion +
-            pagos_sesiones_no_realizadas +
-            excedentes_total -
-            uso_manual_credito
-        )
-        
-        # 6️⃣ CALCULAR TOTALES
-        total_consumido = Sesion.objects.filter(
-            paciente=self.paciente,
-            estado__in=['realizada', 'realizada_retraso', 'falta'],
-            proyecto__isnull=True,
-            monto_cobrado__gt=0
-        ).aggregate(
-            total=Sum('monto_cobrado')
-        )['total'] or Decimal('0.00')
-        
-        total_pagado = Pago.objects.filter(
-            paciente=self.paciente,
-            anulado=False
-        ).exclude(
-            metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(
-            total=Sum('monto')
-        )['total'] or Decimal('0.00')
-        
-        # 💾 GUARDAR
-        self.total_consumido = total_consumido
-        self.total_pagado = total_pagado
-        self.saldo = credito_disponible
-        
-        self.save()
+        """Recalcular saldo (delegado al servicio)"""
+        from .services import AccountService
+        AccountService.update_balance(self.paciente)
+        # Recargar desde DB para tener datos frescos en esta instancia
+        self.refresh_from_db()
 
     @property
     def deuda_pendiente(self):

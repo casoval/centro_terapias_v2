@@ -19,12 +19,28 @@ def lista_servicios(request):
     inicio_semana = hoy - timedelta(days=hoy.weekday())
     fin_semana = inicio_semana + timedelta(days=6)
     
-    for servicio in servicios:
-        servicio.sesiones_semana = servicio.sesiones.filter(
-            fecha__gte=inicio_semana,
-            fecha__lte=fin_semana
-        ).count()
-        servicio.pacientes_activos = servicio.pacienteservicio_set.filter(activo=True).count()
+    # ✅ CORRECCIÓN: Importar PacienteServicio
+    try:
+        from pacientes.models import PacienteServicio
+        
+        for servicio in servicios:
+            servicio.sesiones_semana = servicio.sesiones.filter(
+                fecha__gte=inicio_semana,
+                fecha__lte=fin_semana
+            ).count()
+            # Usar el modelo importado directamente
+            servicio.pacientes_activos = PacienteServicio.objects.filter(
+                servicio=servicio,
+                activo=True
+            ).count()
+    except ImportError:
+        # Si PacienteServicio no existe, usar valores por defecto
+        for servicio in servicios:
+            servicio.sesiones_semana = servicio.sesiones.filter(
+                fecha__gte=inicio_semana,
+                fecha__lte=fin_semana
+            ).count()
+            servicio.pacientes_activos = 0
     
     context = {
         'servicios': servicios,
@@ -44,8 +60,15 @@ def detalle_servicio(request, pk):
     # Profesionales que ofrecen este servicio
     profesionales = servicio.profesionales.filter(activo=True)
     
-    # Pacientes que tienen este servicio contratado
-    pacientes_activos = servicio.pacienteservicio_set.filter(activo=True).count()
+    # ✅ CORRECCIÓN: Pacientes activos
+    try:
+        from pacientes.models import PacienteServicio
+        pacientes_activos = PacienteServicio.objects.filter(
+            servicio=servicio,
+            activo=True
+        ).count()
+    except ImportError:
+        pacientes_activos = 0
     
     context = {
         'servicio': servicio,

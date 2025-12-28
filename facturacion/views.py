@@ -238,381 +238,101 @@ def detalle_cuenta_corriente(request, paciente_id):
 @login_required
 def registrar_pago(request):
     """
-    Registrar pago con soporte para:
-    - Pago 100% efectivo (genera recibo normal)
-    - Pago mixto (crédito + efectivo, genera recibo solo por efectivo)
-    - Pago 100% crédito (sin recibo físico)
-    - ✅ NUEVO: Checkbox "Pago Completo" para ajustar precio y saldar deuda.
-    - ✅ CORREGIDO: Permite monto 0 si se usa solo crédito o si es "Pago Completo"
-    
-    Soporta 3 tipos: sesión, proyecto, adelantado
+    Registrar pago usando PaymentService.
+    Soporta: Sesión, Proyecto, Adelantado (Credito/Efectivo/Mixto).
     """
+    from django.core.exceptions import ValidationError
+    from .services import PaymentService
     
     if request.method == 'POST':
         try:
-            from django.db import transaction
-            
-            # Identificar tipo de pago
+            # Obtener datos del formulario
             tipo_pago = request.POST.get('tipo_pago')
-            
-            # ✅ NUEVO: Capturar checkbox de pago completo
             es_pago_completo = request.POST.get('pago_completo') == 'on'
+            usar_credito = request.POST.get('usar_credito') == 'on'
             
-            # Obtener datos comunes
             raw_credito = request.POST.get('monto_credito', '').strip()
             raw_monto = request.POST.get('monto', '').strip()
-            
             monto_credito = Decimal(raw_credito if raw_credito else '0')
-            monto_adicional = Decimal(raw_monto if raw_monto else '0')
+            monto_efectivo = Decimal(raw_monto if raw_monto else '0')
             
-            # Calcular monto total que se está pagando en este momento
-            monto_aportado_ahora = monto_credito + monto_adicional
-            
-            usar_credito = request.POST.get('usar_credito') == 'on'
-
             metodo_pago_id = request.POST.get('metodo_pago')
             fecha_pago_str = request.POST.get('fecha_pago')
             observaciones = request.POST.get('observaciones', '')
             numero_transaccion = request.POST.get('numero_transaccion', '')
             
-            # Validaciones básicas
             if not fecha_pago_str:
-                messages.error(request, '❌ Debes especificar la fecha de pago')
-                return redirect('facturacion:registrar_pago')
-            
-            # ✅ VALIDACIÓN CORREGIDA: Permitir monto 0 en casos específicos
-            if monto_aportado_ahora <= 0:
-                # CASO 1: Es sesión gratuita (monto_cobrado = 0)
-                if tipo_pago == 'sesion':
-                    sesion_id = request.POST.get('sesion_id')
-                    if sesion_id:
-                        sesion = Sesion.objects.get(id=sesion_id)
-                        if sesion.monto_cobrado == 0:
-                            # ✅ PERMITIR: Sesión gratuita
-                            pass
-                        elif es_pago_completo:
-                            # ✅ PERMITIR: Pago completo con monto 0 (ajuste de precio)
-                            pass
-                        else:
-                            # ❌ RECHAZAR: Sesión con deuda pero sin monto
-                            messages.error(request, '❌ Debes especificar un monto a pagar')
-                            return redirect('facturacion:registrar_pago')
-                    else:
-                        messages.error(request, '❌ Debes especificar un monto a pagar')
-                        return redirect('facturacion:registrar_pago')
-                
-                # CASO 2: Es proyecto con "Pago Completo"
-                elif tipo_pago == 'proyecto' and es_pago_completo:
-                    # ✅ PERMITIR: Ajuste de precio de proyecto a 0
-                    pass
-                
-                # CASO 3: Rechazar otros casos
-                else:
-                    messages.error(request, '❌ Debes especificar un monto a pagar')
-                    return redirect('facturacion:registrar_pago')
-
-            # Si hay monto adicional, debe haber método
-            if monto_adicional > 0 and not metodo_pago_id:
-                messages.error(request, '❌ Debes seleccionar un método de pago')
-                return redirect('facturacion:registrar_pago')
+                raise ValidationError('Debes especificar la fecha de pago')
             
             fecha_pago = datetime.strptime(fecha_pago_str, '%Y-%m-%d').date()
-            metodo_pago = MetodoPago.objects.get(id=metodo_pago_id) if metodo_pago_id else None
             
-            # ========== CASO 1: PAGO DE SESIÓN ==========
+            # Identificar Entidades
+            paciente = None
+            referencia_id = None
+            
             if tipo_pago == 'sesion':
-                sesion_id = request.POST.get('sesion_id')
-                if not sesion_id:
-                    messages.error(request, '❌ Debes seleccionar una sesión')
-                    return redirect('facturacion:registrar_pago')
-                
-                sesion = Sesion.objects.get(id=sesion_id)
+                referencia_id = request.POST.get('sesion_id')
+                if not referencia_id: raise ValidationError('Sesión no seleccionada')
+                sesion = Sesion.objects.get(id=referencia_id)
                 paciente = sesion.paciente
                 
-                # Validar crédito disponible
-                cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
-                cuenta.actualizar_saldo()
-                
-                if usar_credito and monto_credito > 0:
-                    if cuenta.saldo < monto_credito:
-                        messages.error(
-                            request,
-                            f'❌ Crédito insuficiente. Disponible: Bs. {cuenta.saldo}'
-                        )
-                        return redirect('facturacion:registrar_pago')
-                
-                # 🔒 TRANSACCIÓN ATÓMICA
-                with transaction.atomic():
-                    
-                    # 🔥 LÓGICA DE PAGO COMPLETO (AJUSTE DE PRECIO)
-                    if es_pago_completo:
-                        # 1. Calcular cuánto se había pagado ANTES de este pago
-                        pagado_previo = sesion.pagos.filter(anulado=False).exclude(
-                            metodo_pago__nombre="Uso de Crédito"
-                        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-                        
-                        # 2. Calcular el NUEVO costo total de la sesión
-                        # Costo final = Lo que ya pagó + Lo que paga hoy (crédito + efectivo)
-                        nuevo_costo_real = pagado_previo + monto_aportado_ahora
-                        
-                        # 3. Si el costo cambia, actualizamos la sesión
-                        if sesion.monto_cobrado != nuevo_costo_real:
-                            monto_original = sesion.monto_cobrado
-                            sesion.monto_cobrado = nuevo_costo_real
-                            
-                            # Agregar nota automática
-                            nota_ajuste = f"\n[{date.today()}] Ajuste por 'Pago Completo': Cobro modificado de {monto_original} a {nuevo_costo_real}."
-                            sesion.observaciones = (sesion.observaciones or "") + nota_ajuste
-                            sesion.save()
-
-                    recibos_generados = []
-                    
-                    # 1️⃣ Pago con CRÉDITO (si aplica)
-                    if usar_credito and monto_credito > 0:
-                        metodo_credito, _ = MetodoPago.objects.get_or_create(
-                            nombre="Uso de Crédito",
-                            defaults={
-                                'descripcion': 'Aplicación de saldo a favor',
-                                'activo': True
-                            }
-                        )
-                        
-                        Pago.objects.create(
-                            paciente=paciente,
-                            sesion=sesion,
-                            fecha_pago=fecha_pago,
-                            monto=monto_credito,
-                            metodo_pago=metodo_credito,
-                            concepto=f"Uso de crédito - Sesión {sesion.fecha} - {sesion.servicio.nombre}",
-                            observaciones=f"Aplicación de saldo a favor\n{observaciones}",
-                            registrado_por=request.user,
-                            numero_recibo=f"CREDITO-{fecha_pago.strftime('%Y%m%d')}-{sesion.id}"
-                        )
-                    
-                    # 2️⃣ Pago ADICIONAL (efectivo/otro) - GENERA RECIBO REAL
-                    pago_adicional = None
-                    if monto_adicional > 0:
-                        pago_adicional = Pago.objects.create(
-                            paciente=paciente,
-                            sesion=sesion,
-                            fecha_pago=fecha_pago,
-                            monto=monto_adicional,
-                            metodo_pago=metodo_pago,
-                            concepto=f"Pago sesión {sesion.fecha} - {sesion.servicio.nombre}",
-                            observaciones=observaciones,
-                            numero_transaccion=numero_transaccion,
-                            registrado_por=request.user
-                        )
-                        recibos_generados.append(pago_adicional.numero_recibo)
-                    
-                    # Actualizar cuenta
-                    cuenta.actualizar_saldo()
-                    
-                    # 🆕 PREPARAR RESPUESTA CON DATOS DEL PAGO
-                    msg_extra = " (Precio ajustado para saldar)" if es_pago_completo else ""
-                    
-                    # Determinar si se generó recibo físico
-                    genero_recibo = monto_adicional > 0
-                    numero_recibo = recibos_generados[0] if recibos_generados else None
-                    
-                    # Construir mensaje
-                    if usar_credito and monto_adicional > 0:
-                        tipo_pago_display = "Mixto"
-                        mensaje = f'Pago mixto registrado{msg_extra}'
-                        detalle = f'Crédito: Bs. {monto_credito} + Efectivo: Bs. {monto_adicional}'
-                    elif usar_credito:
-                        tipo_pago_display = "100% Crédito"
-                        mensaje = f'Pago aplicado con crédito{msg_extra}'
-                        detalle = f'Monto: Bs. {monto_credito}'
-                        genero_recibo = False
-                    else:
-                        tipo_pago_display = "Efectivo"
-                        mensaje = f'Pago registrado{msg_extra}'
-                        detalle = f'Monto: Bs. {monto_adicional}'
-                    
-                    # Info adicional
-                    info_estado = 'Sesión PAGADA' if sesion.pagado else f'Falta: Bs. {sesion.saldo_pendiente}'
-                    
-                    # 🆕 ALMACENAR EN SESSION para mostrar en modal
-                    request.session['pago_exitoso'] = {
-                        'tipo': tipo_pago_display,
-                        'mensaje': mensaje,
-                        'detalle': detalle,
-                        'total': float(monto_aportado_ahora),
-                        'paciente': paciente.nombre_completo,
-                        'concepto': f"Sesión {sesion.fecha} - {sesion.servicio.nombre}",
-                        'info_estado': info_estado,
-                        'genero_recibo': genero_recibo,
-                        'numero_recibo': numero_recibo,
-                        'pago_id': pago_adicional.id if pago_adicional else None,
-                    }
-                    
-                    return redirect('facturacion:confirmacion_pago')
-            
-            # ========== CASO 2: PAGO DE PROYECTO ==========
             elif tipo_pago == 'proyecto':
-                proyecto_id = request.POST.get('proyecto_id')
-                if not proyecto_id:
-                    messages.error(request, '❌ Debes seleccionar un proyecto')
-                    return redirect('facturacion:registrar_pago')
-                
-                proyecto = Proyecto.objects.get(id=proyecto_id)
+                referencia_id = request.POST.get('proyecto_id')
+                if not referencia_id: raise ValidationError('Proyecto no seleccionado')
+                proyecto = Proyecto.objects.get(id=referencia_id)
                 paciente = proyecto.paciente
                 
-                # Validar crédito
-                cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
-                cuenta.actualizar_saldo()
-                
-                if usar_credito and monto_credito > 0:
-                    if cuenta.saldo < monto_credito:
-                        messages.error(
-                            request,
-                            f'❌ Crédito insuficiente. Disponible: Bs. {cuenta.saldo}'
-                        )
-                        return redirect('facturacion:registrar_pago')
-                
-                with transaction.atomic():
-                    
-                    # 🔥 LÓGICA DE PAGO COMPLETO PARA PROYECTO
-                    if es_pago_completo:
-                        pagado_previo = proyecto.pagos.filter(anulado=False).exclude(
-                            metodo_pago__nombre="Uso de Crédito"
-                        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-                        
-                        nuevo_costo_real = pagado_previo + monto_aportado_ahora
-                        
-                        if proyecto.costo_total != nuevo_costo_real:
-                            proyecto.costo_total = nuevo_costo_real
-                            proyecto.save()
-                    
-                    recibos_generados = []
-                    
-                    # Pago con crédito
-                    if usar_credito and monto_credito > 0:
-                        metodo_credito, _ = MetodoPago.objects.get_or_create(
-                            nombre="Uso de Crédito",
-                            defaults={'descripcion': 'Aplicación de saldo a favor', 'activo': True}
-                        )
-                        
-                        Pago.objects.create(
-                            paciente=paciente,
-                            proyecto=proyecto,
-                            fecha_pago=fecha_pago,
-                            monto=monto_credito,
-                            metodo_pago=metodo_credito,
-                            concepto=f"Uso de crédito - Proyecto {proyecto.codigo}",
-                            observaciones=f"Aplicación de saldo a favor\n{observaciones}",
-                            registrado_por=request.user,
-                            numero_recibo=f"CREDITO-{fecha_pago.strftime('%Y%m%d')}-P{proyecto.id}"
-                        )
-                    
-                    # Pago adicional
-                    pago_adicional = None
-                    if monto_adicional > 0:
-                        pago_adicional = Pago.objects.create(
-                            paciente=paciente,
-                            proyecto=proyecto,
-                            fecha_pago=fecha_pago,
-                            monto=monto_adicional,
-                            metodo_pago=metodo_pago,
-                            concepto=f"Pago proyecto {proyecto.codigo} - {proyecto.nombre}",
-                            observaciones=observaciones,
-                            numero_transaccion=numero_transaccion,
-                            registrado_por=request.user
-                        )
-                        recibos_generados.append(pago_adicional.numero_recibo)
-                    
-                    cuenta.actualizar_saldo()
-                    
-                    # 🆕 PREPARAR RESPUESTA
-                    msg_extra = " (Proyecto saldado)" if es_pago_completo else ""
-                    genero_recibo = monto_adicional > 0
-                    numero_recibo = recibos_generados[0] if recibos_generados else None
-                    
-                    if usar_credito and monto_adicional > 0:
-                        tipo_pago_display = "Mixto"
-                        mensaje = f'Pago mixto{msg_extra}'
-                        detalle = f'Crédito: Bs. {monto_credito} + Efectivo: Bs. {monto_adicional}'
-                    elif usar_credito:
-                        tipo_pago_display = "100% Crédito"
-                        mensaje = f'Pago aplicado con crédito{msg_extra}'
-                        detalle = f'Monto: Bs. {monto_credito}'
-                        genero_recibo = False
-                    else:
-                        tipo_pago_display = "Efectivo"
-                        mensaje = f'Pago registrado{msg_extra}'
-                        detalle = f'Monto: Bs. {monto_adicional}'
-                    
-                    info_estado = 'Proyecto PAGADO COMPLETO' if proyecto.pagado_completo else f'Falta: Bs. {proyecto.saldo_pendiente}'
-                    
-                    request.session['pago_exitoso'] = {
-                        'tipo': tipo_pago_display,
-                        'mensaje': mensaje,
-                        'detalle': detalle,
-                        'total': float(monto_aportado_ahora),
-                        'paciente': paciente.nombre_completo,
-                        'concepto': f"Proyecto {proyecto.codigo} - {proyecto.nombre}",
-                        'info_estado': info_estado,
-                        'genero_recibo': genero_recibo,
-                        'numero_recibo': numero_recibo,
-                        'pago_id': pago_adicional.id if pago_adicional else None,
-                    }
-                    
-                    return redirect('facturacion:confirmacion_pago')
-            
-            # ========== CASO 3: PAGO ADELANTADO ==========
             elif tipo_pago == 'adelantado':
                 paciente_id = request.POST.get('paciente_adelantado')
-                if not paciente_id:
-                    messages.error(request, '❌ Debes seleccionar un paciente')
-                    return redirect('facturacion:registrar_pago')
-                
-                # SOLO efectivo (no se puede usar crédito para pago adelantado)
-                if not metodo_pago_id or monto_adicional <= 0:
-                    messages.error(request, '❌ Debes especificar método y monto')
-                    return redirect('facturacion:registrar_pago')
-                
+                if not paciente_id: raise ValidationError('Paciente no seleccionado')
                 paciente = Paciente.objects.get(id=paciente_id)
-                
-                with transaction.atomic():
-                    pago = Pago.objects.create(
-                        paciente=paciente,
-                        sesion=None,
-                        proyecto=None,
-                        fecha_pago=fecha_pago,
-                        monto=monto_adicional,
-                        metodo_pago=metodo_pago,
-                        concepto=f"Pago adelantado - {paciente.nombre_completo}",
-                        observaciones=observaciones,
-                        numero_transaccion=numero_transaccion,
-                        registrado_por=request.user
-                    )
-                    
-                    cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
-                    cuenta.actualizar_saldo()
-                
-                # 🆕 PREPARAR RESPUESTA
-                request.session['pago_exitoso'] = {
-                    'tipo': 'Adelantado',
-                    'mensaje': 'Pago adelantado registrado',
-                    'detalle': f'Monto: Bs. {monto_adicional}',
-                    'total': float(monto_adicional),
-                    'paciente': paciente.nombre_completo,
-                    'concepto': 'Depósito a crédito / billetera',
-                    'info_estado': f'Nuevo crédito disponible: Bs. {cuenta.saldo}',
-                    'genero_recibo': True,
-                    'numero_recibo': pago.numero_recibo,
-                    'pago_id': pago.id,
-                }
-                
-                return redirect('facturacion:confirmacion_pago')
-            
             else:
-                messages.error(request, '❌ Tipo de pago no válido')
-                return redirect('facturacion:registrar_pago')
-        
+                raise ValidationError('Tipo de pago no válido')
+
+            # Procesar Pago con Servicio
+            resultado = PaymentService.process_payment(
+                user=request.user,
+                paciente=paciente,
+                monto_efectivo=monto_efectivo,
+                monto_credito=monto_credito,
+                metodo_pago_id=metodo_pago_id,
+                fecha_pago=fecha_pago,
+                tipo_pago=tipo_pago,
+                referencia_id=referencia_id,
+                es_pago_completo=es_pago_completo,
+                observaciones=observaciones,
+                numero_transaccion=numero_transaccion
+            )
+            
+            # Preparar datos para session (Confirmación)
+            # Recreamos la info para el modal de confirmación
+            tipo_pago_display = "Efectivo"
+            if usar_credito and monto_efectivo > 0: tipo_pago_display = "Mixto"
+            elif usar_credito: tipo_pago_display = "100% Crédito"
+            
+            detalle = f"Monto: Bs. {monto_efectivo}"
+            if usar_credito: detalle = f"Crédito: Bs. {monto_credito} + Efectivo: Bs. {monto_efectivo}"
+            
+            request.session['pago_exitoso'] = {
+                'tipo': tipo_pago_display,
+                'mensaje': resultado['mensaje'],
+                'detalle': detalle,
+                'total': resultado['monto_total'],
+                'paciente': paciente.nombre_completo,
+                'concepto': resultado.get('pago_efectivo').concepto if resultado.get('pago_efectivo') else "Pago con Crédito",
+                'info_estado': "Pago Registrado Correctamente",
+                'genero_recibo': bool(resultado['recibos']),
+                'numero_recibo': resultado['recibos'][0] if resultado['recibos'] else None,
+                'pago_id': resultado.get('pago_efectivo').id if resultado.get('pago_efectivo') else None,
+            }
+            
+            return redirect('facturacion:confirmacion_pago')
+
+        except ValidationError as e:
+            messages.error(request, f'❌ {str(e.message if hasattr(e, "message") else e)}')
+            return redirect('facturacion:registrar_pago')
         except Exception as e:
-            messages.error(request, f'❌ Error: {str(e)}')
+            messages.error(request, f'❌ Error inesperado: {str(e)}')
             import traceback
             print(traceback.format_exc())
             return redirect('facturacion:registrar_pago')

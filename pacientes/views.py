@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .models import Paciente
+from .models import Paciente, PacienteServicio
 
 @login_required
 def lista_pacientes(request):
@@ -30,8 +30,11 @@ def detalle_paciente(request, pk):
     # Últimas 10 sesiones
     sesiones = paciente.sesiones.all().order_by('-fecha', '-hora_inicio')[:10]
     
-    # Servicios contratados
-    servicios = paciente.pacienteservicio_set.filter(activo=True)
+    # ✅ CORRECCIÓN: Servicios contratados usando consulta directa
+    servicios = PacienteServicio.objects.filter(
+        paciente=paciente,
+        activo=True
+    ).select_related('servicio')
     
     context = {
         'paciente': paciente,
