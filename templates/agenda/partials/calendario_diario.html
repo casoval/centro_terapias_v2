@@ -21,7 +21,7 @@
     <!-- Estadísticas COMPACTAS 40% -->
     <div class="p-3 bg-gray-50 border-b">
         <!-- Estadísticas de Sesiones -->
-        <div class="mb-2">
+        <div {% if not user.perfil.es_profesional or user.is_superuser %}class="mb-2"{% endif %}>
             <h3 class="text-xs font-bold text-gray-700 mb-1 uppercase">📊 Sesiones del Día</h3>
             <div class="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
                 <div class="text-center p-1.5 bg-white rounded border shadow-sm">
@@ -59,7 +59,8 @@
             </div>
         </div>
 
-        <!-- Estadísticas de Pagos -->
+        <!-- ✅ Estadísticas de Pagos - SOLO PARA NO PROFESIONALES -->
+        {% if not user.perfil.es_profesional or user.is_superuser %}
         <div>
             <h3 class="text-xs font-bold text-gray-700 mb-1 uppercase">💰 Pagos</h3>
             <div class="grid grid-cols-3 gap-2">
@@ -79,6 +80,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <!-- SESIONES EN GRID 3 COLUMNAS CON LÍNEA DIVISORIA 13:00 -->
@@ -183,6 +185,8 @@
                                     {{ sesion.get_estado_display }}
                                 </span>
 
+                                <!-- ✅ Mostrar pago SOLO para no profesionales -->
+                                {% if not user.perfil.es_profesional or user.is_superuser %}
                                 <div class="flex flex-col items-end gap-0.5">
                                     <span class="text-sm font-bold text-gray-900">Bs. {{ sesion.monto_cobrado }}</span>
                                     {% if sesion.monto_cobrado > 0 %}
@@ -199,6 +203,7 @@
                                         {% endif %}
                                     {% endif %}
                                 </div>
+                                {% endif %}
 
                                 <!-- ALERTA ÚLTIMA SESIÓN POR PACIENTE+SERVICIO -->
                                 {% if sesion.es_ultima_sesion_paciente_servicio %}
