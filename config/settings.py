@@ -148,14 +148,23 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = []
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# ⭐ WhiteNoise solo en producción
+if IS_PRODUCTION:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+else:
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # --------------------------------------------------
 # MEDIA FILES
 # --------------------------------------------------
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+
+if IS_PRODUCTION:
+    # ⭐ Cloudinary para archivos de media en producción
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+else:
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # --------------------------------------------------
 # AUTH REDIRECTS
@@ -215,7 +224,3 @@ CLOUDINARY_STORAGE = {
     'API_KEY': '447784864842837',
     'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig'
 }
-
-# ✅ OPCIONAL: Usar Cloudinary para archivos estáticos (solo en producción)
-# if IS_PRODUCTION:
-#     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
