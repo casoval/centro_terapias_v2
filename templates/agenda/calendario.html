@@ -12,6 +12,17 @@
     .vista-btn:hover {
         transform: translateY(-2px);
     }
+
+    /* Botón eliminar flotante */
+    .group:hover .opacity-0 {
+        opacity: 1;
+    }
+    
+    /* Prevenir que el click en eliminar abra el modal */
+    button[onclick*="confirmarEliminar"] {
+        z-index: 20;
+    }
+
 </style>
 
 <div class="min-h-screen">
@@ -308,6 +319,62 @@ function aplicarFiltros() {
 function limpiarFiltros() {
     const vista = document.querySelector('input[name="vista"]').value;
     window.location.href = '?vista=' + vista;
+}
+
+// ============= ELIMINAR SESIÓN =============
+function confirmarEliminar(event, sesionId, paciente, servicio, fecha, hora) {
+    event.stopPropagation(); // Evitar que abra el modal de editar
+    
+    const mensaje = `¿Estás seguro de eliminar esta sesión?
+
+📅 Fecha: ${fecha} ${hora}
+👶 Paciente: ${paciente}
+🥼 Servicio: ${servicio}
+
+⚠️ Esta acción no se puede deshacer.`;
+    
+    if (confirm(mensaje)) {
+        eliminarSesion(sesionId);
+    }
+}
+
+function eliminarSesion(sesionId) {
+    fetch(`/agenda/api/eliminar/${sesionId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Recargar la página para reflejar los cambios
+            window.location.reload();
+        } else {
+            alert(data.mensaje || 'Error al eliminar la sesión');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al eliminar la sesión');
+    });
+}
+
+// Función auxiliar para obtener CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 </script>
 {% endblock %}

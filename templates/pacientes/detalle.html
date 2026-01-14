@@ -11,7 +11,20 @@
     <!-- Información del paciente -->
     <div class="lg:col-span-1">
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{{ paciente.nombre_completo }}</h2>
+            <!-- FOTO DEL PACIENTE -->
+            <div class="flex justify-center mb-4">
+                {% if paciente.tiene_foto %}
+                    <img src="{{ paciente.foto.url }}" 
+                         alt="{{ paciente.nombre_completo }}"
+                         class="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-lg">
+                {% else %}
+                    <div class="w-32 h-32 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-4 border-blue-100 shadow-lg flex items-center justify-center">
+                        <span class="text-5xl">👤</span>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <h2 class="text-xl font-bold text-gray-900 mb-4 text-center">{{ paciente.nombre_completo }}</h2>
             
             <dl class="space-y-3">
                 <div>
@@ -38,23 +51,81 @@
             
             <hr class="my-4">
             
-            <h3 class="font-semibold text-gray-900 mb-2">Tutor/Responsable</h3>
+            <!-- TUTOR PRINCIPAL -->
+            <h3 class="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <span>👤</span>
+                Tutor Principal
+            </h3>
             <dl class="space-y-2">
                 <div>
                     <dt class="text-sm font-medium text-gray-500">Nombre</dt>
                     <dd class="text-sm text-gray-900">{{ paciente.nombre_tutor }}</dd>
                 </div>
                 <div>
+                    <dt class="text-sm font-medium text-gray-500">Parentesco</dt>
+                    <dd class="text-sm text-gray-900">{{ paciente.get_parentesco_display }}</dd>
+                </div>
+                <div>
                     <dt class="text-sm font-medium text-gray-500">Teléfono</dt>
-                    <dd class="text-sm text-gray-900">{{ paciente.telefono_tutor }}</dd>
+                    <dd class="text-sm text-gray-900">
+                        <a href="tel:{{ paciente.telefono_tutor }}" class="text-blue-600 hover:text-blue-800">
+                            {{ paciente.telefono_tutor }}
+                        </a>
+                    </dd>
                 </div>
                 {% if paciente.email_tutor %}
                 <div>
                     <dt class="text-sm font-medium text-gray-500">Email</dt>
-                    <dd class="text-sm text-gray-900">{{ paciente.email_tutor }}</dd>
+                    <dd class="text-sm text-gray-900">
+                        <a href="mailto:{{ paciente.email_tutor }}" class="text-blue-600 hover:text-blue-800">
+                            {{ paciente.email_tutor }}
+                        </a>
+                    </dd>
                 </div>
                 {% endif %}
             </dl>
+            
+            <!-- SEGUNDO TUTOR (OPCIONAL) -->
+            {% if paciente.tiene_segundo_tutor %}
+            <hr class="my-4">
+            
+            <h3 class="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <span>👥</span>
+                Segundo Tutor / Contacto de Emergencia
+            </h3>
+            <dl class="space-y-2">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Nombre</dt>
+                    <dd class="text-sm text-gray-900">{{ paciente.nombre_tutor_2 }}</dd>
+                </div>
+                {% if paciente.parentesco_2 %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Parentesco</dt>
+                    <dd class="text-sm text-gray-900">{{ paciente.get_parentesco_2_display }}</dd>
+                </div>
+                {% endif %}
+                {% if paciente.telefono_tutor_2 %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Teléfono</dt>
+                    <dd class="text-sm text-gray-900">
+                        <a href="tel:{{ paciente.telefono_tutor_2 }}" class="text-blue-600 hover:text-blue-800">
+                            {{ paciente.telefono_tutor_2 }}
+                        </a>
+                    </dd>
+                </div>
+                {% endif %}
+                {% if paciente.email_tutor_2 %}
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Email</dt>
+                    <dd class="text-sm text-gray-900">
+                        <a href="mailto:{{ paciente.email_tutor_2 }}" class="text-blue-600 hover:text-blue-800">
+                            {{ paciente.email_tutor_2 }}
+                        </a>
+                    </dd>
+                </div>
+                {% endif %}
+            </dl>
+            {% endif %}
             
             <div class="mt-6">
                 <a href="/admin/pacientes/paciente/{{ paciente.id }}/change/" 

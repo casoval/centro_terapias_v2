@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Recibo {{ pago.numero_recibo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-3 sm:px-4">
+    <!-- Header Compacto -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 flex items-center">
+                <span class="text-2xl mr-2">🧾</span>
+                Recibo de Pago
+                {% if es_pago_multiple %}
+                <span class="ml-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">📦 Múltiple</span>
+                {% endif %}
+            </h1>
+            <p class="text-sm text-gray-600">{{ pago.numero_recibo }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'facturacion:mis_pagos' %}" 
+               class="flex-1 sm:flex-none inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50">
+                ← Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Recibo Card -->
+    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <!-- Header del Recibo -->
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 text-center">
+            <div class="text-4xl mb-2">🧾</div>
+            <h2 class="text-lg font-bold mb-1">RECIBO DE PAGO</h2>
+            <div class="text-xl font-bold bg-white bg-opacity-20 inline-block px-4 py-1 rounded-lg">
+                {{ pago.numero_recibo }}
+            </div>
+            {% if es_pago_multiple %}
+            <p class="text-sm mt-2 opacity-90">Incluye {{ pagos_del_recibo.count }} pago{{ pagos_del_recibo.count|pluralize }}</p>
+            {% endif %}
+        </div>
+
+        <div class="p-4 sm:p-6">
+            <!-- Info Paciente y Fecha -->
+            <div class="grid sm:grid-cols-2 gap-4 mb-6 pb-6 border-b-2">
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <p class="text-xs text-gray-500 uppercase mb-2 flex items-center">
+                        <span class="mr-1">👤</span> Paciente
+                    </p>
+                    <p class="font-bold text-gray-900 mb-1">{{ paciente.nombre_completo }}</p>
+                    <p class="text-sm text-gray-600 mb-1">{{ paciente.nombre_tutor }}</p>
+                    <p class="text-sm text-gray-600 flex items-center">
+                        <span class="mr-1">📞</span>{{ paciente.telefono_tutor }}
+                    </p>
+                </div>
+                
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <p class="text-xs text-gray-500 uppercase mb-2 flex items-center">
+                        <span class="mr-1">📅</span> Fecha de Pago
+                    </p>
+                    <p class="text-xl font-bold text-blue-600 mb-1">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
+                    <p class="text-xs text-gray-500">
+                        Registrado: {{ pago.fecha_registro|date:"d/m/Y H:i" }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Detalles del Pago Principal -->
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3 mb-6">
+                <div class="flex justify-between text-sm pb-2 border-b">
+                    <span class="text-gray-600">Concepto:</span>
+                    <span class="font-semibold text-gray-900 text-right">{{ pago.concepto }}</span>
+                </div>
+
+                <div class="flex justify-between items-center text-sm pb-2 border-b">
+                    <span class="text-gray-600">Método de Pago:</span>
+                    <span class="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                        {{ pago.metodo_pago.nombre }}
+                    </span>
+                </div>
+
+                {% if pago.numero_transaccion %}
+                <div class="flex justify-between text-sm pb-2 border-b">
+                    <span class="text-gray-600">N° Transacción:</span>
+                    <span class="font-mono font-semibold text-gray-900">{{ pago.numero_transaccion }}</span>
+                </div>
+                {% endif %}
+
+                {% if pago.observaciones %}
+                <div class="pt-2">
+                    <p class="text-sm text-gray-600 font-semibold mb-2">Observaciones:</p>
+                    <p class="text-sm text-gray-600 bg-white p-3 rounded border">{{ pago.observaciones }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- DESGLOSE DE PAGOS MÚLTIPLES -->
+            {% if es_pago_multiple %}
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <span class="mr-2">📦</span>
+                    Desglose del Pago
+                </h3>
+                
+                <!-- Sesiones Pagadas -->
+                {% if pagos_sesiones %}
+                <div class="bg-blue-50 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-blue-900 mb-3 text-sm">🏥 Sesiones Pagadas ({{ pagos_sesiones.count }})</h4>
+                    <div class="space-y-2">
+                        {% for pago_sesion in pagos_sesiones %}
+                        <div class="bg-white rounded-lg p-3 flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-900 text-sm">{{ pago_sesion.sesion.servicio.nombre }}</p>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    📅 {{ pago_sesion.sesion.fecha|date:"d/m/Y" }} • 
+                                    👨‍⚕️ {{ pago_sesion.sesion.profesional.nombre_completo|truncatewords:2 }}
+                                </p>
+                            </div>
+                            <div class="text-right ml-3">
+                                <p class="font-bold text-green-600">Bs. {{ pago_sesion.monto }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-blue-200 flex justify-between">
+                        <span class="font-semibold text-blue-900">Subtotal Sesiones:</span>
+                        <span class="font-bold text-blue-600">Bs. {% widthratio pagos_sesiones|length 1 pagos_sesiones.0.monto %}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Proyectos Pagados -->
+                {% if pagos_proyectos %}
+                <div class="bg-indigo-50 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-indigo-900 mb-3 text-sm">📋 Proyectos Pagados ({{ pagos_proyectos.count }})</h4>
+                    <div class="space-y-2">
+                        {% for pago_proyecto in pagos_proyectos %}
+                        <div class="bg-white rounded-lg p-3 flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-900 text-sm">{{ pago_proyecto.proyecto.nombre }}</p>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    📌 {{ pago_proyecto.proyecto.codigo }}
+                                </p>
+                            </div>
+                            <div class="text-right ml-3">
+                                <p class="font-bold text-green-600">Bs. {{ pago_proyecto.monto }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Pagos Adelantados -->
+                {% if pagos_adelantados %}
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-gray-900 mb-3 text-sm">💰 Pagos Adelantados ({{ pagos_adelantados.count }})</h4>
+                    <div class="space-y-2">
+                        {% for pago_adelantado in pagos_adelantados %}
+                        <div class="bg-white rounded-lg p-3 flex justify-between items-start">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-900 text-sm">{{ pago_adelantado.concepto }}</p>
+                            </div>
+                            <div class="text-right ml-3">
+                                <p class="font-bold text-green-600">Bs. {{ pago_adelantado.monto }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <!-- Pago Simple - Mostrar detalles específicos -->
+            <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                {% if pago.sesion %}
+                <h4 class="font-bold text-blue-900 mb-3 text-sm">🏥 Detalle de la Sesión</h4>
+                <div class="bg-white rounded-lg p-4">
+                    <p class="font-semibold text-gray-900 mb-2">{{ pago.sesion.servicio.nombre }}</p>
+                    <div class="space-y-1 text-sm text-gray-600">
+                        <p>📅 Fecha: {{ pago.sesion.fecha|date:"d/m/Y" }}</p>
+                        <p>👨‍⚕️ Profesional: {{ pago.sesion.profesional.nombre_completo }}</p>
+                        <p>🏢 Sucursal: {{ pago.sesion.sucursal.nombre }}</p>
+                    </div>
+                </div>
+                {% elif pago.proyecto %}
+                <h4 class="font-bold text-indigo-900 mb-3 text-sm">📋 Detalle del Proyecto</h4>
+                <div class="bg-white rounded-lg p-4">
+                    <p class="font-semibold text-gray-900 mb-2">{{ pago.proyecto.nombre }}</p>
+                    <div class="space-y-1 text-sm text-gray-600">
+                        <p>📌 Código: {{ pago.proyecto.codigo }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Monto Total -->
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white text-center mb-6">
+                <p class="text-sm uppercase tracking-wide mb-1 opacity-90">
+                    {% if es_pago_multiple %}Monto Total del Recibo{% else %}Monto Pagado{% endif %}
+                </p>
+                <p class="text-4xl sm:text-5xl font-bold">Bs. {{ total_recibo }}</p>
+                {% if es_pago_multiple %}
+                <p class="text-sm mt-2 opacity-80">{{ pagos_del_recibo.count }} pago{{ pagos_del_recibo.count|pluralize }} incluido{{ pagos_del_recibo.count|pluralize }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center pt-4 border-t-2 space-y-2">
+                <div class="bg-gray-50 rounded-lg px-4 py-2 inline-block">
+                    <p class="text-xs text-gray-600">
+                        Registrado por: <strong>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</strong>
+                    </p>
+                </div>
+                <div class="flex items-center justify-center text-green-600 text-sm">
+                    <span class="mr-1">✅</span>
+                    <p class="font-semibold">Comprobante válido de pago</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

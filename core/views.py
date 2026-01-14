@@ -11,10 +11,16 @@ from decimal import Decimal
 def dashboard(request):
     """Dashboard principal con estadísticas"""
     
-    # ✅ REDIRECCIONAR PROFESIONALES A SU AGENDA
+    # ✅ REDIRECCIONAR SEGÚN ROL
     if not request.user.is_superuser:
-        if hasattr(request.user, 'perfil') and request.user.perfil.es_profesional():
-            return redirect('agenda:calendario')
+        if hasattr(request.user, 'perfil'):
+            # Si es profesional, ir a su agenda
+            if request.user.perfil.es_profesional():
+                return redirect('agenda:calendario')
+            
+            # ✅ NUEVO: Si es paciente, ir a su cuenta
+            if request.user.perfil.es_paciente():
+                return redirect('facturacion:mi_cuenta')
     
     try:
         from agenda.models import Sesion
@@ -205,10 +211,16 @@ class CustomLoginView(LoginView):
         """Redirigir según el rol del usuario después del login"""
         user = self.request.user
         
-        # ✅ Si es profesional, ir directo a agenda
+        # ✅ Redireccionar según rol
         if not user.is_superuser:
-            if hasattr(user, 'perfil') and user.perfil.es_profesional():
-                return '/agenda/'
+            if hasattr(user, 'perfil'):
+                # Si es profesional, ir directo a agenda
+                if user.perfil.es_profesional():
+                    return '/agenda/'
+                
+                # ✅ NUEVO: Si es paciente, ir a su cuenta
+                if user.perfil.es_paciente():
+                    return '/facturacion/mi-cuenta/'
         
         # Para otros roles, ir al dashboard
         return '/'

@@ -103,104 +103,321 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y">
-                    {% for pago in page_obj %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-2 py-1.5 font-mono text-[9px]">
-                            {{ pago.numero_recibo }}
-                        </td>
-                        <td class="px-2 py-1.5">
-                            <p class="font-medium">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
-                            <p class="text-[9px] text-gray-500">{{ pago.fecha_registro|date:"H:i" }}</p>
-                        </td>
-                        <td class="px-2 py-1.5">
-                            <p class="font-medium">{{ pago.paciente.nombre_completo }}</p>
-                            <p class="text-[9px] text-gray-500">{{ pago.paciente.nombre_tutor }}</p>
-                        </td>
-                        <td class="px-2 py-1.5 text-gray-700">
-                            {{ pago.concepto|truncatewords:6 }}
-                            {% if pago.sesion %}
-                                <br><span class="text-[9px] text-gray-500">{{ pago.sesion.servicio.nombre }}</span>
-                            {% elif pago.proyecto %}
-                                <br><span class="text-[9px] text-purple-600">📦 {{ pago.proyecto.codigo }}</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-2 py-1.5">
-                            {% if pago.proyecto %}
-                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
-                                    📦 Proyecto
-                                </span>
-                            {% elif pago.sesion %}
-                                {% if pago.sesion.proyecto %}
-                                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
-                                        📦 Proyecto
+                    {% regroup page_obj by numero_recibo as pagos_agrupados %}
+                    
+                    {% for grupo in pagos_agrupados %}
+                        {% with primer_pago=grupo.list.0 total_items=grupo.list|length %}
+                        
+                        {% if total_items > 1 %}
+                            <!-- ✅ PAGO MASIVO - FILA AGRUPADA -->
+                            <tr class="hover:bg-gray-50 bg-blue-50">
+                                <td class="px-2 py-1.5">
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="toggleDetallePago('{{ grupo.grouper }}')" 
+                                                class="text-blue-600 hover:text-blue-800 font-bold">
+                                            <span id="icon-{{ grupo.grouper }}" class="text-xs">▶</span>
+                                        </button>
+                                        <div>
+                                            <p class="font-mono text-[9px] font-bold text-blue-900">{{ grupo.grouper }}</p>
+                                            <span class="inline-block text-[8px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">
+                                                📁 {{ total_items }} ítems
+                                            </span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <p class="font-medium">{{ primer_pago.fecha_pago|date:"d/m/Y" }}</p>
+                                    <p class="text-[9px] text-gray-500">{{ primer_pago.fecha_registro|date:"H:i" }}</p>
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <p class="font-medium">{{ primer_pago.paciente.nombre_completo }}</p>
+                                    <p class="text-[9px] text-gray-500">{{ primer_pago.paciente.nombre_tutor }}</p>
+                                </td>
+                                <td class="px-2 py-1.5 text-gray-700">
+                                    <p class="font-medium text-blue-900">Pago Masivo</p>
+                                    <p class="text-[8px] text-gray-600">
+                                        {{ total_items }} transaccion{{ total_items|pluralize:"es" }}
+                                    </p>
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold border border-purple-200">
+                                        📁 Múltiple
                                     </span>
-                                {% else %}
-                                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">
-                                        📄 Normal
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded 
+                                        {% if primer_pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-purple-100 text-purple-700
+                                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                        {{ primer_pago.metodo_pago.nombre }}
                                     </span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
-                                    💳 Adelanto
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-2 py-1.5">
-                            <span class="text-[9px] px-1.5 py-0.5 rounded 
-                                {% if pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-purple-100 text-purple-700
-                                {% else %}bg-blue-100 text-blue-700{% endif %}">
-                                {{ pago.metodo_pago.nombre }}
-                            </span>
-                        </td>
-                        <td class="px-2 py-1.5 text-center">
-                            {% if pago.sesion %}
-                                <span class="text-[9px] px-1.5 py-0.5 rounded font-bold
-                                    {% if pago.sesion.estado == 'realizada' %}bg-green-100 text-green-700
-                                    {% elif pago.sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
-                                    {% elif pago.sesion.estado == 'programada' %}bg-blue-100 text-blue-700
-                                    {% elif pago.sesion.estado == 'falta' %}bg-red-100 text-red-700
-                                    {% else %}bg-gray-100 text-gray-700{% endif %}">
-                                    {{ pago.sesion.get_estado_display }}
-                                </span>
-                            {% else %}
-                                <span class="text-[9px] text-gray-400">-</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-2 py-1.5 text-right font-bold 
-                            {% if pago.metodo_pago.nombre == 'Uso de Crédito' %}text-purple-700
-                            {% else %}text-green-700{% endif %}">
-                            Bs. {{ pago.monto|floatformat:2 }}
-                        </td>
-                        <td class="px-2 py-1.5 text-center">
-                            <div class="flex gap-0.5 justify-center">
-                                {% if pago.metodo_pago.nombre != "Uso de Crédito" %}
-                                <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
-                                   class="text-[9px] px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700"
-                                   title="Descargar PDF"
-                                   target="_blank">
-                                    📄
-                                </a>
-                                {% endif %}
-                                <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 
-                                   class="text-[9px] px-1.5 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700"
-                                   title="Ver cuenta">
-                                    👤
-                                </a>
-                                <button onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
-                                        class="text-[9px] px-1.5 py-0.5 bg-red-600 text-white rounded hover:bg-red-700"
-                                        title="Anular">
-                                    ✗
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
+                                </td>
+                                <td class="px-2 py-1.5 text-center">
+                                    <span class="text-[9px] text-gray-400">-</span>
+                                </td>
+                                <td class="px-2 py-1.5 text-right">
+                                    <p class="font-black text-green-700 text-sm">
+                                        Bs. <span id="total-fila-{{ grupo.grouper }}">0.00</span>
+                                    </p>
+                                    <p class="text-[8px] text-gray-500">
+                                        Total del recibo
+                                    </p>
+                                </td>
+                                <td class="px-2 py-1.5 text-center">
+                                    <div class="flex gap-0.5 justify-center">
+                                        {% if primer_pago.metodo_pago.nombre != "Uso de Crédito" %}
+                                        <a href="{% url 'facturacion:generar_recibo_pdf' primer_pago.id %}" 
+                                        class="text-[9px] px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                        title="Descargar PDF"
+                                        target="_blank">
+                                            📄
+                                        </a>
+                                        {% endif %}
+                                        <a href="{% url 'facturacion:detalle_cuenta' primer_pago.paciente.id %}" 
+                                        class="text-[9px] px-1.5 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                        title="Ver cuenta">
+                                            👤
+                                        </a>
+                                        <button onclick="confirmarAnulacion({{ primer_pago.id }}, '{{ grupo.grouper }}')"
+                                                class="text-[9px] px-1.5 py-0.5 bg-red-600 text-white rounded hover:bg-red-700"
+                                                title="Anular">
+                                            ✗
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <!-- ✅ DETALLES DESPLEGABLES DEL PAGO MASIVO -->
+                            <tr id="detalle-{{ grupo.grouper }}" class="hidden bg-blue-50">
+                                <td colspan="9" class="px-2 py-0">
+                                    <div class="bg-white border-2 border-blue-200 rounded-lg m-2 overflow-hidden">
+                                        <div class="bg-blue-100 px-2 py-1.5 border-b border-blue-200">
+                                            <p class="text-[9px] font-bold text-blue-900">
+                                                📋 Detalle de {{ total_items }} transacciones del recibo {{ grupo.grouper }}
+                                            </p>
+                                        </div>
+                                        
+                                        <div class="overflow-x-auto">
+                                            <table class="min-w-full text-[9px]">
+                                                <thead class="bg-gray-50 border-b">
+                                                    <tr>
+                                                        <th class="px-2 py-1 text-left text-[8px] font-bold text-gray-600">#</th>
+                                                        <th class="px-2 py-1 text-left text-[8px] font-bold text-gray-600">Concepto</th>
+                                                        <th class="px-2 py-1 text-left text-[8px] font-bold text-gray-600">Tipo</th>
+                                                        <th class="px-2 py-1 text-center text-[8px] font-bold text-gray-600">Estado</th>
+                                                        <th class="px-2 py-1 text-right text-[8px] font-bold text-gray-600">Monto</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-100">
+                                                    {% for pago in grupo.list %}
+                                                    <tr class="hover:bg-gray-50">
+                                                        <td class="px-2 py-1">
+                                                            <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 text-blue-700 font-bold text-[8px]">
+                                                                {{ forloop.counter }}
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-2 py-1">
+                                                            {% if pago.sesion %}
+                                                                <p class="font-medium text-gray-900">{{ pago.sesion.servicio.nombre }}</p>
+                                                                <p class="text-[8px] text-gray-500">
+                                                                    {{ pago.sesion.fecha|date:"d/m/Y" }} - {{ pago.sesion.hora_inicio|time:"H:i" }}
+                                                                </p>
+                                                            {% elif pago.proyecto %}
+                                                                <p class="font-medium text-purple-900">{{ pago.proyecto.nombre }}</p>
+                                                                <p class="text-[8px] text-purple-600">{{ pago.proyecto.codigo }}</p>
+                                                            {% else %}
+                                                                <p class="font-medium text-blue-900">Pago Adelantado</p>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="px-2 py-1">
+                                                            {% if pago.proyecto %}
+                                                                <span class="text-[8px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
+                                                                    📦 Proyecto
+                                                                </span>
+                                                            {% elif pago.sesion %}
+                                                                {% if pago.sesion.proyecto %}
+                                                                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
+                                                                        📦 Proyecto
+                                                                    </span>
+                                                                {% else %}
+                                                                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">
+                                                                        📋 Sesión
+                                                                    </span>
+                                                                {% endif %}
+                                                            {% else %}
+                                                                <span class="text-[8px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
+                                                                    💳 Adelanto
+                                                                </span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="px-2 py-1 text-center">
+                                                            {% if pago.sesion %}
+                                                                <span class="text-[8px] px-1.5 py-0.5 rounded font-bold
+                                                                    {% if pago.sesion.estado == 'realizada' %}bg-green-100 text-green-700
+                                                                    {% elif pago.sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
+                                                                    {% elif pago.sesion.estado == 'programada' %}bg-blue-100 text-blue-700
+                                                                    {% elif pago.sesion.estado == 'falta' %}bg-red-100 text-red-700
+                                                                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                                                    {{ pago.sesion.get_estado_display }}
+                                                                </span>
+                                                            {% else %}
+                                                                <span class="text-[9px] text-gray-400">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="px-2 py-1 text-right font-bold text-gray-900">
+                                                            Bs. {{ pago.monto|floatformat:2 }}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                                <tfoot class="bg-gray-50 border-t-2 border-gray-300">
+                                                    <tr>
+                                                        <td colspan="4" class="px-2 py-1 text-right">
+                                                            <span class="text-[9px] font-bold text-gray-700">Subtotal {{ total_items }} ítems:</span>
+                                                        </td>
+                                                        <td class="px-2 py-1 text-right">
+                                                            <span class="text-xs font-black text-green-700">
+                                                                Bs. <span id="total-{{ grupo.grouper }}">0.00</span>
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                        
+                                        {% if primer_pago.observaciones %}
+                                        <div class="bg-yellow-50 border-t border-yellow-200 px-2 py-1.5">
+                                            <p class="text-[8px] font-bold text-yellow-800 mb-0.5">📝 Observaciones:</p>
+                                            <p class="text-[9px] text-gray-700">{{ primer_pago.observaciones }}</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <script>
+                                // Calcular total para recibo {{ grupo.grouper }}
+                                (function() {
+                                    let total = 0;
+                                    {% for pago in grupo.list %}
+                                        total += parseFloat({{ pago.monto }});
+                                    {% endfor %}
+                                    
+                                    const elem = document.getElementById('total-{{ grupo.grouper }}');
+                                    if (elem) {
+                                        elem.textContent = total.toFixed(2);
+                                    }
+                                    
+                                    const filaElem = document.getElementById('total-fila-{{ grupo.grouper }}');
+                                    if (filaElem) {
+                                        filaElem.textContent = total.toFixed(2);
+                                    }
+                                })();
+                            </script>
+                        
+                        {% else %}
+                            <!-- ✅ PAGO INDIVIDUAL - FILA NORMAL -->
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-2 py-1.5 font-mono text-[9px]">
+                                    {{ primer_pago.numero_recibo }}
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <p class="font-medium">{{ primer_pago.fecha_pago|date:"d/m/Y" }}</p>
+                                    <p class="text-[9px] text-gray-500">{{ primer_pago.fecha_registro|date:"H:i" }}</p>
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <p class="font-medium">{{ primer_pago.paciente.nombre_completo }}</p>
+                                    <p class="text-[9px] text-gray-500">{{ primer_pago.paciente.nombre_tutor }}</p>
+                                </td>
+                                <td class="px-2 py-1.5 text-gray-700">
+                                    {{ primer_pago.concepto|truncatewords:6 }}
+                                    {% if primer_pago.sesion %}
+                                        <br><span class="text-[9px] text-gray-500">{{ primer_pago.sesion.servicio.nombre }}</span>
+                                    {% elif primer_pago.proyecto %}
+                                        <br><span class="text-[9px] text-purple-600">📦 {{ primer_pago.proyecto.codigo }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    {% if primer_pago.proyecto %}
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
+                                            📦 Proyecto
+                                        </span>
+                                    {% elif primer_pago.sesion %}
+                                        {% if primer_pago.sesion.proyecto %}
+                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">
+                                                📦 Proyecto
+                                            </span>
+                                        {% else %}
+                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">
+                                                📄 Normal
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold">
+                                            💳 Adelanto
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-2 py-1.5">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded 
+                                        {% if primer_pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-purple-100 text-purple-700
+                                        {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                        {{ primer_pago.metodo_pago.nombre }}
+                                    </span>
+                                </td>
+                                <td class="px-2 py-1.5 text-center">
+                                    {% if primer_pago.sesion %}
+                                        <span class="text-[9px] px-1.5 py-0.5 rounded font-bold
+                                            {% if primer_pago.sesion.estado == 'realizada' %}bg-green-100 text-green-700
+                                            {% elif primer_pago.sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-700
+                                            {% elif primer_pago.sesion.estado == 'programada' %}bg-blue-100 text-blue-700
+                                            {% elif primer_pago.sesion.estado == 'falta' %}bg-red-100 text-red-700
+                                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                            {{ primer_pago.sesion.get_estado_display }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-[9px] text-gray-400">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-2 py-1.5 text-right font-bold 
+                                    {% if primer_pago.metodo_pago.nombre == 'Uso de Crédito' %}text-purple-700
+                                    {% else %}text-green-700{% endif %}">
+                                    Bs. {{ primer_pago.monto|floatformat:2 }}
+                                </td>
+                                <td class="px-2 py-1.5 text-center">
+                                    <div class="flex gap-0.5 justify-center">
+                                        {% if primer_pago.metodo_pago.nombre != "Uso de Crédito" %}
+                                        <a href="{% url 'facturacion:generar_recibo_pdf' primer_pago.id %}" 
+                                        class="text-[9px] px-1.5 py-0.5 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                        title="Descargar PDF"
+                                        target="_blank">
+                                            📄
+                                        </a>
+                                        {% endif %}
+                                        <a href="{% url 'facturacion:detalle_cuenta' primer_pago.paciente.id %}" 
+                                        class="text-[9px] px-1.5 py-0.5 bg-gray-600 text-white rounded hover:bg-gray-700"
+                                        title="Ver cuenta">
+                                            👤
+                                        </a>
+                                        <button onclick="confirmarAnulacion({{ primer_pago.id }}, '{{ primer_pago.numero_recibo }}')"
+                                                class="text-[9px] px-1.5 py-0.5 bg-red-600 text-white rounded hover:bg-red-700"
+                                                title="Anular">
+                                            ✗
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                        
+                        {% endwith %}
+                    {% endfor %}
+                    
+                    {% if not pagos_agrupados %}
                     <tr>
                         <td colspan="9" class="px-2 py-6 text-center text-gray-500 text-xs">
                             No hay pagos que coincidan con los filtros
                         </td>
                     </tr>
-                    {% endfor %}
+                    {% endif %}
                 </tbody>
             </table>
         </div>
@@ -262,6 +479,33 @@
 </div>
 
 <script>
+function confirmarAnulacion(pagoId, numeroRecibo) {
+    document.getElementById('recibo-numero').textContent = numeroRecibo;
+    document.getElementById('form-anular').action = '/facturacion/pago/' + pagoId + '/anular/';
+    document.getElementById('modal-anular').classList.remove('hidden');
+    document.getElementById('modal-anular').classList.add('flex');
+}
+
+function cerrarModal() {
+    document.getElementById('modal-anular').classList.add('hidden');
+    document.getElementById('modal-anular').classList.remove('flex');
+}
+</script>
+
+<script>
+function toggleDetallePago(numeroRecibo) {
+    const detalleRow = document.getElementById('detalle-' + numeroRecibo);
+    const icon = document.getElementById('icon-' + numeroRecibo);
+    
+    if (detalleRow.classList.contains('hidden')) {
+        detalleRow.classList.remove('hidden');
+        icon.textContent = '▼';
+    } else {
+        detalleRow.classList.add('hidden');
+        icon.textContent = '▶';
+    }
+}
+
 function confirmarAnulacion(pagoId, numeroRecibo) {
     document.getElementById('recibo-numero').textContent = numeroRecibo;
     document.getElementById('form-anular').action = '/facturacion/pago/' + pagoId + '/anular/';

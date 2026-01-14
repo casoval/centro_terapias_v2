@@ -1499,3 +1499,60 @@ def obtener_proyectos_paciente(request, paciente_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@login_required
+def eliminar_sesion(request, sesion_id):
+    """
+    Eliminar una sesión SOLO si está programada y no tiene pagos
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        sesion = get_object_or_404(Sesion, id=sesion_id)
+        
+        # ✅ VALIDACIÓN 1: Solo sesiones programadas
+        if sesion.estado != 'programada':
+            return JsonResponse({
+                'error': True,
+                'mensaje': f'❌ No se puede eliminar. La sesión está en estado: {sesion.get_estado_display()}'
+            }, status=400)
+        
+        # ✅ VALIDACIÓN 2: No debe tener pagos
+        pagos_activos = sesion.pagos.filter(anulado=False)
+        if pagos_activos.exists():
+            total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
+            return JsonResponse({
+                'error': True,
+                'mensaje': f'❌ No se puede eliminar. La sesión tiene {pagos_activos.count()} pago(s) por Bs. {total_pagado}'
+            }, status=400)
+        
+        # ✅ GUARDAR INFO PARA MENSAJE
+        info_sesion = {
+            'fecha': sesion.fecha.strftime('%d/%m/%Y'),
+            'hora': sesion.hora_inicio.strftime('%H:%M'),
+            'paciente': f"{sesion.paciente.nombre} {sesion.paciente.apellido}",
+            'servicio': sesion.servicio.nombre
+        }
+        
+        # ✅ ELIMINAR
+        sesion.delete()
+        
+        messages.success(
+            request, 
+            f'✅ Sesión eliminada: {info_sesion["paciente"]} - {info_sesion["servicio"]} - {info_sesion["fecha"]} {info_sesion["hora"]}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'mensaje': 'Sesión eliminada correctamente',
+            'redirect': request.META.get('HTTP_REFERER', '/agenda/')
+        })
+        
+    except Sesion.DoesNotExist:
+        return JsonResponse({'error': 'Sesión no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'error': True,
+            'mensaje': f'Error: {str(e)}'
+        }, status=500)

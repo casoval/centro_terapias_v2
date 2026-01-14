@@ -11,8 +11,9 @@ class PerfilUsuario(models.Model):
     Perfil extendido del usuario con roles y permisos
     """
     
-    # Tipos de roles
+    # Tipos de roles - ✅ AGREGADO ROL PACIENTE
     ROL_CHOICES = [
+        ('paciente', 'Paciente'),  # ✅ NUEVO ROL
         ('profesional', 'Profesional'),
         ('recepcionista', 'Recepcionista'),
         ('gerente', 'Gerente'),
@@ -42,6 +43,16 @@ class PerfilUsuario(models.Model):
         help_text='Vinculación con el profesional (si es profesional)'
     )
     
+    # ✅ NUEVO: Relación con Paciente (si aplica)
+    paciente = models.OneToOneField(
+        'pacientes.Paciente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='perfil_usuario',
+        help_text='Vinculación con el paciente (si es paciente)'
+    )
+    
     # Sucursales asignadas (para Recepcionista y Gerente)
     sucursales = models.ManyToManyField(
         'servicios.Sucursal',
@@ -69,6 +80,10 @@ class PerfilUsuario(models.Model):
         """Verifica si es superusuario"""
         return self.user.is_superuser
     
+    def es_paciente(self):
+        """✅ NUEVO: Verifica si tiene rol de paciente"""
+        return self.rol == 'paciente'
+    
     def es_profesional(self):
         """Verifica si tiene rol de profesional"""
         return self.rol == 'profesional'
@@ -82,7 +97,7 @@ class PerfilUsuario(models.Model):
         return self.rol == 'gerente'
     
     def puede_crear_pacientes(self):
-        """Todos excepto profesionales pueden crear pacientes"""
+        """Todos excepto profesionales y pacientes pueden crear pacientes"""
         if self.es_superadmin():
             return True
         return self.rol in ['recepcionista', 'gerente']
@@ -165,18 +180,33 @@ class PerfilUsuario(models.Model):
         """Profesionales solo pueden editar observaciones privadas"""
         return self.es_profesional()
     
+    # ✅ NUEVOS PERMISOS PARA PACIENTES
+    def puede_ver_solo_sus_datos(self):
+        """Los pacientes solo pueden ver sus propios datos"""
+        return self.es_paciente()
+    
+    def puede_acceder_dashboard_completo(self):
+        """Los pacientes NO pueden acceder al dashboard completo"""
+        if self.es_paciente():
+            return False
+        return True
+    
     def get_sucursales(self):
         """
         Retorna las sucursales del usuario según su rol
         - Superadmin: None (acceso a todas)
         - Profesional: sucursales del profesional vinculado
         - Recepcionista/Gerente: sucursales asignadas
+        - Paciente: None (no aplica)
         """
         if self.es_superadmin():
             return None  # Acceso a todas
         
         if self.es_profesional() and self.profesional:
             return self.profesional.sucursales.all()
+        
+        if self.es_paciente():
+            return None  # Los pacientes no tienen sucursales asignadas
         
         return self.sucursales.all()
     
@@ -186,6 +216,9 @@ class PerfilUsuario(models.Model):
         """
         if self.es_superadmin():
             return True
+        
+        if self.es_paciente():
+            return False  # Los pacientes no filtran por sucursal
         
         sucursales = self.get_sucursales()
         if sucursales is None:

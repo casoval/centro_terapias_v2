@@ -71,8 +71,8 @@ def lista_cuentas_corrientes(request):
         key=lambda p: p.cuenta_corriente.balance_final
     )
     
-    # Paginación (20 por página)
-    paginator = Paginator(pacientes, 20)
+    # Paginación (50 por página)
+    paginator = Paginator(pacientes, 50)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
@@ -137,7 +137,7 @@ def lista_cuentas_corrientes(request):
 def detalle_cuenta_corriente(request, paciente_id):
     """
     Detalle completo de cuenta corriente de un paciente
-    ✅ ACTUALIZADO: Incluye proyectos del paciente
+    ✅ ACTUALIZADO: Incluye totales por tipo en cada pestaña + FILTROS DINÁMICOS
     """
     
     paciente = get_object_or_404(
@@ -150,20 +150,81 @@ def detalle_cuenta_corriente(request, paciente_id):
     if created:
         cuenta.actualizar_saldo()
     
+    # ✅ OBTENER FILTROS DE LA URL
+    filtro_sesiones = request.GET.get('filtro_sesiones', 'todas')  # todas, contado, credito, pendiente
+    filtro_validos = request.GET.get('filtro_validos', 'todos')    # todos, sesiones, proyectos, adelantos
+    filtro_credito = request.GET.get('filtro_credito', 'todos')    # todos, sesiones, proyectos
+    filtro_anulados = request.GET.get('filtro_anulados', 'todos')  # todos, sesiones, proyectos, adelantos
+    
     # ==================== SESIONES ====================
-    sesiones = Sesion.objects.filter(
+    sesiones_todas = Sesion.objects.filter(
         paciente=paciente,
         estado__in=['realizada', 'realizada_retraso', 'falta']
     ).select_related(
-        'servicio', 'profesional', 'sucursal'
+        'servicio', 'profesional', 'sucursal', 'proyecto'
+    ).prefetch_related(
+        'pagos', 'pagos__metodo_pago'
     ).order_by('-fecha', '-hora_inicio')
     
-    # Paginar sesiones (15 por página)
-    paginator_sesiones = Paginator(sesiones, 15)
+    # ✅ CALCULAR TOTALES DE SESIONES con desglose (TODAS - para tarjeta de totales)
+    total_sesiones_pagado = Decimal('0.00')
+    total_sesiones_pagado_contado = Decimal('0.00')
+    total_sesiones_pagado_credito = Decimal('0.00')
+    total_sesiones_pendiente = Decimal('0.00')
+    
+    sesiones_list_completa = list(sesiones_todas)
+    
+    # Contadores para menú desplegable
+    count_sesiones_todas = len(sesiones_list_completa)
+    count_sesiones_contado = 0
+    count_sesiones_credito = 0
+    count_sesiones_pendiente = 0
+    
+    # Listas filtradas
+    sesiones_contado = []
+    sesiones_credito = []
+    sesiones_pendiente = []
+    
+    for sesion in sesiones_list_completa:
+        # Calcular totales
+        total_sesiones_pagado += sesion.total_pagado
+        total_sesiones_pagado_contado += sesion.total_pagado_contado
+        total_sesiones_pagado_credito += sesion.total_pagado_credito
+        
+        if sesion.saldo_pendiente > 0:
+            total_sesiones_pendiente += sesion.saldo_pendiente
+        
+        # Clasificar para filtros
+        if sesion.total_pagado_contado > 0 and sesion.saldo_pendiente == 0:
+            sesiones_contado.append(sesion)
+            count_sesiones_contado += 1
+        
+        if sesion.total_pagado_credito > 0:
+            sesiones_credito.append(sesion)
+            count_sesiones_credito += 1
+        
+        if sesion.saldo_pendiente > 0:
+            sesiones_pendiente.append(sesion)
+            count_sesiones_pendiente += 1
+    
+    total_sesiones_general = total_sesiones_pagado + total_sesiones_pendiente
+    
+    # ✅ APLICAR FILTRO SELECCIONADO
+    if filtro_sesiones == 'contado':
+        sesiones_a_mostrar = sesiones_contado
+    elif filtro_sesiones == 'credito':
+        sesiones_a_mostrar = sesiones_credito
+    elif filtro_sesiones == 'pendiente':
+        sesiones_a_mostrar = sesiones_pendiente
+    else:  # 'todas'
+        sesiones_a_mostrar = sesiones_list_completa
+    
+    # Paginar sesiones filtradas
+    paginator_sesiones = Paginator(sesiones_a_mostrar, 50)
     page_sesiones = request.GET.get('page_sesiones', 1)
     sesiones_page = paginator_sesiones.get_page(page_sesiones)
     
-    # ==================== PROYECTOS ✅ NUEVO ====================
+    # ==================== PROYECTOS ====================
     from agenda.models import Proyecto
     
     proyectos_paciente = Proyecto.objects.filter(
@@ -173,48 +234,168 @@ def detalle_cuenta_corriente(request, paciente_id):
     ).order_by('-fecha_inicio')
     
     # ==================== PAGOS VÁLIDOS ====================
-    pagos_validos = Pago.objects.filter(
+    pagos_validos_todos = Pago.objects.filter(
         paciente=paciente,
         anulado=False
     ).exclude(
         metodo_pago__nombre="Uso de Crédito"
     ).select_related(
-        'metodo_pago', 'sesion', 'sesion__servicio', 'proyecto', 'registrado_por'
+        'metodo_pago', 'sesion', 'sesion__servicio', 'sesion__proyecto', 'proyecto', 'registrado_por'
     ).order_by('-fecha_pago', '-fecha_registro')
     
-    paginator_validos = Paginator(pagos_validos, 15)
+    # ✅ CALCULAR TOTALES POR TIPO Y CLASIFICAR - PAGOS VÁLIDOS
+    total_validos_sesiones = Decimal('0.00')
+    total_validos_proyectos = Decimal('0.00')
+    total_validos_adelantos = Decimal('0.00')
+    
+    pagos_validos_list_completa = list(pagos_validos_todos)
+    
+    # Contadores y listas filtradas
+    count_validos_todos = len(pagos_validos_list_completa)
+    count_validos_sesiones = 0
+    count_validos_proyectos = 0
+    count_validos_adelantos = 0
+    
+    pagos_validos_sesiones = []
+    pagos_validos_proyectos = []
+    pagos_validos_adelantos = []
+    
+    for pago in pagos_validos_list_completa:
+        if pago.proyecto:
+            total_validos_proyectos += pago.monto
+            pagos_validos_proyectos.append(pago)
+            count_validos_proyectos += 1
+        elif pago.sesion and not pago.sesion.proyecto:
+            total_validos_sesiones += pago.monto
+            pagos_validos_sesiones.append(pago)
+            count_validos_sesiones += 1
+        elif not pago.sesion and not pago.proyecto:
+            total_validos_adelantos += pago.monto
+            pagos_validos_adelantos.append(pago)
+            count_validos_adelantos += 1
+    
+    total_validos_general = total_validos_sesiones + total_validos_proyectos + total_validos_adelantos
+    
+    # ✅ APLICAR FILTRO SELECCIONADO
+    if filtro_validos == 'sesiones':
+        pagos_validos_a_mostrar = pagos_validos_sesiones
+    elif filtro_validos == 'proyectos':
+        pagos_validos_a_mostrar = pagos_validos_proyectos
+    elif filtro_validos == 'adelantos':
+        pagos_validos_a_mostrar = pagos_validos_adelantos
+    else:  # 'todos'
+        pagos_validos_a_mostrar = pagos_validos_list_completa
+    
+    paginator_validos = Paginator(pagos_validos_a_mostrar, 50)
     page_validos = request.GET.get('page_validos', 1)
     pagos_validos_page = paginator_validos.get_page(page_validos)
     
     # ==================== PAGOS CON CRÉDITO ====================
-    pagos_credito = Pago.objects.filter(
+    pagos_credito_todos = Pago.objects.filter(
         paciente=paciente,
         metodo_pago__nombre="Uso de Crédito",
         anulado=False
     ).select_related(
-        'metodo_pago', 'sesion', 'sesion__servicio', 'registrado_por'
+        'metodo_pago', 'sesion', 'sesion__servicio', 'sesion__proyecto', 'proyecto', 'registrado_por'
     ).order_by('-fecha_pago', '-fecha_registro')
     
-    paginator_credito = Paginator(pagos_credito, 15)
+    # ✅ CALCULAR TOTALES POR TIPO Y CLASIFICAR - CRÉDITO
+    total_credito_sesiones = Decimal('0.00')
+    total_credito_proyectos = Decimal('0.00')
+    
+    pagos_credito_list_completa = list(pagos_credito_todos)
+    
+    # Contadores y listas filtradas
+    count_credito_todos = len(pagos_credito_list_completa)
+    count_credito_sesiones = 0
+    count_credito_proyectos = 0
+    
+    pagos_credito_sesiones = []
+    pagos_credito_proyectos = []
+    
+    for pago in pagos_credito_list_completa:
+        if pago.proyecto:
+            total_credito_proyectos += pago.monto
+            pagos_credito_proyectos.append(pago)
+            count_credito_proyectos += 1
+        elif pago.sesion and not pago.sesion.proyecto:
+            total_credito_sesiones += pago.monto
+            pagos_credito_sesiones.append(pago)
+            count_credito_sesiones += 1
+    
+    total_credito_general = total_credito_sesiones + total_credito_proyectos
+    
+    # ✅ APLICAR FILTRO SELECCIONADO
+    if filtro_credito == 'sesiones':
+        pagos_credito_a_mostrar = pagos_credito_sesiones
+    elif filtro_credito == 'proyectos':
+        pagos_credito_a_mostrar = pagos_credito_proyectos
+    else:  # 'todos'
+        pagos_credito_a_mostrar = pagos_credito_list_completa
+    
+    paginator_credito = Paginator(pagos_credito_a_mostrar, 50)
     page_credito = request.GET.get('page_credito', 1)
     pagos_credito_page = paginator_credito.get_page(page_credito)
     
     # ==================== PAGOS ANULADOS ====================
-    pagos_anulados = Pago.objects.filter(
+    pagos_anulados_todos = Pago.objects.filter(
         paciente=paciente,
         anulado=True
     ).select_related(
-        'metodo_pago', 'sesion', 'sesion__servicio', 'proyecto', 
+        'metodo_pago', 'sesion', 'sesion__servicio', 'sesion__proyecto', 'proyecto', 
         'registrado_por', 'anulado_por'
     ).order_by('-fecha_anulacion')
     
-    paginator_anulados = Paginator(pagos_anulados, 15)
+    # ✅ CALCULAR TOTALES POR TIPO Y CLASIFICAR - ANULADOS
+    total_anulados_sesiones = Decimal('0.00')
+    total_anulados_proyectos = Decimal('0.00')
+    total_anulados_adelantos = Decimal('0.00')
+    
+    pagos_anulados_list_completa = list(pagos_anulados_todos)
+    
+    # Contadores y listas filtradas
+    count_anulados_todos = len(pagos_anulados_list_completa)
+    count_anulados_sesiones = 0
+    count_anulados_proyectos = 0
+    count_anulados_adelantos = 0
+    
+    pagos_anulados_sesiones = []
+    pagos_anulados_proyectos = []
+    pagos_anulados_adelantos = []
+    
+    for pago in pagos_anulados_list_completa:
+        if pago.proyecto:
+            total_anulados_proyectos += pago.monto
+            pagos_anulados_proyectos.append(pago)
+            count_anulados_proyectos += 1
+        elif pago.sesion and not pago.sesion.proyecto:
+            total_anulados_sesiones += pago.monto
+            pagos_anulados_sesiones.append(pago)
+            count_anulados_sesiones += 1
+        elif not pago.sesion and not pago.proyecto:
+            total_anulados_adelantos += pago.monto
+            pagos_anulados_adelantos.append(pago)
+            count_anulados_adelantos += 1
+    
+    total_anulados_general = total_anulados_sesiones + total_anulados_proyectos + total_anulados_adelantos
+    
+    # ✅ APLICAR FILTRO SELECCIONADO
+    if filtro_anulados == 'sesiones':
+        pagos_anulados_a_mostrar = pagos_anulados_sesiones
+    elif filtro_anulados == 'proyectos':
+        pagos_anulados_a_mostrar = pagos_anulados_proyectos
+    elif filtro_anulados == 'adelantos':
+        pagos_anulados_a_mostrar = pagos_anulados_adelantos
+    else:  # 'todos'
+        pagos_anulados_a_mostrar = pagos_anulados_list_completa
+    
+    paginator_anulados = Paginator(pagos_anulados_a_mostrar, 50)
     page_anulados = request.GET.get('page_anulados', 1)
     pagos_anulados_page = paginator_anulados.get_page(page_anulados)
     
     # ==================== ESTADÍSTICAS ====================
     stats = {
-        'pagos_anulados': pagos_anulados.count(),
+        'pagos_anulados': count_anulados_todos,
         'proyectos_activos': proyectos_paciente.filter(
             estado__in=['planificado', 'en_progreso']
         ).count(),
@@ -223,16 +404,91 @@ def detalle_cuenta_corriente(request, paciente_id):
         ).count(),
     }
     
+    # ✅ TOTALES POR PESTAÑA
+    totales_sesiones = {
+        'pagado': total_sesiones_pagado,
+        'pagado_contado': total_sesiones_pagado_contado,
+        'pagado_credito': total_sesiones_pagado_credito,
+        'pendiente': total_sesiones_pendiente,
+        'general': total_sesiones_general,
+    }
+    
+    totales_validos = {
+        'sesiones': total_validos_sesiones,
+        'proyectos': total_validos_proyectos,
+        'adelantos': total_validos_adelantos,
+        'general': total_validos_general,
+    }
+    
+    totales_credito = {
+        'sesiones': total_credito_sesiones,
+        'proyectos': total_credito_proyectos,
+        'general': total_credito_general,
+    }
+    
+    totales_anulados = {
+        'sesiones': total_anulados_sesiones,
+        'proyectos': total_anulados_proyectos,
+        'adelantos': total_anulados_adelantos,
+        'general': total_anulados_general,
+    }
+    
+    # ✅ CONTADORES PARA MENÚS DESPLEGABLES
+    contadores_sesiones = {
+        'todas': count_sesiones_todas,
+        'contado': count_sesiones_contado,
+        'credito': count_sesiones_credito,
+        'pendiente': count_sesiones_pendiente,
+    }
+    
+    contadores_validos = {
+        'todos': count_validos_todos,
+        'sesiones': count_validos_sesiones,
+        'proyectos': count_validos_proyectos,
+        'adelantos': count_validos_adelantos,
+    }
+    
+    contadores_credito = {
+        'todos': count_credito_todos,
+        'sesiones': count_credito_sesiones,
+        'proyectos': count_credito_proyectos,
+    }
+    
+    contadores_anulados = {
+        'todos': count_anulados_todos,
+        'sesiones': count_anulados_sesiones,
+        'proyectos': count_anulados_proyectos,
+        'adelantos': count_anulados_adelantos,
+    }
+    
     context = {
         'paciente': paciente,
         'cuenta': cuenta,
         'sesiones': sesiones_page,
-        'proyectos_paciente': proyectos_paciente,  # ✅ NUEVO
+        'proyectos_paciente': proyectos_paciente,
         'pagos_validos': pagos_validos_page,
         'pagos_credito': pagos_credito_page,
         'pagos_anulados': pagos_anulados_page,
         'stats': stats,
+        
+        # Totales
+        'totales_sesiones': totales_sesiones,
+        'totales_validos': totales_validos,
+        'totales_credito': totales_credito,
+        'totales_anulados': totales_anulados,
+        
+        # ✅ NUEVOS: Contadores y filtros activos
+        'contadores_sesiones': contadores_sesiones,
+        'contadores_validos': contadores_validos,
+        'contadores_credito': contadores_credito,
+        'contadores_anulados': contadores_anulados,
+        
+        'filtro_sesiones': filtro_sesiones,
+        'filtro_validos': filtro_validos,
+        'filtro_credito': filtro_credito,
+        'filtro_anulados': filtro_anulados,
     }
+    
     return render(request, 'facturacion/detalle_cuenta.html', context)
 
 @login_required
@@ -985,8 +1241,8 @@ def historial_pagos(request):
         'monto_pagos_credito': monto_pagos_credito,
     }
     
-    # Paginación (25 por página)
-    paginator = Paginator(pagos, 25)
+    # Paginación (50 por página)
+    paginator = Paginator(pagos, 50)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
@@ -2473,6 +2729,530 @@ def api_detalle_pago(request, pago_id):
     return render(request, 'facturacion/partials/detalle_pago.html', {
         'pago': pago,
     })
+
+@login_required
+def mi_cuenta(request):
+    """
+    Vista para que pacientes vean su cuenta corriente, pagos y deudas
+    ✅ EXCLUSIVA para pacientes
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Obtener o crear cuenta corriente
+    cuenta, created = CuentaCorriente.objects.get_or_create(paciente=paciente)
+    
+    # Actualizar saldo para tener datos frescos
+    cuenta.actualizar_saldo()
+    
+    # ==================== SESIONES ====================
+    
+    # Sesiones pendientes de pago (realizadas pero no pagadas completamente)
+    sesiones_pendientes = Sesion.objects.filter(
+        paciente=paciente,
+        estado__in=['realizada', 'realizada_retraso', 'falta'],
+        proyecto__isnull=True,
+        monto_cobrado__gt=0
+    ).select_related(
+        'servicio', 'profesional', 'sucursal'
+    ).order_by('fecha', 'hora_inicio')
+    
+    # Filtrar solo las que tienen saldo pendiente
+    sesiones_con_deuda = []
+    for sesion in sesiones_pendientes:
+        if sesion.saldo_pendiente > 0:
+            sesiones_con_deuda.append(sesion)
+    
+    # Últimas 10 sesiones realizadas
+    sesiones_realizadas = Sesion.objects.filter(
+        paciente=paciente,
+        estado__in=['realizada', 'realizada_retraso']
+    ).select_related(
+        'servicio', 'profesional', 'sucursal'
+    ).order_by('-fecha', '-hora_inicio')[:10]
+    
+    # ==================== PROYECTOS ====================
+    
+    # Proyectos activos
+    proyectos_activos = Proyecto.objects.filter(
+        paciente=paciente,
+        estado__in=['planificado', 'en_progreso']
+    ).select_related('servicio_base')
+    
+    # Proyectos finalizados recientes
+    proyectos_finalizados = Proyecto.objects.filter(
+    paciente=paciente,
+    estado='finalizado'
+    ).select_related('servicio_base').order_by('-fecha_fin_real')[:5]
+    
+    # ==================== PAGOS ====================
+    
+    # Últimos 10 pagos realizados
+    pagos_realizados = Pago.objects.filter(
+        paciente=paciente,
+        anulado=False
+    ).select_related(
+        'metodo_pago', 'sesion', 'proyecto'
+    ).order_by('-fecha_pago', '-fecha_registro')[:10]
+    
+    # ==================== RESUMEN FINANCIERO ====================
+    
+    resumen = {
+        # Sesiones normales
+        'consumo_sesiones': cuenta.consumo_sesiones,
+        'pagado_sesiones': cuenta.pagado_sesiones,
+        'deuda_sesiones': cuenta.deuda_sesiones,
+        
+        # Proyectos
+        'consumo_proyectos': cuenta.consumo_proyectos,
+        'pagado_proyectos': cuenta.pagado_proyectos,
+        'deuda_proyectos': cuenta.deuda_proyectos,
+        
+        # Totales
+        'consumo_total': cuenta.total_consumo_general,
+        'pagado_total': cuenta.total_pagado_general,
+        'deuda_total': cuenta.total_deuda_general,
+        
+        # Balance
+        'credito': cuenta.saldo,
+        'balance_final': cuenta.balance_final,
+    }
+    
+    context = {
+        'paciente': paciente,
+        'cuenta': cuenta,
+        'resumen': resumen,
+        'sesiones_con_deuda': sesiones_con_deuda,
+        'sesiones_realizadas': sesiones_realizadas,
+        'proyectos_activos': proyectos_activos,
+        'proyectos_finalizados': proyectos_finalizados,
+        'pagos_realizados': pagos_realizados,
+        'total_sesiones_pendientes': len(sesiones_con_deuda),
+    }
+    
+    return render(request, 'facturacion/mi_cuenta.html', context)
+
+
+@login_required
+def mis_pagos(request):
+    """
+    Historial completo de pagos del paciente
+    ✅ EXCLUSIVA para pacientes
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Filtros
+    fecha_desde = request.GET.get('desde', '')
+    fecha_hasta = request.GET.get('hasta', '')
+    metodo = request.GET.get('metodo', '')
+    tipo = request.GET.get('tipo', '')  # 'sesion', 'proyecto', 'adelantado'
+    
+    # Query base: solo pagos NO anulados del paciente
+    pagos = Pago.objects.filter(
+        paciente=paciente,
+        anulado=False
+    ).select_related(
+        'metodo_pago', 'sesion', 'proyecto', 'registrado_por'
+    ).order_by('-fecha_pago', '-fecha_registro')
+    
+    # Aplicar filtros
+    if fecha_desde:
+        try:
+            pagos = pagos.filter(fecha_pago__gte=fecha_desde)
+        except:
+            pass
+    
+    if fecha_hasta:
+        try:
+            pagos = pagos.filter(fecha_pago__lte=fecha_hasta)
+        except:
+            pass
+    
+    if metodo:
+        pagos = pagos.filter(metodo_pago_id=metodo)
+    
+    if tipo:
+        if tipo == 'sesion':
+            pagos = pagos.filter(sesion__isnull=False)
+        elif tipo == 'proyecto':
+            pagos = pagos.filter(proyecto__isnull=False)
+        elif tipo == 'adelantado':
+            pagos = pagos.filter(sesion__isnull=True, proyecto__isnull=True)
+    
+    # Calcular total
+    total_pagado = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    # Métodos de pago disponibles para el filtro
+    from .models import MetodoPago
+    metodos_pago = MetodoPago.objects.filter(activo=True)
+    
+    context = {
+        'paciente': paciente,
+        'pagos': pagos,
+        'total_pagado': total_pagado,
+        'metodos_pago': metodos_pago,
+        'filtros': {
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+            'metodo': metodo,
+            'tipo': tipo,
+        }
+    }
+    
+    return render(request, 'facturacion/mis_pagos.html', context)
+
+
+@login_required
+def detalle_pago_paciente(request, pago_id):
+    """
+    Detalle de un pago específico
+    ✅ EXCLUSIVA para pacientes - Solo pueden ver SUS propios pagos
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Obtener el pago
+    pago = get_object_or_404(
+        Pago.objects.select_related(
+            'metodo_pago', 'sesion', 'proyecto', 'registrado_por'
+        ),
+        id=pago_id,
+        paciente=paciente,  # ✅ IMPORTANTE: Solo SUS pagos
+        anulado=False
+    )
+    
+    context = {
+        'paciente': paciente,
+        'pago': pago,
+    }
+    
+    return render(request, 'facturacion/detalle_pago_paciente.html', context)
+
+@login_required
+def mi_cuenta(request):
+    """
+    Resumen de cuenta corriente del paciente
+    ✅ EXCLUSIVA para pacientes
+    ✅ ACTUALIZADO: Solo cuenta pagos con recibo (no crédito), excluye anulados
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Obtener o crear cuenta corriente
+    cuenta, created = CuentaCorriente.objects.get_or_create(paciente=paciente)
+    if created:
+        cuenta.actualizar_saldo()
+    
+    # ✅ IMPORTANTE: Pagos con RECIBO (dinero real recibido)
+    # Excluye: Uso de Crédito y Anulados
+    pagos_con_recibo = Pago.objects.filter(
+        paciente=paciente,
+        anulado=False
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).select_related('metodo_pago', 'sesion', 'proyecto')
+    
+    # Calcular totales SOLO de pagos con recibo
+    total_pagado_real = pagos_con_recibo.aggregate(
+        total=Sum('monto')
+    )['total'] or Decimal('0.00')
+    
+    # Resumen financiero
+    resumen = {
+        # Sesiones normales
+        'consumo_sesiones': cuenta.consumo_sesiones,
+        'pagado_sesiones': cuenta.pagado_sesiones,
+        'deuda_sesiones': cuenta.deuda_sesiones,
+        
+        # Proyectos
+        'consumo_proyectos': cuenta.consumo_proyectos,
+        'pagado_proyectos': cuenta.pagado_proyectos,
+        'deuda_proyectos': cuenta.deuda_proyectos,
+        
+        # Totales
+        'consumo_total': cuenta.total_consumo_general,
+        'pagado_total': total_pagado_real,  # ✅ Solo dinero real (sin crédito)
+        'deuda_total': cuenta.total_deuda_general,
+        
+        # Balance
+        'credito': cuenta.saldo,
+        'balance_final': cuenta.balance_final,
+    }
+    
+    # Sesiones con deuda pendiente
+    sesiones_pendientes = Sesion.objects.filter(
+        paciente=paciente,
+        estado__in=['realizada', 'realizada_retraso', 'falta']
+    ).select_related(
+        'servicio', 'profesional'
+    ).order_by('fecha', 'hora_inicio')
+    
+    # Filtrar solo las que tienen saldo pendiente
+    sesiones_con_deuda = []
+    for sesion in sesiones_pendientes:
+        if sesion.saldo_pendiente > 0:
+            sesiones_con_deuda.append(sesion)
+    
+    # ✅ Últimos 5 RECIBOS únicos (agrupados por número de recibo)
+    # Método simple y universal para todas las bases de datos
+    numeros_recibos_unicos = pagos_con_recibo.values_list(
+        'numero_recibo', flat=True
+    ).distinct().order_by('-numero_recibo')[:5]
+    
+    # Obtener el primer pago de cada recibo
+    ultimos_recibos = []
+    for numero in numeros_recibos_unicos:
+        pago = pagos_con_recibo.filter(numero_recibo=numero).first()
+        if pago:
+            ultimos_recibos.append(pago)
+    
+    context = {
+        'paciente': paciente,
+        'cuenta': cuenta,
+        'resumen': resumen,
+        'sesiones_con_deuda': sesiones_con_deuda,
+        'pagos_realizados': ultimos_recibos,  # ✅ Recibos únicos
+        'total_sesiones_pendientes': len(sesiones_con_deuda),
+    }
+    
+    return render(request, 'facturacion/mi_cuenta.html', context)
+
+
+@login_required
+def mis_pagos(request):
+    """
+    Historial completo de pagos del paciente
+    ✅ EXCLUSIVA para pacientes
+    ✅ ACTUALIZADO: Agrupa pagos masivos por número de recibo
+    ✅ Solo muestra pagos con recibo (no crédito), excluye anulados
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Filtros
+    fecha_desde = request.GET.get('desde', '')
+    fecha_hasta = request.GET.get('hasta', '')
+    metodo = request.GET.get('metodo', '')
+    tipo = request.GET.get('tipo', '')  # 'sesion', 'proyecto', 'adelantado'
+    
+    # ✅ Query base: Solo pagos con RECIBO (no crédito) y NO anulados
+    pagos_query = Pago.objects.filter(
+        paciente=paciente,
+        anulado=False
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).select_related(
+        'metodo_pago', 'sesion', 'sesion__servicio', 'proyecto', 'registrado_por'
+    )
+    
+    # Aplicar filtros
+    if fecha_desde:
+        try:
+            pagos_query = pagos_query.filter(fecha_pago__gte=fecha_desde)
+        except:
+            pass
+    
+    if fecha_hasta:
+        try:
+            pagos_query = pagos_query.filter(fecha_pago__lte=fecha_hasta)
+        except:
+            pass
+    
+    if metodo:
+        pagos_query = pagos_query.filter(metodo_pago_id=metodo)
+    
+    if tipo:
+        if tipo == 'sesion':
+            pagos_query = pagos_query.filter(sesion__isnull=False)
+        elif tipo == 'proyecto':
+            pagos_query = pagos_query.filter(proyecto__isnull=False)
+        elif tipo == 'adelantado':
+            pagos_query = pagos_query.filter(sesion__isnull=True, proyecto__isnull=True)
+    
+    # ✅ AGRUPAR PAGOS POR NÚMERO DE RECIBO
+    # Usar diccionario para agrupar eficientemente
+    recibos_dict = {}
+    
+    for pago in pagos_query.order_by('-fecha_pago', '-fecha_registro'):
+        numero_recibo = pago.numero_recibo
+        
+        # Si es la primera vez que vemos este recibo, lo agregamos
+        if numero_recibo not in recibos_dict:
+            recibos_dict[numero_recibo] = {
+                'pago_principal': pago,
+                'numero_recibo': numero_recibo,
+                'total_recibo': Decimal('0.00'),
+                'cantidad_items': 0,
+                'sesiones_pagadas': [],
+                'proyectos_pagados': [],
+                'fecha_pago': pago.fecha_pago,
+                'metodo_pago': pago.metodo_pago,
+                'concepto': pago.concepto,
+            }
+        
+        # Acumular información del recibo
+        recibos_dict[numero_recibo]['total_recibo'] += pago.monto
+        recibos_dict[numero_recibo]['cantidad_items'] += 1
+        
+        # Agregar sesión si existe
+        if pago.sesion:
+            recibos_dict[numero_recibo]['sesiones_pagadas'].append({
+                'sesion__id': pago.sesion.id,
+                'sesion__fecha': pago.sesion.fecha,
+                'sesion__servicio__nombre': pago.sesion.servicio.nombre,
+                'monto': pago.monto
+            })
+        
+        # Agregar proyecto si existe
+        if pago.proyecto:
+            recibos_dict[numero_recibo]['proyectos_pagados'].append({
+                'proyecto__id': pago.proyecto.id,
+                'proyecto__nombre': pago.proyecto.nombre,
+                'monto': pago.monto
+            })
+    
+    # Convertir diccionario a lista y marcar los múltiples
+    recibos_agrupados = []
+    for recibo in recibos_dict.values():
+        recibo['es_multiple'] = recibo['cantidad_items'] > 1
+        recibos_agrupados.append(recibo)
+    
+    # Ordenar por fecha (más recientes primero)
+    recibos_agrupados.sort(key=lambda x: x['fecha_pago'], reverse=True)
+    
+    # Calcular total general
+    total_pagado = sum(r['total_recibo'] for r in recibos_agrupados)
+    
+    # Métodos de pago disponibles para el filtro
+    metodos_pago = MetodoPago.objects.filter(activo=True).exclude(
+        nombre="Uso de Crédito"
+    )
+    
+    context = {
+        'paciente': paciente,
+        'recibos_agrupados': recibos_agrupados,  # ✅ Recibos agrupados
+        'total_pagado': total_pagado,
+        'metodos_pago': metodos_pago,
+        'filtros': {
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+            'metodo': metodo,
+            'tipo': tipo,
+        }
+    }
+    
+    return render(request, 'facturacion/mis_pagos.html', context)
+
+
+@login_required
+def detalle_pago_paciente(request, pago_id):
+    """
+    Detalle de un pago/recibo específico
+    ✅ EXCLUSIVA para pacientes - Solo pueden ver SUS propios pagos
+    ✅ ACTUALIZADO: Si es un pago masivo, muestra todos los items del recibo
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Obtener el pago principal
+    pago = get_object_or_404(
+        Pago.objects.select_related(
+            'metodo_pago', 'sesion', 'sesion__servicio', 'sesion__profesional',
+            'proyecto', 'registrado_por'
+        ),
+        id=pago_id,
+        paciente=paciente,  # ✅ IMPORTANTE: Solo SUS pagos
+        anulado=False
+    )
+    
+    # ✅ Obtener TODOS los pagos con el mismo número de recibo
+    pagos_del_recibo = Pago.objects.filter(
+        numero_recibo=pago.numero_recibo,
+        paciente=paciente,
+        anulado=False
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).select_related(
+        'sesion', 'sesion__servicio', 'sesion__profesional',
+        'proyecto'
+    ).order_by('fecha_pago')
+    
+    # Calcular total del recibo
+    total_recibo = pagos_del_recibo.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    # Separar por tipo
+    pagos_sesiones = pagos_del_recibo.filter(sesion__isnull=False)
+    pagos_proyectos = pagos_del_recibo.filter(proyecto__isnull=False)
+    pagos_adelantados = pagos_del_recibo.filter(sesion__isnull=True, proyecto__isnull=True)
+    
+    context = {
+        'paciente': paciente,
+        'pago': pago,
+        'pagos_del_recibo': pagos_del_recibo,
+        'total_recibo': total_recibo,
+        'es_pago_multiple': pagos_del_recibo.count() > 1,
+        'pagos_sesiones': pagos_sesiones,
+        'pagos_proyectos': pagos_proyectos,
+        'pagos_adelantados': pagos_adelantados,
+    }
+    
+    return render(request, 'facturacion/detalle_pago_paciente.html', context)
+
 
 # ==================== LIMPIAR PAGOS ANULADOS ====================
 

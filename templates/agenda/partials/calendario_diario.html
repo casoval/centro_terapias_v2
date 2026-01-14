@@ -212,6 +212,15 @@
                                 </div>
                                 {% endif %}
                             </div>
+
+                            <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago Y NO PROFESIONALES) -->
+                            {% if sesion.estado == 'programada' and not sesion.pagos.exists and not user.perfil.es_profesional %}
+                            <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                                    class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                    title="Eliminar sesión">
+                                🗑️
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
@@ -263,5 +272,5 @@
                 <span>Evaluación</span>
             </div>
         </div>
-    </div>
+    </div>   
 </div>

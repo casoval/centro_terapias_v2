@@ -19,8 +19,9 @@ urlpatterns = [
     # Otras APIs
     path('api/vista-previa/', views.vista_previa_recurrente, name='vista_previa'),
     path('api/editar/<int:sesion_id>/', views.editar_sesion, name='editar_sesion'),
+    path('api/eliminar/<int:sesion_id>/', views.eliminar_sesion, name='eliminar_sesion'),
     path('api/validar-horario/', views.validar_horario, name='validar_horario'),
-    
+
     # 🆕 NUEVO: Modal de confirmación de cambio de estado
     path('api/modal-confirmar-estado/<int:sesion_id>/', 
          views.modal_confirmar_cambio_estado, 

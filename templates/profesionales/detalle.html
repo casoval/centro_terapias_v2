@@ -11,7 +11,20 @@
     <!-- Información del profesional -->
     <div class="lg:col-span-1">
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{{ profesional.nombre_completo }}</h2>
+            <!-- FOTO DEL PROFESIONAL -->
+            <div class="flex justify-center mb-4">
+                {% if profesional.tiene_foto %}
+                    <img src="{{ profesional.foto.url }}" 
+                         alt="{{ profesional.nombre_completo }}"
+                         class="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-lg">
+                {% else %}
+                    <div class="w-32 h-32 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-4 border-blue-100 shadow-lg flex items-center justify-center">
+                        <span class="text-5xl">👨‍⚕️</span>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <h2 class="text-xl font-bold text-gray-900 mb-4 text-center">{{ profesional.nombre_completo }}</h2>
             
             <dl class="space-y-3">
                 <div>
@@ -21,13 +34,21 @@
                 {% if profesional.telefono %}
                 <div>
                     <dt class="text-sm font-medium text-gray-500">Teléfono</dt>
-                    <dd class="text-sm text-gray-900">{{ profesional.telefono }}</dd>
+                    <dd class="text-sm text-gray-900">
+                        <a href="tel:{{ profesional.telefono }}" class="text-blue-600 hover:text-blue-800">
+                            {{ profesional.telefono }}
+                        </a>
+                    </dd>
                 </div>
                 {% endif %}
                 {% if profesional.email %}
                 <div>
                     <dt class="text-sm font-medium text-gray-500">Email</dt>
-                    <dd class="text-sm text-gray-900">{{ profesional.email }}</dd>
+                    <dd class="text-sm text-gray-900">
+                        <a href="mailto:{{ profesional.email }}" class="text-blue-600 hover:text-blue-800">
+                            {{ profesional.email }}
+                        </a>
+                    </dd>
                 </div>
                 {% endif %}
                 <div>
@@ -132,10 +153,23 @@
                 {% for paciente in pacientes %}
                 <div class="p-6 hover:bg-gray-50">
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <p class="font-medium text-gray-900">{{ paciente.nombre_completo }}</p>
-                            <p class="text-sm text-gray-600 mt-1">{{ paciente.edad }} años</p>
-                            <p class="text-sm text-gray-500 mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+                        <div class="flex items-center gap-4 flex-1">
+                            <!-- FOTO DEL PACIENTE (thumbnail) -->
+                            {% if paciente.tiene_foto %}
+                                <img src="{{ paciente.get_foto_thumbnail }}" 
+                                     alt="{{ paciente.nombre_completo }}"
+                                     class="w-12 h-12 rounded-full object-cover border-2 border-gray-200">
+                            {% else %}
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <span class="text-xl">👤</span>
+                                </div>
+                            {% endif %}
+                            
+                            <div>
+                                <p class="font-medium text-gray-900">{{ paciente.nombre_completo }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ paciente.edad }} años</p>
+                                <p class="text-sm text-gray-500 mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+                            </div>
                         </div>
                         <a href="{% url 'pacientes:detalle' paciente.id %}" 
                            class="text-blue-600 hover:text-blue-800 text-sm">

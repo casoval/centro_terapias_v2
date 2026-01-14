@@ -67,7 +67,9 @@
 <body class="bg-gray-100">
     
     {% if user.is_authenticated %}
-    <!-- Navigation -->
+    
+    <!-- ==================== NAVEGACIÓN PARA STAFF (No Pacientes) ==================== -->
+    {% if not user.perfil.es_paciente %}
     <nav class="bg-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
@@ -108,6 +110,14 @@
                         <a href="{% url 'agenda:calendario' %}" 
                            class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
                             {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
+                        </a>
+                        {% endif %}
+                        
+                        <!-- ✅ NUEVA: Mis Pacientes (Solo Profesionales) -->
+                        {% if user.perfil.es_profesional %}
+                        <a href="{% url 'profesionales:mis_pacientes' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
+                            👶 Mis Pacientes
                         </a>
                         {% endif %}
                         
@@ -231,6 +241,14 @@
                 </a>
                 {% endif %}
                 
+                <!-- ✅ NUEVA: Mis Pacientes (Solo Profesionales) -->
+                {% if user.perfil.es_profesional %}
+                <a href="{% url 'profesionales:mis_pacientes' %}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                    👶 Mis Pacientes
+                </a>
+                {% endif %}
+                
                 <!-- ✅ Catálogos: Recepcionistas/Gerentes/Superadmin -->
                 {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                 <div>
@@ -326,6 +344,99 @@
     </nav>
     {% endif %}
     
+    <!-- ==================== NAVEGACIÓN PARA PACIENTES ==================== -->
+    {% if user.perfil.es_paciente %}
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-lg lg:text-xl font-bold text-blue-600">
+                            Centro de Neurodesarrollo Infantil Misael
+                        </h1>
+                        <div class="text-xs text-gray-600 leading-tight">
+                            <span class="font-semibold">👤 Portal del Paciente</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Menú Desktop Pacientes -->
+                    <div class="hidden lg:ml-6 lg:flex lg:space-x-4">
+                        <a href="{% url 'facturacion:mi_cuenta' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            💰 Mi Cuenta
+                        </a>
+                        <a href="{% url 'pacientes:mis_sesiones' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            📅 Mis Sesiones
+                        </a>
+                        <a href="{% url 'pacientes:mis_profesionales' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            👨‍⚕️ Mis Profesionales
+                        </a>
+                        <a href="{% url 'facturacion:mis_pagos' %}" 
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            💵 Mis Pagos
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Usuario y botones -->
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600 hidden sm:block">
+                        Hola, <strong>{{ user.perfil.paciente.nombre }}</strong>
+                    </span>
+                    <a href="{% url 'core:logout' %}" 
+                       class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap hidden sm:inline-block">
+                        Cerrar Sesión
+                    </a>
+                    
+                    <!-- Botón hamburguesa -->
+                    <button id="mobile-menu-button-paciente" class="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Menú Móvil Pacientes -->
+        <div id="mobile-menu-paciente" class="mobile-menu lg:hidden border-t border-gray-200">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="{% url 'facturacion:mi_cuenta' %}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                    💰 Mi Cuenta
+                </a>
+                <a href="{% url 'pacientes:mis_sesiones' %}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                    📅 Mis Sesiones
+                </a>
+                <a href="{% url 'pacientes:mis_profesionales' %}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                    👨‍⚕️ Mis Profesionales
+                </a>
+                <a href="{% url 'facturacion:mis_pagos' %}" 
+                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                    💵 Mis Pagos
+                </a>
+                
+                <div class="border-t border-gray-200 pt-2 mt-2">
+                    <div class="px-3 py-2 text-sm">
+                        <p class="text-gray-900 font-semibold">{{ user.perfil.paciente.nombre }}</p>
+                        <p class="text-xs text-gray-500">Paciente</p>
+                    </div>
+                    <a href="{% url 'core:logout' %}" 
+                       class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">
+                        Cerrar Sesión
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    {% endif %}
+    
     <!-- Messages -->
     {% if messages %}
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
@@ -343,13 +454,23 @@
     </main>
     
     <script>
-        // Toggle menú móvil principal
+        // Toggle menú móvil principal (Staff)
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
         
         if (mobileMenuButton && mobileMenu) {
             mobileMenuButton.addEventListener('click', function() {
                 mobileMenu.classList.toggle('active');
+            });
+        }
+        
+        // Toggle menú móvil pacientes
+        const mobileMenuButtonPaciente = document.getElementById('mobile-menu-button-paciente');
+        const mobileMenuPaciente = document.getElementById('mobile-menu-paciente');
+        
+        if (mobileMenuButtonPaciente && mobileMenuPaciente) {
+            mobileMenuButtonPaciente.addEventListener('click', function() {
+                mobileMenuPaciente.classList.toggle('active');
             });
         }
         

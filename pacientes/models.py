@@ -1,6 +1,7 @@
 from django.db import models
 from servicios.models import TipoServicio, Sucursal
 from datetime import date
+from cloudinary.models import CloudinaryField
 
 
 class Paciente(models.Model):
@@ -34,18 +35,62 @@ class Paciente(models.Model):
         help_text='Sucursales donde puede ser atendido este paciente'
     )
     
+    # ==================== FOTO DEL PACIENTE ====================
+    foto = CloudinaryField(
+        'foto',
+        blank=True,
+        null=True,
+        folder='pacientes',  # Carpeta en Cloudinary
+        transformation={
+            'width': 400,
+            'height': 400,
+            'crop': 'fill',
+            'gravity': 'face',  # Enfoque en rostro
+            'quality': 'auto',  # Calidad automática
+            'fetch_format': 'auto'  # Formato óptimo (WebP, etc)
+        },
+        help_text='Foto del paciente (se optimizará automáticamente)'
+    )
+    
     # Información del paciente
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     fecha_nacimiento = models.DateField()
     genero = models.CharField(max_length=1, choices=GENERO_CHOICES)
     
-    # Información del tutor
-    nombre_tutor = models.CharField(max_length=200)
-    parentesco = models.CharField(max_length=20, choices=PARENTESCO_CHOICES)
-    telefono_tutor = models.CharField(max_length=20)
-    email_tutor = models.EmailField(blank=True, null=True)
-    direccion = models.TextField(blank=True)
+    # ==================== TUTOR PRINCIPAL (OBLIGATORIO) ====================
+    nombre_tutor = models.CharField(max_length=200, verbose_name='Nombre del Tutor Principal')
+    parentesco = models.CharField(max_length=20, choices=PARENTESCO_CHOICES, verbose_name='Parentesco')
+    telefono_tutor = models.CharField(max_length=20, verbose_name='Teléfono del Tutor')
+    email_tutor = models.EmailField(blank=True, null=True, verbose_name='Email del Tutor')
+    direccion = models.TextField(blank=True, verbose_name='Dirección')
+    
+    # ==================== SEGUNDO TUTOR (OPCIONAL) ====================
+    nombre_tutor_2 = models.CharField(
+        max_length=200, 
+        blank=True, 
+        null=True,
+        verbose_name='Nombre del Segundo Tutor',
+        help_text='Información del segundo tutor o contacto de emergencia (opcional)'
+    )
+    parentesco_2 = models.CharField(
+        max_length=20, 
+        choices=PARENTESCO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Parentesco del Segundo Tutor'
+    )
+    telefono_tutor_2 = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='Teléfono del Segundo Tutor'
+    )
+    email_tutor_2 = models.EmailField(
+        blank=True, 
+        null=True,
+        verbose_name='Email del Segundo Tutor'
+    )
     
     # Información clínica
     diagnostico = models.TextField(blank=True, help_text='Diagnóstico o motivo de consulta')
@@ -85,6 +130,39 @@ class Paciente(models.Model):
         
         return edad
     
+    @property
+    def tiene_segundo_tutor(self):
+        """Verifica si tiene segundo tutor registrado"""
+        return bool(self.nombre_tutor_2 and self.nombre_tutor_2.strip())
+    
+    @property
+    def tiene_foto(self):
+        """Verifica si tiene foto registrada"""
+        return bool(self.foto)
+    
+    def get_foto_url(self, width=400, height=400):
+        """
+        Obtiene URL de la foto con transformaciones específicas
+        """
+        if self.foto:
+            try:
+                return self.foto.build_url(
+                    width=width,
+                    height=height,
+                    crop='fill',
+                    gravity='face',
+                    quality='auto',
+                    fetch_format='auto'
+                )
+            except Exception as e:
+                # Si falla la transformación, retornar URL básica
+                return self.foto.url if hasattr(self.foto, 'url') else None
+        return None
+
+    def get_foto_thumbnail(self):
+        """Obtiene URL de thumbnail (100x100)"""
+        return self.get_foto_url(width=100, height=100)
+
     def tiene_sucursal(self, sucursal):
         """
         ✅ Verifica si el paciente puede ser atendido en una sucursal específica

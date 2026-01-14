@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from cloudinary.models import CloudinaryField
+
 
 class Profesional(models.Model):
     """Profesionales que atienden en el centro"""
@@ -18,6 +20,23 @@ class Profesional(models.Model):
         'servicios.Sucursal',
         related_name='profesionales',
         help_text="Sucursales donde trabaja el profesional"
+    )
+    
+    # ==================== FOTO DEL PROFESIONAL ====================
+    foto = CloudinaryField(
+        'foto',
+        blank=True,
+        null=True,
+        folder='profesionales',  # Carpeta en Cloudinary
+        transformation={
+            'width': 400,
+            'height': 400,
+            'crop': 'fill',
+            'gravity': 'face',  # Enfoque en rostro
+            'quality': 'auto',  # Calidad automática
+            'fetch_format': 'auto'  # Formato óptimo (WebP, etc)
+        },
+        help_text='Foto del profesional (se optimizará automáticamente)'
     )
     
     nombre = models.CharField(max_length=100)
@@ -51,6 +70,34 @@ class Profesional(models.Model):
     @property
     def nombre_completo(self):
         return f"{self.nombre} {self.apellido}"
+    
+    @property
+    def tiene_foto(self):
+        """Verifica si tiene foto registrada"""
+        return bool(self.foto)
+    
+    def get_foto_url(self, width=400, height=400):
+        """
+        Obtiene URL de la foto con transformaciones específicas
+        """
+        if self.foto:
+            try:
+                return self.foto.build_url(
+                    width=width,
+                    height=height,
+                    crop='fill',
+                    gravity='face',
+                    quality='auto',
+                    fetch_format='auto'
+                )
+            except Exception as e:
+                # Si falla la transformación, retornar URL básica
+                return self.foto.url if hasattr(self.foto, 'url') else None
+        return None
+
+    def get_foto_thumbnail(self):
+        """Obtiene URL de thumbnail (100x100)"""
+        return self.get_foto_url(width=100, height=100)
     
     def puede_atender_servicio(self, servicio):
         """Verifica si el profesional puede ofrecer un servicio específico"""

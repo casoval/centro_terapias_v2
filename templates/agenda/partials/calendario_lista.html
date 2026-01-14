@@ -201,17 +201,31 @@
                         {% endif %}
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap text-[10px]">
-                        <button hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
-                                hx-target="#modal-content"
-                                hx-swap="innerHTML"
-                                class="text-blue-600 hover:text-blue-900 font-medium transition">
-                            ✏️
-                        </button>
-                        {% if sesion.es_ultima_sesion_paciente_servicio %}
-                        <span class="ml-1 px-1.5 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800">
-                            ⚠️
-                        </span>
-                        {% endif %}
+                        <div class="flex items-center gap-2">
+                            <!-- Botón editar -->
+                            <button hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                                    hx-target="#modal-content"
+                                    hx-swap="innerHTML"
+                                    class="text-blue-600 hover:text-blue-900 font-medium transition"
+                                    title="Editar">
+                                ✏️
+                            </button>
+                            
+                            <!-- ✅ Botón eliminar (solo programadas sin pago Y NO PROFESIONALES) -->
+                            {% if sesion.estado == 'programada' and not sesion.pagos.exists and not user.perfil.es_profesional %}
+                            <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                                    class="text-red-600 hover:text-red-900 font-bold transition"
+                                    title="Eliminar sesión">
+                                🗑️
+                            </button>
+                            {% endif %}
+                            
+                            {% if sesion.es_ultima_sesion_paciente_servicio %}
+                            <span class="ml-1 px-1.5 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800">
+                                ⚠️
+                            </span>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

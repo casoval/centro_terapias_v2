@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mis Sesiones - {{ paciente.nombre_completo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tab-button { transition: all 0.2s; }
+    .tab-button.active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+    .tab-content-panel { display: none; animation: fadeIn 0.2s; }
+    .tab-content-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-3 sm:px-4">
+    <!-- Header Compacto -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-4 mb-3 text-white">
+        <div class="flex items-center justify-between">
+            <div class="flex-1">
+                <h1 class="text-xl sm:text-2xl font-bold flex items-center mb-1">
+                    <span class="text-2xl mr-2">📅</span>
+                    Mis Sesiones
+                </h1>
+                <p class="text-blue-100 text-xs sm:text-sm">{{ paciente.nombre_completo }}</p>
+            </div>
+            <div class="bg-white bg-opacity-20 rounded-lg px-3 py-2 text-center">
+                <p class="text-xs opacity-80">Total</p>
+                <p class="text-2xl font-bold">{{ total_sesiones }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info del Paciente - Compacta -->
+    <div class="bg-white rounded-lg shadow p-3 mb-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div>
+                <p class="text-gray-500 mb-0.5">👤 Paciente</p>
+                <p class="font-semibold text-gray-900 truncate">{{ paciente.nombre_completo }}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-0.5">🎂 Edad</p>
+                <p class="font-semibold text-gray-900">{{ paciente.edad }} años</p>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-0.5">👨‍👩‍👧 Tutor</p>
+                <p class="font-semibold text-gray-900 truncate">{{ paciente.nombre_tutor }}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-0.5">📞 Teléfono</p>
+                <p class="font-semibold text-gray-900">{{ paciente.telefono_tutor }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs - 4 Pestañas -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="flex border-b">
+            <button onclick="switchTab('proximas')" id="tab-proximas" 
+                    class="tab-button active flex-1 py-2 text-xs sm:text-sm font-medium">
+                📅 Próximas ({{ sesiones_proximas.count }})
+            </button>
+            <button onclick="switchTab('realizadas')" id="tab-realizadas" 
+                    class="tab-button flex-1 py-2 text-xs sm:text-sm font-medium border-l">
+                ✅ Realizadas ({{ sesiones_realizadas.count }})
+            </button>
+            <button onclick="switchTab('canceladas')" id="tab-canceladas" 
+                    class="tab-button flex-1 py-2 text-xs sm:text-sm font-medium border-l">
+                ❌ Canceladas ({{ sesiones_canceladas.count }})
+            </button>
+            <button onclick="switchTab('permisos')" id="tab-permisos" 
+                    class="tab-button flex-1 py-2 text-xs sm:text-sm font-medium border-l">
+                📋 Permisos ({{ sesiones_permisos.count }})
+            </button>
+        </div>
+
+        <div class="p-3">
+            <!-- Próximas - 3 Columnas -->
+            <div id="content-proximas" class="tab-content-panel active">
+                {% if sesiones_proximas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for sesion in sesiones_proximas %}
+                    <div class="rounded-lg shadow border-l-4 overflow-hidden
+                        {% if sesion.estado == 'programada' %}bg-blue-50 border-blue-500
+                        {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-orange-50 border-orange-500
+                        {% else %}bg-gray-50 border-gray-500{% endif %}">
+                        
+                        <!-- Header con fecha destacada -->
+                        <div class="text-center py-2
+                            {% if sesion.estado == 'programada' %}bg-blue-600
+                            {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-orange-500
+                            {% else %}bg-gray-500{% endif %}
+                            text-white">
+                            <div class="text-[10px] uppercase font-semibold">{{ sesion.fecha|date:"l" }}</div>
+                            <div class="text-2xl font-bold">{{ sesion.fecha|date:"d" }}</div>
+                            <div class="text-xs">{{ sesion.fecha|date:"M Y" }}</div>
+                        </div>
+                        
+                        <div class="p-3">
+                            <!-- Estado -->
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-sm text-gray-900 flex-1 leading-tight">{{ sesion.servicio.nombre }}</h3>
+                                <span class="text-white text-[10px] px-2 py-1 rounded-full whitespace-nowrap font-bold ml-2
+                                    {% if sesion.estado == 'programada' %}bg-blue-600
+                                    {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-orange-500
+                                    {% else %}bg-gray-500{% endif %}">
+                                    {% if sesion.estado == 'programada' %}PROGRAMADA
+                                    {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}RETRASO
+                                    {% else %}{{ sesion.estado|upper }}{% endif %}
+                                </span>
+                            </div>
+                            
+                            <!-- Info detallada -->
+                            <div class="space-y-1.5 text-xs">
+                                <div class="flex items-center text-gray-700">
+                                    <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="font-semibold">{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</span>
+                                </div>
+                                
+                                <div class="flex items-start text-gray-700">
+                                    <svg class="w-4 h-4 mr-2 mt-0.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    <span class="leading-tight">{{ sesion.profesional.nombre_completo }}</span>
+                                </div>
+                                
+                                <div class="flex items-start text-gray-700">
+                                    <svg class="w-4 h-4 mr-2 mt-0.5 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    <span class="leading-tight">{{ sesion.sucursal.nombre }}</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between pt-2 border-t">
+                                    <span class="font-semibold text-gray-700">💰 Monto:</span>
+                                    <span class="font-bold
+                                        {% if sesion.estado == 'programada' %}text-blue-600
+                                        {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}text-orange-600
+                                        {% else %}text-gray-600{% endif %}">
+                                        Bs. {{ sesion.monto_cobrado }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {% if sesion.observaciones_profesional %}
+                            <div class="mt-2 p-2 bg-white rounded text-xs border">
+                                <p class="text-gray-500 font-semibold mb-1">📝 Notas del Profesional:</p>
+                                <p class="text-gray-700 leading-tight">{{ sesion.observaciones_profesional }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-500">No tienes sesiones programadas próximamente</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Realizadas - 3 Columnas con identificación de retraso -->
+            <div id="content-realizadas" class="tab-content-panel">
+                {% if sesiones_realizadas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for sesion in sesiones_realizadas %}
+                    <div class="bg-white rounded-lg shadow border border-gray-200 p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="{% if sesion.estado == 'realizada_retraso' %}bg-orange-100 text-orange-800{% else %}bg-green-100 text-green-800{% endif %} text-xs px-2 py-1 rounded-full font-semibold">
+                                ✅ Realizada{% if sesion.estado == 'realizada_retraso' %} (con retraso){% endif %}
+                            </span>
+                            <span class="text-xs text-gray-500 font-medium">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        </div>
+                        <h3 class="font-bold text-sm text-gray-900 mb-2">{{ sesion.servicio.nombre }}</h3>
+                        <div class="space-y-1 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🕐 Hora:</span>
+                                <span>{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">👨‍⚕️ Prof:</span>
+                                <span class="truncate">{{ sesion.profesional.nombre_completo }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🏢 Lugar:</span>
+                                <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2 border-t">
+                                <span class="font-semibold">💰 Pagado:</span>
+                                <span class="{% if sesion.estado == 'realizada_retraso' %}text-orange-600{% else %}text-green-600{% endif %} font-bold">Bs. {{ sesion.total_pagado }}</span>
+                            </div>
+                        </div>
+                        {% if sesion.observaciones_profesional %}
+                        <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                            <strong>📝 Obs:</strong> {{ sesion.observaciones_profesional|truncatewords:10 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-500">Aún no tienes sesiones realizadas</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Canceladas - 3 Columnas con pago visible en faltas -->
+            <div id="content-canceladas" class="tab-content-panel">
+                {% if sesiones_canceladas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for sesion in sesiones_canceladas %}
+                    <div class="bg-red-50 rounded-lg shadow border-l-4 border-red-500 p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="bg-red-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                                {% if sesion.estado == 'cancelada' %}❌ Cancelada{% else %}❌ Falta{% endif %}
+                            </span>
+                            <span class="text-xs text-gray-600 font-medium">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        </div>
+                        <h3 class="font-bold text-sm text-gray-900 mb-2">{{ sesion.servicio.nombre }}</h3>
+                        <div class="space-y-1 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🕐 Hora:</span>
+                                <span>{{ sesion.hora_inicio|time:"H:i" }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">👨‍⚕️ Prof:</span>
+                                <span class="truncate">{{ sesion.profesional.nombre_completo }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🏢 Lugar:</span>
+                                <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                            </div>
+                            <!-- Mostrar pago también en faltas -->
+                            <div class="flex items-center justify-between pt-2 border-t">
+                                <span class="font-semibold">💰 Monto:</span>
+                                <span class="text-red-600 font-bold">Bs. {{ sesion.monto_cobrado }}</span>
+                            </div>
+                        </div>
+                        {% if sesion.observaciones_profesional %}
+                        <div class="mt-2 p-2 bg-white rounded text-xs border border-red-200">
+                            <strong>📝 Motivo:</strong> {{ sesion.observaciones_profesional|truncatewords:10 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-gray-500">No tienes sesiones canceladas</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- NUEVA Pestaña: Permisos -->
+            <div id="content-permisos" class="tab-content-panel">
+                {% if sesiones_permisos %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {% for sesion in sesiones_permisos %}
+                    <div class="bg-yellow-50 rounded-lg shadow border-l-4 border-yellow-500 p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                                📋 Permiso
+                            </span>
+                            <span class="text-xs text-gray-600 font-medium">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        </div>
+                        <h3 class="font-bold text-sm text-gray-900 mb-2">{{ sesion.servicio.nombre }}</h3>
+                        <div class="space-y-1 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🕐 Hora:</span>
+                                <span>{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">👨‍⚕️ Prof:</span>
+                                <span class="truncate">{{ sesion.profesional.nombre_completo }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-16 font-semibold">🏢 Lugar:</span>
+                                <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                            </div>
+                            <div class="flex items-center justify-between pt-2 border-t">
+                                <span class="font-semibold">💰 Monto:</span>
+                                <span class="text-yellow-600 font-bold">Bs. {{ sesion.monto_cobrado }}</span>
+                            </div>
+                        </div>
+                        {% if sesion.observaciones_profesional %}
+                        <div class="mt-2 p-2 bg-white rounded text-xs border border-yellow-200">
+                            <strong>📝 Motivo:</strong> {{ sesion.observaciones_profesional|truncatewords:10 }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="w-20 h-20 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    <p class="text-gray-500">No tienes sesiones con permiso</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(t) {
+    document.querySelectorAll('.tab-content-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.getElementById('content-' + t).classList.add('active');
+    document.getElementById('tab-' + t).classList.add('active');
+}
+</script>
+{% endblock %}

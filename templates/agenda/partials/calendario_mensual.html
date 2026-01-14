@@ -118,6 +118,15 @@
                                         🏢{{ sesion.sucursal.nombre|slice:":6" }}
                                     </div>
 
+                                    <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago Y NO PROFESIONALES) -->
+                                    {% if sesion.estado == 'programada' and not sesion.pagos.exists and not user.perfil.es_profesional %}
+                                    <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                                            class="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                            title="Eliminar sesión">
+                                        🗑️
+                                    </button>
+                                    {% endif %}
+
                                     <!-- Tooltip -->
                                     <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-20 bg-gray-900 text-white p-2 rounded shadow-xl w-48">
                                         <div class="space-y-0.5 text-[9px]">

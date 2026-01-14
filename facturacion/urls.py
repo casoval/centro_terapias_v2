@@ -41,4 +41,9 @@ urlpatterns = [
 
     # Limpiar pagos anulados (solo admin)
     path('limpiar-pagos-anulados/', views.limpiar_pagos_anulados, name='limpiar_pagos_anulados'),
+
+    # ==================== VISTAS PARA PACIENTES ====================
+    path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
+    path('mis-pagos/', views.mis_pagos, name='mis_pagos'),
+    path('pago/<int:pago_id>/ver/', views.detalle_pago_paciente, name='detalle_pago_paciente'),
 ]

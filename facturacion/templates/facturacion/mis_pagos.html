@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mis Pagos - {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-3 sm:px-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+                <span class="text-2xl mr-2">💵</span>
+                Historial de Pagos
+            </h1>
+            <p class="text-sm text-gray-600">{{ paciente.nombre_completo }}</p>
+        </div>
+        <a href="{% url 'facturacion:mi_cuenta' %}" 
+           class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50">
+            ← Mi Cuenta
+        </a>
+    </div>
+
+    <!-- Resumen Total -->
+    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-4 sm:p-6 mb-4 text-white">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm opacity-90 mb-1">💰 Total Pagado (solo efectivo)</p>
+                <p class="text-3xl sm:text-4xl font-bold">Bs. {{ total_pagado }}</p>
+                <p class="text-sm opacity-80 mt-1">{{ recibos_agrupados|length }} recibo{{ recibos_agrupados|length|pluralize }}</p>
+            </div>
+            <div class="text-5xl opacity-20">✅</div>
+        </div>
+    </div>
+
+    <!-- Filtros Compactos -->
+    <div class="bg-white rounded-lg shadow p-3 sm:p-4 mb-4">
+        <form method="get" class="space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Desde:</label>
+                    <input type="date" name="desde" class="w-full text-xs border rounded px-2 py-2" value="{{ filtros.fecha_desde }}">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Hasta:</label>
+                    <input type="date" name="hasta" class="w-full text-xs border rounded px-2 py-2" value="{{ filtros.fecha_hasta }}">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Método:</label>
+                    <select name="metodo" class="w-full text-xs border rounded px-2 py-2">
+                        <option value="">Todos</option>
+                        {% for metodo in metodos_pago %}
+                        <option value="{{ metodo.id }}" {% if filtros.metodo == metodo.id|stringformat:"s" %}selected{% endif %}>
+                            {{ metodo.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-600 mb-1 block">Tipo:</label>
+                    <select name="tipo" class="w-full text-xs border rounded px-2 py-2">
+                        <option value="">Todos</option>
+                        <option value="sesion" {% if filtros.tipo == 'sesion' %}selected{% endif %}>Sesiones</option>
+                        <option value="proyecto" {% if filtros.tipo == 'proyecto' %}selected{% endif %}>Proyectos</option>
+                        <option value="adelantado" {% if filtros.tipo == 'adelantado' %}selected{% endif %}>Adelantados</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                Filtrar Pagos
+            </button>
+        </form>
+    </div>
+
+    <!-- Lista de Recibos Agrupados -->
+    {% if recibos_agrupados %}
+    <!-- Vista Móvil (Cards) -->
+    <div class="block sm:hidden space-y-3">
+        {% for recibo in recibos_agrupados %}
+        <div class="bg-white rounded-lg shadow border p-3 {% if recibo.es_multiple %}border-l-4 border-blue-500{% endif %}">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-bold text-sm text-gray-900">{{ recibo.numero_recibo }}</span>
+                <span class="text-xs text-gray-500">{{ recibo.fecha_pago|date:"d/m/Y" }}</span>
+            </div>
+            
+            <!-- Indicador de pago múltiple -->
+            {% if recibo.es_multiple %}
+            <div class="mb-2">
+                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">
+                    📦 {{ recibo.cantidad_items }} ítems
+                </span>
+            </div>
+            {% endif %}
+            
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs text-gray-600">{{ recibo.concepto|truncatewords:5 }}</span>
+                {% if recibo.proyectos_pagados %}
+                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
+                {% elif recibo.sesiones_pagadas %}
+                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
+                {% else %}
+                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-semibold">Adelantado</span>
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center justify-between pt-2 border-t">
+                <div>
+                    <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">{{ recibo.metodo_pago.nombre }}</span>
+                </div>
+                <div class="text-right">
+                    <p class="text-lg font-bold text-green-600">Bs. {{ recibo.total_recibo }}</p>
+                    <a href="{% url 'facturacion:detalle_pago_paciente' recibo.pago_principal.id %}" 
+                       class="text-xs text-blue-600 hover:text-blue-800 font-semibold">
+                        Ver Detalle →
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Preview de sesiones si es múltiple -->
+            {% if recibo.es_multiple and recibo.sesiones_pagadas %}
+            <div class="mt-2 pt-2 border-t text-xs text-gray-600">
+                <p class="font-semibold mb-1">Sesiones incluidas:</p>
+                <ul class="space-y-0.5">
+                    {% for sesion in recibo.sesiones_pagadas|slice:":3" %}
+                    <li class="flex justify-between">
+                        <span>{{ sesion.sesion__fecha|date:"d/m" }} - {{ sesion.sesion__servicio__nombre|truncatewords:2 }}</span>
+                        <span class="font-semibold">Bs. {{ sesion.monto }}</span>
+                    </li>
+                    {% endfor %}
+                    {% if recibo.sesiones_pagadas|length > 3 %}
+                    <li class="text-blue-600 font-semibold">+ {{ recibo.sesiones_pagadas|length|add:"-3" }} más...</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Vista Desktop (Tabla) -->
+    <div class="hidden sm:block bg-white rounded-lg shadow overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Recibo</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Fecha</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Concepto</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Ítems</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Tipo</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Método</th>
+                        <th class="px-4 py-3 text-left font-bold text-gray-600">Monto</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {% for recibo in recibos_agrupados %}
+                    <tr class="hover:bg-gray-50 {% if recibo.es_multiple %}bg-blue-50{% endif %}">
+                        <td class="px-4 py-3 font-bold">
+                            {{ recibo.numero_recibo }}
+                            {% if recibo.es_multiple %}
+                            <span class="ml-1 text-blue-600">📦</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">{{ recibo.fecha_pago|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-3">{{ recibo.concepto|truncatewords:5 }}</td>
+                        <td class="px-4 py-3">
+                            {% if recibo.es_multiple %}
+                            <span class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold">{{ recibo.cantidad_items }}</span>
+                            {% else %}
+                            <span class="text-gray-400">1</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if recibo.proyectos_pagados %}
+                            <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
+                            {% elif recibo.sesiones_pagadas %}
+                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
+                            {% else %}
+                            <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-semibold">Adelantado</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">{{ recibo.metodo_pago.nombre }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-bold text-green-600">Bs. {{ recibo.total_recibo }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{% url 'facturacion:detalle_pago_paciente' recibo.pago_principal.id %}" 
+                               class="text-blue-600 hover:text-blue-800 font-semibold">
+                                Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="6" class="px-4 py-3 text-right font-bold">TOTAL:</td>
+                        <td colspan="2" class="px-4 py-3 font-bold text-green-600 text-lg">Bs. {{ total_pagado }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Total en Móvil -->
+    <div class="block sm:hidden mt-3 bg-gray-50 rounded-lg p-3 text-center">
+        <p class="text-sm text-gray-600 mb-1">Total de Pagos</p>
+        <p class="text-2xl font-bold text-green-600">Bs. {{ total_pagado }}</p>
+    </div>
+    
+    {% else %}
+    <div class="bg-white rounded-lg shadow p-8 text-center">
+        <div class="text-5xl mb-3">📋</div>
+        <p class="text-gray-500 mb-2">
+            {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.metodo or filtros.tipo %}
+                No se encontraron pagos con los filtros seleccionados
+            {% else %}
+                Aún no tienes pagos registrados
+            {% endif %}
+        </p>
+        {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.metodo or filtros.tipo %}
+        <a href="{% url 'facturacion:mis_pagos' %}" 
+           class="inline-block mt-3 text-blue-600 hover:text-blue-800 text-sm font-semibold">
+            Limpiar Filtros
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+/* Destacar pagos múltiples */
+tr.bg-blue-50:hover {
+    background-color: rgb(239 246 255) !important;
+}
+</style>
+{% endblock %}

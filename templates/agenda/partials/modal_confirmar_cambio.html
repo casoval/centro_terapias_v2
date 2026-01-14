@@ -1,90 +1,90 @@
 <!-- Modal de Confirmación de Cambio de Estado (PARTIAL para AJAX) -->
-<div class="bg-white rounded-lg shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+<div class="bg-white rounded-lg shadow-2xl max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
     
     <!-- Header -->
-    <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+    <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-3 rounded-t-lg sticky top-0 z-10">
         <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="text-4xl">⚠️</div>
+            <div class="flex items-center gap-2">
+                <div class="text-2xl">⚠️</div>
                 <div>
-                    <h2 class="text-2xl font-bold">⚠️ Confirmación Requerida</h2>
-                    <p class="text-orange-100 text-sm mt-1">Esta sesión tiene pagos registrados</p>
+                    <h2 class="text-base font-bold">⚠️ Confirmación Requerida</h2>
+                    <p class="text-orange-100 text-[10px] mt-0.5">Esta sesión tiene pagos registrados</p>
                 </div>
             </div>
             <button type="button" 
                     onclick="cerrarModalConfirmacion()" 
-                    class="text-white hover:text-orange-200 text-3xl leading-none">
+                    class="text-white hover:text-orange-200 text-2xl leading-none">
                 ×
             </button>
         </div>
     </div>
     
-    <div class="p-6">
+    <div class="p-4">
         
         <!-- Información de la Sesión -->
-        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 class="font-bold text-blue-900 mb-3 flex items-center gap-2">
-                <span class="text-xl">📋</span>
+        <div class="mb-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 class="font-bold text-blue-900 mb-2 flex items-center gap-1.5 text-sm">
+                <span class="text-sm">📋</span>
                 Sesión
             </h3>
-            <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                     <span class="text-gray-600">Fecha:</span>
-                    <span class="font-bold ml-2">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                    <span class="font-bold ml-1">{{ sesion.fecha|date:"d/m/Y" }}</span>
                 </div>
                 <div>
                     <span class="text-gray-600">Hora:</span>
-                    <span class="font-bold ml-2">{{ sesion.hora_inicio|time:"H:i" }}</span>
+                    <span class="font-bold ml-1">{{ sesion.hora_inicio|time:"H:i" }}</span>
                 </div>
                 <div>
                     <span class="text-gray-600">Paciente:</span>
-                    <span class="font-bold ml-2">{{ sesion.paciente.nombre_completo }}</span>
+                    <span class="font-bold ml-1">{{ sesion.paciente.nombre_completo }}</span>
                 </div>
                 <div>
                     <span class="text-gray-600">Servicio:</span>
-                    <span class="font-bold ml-2">{{ sesion.servicio.nombre }}</span>
+                    <span class="font-bold ml-1">{{ sesion.servicio.nombre }}</span>
                 </div>
             </div>
         </div>
         
         <!-- Información de Pagos -->
-        <div class="mb-6 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-            <h3 class="font-bold text-yellow-900 mb-3 flex items-center gap-2">
-                <span class="text-xl">💵</span>
+        <div class="mb-3 p-2.5 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+            <h3 class="font-bold text-yellow-900 mb-2 flex items-center gap-1.5 text-sm">
+                <span class="text-sm">💵</span>
                 Pagos Registrados
             </h3>
             
             {% for pago in pagos %}
-            <div class="bg-white border border-yellow-200 rounded-lg p-3 mb-2">
+            <div class="bg-white border border-yellow-200 rounded-lg p-2 mb-1.5">
                 <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-mono text-xs text-gray-600">{{ pago.numero_recibo }}</p>
-                        <p class="text-sm font-bold text-gray-900">{{ pago.concepto|truncatewords:6 }}</p>
-                        <p class="text-xs text-gray-600 mt-1">
+                        <p class="font-mono text-[9px] text-gray-600">{{ pago.numero_recibo }}</p>
+                        <p class="text-xs font-bold text-gray-900">{{ pago.concepto|truncatewords:6 }}</p>
+                        <p class="text-[9px] text-gray-600 mt-0.5">
                             {{ pago.fecha_pago|date:"d/m/Y" }} · {{ pago.metodo_pago.nombre }}
                         </p>
                     </div>
                     <div class="text-right">
-                        <p class="text-2xl font-black text-green-700">Bs. {{ pago.monto }}</p>
+                        <p class="text-base font-black text-green-700">Bs. {{ pago.monto }}</p>
                     </div>
                 </div>
             </div>
             {% endfor %}
             
-            <div class="mt-3 pt-3 border-t-2 border-yellow-300 flex justify-between items-center">
-                <span class="font-bold text-yellow-900">TOTAL PAGADO:</span>
-                <span class="text-2xl font-black text-yellow-900">Bs. {{ total_pagado }}</span>
+            <div class="mt-2 pt-2 border-t-2 border-yellow-300 flex justify-between items-center">
+                <span class="font-bold text-yellow-900 text-xs">TOTAL PAGADO:</span>
+                <span class="text-base font-black text-yellow-900">Bs. {{ total_pagado }}</span>
             </div>
         </div>
         
         <!-- Cambio de Estado -->
-        <div class="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-lg">
-            <h3 class="font-bold text-red-900 mb-2 flex items-center gap-2">
-                <span class="text-xl">🔄</span>
+        <div class="mb-3 p-2.5 bg-red-50 border-2 border-red-300 rounded-lg">
+            <h3 class="font-bold text-red-900 mb-1.5 flex items-center gap-1.5 text-sm">
+                <span class="text-sm">🔄</span>
                 Nuevo Estado
             </h3>
-            <p class="text-lg font-bold text-red-700">{{ estado_nuevo|upper }}</p>
-            <p class="text-sm text-red-800 mt-2">
+            <p class="text-sm font-bold text-red-700">{{ estado_nuevo|upper }}</p>
+            <p class="text-[10px] text-red-800 mt-1">
                 {% if estado_nuevo == 'permiso' %}
                     ℹ️ Este estado NO se cobra (monto = Bs. 0)
                 {% elif estado_nuevo == 'cancelada' %}
@@ -100,41 +100,41 @@
             {% csrf_token %}
             <input type="hidden" name="estado_nuevo" value="{{ estado_nuevo }}">
             
-            <div class="mb-6 space-y-4">
-                <h3 class="font-bold text-gray-900 mb-4">¿Qué hacer con el dinero pagado?</h3>
+            <div class="mb-4 space-y-2">
+                <h3 class="font-bold text-gray-900 mb-2 text-sm">¿Qué hacer con el dinero pagado?</h3>
                 
                 <!-- Opción 1: Convertir a crédito -->
-                <label class="flex items-start gap-3 p-4 border-2 border-blue-300 rounded-lg cursor-pointer hover:bg-blue-50 transition">
+                <label class="flex items-start gap-2 p-2.5 border-2 border-blue-300 rounded-lg cursor-pointer hover:bg-blue-50 transition">
                     <input type="radio" 
                            name="accion_pago" 
                            value="convertir_credito"
                            checked
-                           class="w-5 h-5 text-blue-600 mt-1"
+                           class="w-4 h-4 text-blue-600 mt-0.5"
                            onchange="toggleCampoMotivo()">
                     <div class="flex-1">
-                        <p class="font-bold text-gray-900 text-lg">✅ Conservar el saldo a favor</p>
-                        <p class="text-sm text-gray-700 mt-1">
+                        <p class="font-bold text-gray-900 text-xs">✅ Conservar el saldo a favor</p>
+                        <p class="text-[10px] text-gray-700 mt-0.5">
                             El paciente tendrá <strong>Bs. {{ total_pagado }}</strong> disponibles para futuras sesiones
                         </p>
-                        <div class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                        <div class="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded text-[9px] text-blue-800">
                             <strong>✅ Recomendado:</strong> El dinero no se pierde, se aplicará automáticamente a las próximas sesiones
                         </div>
                     </div>
                 </label>
                 
                 <!-- Opción 2: Anular pago -->
-                <label class="flex items-start gap-3 p-4 border-2 border-red-300 rounded-lg cursor-pointer hover:bg-red-50 transition">
+                <label class="flex items-start gap-2 p-2.5 border-2 border-red-300 rounded-lg cursor-pointer hover:bg-red-50 transition">
                     <input type="radio" 
                            name="accion_pago" 
                            value="anular_pago"
-                           class="w-5 h-5 text-red-600 mt-1"
+                           class="w-4 h-4 text-red-600 mt-0.5"
                            onchange="toggleCampoMotivo()">
                     <div class="flex-1">
-                        <p class="font-bold text-gray-900 text-lg">❌ Anular pago (devolver dinero)</p>
-                        <p class="text-sm text-gray-700 mt-1">
+                        <p class="font-bold text-gray-900 text-xs">❌ Anular pago (devolver dinero)</p>
+                        <p class="text-[10px] text-gray-700 mt-0.5">
                             Se anulará el pago y deberás devolver el dinero al paciente
                         </p>
-                        <div class="mt-2 p-3 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                        <div class="mt-1.5 p-2 bg-red-50 border border-red-200 rounded text-[9px] text-red-800">
                             <strong>⚠️ Requiere:</strong> Motivo de anulación y devolución física del dinero
                         </div>
                     </div>
@@ -142,36 +142,36 @@
             </div>
             
             <!-- Campo de motivo (solo si anula) -->
-            <div id="campo-motivo" class="hidden mb-6">
-                <label class="block text-sm font-bold text-gray-700 mb-2">
+            <div id="campo-motivo" class="hidden mb-4">
+                <label class="block text-[11px] font-bold text-gray-700 mb-1">
                     Motivo de anulación *
                 </label>
                 <textarea name="motivo_anulacion" 
-                          rows="3"
-                          class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+                          rows="2"
+                          class="w-full px-2.5 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-xs"
                           placeholder="Explica por qué se anula el pago..."></textarea>
             </div>
             
             <!-- Observaciones adicionales -->
-            <div class="mb-6">
-                <label class="block text-sm font-bold text-gray-700 mb-2">
+            <div class="mb-4">
+                <label class="block text-[11px] font-bold text-gray-700 mb-1">
                     Observaciones adicionales (opcional)
                 </label>
                 <textarea name="observaciones_cambio" 
                           rows="2"
-                          class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-2.5 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
                           placeholder="Notas sobre este cambio de estado..."></textarea>
             </div>
             
             <!-- Botones -->
-            <div class="flex gap-3 pt-4 border-t">
+            <div class="flex gap-2 pt-3 border-t">
                 <button type="submit" 
-                        class="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-4 px-6 rounded-lg transition shadow-lg">
+                        class="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2.5 px-4 rounded-lg transition shadow-lg text-sm">
                     ✅ Confirmar Cambio de Estado
                 </button>
                 <button type="button"
                         onclick="cerrarModalConfirmacion()"
-                        class="px-6 py-4 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition">
+                        class="px-4 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition text-sm">
                     Cancelar
                 </button>
             </div>

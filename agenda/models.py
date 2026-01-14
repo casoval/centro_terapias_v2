@@ -358,6 +358,29 @@ class Sesion(models.Model):
         if self.total_pagado > 0:
             return 'parcial'
         return 'pendiente'
+
+    @property
+    def total_pagado_contado(self):
+        """Total pagado en efectivo/contado (sin crédito)"""
+        from django.db.models import Sum
+        from decimal import Decimal
+        
+        return self.pagos.filter(
+            anulado=False
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    @property
+    def total_pagado_credito(self):
+        """Total pagado con crédito"""
+        from django.db.models import Sum
+        from decimal import Decimal
+        
+        return self.pagos.filter(
+            anulado=False,
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
     def clean(self):
         """Validación de choques de horarios"""

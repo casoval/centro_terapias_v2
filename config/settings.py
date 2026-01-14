@@ -16,7 +16,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ENTORNO (Detectar si es desarrollo o producción)
 # --------------------------------------------------
 
-# Por defecto es desarrollo si no hay variable de entorno
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 IS_PRODUCTION = ENVIRONMENT == 'production'
 
@@ -26,16 +25,13 @@ IS_PRODUCTION = ENVIRONMENT == 'production'
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-CHANGE-IN-PRODUCTION')
 
-# DEBUG: True en desarrollo, False en producción
 DEBUG = not IS_PRODUCTION
 
-# ALLOWED_HOSTS
 if IS_PRODUCTION:
     allowed = os.environ.get('ALLOWED_HOSTS', '').split(',')
-    # Añadir hosts internos para health checks de Render
     ALLOWED_HOSTS = allowed + ['127.0.0.1', 'localhost']
 else:
-    ALLOWED_HOSTS = ['*']  # Permitir todo en desarrollo
+    ALLOWED_HOSTS = ['*']
     
 # --------------------------------------------------
 # APPLICATION DEFINITION
@@ -47,6 +43,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    
+    # CLOUDINARY - debe ir ANTES de django.contrib.staticfiles
+    'cloudinary_storage',
+    'cloudinary',
+    
     'django.contrib.staticfiles',
 
     # Apps del proyecto
@@ -94,14 +95,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # --------------------------------------------------
 
 if IS_PRODUCTION:
-    # En producción usa la DATABASE_URL de Render
     DATABASES = {
         'default': dj_database_url.parse(
             os.environ.get('DATABASE_URL')
         )
     }
 else:
-    # En desarrollo usa SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -114,8 +113,12 @@ else:
 # --------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 4,
+        }
+    },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -132,7 +135,6 @@ USE_TZ = True
 
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
-# Formato de fecha en español
 DATE_FORMAT = 'd/m/Y'
 DATETIME_FORMAT = 'd/m/Y H:i'
 SHORT_DATE_FORMAT = 'd/m/Y'
@@ -144,14 +146,8 @@ SHORT_DATE_FORMAT = 'd/m/Y'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Esta configuración busca en las carpetas 'static' de cada app (como core/static)
-# y ADEMÁS puedes definir carpetas extras si quieres.
-STATICFILES_DIRS = [
-    # Si borraste la carpeta de la raíz, puedes comentar o borrar esta línea:
-    # BASE_DIR / 'static', 
-]
+STATICFILES_DIRS = []
 
-# Esto es lo que usas para Render (mantenlo igual)
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # --------------------------------------------------
@@ -180,7 +176,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --------------------------------------------------
 
 if IS_PRODUCTION:
-    # Configuraciones de seguridad para producción
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -188,7 +183,39 @@ if IS_PRODUCTION:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 else:
-    # Configuraciones de desarrollo
     print("MODO DESARROLLO ACTIVADO")
     print(f"   DEBUG = {DEBUG}")
     print(f"   Base de datos: SQLite local")
+
+# ==================== CONFIGURACIÓN DE CLOUDINARY ====================
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# ✅ CONFIGURACIÓN CORRECTA: usar cloudinary.config()
+cloudinary.config(
+    cloud_name='dwwfzxo3z',
+    api_key='447784864842837',
+    api_secret='WH8t6i2L3ZJLic5mFNVEmq6PNig',
+    secure=True  # Usar HTTPS
+)
+
+# PARA PRODUCCIÓN (usar variables de entorno):
+# cloudinary.config(
+#     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+#     api_key=os.environ.get('CLOUDINARY_API_KEY'),
+#     api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+#     secure=True
+# )
+
+# ✅ Configuración para django-cloudinary-storage
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dwwfzxo3z',
+    'API_KEY': '447784864842837',
+    'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig'
+}
+
+# ✅ OPCIONAL: Usar Cloudinary para archivos estáticos (solo en producción)
+# if IS_PRODUCTION:
+#     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

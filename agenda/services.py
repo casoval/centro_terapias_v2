@@ -89,23 +89,29 @@ class CalendarService:
     def _generate_monthly(fecha_base, sesiones):
         primer_dia = fecha_base.replace(day=1)
         
+        # Calcular último día del mes
         if fecha_base.month == 12:
             ultimo_dia = fecha_base.replace(day=31)
         else:
-            ultimo_dia = (fecha_base.replace(month=fecha_base.month + 1) - timedelta(days=1))
+            ultimo_dia = (fecha_base.replace(month=fecha_base.month + 1, day=1) - timedelta(days=1))
         
-        primer_dia_semana = primer_dia.weekday()
+        # ✅ CORRECCIÓN: Días del mes ANTERIOR para completar primera semana
+        primer_dia_semana = primer_dia.weekday()  # 0=Lunes, 6=Domingo
         dias_mes_anterior = []
-        if primer_dia_semana > 0:
+        
+        if primer_dia_semana > 0:  # Si no empieza en Lunes
             for i in range(primer_dia_semana):
                 dia = primer_dia - timedelta(days=primer_dia_semana - i)
                 dias_mes_anterior.append({
                     'fecha': dia,
                     'es_otro_mes': True,
+                    'es_hoy': False,
                     'sesiones': [],
                     'sesiones_agrupadas': [],
+                    'dia_numero': dia.day,
                 })
         
+        # ✅ CORRECCIÓN: Días del mes ACTUAL
         dias_mes_actual = []
         for dia_num in range(1, ultimo_dia.day + 1):
             dia = fecha_base.replace(day=dia_num)
@@ -142,7 +148,10 @@ class CalendarService:
                 'dia_numero': dia_num,
             })
         
+        # ✅ CORRECCIÓN: Combinar TODOS los días del mes anterior + actual
         todos_dias = dias_mes_anterior + dias_mes_actual
+        
+        # ✅ CORRECCIÓN: Dividir en semanas de 7 días
         semanas = []
         semana_actual = []
         
@@ -152,14 +161,24 @@ class CalendarService:
                 semanas.append(semana_actual)
                 semana_actual = []
         
+        # ✅ CORRECCIÓN: Completar última semana si es necesaria
         if semana_actual:
-            while len(semana_actual) < 7:
+            # Calcular cuántos días faltan para completar la semana
+            dias_faltantes = 7 - len(semana_actual)
+            
+            # Agregar días del mes siguiente
+            siguiente_dia = ultimo_dia + timedelta(days=1)
+            for i in range(dias_faltantes):
+                dia_siguiente = siguiente_dia + timedelta(days=i)
                 semana_actual.append({
-                    'fecha': None,
+                    'fecha': dia_siguiente,
                     'es_otro_mes': True,
+                    'es_hoy': False,
                     'sesiones': [],
                     'sesiones_agrupadas': [],
+                    'dia_numero': dia_siguiente.day,
                 })
+            
             semanas.append(semana_actual)
         
         return {
