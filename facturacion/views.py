@@ -50,12 +50,10 @@ def lista_cuentas_corrientes(request):
     if sucursal_id:
         pacientes = pacientes.filter(sucursales__id=sucursal_id)
     
-    # Crear cuentas corrientes faltantes y actualizar saldos
+    # Solo crear la cuenta si no existe (muy rápido), pero NO actualizar saldo
     for paciente in pacientes:
         if not hasattr(paciente, 'cuenta_corriente'):
             CuentaCorriente.objects.create(paciente=paciente)
-        # Actualizar saldo para tener datos frescos
-        paciente.cuenta_corriente.actualizar_saldo()
     
     # ✅ FILTRO POR ESTADO USANDO BALANCE_FINAL
     if estado == 'deudor':

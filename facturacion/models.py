@@ -1,5 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.db.models import Sum, F, Q, Case, When, DecimalField
+from django.db.models.functions import Coalesce
 from decimal import Decimal
 from pacientes.models import Paciente
 from django.contrib.auth.models import User
@@ -233,25 +235,38 @@ class CuentaCorriente(models.Model):
 
     @property
     def deuda_pendiente(self):
-        """Calcula cuánto debe el paciente por sesiones realizadas sin pagar"""
-        from django.db.models import Sum
+        """
+        Calcula cuánto debe el paciente de forma OPTIMIZADA (1 consulta).
+        """
         from agenda.models import Sesion
         
-        sesiones = Sesion.objects.filter(
+        # Obtenemos sesiones que podrían tener deuda
+        resultado = Sesion.objects.filter(
             paciente=self.paciente,
             estado__in=['realizada', 'realizada_retraso', 'falta'],
             proyecto__isnull=True,
             monto_cobrado__gt=0
+        ).annotate(
+            # Sumar pagos válidos para esta sesión
+            pagado=Coalesce(
+                Sum('pagos__monto', filter=Q(pagos__anulado=False)), 
+                Decimal('0.00')
+            )
+        ).aggregate(
+            # Sumar (Costo - Pagado) solo donde Costo > Pagado
+            deuda_total=Coalesce(
+                Sum(
+                    Case(
+                        When(monto_cobrado__gt=F('pagado'), then=F('monto_cobrado') - F('pagado')),
+                        default=Decimal('0.00'),
+                        output_field=DecimalField()
+                    )
+                ),
+                Decimal('0.00')
+            )
         )
         
-        deuda_total = Decimal('0.00')
-        
-        for sesion in sesiones:
-            pendiente = sesion.saldo_pendiente
-            if pendiente > 0:
-                deuda_total += pendiente
-        
-        return deuda_total
+        return resultado['deuda_total']
 
     @property
     def balance_neto(self):

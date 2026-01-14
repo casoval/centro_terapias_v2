@@ -1,7 +1,8 @@
 from decimal import Decimal
 from datetime import date
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, F, Q
+from django.db.models.functions import Coalesce
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
@@ -12,13 +13,9 @@ from pacientes.models import Paciente
 class AccountService:
     @staticmethod
     def update_balance(paciente: Paciente) -> Decimal:
-        """
-        Recalculate and update the balance (credit available) for a patient.
-        Refactored from CuentaCorriente.actualizar_saldo to be more explicit and testable.
-        """
         cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
         
-        # 1. Pagos adelantados (sin sesión ni proyecto)
+        # 1. Pagos adelantados (1 consulta rápida)
         pagos_adelantados = Pago.objects.filter(
             paciente=paciente,
             anulado=False,
@@ -26,47 +23,45 @@ class AccountService:
             proyecto__isnull=True
         ).exclude(
             metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        ).aggregate(total=Coalesce(Sum('monto'), Decimal('0.00')))['total']
         
-        # 2. Pagos de sesiones no realizadas (programada)
+        # 2. Pagos de sesiones no realizadas (1 consulta rápida)
         pagos_sesiones_pendientes = Pago.objects.filter(
             paciente=paciente,
             anulado=False,
             sesion__estado='programada'
         ).exclude(
             metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        ).aggregate(total=Coalesce(Sum('monto'), Decimal('0.00')))['total']
         
-        # 3. Excedentes (Overpayments on sessions)
-        # This part requires iterating unless we do a complex query. 
-        # Keeping iteration for now but optimized query filters.
-        excedentes_total = Decimal('0.00')
-        
-        sesiones_con_cobro = Sesion.objects.filter(
+        # 3. Excedentes (OPTIMIZADO: De N consultas a 1 consulta)
+        # Calculamos el total pagado por sesión usando la BD, no Python
+        sesiones_con_excedente = Sesion.objects.filter(
             paciente=paciente,
-            estado__in=['realizada', 'realizada_retraso', 'falta'],
             proyecto__isnull=True,
             monto_cobrado__gt=0
+        ).annotate(
+            total_pagado_calc=Coalesce(
+                Sum('pagos__monto', filter=Q(pagos__anulado=False) & ~Q(pagos__metodo_pago__nombre="Uso de Crédito")), 
+                Decimal('0.00')
+            )
+        ).filter(
+            total_pagado_calc__gt=F('monto_cobrado')
         )
         
-        # Optimize: fetch all related payments in one go if possible, but per-session calculation is tricky in pure SQL without subqueries.
-        # For now, we trust the database is fast enough or we can optimize later with annotations.
-        for sesion in sesiones_con_cobro:
-            total_pagado = sesion.pagos.filter(anulado=False).exclude(
-                metodo_pago__nombre="Uso de Crédito"
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-            
-            if total_pagado > sesion.monto_cobrado:
-                excedentes_total += (total_pagado - sesion.monto_cobrado)
-                
+        # Sumar las diferencias
+        excedentes_total = sesiones_con_excedente.aggregate(
+            total=Coalesce(Sum(F('total_pagado_calc') - F('monto_cobrado')), Decimal('0.00'))
+        )['total']
+        
         # 4. Uso manual de crédito
         uso_credito = Pago.objects.filter(
             paciente=paciente,
             anulado=False,
             metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        ).aggregate(total=Coalesce(Sum('monto'), Decimal('0.00')))['total']
         
-        # Calculate available credit
+        # Calcular saldo final
         credito_disponible = (
             pagos_adelantados +
             pagos_sesiones_pendientes +
@@ -74,23 +69,21 @@ class AccountService:
             uso_credito
         )
         
-        # Update totals for record keeping
-        total_consumido = Sesion.objects.filter(
-            paciente=paciente,
-            estado__in=['realizada', 'realizada_retraso', 'falta'],
-            proyecto__isnull=True,
-            monto_cobrado__gt=0
-        ).aggregate(total=Sum('monto_cobrado'))['total'] or Decimal('0.00')
-        
-        total_pagado = Pago.objects.filter(
-            paciente=paciente,
-            anulado=False
+        # Actualizar totales informativos
+        stats = Pago.objects.filter(
+            paciente=paciente, anulado=False
         ).exclude(
             metodo_pago__nombre="Uso de Crédito"
-        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        ).aggregate(pagado=Coalesce(Sum('monto'), Decimal('0.00')))
+
+        consumo = Sesion.objects.filter(
+            paciente=paciente,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+            proyecto__isnull=True
+        ).aggregate(cobrado=Coalesce(Sum('monto_cobrado'), Decimal('0.00')))
         
-        cuenta.total_consumido = total_consumido
-        cuenta.total_pagado = total_pagado
+        cuenta.total_consumido = consumo['cobrado']
+        cuenta.total_pagado = stats['pagado']
         cuenta.saldo = credito_disponible
         cuenta.save()
         
