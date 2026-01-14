@@ -146,7 +146,14 @@ SHORT_DATE_FORMAT = 'd/m/Y'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# ⭐ Directorios adicionales de archivos estáticos
 STATICFILES_DIRS = []
+
+# ⭐ Finders para encontrar archivos estáticos en las apps
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 
 # ⭐ WhiteNoise solo en producción
 if IS_PRODUCTION:
