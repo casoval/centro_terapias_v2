@@ -43,12 +43,11 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.staticfiles',  # ⭐ MOVER AQUÍ
     
-    # CLOUDINARY - debe ir ANTES de django.contrib.staticfiles
+    # Cloudinary DESPUÉS de staticfiles
     'cloudinary_storage',
     'cloudinary',
-    
-    'django.contrib.staticfiles',
 
     # Apps del proyecto
     'core',
