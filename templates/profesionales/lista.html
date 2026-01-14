@@ -33,17 +33,49 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
     {% for profesional in profesionales %}
     <div class="profesional-card bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden flex flex-col">
+        <!-- Header con foto y datos básicos -->
         <div class="bg-gradient-to-br from-emerald-400 to-green-500 p-3 text-white">
-            <div class="flex justify-between items-start">
-                <div class="min-w-0">
-                    <div class="text-2xl mb-1">👨‍⚕️</div>
-                    <h3 class="text-base font-black truncate leading-tight">{{ profesional.nombre_completo }}</h3>
-                    <p class="text-[10px] font-bold text-emerald-100 mt-0.5">🎓 {{ profesional.especialidad }}</p>
+            <div class="flex gap-3 items-start">
+                <!-- Foto del profesional -->
+                <div class="flex-shrink-0">
+                    {% if profesional.tiene_foto %}
+                        <img src="{{ profesional.get_foto_thumbnail }}" 
+                             alt="{{ profesional.nombre_completo }}"
+                             class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md">
+                    {% else %}
+                        <div class="w-16 h-16 rounded-full bg-white/20 border-2 border-white flex items-center justify-center text-2xl">
+                            👨‍⚕️
+                        </div>
+                    {% endif %}
                 </div>
-                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white">ACTIVO</span>
+                
+                <!-- Info básica -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-base font-black truncate leading-tight">{{ profesional.nombre_completo }}</h3>
+                            <p class="text-[10px] font-bold text-emerald-100 mt-0.5">🎓 {{ profesional.especialidad }}</p>
+                        </div>
+                        <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0">ACTIVO</span>
+                    </div>
+                    
+                    <!-- Sucursales -->
+                    <div class="mt-2 flex flex-wrap gap-1">
+                        {% for sucursal in profesional.sucursales.all %}
+                            <span class="px-1.5 py-0.5 text-[8px] font-bold bg-white/20 backdrop-blur-sm rounded border border-white/30 text-white">
+                                🏢 {{ sucursal.nombre }}
+                            </span>
+                        {% empty %}
+                            <span class="px-1.5 py-0.5 text-[8px] font-bold bg-red-500/30 rounded border border-red-400/50 text-white">
+                                ⚠️ Sin sucursal
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
         
+        <!-- Contenido -->
         <div class="p-3 flex flex-col flex-1">
             <div class="grid grid-cols-2 gap-2 mb-3">
                 <div class="flex flex-col items-center p-2 bg-yellow-50 rounded-lg border border-yellow-100 text-center">
