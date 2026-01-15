@@ -314,45 +314,64 @@ class CuentaCorriente(models.Model):
 
     @property
     def consumo_proyectos(self):
-        """Total consumido en proyectos"""
+        """Total consumido en proyectos - OPTIMIZADO"""
         from django.db.models import Sum
+        from django.db.models.functions import Coalesce
         from agenda.models import Proyecto
+        
+        # ✅ Agregación directa en BD
         return Proyecto.objects.filter(
             paciente=self.paciente
-        ).aggregate(total=Sum('costo_total'))['total'] or Decimal('0.00')
-
+        ).aggregate(
+            total=Coalesce(Sum('costo_total'), Decimal('0.00'))
+        )['total']
+    
     @property
     def pagado_proyectos(self):
-        """Total pagado en proyectos"""
+        """Total pagado en proyectos - OPTIMIZADO"""
         from agenda.models import Proyecto
-        proyectos = Proyecto.objects.filter(paciente=self.paciente)
-        return sum(p.total_pagado for p in proyectos)
-
+        from django.db.models import Sum
+        from django.db.models.functions import Coalesce
+        
+        # ✅ UNA SOLA consulta con agregación en BD
+        resultado = Proyecto.objects.filter(
+            paciente=self.paciente
+        ).annotate(
+            total_pagado_calc=Coalesce(
+                Sum('pagos__monto', filter=Q(pagos__anulado=False)), 
+                Decimal('0.00')
+            )
+        ).aggregate(
+            total=Coalesce(Sum('total_pagado_calc'), Decimal('0.00'))
+        )
+        
+        return resultado['total']
+    
     @property
     def deuda_proyectos(self):
-        """Deuda pendiente de proyectos"""
+        """Deuda pendiente de proyectos - OPTIMIZADO"""
         return max(self.consumo_proyectos - self.pagado_proyectos, Decimal('0.00'))
 
     @property
     def total_consumo_general(self):
-        """Total consumido (sesiones + proyectos)"""
+        """Total consumido (sesiones + proyectos) - OPTIMIZADO"""
         return self.consumo_sesiones + self.consumo_proyectos
 
     @property
     def total_pagado_general(self):
-        """Total pagado (sesiones + proyectos)"""
+        """Total pagado (sesiones + proyectos) - OPTIMIZADO"""
         return self.pagado_sesiones + self.pagado_proyectos
 
     @property
     def total_deuda_general(self):
-        """Total deuda pendiente (sesiones + proyectos)"""
+        """Total deuda pendiente (sesiones + proyectos) - OPTIMIZADO"""
         return self.deuda_sesiones + self.deuda_proyectos
 
     @property
     def balance_final(self):
-        """Balance final: Crédito - Deuda Total"""
+        """Balance final: Crédito - Deuda Total - OPTIMIZADO"""
         return self.saldo - self.total_deuda_general
-
+        
 class Factura(models.Model):
     """Facturas agrupando múltiples pagos/sesiones"""
     
