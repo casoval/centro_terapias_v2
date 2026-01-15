@@ -21,15 +21,15 @@ from agenda.models import Sesion, Proyecto
 def lista_cuentas_corrientes(request):
     """
     Lista de cuentas corrientes con paginación y filtros
-    ✅ ACTUALIZADO: Usa balance_final y totales generales (sesiones + proyectos)
+    ✅ OPTIMIZADO: Evita calcular balance_final en bucle
     """
     
     # Filtros
     buscar = request.GET.get('q', '').strip()
-    estado = request.GET.get('estado', '')  # 'deudor', 'al_dia', 'a_favor'
+    estado = request.GET.get('estado', '')
     sucursal_id = request.GET.get('sucursal', '')
     
-    # Query base: Pacientes activos con prefetch de sucursales
+    # Query base - ✅ OPTIMIZADO con select_related
     pacientes = Paciente.objects.filter(
         estado='activo'
     ).select_related(
@@ -50,60 +50,96 @@ def lista_cuentas_corrientes(request):
     if sucursal_id:
         pacientes = pacientes.filter(sucursales__id=sucursal_id)
     
-    # Solo crear la cuenta si no existe (muy rápido), pero NO actualizar saldo
+    # Solo crear la cuenta si no existe
     for paciente in pacientes:
         if not hasattr(paciente, 'cuenta_corriente'):
             CuentaCorriente.objects.create(paciente=paciente)
     
-    # ✅ FILTRO POR ESTADO USANDO BALANCE_FINAL
-    if estado == 'deudor':
-        pacientes = [p for p in pacientes if p.cuenta_corriente.balance_final < 0]
-    elif estado == 'al_dia':
-        pacientes = [p for p in pacientes if p.cuenta_corriente.balance_final == 0]
-    elif estado == 'a_favor':
-        pacientes = [p for p in pacientes if p.cuenta_corriente.balance_final > 0]
+    # ✅ CRÍTICO: Pre-calcular balance_final SIN llamar a propiedades pesadas
+    # Solo para filtrado/ordenamiento
+    pacientes_list = []
+    for p in pacientes:
+        cuenta = p.cuenta_corriente
+        
+        # Usar solo datos ya en memoria (saldo está en BD)
+        # NO calcular total_deuda_general aquí - es muy pesado
+        pacientes_list.append({
+            'paciente': p,
+            'cuenta': cuenta,
+            'saldo_simple': cuenta.saldo  # Solo para ordenar
+        })
     
-    # ✅ ORDENAR POR BALANCE_FINAL (deudores primero, con mayor deuda arriba)
-    pacientes = sorted(
-        pacientes, 
-        key=lambda p: p.cuenta_corriente.balance_final
+    # ✅ FILTRO POR ESTADO - Simplificado (solo usa saldo)
+    # Nota: Este filtrado es aproximado, para exacto necesitarías
+    # calcular balance_final pero sería muy lento
+    if estado == 'deudor':
+        pacientes_list = [p for p in pacientes_list if p['saldo_simple'] < 0]
+    elif estado == 'al_dia':
+        pacientes_list = [p for p in pacientes_list if p['saldo_simple'] == 0]
+    elif estado == 'a_favor':
+        pacientes_list = [p for p in pacientes_list if p['saldo_simple'] > 0]
+    
+    # ✅ ORDENAR por saldo simple (no balance_final)
+    pacientes_list = sorted(
+        pacientes_list, 
+        key=lambda p: p['saldo_simple']
     )
     
+    # Extraer solo objetos paciente para paginación
+    pacientes_ordenados = [p['paciente'] for p in pacientes_list]
+    
     # Paginación (50 por página)
-    paginator = Paginator(pacientes, 50)
+    paginator = Paginator(pacientes_ordenados, 50)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
-    # ✅ ESTADÍSTICAS CORREGIDAS - Calculadas manualmente con balance_final
-    total_consumido_general = Decimal('0.00')
-    total_pagado_general = Decimal('0.00')
-    total_balance = Decimal('0.00')
-    deudores_count = 0
-    al_dia_count = 0
-    a_favor_count = 0
-    total_debe = Decimal('0.00')
-    total_favor = Decimal('0.00')
+    # ✅ ESTADÍSTICAS - Calculadas SOLO con datos en BD
+    from django.db.models import Sum, Count
+    from agenda.models import Sesion, Proyecto
     
-    # Recorrer TODAS las cuentas corrientes (no solo la página actual)
-    todas_cuentas = CuentaCorriente.objects.select_related('paciente').filter(
+    # Total consumido (solo sesiones normales)
+    total_consumido_sesiones = Sesion.objects.filter(
+        paciente__estado='activo',
+        estado__in=['realizada', 'realizada_retraso', 'falta'],
+        proyecto__isnull=True
+    ).aggregate(total=Sum('monto_cobrado'))['total'] or Decimal('0.00')
+    
+    # Total consumido proyectos
+    total_consumido_proyectos = Proyecto.objects.filter(
+        paciente__estado='activo'
+    ).aggregate(total=Sum('costo_total'))['total'] or Decimal('0.00')
+    
+    total_consumido_general = total_consumido_sesiones + total_consumido_proyectos
+    
+    # Total pagado (excluye crédito)
+    total_pagado_general = Pago.objects.filter(
+        paciente__estado='activo',
+        anulado=False
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    # Saldo total (crédito)
+    total_balance = CuentaCorriente.objects.filter(
+        paciente__estado='activo'
+    ).aggregate(total=Sum('saldo'))['total'] or Decimal('0.00')
+    
+    # Clasificación simple por saldo
+    todas_cuentas = CuentaCorriente.objects.filter(
         paciente__estado='activo'
     )
     
-    for cuenta in todas_cuentas:
-        # Sumar totales generales
-        total_consumido_general += cuenta.total_consumo_general
-        total_pagado_general += cuenta.total_pagado_general
-        total_balance += cuenta.balance_final
-        
-        # Clasificar por balance_final
-        if cuenta.balance_final < 0:
-            deudores_count += 1
-            total_debe += abs(cuenta.balance_final)
-        elif cuenta.balance_final == 0:
-            al_dia_count += 1
-        else:
-            a_favor_count += 1
-            total_favor += cuenta.balance_final
+    deudores_count = todas_cuentas.filter(saldo__lt=0).count()
+    al_dia_count = todas_cuentas.filter(saldo=0).count()
+    a_favor_count = todas_cuentas.filter(saldo__gt=0).count()
+    
+    total_debe = abs(todas_cuentas.filter(saldo__lt=0).aggregate(
+        total=Sum('saldo')
+    )['total'] or Decimal('0.00'))
+    
+    total_favor = todas_cuentas.filter(saldo__gt=0).aggregate(
+        total=Sum('saldo')
+    )['total'] or Decimal('0.00')
     
     estadisticas = {
         'total_consumido': total_consumido_general,
