@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db.models import Q, Sum
+from django.utils.functional import cached_property
 from pacientes.models import Paciente
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
@@ -297,12 +298,11 @@ class Sesion(models.Model):
         return f"{self.fecha} {self.hora_inicio} - {self.paciente} - {self.servicio}"
     
     # 🆕 NUEVAS PROPIEDADES CALCULADAS
-    @property
+    @cached_property  # ✅ Solo cambia esto
     def total_pagado(self):
-        """Total de pagos recibidos para esta sesión específica"""
-        return self.pagos.filter(anulado=False).aggregate(
-            total=Sum('monto')
-        )['total'] or Decimal('0.00')
+        return self.pagos.filter(anulado=False).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
     
     @property
     def saldo_pendiente(self):

@@ -21,7 +21,6 @@ class MetodoPago(models.Model):
     def __str__(self):
         return self.nombre
 
-
 class Pago(models.Model):
     """
     Registro detallado de pagos
@@ -111,14 +110,44 @@ class Pago(models.Model):
         verbose_name = "Pago"
         verbose_name_plural = "Pagos"
         ordering = ['-fecha_pago', '-fecha_registro']
+        
+        # ✅ ÍNDICES OPTIMIZADOS (MEJORADOS)
         indexes = [
+            # Índices existentes (mantener)
             models.Index(fields=['paciente', '-fecha_pago']),
             models.Index(fields=['fecha_pago']),
             models.Index(fields=['numero_recibo']),
-            models.Index(fields=['-numero_recibo']),  # ✅ NUEVO: Para búsquedas descendentes
+            models.Index(fields=['-numero_recibo']),
             models.Index(fields=['sesion']),
             models.Index(fields=['proyecto']),
+            
+            # ✅ NUEVOS: Índices compuestos para agregaciones
+            models.Index(
+                fields=['paciente', 'anulado'],
+                name='pago_paciente_anulado_idx'
+            ),
+            models.Index(
+                fields=['paciente', 'anulado', 'sesion'],
+                name='pago_pac_anulado_sesion_idx'
+            ),
+            models.Index(
+                fields=['paciente', 'anulado', 'proyecto'],
+                name='pago_pac_anulado_proy_idx'
+            ),
+            models.Index(
+                fields=['metodo_pago', 'anulado'],
+                name='pago_metodo_anulado_idx'
+            ),
+            models.Index(
+                fields=['sesion', 'anulado'],
+                name='pago_sesion_anulado_idx'
+            ),
+            models.Index(
+                fields=['proyecto', 'anulado'],
+                name='pago_proyecto_anulado_idx'
+            ),
         ]
+        
         constraints = [
             models.CheckConstraint(
                 condition=(
@@ -182,7 +211,6 @@ class Pago(models.Model):
         self.anulado_por = user
         self.fecha_anulacion = timezone.now()
         self.save()
-
 
 class CuentaCorriente(models.Model):
     """Cuenta corriente del paciente - resumen de deuda/saldo"""
