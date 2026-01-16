@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Count, Q
 from .models import Profesional
+from .forms import ProfesionalForm
 from datetime import date, timedelta
 
 @login_required
@@ -149,3 +150,21 @@ def mis_pacientes(request):
     }
     
     return render(request, 'profesionales/mis_pacientes.html', context)
+
+
+@login_required
+def agregar_profesional(request):
+    """Crear un nuevo profesional"""
+    if request.method == 'POST':
+        form = ProfesionalForm(request.POST, request.FILES)
+        if form.is_valid():
+            profesional = form.save()
+            messages.success(request, f'✅ Profesional "{profesional.nombre_completo}" creado exitosamente.')
+            return redirect('profesionales:lista')
+    else:
+        form = ProfesionalForm()
+    
+    context = {
+        'form': form,
+    }
+    return render(request, 'profesionales/agregar.html', context)

@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Usuario - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .seccion-form { transition: all 0.3s ease; }
+    .seccion-form:hover { transform: translateY(-2px); }
+    .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
+    .checkbox-sucursal {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .checkbox-sucursal:hover {
+        background-color: #f5f3ff;
+        border-color: #c4b5fd;
+    }
+    .seccion-oculta {
+        display: none;
+    }
+</style>
+
+<!-- Header Compacto -->
+<div class="mb-4">
+    <div class="bg-gradient-to-r from-purple-500 via-violet-500 to-indigo-500 rounded-xl p-3 shadow-lg">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                    <span>✏️</span> Editar Usuario
+                </h1>
+                <p class="text-white text-[10px] font-bold opacity-90">Modificar cuenta: {{ usuario.username }}</p>
+            </div>
+            <a href="{% url 'core:lista_usuarios' %}" 
+               class="bg-white text-purple-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
+                ← Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Formulario -->
+<form method="post" class="space-y-3">
+    {% csrf_token %}
+    
+    <!-- Mensajes de error -->
+    {% if usuario_form.non_field_errors or perfil_form.non_field_errors %}
+    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+        <p class="text-red-700 font-bold text-sm">❌ Errores:</p>
+        <ul class="list-disc list-inside text-red-600 text-xs mt-1">
+            {% for error in usuario_form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+            {% for error in perfil_form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- SECCIÓN 1: Datos de la Cuenta -->
+    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-purple-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100">
+            <div class="bg-purple-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🔐</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Datos de la Cuenta</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Credenciales de acceso al sistema</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="campo-requerido sm:col-span-2">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.username.label }}</label>
+                {{ usuario_form.username }}
+                {% if usuario_form.username.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.username.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">👤 Nombre único para iniciar sesión</p>
+            </div>
+            
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.password.label }}</label>
+                {{ usuario_form.password }}
+                {% if usuario_form.password.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.password.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">🔒 Dejar en blanco para no cambiar</p>
+            </div>
+            
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.password_confirm.label }}</label>
+                {{ usuario_form.password_confirm }}
+                {% if usuario_form.password_confirm.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.password_confirm.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">🔒 Confirmar contraseña</p>
+            </div>
+            
+            <div class="sm:col-span-2">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.is_active.label }}</label>
+                <div class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all">
+                    {{ usuario_form.is_active }}
+                    <span class="text-xs font-bold text-gray-700">Usuario puede iniciar sesión</span>
+                </div>
+                {% if usuario_form.is_active.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.is_active.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: Rol y Permisos (OBLIGATORIO) -->
+    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-violet-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-violet-100">
+            <div class="bg-violet-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🎭</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Rol y Permisos</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Nivel de acceso en el sistema (OBLIGATORIO)</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ perfil_form.rol.label }}</label>
+                {{ perfil_form.rol }}
+                {% if perfil_form.rol.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ perfil_form.rol.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">🎭 Define los permisos del usuario</p>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ perfil_form.activo.label }}</label>
+                <div class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all">
+                    {{ perfil_form.activo }}
+                    <span class="text-xs font-bold text-gray-700">Perfil activo</span>
+                </div>
+                {% if perfil_form.activo.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ perfil_form.activo.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Alerta para seleccionar rol -->
+        <div id="alerta-rol" class="mt-3 p-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg seccion-oculta">
+            <p class="text-xs font-bold text-yellow-800">⚠️ Importante:</p>
+            <p class="text-[10px] text-yellow-700 mt-1">Selecciona un rol para continuar. Los campos visibles cambiarán según el rol elegido.</p>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 3: Información Personal (solo para Recepcionista/Gerente) -->
+    <div id="seccion-info-personal" class="seccion-form seccion-oculta bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
+            <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👤</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Información Personal</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Datos del usuario</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.first_name.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ usuario_form.first_name }}
+                {% if usuario_form.first_name.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.first_name.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.last_name.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ usuario_form.last_name }}
+                {% if usuario_form.last_name.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.last_name.errors.0 }}</p>
+                {% endif %}
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.email.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ usuario_form.email }}
+                {% if usuario_form.email.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.email.errors.0 }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 4: Vinculaciones (solo para Paciente/Profesional) -->
+    <div id="seccion-vinculaciones" class="seccion-form seccion-oculta bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+            <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🔗</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Vinculaciones</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Asociar con registro existente</p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 gap-3">
+            <!-- Vincular con Profesional -->
+            <div id="campo-profesional" class="seccion-oculta">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ perfil_form.profesional.label }}</label>
+                {{ perfil_form.profesional }}
+                {% if perfil_form.profesional.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ perfil_form.profesional.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">👨‍⚕️ Selecciona el profesional a vincular</p>
+            </div>
+            
+            <!-- Vincular con Paciente -->
+            <div id="campo-paciente" class="seccion-oculta">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ perfil_form.paciente.label }}</label>
+                {{ perfil_form.paciente }}
+                {% if perfil_form.paciente.errors %}
+                <p class="text-red-500 text-[10px] font-bold mt-1">{{ perfil_form.paciente.errors.0 }}</p>
+                {% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">👤 Selecciona el paciente a vincular</p>
+            </div>
+        </div>
+        
+        <div class="mt-3 p-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+            <p class="text-xs font-bold text-yellow-800">⚠️ Importante:</p>
+            <p class="text-[10px] text-yellow-700 mt-1">Los datos personales (nombre, email, etc.) se heredan del registro del profesional/paciente vinculado.</p>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 5: Sucursales (solo para Recepcionista/Gerente) -->
+    <div id="seccion-sucursales" class="seccion-form seccion-oculta bg-white rounded-xl shadow-md p-4 border-2 border-teal-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-teal-100">
+            <div class="bg-teal-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🏢</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Sucursales Asignadas</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Lugares donde puede trabajar</p>
+            </div>
+        </div>
+        
+        <div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">{{ perfil_form.sucursales.label }}</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {% for checkbox in perfil_form.sucursales %}
+                <div class="checkbox-sucursal">
+                    {{ checkbox.tag }}
+                    <label for="{{ checkbox.id_for_label }}" class="text-xs font-bold text-gray-700 cursor-pointer">
+                        {{ checkbox.choice_label }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            {% if perfil_form.sucursales.errors %}
+            <p class="text-red-500 text-[10px] font-bold mt-2">{{ perfil_form.sucursales.errors.0 }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- SECCIÓN 6: Acceso al Admin (solo para Recepcionista/Gerente) -->
+    <div id="seccion-admin" class="seccion-form seccion-oculta bg-white rounded-xl shadow-md p-4 border-2 border-gray-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+            <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">⚙️</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Configuración Avanzada</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Permisos especiales</p>
+            </div>
+        </div>
+        
+        <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">{{ usuario_form.is_staff.label }}</label>
+            <div class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all">
+                {{ usuario_form.is_staff }}
+                <span class="text-xs font-bold text-gray-700">Acceso al panel de admin</span>
+            </div>
+            {% if usuario_form.is_staff.errors %}
+            <p class="text-red-500 text-[10px] font-bold mt-1">{{ usuario_form.is_staff.errors.0 }}</p>
+            {% endif %}
+            <p class="text-[10px] text-gray-500 mt-1">🔐 Solo para administradores</p>
+        </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="flex gap-3 pt-2">
+        <button type="submit" 
+                class="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+            ✅ Actualizar Usuario
+        </button>
+        <a href="{% url 'core:lista_usuarios' %}" 
+           class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
+            Cancelar
+        </a>
+    </div>
+</form>
+
+<!-- JavaScript para mostrar/ocultar secciones según el rol -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const rolSelect = document.getElementById('id_rol');
+        
+        // Secciones del formulario
+        const seccionInfoPersonal = document.getElementById('seccion-info-personal');
+        const seccionVinculaciones = document.getElementById('seccion-vinculaciones');
+        const seccionSucursales = document.getElementById('seccion-sucursales');
+        const seccionAdmin = document.getElementById('seccion-admin');
+        const alertaRol = document.getElementById('alerta-rol');
+        
+        // Campos de vinculación
+        const campoProfesional = document.getElementById('campo-profesional');
+        const campoPaciente = document.getElementById('campo-paciente');
+        
+        function actualizarSecciones() {
+            const rolSeleccionado = rolSelect.value;
+            
+            // Ocultar alerta si hay rol seleccionado
+            if (rolSeleccionado) {
+                alertaRol.classList.add('seccion-oculta');
+            } else {
+                alertaRol.classList.remove('seccion-oculta');
+            }
+            
+            // Ocultar todas las secciones primero
+            seccionInfoPersonal.classList.add('seccion-oculta');
+            seccionVinculaciones.classList.add('seccion-oculta');
+            seccionSucursales.classList.add('seccion-oculta');
+            seccionAdmin.classList.add('seccion-oculta');
+            campoProfesional.classList.add('seccion-oculta');
+            campoPaciente.classList.add('seccion-oculta');
+            
+            // Mostrar secciones según el rol
+            if (rolSeleccionado === 'paciente') {
+                // PACIENTE
+                seccionVinculaciones.classList.remove('seccion-oculta');
+                campoPaciente.classList.remove('seccion-oculta');
+            } else if (rolSeleccionado === 'profesional') {
+                // PROFESIONAL
+                seccionVinculaciones.classList.remove('seccion-oculta');
+                campoProfesional.classList.remove('seccion-oculta');
+            } else if (rolSeleccionado === 'recepcionista' || rolSeleccionado === 'gerente') {
+                // RECEPCIONISTA o GERENTE
+                seccionInfoPersonal.classList.remove('seccion-oculta');
+                seccionSucursales.classList.remove('seccion-oculta');
+                seccionAdmin.classList.remove('seccion-oculta');
+            }
+        }
+        
+        // Ejecutar al cargar la página
+        actualizarSecciones();
+        
+        // Ejecutar cuando cambie el rol
+        rolSelect.addEventListener('change', actualizarSecciones);
+    });
+</script>
+{% endblock %}

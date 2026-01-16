@@ -4,34 +4,24 @@
 
 {% block content %}
 <style>
-    .seccion-form {
-        transition: all 0.3s ease;
-    }
-    .seccion-form:hover {
-        transform: translateY(-2px);
-    }
-    #foto-preview {
-        transition: all 0.3s ease;
-    }
-    .campo-requerido label::after {
-        content: ' *';
-        color: #ef4444;
-        font-weight: bold;
-    }
+    .seccion-form { transition: all 0.3s ease; }
+    .seccion-form:hover { transform: translateY(-2px); }
+    #foto-preview { transition: all 0.3s ease; }
+    .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
 </style>
 
-<!-- Header -->
-<div class="mb-6">
-    <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-2xl p-4 shadow-lg border-2 border-white">
+<!-- Header Compacto -->
+<div class="mb-4">
+    <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-xl p-3 shadow-lg">
         <div class="flex justify-between items-center">
             <div>
-                <h1 class="text-xl sm:text-2xl font-black text-white drop-shadow-md flex items-center gap-2">
-                    <span class="text-2xl">➕</span> Nuevo Paciente
+                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                    <span>➕</span> Nuevo Paciente
                 </h1>
-                <p class="text-white text-[11px] font-bold opacity-90">Completa los datos del nuevo paciente</p>
+                <p class="text-white text-[10px] font-bold opacity-90">Completa los datos del nuevo paciente</p>
             </div>
             <a href="{% url 'pacientes:lista' %}" 
-               class="bg-white text-purple-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-purple-100 hover:scale-105 transition-transform">
+               class="bg-white text-purple-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
                 ← Volver
             </a>
         </div>
@@ -39,14 +29,14 @@
 </div>
 
 <!-- Formulario -->
-<form method="post" enctype="multipart/form-data" class="space-y-4">
+<form method="post" enctype="multipart/form-data" class="space-y-3">
     {% csrf_token %}
     
-    <!-- Mensajes de error general -->
+    <!-- Mensajes de error -->
     {% if form.non_field_errors %}
-    <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-        <p class="text-red-700 font-bold text-sm">❌ Errores en el formulario:</p>
-        <ul class="list-disc list-inside text-red-600 text-xs mt-2">
+    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+        <p class="text-red-700 font-bold text-sm">❌ Errores:</p>
+        <ul class="list-disc list-inside text-red-600 text-xs mt-1">
             {% for error in form.non_field_errors %}
             <li>{{ error }}</li>
             {% endfor %}
@@ -54,327 +44,66 @@
     </div>
     {% endif %}
 
-    <!-- 1️⃣ SUCURSALES -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-orange-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-orange-100">
-            <div class="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                🏢
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Sucursales</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Selecciona donde puede ser atendido</p>
-            </div>
-        </div>
+    <!-- FILA 1: Sucursales + Foto + Datos Básicos -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
         
-        <div class="campo-requerido">
-            <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {% for checkbox in form.sucursales %}
-                <label class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-300 cursor-pointer transition-all">
-                    {{ checkbox.tag }}
-                    <span class="text-sm font-bold text-gray-700">{{ checkbox.choice_label }}</span>
-                </label>
-                {% endfor %}
+        <!-- 🏢 SUCURSALES -->
+        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-orange-100">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-orange-100">
+                <div class="bg-orange-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🏢</div>
+                <div>
+                    <h2 class="text-sm font-black text-gray-800">Sucursales</h2>
+                    <p class="text-[9px] text-gray-500 font-bold">Selecciona donde puede ser atendido</p>
+                </div>
             </div>
-            {% if form.sucursales.errors %}
-            <p class="text-red-500 text-xs font-bold mt-2">{{ form.sucursales.errors.0 }}</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- 2️⃣ FOTO DEL PACIENTE -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-blue-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-100">
-            <div class="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                📸
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Foto del Paciente</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Opcional - Se optimizará automáticamente</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                {{ form.foto }}
-                <p class="text-xs text-gray-500 mt-2">📌 Formatos: JPG, PNG, WebP</p>
-            </div>
-            
-            <div id="foto-preview-container" class="hidden">
-                <p class="text-xs font-bold text-gray-600 mb-2">Vista Previa:</p>
-                <img id="foto-preview" src="" alt="Preview" class="w-full max-w-xs rounded-xl border-2 border-gray-200 shadow-sm">
-                <button type="button" id="remove-foto" class="mt-2 text-xs text-red-600 font-bold hover:underline">
-                    ❌ Eliminar foto
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3️⃣ INFORMACIÓN DEL PACIENTE -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-blue-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-100">
-            <div class="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                👤
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Datos del Paciente</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Información básica del menor</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.nombre.label }}</label>
-                {{ form.nombre }}
-                {% if form.nombre.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.nombre.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.apellido.label }}</label>
-                {{ form.apellido }}
-                {% if form.apellido.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.apellido.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.fecha_nacimiento.label }}</label>
-                {{ form.fecha_nacimiento }}
-                {% if form.fecha_nacimiento.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.fecha_nacimiento.errors.0 }}</p>
-                {% endif %}
-                <p class="text-xs text-gray-500 mt-1">📌 Se calculará la edad automáticamente</p>
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.genero.label }}</label>
-                {{ form.genero }}
-                {% if form.genero.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.genero.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 4️⃣ TUTOR PRINCIPAL -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-purple-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-purple-100">
-            <div class="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                👨‍👩‍👧
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Tutor Principal</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Contacto principal del paciente</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="campo-requerido md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.nombre_tutor.label }}</label>
-                {{ form.nombre_tutor }}
-                {% if form.nombre_tutor.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.nombre_tutor.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.parentesco.label }}</label>
-                {{ form.parentesco }}
-                {% if form.parentesco.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.parentesco.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.telefono_tutor.label }}</label>
-                {{ form.telefono_tutor }}
-                {% if form.telefono_tutor.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.telefono_tutor.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.email_tutor.label }} <span class="text-gray-400 text-xs">(opcional)</span></label>
-                {{ form.email_tutor }}
-                {% if form.email_tutor.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.email_tutor.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.direccion.label }} <span class="text-gray-400 text-xs">(opcional)</span></label>
-                {{ form.direccion }}
-                {% if form.direccion.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.direccion.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 5️⃣ SEGUNDO TUTOR (OPCIONAL) -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-green-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-green-100">
-            <div class="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                👥
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Segundo Tutor / Contacto de Emergencia</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Opcional - Contacto adicional</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.nombre_tutor_2.label }}</label>
-                {{ form.nombre_tutor_2 }}
-                {% if form.nombre_tutor_2.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.nombre_tutor_2.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.parentesco_2.label }}</label>
-                {{ form.parentesco_2 }}
-                {% if form.parentesco_2.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.telefono_tutor_2.label }}</label>
-                {{ form.telefono_tutor_2 }}
-                {% if form.telefono_tutor_2.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.telefono_tutor_2.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.email_tutor_2.label }}</label>
-                {{ form.email_tutor_2 }}
-                {% if form.email_tutor_2.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.email_tutor_2.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 6️⃣ INFORMACIÓN CLÍNICA -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-red-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-red-100">
-            <div class="bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                🩺
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Información Clínica</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Diagnóstico y observaciones médicas</p>
-            </div>
-        </div>
-        
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.diagnostico.label }} <span class="text-gray-400 text-xs">(opcional)</span></label>
-                {{ form.diagnostico }}
-                {% if form.diagnostico.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.diagnostico.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.observaciones_medicas.label }} <span class="text-gray-400 text-xs">(opcional)</span></label>
-                {{ form.observaciones_medicas }}
-                {% if form.observaciones_medicas.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.observaciones_medicas.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.alergias.label }} <span class="text-gray-400 text-xs">(opcional)</span></label>
-                {{ form.alergias }}
-                {% if form.alergias.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.alergias.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- 7️⃣ SERVICIOS A CONTRATAR -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-indigo-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-indigo-100">
-            <div class="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                🎯
-            </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Servicios a Contratar</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Opcional - Selecciona servicios y personaliza si es necesario</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% for servicio in servicios %}
-            <div class="border-2 border-gray-200 rounded-xl p-4 hover:border-indigo-300 transition-all servicio-item">
-                <div class="flex items-center gap-3 mb-3">
-                    <input type="checkbox" 
-                           name="servicio_{{ servicio.id }}" 
-                           id="id_servicio_{{ servicio.id }}"
-                           class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                    <label for="id_servicio_{{ servicio.id }}" class="text-sm font-bold text-gray-800 cursor-pointer flex-1">
-                        {{ servicio.nombre }}
-                        <span class="text-indigo-600 ml-2">- Bs. {{ servicio.costo_base }}</span>
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
+                <div class="space-y-2">
+                    {% for checkbox in form.sucursales %}
+                    <label class="flex items-center gap-2 p-2 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 cursor-pointer transition-all">
+                        {{ checkbox.tag }}
+                        <span class="text-xs font-bold text-gray-700">{{ checkbox.choice_label }}</span>
                     </label>
+                    {% endfor %}
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 ml-7 servicio-details" style="display: none;">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 mb-1">
-                            💰 Precio Personalizado
-                        </label>
-                        <input type="number" 
-                               name="precio_{{ servicio.id }}" 
-                               id="id_precio_{{ servicio.id }}"
-                               step="0.01"
-                               class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 text-sm font-bold"
-                               placeholder="Dejar vacío para usar Bs. {{ servicio.costo_base }}">
-                        <p class="text-[10px] text-gray-500 mt-1">
-                            💡 Si dejas vacío o en 0, se usará el precio base (Bs. {{ servicio.costo_base }})
-                        </p>
-                    </div>
-                    
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-bold text-gray-600 mb-1">
-                            📝 Observaciones
-                        </label>
-                        <textarea name="obs_{{ servicio.id }}" 
-                                  id="id_obs_{{ servicio.id }}"
-                                  rows="2"
-                                  class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 text-sm font-bold"
-                                  placeholder="Observaciones sobre este servicio..."></textarea>
-                    </div>
-                </div>
+                {% if form.sucursales.errors %}
+                <p class="text-red-500 text-xs font-bold mt-1">{{ form.sucursales.errors.0 }}</p>
+                {% endif %}
             </div>
-            {% endfor %}
         </div>
-        
-        <p class="text-xs text-gray-500 mt-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
-            💡 <strong>Tip:</strong> Marca los servicios que el paciente necesitará. Si no colocas un precio personalizado, se usará el precio base del servicio.
-        </p>
-    </div>
 
-    <!-- 8️⃣ ESTADO -->
-    <div class="seccion-form bg-white rounded-2xl shadow-md p-5 border-2 border-gray-100">
-        <div class="flex items-center gap-3 mb-4 pb-3 border-b-2 border-gray-100">
-            <div class="bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center text-xl">
-                📊
+        <!-- 📸 FOTO -->
+        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📸</div>
+                <div>
+                    <h2 class="text-sm font-black text-gray-800">Foto del Paciente</h2>
+                    <p class="text-[9px] text-gray-500 font-bold">Opcional - Se optimizará automáticamente</p>
+                </div>
             </div>
-            <div>
-                <h2 class="text-lg font-black text-gray-800">Estado del Paciente</h2>
-                <p class="text-[10px] text-gray-500 font-bold">Generalmente se deja en "Activo"</p>
+            <div class="space-y-2">
+                {{ form.foto }}
+                <p class="text-[10px] text-gray-500">📌 Formatos: JPG, PNG, WebP</p>
+                <div id="foto-preview-container" class="hidden">
+                    <p class="text-[10px] font-bold text-gray-600 mb-1">Vista Previa:</p>
+                    <img id="foto-preview" src="" alt="Preview" class="w-full rounded-lg border border-gray-200 shadow-sm">
+                    <button type="button" id="remove-foto" class="mt-1 text-[10px] text-red-600 font-bold hover:underline">
+                        ❌ Eliminar foto
+                    </button>
+                </div>
             </div>
         </div>
-        
-        <div class="max-w-xs">
-            <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
+
+        <!-- 📊 ESTADO -->
+        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-gray-100">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📊</div>
+                <div>
+                    <h2 class="text-sm font-black text-gray-800">Estado del Paciente</h2>
+                    <p class="text-[9px] text-gray-500 font-bold">Generalmente se deja en "Activo"</p>
+                </div>
+            </div>
+            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
             {{ form.estado }}
             {% if form.estado.errors %}
             <p class="text-red-500 text-xs font-bold mt-1">{{ form.estado.errors.0 }}</p>
@@ -382,23 +111,205 @@
         </div>
     </div>
 
-    <!-- Botones de Acción -->
-    <div class="flex gap-3 pt-4">
+    <!-- FILA 2: Información del Paciente (4 columnas) -->
+    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+            <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👤</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Datos del Paciente</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Información básica del menor</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.apellido.label }}</label>
+                {{ form.apellido }}
+                {% if form.apellido.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.apellido.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.fecha_nacimiento.label }}</label>
+                {{ form.fecha_nacimiento }}
+                {% if form.fecha_nacimiento.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.fecha_nacimiento.errors.0 }}</p>{% endif %}
+                <p class="text-[10px] text-gray-500 mt-1">📌 Se calculará la edad automáticamente</p>
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.genero.label }}</label>
+                {{ form.genero }}
+                {% if form.genero.errors %}<p class="text-[10px] text-red-500 font-bold mt-1">{{ form.genero.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 3: Tutores (2 columnas) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        
+        <!-- 👨‍👩‍👧 TUTOR PRINCIPAL -->
+        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-purple-100">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100">
+                <div class="bg-purple-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👨‍👩‍👧</div>
+                <div>
+                    <h2 class="text-sm font-black text-gray-800">Tutor Principal</h2>
+                    <p class="text-[9px] text-gray-500 font-bold">Contacto principal del paciente</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div class="campo-requerido">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor.label }}</label>
+                    {{ form.nombre_tutor }}
+                    {% if form.nombre_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="campo-requerido">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco.label }}</label>
+                        {{ form.parentesco }}
+                        {% if form.parentesco.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="campo-requerido">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor.label }}</label>
+                        {{ form.telefono_tutor }}
+                        {% if form.telefono_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                    {{ form.email_tutor }}
+                    {% if form.email_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.direccion.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                    {{ form.direccion }}
+                    {% if form.direccion.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.direccion.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 👥 SEGUNDO TUTOR -->
+        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-green-100">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-100">
+                <div class="bg-green-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👥</div>
+                <div>
+                    <h2 class="text-sm font-black text-gray-800">Segundo Tutor / Contacto de Emergencia</h2>
+                    <p class="text-[9px] text-gray-500 font-bold">Opcional - Contacto adicional</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor_2.label }}</label>
+                    {{ form.nombre_tutor_2 }}
+                    {% if form.nombre_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor_2.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco_2.label }}</label>
+                        {{ form.parentesco_2 }}
+                        {% if form.parentesco_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor_2.label }}</label>
+                        {{ form.telefono_tutor_2 }}
+                        {% if form.telefono_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor_2.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor_2.label }}</label>
+                    {{ form.email_tutor_2 }}
+                    {% if form.email_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor_2.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 4: Información Clínica -->
+    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-red-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-red-100">
+            <div class="bg-red-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🩺</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Información Clínica</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Diagnóstico y observaciones médicas</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.diagnostico.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ form.diagnostico }}
+                {% if form.diagnostico.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.diagnostico.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.observaciones_medicas.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ form.observaciones_medicas }}
+                {% if form.observaciones_medicas.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.observaciones_medicas.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.alergias.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                {{ form.alergias }}
+                {% if form.alergias.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.alergias.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- FILA 5: Servicios -->
+    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
+        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
+            <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🎯</div>
+            <div>
+                <h2 class="text-sm font-black text-gray-800">Servicios a Contratar</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Opcional - Selecciona servicios y personaliza si es necesario</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for servicio in servicios %}
+            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition-all servicio-item">
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" name="servicio_{{ servicio.id }}" id="id_servicio_{{ servicio.id }}"
+                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label for="id_servicio_{{ servicio.id }}" class="text-xs font-bold text-gray-800 cursor-pointer flex-1">
+                        {{ servicio.nombre }}
+                        <span class="text-indigo-600 block text-[10px]">Bs. {{ servicio.costo_base }}</span>
+                    </label>
+                </div>
+                <div class="servicio-details space-y-2" style="display: none;">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 mb-1">💰 Precio Personalizado</label>
+                        <input type="number" name="precio_{{ servicio.id }}" id="id_precio_{{ servicio.id }}" step="0.01"
+                               class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                               placeholder="Dejar vacío para usar Bs. {{ servicio.costo_base }}">
+                        <p class="text-[9px] text-gray-500 mt-1">💡 Si dejas vacío o en 0, se usará el precio base (Bs. {{ servicio.costo_base }})</p>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-600 mb-1">📝 Observaciones</label>
+                        <textarea name="obs_{{ servicio.id }}" id="id_obs_{{ servicio.id }}" rows="2"
+                                  class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
+                                  placeholder="Observaciones sobre este servicio..."></textarea>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="text-[10px] text-gray-500 mt-3 bg-blue-50 p-2 rounded border border-blue-100">
+            💡 <strong>Tip:</strong> Marca los servicios que el paciente necesitará. Si no colocas un precio personalizado, se usará el precio base del servicio.
+        </p>
+    </div>
+
+    <!-- Botones -->
+    <div class="flex gap-3 pt-2">
         <button type="submit" 
-                class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
             ✅ Registrar Paciente
         </button>
         <a href="{% url 'pacientes:lista' %}" 
-           class="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
+           class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
             Cancelar
         </a>
     </div>
 </form>
 
-<!-- JavaScript para preview de foto y toggle de servicios -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // ===== PREVIEW DE FOTO =====
         const fotoInput = document.getElementById('foto-input');
         const previewContainer = document.getElementById('foto-preview-container');
         const previewImg = document.getElementById('foto-preview');
@@ -407,15 +318,12 @@
         if (fotoInput) {
             fotoInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
-                
                 if (file) {
                     const reader = new FileReader();
-                    
                     reader.onload = function(e) {
                         previewImg.src = e.target.result;
                         previewContainer.classList.remove('hidden');
                     }
-                    
                     reader.readAsDataURL(file);
                 }
             });
@@ -428,25 +336,17 @@
                 previewImg.src = '';
             });
         }
-             
-        // ===== TOGGLE DE DETALLES DE SERVICIOS =====
-        const servicioCheckboxes = document.querySelectorAll('input[type="checkbox"][id^="id_servicio_"]');
         
+        const servicioCheckboxes = document.querySelectorAll('input[type="checkbox"][id^="id_servicio_"]');
         servicioCheckboxes.forEach(checkbox => {
-            // Encontrar el contenedor de detalles
             const container = checkbox.closest('.servicio-item');
             const details = container.querySelector('.servicio-details');
             
-            // Toggle inicial basado en el estado del checkbox
-            if (checkbox.checked) {
-                details.style.display = 'grid';
-            }
+            if (checkbox.checked) details.style.display = 'block';
             
-            // Evento de cambio
             checkbox.addEventListener('change', function() {
                 if (this.checked) {
-                    details.style.display = 'grid';
-                    // Animar entrada
+                    details.style.display = 'block';
                     details.style.opacity = '0';
                     setTimeout(() => {
                         details.style.transition = 'opacity 0.3s ease';
@@ -454,9 +354,7 @@
                     }, 10);
                 } else {
                     details.style.opacity = '0';
-                    setTimeout(() => {
-                        details.style.display = 'none';
-                    }, 300);
+                    setTimeout(() => details.style.display = 'none', 300);
                 }
             });
         });

@@ -1,0 +1,37 @@
+from django import forms
+from .models import TipoServicio
+
+class TipoServicioForm(forms.ModelForm):
+    class Meta:
+        model = TipoServicio
+        fields = ['nombre', 'descripcion', 'duracion_minutos', 'costo_base', 'color', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',
+                'placeholder': 'Ej: Terapia de Lenguaje'
+            }),
+            'descripcion': forms.Textarea(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',
+                'rows': 3,
+                'placeholder': 'Descripción del servicio...'
+            }),
+            'duracion_minutos': forms.NumberInput(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold',
+                'placeholder': '60',
+                'min': '1'
+            }),
+            'costo_base': forms.NumberInput(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold',
+                'placeholder': '0.00',
+                'step': '0.01',
+                'min': '0'
+            }),
+            'color': forms.TextInput(attrs={
+                'type': 'color',
+                'class': 'cursor-pointer',
+                'style': 'width: 60px; height: 40px; border-radius: 8px; border: 2px solid #e5e7eb;'
+            }),
+            'activo': forms.CheckboxInput(attrs={
+                'class': 'w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500'
+            }),
+        }

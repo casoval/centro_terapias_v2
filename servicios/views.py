@@ -1,8 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from .models import TipoServicio, Sucursal
 from datetime import date, timedelta
+from .forms import TipoServicioForm
 
 @login_required
 def lista_servicios(request):
@@ -132,3 +134,20 @@ def detalle_sucursal(request, pk):
         'pacientes': pacientes,
     }
     return render(request, 'servicios/detalle_sucursal.html', context)
+
+@login_required
+def agregar_servicio(request):
+    """Crear un nuevo tipo de servicio"""
+    if request.method == 'POST':
+        form = TipoServicioForm(request.POST)
+        if form.is_valid():
+            servicio = form.save()
+            messages.success(request, f'✅ Servicio "{servicio.nombre}" creado exitosamente.')
+            return redirect('servicios:lista_servicios')
+    else:
+        form = TipoServicioForm()
+    
+    context = {
+        'form': form,
+    }
+    return render(request, 'servicios/agregar_servicio.html', context)

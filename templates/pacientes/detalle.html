@@ -127,6 +127,38 @@
             </dl>
             {% endif %}
             
+            {% if paciente.diagnostico or paciente.observaciones_medicas or paciente.alergias %}
+            <hr class="my-4">
+
+            <h3 class="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <span>🏥</span>
+                Información Clínica
+            </h3>
+
+            <div class="space-y-3">
+                {% if paciente.diagnostico %}
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <dt class="text-xs font-bold text-blue-700 mb-1 uppercase">📋 Diagnóstico</dt>
+                    <dd class="text-sm text-gray-900 whitespace-pre-line">{{ paciente.diagnostico }}</dd>
+                </div>
+                {% endif %}
+                
+                {% if paciente.observaciones_medicas %}
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <dt class="text-xs font-bold text-green-700 mb-1 uppercase">🩺 Observaciones Médicas</dt>
+                    <dd class="text-sm text-gray-900 whitespace-pre-line">{{ paciente.observaciones_medicas }}</dd>
+                </div>
+                {% endif %}
+                
+                {% if paciente.alergias %}
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <dt class="text-xs font-bold text-red-700 mb-1 uppercase">⚠️ Alergias</dt>
+                    <dd class="text-sm text-red-900 font-medium whitespace-pre-line">{{ paciente.alergias }}</dd>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <div class="mt-6">
                 <a href="/admin/pacientes/paciente/{{ paciente.id }}/change/" 
                    class="block w-full text-center px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">

@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Usuarios y Roles - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .usuario-card { transition: all 0.2s ease-in-out; }
+    @media (min-width: 768px) { .usuario-card:hover { transform: translateY(-3px); } }
+    .rol-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>
+
+<div class="mb-4">
+    <div class="bg-gradient-to-r from-purple-500 via-violet-500 to-indigo-500 rounded-2xl p-4 shadow-lg border-2 border-white flex justify-between items-center">
+        <div>
+            <h1 class="text-xl sm:text-2xl font-black text-white drop-shadow-md flex items-center gap-2">
+                <span class="text-2xl">👥</span> Usuarios y Roles
+            </h1>
+            <p class="text-white text-[11px] font-bold opacity-90">Gestión de accesos al sistema</p>
+        </div>
+        <a href="{% url 'core:agregar_usuario' %}" 
+           class="bg-white text-purple-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-purple-100 hover:scale-105 transition-transform">
+            ➕ Nuevo Usuario
+        </a>
+    </div>
+</div>
+
+<!-- Filtros y Búsqueda -->
+<div class="bg-white rounded-xl shadow-md p-3 mb-5 border-2 border-gray-50">
+    <form method="get" class="flex flex-col sm:flex-row gap-2">
+        <div class="flex-1 relative">
+            <input type="text" name="q" value="{{ buscar }}" 
+                   placeholder="🔍 Buscar usuario..."
+                   class="w-full px-3 py-2 border-2 border-purple-200 rounded-xl text-sm font-bold pl-9">
+        </div>
+        <select name="rol" class="px-3 py-2 border-2 border-purple-200 rounded-xl text-sm font-bold">
+            <option value="">Todos los roles</option>
+            {% for valor, nombre in roles %}
+            <option value="{{ valor }}" {% if rol_filtro == valor %}selected{% endif %}>{{ nombre }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="bg-purple-600 text-white px-5 py-2 rounded-xl font-black text-xs shadow-md hover:bg-purple-700 transition-colors">
+            Filtrar
+        </button>
+        {% if buscar or rol_filtro %}
+        <a href="{% url 'core:lista_usuarios' %}" class="px-5 py-2 bg-gray-200 text-gray-700 rounded-xl font-black text-xs hover:bg-gray-300 transition-colors">
+            Limpiar
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Lista de Usuarios -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    {% for usuario in usuarios %}
+    <div class="usuario-card bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-purple-400 to-indigo-500 p-3 text-white">
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <div class="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 border-white">
+                            {% if usuario.perfil.es_profesional %}👨‍⚕️
+                            {% elif usuario.perfil.es_paciente %}👤
+                            {% elif usuario.perfil.es_recepcionista %}📋
+                            {% elif usuario.perfil.es_gerente %}👔
+                            {% else %}👤{% endif %}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-base font-black truncate leading-tight">{{ usuario.username }}</h3>
+                            {% if usuario.first_name or usuario.last_name %}
+                            <p class="text-[10px] font-bold text-purple-100 truncate">{{ usuario.get_full_name }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Estado del usuario -->
+                    <div class="flex gap-1 mt-2">
+                        {% if usuario.is_active %}
+                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-green-400 text-green-900 border border-white">
+                            ✓ ACTIVO
+                        </span>
+                        {% else %}
+                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-gray-400 text-gray-900 border border-white">
+                            ✗ INACTIVO
+                        </span>
+                        {% endif %}
+                        
+                        {% if usuario.is_staff %}
+                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-yellow-400 text-yellow-900 border border-white">
+                            🔑 ADMIN
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenido -->
+        <div class="p-3 flex flex-col flex-1">
+            <!-- Rol -->
+            <div class="mb-3">
+                <p class="text-[9px] font-bold text-gray-500 uppercase mb-1">Rol Asignado</p>
+                {% if usuario.perfil.rol %}
+                <div class="flex items-center gap-2">
+                    <span class="rol-badge
+                        {% if usuario.perfil.rol == 'profesional' %}bg-green-100 text-green-800 border border-green-300
+                        {% elif usuario.perfil.rol == 'paciente' %}bg-blue-100 text-blue-800 border border-blue-300
+                        {% elif usuario.perfil.rol == 'recepcionista' %}bg-purple-100 text-purple-800 border border-purple-300
+                        {% elif usuario.perfil.rol == 'gerente' %}bg-orange-100 text-orange-800 border border-orange-300
+                        {% endif %}">
+                        {{ usuario.perfil.get_rol_display }}
+                    </span>
+                </div>
+                {% else %}
+                <p class="text-xs text-gray-400 italic">Sin rol asignado</p>
+                {% endif %}
+            </div>
+            
+            <!-- Vinculación -->
+            {% if usuario.perfil.profesional or usuario.perfil.paciente %}
+            <div class="p-2 bg-gray-50 rounded-lg border border-gray-200 mb-3">
+                <p class="text-[9px] font-bold text-gray-500 uppercase mb-1">Vinculado con</p>
+                <p class="text-xs font-bold text-gray-800">
+                    {% if usuario.perfil.profesional %}
+                    👨‍⚕️ {{ usuario.perfil.profesional }}
+                    {% elif usuario.perfil.paciente %}
+                    👤 {{ usuario.perfil.paciente }}
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+            
+            <!-- Email -->
+            {% if usuario.email %}
+            <div class="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100 mb-3">
+                <span class="text-base">📧</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[9px] font-bold text-blue-800 uppercase leading-none">Email</p>
+                    <p class="text-xs font-bold text-gray-800 truncate">{{ usuario.email }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Sucursales -->
+            {% if usuario.perfil.get_sucursales %}
+            <div class="p-2 bg-purple-50 rounded-lg border border-purple-100 mb-3">
+                <p class="text-[9px] font-bold text-purple-800 uppercase mb-1">Sucursales</p>
+                <div class="flex flex-wrap gap-1">
+                    {% for sucursal in usuario.perfil.get_sucursales|slice:":3" %}
+                    <span class="px-1.5 py-0.5 text-[8px] font-bold bg-white border border-purple-200 rounded text-purple-700">
+                        🏢 {{ sucursal.nombre }}
+                    </span>
+                    {% endfor %}
+                    {% if usuario.perfil.get_sucursales.count > 3 %}
+                    <span class="px-1.5 py-0.5 text-[8px] font-bold bg-purple-200 rounded text-purple-800">
+                        +{{ usuario.perfil.get_sucursales.count|add:"-3" }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Acciones -->
+            <div class="flex gap-2 mt-auto">
+                <a href="{% url 'core:editar_usuario' usuario.id %}" 
+                   class="flex-1 text-center py-2 bg-purple-600 text-white rounded-lg font-black text-xs hover:bg-purple-700 transition-colors">
+                    ✏️ Editar
+                </a>
+                {% if request.user.is_superuser and usuario != request.user %}
+                <a href="{% url 'core:eliminar_usuario' usuario.id %}" 
+                   class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg font-black text-xs hover:bg-red-50 transition-colors">
+                    🗑️
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-gray-100">
+        <div class="text-5xl mb-3">👥</div>
+        <p class="text-base font-black text-gray-700">No hay usuarios registrados</p>
+        {% if buscar or rol_filtro %}
+        <p class="text-sm text-gray-500 mt-2">Intenta con otros filtros de búsqueda</p>
+        <a href="{% url 'core:lista_usuarios' %}" class="text-purple-600 font-black text-xs underline mt-2 inline-block">
+            Ver todos los usuarios
+        </a>
+        {% else %}
+        <a href="{% url 'core:agregar_usuario' %}" class="text-purple-600 font-black text-xs underline mt-2 inline-block uppercase">
+            Crear Primer Usuario
+        </a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Leyenda de Roles -->
+<div class="mt-5 bg-white rounded-xl shadow-md p-4 border-2 border-gray-50">
+    <h3 class="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
+        <span>ℹ️</span> Roles del Sistema
+    </h3>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="flex items-center gap-2">
+            <span class="rol-badge bg-blue-100 text-blue-800 border border-blue-300">Paciente</span>
+            <p class="text-[10px] text-gray-600">Acceso limitado a su cuenta</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="rol-badge bg-green-100 text-green-800 border border-green-300">Profesional</span>
+            <p class="text-[10px] text-gray-600">Acceso a agenda y pacientes</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="rol-badge bg-purple-100 text-purple-800 border border-purple-300">Recepcionista</span>
+            <p class="text-[10px] text-gray-600">Gestión de citas y pagos</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="rol-badge bg-orange-100 text-orange-800 border border-orange-300">Gerente</span>
+            <p class="text-[10px] text-gray-600">Acceso completo</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

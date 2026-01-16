@@ -472,34 +472,75 @@ def calendario(request):
     
     # 5. Datos para Selectores (Filtros)
     sucursales_usuario = request.sucursales_usuario
-    if sucursales_usuario is not None and sucursales_usuario.exists():
-        if sucursal_id:
-            pacientes = Paciente.objects.filter(estado='activo', sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
-            # ✅ Si es profesional, solo mostrar profesionales que sean él mismo
-            if es_profesional:
-                profesionales = Profesional.objects.filter(id=profesional_id)
+
+    # ✅ OPTIMIZACIÓN: Si es profesional, SOLO cargar SU registro (sin importar sucursales)
+    if es_profesional:
+        profesionales = Profesional.objects.filter(id=profesional_id)
+        
+        # Para pacientes y servicios, filtrar según sucursales si existen
+        if sucursales_usuario is not None and sucursales_usuario.exists():
+            if sucursal_id:
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
             else:
-                profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__in=sucursales_usuario
+                ).distinct().order_by('nombre', 'apellido')
+            sucursales = sucursales_usuario
         else:
-            pacientes = Paciente.objects.filter(estado='activo', sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
-            # ✅ Si es profesional, solo mostrar profesionales que sean él mismo
-            if es_profesional:
-                profesionales = Profesional.objects.filter(id=profesional_id)
+            # Profesional sin sucursales asignadas (superuser)
+            if sucursal_id:
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
             else:
-                profesionales = Profesional.objects.filter(activo=True, sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
-        sucursales = sucursales_usuario
+                pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+            sucursales = Sucursal.objects.filter(activa=True)
+
     else:
-        if sucursal_id:
-            pacientes = Paciente.objects.filter(estado='activo', sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
-            profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
+        # ✅ NO ES PROFESIONAL: Cargar según sucursales
+        if sucursales_usuario is not None and sucursales_usuario.exists():
+            if sucursal_id:
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
+                profesionales = Profesional.objects.filter(
+                    activo=True, 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
+            else:
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__in=sucursales_usuario
+                ).distinct().order_by('nombre', 'apellido')
+                profesionales = Profesional.objects.filter(
+                    activo=True, 
+                    sucursales__in=sucursales_usuario
+                ).distinct().order_by('nombre', 'apellido')
+            sucursales = sucursales_usuario
         else:
-            pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
-            profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
-        sucursales = Sucursal.objects.filter(activa=True)
-    
-    # ✅ CORREGIDO: Filtrar servicios correctamente
+            # Superuser o usuario sin sucursales
+            if sucursal_id:
+                pacientes = Paciente.objects.filter(
+                    estado='activo', 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
+                profesionales = Profesional.objects.filter(
+                    activo=True, 
+                    sucursales__id=sucursal_id
+                ).distinct().order_by('nombre', 'apellido')
+            else:
+                pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+                profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+            sucursales = Sucursal.objects.filter(activa=True)
+
+    # ✅ SERVICIOS: Filtrar según paciente seleccionado (aplica para TODOS los roles)
     if paciente_id:
-        # Usar la relación ManyToMany directa 'pacientes'
         servicios = TipoServicio.objects.filter(
             pacientes__id=paciente_id,
             activo=True
