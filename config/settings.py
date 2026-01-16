@@ -1,5 +1,6 @@
 """
 Django settings for config project.
+✅ OPTIMIZADO: Incluye cache, conexión persistente y mejoras de performance
 """
 
 from pathlib import Path
@@ -43,7 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.staticfiles',  # ⭐ MOVER AQUÍ
+    'django.contrib.staticfiles',
     
     # Cloudinary DESPUÉS de staticfiles
     'cloudinary_storage',
@@ -96,7 +97,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 if IS_PRODUCTION:
     DATABASES = {
         'default': dj_database_url.parse(
-            os.environ.get('DATABASE_URL')
+            os.environ.get('DATABASE_URL'),
+            conn_max_age=600,  # ✅ Conexión persistente (10 min)
         )
     }
 else:
@@ -104,8 +106,64 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            # ✅ SQLite optimizations
+            'OPTIONS': {
+                'timeout': 20,
+                'init_command': 'PRAGMA journal_mode=WAL;',
+            }
         }
     }
+
+# ✅ OPTIMIZACIÓN: Conexiones persistentes en desarrollo también
+if not IS_PRODUCTION:
+    DATABASES['default']['CONN_MAX_AGE'] = 60  # 1 minuto en dev
+
+# --------------------------------------------------
+# CACHE CONFIGURATION (✅ NUEVO - CRÍTICO PARA PERFORMANCE)
+# --------------------------------------------------
+
+if IS_PRODUCTION:
+    # ✅ PRODUCCIÓN: Redis Cache (requiere configurar Redis)
+    # Instalar: pip install django-redis
+    
+    REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
+    
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+                'CONNECTION_POOL_KWARGS': {
+                    'max_connections': 50,
+                    'retry_on_timeout': True,
+                },
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+            },
+            'KEY_PREFIX': 'facturacion',
+            'TIMEOUT': 300,  # 5 minutos default
+        }
+    }
+    
+else:
+    # ✅ DESARROLLO: Local Memory Cache (más simple)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'facturacion-cache',
+            'TIMEOUT': 300,  # 5 minutos
+            'OPTIONS': {
+                'MAX_ENTRIES': 1000,
+            }
+        }
+    }
+
+# ✅ Cache para sesiones (opcional pero recomendado)
+if IS_PRODUCTION:
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
+    SESSION_CACHE_ALIAS = 'default'
 
 # --------------------------------------------------
 # PASSWORD VALIDATION
@@ -145,16 +203,13 @@ SHORT_DATE_FORMAT = 'd/m/Y'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# ⭐ Directorios adicionales de archivos estáticos
 STATICFILES_DIRS = []
 
-# ⭐ Finders para encontrar archivos estáticos en las apps
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-# ⭐ WhiteNoise solo en producción
 if IS_PRODUCTION:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 else:
@@ -167,7 +222,6 @@ else:
 MEDIA_URL = '/media/'
 
 if IS_PRODUCTION:
-    # ⭐ Cloudinary para archivos de media en producción
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 else:
     MEDIA_ROOT = BASE_DIR / 'media'
@@ -187,6 +241,53 @@ LOGOUT_REDIRECT_URL = 'core:login'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --------------------------------------------------
+# PERFORMANCE OPTIMIZATIONS (✅ NUEVO)
+# --------------------------------------------------
+
+# ✅ Logging configurado para performance
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'django.log',
+            'maxBytes': 1024 * 1024 * 5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'facturacion': {
+            'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# ✅ Crear directorio de logs si no existe
+(BASE_DIR / 'logs').mkdir(exist_ok=True)
+
+# ✅ Data upload limits
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
+# --------------------------------------------------
 # CONFIGURACIONES ADICIONALES SEGÚN ENTORNO
 # --------------------------------------------------
 
@@ -197,10 +298,21 @@ if IS_PRODUCTION:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
+    
+    # ✅ HSTS (HTTP Strict Transport Security)
+    SECURE_HSTS_SECONDS = 31536000  # 1 año
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
 else:
-    print("MODO DESARROLLO ACTIVADO")
+    print("\n" + "="*60)
+    print("🔧 MODO DESARROLLO ACTIVADO")
+    print("="*60)
     print(f"   DEBUG = {DEBUG}")
     print(f"   Base de datos: SQLite local")
+    print(f"   Cache: Local Memory (LocMem)")
+    print(f"   Timeout Cache: 300s (5 min)")
+    print("="*60 + "\n")
 
 # ==================== CONFIGURACIÓN DE CLOUDINARY ====================
 
@@ -208,25 +320,57 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 
-# ✅ CONFIGURACIÓN CORRECTA: usar cloudinary.config()
-cloudinary.config(
-    cloud_name='dwwfzxo3z',
-    api_key='447784864842837',
-    api_secret='WH8t6i2L3ZJLic5mFNVEmq6PNig',
-    secure=True  # Usar HTTPS
-)
+if IS_PRODUCTION:
+    # ✅ PRODUCCIÓN: Usar variables de entorno (MÁS SEGURO)
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dwwfzxo3z'),
+        api_key=os.environ.get('CLOUDINARY_API_KEY', '447784864842837'),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'WH8t6i2L3ZJLic5mFNVEmq6PNig'),
+        secure=True
+    )
+    
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'dwwfzxo3z'),
+        'API_KEY': os.environ.get('CLOUDINARY_API_KEY', '447784864842837'),
+        'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'WH8t6i2L3ZJLic5mFNVEmq6PNig')
+    }
+else:
+    # ✅ DESARROLLO: Hardcoded (OK para dev)
+    cloudinary.config(
+        cloud_name='dwwfzxo3z',
+        api_key='447784864842837',
+        api_secret='WH8t6i2L3ZJLic5mFNVEmq6PNig',
+        secure=True
+    )
+    
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': 'dwwfzxo3z',
+        'API_KEY': '447784864842837',
+        'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig'
+    }
 
-# PARA PRODUCCIÓN (usar variables de entorno):
-# cloudinary.config(
-#     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-#     api_key=os.environ.get('CLOUDINARY_API_KEY'),
-#     api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
-#     secure=True
-# )
+# ==================== DEBUG TOOLBAR (OPCIONAL - SOLO DESARROLLO) ====================
 
-# ✅ Configuración para django-cloudinary-storage
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dwwfzxo3z',
-    'API_KEY': '447784864842837',
-    'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig'
-}
+# ✅ Descomentar para habilitar Django Debug Toolbar
+# pip install django-debug-toolbar
+
+if DEBUG and not IS_PRODUCTION:
+    try:
+        import debug_toolbar
+        
+        INSTALLED_APPS += ['debug_toolbar']
+        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+        
+        INTERNAL_IPS = [
+            '127.0.0.1',
+            'localhost',
+        ]
+        
+        DEBUG_TOOLBAR_CONFIG = {
+            'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
+        }
+        
+        print("✅ Django Debug Toolbar habilitado")
+        
+    except ImportError:
+        pass  # Debug toolbar no instalado, continuar sin él

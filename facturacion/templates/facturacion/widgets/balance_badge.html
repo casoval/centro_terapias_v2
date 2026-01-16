@@ -1,0 +1,49 @@
+{# facturacion/templates/facturacion/widgets/balance_badge.html #}
+
+{% load facturacion_tags %}
+
+<div class="balance-badge">
+    {% if balance < 0 %}
+        {# Debe dinero #}
+        <span class="badge bg-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            Debe: {{ balance|abs|format_currency }}
+        </span>
+    {% elif balance > 0 %}
+        {# Tiene crédito a favor #}
+        <span class="badge bg-success">
+            <i class="bi bi-check-circle"></i>
+            A favor: {{ balance|format_currency }}
+        </span>
+    {% else %}
+        {# Al día #}
+        <span class="badge bg-secondary">
+            <i class="bi bi-dash-circle"></i>
+            Al día
+        </span>
+    {% endif %}
+    
+    {% if saldo > 0 %}
+        {# Mostrar crédito disponible si existe #}
+        <small class="text-muted ms-2">
+            (Crédito: {{ saldo|format_currency }})
+        </small>
+    {% endif %}
+</div>
+
+<style>
+.balance-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.balance-badge .badge {
+    font-size: 0.875rem;
+    padding: 0.4rem 0.8rem;
+}
+
+.balance-badge .badge i {
+    margin-right: 0.25rem;
+}
+</style>

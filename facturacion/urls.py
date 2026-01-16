@@ -10,9 +10,14 @@ urlpatterns = [
     path('cuentas/', views.lista_cuentas_corrientes, name='cuentas_corrientes'),
     path('cuenta/<int:paciente_id>/', views.detalle_cuenta_corriente, name='detalle_cuenta'),
     
+    # ==================== AJAX ENDPOINTS (NUEVOS) ====================
+    path('api/estadisticas/', views.cargar_estadisticas_ajax, name='cargar_estadisticas_ajax'),
+    path('api/cuenta/<int:paciente_id>/detalle/', views.detalle_cuenta_ajax, name='detalle_cuenta_ajax'),
+    path('api/estadisticas-pagos/', views.cargar_estadisticas_pagos_ajax, name='cargar_estadisticas_pagos_ajax'),
+    
     # ==================== PAGOS ====================
     path('pago/registrar/', views.registrar_pago, name='registrar_pago'),
-    path('pago/confirmacion/', views.confirmacion_pago, name='confirmacion_pago'),  # ✅ NUEVA RUTA
+    path('pago/confirmacion/', views.confirmacion_pago, name='confirmacion_pago'),
     path('pago/<int:pago_id>/anular/', views.anular_pago, name='anular_pago'),
     path('pago/<int:pago_id>/pdf/', views.generar_recibo_pdf, name='generar_recibo_pdf'),
     path('pagos/', views.historial_pagos, name='historial_pagos'),

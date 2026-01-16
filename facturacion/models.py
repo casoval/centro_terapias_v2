@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator
 from django.db.models import Sum, F, Q, Case, When, DecimalField
 from django.db.models.functions import Coalesce
+from django.core.cache import cache
 from decimal import Decimal
 from pacientes.models import Paciente
 from django.contrib.auth.models import User
@@ -20,6 +21,7 @@ class MetodoPago(models.Model):
     
     def __str__(self):
         return self.nombre
+
 
 class Pago(models.Model):
     """
@@ -111,17 +113,13 @@ class Pago(models.Model):
         verbose_name_plural = "Pagos"
         ordering = ['-fecha_pago', '-fecha_registro']
         
-        # ✅ ÍNDICES OPTIMIZADOS (MEJORADOS)
         indexes = [
-            # Índices existentes (mantener)
             models.Index(fields=['paciente', '-fecha_pago']),
             models.Index(fields=['fecha_pago']),
             models.Index(fields=['numero_recibo']),
             models.Index(fields=['-numero_recibo']),
             models.Index(fields=['sesion']),
             models.Index(fields=['proyecto']),
-            
-            # ✅ NUEVOS: Índices compuestos para agregaciones
             models.Index(
                 fields=['paciente', 'anulado'],
                 name='pago_paciente_anulado_idx'
@@ -180,7 +178,15 @@ class Pago(models.Model):
     def save(self, *args, **kwargs):
         """
         Genera numero_recibo automáticamente SOLO si no existe
+        ✅ OPTIMIZADO: No dispara señales innecesarias
         """
+        # Detectar si es una actualización sin cambios relevantes
+        update_fields = kwargs.get('update_fields')
+        if self.pk and update_fields and 'anulado' not in update_fields and 'monto' not in update_fields:
+            # Es una actualización de campos no críticos, usar update_fields
+            super().save(*args, **kwargs)
+            return
+        
         if not self.numero_recibo or self.numero_recibo == '':
             ultimo_pago = Pago.objects.filter(
                 numero_recibo__startswith='REC-'
@@ -200,20 +206,36 @@ class Pago(models.Model):
             self.numero_recibo = f"REC-{nuevo_numero:04d}"
         
         super().save(*args, **kwargs)
-
     
     def anular(self, user, motivo):
-        """Anular un pago"""
+        """Anular un pago - OPTIMIZADO"""
         from django.utils import timezone
         
         self.anulado = True
         self.motivo_anulacion = motivo
         self.anulado_por = user
         self.fecha_anulacion = timezone.now()
-        self.save()
+        self.save(update_fields=['anulado', 'motivo_anulacion', 'anulado_por', 'fecha_anulacion'])
+        
+        # Invalidar cache
+        self._invalidate_patient_cache()
+    
+    def _invalidate_patient_cache(self):
+        """Invalida el cache del paciente"""
+        if self.paciente_id:
+            cache_keys = [
+                f'cuenta_deuda_{self.paciente_id}',
+                f'cuenta_balance_{self.paciente_id}',
+                f'cuenta_stats_{self.paciente_id}',
+            ]
+            cache.delete_many(cache_keys)
+
 
 class CuentaCorriente(models.Model):
-    """Cuenta corriente del paciente - resumen de deuda/saldo"""
+    """
+    Cuenta corriente del paciente - resumen de deuda/saldo
+    ✅ OPTIMIZADO: Con cache y propiedades lazy
+    """
     
     paciente = models.OneToOneField(
         Paciente,
@@ -249,39 +271,63 @@ class CuentaCorriente(models.Model):
         verbose_name_plural = "Cuentas Corrientes"
         indexes = [
             models.Index(fields=['saldo']),
+            models.Index(fields=['paciente', 'saldo']),
         ]
     
     def __str__(self):
         return f"CC {self.paciente} - Saldo: Bs. {self.saldo}"
     
     def actualizar_saldo(self):
-        """Recalcular saldo (delegado al servicio)"""
+        """
+        Recalcular saldo (delegado al servicio)
+        ✅ OPTIMIZADO: Con invalidación de cache
+        """
         from .services import AccountService
         AccountService.update_balance(self.paciente)
-        # Recargar desde DB para tener datos frescos en esta instancia
         self.refresh_from_db()
-
-    @property
-    def deuda_pendiente(self):
+        self._invalidate_cache()
+    
+    def _invalidate_cache(self):
+        """Invalida el cache de esta cuenta"""
+        cache_keys = [
+            f'cuenta_deuda_{self.paciente_id}',
+            f'cuenta_balance_{self.paciente_id}',
+            f'cuenta_stats_{self.paciente_id}',
+        ]
+        cache.delete_many(cache_keys)
+    
+    def get_deuda_pendiente_cached(self, timeout=300):
+        """
+        ✅ Versión con cache de deuda_pendiente
+        timeout: segundos de duración del cache (default 5 min)
+        """
+        cache_key = f'cuenta_deuda_{self.paciente_id}'
+        deuda = cache.get(cache_key)
+        
+        if deuda is None:
+            deuda = self._calcular_deuda_pendiente()
+            cache.set(cache_key, deuda, timeout)
+        
+        return deuda
+    
+    def _calcular_deuda_pendiente(self):
         """
         Calcula cuánto debe el paciente de forma OPTIMIZADA (1 consulta).
+        PRIVADO: Usar get_deuda_pendiente_cached() en su lugar
         """
         from agenda.models import Sesion
         
-        # Obtenemos sesiones que podrían tener deuda
         resultado = Sesion.objects.filter(
             paciente=self.paciente,
             estado__in=['realizada', 'realizada_retraso', 'falta'],
             proyecto__isnull=True,
             monto_cobrado__gt=0
         ).annotate(
-            # Sumar pagos válidos para esta sesión
             pagado=Coalesce(
                 Sum('pagos__monto', filter=Q(pagos__anulado=False)), 
                 Decimal('0.00')
             )
         ).aggregate(
-            # Sumar (Costo - Pagado) solo donde Costo > Pagado
             deuda_total=Coalesce(
                 Sum(
                     Case(
@@ -295,74 +341,77 @@ class CuentaCorriente(models.Model):
         )
         
         return resultado['deuda_total']
-
+    
+    @property
+    def deuda_pendiente(self):
+        """
+        ⚠️ DEPRECADO: Usar get_deuda_pendiente_cached() para mejor performance
+        Mantenido para compatibilidad pero genera queries sin cache
+        """
+        return self._calcular_deuda_pendiente()
+    
     @property
     def balance_neto(self):
         """Balance neto: Crédito - Deuda"""
-        return self.saldo - self.deuda_pendiente
-
+        return self.saldo - self.get_deuda_pendiente_cached()
+    
     @property
     def balance_general(self):
         """Balance general: Total Pagado - Total Consumido"""
         return self.total_pagado - self.total_consumido
-
-    @property
-    def consumo_sesiones(self):
-        """Total consumido en sesiones normales (sin proyecto)"""
-        from django.db.models import Sum
-        from agenda.models import Sesion
-        return Sesion.objects.filter(
+    
+    # ✅ NUEVAS PROPIEDADES OPTIMIZADAS CON CACHE
+    def get_stats_cached(self, timeout=300):
+        """
+        Obtiene todas las estadísticas de una vez con cache
+        Retorna dict con: consumo_sesiones, pagado_sesiones, deuda_sesiones,
+                         consumo_proyectos, pagado_proyectos, deuda_proyectos
+        """
+        cache_key = f'cuenta_stats_{self.paciente_id}'
+        stats = cache.get(cache_key)
+        
+        if stats is None:
+            stats = self._calcular_stats_completas()
+            cache.set(cache_key, stats, timeout)
+        
+        return stats
+    
+    def _calcular_stats_completas(self):
+        """Calcula todas las stats de una vez"""
+        from agenda.models import Sesion, Proyecto
+        
+        # Sesiones
+        consumo_sesiones = Sesion.objects.filter(
             paciente=self.paciente,
             estado__in=['realizada', 'realizada_retraso', 'falta'],
             proyecto__isnull=True,
             monto_cobrado__gt=0
         ).aggregate(total=Sum('monto_cobrado'))['total'] or Decimal('0.00')
-
-    @property
-    def pagado_sesiones(self):
-        """Total pagado en sesiones normales (sin proyecto)"""
-        from agenda.models import Sesion
-        sesiones_normales = Sesion.objects.filter(
+        
+        # Pagado en sesiones (con agregación)
+        sesiones_con_pagos = Sesion.objects.filter(
             paciente=self.paciente,
             estado__in=['realizada', 'realizada_retraso', 'falta'],
             proyecto__isnull=True,
             monto_cobrado__gt=0
+        ).annotate(
+            pagado_calc=Coalesce(
+                Sum('pagos__monto', filter=Q(pagos__anulado=False)),
+                Decimal('0.00')
+            )
+        ).aggregate(
+            total=Coalesce(Sum('pagado_calc'), Decimal('0.00'))
         )
+        pagado_sesiones = sesiones_con_pagos['total']
         
-        total = Decimal('0.00')
-        for sesion in sesiones_normales:
-            total += sesion.total_pagado
-        
-        return total
-
-    @property
-    def deuda_sesiones(self):
-        """Deuda pendiente de sesiones normales"""
-        return max(self.consumo_sesiones - self.pagado_sesiones, Decimal('0.00'))
-
-    @property
-    def consumo_proyectos(self):
-        """Total consumido en proyectos - OPTIMIZADO"""
-        from django.db.models import Sum
-        from django.db.models.functions import Coalesce
-        from agenda.models import Proyecto
-        
-        # ✅ Agregación directa en BD
-        return Proyecto.objects.filter(
+        # Proyectos
+        consumo_proyectos = Proyecto.objects.filter(
             paciente=self.paciente
         ).aggregate(
             total=Coalesce(Sum('costo_total'), Decimal('0.00'))
         )['total']
-    
-    @property
-    def pagado_proyectos(self):
-        """Total pagado en proyectos - OPTIMIZADO"""
-        from agenda.models import Proyecto
-        from django.db.models import Sum
-        from django.db.models.functions import Coalesce
         
-        # ✅ UNA SOLA consulta con agregación en BD
-        resultado = Proyecto.objects.filter(
+        pagado_proyectos = Proyecto.objects.filter(
             paciente=self.paciente
         ).annotate(
             total_pagado_calc=Coalesce(
@@ -371,35 +420,63 @@ class CuentaCorriente(models.Model):
             )
         ).aggregate(
             total=Coalesce(Sum('total_pagado_calc'), Decimal('0.00'))
-        )
+        )['total']
         
-        return resultado['total']
+        return {
+            'consumo_sesiones': consumo_sesiones,
+            'pagado_sesiones': pagado_sesiones,
+            'deuda_sesiones': max(consumo_sesiones - pagado_sesiones, Decimal('0.00')),
+            'consumo_proyectos': consumo_proyectos,
+            'pagado_proyectos': pagado_proyectos,
+            'deuda_proyectos': max(consumo_proyectos - pagado_proyectos, Decimal('0.00')),
+        }
+    
+    # Propiedades que usan el cache
+    @property
+    def consumo_sesiones(self):
+        return self.get_stats_cached()['consumo_sesiones']
+    
+    @property
+    def pagado_sesiones(self):
+        return self.get_stats_cached()['pagado_sesiones']
+    
+    @property
+    def deuda_sesiones(self):
+        return self.get_stats_cached()['deuda_sesiones']
+    
+    @property
+    def consumo_proyectos(self):
+        return self.get_stats_cached()['consumo_proyectos']
+    
+    @property
+    def pagado_proyectos(self):
+        return self.get_stats_cached()['pagado_proyectos']
     
     @property
     def deuda_proyectos(self):
-        """Deuda pendiente de proyectos - OPTIMIZADO"""
-        return max(self.consumo_proyectos - self.pagado_proyectos, Decimal('0.00'))
-
+        return self.get_stats_cached()['deuda_proyectos']
+    
     @property
     def total_consumo_general(self):
-        """Total consumido (sesiones + proyectos) - OPTIMIZADO"""
-        return self.consumo_sesiones + self.consumo_proyectos
-
+        stats = self.get_stats_cached()
+        return stats['consumo_sesiones'] + stats['consumo_proyectos']
+    
     @property
     def total_pagado_general(self):
-        """Total pagado (sesiones + proyectos) - OPTIMIZADO"""
-        return self.pagado_sesiones + self.pagado_proyectos
-
+        stats = self.get_stats_cached()
+        return stats['pagado_sesiones'] + stats['pagado_proyectos']
+    
     @property
     def total_deuda_general(self):
-        """Total deuda pendiente (sesiones + proyectos) - OPTIMIZADO"""
-        return self.deuda_sesiones + self.deuda_proyectos
-
+        stats = self.get_stats_cached()
+        return stats['deuda_sesiones'] + stats['deuda_proyectos']
+    
     @property
     def balance_final(self):
         """Balance final: Crédito - Deuda Total - OPTIMIZADO"""
         return self.saldo - self.total_deuda_general
-        
+
+
 class Factura(models.Model):
     """Facturas agrupando múltiples pagos/sesiones"""
     
