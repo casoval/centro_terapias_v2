@@ -119,48 +119,23 @@ if not IS_PRODUCTION:
     DATABASES['default']['CONN_MAX_AGE'] = 60  # 1 minuto en dev
 
 # --------------------------------------------------
-# CACHE CONFIGURATION (✅ NUEVO - CRÍTICO PARA PERFORMANCE)
+# CACHE CONFIGURATION (✅ OPTIMIZADO - Local Memory Cache)
 # --------------------------------------------------
 
-if IS_PRODUCTION:
-    # ✅ PRODUCCIÓN: Redis Cache (requiere configurar Redis)
-    # Instalar: pip install django-redis
-    
-    REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
-    
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': REDIS_URL,
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-                'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
-                'CONNECTION_POOL_KWARGS': {
-                    'max_connections': 50,
-                    'retry_on_timeout': True,
-                },
-                'SOCKET_CONNECT_TIMEOUT': 5,
-                'SOCKET_TIMEOUT': 5,
-            },
-            'KEY_PREFIX': 'facturacion',
-            'TIMEOUT': 300,  # 5 minutos default
+# ✅ Usar Local Memory Cache en todos los entornos
+# Funciona perfecto para apps con un solo worker
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'facturacion-cache',
+        'TIMEOUT': 300,  # 5 minutos
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
         }
     }
-    
-else:
-    # ✅ DESARROLLO: Local Memory Cache (más simple)
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'facturacion-cache',
-            'TIMEOUT': 300,  # 5 minutos
-            'OPTIONS': {
-                'MAX_ENTRIES': 1000,
-            }
-        }
-    }
+}
 
-# ✅ Cache para sesiones (opcional pero recomendado)
+# ✅ Cache para sesiones (mejora performance)
 if IS_PRODUCTION:
     SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
     SESSION_CACHE_ALIAS = 'default'
