@@ -298,6 +298,22 @@ def calendario(request):
     sucursal_id = request.GET.get('sucursal', '').strip() or None
     tipo_sesion = request.GET.get('tipo_sesion', '').strip() or None
     
+    # ✅ CRÍTICO: Si el usuario es profesional, FORZAR filtro por su ID
+    es_profesional = False
+    if hasattr(request.user, 'perfil') and request.user.perfil.es_profesional and not request.user.is_superuser:
+        try:
+            # Obtener el profesional asociado al usuario
+            profesional_usuario = request.user.perfil.profesional
+            if profesional_usuario:
+                profesional_id = str(profesional_usuario.id)
+                es_profesional = True
+            else:
+                messages.error(request, '❌ Tu usuario de profesional no tiene un registro asignado')
+                return redirect('/')
+        except AttributeError:
+            messages.error(request, '❌ Tu usuario no tiene configuración de profesional')
+            return redirect('/')
+    
     # Fecha base
     if fecha_str:
         try:
@@ -345,6 +361,7 @@ def calendario(request):
         fecha_fin = fecha_inicio + timedelta(days=6)
 
     # 1. Obtener sesiones filtradas usando el servicio
+    # ✅ Ahora profesional_id está forzado si es profesional
     sesiones = CalendarService.get_filtered_sessions(
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
@@ -353,7 +370,7 @@ def calendario(request):
         tipo_sesion=tipo_sesion,
         estado=estado_filtro,
         paciente_id=paciente_id,
-        profesional_id=profesional_id,
+        profesional_id=profesional_id,  # ✅ Ya está forzado arriba si es profesional
         servicio_id=servicio_id
     )
     
@@ -458,10 +475,18 @@ def calendario(request):
     if sucursales_usuario is not None and sucursales_usuario.exists():
         if sucursal_id:
             pacientes = Paciente.objects.filter(estado='activo', sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
-            profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
+            # ✅ Si es profesional, solo mostrar profesionales que sean él mismo
+            if es_profesional:
+                profesionales = Profesional.objects.filter(id=profesional_id)
+            else:
+                profesionales = Profesional.objects.filter(activo=True, sucursales__id=sucursal_id).distinct().order_by('nombre', 'apellido')
         else:
             pacientes = Paciente.objects.filter(estado='activo', sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
-            profesionales = Profesional.objects.filter(activo=True, sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
+            # ✅ Si es profesional, solo mostrar profesionales que sean él mismo
+            if es_profesional:
+                profesionales = Profesional.objects.filter(id=profesional_id)
+            else:
+                profesionales = Profesional.objects.filter(activo=True, sucursales__in=sucursales_usuario).distinct().order_by('nombre', 'apellido')
         sucursales = sucursales_usuario
     else:
         if sucursal_id:
@@ -539,6 +564,7 @@ def calendario(request):
         'count_pendientes': estadisticas['count_pendientes'],
         'page_obj': page_obj,  # Objeto de paginación
         'por_pagina': request.GET.get('por_pagina', '50'),
+        'es_profesional': es_profesional,  # ✅ Para usar en template si necesitas
     }
     
     return render(request, 'agenda/calendario.html', context)

@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db.models import Count, Q
 from datetime import date
 from .models import Paciente, PacienteServicio
+from .forms import PacienteForm
 
 @login_required
 def lista_pacientes(request):
@@ -24,6 +25,44 @@ def lista_pacientes(request):
         'buscar': buscar,
     }
     return render(request, 'pacientes/lista.html', context)
+
+
+@login_required
+def agregar_paciente(request):
+    """
+    ✅ Vista para agregar nuevo paciente con formulario personalizado
+    """
+    if request.method == 'POST':
+        form = PacienteForm(request.POST, request.FILES)
+        
+        if form.is_valid():
+            paciente = form.save()
+            
+            messages.success(
+                request,
+                f'✅ ¡Paciente {paciente.nombre_completo} registrado exitosamente!'
+            )
+            
+            # Redirigir al detalle del paciente
+            return redirect('pacientes:detalle', pk=paciente.id)
+        else:
+            messages.error(
+                request,
+                '❌ Por favor corrige los errores en el formulario'
+            )
+    else:
+        form = PacienteForm()
+    
+    # ⬇️ AGREGAR ESTAS LÍNEAS
+    from servicios.models import TipoServicio
+    servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
+    
+    context = {
+        'form': form,
+        'servicios': servicios,  # ⬅️ Agregar esto
+    }
+    return render(request, 'pacientes/agregar.html', context)
+
 
 @login_required
 def detalle_paciente(request, pk):
