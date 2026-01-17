@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Sucursal - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .btn-peligro {
+        transition: all 0.2s ease;
+    }
+    .btn-peligro:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+    }
+    .btn-seguro {
+        transition: all 0.2s ease;
+    }
+    .btn-seguro:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 25px rgba(251, 146, 60, 0.3);
+    }
+</style>
+
+<!-- Header con advertencia -->
+<div class="mb-4">
+    <div class="bg-gradient-to-r from-red-500 via-red-600 to-red-700 rounded-xl p-3 shadow-lg">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                    <span>⚠️</span> Eliminar Sucursal
+                </h1>
+                <p class="text-white text-[10px] font-bold opacity-90">
+                    {% if tiene_datos %}🔒 Sucursal con datos asociados{% else %}Esta acción NO se puede deshacer{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'servicios:lista_sucursales' %}" 
+               class="bg-white text-red-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
+                ← Cancelar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjeta de confirmación -->
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl border-4 border-red-200 overflow-hidden">
+        <!-- Icono de advertencia -->
+        <div class="bg-red-50 p-6 text-center border-b-4 border-red-200">
+            <div class="text-6xl mb-3">
+                {% if tiene_datos %}🔒{% else %}🗑️{% endif %}
+            </div>
+            <h2 class="text-xl font-black text-red-800 mb-2">
+                {% if tiene_datos %}
+                ⚠️ Sucursal con Datos Asociados
+                {% else %}
+                ¿Estás completamente seguro?
+                {% endif %}
+            </h2>
+            <p class="text-sm text-red-700 font-bold">
+                {% if tiene_datos %}
+                Esta sucursal NO puede ser eliminada porque tiene datos importantes
+                {% else %}
+                Esta acción eliminará permanentemente esta sucursal
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- Información de la sucursal -->
+        <div class="p-6 bg-gradient-to-br from-gray-50 to-red-50">
+            <div class="bg-white rounded-xl p-4 border-2 border-red-200 mb-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <!-- Icono de la sucursal -->
+                    <div class="flex-shrink-0">
+                        <div class="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center text-3xl">
+                            🏢
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-black text-gray-800">{{ sucursal.nombre }}</h3>
+                        <p class="text-sm text-gray-600 font-bold">📍 {{ sucursal.direccion }}</p>
+                    </div>
+                </div>
+                
+                <!-- Detalles -->
+                <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-200">
+                    <div>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Teléfono</p>
+                        <p class="text-xs font-black text-gray-800">{{ sucursal.telefono|default:"No especificado" }}</p>
+                    </div>
+                    
+                    <div>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Email</p>
+                        <p class="text-xs font-black text-gray-800 truncate">{{ sucursal.email|default:"No especificado" }}</p>
+                    </div>
+                    
+                    <div>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Estado</p>
+                        <p class="text-xs font-black">
+                            {% if sucursal.activa %}
+                            <span class="text-green-600">✓ Activa</span>
+                            {% else %}
+                            <span class="text-gray-500">✗ Inactiva</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advertencias -->
+            <div class="space-y-3">
+                {% if tiene_datos %}
+                <!-- ❌ BLOQUEO: Tiene datos asociados -->
+                <div class="bg-red-50 border-3 border-red-400 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl flex-shrink-0">🚫</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-black text-red-900 mb-2">
+                                ELIMINACIÓN BLOQUEADA
+                            </p>
+                            <p class="text-xs text-red-800 font-bold mb-3">
+                                Esta sucursal tiene datos asociados que serían afectados:
+                            </p>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                {% if datos_relacionados.sesiones > 0 %}
+                                <div class="bg-white/70 rounded-lg p-2 border border-red-300">
+                                    <p class="text-[10px] text-red-600 font-bold uppercase">Sesiones</p>
+                                    <p class="text-lg font-black text-red-800">{{ datos_relacionados.sesiones }}</p>
+                                </div>
+                                {% endif %}
+                                {% if datos_relacionados.pacientes > 0 %}
+                                <div class="bg-white/70 rounded-lg p-2 border border-red-300">
+                                    <p class="text-[10px] text-red-600 font-bold uppercase">Pacientes</p>
+                                    <p class="text-lg font-black text-red-800">{{ datos_relacionados.pacientes }}</p>
+                                </div>
+                                {% endif %}
+                                {% if datos_relacionados.profesionales > 0 %}
+                                <div class="bg-white/70 rounded-lg p-2 border border-red-300">
+                                    <p class="text-[10px] text-red-600 font-bold uppercase">Profesionales</p>
+                                    <p class="text-lg font-black text-red-800">{{ datos_relacionados.profesionales }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-red-800 font-bold">
+                                💡 <strong>Solución:</strong> Usa la opción de DESACTIVAR para inhabilitar sin perder datos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ✅ OPCIÓN RECOMENDADA: Desactivar -->
+                <div class="bg-orange-50 border-3 border-orange-300 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl flex-shrink-0">✅</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-black text-orange-900 mb-2">
+                                OPCIÓN RECOMENDADA: Desactivar Sucursal
+                            </p>
+                            <ul class="text-xs text-orange-800 font-bold space-y-1.5 mb-3">
+                                <li>🔒 La sucursal NO aparecerá en búsquedas normales</li>
+                                <li>💾 Todos los datos se CONSERVAN intactos</li>
+                                <li>🔄 Puedes reactivarla en cualquier momento</li>
+                                <li>📊 Mantiene el historial completo</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                {% else %}
+                <!-- ⚠️ Sin datos: Puede eliminar -->
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl flex-shrink-0">⚠️</span>
+                        <div>
+                            <p class="text-xs font-black text-yellow-800 mb-1">¡CUIDADO!</p>
+                            <ul class="text-[10px] text-yellow-700 font-bold space-y-1">
+                                <li>• Se eliminará la sucursal del sistema</li>
+                                <li>• NO podrá recuperarse después</li>
+                                <li>• Los profesionales y pacientes perderán esta sucursal</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 💡 TIP: Opción de desactivar siempre disponible -->
+                <div class="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl flex-shrink-0">💡</span>
+                        <div>
+                            <p class="text-xs font-black text-green-800 mb-1">¿Mejor desactivar?</p>
+                            <p class="text-[10px] text-green-700 font-bold">
+                                Si solo quieres que no aparezca en búsquedas, usa DESACTIVAR en lugar de eliminar.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Formulario de confirmación -->
+        <div class="p-6 bg-gray-50 border-t-4 border-red-200">
+            <form method="post" id="formEliminar">
+                {% csrf_token %}
+                
+                <div class="flex flex-col gap-3">
+                    <!-- OPCIÓN 1: Desactivar (Recomendada) -->
+                    <button type="submit" 
+                            name="accion"
+                            value="desactivar"
+                            class="btn-seguro w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl">
+                        🔒 DESACTIVAR SUCURSAL (Recomendado)
+                    </button>
+                    
+                    {% if not tiene_datos %}
+                    <!-- OPCIÓN 2: Eliminar (Solo si NO tiene datos) -->
+                    <button type="submit" 
+                            name="accion"
+                            value="eliminar"
+                            onclick="return confirmarEliminacion()"
+                            class="btn-peligro w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl">
+                        🗑️ SÍ, ELIMINAR PERMANENTEMENTE
+                    </button>
+                    {% endif %}
+                    
+                    <!-- Cancelar -->
+                    <a href="{% url 'servicios:lista_sucursales' %}" 
+                       class="text-center px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 transition-colors">
+                        ← Volver sin cambios
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script de confirmación adicional -->
+<script>
+function confirmarEliminacion() {
+    const confirmacion = confirm(
+        '⚠️ ÚLTIMA ADVERTENCIA\n\n' +
+        '¿Estás ABSOLUTAMENTE SEGURO de eliminar esta sucursal?\n\n' +
+        'Sucursal: {{ sucursal.nombre }}\n' +
+        'Dirección: {{ sucursal.direccion }}\n' +
+        'Esta acción NO se puede deshacer.\n\n' +
+        'Haz clic en ACEPTAR para continuar con la eliminación.'
+    );
+    
+    return confirmacion;
+}
+</script>
+{% endblock %}

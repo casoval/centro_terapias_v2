@@ -185,8 +185,99 @@
         </div>
     </div>
     
-    <!-- Historial de sesiones -->
-    <div class="lg:col-span-2">
+    <!-- Contenido principal -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- 🆕 SUCURSALES DONDE SE ATIENDE -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Sucursales donde se Atiende</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for sucursal in sucursales %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-900">{{ sucursal.nombre }}</p>
+                            <p class="text-sm text-gray-600 mt-1">{{ sucursal.direccion }}</p>
+                            {% if sucursal.telefono %}
+                            <p class="text-sm text-gray-500 mt-1">Tel: {{ sucursal.telefono }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ver detalles
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-gray-500">
+                    Aún no ha sido atendido en ninguna sucursal
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- 🆕 PROFESIONALES QUE LE ATIENDEN -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Profesionales que le Atienden</h3>
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+                {% for data in profesionales_data %}
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-4 flex-1">
+                            <!-- 🆕 FOTO DEL PROFESIONAL (thumbnail) -->
+                            {% if data.profesional.tiene_foto %}
+                                <img src="{{ data.profesional.get_foto_thumbnail }}" 
+                                     alt="{{ data.profesional.nombre_completo }}"
+                                     class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <span class="text-2xl">👨‍⚕️</span>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900">{{ data.profesional.nombre_completo }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ data.profesional.especialidad }}</p>
+                                
+                                <!-- 🆕 Servicios que ofrece a este paciente -->
+                                {% if data.servicios %}
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    {% for servicio in data.servicios %}
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                                        {{ servicio }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- 🆕 Próxima sesión -->
+                                {% if data.proxima_sesion %}
+                                <div class="mt-2 text-xs bg-green-50 text-green-700 px-2 py-1 rounded inline-block">
+                                    📅 Próxima: {{ data.proxima_sesion.fecha|date:"d/m/Y" }} - {{ data.proxima_sesion.hora_inicio|time:"H:i" }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <a href="{% url 'profesionales:detalle' data.profesional.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">
+                            Ver perfil
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-gray-500">
+                    Aún no ha sido atendido por ningún profesional
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Historial de sesiones -->
         <div class="bg-white rounded-lg shadow">
             <div class="p-6 border-b border-gray-200">
                 <div class="flex justify-between items-center">

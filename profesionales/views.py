@@ -67,6 +67,102 @@ def detalle_profesional(request, pk):
 
 
 @login_required
+def agregar_profesional(request):
+    """Crear un nuevo profesional"""
+    if request.method == 'POST':
+        form = ProfesionalForm(request.POST, request.FILES)
+        if form.is_valid():
+            profesional = form.save()
+            messages.success(request, f'✅ Profesional "{profesional.nombre_completo}" creado exitosamente.')
+            return redirect('profesionales:lista')
+    else:
+        form = ProfesionalForm()
+    
+    context = {
+        'form': form,
+    }
+    return render(request, 'profesionales/agregar.html', context)
+
+
+@login_required
+def editar_profesional(request, pk):
+    """Editar un profesional existente"""
+    profesional = get_object_or_404(Profesional, pk=pk)
+    
+    if request.method == 'POST':
+        form = ProfesionalForm(request.POST, request.FILES, instance=profesional)
+        if form.is_valid():
+            profesional = form.save()
+            messages.success(request, f'✅ Profesional "{profesional.nombre_completo}" actualizado exitosamente.')
+            return redirect('profesionales:detalle', pk=profesional.id)
+    else:
+        form = ProfesionalForm(instance=profesional)
+    
+    context = {
+        'form': form,
+        'profesional': profesional,
+    }
+    return render(request, 'profesionales/editar.html', context)
+
+
+@login_required
+def eliminar_profesional(request, pk):
+    """Eliminar o desactivar un profesional"""
+    profesional = get_object_or_404(Profesional, pk=pk)
+    
+    # ✅ Verificar si tiene datos relacionados
+    from agenda.models import Sesion
+    
+    sesiones_count = Sesion.objects.filter(profesional=profesional).count()
+    pacientes_count = profesional.get_pacientes().count()
+    
+    tiene_datos = sesiones_count > 0 or pacientes_count > 0
+    
+    datos_relacionados = {
+        'sesiones': sesiones_count,
+        'pacientes': pacientes_count,
+    }
+    
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        
+        if accion == 'desactivar':
+            # ✅ DESACTIVAR: Cambiar estado a inactivo
+            profesional.activo = False
+            profesional.save()
+            messages.success(
+                request, 
+                f'🔒 Profesional "{profesional.nombre_completo}" desactivado correctamente. '
+                f'Puedes reactivarlo en cualquier momento desde el panel de administración.'
+            )
+            return redirect('profesionales:lista')
+        
+        elif accion == 'eliminar' and not tiene_datos:
+            # ✅ ELIMINAR: Solo si NO tiene datos asociados
+            nombre_completo = profesional.nombre_completo
+            profesional.delete()
+            messages.success(
+                request, 
+                f'🗑️ Profesional "{nombre_completo}" eliminado permanentemente del sistema.'
+            )
+            return redirect('profesionales:lista')
+        else:
+            # ❌ Intento de eliminar con datos asociados
+            messages.error(
+                request,
+                '❌ No se puede eliminar este profesional porque tiene datos asociados. '
+                'Usa la opción DESACTIVAR en su lugar.'
+            )
+    
+    context = {
+        'profesional': profesional,
+        'tiene_datos': tiene_datos,
+        'datos_relacionados': datos_relacionados,
+    }
+    return render(request, 'profesionales/eliminar.html', context)
+
+
+@login_required
 def mis_pacientes(request):
     """
     Vista EXCLUSIVA para que los profesionales vean sus pacientes
@@ -150,21 +246,3 @@ def mis_pacientes(request):
     }
     
     return render(request, 'profesionales/mis_pacientes.html', context)
-
-
-@login_required
-def agregar_profesional(request):
-    """Crear un nuevo profesional"""
-    if request.method == 'POST':
-        form = ProfesionalForm(request.POST, request.FILES)
-        if form.is_valid():
-            profesional = form.save()
-            messages.success(request, f'✅ Profesional "{profesional.nombre_completo}" creado exitosamente.')
-            return redirect('profesionales:lista')
-    else:
-        form = ProfesionalForm()
-    
-    context = {
-        'form': form,
-    }
-    return render(request, 'profesionales/agregar.html', context)

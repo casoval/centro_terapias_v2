@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Sucursal - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
+</style>
+
+<!-- Header Ultra Compacto -->
+<div class="mb-3">
+    <div class="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-xl p-2.5 shadow-lg flex justify-between items-center">
+        <div>
+            <h1 class="text-base sm:text-lg font-black text-white flex items-center gap-1.5">
+                <span class="text-lg">✏️</span> Editar Sucursal
+            </h1>
+            <p class="text-white text-[9px] font-bold opacity-90">{{ sucursal.nombre }}</p>
+        </div>
+        <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+           class="bg-white text-cyan-700 px-2.5 py-1 rounded-full font-black text-[10px] shadow-md hover:scale-105 transition-transform">
+            ← Volver
+        </a>
+    </div>
+</div>
+
+<form method="post" class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+    {% csrf_token %}
+    
+    <!-- Mensajes de error -->
+    {% if form.non_field_errors %}
+    <div class="lg:col-span-3 bg-red-50 border-2 border-red-200 rounded-lg p-2.5">
+        <p class="text-red-700 font-bold text-xs">❌ Errores:</p>
+        <ul class="list-disc list-inside text-red-600 text-[10px] mt-1">
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- COLUMNA 1: Formulario Compacto -->
+    <div class="lg:col-span-2 space-y-2.5">
+        <!-- Info Básica -->
+        <div class="bg-white rounded-xl shadow-md p-3 border-2 border-cyan-100">
+            <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-cyan-100">
+                <div class="bg-cyan-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">🏢</div>
+                <h2 class="text-xs font-black text-gray-800">Información Básica</h2>
+            </div>
+            
+            <div class="space-y-2">
+                <div class="campo-requerido">
+                    <label class="block text-[10px] font-bold text-gray-700 mb-0.5">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}
+                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.nombre.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="campo-requerido">
+                    <label class="block text-[10px] font-bold text-gray-700 mb-0.5">{{ form.direccion.label }}</label>
+                    {{ form.direccion }}
+                    {% if form.direccion.errors %}
+                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.direccion.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacto y Estado en Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Contacto -->
+            <div class="bg-white rounded-xl shadow-md p-3 border-2 border-blue-100">
+                <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-blue-100">
+                    <div class="bg-blue-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">📞</div>
+                    <h2 class="text-xs font-black text-gray-800">Contacto</h2>
+                </div>
+                
+                <div class="space-y-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-700 mb-0.5">
+                            {{ form.telefono.label }} 
+                            <span class="text-gray-400 text-[9px]">(opcional)</span>
+                        </label>
+                        {{ form.telefono }}
+                        {% if form.telefono.errors %}
+                        <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.telefono.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-700 mb-0.5">
+                            {{ form.email.label }}
+                            <span class="text-gray-400 text-[9px]">(opcional)</span>
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.email.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado -->
+            <div class="bg-white rounded-xl shadow-md p-3 border-2 border-teal-100">
+                <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-teal-100">
+                    <div class="bg-teal-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">⚙️</div>
+                    <h2 class="text-xs font-black text-gray-800">Configuración</h2>
+                </div>
+                
+                <div class="campo-requerido">
+                    <label class="block text-[10px] font-bold text-gray-700 mb-1">{{ form.activa.label }}</label>
+                    <div class="flex items-center gap-2 p-2 border-2 border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all">
+                        {{ form.activa }}
+                        <span class="text-[10px] font-bold text-gray-700">Sucursal operativa</span>
+                    </div>
+                    {% if form.activa.errors %}
+                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.activa.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-[9px] text-gray-500 mt-1">✅ Desmarcar para inhabilitar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUMNA 2: Vista Previa Sticky -->
+    <div class="lg:col-span-1">
+        <div class="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl shadow-md p-3 border-2 border-cyan-100 lg:sticky lg:top-4">
+            <div class="flex items-center gap-1.5 mb-2">
+                <div class="bg-cyan-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">👁️</div>
+                <h2 class="text-xs font-black text-gray-800">Vista Previa</h2>
+            </div>
+            
+            <div class="bg-white rounded-xl shadow-sm border-2 border-gray-100 overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-br from-cyan-400 to-blue-500 p-2.5 text-white">
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-xl mb-0.5">🏢</div>
+                            <h3 id="preview-nombre" class="text-sm font-black truncate leading-tight">
+                                {{ sucursal.nombre }}
+                            </h3>
+                            <p id="preview-direccion" class="text-[9px] font-bold text-cyan-100 mt-0.5 truncate">
+                                📍 {{ sucursal.direccion }}
+                            </p>
+                        </div>
+                        <span id="preview-estado" class="px-1.5 py-0.5 text-[8px] font-black rounded-full {% if sucursal.activa %}bg-green-400 text-green-900{% else %}bg-gray-400 text-gray-900{% endif %} border border-white flex-shrink-0">
+                            {% if sucursal.activa %}ACTIVA{% else %}INACTIVA{% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Contenido -->
+                <div class="p-2.5">
+                    <div class="space-y-1.5">
+                        <!-- Teléfono -->
+                        <div id="preview-telefono-container" class="flex items-center gap-1.5 p-1.5 bg-blue-50 rounded-lg border border-blue-100 {% if not sucursal.telefono %}opacity-50{% endif %}">
+                            <span class="text-sm">📞</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[8px] font-bold text-blue-800 uppercase leading-none">Teléfono</p>
+                                <p id="preview-telefono" class="text-[10px] font-bold text-gray-800 truncate">{{ sucursal.telefono|default:"No especificado" }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Email -->
+                        <div id="preview-email-container" class="flex items-center gap-1.5 p-1.5 bg-purple-50 rounded-lg border border-purple-100 {% if not sucursal.email %}opacity-50{% endif %}">
+                            <span class="text-sm">📧</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[8px] font-bold text-purple-800 uppercase leading-none">Email</p>
+                                <p id="preview-email" class="text-[10px] font-bold text-gray-800 truncate">{{ sucursal.email|default:"No especificado" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-[9px] text-cyan-700 mt-2 font-bold">💡 Vista previa actualizada</p>
+        </div>
+    </div>
+
+    <!-- Botones de Acción - Anchura completa -->
+    <div class="lg:col-span-3 flex gap-2.5 pt-1">
+        <button type="submit" 
+                class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-2 rounded-xl font-black text-xs shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+            ✅ Guardar Cambios
+        </button>
+        <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+           class="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-black text-xs hover:bg-gray-300 transition-colors">
+            Cancelar
+        </a>
+    </div>
+</form>
+
+<!-- JavaScript para preview en tiempo real -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nombreInput = document.getElementById('id_nombre');
+        const direccionInput = document.getElementById('id_direccion');
+        const telefonoInput = document.getElementById('id_telefono');
+        const emailInput = document.getElementById('id_email');
+        const activaInput = document.getElementById('id_activa');
+        
+        const previewNombre = document.getElementById('preview-nombre');
+        const previewDireccion = document.getElementById('preview-direccion');
+        const previewTelefono = document.getElementById('preview-telefono');
+        const previewEmail = document.getElementById('preview-email');
+        const previewEstado = document.getElementById('preview-estado');
+        const previewTelefonoContainer = document.getElementById('preview-telefono-container');
+        const previewEmailContainer = document.getElementById('preview-email-container');
+        
+        if (nombreInput) {
+            nombreInput.addEventListener('input', function() {
+                previewNombre.textContent = this.value || 'Nombre de la Sucursal';
+            });
+        }
+        
+        if (direccionInput) {
+            direccionInput.addEventListener('input', function() {
+                previewDireccion.textContent = '📍 ' + (this.value || 'Dirección de la sucursal');
+            });
+        }
+        
+        if (telefonoInput) {
+            telefonoInput.addEventListener('input', function() {
+                if (this.value) {
+                    previewTelefono.textContent = this.value;
+                    previewTelefonoContainer.classList.remove('opacity-50');
+                } else {
+                    previewTelefono.textContent = 'No especificado';
+                    previewTelefonoContainer.classList.add('opacity-50');
+                }
+            });
+        }
+        
+        if (emailInput) {
+            emailInput.addEventListener('input', function() {
+                if (this.value) {
+                    previewEmail.textContent = this.value;
+                    previewEmailContainer.classList.remove('opacity-50');
+                } else {
+                    previewEmail.textContent = 'No especificado';
+                    previewEmailContainer.classList.add('opacity-50');
+                }
+            });
+        }
+        
+        if (activaInput) {
+            activaInput.addEventListener('change', function() {
+                if (this.checked) {
+                    previewEstado.textContent = 'ACTIVA';
+                    previewEstado.className = 'px-1.5 py-0.5 text-[8px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0';
+                } else {
+                    previewEstado.textContent = 'INACTIVA';
+                    previewEstado.className = 'px-1.5 py-0.5 text-[8px] font-black rounded-full bg-gray-400 text-gray-900 border border-white flex-shrink-0';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

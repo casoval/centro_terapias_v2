@@ -274,10 +274,9 @@ def eliminar_paciente(request, pk):
     }
     return render(request, 'pacientes/eliminar.html', context)
 
-
 @login_required
 def detalle_paciente(request, pk):
-    """Detalle de un paciente"""
+    """Detalle de un paciente con profesionales y sucursales"""
     paciente = get_object_or_404(Paciente, pk=pk)
     
     # Últimas 10 sesiones
@@ -289,10 +288,76 @@ def detalle_paciente(request, pk):
         activo=True
     ).select_related('servicio')
     
+    # ✅ NUEVO: Obtener sucursales donde ha sido atendido
+    from agenda.models import Sesion
+    sucursales_ids = Sesion.objects.filter(
+        paciente=paciente
+    ).values_list('sucursal_id', flat=True).distinct()
+    
+    from servicios.models import Sucursal
+    sucursales = Sucursal.objects.filter(
+        id__in=sucursales_ids
+    ).order_by('nombre')
+    
+    # ✅ NUEVO: Obtener profesionales que le han atendido
+    profesionales_ids = Sesion.objects.filter(
+        paciente=paciente
+    ).values_list('profesional_id', flat=True).distinct()
+    
+    from profesionales.models import Profesional
+    profesionales = Profesional.objects.filter(
+        id__in=profesionales_ids
+    ).prefetch_related('servicios', 'sucursales')
+    
+    # ✅ NUEVO: Agregar estadísticas por profesional
+    profesionales_data = []
+    for profesional in profesionales:
+        # Contar sesiones totales con este profesional
+        total_sesiones = Sesion.objects.filter(
+            paciente=paciente,
+            profesional=profesional
+        ).count()
+        
+        # Contar sesiones realizadas
+        sesiones_realizadas = Sesion.objects.filter(
+            paciente=paciente,
+            profesional=profesional,
+            estado__in=['realizada', 'realizada_retraso']
+        ).count()
+        
+        # Próxima sesión con este profesional
+        proxima_sesion = Sesion.objects.filter(
+            paciente=paciente,
+            profesional=profesional,
+            estado__in=['programada', 'retraso', 'con_retraso'],
+            fecha__gte=date.today()
+        ).order_by('fecha', 'hora_inicio').first()
+        
+        # Servicios únicos que este profesional da a este paciente
+        servicios_ids = Sesion.objects.filter(
+            paciente=paciente,
+            profesional=profesional
+        ).values_list('servicio_id', flat=True).distinct()
+        
+        from servicios.models import TipoServicio
+        servicios_profesional = TipoServicio.objects.filter(
+            id__in=servicios_ids
+        ).values_list('nombre', flat=True)
+        
+        profesionales_data.append({
+            'profesional': profesional,
+            'total_sesiones': total_sesiones,
+            'sesiones_realizadas': sesiones_realizadas,
+            'proxima_sesion': proxima_sesion,
+            'servicios': list(servicios_profesional),
+        })
+    
     context = {
         'paciente': paciente,
         'sesiones': sesiones,
         'servicios': servicios,
+        'sucursales': sucursales,
+        'profesionales_data': profesionales_data,
     }
     return render(request, 'pacientes/detalle.html', context)
 

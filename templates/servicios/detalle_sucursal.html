@@ -48,11 +48,11 @@
             <dl class="space-y-3">
                 <div class="flex justify-between">
                     <dt class="text-sm font-medium text-gray-500">Profesionales</dt>
-                    <dd class="text-sm font-bold text-gray-900">{{ profesionales.count }}</dd>
+                    <dd class="text-sm font-bold text-gray-900">{{ total_profesionales }}</dd>
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-sm font-medium text-gray-500">Pacientes</dt>
-                    <dd class="text-sm font-bold text-gray-900">{{ pacientes.count }}</dd>
+                    <dd class="text-sm font-bold text-gray-900">{{ total_pacientes }}</dd>
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-sm font-medium text-gray-500">Sesiones Totales</dt>
@@ -64,33 +64,49 @@
     
     <!-- Contenido principal -->
     <div class="lg:col-span-2 space-y-6">
-        <!-- Profesionales de esta sucursal -->
+        <!-- 🆕 Profesionales de esta sucursal -->
         <div class="bg-white rounded-lg shadow">
             <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Profesionales de esta Sucursal</h3>
+                <h3 class="text-lg font-semibold text-gray-900">
+                    Profesionales de esta Sucursal
+                    <span class="text-sm font-normal text-gray-500">({{ total_profesionales }})</span>
+                </h3>
             </div>
             
             <div class="divide-y divide-gray-200">
                 {% for profesional in profesionales %}
                 <div class="p-6 hover:bg-gray-50">
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <p class="font-medium text-gray-900">{{ profesional.nombre_completo }}</p>
-                            <p class="text-sm text-gray-600 mt-1">{{ profesional.especialidad }}</p>
-                            {% if profesional.servicios.all %}
-                            <div class="flex flex-wrap gap-2 mt-2">
-                                {% for servicio in profesional.servicios.all|slice:":3" %}
-                                <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                                    {{ servicio.nombre }}
-                                </span>
-                                {% endfor %}
-                                {% if profesional.servicios.count > 3 %}
-                                <span class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded">
-                                    +{{ profesional.servicios.count|add:"-3" }} más
-                                </span>
+                        <div class="flex items-center gap-4 flex-1">
+                            <!-- 🆕 FOTO DEL PROFESIONAL -->
+                            {% if profesional.tiene_foto %}
+                                <img src="{{ profesional.get_foto_thumbnail }}" 
+                                     alt="{{ profesional.nombre_completo }}"
+                                     class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <span class="text-2xl">👨‍⚕️</span>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900">{{ profesional.nombre_completo }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ profesional.especialidad }}</p>
+                                {% if profesional.servicios.all %}
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    {% for servicio in profesional.servicios.all|slice:":3" %}
+                                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                                        {{ servicio.nombre }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if profesional.servicios.count > 3 %}
+                                    <span class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded">
+                                        +{{ profesional.servicios.count|add:"-3" }} más
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 {% endif %}
                             </div>
-                            {% endif %}
                         </div>
                         <a href="{% url 'profesionales:detalle' profesional.id %}" 
                            class="text-blue-600 hover:text-blue-800 text-sm">
@@ -103,23 +119,62 @@
                     No hay profesionales asignados a esta sucursal
                 </div>
                 {% endfor %}
+                
+                <!-- 🆕 Botón Mostrar Todos -->
+                {% if total_profesionales > 6 and not mostrar_todos_profesionales %}
+                <div class="p-4 bg-gray-50 text-center">
+                    <a href="?todos_prof=1{% if mostrar_todos_pacientes %}&todos_pac=1{% endif %}" 
+                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                        Mostrar todos los profesionales ({{ total_profesionales }})
+                    </a>
+                </div>
+                {% elif mostrar_todos_profesionales %}
+                <div class="p-4 bg-gray-50 text-center">
+                    <a href="?{% if mostrar_todos_pacientes %}todos_pac=1{% endif %}" 
+                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                        </svg>
+                        Mostrar menos
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
         
-        <!-- Pacientes de esta sucursal -->
+        <!-- 🆕 Pacientes de esta sucursal -->
         <div class="bg-white rounded-lg shadow">
             <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Pacientes de esta Sucursal</h3>
+                <h3 class="text-lg font-semibold text-gray-900">
+                    Pacientes de esta Sucursal
+                    <span class="text-sm font-normal text-gray-500">({{ total_pacientes }})</span>
+                </h3>
             </div>
             
             <div class="divide-y divide-gray-200">
-                {% for paciente in pacientes|slice:":10" %}
+                {% for paciente in pacientes %}
                 <div class="p-6 hover:bg-gray-50">
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <p class="font-medium text-gray-900">{{ paciente.nombre_completo }}</p>
-                            <p class="text-sm text-gray-600 mt-1">{{ paciente.edad }} años</p>
-                            <p class="text-sm text-gray-500 mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+                        <div class="flex items-center gap-4 flex-1">
+                            <!-- 🆕 FOTO DEL PACIENTE -->
+                            {% if paciente.tiene_foto %}
+                                <img src="{{ paciente.get_foto_thumbnail }}" 
+                                     alt="{{ paciente.nombre_completo }}"
+                                     class="w-12 h-12 rounded-full object-cover border-2 border-gray-200">
+                            {% else %}
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <span class="text-xl">👤</span>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-900">{{ paciente.nombre_completo }}</p>
+                                <p class="text-sm text-gray-600 mt-1">{{ paciente.edad }} años</p>
+                                <p class="text-sm text-gray-500 mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+                            </div>
                         </div>
                         <a href="{% url 'pacientes:detalle' paciente.id %}" 
                            class="text-blue-600 hover:text-blue-800 text-sm">
@@ -132,6 +187,29 @@
                     No hay pacientes asignados a esta sucursal
                 </div>
                 {% endfor %}
+                
+                <!-- 🆕 Botón Mostrar Todos -->
+                {% if total_pacientes > 6 and not mostrar_todos_pacientes %}
+                <div class="p-4 bg-gray-50 text-center">
+                    <a href="?todos_pac=1{% if mostrar_todos_profesionales %}&todos_prof=1{% endif %}" 
+                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                        Mostrar todos los pacientes ({{ total_pacientes }})
+                    </a>
+                </div>
+                {% elif mostrar_todos_pacientes %}
+                <div class="p-4 bg-gray-50 text-center">
+                    <a href="?{% if mostrar_todos_profesionales %}todos_prof=1{% endif %}" 
+                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                        </svg>
+                        Mostrar menos
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
         
@@ -142,7 +220,7 @@
             </div>
             
             <div class="divide-y divide-gray-200">
-                {% for sesion in sesiones|slice:":10" %}
+                {% for sesion in sesiones %}
                 <div class="p-6 hover:bg-gray-50">
                     <div class="flex justify-between items-start">
                         <div class="flex-1">

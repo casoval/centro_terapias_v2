@@ -38,16 +38,16 @@
     <div class="servicio-card bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden flex flex-col">
         <div class="p-3 text-white" style="background: linear-gradient(135deg, {{ servicio.color }}dd, {{ servicio.color }});">
             <div class="flex justify-between items-start">
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                     <div class="text-2xl mb-1">🏥</div>
                     <h3 class="text-base font-black truncate leading-tight">{{ servicio.nombre }}</h3>
                     <p class="text-[10px] font-semibold text-white opacity-90 mt-1 line-clamp-1">{{ servicio.descripcion }}</p>
                 </div>
-                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white">ACTIVO</span>
+                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0">ACTIVO</span>
             </div>
         </div>
         
-        <div class="p-3">
+        <div class="p-3 flex flex-col flex-1">
             <div class="space-y-2 mb-3">
                 <div class="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
                     <span class="text-lg">⏱️</span>
@@ -64,11 +64,29 @@
                     </div>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <a href="{% url 'servicios:detalle_servicio' servicio.id %}" class="flex-1 text-center py-2 bg-purple-600 text-white rounded-lg font-black text-xs">👁️ Detalles</a>
-                <a href="/admin/servicios/tiposervicio/{{ servicio.id }}/change/" class="px-3 py-2 border-2 border-gray-200 text-gray-500 rounded-lg font-black text-xs">✏️</a>
+            
+            <!-- ✅ BOTONES ACTUALIZADOS: Ver | Editar | Eliminar -->
+            <div class="flex gap-2 mt-auto">
+                <a href="{% url 'servicios:detalle_servicio' servicio.id %}" 
+                   class="flex-1 text-center py-2 bg-purple-600 text-white rounded-lg font-black text-xs shadow-sm hover:bg-purple-700 transition-colors">
+                    👁️ Detalles
+                </a>
+                <a href="{% url 'servicios:editar_servicio' servicio.id %}" 
+                   class="px-3 py-2 border-2 border-purple-200 text-purple-600 rounded-lg font-black text-xs hover:bg-purple-50 transition-colors">
+                    ✏️
+                </a>
+                <a href="{% url 'servicios:eliminar_servicio' servicio.id %}" 
+                   class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg font-black text-xs hover:bg-red-50 transition-colors">
+                    🗑️
+                </a>
             </div>
         </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-gray-100">
+        <div class="text-5xl mb-3">🏥</div>
+        <p class="text-base font-black text-gray-700">No hay servicios registrados</p>
+        <a href="{% url 'servicios:agregar_servicio' %}" class="text-purple-600 font-black text-xs underline mt-2 inline-block uppercase">Agregar Servicio</a>
     </div>
     {% endfor %}
 </div>
