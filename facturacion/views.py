@@ -1496,7 +1496,7 @@ def encontrar_logo():
 @login_required
 def generar_recibo_pdf(request, pago_id):
     """
-    Generar recibo en PDF
+    Generar recibo en PDF usando WeasyPrint
     """
     
     pago = get_object_or_404(
@@ -1516,7 +1516,8 @@ def generar_recibo_pdf(request, pago_id):
         return redirect('facturacion:historial_pagos')
     
     try:
-        from xhtml2pdf import pisa
+        from weasyprint import HTML, CSS
+        from django.template.loader import render_to_string
         
         # Buscar todos los pagos con el mismo número de recibo
         pagos_relacionados = Pago.objects.filter(
@@ -1544,74 +1545,38 @@ def generar_recibo_pdf(request, pago_id):
                 logger.warning(f'Error al cargar logo: {str(e)}')
         
         # Renderizar template HTML
-        html_string = render(request, 'facturacion/recibo_pdf.html', {
+        html_string = render_to_string('facturacion/recibo_pdf.html', {
             'pago': pago,
             'pagos_relacionados': pagos_relacionados,
             'total_recibo': total_recibo,
             'es_pago_masivo': pagos_relacionados.count() > 1,
-            'para_pdf': True,
             'logo_base64': logo_base64,
-        }).content.decode('utf-8')
+        })
         
-        # Crear buffer para el PDF
-        result = BytesIO()
-        
-        # Convertir HTML a PDF
-        pdf = pisa.pisaDocument(
-            BytesIO(html_string.encode("UTF-8")), 
-            result,
-            encoding='UTF-8'
-        )
-        
-        if pdf.err:
-            raise Exception(f"Error en la generación del PDF: código {pdf.err}")
+        # Generar PDF con WeasyPrint
+        pdf_file = HTML(string=html_string).write_pdf()
         
         # Preparar respuesta
-        result.seek(0)
-        response = HttpResponse(result.read(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="recibo_{pago.numero_recibo}.pdf"'
+        response = HttpResponse(pdf_file, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="recibo_{pago.numero_recibo}.pdf"'
         
         return response
         
     except ImportError:
-        messages.warning(
+        messages.error(
             request, 
-            '⚠️ PDF no disponible temporalmente. Mostrando versión para imprimir.'
+            '❌ WeasyPrint no está instalado. Por favor contacta al administrador del sistema.'
         )
-        
-        pagos_relacionados = Pago.objects.filter(
-            numero_recibo=pago.numero_recibo,
-            anulado=False
-        ).select_related('sesion__servicio', 'proyecto').order_by('sesion__fecha')
-        
-        total_recibo = sum(p.monto for p in pagos_relacionados)
-        
-        logo_base64 = None
-        logo_path = encontrar_logo()
-        if logo_path and os.path.exists(logo_path):
-            try:
-                with open(logo_path, 'rb') as logo_file:
-                    logo_data = logo_file.read()
-                    logo_base64 = base64.b64encode(logo_data).decode('utf-8')
-            except:
-                pass
-        
-        return render(request, 'facturacion/recibo_pdf.html', {
-            'pago': pago,
-            'pagos_relacionados': pagos_relacionados,
-            'total_recibo': total_recibo,
-            'es_pago_masivo': pagos_relacionados.count() > 1,
-            'para_impresion': True,
-            'logo_base64': logo_base64,
-        })
+        return redirect('facturacion:historial_pagos')
         
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f'Error generando PDF para pago {pago_id}: {str(e)}')
         
-        messages.error(request, '❌ Error al generar PDF. Intenta nuevamente.')
+        messages.error(request, f'❌ Error al generar PDF: {str(e)}')
         return redirect('facturacion:historial_pagos')
+
 # ==================== ANULAR PAGOS ====================
 
 @login_required

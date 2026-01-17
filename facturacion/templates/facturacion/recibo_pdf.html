@@ -15,501 +15,351 @@
             box-sizing: border-box;
         }
         
-        /* ============================================
-           VARIABLES DE TAMAÑO - AJUSTAR AQUÍ
-           ============================================ */
-        
-        /* Tamaño de fuente general del documento */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 10px;           /* 👈 AJUSTAR: Tamaño base de texto (8-12px) */
-            line-height: 1.3;          /* 👈 AJUSTAR: Espaciado entre líneas (1.2-1.5) */
-            color: #2c3e50;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
-        }
-     
-        /* Altura total del recibo */
-        .contenedor-recibos {
-            display: table;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 9px;
+            line-height: 1.3;
+            color: #1e293b;
             width: 100%;
-            height: 20.6cm;            /* 👈 AJUSTAR: Altura total (19-21.5cm) */
+            height: 100%;
         }
         
-        /* ============================================
-           MODO COMPACTO (para contenido extenso)
-           Se activa automáticamente con observaciones largas o pagos masivos
-           ============================================ */
-        
-        /* Cuando hay más de 5 items en pago masivo O observaciones largas */
-        body.modo-compacto {
-            font-size: 9px;            /* Reducir tamaño base */
-            line-height: 1.2;
+        .contenedor-recibos {
+            display: flex;
+            width: 100%;
+            max-width: 27cm;
+            height: auto;
+            gap: 0.4cm;
+            margin: 0 auto;
         }
         
-        .modo-compacto .contenedor-recibos {
-            height: 20cm;              /* Reducir altura total */
-        }
-        
-        .modo-compacto .tabla-sesiones {
-            font-size: 8px;            /* Tablas más pequeñas */
-        }
-        
-        .modo-compacto .tabla-sesiones th,
-        .modo-compacto .tabla-sesiones td {
-            padding: 4px;              /* Menos padding */
-            font-size: 8px;
-        }
-        
-        .modo-compacto .firma-titulo {
-            margin-bottom: 25px;       /* Menos espacio para firmas */
-        }
-        
-        .modo-compacto .section {
-            margin-bottom: 8px;        /* Menos espacio entre secciones */
-        }
-        
-        .modo-compacto .header {
-            margin-bottom: 10px;       /* Header más compacto */
-        }
-        
-        .modo-compacto .monto-total {
-            padding: 8px;              /* Monto total más pequeño */
-            margin: 8px 0;
-        }
-        
-        .modo-compacto .monto-total .valor {
-            font-size: 18px;           /* Valor más pequeño */
-        }
-        
-        .modo-compacto table td {
-            padding: 5px 8px;          /* Menos padding en tablas */
-        }
-        
-        /* Limitar observaciones a 3 líneas */
-        .observaciones-text {
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-height: 4.5em;         /* 3 líneas aproximadamente */
-        }
-        
-        .recibo-copia {
-            display: table-cell;
-            width: 49%;
-            padding: 0.6cm;
-            vertical-align: top;
-            border: 3px solid #1e88e5;
+        .recibo {
+            flex: 1;
+            width: calc(50% - 0.2cm);
+            border: 3px solid #2563eb;
+            border-radius: 8px;
+            padding: 0.4cm;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
             position: relative;
-            background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 50%, #fff9e6 100%);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            box-shadow: inset 0 0 20px rgba(30, 136, 229, 0.1);
+            overflow: hidden;
+            page-break-inside: avoid;
         }
         
-        .recibo-copia.izquierda {
-            border-right: 2px dashed #666;
+        .recibo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.03) 0%, transparent 70%);
+            pointer-events: none;
         }
         
         .linea-divisoria {
-            display: table-cell;
-            width: 2%;
-            text-align: center;
-            background: linear-gradient(to bottom, #FFD700 0%, #1e88e5 50%, #E63946 100%);
+            width: 0.2cm;
+            background: linear-gradient(to bottom, 
+                #fbbf24 0%, 
+                #2563eb 25%, 
+                #dc2626 50%, 
+                #2563eb 75%, 
+                #fbbf24 100%
+            );
             position: relative;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            border-radius: 4px;
+            flex-shrink: 0;
         }
         
         .linea-divisoria::before {
-            content: "✂";
+            content: '✂';
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(90deg);
-            font-size: 24px;
+            font-size: 16px;
             color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         
         .etiqueta-copia {
             position: absolute;
-            top: 0.5cm;
-            right: 0.5cm;
-            background: linear-gradient(135deg, #E63946 0%, #c62828 100%);
-            padding: 6px 16px;
-            border: 3px solid #FFD700;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: bold;
+            top: 0.3cm;
+            right: 0.3cm;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
             color: white;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            z-index: 10;
+            padding: 4px 10px;
+            border: 2px solid #fbbf24;
+            border-radius: 20px;
+            font-size: 8px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            z-index: 10;
         }
         
-        .etiqueta-copia.sucursal {
-            background: linear-gradient(135deg, #FFD700 0%, #f9a825 100%);
-            border-color: #1e88e5;
-            color: #0d47a1;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+        .etiqueta-copia.administracion {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #1e3a8a;
+            border-color: #2563eb;
         }
         
         .header {
             text-align: center;
-            margin-bottom: 14px;
-            border-bottom: 4px solid transparent;
-            border-image: linear-gradient(to right, #E63946, #FFD700, #1e88e5) 1;
-            padding-bottom: 12px;
-            background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 30%, #fff5e1 70%, #ffffff 100%);
-            padding-top: 12px;
-            border-radius: 8px 8px 0 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            padding: 0.2cm 0;
+            margin-bottom: 0.3cm;
+            border-bottom: 3px solid transparent;
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(to right, #dc2626, #fbbf24, #2563eb) border-box;
+            border-image-slice: 1;
         }
         
-        .header .logo {
-            max-width: 150px;
-            max-height: 80px;
-            margin-bottom: 8px;
+        .logo {
+            max-width: 180px;
+            max-height: 120px;
+            margin: 0 auto 6px;
             display: block;
-            margin-left: auto;
-            margin-right: auto;
         }
         
         .header h1 {
-            font-size: 20px;
-            background: linear-gradient(135deg, #E63946 0%, #1e88e5 100%);
+            font-size: 16px;
+            background: linear-gradient(135deg, #dc2626 0%, #f59e0b 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 3px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
         }
         
         .header p {
-            font-size: 11px;
-            color: #1565c0;
-            font-weight: 600;
+            font-size: 8px;
+            color: #64748b;
+            margin: 2px 0;
         }
         
         .recibo-numero {
-            text-align: right;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 12px;
-            color: white;
-            background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%);
-            padding: 7px 16px;
-            display: inline-block;
-            float: right;
-            border-radius: 15px;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-            letter-spacing: 1px;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        .clear {
-            clear: both;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #fbbf24;
+            border-radius: 8px;
+            padding: 6px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #78350f;
+            margin-bottom: 0.3cm;
+            box-shadow: 0 2px 4px rgba(251, 191, 36, 0.2);
         }
         
         .section {
-            margin-bottom: 12px;
-            clear: both;
+            margin-bottom: 0.25cm;
         }
         
         .section-title {
-            font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 6px;
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
             color: white;
-            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-            padding: 6px 12px;
-            border-radius: 5px;
+            padding: 4px 8px;
+            font-weight: 600;
+            font-size: 9px;
+            margin-bottom: 5px;
+            border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
         }
         
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 10px;
-            font-size: 10px;
-            background: white;
+        }
+        
+        .info-table td {
+            padding: 4px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 8px;
+        }
+        
+        .info-table td:first-child {
+            width: 35%;
+            font-weight: 600;
+            color: #475569;
+        }
+        
+        .info-table td:last-child {
+            color: #1e293b;
+        }
+        
+        .tabla-items {
+            border: 1px solid #cbd5e1;
             border-radius: 6px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
-        table td {
-            padding: 7px 10px;
-            border: 1px solid #90caf9;
-        }
-        
-        table td:first-child {
-            width: 40%;
-            font-weight: 600;
-            color: #1565c0;
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        table td:last-child {
-            width: 60%;
-            color: #2c3e50;
-            background-color: white;
-        }
-        
-        .tabla-sesiones {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 12px;
-            font-size: 10px;
-            background: white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        }
-        
-        .tabla-sesiones thead {
-            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-            color: white;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        .tabla-sesiones th {
-            padding: 7px;
+        .tabla-items th {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #1e293b;
+            padding: 5px 6px;
             text-align: left;
-            font-size: 10px;
-            border: 1px solid #64b5f6;
             font-weight: 600;
-        }
-        
-        .tabla-sesiones td {
-            padding: 6px;
-            border: 1px solid #e3f2fd;
-            font-size: 10px;
-        }
-        
-        .tabla-sesiones tbody tr:nth-child(even) {
-            background: #f5f5f5;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        .tabla-sesiones tfoot {
-            background: linear-gradient(135deg, #FFD700 0%, #fff9c4 100%);
-            font-weight: bold;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        .tabla-sesiones tfoot td {
-            padding: 7px;
-            font-size: 11px;
-            color: #d32f2f;
-        }
-        
-        .tipo-item {
             font-size: 8px;
-            padding: 3px 8px;
-            border-radius: 10px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+        
+        .tabla-items th:last-child {
+            text-align: right;
+        }
+        
+        .tabla-items td {
+            padding: 5px 6px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 8px;
+        }
+        
+        .tabla-items tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        
+        .tabla-items tfoot td {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            font-weight: 700;
+            padding: 6px;
+            border-top: 2px solid #fbbf24;
+            font-size: 9px;
+        }
+        
+        .tipo-badge {
             display: inline-block;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 7px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
         
         .tipo-sesion {
-            background: #e3f2fd;
-            color: #1565c0;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
         }
         
         .tipo-proyecto {
-            background: #f3e5f5;
-            color: #6a1b9a;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            color: #6b21a8;
+        }
+        
+        .tipo-adelanto {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: #166534;
+        }
+        
+        .observaciones-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+            padding: 6px;
+            margin-top: 5px;
+            border-radius: 4px;
+            font-size: 8px;
+            color: #78350f;
         }
         
         .monto-total {
-            background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
-            border: 3px solid #E63946;
-            padding: 10px;
-            margin: 12px 0;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 3px solid #fbbf24;
+            border-radius: 12px;
+            padding: 8px;
             text-align: center;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            margin: 0.3cm 0;
+            box-shadow: 0 4px 6px rgba(251, 191, 36, 0.3);
         }
         
         .monto-total .label {
-            font-size: 10px;
-            color: #c62828;
+            font-size: 9px;
+            color: #92400e;
             margin-bottom: 3px;
-            font-weight: bold;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
         
         .monto-total .valor {
-            font-size: 22px;
-            font-weight: bold;
-            color: #b71c1c;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            font-size: 20px;
+            font-weight: 700;
+            color: #78350f;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
         
-        /* Contenedor de firmas */
         .firmas-container {
-            margin-top: 16px;          /* 👈 AJUSTAR: Espacio antes de firmas (10-25px) */
-            display: table;
-            width: 100%;
-            margin-bottom: 12px;       /* 👈 AJUSTAR: Espacio después de firmas (8-20px) */
+            display: flex;
+            justify-content: space-between;
+            margin: 0.3cm 0 0.2cm;
+            gap: 0.2cm;
         }
         
         .firma-bloque {
-            display: table-cell;
-            width: 48%;
+            flex: 1;
             text-align: center;
-            vertical-align: bottom;
         }
         
-        .firma-bloque.izquierda {
-            padding-right: 2%;
-        }
-        
-        .firma-bloque.derecha {
-            padding-left: 2%;
-        }
-        
-        /* Espacio para firmas */
         .firma-titulo {
-            font-size: 10px;
-            font-weight: bold;
-            color: #1565c0;
-            margin-bottom: 35px;       /* 👈 AJUSTAR: Espacio hasta línea de firma (25-50px) */
+            font-size: 8px;
+            color: #64748b;
+            margin-bottom: 25px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
         
         .firma-linea {
-            border-top: 2px solid #1e88e5;
-            padding-top: 6px;
-            margin: 0 15px;
+            border-top: 2px solid #334155;
+            padding-top: 3px;
         }
         
         .firma-cargo {
-            font-size: 9px;
-            color: #546e7a;
-            font-weight: 600;
+            font-size: 7px;
+            color: #64748b;
         }
         
-        /* Footer (información final) */
         .footer {
-            margin-top: 12px;          /* 👈 AJUSTAR: Espacio antes del footer (8-20px) */
-            padding: 10px;             /* 👈 AJUSTAR: Padding interno del footer (8-15px) */
+            margin-top: 0.2cm;
+            padding-top: 0.2cm;
+            border-top: 2px solid #e2e8f0;
             text-align: center;
-            font-size: 9px;            /* 👈 AJUSTAR: Tamaño de texto del footer (8-11px) */
-            color: white;
-            background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-            border-radius: 5px;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            font-size: 7px;
+            color: #64748b;
         }
         
         .footer .direccion {
+            margin-bottom: 3px;
             font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 10px;
+            color: #475569;
         }
         
         .footer .comprobante {
-            font-size: 8px;
-            opacity: 0.9;
-        }
-        
-        .recibo-copia::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: linear-gradient(to right, #E63946, #FFD700, #1e88e5);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        .recibo-copia::after {
-            content: "";
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 6px;
-            background: linear-gradient(to right, #1e88e5, #FFD700, #E63946);
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-        
-        @media print {
-            body {
-                margin: 0;
-                padding: 0;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-            }
-            
-            .contenedor-recibos {
-                page-break-inside: avoid;
-            }
-            
-            * {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-                color-adjust: exact !important;
-            }
+            color: #94a3b8;
         }
     </style>
 </head>
-<body{% if es_pago_masivo and pagos_relacionados|length > 5 %} class="modo-compacto"{% elif pago.observaciones|length > 100 %} class="modo-compacto"{% endif %}>
+<body>
     <div class="contenedor-recibos">
         <!-- COPIA 1: CLIENTE -->
-        <div class="recibo-copia izquierda">
-            <div class="etiqueta-copia cliente">COPIA CLIENTE</div>
+        <div class="recibo">
+            <div class="etiqueta-copia">Copia Cliente</div>
             
             <div class="header">
                 {% if logo_base64 %}
                 <img src="data:image/png;base64,{{ logo_base64 }}" class="logo" alt="Logo">
                 {% endif %}
                 <h1>Recibo de Pago</h1>
-                <p>Centro de Neurodesarrollo Infantil Misael</p>
+                <p><strong>Centro de Neurodesarrollo Infantil Misael</strong></p>
+                <p>Calle Japón #28 • Tel: 76175352 • Potosí, Bolivia</p>
             </div>
             
             <div class="recibo-numero">
                 N° {{ pago.numero_recibo }}
             </div>
-            <div class="clear"></div>
             
             <div class="section">
-                <div class="section-title">Datos del Paciente</div>
-                <table>
+                <div class="section-title">📋 Datos del Paciente</div>
+                <table class="info-table">
                     <tr>
                         <td>Paciente:</td>
                         <td>{{ pago.paciente.nombre_completo }}</td>
@@ -526,8 +376,8 @@
             </div>
             
             <div class="section">
-                <div class="section-title">Datos del Pago</div>
-                <table>
+                <div class="section-title">💳 Datos del Pago</div>
+                <table class="info-table">
                     <tr>
                         <td>Fecha de Pago:</td>
                         <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
@@ -542,25 +392,30 @@
                         <td>{{ pago.numero_transaccion }}</td>
                     </tr>
                     {% endif %}
-                    {% if pago.observaciones %}
                     <tr>
-                        <td>Observaciones:</td>
-                        <td><div class="observaciones-text">{{ pago.observaciones }}</div></td>
+                        <td>Registrado por:</td>
+                        <td>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</td>
                     </tr>
-                    {% endif %}
                 </table>
+                
+                {% if pago.observaciones %}
+                <div class="observaciones-box">
+                    <strong>💬 Observaciones:</strong><br>
+                    {{ pago.observaciones }}
+                </div>
+                {% endif %}
             </div>
             
             {% if es_pago_masivo %}
             <div class="section">
-                <div class="section-title">Detalle de Items Pagados</div>
-                <table class="tabla-sesiones">
+                <div class="section-title">📊 Detalle de Items Pagados</div>
+                <table class="tabla-items">
                     <thead>
                         <tr>
                             <th>Fecha/Código</th>
                             <th>Descripción</th>
                             <th>Tipo</th>
-                            <th style="text-align: right;">Monto</th>
+                            <th>Monto</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -569,12 +424,17 @@
                             {% if pago_rel.sesion %}
                                 <td>{{ pago_rel.sesion.fecha|date:"d/m/Y" }}</td>
                                 <td>{{ pago_rel.sesion.servicio.nombre }}</td>
-                                <td><span class="tipo-item tipo-sesion">Sesión</span></td>
+                                <td><span class="tipo-badge tipo-sesion">Sesión</span></td>
                                 <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
                             {% elif pago_rel.proyecto %}
-                                <td style="color: #6a1b9a; font-weight: bold;">{{ pago_rel.proyecto.codigo }}</td>
+                                <td>{{ pago_rel.proyecto.codigo }}</td>
                                 <td>{{ pago_rel.proyecto.nombre }}</td>
-                                <td><span class="tipo-item tipo-proyecto">Proyecto</span></td>
+                                <td><span class="tipo-badge tipo-proyecto">Proyecto</span></td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% else %}
+                                <td>-</td>
+                                <td>Pago Adelantado</td>
+                                <td><span class="tipo-badge tipo-adelanto">Adelanto</span></td>
                                 <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
                             {% endif %}
                         </tr>
@@ -590,30 +450,43 @@
             </div>
             {% else %}
             <div class="section">
-                <table>
+                <div class="section-title">📄 Detalle del Pago</div>
+                <table class="info-table">
                     <tr>
                         <td>Concepto:</td>
                         <td>{{ pago.concepto }}</td>
                     </tr>
+                    {% if pago.sesion %}
+                    <tr>
+                        <td>Sesión:</td>
+                        <td>{{ pago.sesion.servicio.nombre }} - {{ pago.sesion.fecha|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if pago.proyecto %}
+                    <tr>
+                        <td>Proyecto:</td>
+                        <td>{{ pago.proyecto.codigo }} - {{ pago.proyecto.nombre }}</td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
             {% endif %}
             
             <div class="monto-total">
-                <div class="label">Monto Total Pagado</div>
+                <div class="label">💰 Monto Total Pagado</div>
                 <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
             </div>
             
             <div class="firmas-container">
-                <div class="firma-bloque izquierda">
-                    <div class="firma-titulo">RECIBÍ CONFORME</div>
+                <div class="firma-bloque">
+                    <div class="firma-titulo">Recibí Conforme</div>
                     <div class="firma-linea">
-                        <div class="firma-cargo">Responsable</div>
+                        <div class="firma-cargo">Responsable del Centro</div>
                     </div>
                 </div>
                 
-                <div class="firma-bloque derecha">
-                    <div class="firma-titulo">PAGUÉ CONFORME</div>
+                <div class="firma-bloque">
+                    <div class="firma-titulo">Pagué Conforme</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Tutor/Responsable</div>
                     </div>
@@ -621,33 +494,33 @@
             </div>
             
             <div class="footer">
-                <div class="direccion">Dirección Central: Calle Japón #28 - Teléfono: 76175352 - Potosí - Bolivia</div>
-                <div class="comprobante">Generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }} - Comprobante válido de pago</div>
+                <div class="direccion">📍 Calle Japón #28 • ☎ 76175352 • Potosí, Bolivia</div>
+                <div class="comprobante">Generado: {{ pago.fecha_registro|date:"d/m/Y H:i" }} • Comprobante válido de pago</div>
             </div>
         </div>
         
         <div class="linea-divisoria"></div>
         
         <!-- COPIA 2: ADMINISTRACIÓN -->
-        <div class="recibo-copia">
-            <div class="etiqueta-copia sucursal">COPIA ADMINISTRACIÓN</div>
+        <div class="recibo">
+            <div class="etiqueta-copia administracion">Copia Administración</div>
             
             <div class="header">
                 {% if logo_base64 %}
                 <img src="data:image/png;base64,{{ logo_base64 }}" class="logo" alt="Logo">
                 {% endif %}
                 <h1>Recibo de Pago</h1>
-                <p>Centro de Neurodesarrollo Infantil Misael</p>
+                <p><strong>Centro de Neurodesarrollo Infantil Misael</strong></p>
+                <p>Calle Japón #28 • Tel: 76175352 • Potosí, Bolivia</p>
             </div>
             
             <div class="recibo-numero">
                 N° {{ pago.numero_recibo }}
             </div>
-            <div class="clear"></div>
             
             <div class="section">
-                <div class="section-title">Datos del Paciente</div>
-                <table>
+                <div class="section-title">📋 Datos del Paciente</div>
+                <table class="info-table">
                     <tr>
                         <td>Paciente:</td>
                         <td>{{ pago.paciente.nombre_completo }}</td>
@@ -664,8 +537,8 @@
             </div>
             
             <div class="section">
-                <div class="section-title">Datos del Pago</div>
-                <table>
+                <div class="section-title">💳 Datos del Pago</div>
+                <table class="info-table">
                     <tr>
                         <td>Fecha de Pago:</td>
                         <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
@@ -680,25 +553,30 @@
                         <td>{{ pago.numero_transaccion }}</td>
                     </tr>
                     {% endif %}
-                    {% if pago.observaciones %}
                     <tr>
-                        <td>Observaciones:</td>
-                        <td><div class="observaciones-text">{{ pago.observaciones }}</div></td>
+                        <td>Registrado por:</td>
+                        <td>{{ pago.registrado_por.get_full_name|default:pago.registrado_por.username }}</td>
                     </tr>
-                    {% endif %}
                 </table>
+                
+                {% if pago.observaciones %}
+                <div class="observaciones-box">
+                    <strong>💬 Observaciones:</strong><br>
+                    {{ pago.observaciones }}
+                </div>
+                {% endif %}
             </div>
             
             {% if es_pago_masivo %}
             <div class="section">
-                <div class="section-title">Detalle de Items Pagados</div>
-                <table class="tabla-sesiones">
+                <div class="section-title">📊 Detalle de Items Pagados</div>
+                <table class="tabla-items">
                     <thead>
                         <tr>
                             <th>Fecha/Código</th>
                             <th>Descripción</th>
                             <th>Tipo</th>
-                            <th style="text-align: right;">Monto</th>
+                            <th>Monto</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -707,12 +585,17 @@
                             {% if pago_rel.sesion %}
                                 <td>{{ pago_rel.sesion.fecha|date:"d/m/Y" }}</td>
                                 <td>{{ pago_rel.sesion.servicio.nombre }}</td>
-                                <td><span class="tipo-item tipo-sesion">Sesión</span></td>
+                                <td><span class="tipo-badge tipo-sesion">Sesión</span></td>
                                 <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
                             {% elif pago_rel.proyecto %}
-                                <td style="color: #6a1b9a; font-weight: bold;">{{ pago_rel.proyecto.codigo }}</td>
+                                <td>{{ pago_rel.proyecto.codigo }}</td>
                                 <td>{{ pago_rel.proyecto.nombre }}</td>
-                                <td><span class="tipo-item tipo-proyecto">Proyecto</span></td>
+                                <td><span class="tipo-badge tipo-proyecto">Proyecto</span></td>
+                                <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
+                            {% else %}
+                                <td>-</td>
+                                <td>Pago Adelantado</td>
+                                <td><span class="tipo-badge tipo-adelanto">Adelanto</span></td>
                                 <td style="text-align: right;">Bs. {{ pago_rel.monto|floatformat:2 }}</td>
                             {% endif %}
                         </tr>
@@ -728,30 +611,43 @@
             </div>
             {% else %}
             <div class="section">
-                <table>
+                <div class="section-title">📄 Detalle del Pago</div>
+                <table class="info-table">
                     <tr>
                         <td>Concepto:</td>
                         <td>{{ pago.concepto }}</td>
                     </tr>
+                    {% if pago.sesion %}
+                    <tr>
+                        <td>Sesión:</td>
+                        <td>{{ pago.sesion.servicio.nombre }} - {{ pago.sesion.fecha|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if pago.proyecto %}
+                    <tr>
+                        <td>Proyecto:</td>
+                        <td>{{ pago.proyecto.codigo }} - {{ pago.proyecto.nombre }}</td>
+                    </tr>
+                    {% endif %}
                 </table>
             </div>
             {% endif %}
             
             <div class="monto-total">
-                <div class="label">Monto Total Pagado</div>
+                <div class="label">💰 Monto Total Pagado</div>
                 <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
             </div>
             
             <div class="firmas-container">
-                <div class="firma-bloque izquierda">
-                    <div class="firma-titulo">RECIBÍ CONFORME</div>
+                <div class="firma-bloque">
+                    <div class="firma-titulo">Recibí Conforme</div>
                     <div class="firma-linea">
-                        <div class="firma-cargo">Responsable</div>
+                        <div class="firma-cargo">Responsable del Centro</div>
                     </div>
                 </div>
                 
-                <div class="firma-bloque derecha">
-                    <div class="firma-titulo">PAGUÉ CONFORME</div>
+                <div class="firma-bloque">
+                    <div class="firma-titulo">Pagué Conforme</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Tutor/Responsable</div>
                     </div>
@@ -759,8 +655,8 @@
             </div>
             
             <div class="footer">
-                <div class="direccion">Dirección Central: Calle Japón #28 - Teléfono: 76175352 - Potosí - Bolivia</div>
-                <div class="comprobante">Generado el {{ pago.fecha_registro|date:"d/m/Y H:i" }} - Comprobante válido de pago</div>
+                <div class="direccion">📍 Calle Japón #28 • ☎ 76175352 • Potosí, Bolivia</div>
+                <div class="comprobante">Generado: {{ pago.fecha_registro|date:"d/m/Y H:i" }} • Comprobante válido de pago</div>
             </div>
         </div>
     </div>
