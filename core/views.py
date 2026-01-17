@@ -19,7 +19,7 @@ def dashboard(request):
             if request.user.perfil.es_profesional():
                 return redirect('agenda:calendario')
             
-            # ✅ NUEVO: Si es paciente, ir a su cuenta
+            # ✅ Si es paciente, ir a su cuenta
             if request.user.perfil.es_paciente():
                 return redirect('facturacion:mi_cuenta')
     
@@ -219,7 +219,7 @@ class CustomLoginView(LoginView):
                 if user.perfil.es_profesional():
                     return '/agenda/'
                 
-                # ✅ NUEVO: Si es paciente, ir a su cuenta
+                # ✅ Si es paciente, ir a su cuenta
                 if user.perfil.es_paciente():
                     return '/facturacion/mi-cuenta/'
         
@@ -275,6 +275,7 @@ def lista_usuarios(request):
     }
     return render(request, 'core/usuarios/lista.html', context)
 
+
 @login_required
 def agregar_usuario(request):
     """Crear un nuevo usuario con su perfil"""
@@ -282,6 +283,10 @@ def agregar_usuario(request):
     from django.contrib.auth.models import User
     from .models import PerfilUsuario
     import core.models as core_models
+    
+    # ✅ Detectar si viene desde profesionales o pacientes
+    desde_profesional = request.GET.get('from') == 'profesional'
+    desde_paciente = request.GET.get('from') == 'paciente'
     
     if request.method == 'POST':
         usuario_form = UsuarioForm(request.POST)
@@ -298,13 +303,27 @@ def agregar_usuario(request):
                 # Crear perfil
                 perfil = perfil_form.save(commit=False)
                 perfil.user = usuario
+                
+                # ✅ Forzar rol según origen
+                if desde_profesional:
+                    perfil.rol = 'profesional'
+                elif desde_paciente:
+                    perfil.rol = 'paciente'
+                
                 perfil.save()
                 
                 # Guardar relaciones many-to-many
                 perfil_form.save_m2m()
                 
                 messages.success(request, f'✅ Usuario "{usuario.username}" creado exitosamente.')
-                return redirect('core:lista_usuarios')
+                
+                # ✅ Redirigir según origen
+                if desde_profesional:
+                    return redirect(f'/profesionales/nuevo/?user_id={usuario.id}')
+                elif desde_paciente:
+                    return redirect(f'/pacientes/nuevo/?user_id={usuario.id}')
+                else:
+                    return redirect('core:lista_usuarios')
             
             except Exception as e:
                 messages.error(request, f'❌ Error al crear usuario: {str(e)}')
@@ -314,11 +333,19 @@ def agregar_usuario(request):
     else:
         usuario_form = UsuarioForm()
         perfil_form = PerfilUsuarioForm()
+        
+        # ✅ Pre-seleccionar rol según origen
+        if desde_profesional:
+            perfil_form.initial['rol'] = 'profesional'
+        elif desde_paciente:
+            perfil_form.initial['rol'] = 'paciente'
     
     context = {
         'usuario_form': usuario_form,
         'perfil_form': perfil_form,
         'es_nuevo': True,
+        'desde_profesional': desde_profesional,
+        'desde_paciente': desde_paciente,  # ✅ Pasar al template
     }
     return render(request, 'core/usuarios/agregar.html', context)
 
@@ -374,11 +401,14 @@ def editar_usuario(request, pk):
     }
     return render(request, 'core/usuarios/editar.html', context)
 
-
 @login_required
 def eliminar_usuario(request, pk):
-    """Eliminar un usuario (solo superadmin)"""
+    """
+    Eliminar un usuario (solo superadmin)
+    ✅ MEJORADO: Maneja correctamente usuarios vinculados con profesionales/pacientes
+    """
     from django.contrib.auth.models import User
+    from django.db.models.deletion import ProtectedError
     
     if not request.user.is_superuser:
         messages.error(request, '⚠️ Solo los superadministradores pueden eliminar usuarios.')
@@ -391,13 +421,87 @@ def eliminar_usuario(request, pk):
         messages.error(request, '⚠️ No puedes eliminar tu propio usuario.')
         return redirect('core:lista_usuarios')
     
+    # ✅ Verificar vinculaciones y datos asociados
+    tiene_profesional = hasattr(usuario, 'perfil') and usuario.perfil.profesional
+    tiene_paciente = hasattr(usuario, 'perfil') and usuario.perfil.paciente
+    
+    # Contar datos relacionados
+    datos_relacionados = {
+        'sesiones': 0,
+        'proyectos': 0,
+    }
+    
+    if tiene_profesional:
+        profesional = usuario.perfil.profesional
+        # Contar sesiones del profesional
+        if hasattr(profesional, 'sesiones'):
+            datos_relacionados['sesiones'] = profesional.sesiones.count()
+    
+    if tiene_paciente:
+        paciente = usuario.perfil.paciente
+        # Contar sesiones del paciente
+        if hasattr(paciente, 'sesiones'):
+            datos_relacionados['sesiones'] += paciente.sesiones.count()
+        # Contar proyectos del paciente
+        if hasattr(paciente, 'proyectos'):
+            datos_relacionados['proyectos'] = paciente.proyectos.count()
+    
+    # Si tiene datos relacionados, advertir y ofrecer alternativa
+    tiene_datos = any(datos_relacionados.values())
+    
     if request.method == 'POST':
-        username = usuario.username
-        usuario.delete()
-        messages.success(request, f'✅ Usuario "{username}" eliminado exitosamente.')
-        return redirect('core:lista_usuarios')
+        accion = request.POST.get('accion', 'eliminar')
+        
+        if accion == 'desactivar':
+            # ✅ OPCIÓN SEGURA: Desactivar en lugar de eliminar
+            usuario.is_active = False
+            usuario.save()
+            
+            if hasattr(usuario, 'perfil'):
+                usuario.perfil.activo = False
+                usuario.perfil.save()
+            
+            messages.success(
+                request, 
+                f'✅ Usuario "{usuario.username}" desactivado exitosamente. '
+                f'Ya no podrá iniciar sesión, pero sus datos se conservan.'
+            )
+            return redirect('core:lista_usuarios')
+        
+        else:  # eliminar
+            if tiene_datos:
+                # ❌ NO PERMITIR eliminación si tiene datos
+                messages.error(
+                    request,
+                    f'❌ No se puede eliminar el usuario "{usuario.username}" porque tiene datos asociados. '
+                    f'Usa la opción de DESACTIVAR en su lugar.'
+                )
+                return redirect('core:eliminar_usuario', pk=pk)
+            
+            try:
+                username = usuario.username
+                usuario.delete()
+                messages.success(request, f'✅ Usuario "{username}" eliminado exitosamente.')
+                return redirect('core:lista_usuarios')
+            
+            except ProtectedError as e:
+                # Por si acaso alguna protección que no detectamos
+                messages.error(
+                    request,
+                    f'❌ No se puede eliminar el usuario porque tiene datos protegidos. '
+                    f'Usa la opción de DESACTIVAR en su lugar.'
+                )
+                return redirect('core:eliminar_usuario', pk=pk)
+            
+            except Exception as e:
+                messages.error(request, f'❌ Error al eliminar usuario: {str(e)}')
+                return redirect('core:eliminar_usuario', pk=pk)
     
     context = {
         'usuario': usuario,
+        'tiene_datos': tiene_datos,
+        'datos_relacionados': datos_relacionados,
+        'tiene_profesional': tiene_profesional,
+        'tiene_paciente': tiene_paciente,
     }
     return render(request, 'core/usuarios/eliminar.html', context)

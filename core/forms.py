@@ -113,6 +113,62 @@ class UsuarioForm(forms.ModelForm):
 class PerfilUsuarioForm(forms.ModelForm):
     """Formulario para el perfil del usuario (rol y vinculaciones)"""
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # ✅ FILTRAR PROFESIONALES: Solo los que NO están vinculados
+        from profesionales.models import Profesional
+        
+        profesionales_disponibles = Profesional.objects.filter(
+            activo=True
+        ).exclude(
+            perfil_usuario__isnull=False  # Excluir los que ya tienen perfil vinculado
+        )
+        
+        # Si estamos editando, incluir el profesional actual
+        if self.instance and self.instance.pk and self.instance.profesional:
+            profesionales_disponibles = profesionales_disponibles | Profesional.objects.filter(
+                id=self.instance.profesional.id
+            )
+        
+        self.fields['profesional'].queryset = profesionales_disponibles.distinct()
+        
+        # ✅ FILTRAR PACIENTES: Solo los que NO están vinculados
+        from pacientes.models import Paciente
+        
+        pacientes_disponibles = Paciente.objects.filter(
+            estado='activo'
+        ).exclude(
+            perfil_usuario__isnull=False  # Excluir los que ya tienen perfil vinculado
+        )
+        
+        # Si estamos editando, incluir el paciente actual
+        if self.instance and self.instance.pk and self.instance.paciente:
+            pacientes_disponibles = pacientes_disponibles | Paciente.objects.filter(
+                id=self.instance.paciente.id
+            )
+        
+        self.fields['paciente'].queryset = pacientes_disponibles.distinct()
+        
+        # ✅ Personalizar cómo se muestran en el dropdown
+        def label_profesional(obj):
+            return f"{obj.nombre_completo} - {obj.especialidad}"
+        
+        def label_paciente(obj):
+            return f"{obj.nombre_completo} ({obj.edad} años) - Tutor: {obj.nombre_tutor}"
+        
+        self.fields['profesional'].label_from_instance = label_profesional
+        self.fields['paciente'].label_from_instance = label_paciente
+        
+        # Hacer campos opcionales
+        self.fields['profesional'].required = False
+        self.fields['paciente'].required = False
+        self.fields['rol'].required = False
+        
+        # Agregar opción vacía
+        self.fields['profesional'].empty_label = "Ninguno"
+        self.fields['paciente'].empty_label = "Ninguno"
+    
     class Meta:
         model = PerfilUsuario
         fields = ['rol', 'profesional', 'paciente', 'sucursales', 'activo']
@@ -140,18 +196,6 @@ class PerfilUsuarioForm(forms.ModelForm):
             'sucursales': 'Sucursales Asignadas',
             'activo': 'Perfil Activo',
         }
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        # Hacer campos opcionales
-        self.fields['profesional'].required = False
-        self.fields['paciente'].required = False
-        self.fields['rol'].required = False
-        
-        # Agregar opción vacía
-        self.fields['profesional'].empty_label = "Ninguno"
-        self.fields['paciente'].empty_label = "Ninguno"
     
     def clean(self):
         cleaned_data = super().clean()

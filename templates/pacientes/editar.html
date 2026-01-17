@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
+{% load pacientes_filters %}
 
-{% block title %}Nuevo Paciente - Centro Infantil Misael{% endblock %}
+{% block title %}Editar Paciente - Centro Infantil Misael{% endblock %}
 
 {% block content %}
 <style>
@@ -12,15 +13,15 @@
 
 <!-- Header Compacto -->
 <div class="mb-4">
-    <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-xl p-3 shadow-lg">
+    <div class="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-xl p-3 shadow-lg">
         <div class="flex justify-between items-center">
             <div>
                 <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-                    <span>➕</span> Nuevo Paciente
+                    <span>✏️</span> Editar Paciente
                 </h1>
-                <p class="text-white text-[10px] font-bold opacity-90">Completa los datos del nuevo paciente</p>
+                <p class="text-white text-[10px] font-bold opacity-90">Actualiza los datos de {{ paciente.nombre_completo }}</p>
             </div>
-            <a href="{% url 'pacientes:lista' %}" 
+            <a href="{% url 'pacientes:detalle' paciente.id %}" 
                class="bg-white text-purple-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
                 ← Volver
             </a>
@@ -44,7 +45,7 @@
     </div>
     {% endif %}
 
-    <!-- FILA 1: Sucursales + Foto + Datos Básicos -->
+    <!-- FILA 1: Sucursales + Foto + Estado -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
         
         <!-- 🏢 SUCURSALES -->
@@ -82,13 +83,23 @@
                 </div>
             </div>
             <div class="space-y-2">
+                <!-- Foto actual -->
+                {% if paciente.tiene_foto %}
+                <div class="mb-3">
+                    <p class="text-[10px] font-bold text-gray-600 mb-1">Foto Actual:</p>
+                    <img src="{{ paciente.get_foto_url }}" alt="{{ paciente.nombre_completo }}" 
+                         class="w-32 h-32 rounded-lg border-2 border-blue-200 shadow-sm object-cover mx-auto">
+                    <p class="text-[9px] text-gray-500 text-center mt-1">Sube una nueva para reemplazarla</p>
+                </div>
+                {% endif %}
+                
                 {{ form.foto }}
                 <p class="text-[10px] text-gray-500">📌 Formatos: JPG, PNG, WebP</p>
                 <div id="foto-preview-container" class="hidden">
-                    <p class="text-[10px] font-bold text-gray-600 mb-1">Vista Previa:</p>
+                    <p class="text-[10px] font-bold text-gray-600 mb-1">Nueva Vista Previa:</p>
                     <img id="foto-preview" src="" alt="Preview" class="w-full rounded-lg border border-gray-200 shadow-sm">
                     <button type="button" id="remove-foto" class="mt-1 text-[10px] text-red-600 font-bold hover:underline">
-                        ❌ Eliminar foto
+                        ❌ Cancelar cambio
                     </button>
                 </div>
             </div>
@@ -100,11 +111,15 @@
                 <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📊</div>
                 <div>
                     <h2 class="text-sm font-black text-gray-800">Estado del Paciente</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Generalmente se deja en "Activo"</p>
+                    <p class="text-[9px] text-gray-500 font-bold">Activo o Inactivo</p>
                 </div>
             </div>
             <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
-            {{ form.estado }}
+            <select name="estado" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold">
+                {% for value, label in form.estado.field.choices %}
+                <option value="{{ value }}" {% if paciente.estado == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
             {% if form.estado.errors %}
             <p class="text-red-500 text-xs font-bold mt-1">{{ form.estado.errors.0 }}</p>
             {% endif %}
@@ -133,13 +148,18 @@
             </div>
             <div class="campo-requerido">
                 <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.fecha_nacimiento.label }}</label>
-                {{ form.fecha_nacimiento }}
+                <input type="date" name="fecha_nacimiento" value="{{ paciente.fecha_nacimiento|date:'Y-m-d' }}" 
+                       class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold" required>
                 {% if form.fecha_nacimiento.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.fecha_nacimiento.errors.0 }}</p>{% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">📌 Se calculará la edad automáticamente</p>
+                <p class="text-[10px] text-gray-500 mt-1">📌 Edad actual: {{ paciente.edad }} años</p>
             </div>
             <div class="campo-requerido">
                 <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.genero.label }}</label>
-                {{ form.genero }}
+                <select name="genero" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold" required>
+                    {% for value, label in form.genero.field.choices %}
+                    <option value="{{ value }}" {% if paciente.genero == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
                 {% if form.genero.errors %}<p class="text-[10px] text-red-500 font-bold mt-1">{{ form.genero.errors.0 }}</p>{% endif %}
             </div>
         </div>
@@ -166,7 +186,11 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div class="campo-requerido">
                         <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco.label }}</label>
-                        {{ form.parentesco }}
+                        <select name="parentesco" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 font-bold" required>
+                            {% for value, label in form.parentesco.field.choices %}
+                            <option value="{{ value }}" {% if paciente.parentesco == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
                         {% if form.parentesco.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco.errors.0 }}</p>{% endif %}
                     </div>
                     <div class="campo-requerido">
@@ -206,7 +230,12 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco_2.label }}</label>
-                        {{ form.parentesco_2 }}
+                        <select name="parentesco_2" class="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 font-bold">
+                            <option value="">---------</option>
+                            {% for value, label in form.parentesco_2.field.choices %}
+                            <option value="{{ value }}" {% if paciente.parentesco_2 == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
                         {% if form.parentesco_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>{% endif %}
                     </div>
                     <div>
@@ -257,25 +286,28 @@
         <div class="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
             <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🎯</div>
             <div>
-                <h2 class="text-sm font-black text-gray-800">Servicios a Contratar</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Opcional - Selecciona servicios y personaliza si es necesario</p>
+                <h2 class="text-sm font-black text-gray-800">Servicios Contratados</h2>
+                <p class="text-[9px] text-gray-500 font-bold">Administra los servicios del paciente</p>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {% for servicio in servicios %}
-            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition-all servicio-item">
+            {% with paciente_servicio=servicios_paciente|get_item:servicio.id %}
+            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition-all servicio-item {% if paciente_servicio %}bg-indigo-50{% endif %}">
                 <div class="flex items-center gap-2 mb-2">
                     <input type="checkbox" name="servicio_{{ servicio.id }}" id="id_servicio_{{ servicio.id }}"
-                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                           {% if paciente_servicio %}checked{% endif %}>
                     <label for="id_servicio_{{ servicio.id }}" class="text-xs font-bold text-gray-800 cursor-pointer flex-1">
                         {{ servicio.nombre }}
                         <span class="text-indigo-600 block text-[10px]">Bs. {{ servicio.costo_base }}</span>
                     </label>
                 </div>
-                <div class="servicio-details space-y-2" style="display: none;">
+                <div class="servicio-details space-y-2" {% if not paciente_servicio %}style="display: none;"{% endif %}>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-600 mb-1">💰 Precio Personalizado</label>
                         <input type="number" name="precio_{{ servicio.id }}" id="id_precio_{{ servicio.id }}" step="0.01"
+                               value="{% if paciente_servicio %}{{ paciente_servicio.costo_sesion }}{% endif %}"
                                class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
                                placeholder="Dejar vacío para usar Bs. {{ servicio.costo_base }}">
                         <p class="text-[9px] text-gray-500 mt-1">💡 Si dejas vacío o en 0, se usará el precio base (Bs. {{ servicio.costo_base }})</p>
@@ -284,18 +316,24 @@
                         <label class="block text-[10px] font-bold text-gray-600 mb-1">📝 Observaciones</label>
                         <textarea name="obs_{{ servicio.id }}" id="id_obs_{{ servicio.id }}" rows="2"
                                   class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
-                                  placeholder="Observaciones sobre este servicio..."></textarea>
+                                  placeholder="Observaciones sobre este servicio...">{% if paciente_servicio %}{{ paciente_servicio.observaciones }}{% endif %}</textarea>
                     </div>
+                    {% if paciente_servicio and not paciente_servicio.activo %}
+                    <div class="bg-red-50 border border-red-200 rounded p-2">
+                        <p class="text-[9px] text-red-700 font-bold">⚠️ Este servicio está inactivo</p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
+            {% endwith %}
             {% endfor %}
         </div>
         <p class="text-[10px] text-gray-500 mt-3 bg-blue-50 p-2 rounded border border-blue-100">
-            💡 <strong>Tip:</strong> Marca los servicios que el paciente necesitará. Si no colocas un precio personalizado, se usará el precio base del servicio.
+            💡 <strong>Tip:</strong> Desmarca los servicios que ya no sean necesarios. Si cambias el precio, se actualizará para futuras sesiones.
         </p>
     </div>
-        
-    <!-- ✅ NUEVA SECCIÓN: Usuario del Sistema -->
+
+    <!-- ✅ Usuario del Sistema -->
     <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
         <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-indigo-100">
             <div class="flex items-center gap-2">
@@ -305,37 +343,23 @@
                     <p class="text-[9px] text-gray-500 font-bold">Credenciales de acceso (opcional)</p>
                 </div>
             </div>
-            
-            <!-- ✅ BOTÓN: Crear Usuario -->
-            <a href="{% url 'core:agregar_usuario' %}?from=paciente" 
-            class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-black text-[10px] shadow-md hover:scale-105 transition-transform flex items-center gap-1">
-                <span>👤</span> Añadir Usuario
-            </a>
         </div>
-        
-        {% if usuario_seleccionado %}
-        <!-- Mensaje de confirmación si viene desde crear usuario -->
-        <div class="mb-3 p-3 bg-green-50 border-2 border-green-200 rounded-lg">
-            <div class="flex items-center gap-2">
-                <span class="text-xl">✅</span>
-                <div>
-                    <p class="text-xs font-black text-green-800">Usuario creado correctamente</p>
-                    <p class="text-[10px] text-green-700 mt-1">
-                        El usuario <span class="font-black">{{ usuario_seleccionado.username }}</span> se vinculará automáticamente con este paciente.
-                    </p>
-                </div>
-            </div>
-        </div>
-        {% endif %}
         
         <div>
             <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.user.label }}</label>
-            {{ form.user }}
+            <select name="user" id="id_user" class="w-full px-3 py-2 border-2 border-indigo-200 rounded-xl text-sm font-bold">
+                <option value="">---------</option>
+                {% for user_option in form.user.field.queryset %}
+                <option value="{{ user_option.id }}" {% if paciente.user and paciente.user.id == user_option.id %}selected{% endif %}>
+                    {{ user_option.username }}{% if user_option.get_full_name %} - {{ user_option.get_full_name }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
             {% if form.user.errors %}
             <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>
             {% endif %}
             <p class="text-[10px] text-gray-500 mt-1">
-                🔐 Si el paciente necesita acceder al sistema, selecciona o crea un usuario.
+                🔐 Usuario actual: {% if paciente.user %}<span class="font-bold text-green-700">{{ paciente.user.username }}</span>{% else %}<span class="text-gray-400">Sin usuario vinculado</span>{% endif %}
             </p>
         </div>
     </div>
@@ -343,10 +367,10 @@
     <!-- Botones -->
     <div class="flex gap-3 pt-2">
         <button type="submit" 
-                class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-            ✅ Registrar Paciente
+                class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+            ✅ Guardar Cambios
         </button>
-        <a href="{% url 'pacientes:lista' %}" 
+        <a href="{% url 'pacientes:detalle' paciente.id %}" 
            class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
             Cancelar
         </a>
@@ -386,8 +410,6 @@
         servicioCheckboxes.forEach(checkbox => {
             const container = checkbox.closest('.servicio-item');
             const details = container.querySelector('.servicio-details');
-            
-            if (checkbox.checked) details.style.display = 'block';
             
             checkbox.addEventListener('change', function() {
                 if (this.checked) {

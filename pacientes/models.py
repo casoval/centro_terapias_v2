@@ -1,5 +1,6 @@
 from django.db import models
 from servicios.models import TipoServicio, Sucursal
+from django.contrib.auth.models import User
 from datetime import date
 from cloudinary.models import CloudinaryField
 
@@ -28,6 +29,16 @@ class Paciente(models.Model):
         ('inactivo', 'Inactivo'),
     ]
     
+    # ✅ NUEVO: Usuario del sistema vinculado
+    user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paciente',
+        help_text='Usuario del sistema vinculado (opcional)'
+    )
+
     # Sucursales donde puede ser atendido
     sucursales = models.ManyToManyField(
         Sucursal,

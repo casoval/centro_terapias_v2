@@ -10,13 +10,52 @@ class PacienteForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Ya no necesitamos crear campos dinámicos aquí
+        
+        # ✅ FILTRAR: Solo usuarios con rol "paciente" que NO estén vinculados
+        from core.models import PerfilUsuario
+        from django.contrib.auth.models import User
+        
+        # Paso 1: Obtener usuarios base con rol paciente (excluir superusuarios)
+        usuarios_base = User.objects.filter(
+            perfil__rol='paciente'
+        ).exclude(is_superuser=True)
+        
+        # Paso 2: Filtrar según si estamos creando o editando
+        if self.instance and self.instance.pk and self.instance.user:
+            # EDITANDO un paciente que tiene user vinculado
+            # Mostrar SOLO: usuarios sin paciente + el usuario actual de este paciente
+            usuarios_disponibles = usuarios_base.filter(
+                paciente__isnull=True  # Usuarios sin paciente vinculado
+            ) | User.objects.filter(
+                id=self.instance.user.id  # MÁS el usuario actual
+            )
+        else:
+            # CREANDO nuevo paciente O editando uno sin user
+            # Mostrar SOLO usuarios sin paciente vinculado
+            usuarios_disponibles = usuarios_base.filter(
+                paciente__isnull=True
+            )
+        
+        self.fields['user'].queryset = usuarios_disponibles.distinct()
+        
+        # ✅ Personalizar cómo se muestra cada usuario en el dropdown
+        def label_usuario(obj):
+            try:
+                if hasattr(obj, 'paciente') and obj.paciente:
+                    return f"{obj.username} - {obj.paciente.nombre_completo} (Vinculado)"
+            except:
+                pass
+            return f"{obj.username} - {obj.get_full_name() or 'Disponible'}"
+        
+        self.fields['user'].label_from_instance = label_usuario
             
     class Meta:
         model = Paciente
         fields = [
             # Sucursales
             'sucursales',
+            # Usuario del sistema
+            'user',
             # Foto
             'foto',
             # Info del paciente
@@ -46,6 +85,10 @@ class PacienteForm(forms.ModelForm):
         widgets = {
             'sucursales': forms.CheckboxSelectMultiple(attrs={
                 'class': 'space-y-2'
+            }),
+            'user': forms.Select(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-indigo-200 rounded-xl text-sm font-bold',
+                'id': 'id_user'
             }),
             'foto': forms.FileInput(attrs={
                 'class': 'block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none',

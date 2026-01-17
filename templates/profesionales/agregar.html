@@ -255,8 +255,7 @@
                     <div class="flex-1">
                         {{ form.user }}
                     </div>
-                    <a href="{% url 'core:agregar_usuario' %}?next={{ request.path }}" 
-                       target="_blank"
+                    <a href="{% url 'core:agregar_usuario' %}?from=profesional" 
                        class="px-3 py-2 bg-purple-600 text-white rounded-lg font-black text-xs hover:bg-purple-700 transition-colors flex items-center gap-1 whitespace-nowrap">
                         ➕ Nuevo
                     </a>
@@ -267,7 +266,7 @@
                 <p class="text-[10px] text-gray-500 mt-1">👤 Usuario para acceder al sistema</p>
                 <div class="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
                     <p class="text-[9px] font-bold text-purple-800">💡 Tip:</p>
-                    <p class="text-[9px] text-purple-700">Si el usuario no existe, usa el botón "➕ Nuevo" para crearlo. La página se abrirá en una nueva pestaña.</p>
+                    <p class="text-[9px] text-purple-700">Si el usuario no existe, usa el botón "➕ Nuevo" para crearlo. Se abrirá un formulario simplificado y al terminar volverás aquí con el usuario pre-seleccionado.</p>
                 </div>
             </div>
         </div>
@@ -422,6 +421,16 @@
                     reader.readAsDataURL(file);
                 }
             });
+        }
+        
+        // ✅ Pre-seleccionar usuario si viene de crear
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('user_id');
+        if (userId) {
+            const userSelect = document.getElementById('id_user');
+            if (userSelect) {
+                userSelect.value = userId;
+            }
         }
     });
 </script>

@@ -21,7 +21,6 @@
                 </h1>
                 <p class="text-white text-[11px] font-bold opacity-90">Gestión de pacientes del centro</p>
             </div>
-            <!-- ✅ BOTÓN ACTUALIZADO -->
             <a href="{% url 'pacientes:agregar' %}" 
                class="bg-white text-purple-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-purple-100 hover:scale-105 transition-transform">
                 ➕ Nuevo
@@ -109,16 +108,42 @@
                         <p class="text-xs font-bold text-gray-800">{{ paciente.telefono_tutor }}</p>
                     </div>
                 </div>
+                
+                <!-- ✅ NUEVO: Información de usuario del sistema -->
+                {% if paciente.user %}
+                    <div class="flex items-center gap-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                        <span class="text-base">👤</span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[9px] font-bold text-indigo-800 uppercase leading-none">Usuario</p>
+                            <p class="text-xs font-bold text-gray-800 truncate">{{ paciente.user.username }}</p>
+                            {% if paciente.user.perfil %}
+                                <span class="inline-block mt-0.5 px-1.5 py-0.5 text-[8px] font-bold bg-indigo-200 text-indigo-900 rounded">
+                                    {{ paciente.user.perfil.get_rol_display }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="flex items-center gap-2 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+                        <span class="text-xs opacity-50">👤</span>
+                        <p class="text-[9px] font-bold text-gray-400 italic">Sin cuenta de usuario</p>
+                    </div>
+                {% endif %}
             </div>
             
+            <!-- ✅ BOTONES ACTUALIZADOS: Ver | Editar | Eliminar -->
             <div class="flex gap-2">
                 <a href="{% url 'pacientes:detalle' paciente.id %}" 
                    class="flex-1 text-center py-2 bg-blue-600 text-white rounded-lg font-black text-xs shadow-sm active:bg-blue-700 transition-colors">
-                    👁️ Ver Detalle
+                    👁️ Ver Info
                 </a>
-                <a href="/admin/pacientes/paciente/{{ paciente.id }}/change/" 
-                   class="px-3 py-2 border-2 border-gray-200 text-gray-500 rounded-lg font-black text-xs hover:bg-gray-50">
+                <a href="{% url 'pacientes:editar' paciente.id %}" 
+                   class="px-3 py-2 border-2 border-blue-200 text-blue-600 rounded-lg font-black text-xs hover:bg-blue-50 transition-colors">
                     ✏️
+                </a>
+                <a href="{% url 'pacientes:eliminar' paciente.id %}" 
+                   class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg font-black text-xs hover:bg-red-50 transition-colors">
+                    🗑️
                 </a>
             </div>
         </div>
@@ -128,7 +153,6 @@
         <div class="text-5xl mb-3">😊</div>
         <p class="text-base font-black text-gray-700">No hay pacientes registrados</p>
         <p class="text-[11px] text-gray-400 mb-4">¡Agrega el primero para comenzar!</p>
-        <!-- ✅ ENLACE ACTUALIZADO -->
         <a href="{% url 'pacientes:agregar' %}" class="text-blue-600 font-black text-xs underline">CREAR PACIENTE</a>
     </div>
     {% endfor %}

@@ -37,6 +37,7 @@ class Sucursal(models.Model):
     nombre = models.CharField(max_length=100)
     direccion = models.TextField()
     telefono = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)  # ✅ CAMPO AGREGADO
     activa = models.BooleanField(default=True)
     
     class Meta:

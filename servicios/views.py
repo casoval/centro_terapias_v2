@@ -151,3 +151,23 @@ def agregar_servicio(request):
         'form': form,
     }
     return render(request, 'servicios/agregar_servicio.html', context)
+
+@login_required
+def agregar_sucursal(request):
+    """Crear una nueva sucursal"""
+    from .models import Sucursal
+    from .forms import SucursalForm
+    
+    if request.method == 'POST':
+        form = SucursalForm(request.POST)
+        if form.is_valid():
+            sucursal = form.save()
+            messages.success(request, f'✅ Sucursal "{sucursal.nombre}" creada exitosamente.')
+            return redirect('servicios:lista_sucursales')
+    else:
+        form = SucursalForm()
+    
+    context = {
+        'form': form,
+    }
+    return render(request, 'servicios/sucursales/agregar_sucursal.html', context)

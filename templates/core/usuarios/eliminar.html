@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Usuario - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .btn-peligro {
+        transition: all 0.2s ease;
+    }
+    .btn-peligro:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+    }
+    .btn-seguro {
+        transition: all 0.2s ease;
+    }
+    .btn-seguro:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 25px rgba(251, 146, 60, 0.3);
+    }
+</style>
+
+<!-- Header con advertencia -->
+<div class="mb-4">
+    <div class="bg-gradient-to-r from-red-500 via-red-600 to-red-700 rounded-xl p-3 shadow-lg">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                    <span>⚠️</span> Eliminar Usuario
+                </h1>
+                <p class="text-white text-[10px] font-bold opacity-90">
+                    {% if tiene_datos %}🔒 Usuario con datos asociados{% else %}Esta acción NO se puede deshacer{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'core:lista_usuarios' %}" 
+               class="bg-white text-red-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
+                ← Cancelar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjeta de confirmación -->
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl shadow-xl border-4 border-red-200 overflow-hidden">
+        <!-- Icono de advertencia -->
+        <div class="bg-red-50 p-6 text-center border-b-4 border-red-200">
+            <div class="text-6xl mb-3">
+                {% if tiene_datos %}🔒{% else %}🗑️{% endif %}
+            </div>
+            <h2 class="text-xl font-black text-red-800 mb-2">
+                {% if tiene_datos %}
+                ⚠️ Usuario con Datos Asociados
+                {% else %}
+                ¿Estás completamente seguro?
+                {% endif %}
+            </h2>
+            <p class="text-sm text-red-700 font-bold">
+                {% if tiene_datos %}
+                Este usuario NO puede ser eliminado porque tiene datos importantes
+                {% else %}
+                Esta acción eliminará permanentemente este usuario
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- Información del usuario -->
+        <div class="p-6 bg-gradient-to-br from-gray-50 to-red-50">
+            <div class="bg-white rounded-xl p-4 border-2 border-red-200 mb-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="bg-red-100 w-12 h-12 rounded-full flex items-center justify-center text-2xl">
+                        {% if usuario.perfil.es_profesional %}👨‍⚕️
+                        {% elif usuario.perfil.es_paciente %}👤
+                        {% elif usuario.perfil.es_recepcionista %}📋
+                        {% elif usuario.perfil.es_gerente %}💼
+                        {% else %}👤{% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-black text-gray-800">{{ usuario.username }}</h3>
+                        {% if usuario.get_full_name %}
+                        <p class="text-sm text-gray-600 font-bold">{{ usuario.get_full_name }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Detalles -->
+                <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-gray-200">
+                    <div>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Rol</p>
+                        <p class="text-xs font-black text-gray-800">
+                            {% if usuario.perfil.rol %}
+                            {{ usuario.perfil.get_rol_display }}
+                            {% else %}
+                            Sin rol
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Estado</p>
+                        <p class="text-xs font-black">
+                            {% if usuario.is_active %}
+                            <span class="text-green-600">✓ Activo</span>
+                            {% else %}
+                            <span class="text-gray-500">✗ Inactivo</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    {% if usuario.email %}
+                    <div class="col-span-2">
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Email</p>
+                        <p class="text-xs font-black text-gray-800">{{ usuario.email }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if usuario.perfil.profesional %}
+                    <div class="col-span-2">
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Vinculado con</p>
+                        <p class="text-xs font-black text-green-700">👨‍⚕️ {{ usuario.perfil.profesional }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if usuario.perfil.paciente %}
+                    <div class="col-span-2">
+                        <p class="text-[9px] text-gray-500 font-bold uppercase">Vinculado con</p>
+                        <p class="text-xs font-black text-blue-700">👤 {{ usuario.perfil.paciente }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Advertencias -->
+            <div class="space-y-3">
+                {% if tiene_datos %}
+                <!-- ❌ BLOQUEO: Tiene datos asociados -->
+                <div class="bg-red-50 border-3 border-red-400 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl flex-shrink-0">🚫</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-black text-red-900 mb-2">
+                                ELIMINACIÓN BLOQUEADA
+                            </p>
+                            <p class="text-xs text-red-800 font-bold mb-3">
+                                Este usuario tiene datos asociados que serían afectados:
+                            </p>
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                {% if datos_relacionados.sesiones > 0 %}
+                                <div class="bg-white/70 rounded-lg p-2 border border-red-300">
+                                    <p class="text-[10px] text-red-600 font-bold uppercase">Sesiones</p>
+                                    <p class="text-lg font-black text-red-800">{{ datos_relacionados.sesiones }}</p>
+                                </div>
+                                {% endif %}
+                                {% if datos_relacionados.proyectos > 0 %}
+                                <div class="bg-white/70 rounded-lg p-2 border border-red-300">
+                                    <p class="text-[10px] text-red-600 font-bold uppercase">Proyectos</p>
+                                    <p class="text-lg font-black text-red-800">{{ datos_relacionados.proyectos }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <p class="text-xs text-red-800 font-bold">
+                                💡 <strong>Solución:</strong> Usa la opción de DESACTIVAR para inhabilitar el acceso sin perder datos.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- ✅ OPCIÓN RECOMENDADA: Desactivar -->
+                <div class="bg-orange-50 border-3 border-orange-300 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl flex-shrink-0">✅</span>
+                        <div class="flex-1">
+                            <p class="text-sm font-black text-orange-900 mb-2">
+                                OPCIÓN RECOMENDADA: Desactivar Usuario
+                            </p>
+                            <ul class="text-xs text-orange-800 font-bold space-y-1.5 mb-3">
+                                <li>🔒 El usuario NO podrá iniciar sesión</li>
+                                <li>💾 Todos los datos se CONSERVAN intactos</li>
+                                <li>🔄 Puedes reactivarlo en cualquier momento</li>
+                                <li>📊 Mantiene el historial completo</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                {% else %}
+                <!-- ⚠️ Sin datos: Puede eliminar -->
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl flex-shrink-0">⚠️</span>
+                        <div>
+                            <p class="text-xs font-black text-yellow-800 mb-1">¡CUIDADO!</p>
+                            <ul class="text-[10px] text-yellow-700 font-bold space-y-1">
+                                <li>• Se eliminará el usuario del sistema</li>
+                                <li>• Se eliminará su perfil y permisos</li>
+                                <li>• NO podrá iniciar sesión nuevamente</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if usuario.perfil.profesional or usuario.perfil.paciente %}
+                <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl flex-shrink-0">ℹ️</span>
+                        <div>
+                            <p class="text-xs font-black text-blue-800 mb-1">Nota sobre vinculación</p>
+                            <p class="text-[10px] text-blue-700 font-bold">
+                                El registro de {% if usuario.perfil.profesional %}profesional{% else %}paciente{% endif %} 
+                                NO se eliminará, solo se removerá la vinculación con este usuario.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- 💡 TIP: Opción de desactivar siempre disponible -->
+                <div class="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl flex-shrink-0">💡</span>
+                        <div>
+                            <p class="text-xs font-black text-green-800 mb-1">¿Mejor desactivar?</p>
+                            <p class="text-[10px] text-green-700 font-bold">
+                                Si solo quieres bloquear el acceso temporalmente, usa DESACTIVAR en lugar de eliminar.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Formulario de confirmación -->
+        <div class="p-6 bg-gray-50 border-t-4 border-red-200">
+            <form method="post" id="formEliminar">
+                {% csrf_token %}
+                
+                <div class="flex flex-col gap-3">
+                    <!-- OPCIÓN 1: Desactivar (Recomendada) -->
+                    <button type="submit" 
+                            name="accion"
+                            value="desactivar"
+                            class="btn-seguro w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl">
+                        🔒 DESACTIVAR USUARIO (Recomendado)
+                    </button>
+                    
+                    {% if not tiene_datos %}
+                    <!-- OPCIÓN 2: Eliminar (Solo si NO tiene datos) -->
+                    <button type="submit" 
+                            name="accion"
+                            value="eliminar"
+                            onclick="return confirmarEliminacion()"
+                            class="btn-peligro w-full bg-gradient-to-r from-red-600 to-red-700 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl">
+                        🗑️ SÍ, ELIMINAR PERMANENTEMENTE
+                    </button>
+                    {% endif %}
+                    
+                    <!-- Cancelar -->
+                    <a href="{% url 'core:lista_usuarios' %}" 
+                       class="text-center px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 transition-colors">
+                        ← Volver sin cambios
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Script de confirmación adicional -->
+<script>
+function confirmarEliminacion() {
+    const confirmacion = confirm(
+        '⚠️ ÚLTIMA ADVERTENCIA\n\n' +
+        '¿Estás ABSOLUTAMENTE SEGURO de eliminar este usuario?\n\n' +
+        'Usuario: {{ usuario.username }}\n' +
+        'Esta acción NO se puede deshacer.\n\n' +
+        'Haz clic en ACEPTAR para continuar con la eliminación.'
+    );
+    
+    return confirmacion;
+}
+</script>
+{% endblock %}

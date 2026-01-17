@@ -16,7 +16,10 @@
             </h1>
             <p class="text-white text-[11px] font-bold opacity-90">Sedes del Centro</p>
         </div>
-        <a href="/admin/servicios/sucursal/add/" class="bg-white text-cyan-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-cyan-100">➕ Nueva</a>
+        <a href="{% url 'servicios:agregar_sucursal' %}" 
+           class="bg-white text-cyan-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-cyan-100 hover:scale-105 transition-transform">
+            ➕ Nueva
+        </a>
     </div>
 </div>
 
@@ -24,7 +27,15 @@
     <form method="get" class="flex gap-2">
         <input type="text" name="q" value="{{ buscar }}" placeholder="🔍 Buscar sede..."
                class="flex-1 px-3 py-2 border-2 border-blue-200 rounded-xl text-sm font-bold pl-9">
-        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-black text-xs shadow-md">Ir</button>
+        <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-black text-xs shadow-md hover:bg-blue-700 transition-colors">
+            Buscar
+        </button>
+        {% if buscar %}
+        <a href="{% url 'servicios:lista_sucursales' %}" 
+           class="px-5 py-2 bg-gray-200 text-gray-700 rounded-xl font-black text-xs hover:bg-gray-300 transition-colors">
+            Limpiar
+        </a>
+        {% endif %}
     </form>
 </div>
 
@@ -33,16 +44,46 @@
     <div class="sucursal-card bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden">
         <div class="bg-gradient-to-br from-cyan-400 to-blue-500 p-3 text-white">
             <div class="flex justify-between items-start">
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                     <div class="text-2xl mb-1">🏢</div>
                     <h3 class="text-base font-black truncate leading-tight">{{ sucursal.nombre }}</h3>
-                    <p class="text-[10px] font-bold text-cyan-100 mt-0.5">📍 {{ sucursal.direccion|truncatechars:35 }}</p>
+                    <p class="text-[10px] font-bold text-cyan-100 mt-0.5 truncate">📍 {{ sucursal.direccion }}</p>
                 </div>
-                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white">ACTIVA</span>
+                {% if sucursal.activa %}
+                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0">ACTIVA</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-gray-400 text-gray-900 border border-white flex-shrink-0">INACTIVA</span>
+                {% endif %}
             </div>
         </div>
         
         <div class="p-3">
+            <!-- Información de contacto -->
+            {% if sucursal.telefono or sucursal.email %}
+            <div class="space-y-2 mb-3">
+                {% if sucursal.telefono %}
+                <div class="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <span class="text-base">📞</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[9px] font-bold text-blue-800 uppercase leading-none">Teléfono</p>
+                        <p class="text-xs font-bold text-gray-800 truncate">{{ sucursal.telefono }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if sucursal.email %}
+                <div class="flex items-center gap-2 p-2 bg-purple-50 rounded-lg border border-purple-100">
+                    <span class="text-base">📧</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[9px] font-bold text-purple-800 uppercase leading-none">Email</p>
+                        <p class="text-xs font-bold text-gray-800 truncate">{{ sucursal.email }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Estadísticas -->
             <div class="grid grid-cols-3 gap-1 mb-3">
                 <div class="flex flex-col items-center p-1.5 bg-blue-50 rounded-lg border border-blue-100 text-center">
                     <span class="text-lg">👨‍⚕️</span>
@@ -56,16 +97,40 @@
                 </div>
                 <div class="flex flex-col items-center p-1.5 bg-yellow-50 rounded-lg border border-yellow-100 text-center">
                     <span class="text-lg">🎯</span>
-                    <p class="text-[8px] font-bold text-yellow-700 uppercase">Semanas</p>
+                    <p class="text-[8px] font-bold text-yellow-700 uppercase">Semana</p>
                     <p class="text-xs font-black text-yellow-900">{{ sucursal.sesiones_semana }}</p>
                 </div>
             </div>
             
+            <!-- Botones de acción -->
             <div class="flex gap-2">
-                <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" class="flex-1 text-center py-2 bg-blue-600 text-white rounded-lg font-black text-xs shadow-sm">👁️ Ver Detalles</a>
-                <a href="/admin/servicios/sucursal/{{ sucursal.id }}/change/" class="px-3 py-2 border-2 border-gray-200 text-gray-500 rounded-lg font-black text-xs">✏️</a>
+                <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" 
+                   class="flex-1 text-center py-2 bg-blue-600 text-white rounded-lg font-black text-xs shadow-sm hover:bg-blue-700 transition-colors">
+                    👁️ Detalles
+                </a>
+                <a href="/admin/servicios/sucursal/{{ sucursal.id }}/change/" 
+                   class="px-3 py-2 border-2 border-gray-200 text-gray-500 rounded-lg font-black text-xs hover:bg-gray-50 transition-colors">
+                    ✏️
+                </a>
             </div>
         </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-gray-100">
+        <div class="text-5xl mb-3">🏢</div>
+        <p class="text-base font-black text-gray-700">No hay sucursales registradas</p>
+        {% if buscar %}
+        <p class="text-sm text-gray-500 mt-2">No se encontraron resultados para "{{ buscar }}"</p>
+        <a href="{% url 'servicios:lista_sucursales' %}" 
+           class="text-blue-600 font-black text-xs underline mt-2 inline-block">
+            Ver todas las sucursales
+        </a>
+        {% else %}
+        <a href="{% url 'servicios:agregar_sucursal' %}" 
+           class="text-cyan-600 font-black text-xs underline mt-2 inline-block uppercase">
+            Crear Primera Sucursal
+        </a>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
