@@ -127,6 +127,7 @@
             
             <div class="flex gap-1">
                 <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+                   target="_blank"
                    class="flex-1 text-center bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-[10px] py-1 rounded border border-blue-200">
                     🖨️ PDF
                 </a>
@@ -160,46 +161,39 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for pago in page_obj %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2">
-                        <p class="font-mono font-bold text-blue-600">{{ pago.numero_recibo }}</p>
-                        <p class="text-[10px] text-gray-500">{{ pago.registrado_por.username }}</p>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <span class="font-mono text-blue-600 font-bold">{{ pago.numero_recibo }}</span>
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {{ pago.fecha_pago|date:"d/m/Y" }}
                     </td>
                     <td class="px-3 py-2">
-                        <p class="font-medium">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
-                        <p class="text-[10px] text-gray-500">{{ pago.fecha_pago|date:"l" }}</p>
+                        <div class="font-medium text-gray-900">{{ pago.paciente.nombre_completo }}</div>
                     </td>
                     <td class="px-3 py-2">
-                        <p class="font-bold text-gray-900">{{ pago.paciente.nombre_completo }}</p>
+                        <div class="max-w-xs truncate">
+                            {{ pago.concepto|truncatewords:8 }}
+                        </div>
                     </td>
                     <td class="px-3 py-2">
-                        <p class="text-gray-700 truncate max-w-xs">{{ pago.concepto|default:"-" }}</p>
-                        {% if pago.sesion %}
-                        <span class="inline-block bg-purple-100 text-purple-700 text-[9px] px-1.5 py-0.5 rounded mt-0.5">
-                            Sesión
-                        </span>
-                        {% elif pago.proyecto %}
-                        <span class="inline-block bg-orange-100 text-orange-700 text-[9px] px-1.5 py-0.5 rounded mt-0.5">
-                            Proyecto
-                        </span>
-                        {% else %}
-                        <span class="inline-block bg-blue-100 text-blue-700 text-[9px] px-1.5 py-0.5 rounded mt-0.5">
-                            A cuenta
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-3 py-2">
-                        <span class="inline-block bg-gray-100 text-gray-800 text-[10px] px-2 py-1 rounded font-medium">
+                        <span class="px-2 py-0.5 text-[10px] rounded-full
+                            {% if pago.metodo_pago.nombre == 'Efectivo' %}bg-green-100 text-green-800
+                            {% elif pago.metodo_pago.nombre == 'Transferencia' %}bg-blue-100 text-blue-800
+                            {% elif pago.metodo_pago.nombre == 'QR' %}bg-purple-100 text-purple-800
+                            {% elif pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
                             {{ pago.metodo_pago.nombre }}
                         </span>
                     </td>
-                    <td class="px-3 py-2 text-right">
-                        <span class="font-black text-green-700">Bs. {{ pago.monto|floatformat:2 }}</span>
+                    <td class="px-3 py-2 text-right font-bold text-green-700 whitespace-nowrap">
+                        Bs. {{ pago.monto|floatformat:2 }}
                     </td>
-                    <td class="px-3 py-2 text-center">
+                    <td class="px-3 py-2">
                         <div class="flex justify-center gap-1">
                             <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+                               target="_blank"
                                class="text-blue-600 hover:text-blue-800 font-medium"
-                               title="Descargar PDF">
+                               title="Abrir PDF en nueva pestaña">
                                 🖨️
                             </a>
                             <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 

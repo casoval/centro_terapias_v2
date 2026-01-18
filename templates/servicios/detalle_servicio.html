@@ -3,255 +3,251 @@
 {% block title %}{{ servicio.nombre }} - Centro de Terapias{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="{% url 'servicios:lista_servicios' %}" class="text-blue-600 hover:text-blue-800">← Volver a Servicios</a>
+<div class="mb-8 flex items-center justify-between">
+    <a href="{% url 'servicios:lista_servicios' %}" class="inline-flex items-center text-gray-500 hover:text-blue-600 transition-colors duration-200">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Volver a Servicios
+    </a>
+    <div class="text-sm text-gray-400">
+        ID Servicio: #{{ servicio.id }}
+    </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Información del servicio -->
-    <div class="lg:col-span-1">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4">{{ servicio.nombre }}</h2>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <div class="lg:col-span-4 space-y-6">
+        
+        <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
+            <div class="h-20 bg-gradient-to-r from-teal-500 to-emerald-500 relative flex items-center px-6">
+                <h2 class="text-xl font-bold text-white relative z-10">{{ servicio.nombre }}</h2>
+                <div class="absolute right-4 top-4 opacity-20">
+                     <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+                </div>
+            </div>
             
-            <dl class="space-y-3">
+            <div class="p-6">
+                <div class="mb-4">
+                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                        {% if servicio.activo %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        <span class="w-2 h-2 mr-1.5 rounded-full {% if servicio.activo %}bg-green-400{% else %}bg-red-400{% endif %}"></span>
+                        {% if servicio.activo %}Servicio Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
+
                 {% if servicio.descripcion %}
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Descripción</dt>
-                    <dd class="text-sm text-gray-900">{{ servicio.descripcion }}</dd>
+                <div class="text-sm text-gray-600 mb-6 leading-relaxed">
+                    {{ servicio.descripcion }}
                 </div>
                 {% endif %}
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Duración</dt>
-                    <dd class="text-sm text-gray-900">{{ servicio.duracion_minutos }} minutos</dd>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
+                        <span class="block text-xs font-semibold text-gray-400 uppercase">Costo Base</span>
+                        <span class="block text-xl font-bold text-gray-800">Bs. {{ servicio.costo_base }}</span>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 text-center">
+                        <span class="block text-xs font-semibold text-gray-400 uppercase">Duración</span>
+                        <span class="block text-xl font-bold text-gray-800">{{ servicio.duracion_minutos }} <span class="text-sm font-normal text-gray-500">min</span></span>
+                    </div>
                 </div>
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Costo Base</dt>
-                    <dd class="text-sm text-gray-900">Bs. {{ servicio.costo_base }}</dd>
+
+                <div class="space-y-3 pt-4 border-t border-gray-100">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500">Profesionales habilitados</span>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">{{ total_profesionales }}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-gray-500">Pacientes activos</span>
+                        <span class="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">{{ pacientes_activos }}</span>
+                    </div>
                 </div>
-                <div>
-                    <dt class="text-sm font-medium text-gray-500">Estado</dt>
-                    <dd class="text-sm">
-                        <span class="px-2 py-1 rounded-full {% if servicio.activo %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} text-xs">
-                            {% if servicio.activo %}Activo{% else %}Inactivo{% endif %}
-                        </span>
-                    </dd>
+
+                <div class="mt-6">
+                    <a href="/admin/servicios/tiposervicio/{{ servicio.id }}/change/" 
+                       class="block w-full text-center px-4 py-2 border border-teal-600 text-teal-600 rounded-lg hover:bg-teal-50 transition-colors text-sm font-medium">
+                        Editar Información
+                    </a>
                 </div>
-            </dl>
-            
-            <div class="mt-6">
-                <a href="/admin/servicios/tiposervicio/{{ servicio.id }}/change/" 
-                   class="block w-full text-center px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50">
-                    Editar Información
-                </a>
             </div>
-        </div>
-        
-        <!-- Estadísticas -->
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-            <h3 class="font-semibold text-gray-900 mb-4">Estadísticas</h3>
-            <dl class="space-y-3">
-                <div class="flex justify-between">
-                    <dt class="text-sm font-medium text-gray-500">Profesionales</dt>
-                    <dd class="text-sm font-bold text-gray-900">{{ total_profesionales }}</dd>
-                </div>
-                <div class="flex justify-between">
-                    <dt class="text-sm font-medium text-gray-500">Pacientes Activos</dt>
-                    <dd class="text-sm font-bold text-gray-900">{{ pacientes_activos }}</dd>
-                </div>
-            </dl>
         </div>
     </div>
     
-    <!-- Contenido principal -->
-    <div class="lg:col-span-2 space-y-6">
-        <!-- 🆕 Profesionales que ofrecen este servicio -->
-        <div class="bg-white rounded-lg shadow">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">
-                    Profesionales que ofrecen este servicio
-                    <span class="text-sm font-normal text-gray-500">({{ total_profesionales }})</span>
-                </h3>
-            </div>
+    <div class="lg:col-span-8 space-y-8">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            <div class="divide-y divide-gray-200">
-                {% for profesional in profesionales %}
-                <div class="p-6 hover:bg-gray-50">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-4 flex-1">
-                            <!-- 🆕 FOTO DEL PROFESIONAL -->
+            <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col h-full">
+                <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                        <span>👨‍⚕️</span> Profesionales Habilitados
+                    </h3>
+                </div>
+                
+                <div class="divide-y divide-gray-100 flex-1">
+                    {% for profesional in profesionales %}
+                    <div class="p-4 hover:bg-gray-50 transition-colors group">
+                        <div class="flex items-center gap-3">
                             {% if profesional.tiene_foto %}
                                 <img src="{{ profesional.get_foto_thumbnail }}" 
                                      alt="{{ profesional.nombre_completo }}"
-                                     class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
+                                     class="w-10 h-10 rounded-full object-cover border border-gray-200">
                             {% else %}
-                                <div class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-                                    <span class="text-2xl">👨‍⚕️</span>
+                                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100">
+                                    <span class="text-lg font-bold">{{ profesional.nombre_completo|slice:":1" }}</span>
                                 </div>
                             {% endif %}
                             
-                            <div class="flex-1">
-                                <p class="font-medium text-gray-900">{{ profesional.nombre_completo }}</p>
-                                <p class="text-sm text-gray-600 mt-1">{{ profesional.especialidad }}</p>
-                                {% if profesional.telefono %}
-                                <p class="text-sm text-gray-500 mt-1">Tel: {{ profesional.telefono }}</p>
-                                {% endif %}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start">
+                                    <p class="font-bold text-gray-800 text-sm truncate">{{ profesional.nombre_completo }}</p>
+                                    <a href="{% url 'profesionales:detalle' profesional.id %}" class="text-gray-300 hover:text-blue-600 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    </a>
+                                </div>
+                                <p class="text-xs text-gray-500">{{ profesional.especialidad }}</p>
                             </div>
                         </div>
-                        <a href="{% url 'profesionales:detalle' profesional.id %}" 
-                           class="text-blue-600 hover:text-blue-800 text-sm">
-                            Ver perfil
-                        </a>
                     </div>
+                    {% empty %}
+                    <div class="p-6 text-center text-gray-400 text-sm">Nadie ofrece este servicio aún.</div>
+                    {% endfor %}
                 </div>
-                {% empty %}
-                <div class="p-6 text-center text-gray-500">
-                    No hay profesionales asignados a este servicio
-                </div>
-                {% endfor %}
-                
-                <!-- 🆕 Botón Mostrar Todos -->
-                {% if total_profesionales > 6 and not mostrar_todos_profesionales %}
-                <div class="p-4 bg-gray-50 text-center">
-                    <a href="?todos_prof=1{% if mostrar_todos_pacientes %}&todos_pac=1{% endif %}" 
-                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                        Mostrar todos los profesionales ({{ total_profesionales }})
-                    </a>
-                </div>
-                {% elif mostrar_todos_profesionales %}
-                <div class="p-4 bg-gray-50 text-center">
-                    <a href="?{% if mostrar_todos_pacientes %}todos_pac=1{% endif %}" 
-                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
-                        </svg>
-                        Mostrar menos
+
+                {% if total_profesionales > 6 or mostrar_todos_profesionales %}
+                <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+                    <a href="?{% if not mostrar_todos_profesionales %}todos_prof=1{% endif %}{% if mostrar_todos_pacientes %}&todos_pac=1{% endif %}" 
+                       class="text-xs font-medium text-blue-600 hover:text-blue-800">
+                        {% if mostrar_todos_profesionales %}Mostrar menos{% else %}Ver todos ({{ total_profesionales }}){% endif %}
                     </a>
                 </div>
                 {% endif %}
             </div>
-        </div>
-        
-        <!-- 🆕 Pacientes que reciben este servicio -->
-        <div class="bg-white rounded-lg shadow">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">
-                    Pacientes que reciben este servicio
-                    <span class="text-sm font-normal text-gray-500">({{ total_pacientes }})</span>
-                </h3>
-            </div>
-            
-            <div class="divide-y divide-gray-200">
-                {% for ps in pacientes_servicios %}
-                <div class="p-6 hover:bg-gray-50">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-4 flex-1">
-                            <!-- 🆕 FOTO DEL PACIENTE -->
+
+            <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden flex flex-col h-full">
+                <div class="px-5 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                        <span>👥</span> Pacientes en Tratamiento
+                    </h3>
+                </div>
+                
+                <div class="divide-y divide-gray-100 flex-1">
+                    {% for ps in pacientes_servicios %}
+                    <div class="p-4 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-center gap-3">
                             {% if ps.paciente.tiene_foto %}
                                 <img src="{{ ps.paciente.get_foto_thumbnail }}" 
                                      alt="{{ ps.paciente.nombre_completo }}"
-                                     class="w-12 h-12 rounded-full object-cover border-2 border-gray-200">
+                                     class="w-10 h-10 rounded-full object-cover border border-gray-200">
                             {% else %}
-                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                                    <span class="text-xl">👤</span>
+                                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center border border-indigo-100">
+                                    <span class="text-xs font-bold">{{ ps.paciente.nombre_completo|slice:":2"|upper }}</span>
                                 </div>
                             {% endif %}
                             
-                            <div class="flex-1">
-                                <p class="font-medium text-gray-900">{{ ps.paciente.nombre_completo }}</p>
-                                <p class="text-sm text-gray-600 mt-1">{{ ps.paciente.edad }} años</p>
-                                <p class="text-sm text-gray-500 mt-1">
-                                    Costo: Bs. {{ ps.costo_sesion }}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start">
+                                    <p class="font-bold text-gray-800 text-sm truncate">{{ ps.paciente.nombre_completo }}</p>
+                                    <a href="{% url 'pacientes:detalle' ps.paciente.id %}" class="text-gray-300 hover:text-blue-600 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    </a>
+                                </div>
+                                
+                                <div class="flex items-center mt-1">
+                                    <span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                                        Bs. {{ ps.costo_sesion }}
+                                    </span>
+                                    
                                     {% if ps.costo_sesion != servicio.costo_base %}
-                                        <span class="text-xs {% if ps.costo_sesion > servicio.costo_base %}text-green-600{% else %}text-orange-600{% endif %}">
-                                            ({% if ps.costo_sesion > servicio.costo_base %}+{% endif %}{{ ps.costo_sesion|floatformat:0|add:"-"|add:servicio.costo_base|floatformat:0 }})
+                                        <span class="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full
+                                            {% if ps.costo_sesion > servicio.costo_base %}bg-green-100 text-green-700{% else %}bg-orange-100 text-orange-700{% endif %}">
+                                            {% if ps.costo_sesion > servicio.costo_base %}+{% endif %}{{ ps.costo_sesion|floatformat:0|add:"-"|add:servicio.costo_base|floatformat:0 }}
                                         </span>
                                     {% endif %}
-                                </p>
+                                </div>
                             </div>
                         </div>
-                        <a href="{% url 'pacientes:detalle' ps.paciente.id %}" 
-                           class="text-blue-600 hover:text-blue-800 text-sm">
-                            Ver perfil
-                        </a>
                     </div>
+                    {% empty %}
+                    <div class="p-6 text-center text-gray-400 text-sm">Sin pacientes activos.</div>
+                    {% endfor %}
                 </div>
-                {% empty %}
-                <div class="p-6 text-center text-gray-500">
-                    No hay pacientes activos recibiendo este servicio
-                </div>
-                {% endfor %}
-                
-                <!-- 🆕 Botón Mostrar Todos -->
-                {% if total_pacientes > 6 and not mostrar_todos_pacientes %}
-                <div class="p-4 bg-gray-50 text-center">
-                    <a href="?todos_pac=1{% if mostrar_todos_profesionales %}&todos_prof=1{% endif %}" 
-                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                        Mostrar todos los pacientes ({{ total_pacientes }})
-                    </a>
-                </div>
-                {% elif mostrar_todos_pacientes %}
-                <div class="p-4 bg-gray-50 text-center">
-                    <a href="?{% if mostrar_todos_profesionales %}todos_prof=1{% endif %}" 
-                       class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
-                        </svg>
-                        Mostrar menos
+
+                {% if total_pacientes > 6 or mostrar_todos_pacientes %}
+                <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+                    <a href="?{% if not mostrar_todos_pacientes %}todos_pac=1{% endif %}{% if mostrar_todos_profesionales %}&todos_prof=1{% endif %}" 
+                       class="text-xs font-medium text-blue-600 hover:text-blue-800">
+                        {% if mostrar_todos_pacientes %}Mostrar menos{% else %}Ver todos ({{ total_pacientes }}){% endif %}
                     </a>
                 </div>
                 {% endif %}
             </div>
         </div>
-        
-        <!-- Últimas Sesiones -->
-        <div class="bg-white rounded-lg shadow">
-            <div class="p-6 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Últimas Sesiones</h3>
+
+        <div class="bg-white rounded-xl shadow-md border border-gray-100">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                <h3 class="font-semibold text-gray-900">Historial de Sesiones del Servicio</h3>
             </div>
             
-            <div class="divide-y divide-gray-200">
-                {% for sesion in sesiones %}
-                <div class="p-6 hover:bg-gray-50">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <span class="text-sm font-medium text-gray-900">
-                                    {{ sesion.fecha|date:"d/m/Y" }} - {{ sesion.hora_inicio|time:"H:i" }}
-                                </span>
+            <div class="p-6 bg-gray-50/50">
+                <div class="relative">
+                    <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+
+                    <div class="space-y-6">
+                        {% for sesion in sesiones %}
+                        <div class="relative pl-10">
+                            <div class="absolute left-2.5 -translate-x-1/2 mt-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm
+                                {% if sesion.estado == 'realizada' %} bg-green-500
+                                {% elif sesion.estado == 'programada' %} bg-blue-500
+                                {% elif sesion.estado == 'cancelada' %} bg-red-500
+                                {% else %} bg-gray-400 {% endif %}">
                             </div>
-                            <p class="text-sm text-gray-600">{{ sesion.paciente.nombre_completo }}</p>
-                            <p class="text-sm text-gray-500">{{ sesion.profesional.nombre_completo }} - {{ sesion.sucursal.nombre }}</p>
+
+                            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-gray-900 text-sm">
+                                            {{ sesion.fecha|date:"d/m/Y" }}
+                                        </span>
+                                        <span class="text-gray-400 text-xs">•</span>
+                                        <span class="text-gray-600 text-sm font-medium">{{ sesion.hora_inicio|time:"H:i" }}</span>
+                                    </div>
+                                    
+                                    <div>
+                                         {% if sesion.estado == 'programada' %}
+                                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-50 text-blue-700">Programada</span>
+                                        {% elif sesion.estado == 'realizada' %}
+                                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-green-50 text-green-700">Realizada</span>
+                                        {% elif sesion.estado == 'cancelada' %}
+                                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-red-50 text-red-700">Cancelada</span>
+                                        {% else %}
+                                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-gray-100 text-gray-600">{{ sesion.get_estado_display }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="text-sm text-gray-600 flex flex-wrap gap-4 mt-2">
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        {{ sesion.profesional.nombre_completo }}
+                                    </span>
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        {{ sesion.paciente.nombre_completo }}
+                                    </span>
+                                    <span class="flex items-center gap-1.5 text-gray-500">
+                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                        {{ sesion.sucursal.nombre }}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            {% if sesion.estado == 'programada' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Programada</span>
-                            {% elif sesion.estado == 'realizada' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Realizada</span>
-                            {% elif sesion.estado == 'realizada_retraso' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Realizada con retraso</span>
-                            {% elif sesion.estado == 'cancelada' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Cancelada</span>
-                            {% elif sesion.estado == 'permiso' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Permiso</span>
-                            {% elif sesion.estado == 'falta' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">Falta</span>
-                            {% elif sesion.estado == 'reprogramada' %}
-                            <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Reprogramada</span>
-                            {% endif %}
+                        {% empty %}
+                        <div class="text-center py-8">
+                            <p class="text-gray-500 italic">No hay historial de sesiones reciente.</p>
                         </div>
+                        {% endfor %}
                     </div>
                 </div>
-                {% empty %}
-                <div class="p-6 text-center text-gray-500">
-                    No hay sesiones registradas para este servicio
-                </div>
-                {% endfor %}
             </div>
         </div>
     </div>
