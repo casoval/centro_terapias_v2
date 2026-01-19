@@ -5,13 +5,16 @@ from django.db.models import Count, Q
 from .models import Profesional
 from .forms import ProfesionalForm
 from datetime import date, timedelta
+# Importar modelo de Sucursal
+from servicios.models import Sucursal 
 
 @login_required
 def lista_profesionales(request):
-    """Lista de profesionales activos"""
-    profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
+    """Lista de profesionales activos con filtros"""
+    # 1. Ordenar por apellido y nombre
+    profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
     
-    # Búsqueda
+    # 2. Búsqueda por texto
     buscar = request.GET.get('q', '')
     if buscar:
         profesionales = profesionales.filter(
@@ -20,7 +23,16 @@ def lista_profesionales(request):
             Q(especialidad__icontains=buscar)
         )
     
-    # Agregar estadísticas
+    # 3. Nuevo Filtro por Sucursal
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id:
+        try:
+            sucursal_id = int(sucursal_id)
+            profesionales = profesionales.filter(sucursales__id=sucursal_id)
+        except ValueError:
+            pass
+
+    # Agregar estadísticas (se mantiene igual)
     hoy = date.today()
     inicio_semana = hoy - timedelta(days=hoy.weekday())
     fin_semana = inicio_semana + timedelta(days=6)
@@ -32,12 +44,16 @@ def lista_profesionales(request):
         ).count()
         profesional.total_pacientes = profesional.get_pacientes().count()
     
+    # Obtener sucursales para el select
+    sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
+
     context = {
         'profesionales': profesionales,
         'buscar': buscar,
+        'sucursales': sucursales,      # Nueva variable de contexto
+        'sucursal_id': sucursal_id,    # Para mantener la selección
     }
     return render(request, 'profesionales/lista.html', context)
-
 
 @login_required
 def detalle_profesional(request, pk):

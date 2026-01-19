@@ -9,23 +9,34 @@ from .forms import PacienteForm
 @login_required
 def lista_pacientes(request):
     """Lista de pacientes activos"""
-    pacientes = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
+    # 1. Ordenamiento: Primero por nombre, luego apellido
+    pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
     
-    # Búsqueda
+    # 2. Lógica de Búsqueda
     buscar = request.GET.get('q', '')
     if buscar:
         pacientes = pacientes.filter(
-            nombre__icontains=buscar
-        ) | pacientes.filter(
-            apellido__icontains=buscar
+            Q(nombre__icontains=buscar) | 
+            Q(apellido__icontains=buscar)
         )
+    
+    # 3. Lógica de Filtro por Sucursal
+    sucursal_id = request.GET.get('sucursal')
+    if sucursal_id:
+        pacientes = pacientes.filter(sucursales__id=sucursal_id)
+    
+    # Obtener sucursales para el filtro
+    from servicios.models import Sucursal
+    # ✅ CORRECCIÓN: Usar 'activa=True' en lugar de 'activo=True'
+    sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
     
     context = {
         'pacientes': pacientes,
         'buscar': buscar,
+        'sucursales': sucursales,
+        'sucursal_seleccionada': int(sucursal_id) if sucursal_id else None
     }
     return render(request, 'pacientes/lista.html', context)
-
 
 @login_required
 def agregar_paciente(request):

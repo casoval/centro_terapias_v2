@@ -4,225 +4,356 @@
 
 {% block content %}
 <style>
-    .usuario-card { transition: all 0.2s ease-in-out; }
-    @media (min-width: 768px) { .usuario-card:hover { transform: translateY(-3px); } }
+    .usuario-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .usuario-card:hover { 
+        transform: translateY(-5px); 
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
     .rol-badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 9999px;
         font-size: 10px;
-        font-weight: 900;
+        font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+    /* Estilos para la transición de vistas */
+    .view-hidden { display: none !important; }
+    .btn-view-active { background-color: #7c3aed; color: white; border-color: #7c3aed; } /* Violet-600 */
+    .btn-view-inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; }
 </style>
 
-<div class="mb-4">
-    <div class="bg-gradient-to-r from-purple-500 via-violet-500 to-indigo-500 rounded-2xl p-4 shadow-lg border-2 border-white flex justify-between items-center">
-        <div>
-            <h1 class="text-xl sm:text-2xl font-black text-white drop-shadow-md flex items-center gap-2">
-                <span class="text-2xl">👥</span> Usuarios y Roles
-            </h1>
-            <p class="text-white text-[11px] font-bold opacity-90">Gestión de accesos al sistema</p>
+<div class="mb-8">
+    <div class="relative bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10 blur-xl"></div>
+        
+        <div class="relative flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 flex-wrap">
+                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">👥</span> 
+                    Usuarios y Accesos
+                    <span class="ml-2 px-3 py-1 bg-white/20 text-white text-sm sm:text-base font-medium rounded-full border border-white/30 backdrop-blur-md shadow-sm">
+                        {{ usuarios|length }} registrados
+                    </span>
+                </h1>
+                <p class="text-purple-100 text-sm mt-2 font-medium">Gestión de cuentas, roles y permisos del sistema</p>
+            </div>
+            <a href="{% url 'core:agregar_usuario' %}" 
+               class="group bg-white text-violet-700 px-6 py-2.5 rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:bg-violet-50 transition-all flex items-center gap-2 ring-2 ring-white/50">
+                <span class="group-hover:scale-110 transition-transform">➕</span> Nuevo Usuario
+            </a>
         </div>
-        <a href="{% url 'core:agregar_usuario' %}" 
-           class="bg-white text-purple-700 px-4 py-1.5 rounded-full font-black text-xs shadow-md border-2 border-purple-100 hover:scale-105 transition-transform">
-            ➕ Nuevo Usuario
-        </a>
     </div>
 </div>
 
-<!-- Filtros y Búsqueda -->
-<div class="bg-white rounded-xl shadow-md p-3 mb-5 border-2 border-gray-50">
-    <form method="get" class="flex flex-col sm:flex-row gap-2">
-        <div class="flex-1 relative">
-            <input type="text" name="q" value="{{ buscar }}" 
-                   placeholder="🔍 Buscar usuario..."
-                   class="w-full px-3 py-2 border-2 border-purple-200 rounded-xl text-sm font-bold pl-9">
+<div class="mb-8">
+    <form method="get" class="relative mx-auto flex flex-col lg:flex-row gap-4">
+        
+        <div class="flex-1 flex flex-col sm:flex-row gap-4">
+            <div class="relative group flex-1">
+                <div class="absolute -inset-1 bg-gradient-to-r from-violet-400 to-indigo-400 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
+                <div class="relative flex bg-white rounded-xl shadow-sm h-full">
+                    <div class="flex-1 relative flex items-center">
+                        <span class="absolute left-4 text-gray-400">🔍</span>
+                        <input type="text" name="q" value="{{ buscar }}" placeholder="Buscar por nombre o usuario..."
+                               class="w-full py-3 pl-11 pr-4 bg-transparent border-none rounded-l-xl focus:ring-0 text-gray-700 placeholder-gray-400 font-medium h-12">
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative group sm:w-64">
+                <div class="absolute -inset-1 bg-gradient-to-r from-purple-400 to-violet-500 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
+                <div class="relative bg-white rounded-xl shadow-sm h-full flex items-center">
+                    <span class="absolute left-4 text-purple-500">👤</span>
+                    <select name="rol" onchange="this.form.submit()" 
+                            class="w-full py-3 pl-11 pr-8 bg-transparent border-none rounded-xl focus:ring-0 text-gray-700 font-medium cursor-pointer h-12">
+                        <option value="">Todos los roles</option>
+                        {% for valor, nombre in roles %}
+                        <option value="{{ valor }}" {% if rol_filtro == valor %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="bg-violet-600 text-white px-6 rounded-xl font-bold text-sm hover:bg-violet-700 transition-colors h-12 shadow-md">
+                Filtrar
+            </button>
         </div>
-        <select name="rol" class="px-3 py-2 border-2 border-purple-200 rounded-xl text-sm font-bold">
-            <option value="">Todos los roles</option>
-            {% for valor, nombre in roles %}
-            <option value="{{ valor }}" {% if rol_filtro == valor %}selected{% endif %}>{{ nombre }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit" class="bg-purple-600 text-white px-5 py-2 rounded-xl font-black text-xs shadow-md hover:bg-purple-700 transition-colors">
-            Filtrar
-        </button>
-        {% if buscar or rol_filtro %}
-        <a href="{% url 'core:lista_usuarios' %}" class="px-5 py-2 bg-gray-200 text-gray-700 rounded-xl font-black text-xs hover:bg-gray-300 transition-colors">
-            Limpiar
-        </a>
-        {% endif %}
+
+        <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 self-end lg:self-auto h-12 lg:h-auto">
+            <button type="button" id="btn-grid" onclick="switchView('grid')" 
+                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-active">
+                <span>📲</span> Tarjetas
+            </button>
+            <button type="button" id="btn-list" onclick="switchView('list')" 
+                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-inactive">
+                <span>📋</span> Lista
+            </button>
+        </div>
     </form>
 </div>
 
-<!-- Lista de Usuarios -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+<div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-10">
     {% for usuario in usuarios %}
-    <div class="usuario-card bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden flex flex-col">
-        <!-- Header -->
-        <div class="bg-gradient-to-br from-purple-400 to-indigo-500 p-3 text-white">
-            <div class="flex items-start justify-between gap-2">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                        <div class="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center text-xl border-2 border-white">
-                            {% if usuario.perfil.es_profesional %}👨‍⚕️
-                            {% elif usuario.perfil.es_paciente %}👤
-                            {% elif usuario.perfil.es_recepcionista %}📋
-                            {% elif usuario.perfil.es_gerente %}👔
-                            {% else %}👤{% endif %}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <h3 class="text-base font-black truncate leading-tight">{{ usuario.username }}</h3>
-                            {% if usuario.first_name or usuario.last_name %}
-                            <p class="text-[10px] font-bold text-purple-100 truncate">{{ usuario.get_full_name }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <!-- Estado del usuario -->
-                    <div class="flex gap-1 mt-2">
-                        {% if usuario.is_active %}
-                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-green-400 text-green-900 border border-white">
-                            ✓ ACTIVO
-                        </span>
-                        {% else %}
-                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-gray-400 text-gray-900 border border-white">
-                            ✗ INACTIVO
-                        </span>
-                        {% endif %}
-                        
-                        {% if usuario.is_staff %}
-                        <span class="px-1.5 py-0.5 text-[8px] font-black rounded bg-yellow-400 text-yellow-900 border border-white">
-                            🔑 ADMIN
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="usuario-card bg-white rounded-3xl shadow-md border border-gray-100 flex flex-col h-full relative group overflow-hidden">
         
-        <!-- Contenido -->
-        <div class="p-3 flex flex-col flex-1">
-            <!-- Rol -->
-            <div class="mb-3">
-                <p class="text-[9px] font-bold text-gray-500 uppercase mb-1">Rol Asignado</p>
-                {% if usuario.perfil.rol %}
-                <div class="flex items-center gap-2">
-                    <span class="rol-badge
-                        {% if usuario.perfil.rol == 'profesional' %}bg-green-100 text-green-800 border border-green-300
-                        {% elif usuario.perfil.rol == 'paciente' %}bg-blue-100 text-blue-800 border border-blue-300
-                        {% elif usuario.perfil.rol == 'recepcionista' %}bg-purple-100 text-purple-800 border border-purple-300
-                        {% elif usuario.perfil.rol == 'gerente' %}bg-orange-100 text-orange-800 border border-orange-300
-                        {% endif %}">
-                        {{ usuario.perfil.get_rol_display }}
-                    </span>
-                </div>
-                {% else %}
-                <p class="text-xs text-gray-400 italic">Sin rol asignado</p>
-                {% endif %}
+        <div class="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
+            {% if usuario.is_active %}
+            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
+                ACTIVO
+            </span>
+            {% else %}
+            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-gray-100 text-gray-500 border border-gray-200 shadow-sm">
+                INACTIVO
+            </span>
+            {% endif %}
+            
+            {% if usuario.is_superuser %}
+            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-amber-100 text-amber-700 border border-amber-200 shadow-sm flex items-center gap-1">
+                🔒 ADMIN
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="h-24 bg-gradient-to-br from-violet-50 to-indigo-100 rounded-t-3xl border-b border-gray-100"></div>
+        
+        <div class="px-5 -mt-12 mb-3 flex flex-col items-center text-center">
+            <div class="w-24 h-24 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-4xl group-hover:scale-105 transition-transform">
+                {% if usuario.perfil.es_profesional %}👨‍⚕️
+                {% elif usuario.perfil.es_paciente %}👶
+                {% elif usuario.perfil.es_recepcionista %}📋
+                {% elif usuario.perfil.es_gerente %}👔
+                {% else %}👤{% endif %}
             </div>
             
-            <!-- Vinculación -->
+            <h3 class="text-xl font-bold text-gray-800 mt-3 leading-tight px-2">
+                {{ usuario.username }}
+            </h3>
+            
+            {% if usuario.first_name or usuario.last_name %}
+            <p class="text-sm font-medium text-gray-500 mt-1">{{ usuario.get_full_name }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="p-5 pt-2 flex-1 space-y-4">
+            <hr class="border-gray-100">
+
+            <div class="flex justify-center">
+                {% if usuario.perfil.rol %}
+                    <span class="rol-badge 
+                        {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border border-cyan-200
+                        {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border border-blue-200
+                        {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200
+                        {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border border-orange-200
+                        {% endif %}">
+                        {% if usuario.perfil.rol == 'profesional' %}🩺
+                        {% elif usuario.perfil.rol == 'paciente' %}🧸
+                        {% elif usuario.perfil.rol == 'recepcionista' %}📝 
+                        {% elif usuario.perfil.rol == 'gerente' %}💼
+                        {% endif %}
+                        {{ usuario.perfil.get_rol_display }}
+                    </span>
+                {% else %}
+                    <span class="rol-badge bg-gray-50 text-gray-500 border border-gray-200">
+                        ⛔ Sin Rol
+                    </span>
+                {% endif %}
+            </div>
+
+            {% if usuario.email %}
+            <div class="flex items-center gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm text-sm">📧</div>
+                <div class="min-w-0">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-bold">Email</p>
+                    <p class="text-xs font-bold text-gray-700 truncate">{{ usuario.email }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
             {% if usuario.perfil.profesional or usuario.perfil.paciente %}
-            <div class="p-2 bg-gray-50 rounded-lg border border-gray-200 mb-3">
-                <p class="text-[9px] font-bold text-gray-500 uppercase mb-1">Vinculado con</p>
-                <p class="text-xs font-bold text-gray-800">
+            <div class="flex flex-col items-center p-2 bg-indigo-50 rounded-xl border border-indigo-100">
+                <p class="text-[9px] font-bold text-indigo-400 uppercase text-center leading-tight mb-1">Perfil Vinculado</p>
+                <p class="text-xs font-bold text-indigo-800 flex items-center gap-1">
                     {% if usuario.perfil.profesional %}
                     👨‍⚕️ {{ usuario.perfil.profesional }}
                     {% elif usuario.perfil.paciente %}
-                    👤 {{ usuario.perfil.paciente }}
+                    👶 {{ usuario.perfil.paciente }}
                     {% endif %}
                 </p>
             </div>
             {% endif %}
-            
-            <!-- Email -->
-            {% if usuario.email %}
-            <div class="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100 mb-3">
-                <span class="text-base">📧</span>
-                <div class="flex-1 min-w-0">
-                    <p class="text-[9px] font-bold text-blue-800 uppercase leading-none">Email</p>
-                    <p class="text-xs font-bold text-gray-800 truncate">{{ usuario.email }}</p>
-                </div>
-            </div>
+        </div>
+        
+        <div class="p-4 bg-gray-50 rounded-b-3xl border-t border-gray-100 grid grid-cols-4 gap-2">
+            <a href="{% url 'core:editar_usuario' usuario.id %}" 
+               class="col-span-{% if request.user.is_superuser %}3{% else %}4{% endif %} flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl font-bold text-xs shadow-sm transition-colors">
+                <span>✏️</span> Editar Usuario
+            </a>
+            {% if request.user.is_superuser and usuario != request.user %}
+            <a href="{% url 'core:eliminar_usuario' usuario.id %}" 
+               class="col-span-1 flex items-center justify-center bg-white hover:bg-red-50 border border-gray-200 text-red-500 rounded-xl transition-colors text-lg"
+               title="Eliminar">
+                🗑️
+            </a>
             {% endif %}
-            
-            <!-- Sucursales -->
-            {% if usuario.perfil.get_sucursales %}
-            <div class="p-2 bg-purple-50 rounded-lg border border-purple-100 mb-3">
-                <p class="text-[9px] font-bold text-purple-800 uppercase mb-1">Sucursales</p>
-                <div class="flex flex-wrap gap-1">
-                    {% for sucursal in usuario.perfil.get_sucursales|slice:":3" %}
-                    <span class="px-1.5 py-0.5 text-[8px] font-bold bg-white border border-purple-200 rounded text-purple-700">
-                        🏢 {{ sucursal.nombre }}
-                    </span>
-                    {% endfor %}
-                    {% if usuario.perfil.get_sucursales.count > 3 %}
-                    <span class="px-1.5 py-0.5 text-[8px] font-bold bg-purple-200 rounded text-purple-800">
-                        +{{ usuario.perfil.get_sucursales.count|add:"-3" }}
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Acciones -->
-            <div class="flex gap-2 mt-auto">
-                <a href="{% url 'core:editar_usuario' usuario.id %}" 
-                   class="flex-1 text-center py-2 bg-purple-600 text-white rounded-lg font-black text-xs hover:bg-purple-700 transition-colors">
-                    ✏️ Editar
-                </a>
-                {% if request.user.is_superuser and usuario != request.user %}
-                <a href="{% url 'core:eliminar_usuario' usuario.id %}" 
-                   class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg font-black text-xs hover:bg-red-50 transition-colors">
-                    🗑️
-                </a>
-                {% endif %}
-            </div>
         </div>
     </div>
     {% empty %}
-    <div class="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-gray-100">
-        <div class="text-5xl mb-3">👥</div>
-        <p class="text-base font-black text-gray-700">No hay usuarios registrados</p>
-        {% if buscar or rol_filtro %}
-        <p class="text-sm text-gray-500 mt-2">Intenta con otros filtros de búsqueda</p>
-        <a href="{% url 'core:lista_usuarios' %}" class="text-purple-600 font-black text-xs underline mt-2 inline-block">
-            Ver todos los usuarios
-        </a>
-        {% else %}
-        <a href="{% url 'core:agregar_usuario' %}" class="text-purple-600 font-black text-xs underline mt-2 inline-block uppercase">
-            Crear Primer Usuario
-        </a>
-        {% endif %}
+    <div class="col-span-full py-16 px-4">
+        <div class="max-w-md mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 text-center p-8">
+            <div class="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center text-4xl mx-auto mb-4">
+                👥
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">No se encontraron usuarios</h3>
+            <p class="text-gray-500 text-sm mb-6">No hay registros que coincidan con tu búsqueda.</p>
+            <a href="{% url 'core:agregar_usuario' %}" class="inline-flex items-center gap-2 bg-violet-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-violet-700 transition-colors shadow-md">
+                <span>➕</span> Crear Usuario
+            </a>
+        </div>
     </div>
     {% endfor %}
 </div>
 
-<!-- Leyenda de Roles -->
-<div class="mt-5 bg-white rounded-xl shadow-md p-4 border-2 border-gray-50">
-    <h3 class="text-sm font-black text-gray-800 mb-3 flex items-center gap-2">
-        <span>ℹ️</span> Roles del Sistema
-    </h3>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="flex items-center gap-2">
-            <span class="rol-badge bg-blue-100 text-blue-800 border border-blue-300">Paciente</span>
-            <p class="text-[10px] text-gray-600">Acceso limitado a su cuenta</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="rol-badge bg-green-100 text-green-800 border border-green-300">Profesional</span>
-            <p class="text-[10px] text-gray-600">Acceso a agenda y pacientes</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="rol-badge bg-purple-100 text-purple-800 border border-purple-300">Recepcionista</span>
-            <p class="text-[10px] text-gray-600">Gestión de citas y pagos</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="rol-badge bg-orange-100 text-orange-800 border border-orange-300">Gerente</span>
-            <p class="text-[10px] text-gray-600">Acceso completo</p>
+<div id="view-list" class="view-hidden pb-10">
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-violet-100 text-violet-800">
+                        <th class="p-4 font-bold text-sm text-center w-16">#</th>
+                        <th class="p-4 font-bold text-sm">Usuario</th>
+                        <th class="p-4 font-bold text-sm">Rol Asignado</th>
+                        <th class="p-4 font-bold text-sm">Estado</th>
+                        <th class="p-4 font-bold text-sm">Vinculación</th>
+                        <th class="p-4 font-bold text-sm text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for usuario in usuarios %}
+                    <tr class="hover:bg-violet-50/30 transition-colors group">
+                        <td class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl border-2 border-white shadow-sm">
+                                    {% if usuario.perfil.es_profesional %}👨‍⚕️
+                                    {% elif usuario.perfil.es_paciente %}👶
+                                    {% elif usuario.perfil.es_recepcionista %}📋
+                                    {% elif usuario.perfil.es_gerente %}👔
+                                    {% else %}👤{% endif %}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-800 text-sm">{{ usuario.username }}</div>
+                                    {% if usuario.get_full_name %}
+                                        <div class="text-xs text-gray-500">{{ usuario.get_full_name }}</div>
+                                    {% endif %}
+                                    <div class="text-[10px] text-gray-400">{{ usuario.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            {% if usuario.perfil.rol %}
+                                <span class="rol-badge 
+                                    {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border border-cyan-200
+                                    {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border border-blue-200
+                                    {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200
+                                    {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border border-orange-200
+                                    {% endif %}">
+                                    {{ usuario.perfil.get_rol_display }}
+                                </span>
+                            {% else %}
+                                <span class="text-xs text-gray-400 italic">Sin rol</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            <div class="flex flex-col gap-1 items-start">
+                                {% if usuario.is_active %}
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
+                                    </span>
+                                {% else %}
+                                    <span class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Inactivo
+                                    </span>
+                                {% endif %}
+                                {% if usuario.is_superuser %}
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                        🔒 Admin
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            {% if usuario.perfil.profesional %}
+                                <span class="text-xs font-bold text-gray-700 flex items-center gap-1">👨‍⚕️ {{ usuario.perfil.profesional }}</span>
+                            {% elif usuario.perfil.paciente %}
+                                <span class="text-xs font-bold text-gray-700 flex items-center gap-1">👶 {{ usuario.perfil.paciente }}</span>
+                            {% else %}
+                                <span class="text-xs text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{% url 'core:editar_usuario' usuario.id %}" class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-600 hover:text-white transition-colors" title="Editar">
+                                    ✏️
+                                </a>
+                                {% if request.user.is_superuser and usuario != request.user %}
+                                <a href="{% url 'core:eliminar_usuario' usuario.id %}" class="w-8 h-8 rounded-lg bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" title="Eliminar">
+                                    🗑️
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-gray-500">
+                            No se encontraron usuarios
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const gridView = document.getElementById('view-grid');
+        const listView = document.getElementById('view-list');
+        const btnGrid = document.getElementById('btn-grid');
+        const btnList = document.getElementById('btn-list');
+        
+        // Clave única para usuarios
+        const currentView = localStorage.getItem('usuariosViewMode') || 'grid';
+        applyView(currentView);
+
+        window.switchView = function(mode) {
+            localStorage.setItem('usuariosViewMode', mode);
+            applyView(mode);
+        }
+
+        function applyView(mode) {
+            if (mode === 'list') {
+                gridView.classList.add('view-hidden');
+                listView.classList.remove('view-hidden');
+                btnList.classList.remove('btn-view-inactive');
+                btnList.classList.add('btn-view-active');
+                btnGrid.classList.remove('btn-view-active');
+                btnGrid.classList.add('btn-view-inactive');
+            } else {
+                listView.classList.add('view-hidden');
+                gridView.classList.remove('view-hidden');
+                btnGrid.classList.remove('btn-view-inactive');
+                btnGrid.classList.add('btn-view-active');
+                btnList.classList.remove('btn-view-active');
+                btnList.classList.add('btn-view-inactive');
+            }
+        }
+    });
+</script>
 {% endblock %}

@@ -10,7 +10,7 @@ urlpatterns = [
     path('cuentas/', views.lista_cuentas_corrientes, name='cuentas_corrientes'),
     path('cuenta/<int:paciente_id>/', views.detalle_cuenta_corriente, name='detalle_cuenta'),
     
-    # ==================== AJAX ENDPOINTS (NUEVOS) ====================
+    # ==================== AJAX ENDPOINTS ====================
     path('api/estadisticas/', views.cargar_estadisticas_ajax, name='cargar_estadisticas_ajax'),
     path('api/cuenta/<int:paciente_id>/detalle/', views.detalle_cuenta_ajax, name='detalle_cuenta_ajax'),
     path('api/estadisticas-pagos/', views.cargar_estadisticas_pagos_ajax, name='cargar_estadisticas_pagos_ajax'),
@@ -44,8 +44,13 @@ urlpatterns = [
     path('reportes/asistencia/', views.reporte_asistencia, name='reporte_asistencia'),
     path('reportes/exportar/', views.exportar_excel, name='exportar_excel'),
 
+    # ==================== ADMINISTRACIÓN ====================
     # Limpiar pagos anulados (solo admin)
     path('limpiar-pagos-anulados/', views.limpiar_pagos_anulados, name='limpiar_pagos_anulados'),
+    
+    # ✅ NUEVO: Gestión de cache de recibos (solo admin)
+    path('cache/limpiar-recibos/', views.limpiar_cache_recibos, name='limpiar_cache_recibos'),
+    path('cache/estadisticas/', views.estadisticas_cache_recibos, name='estadisticas_cache_recibos'),
 
     # ==================== VISTAS PARA PACIENTES ====================
     path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),

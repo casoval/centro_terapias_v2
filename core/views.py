@@ -239,6 +239,9 @@ def lista_usuarios(request):
     """Lista de usuarios del sistema con sus roles"""
     from django.contrib.auth.models import User
     from .models import PerfilUsuario
+
+    # ✅ Cambio: Ordenar por username (Alfabético)
+    usuarios = User.objects.filter(is_superuser=False).select_related('perfil').order_by('username')
     
     # Obtener todos los usuarios excepto superusuarios
     usuarios = User.objects.filter(is_superuser=False).select_related('perfil').order_by('-is_active', 'username')
