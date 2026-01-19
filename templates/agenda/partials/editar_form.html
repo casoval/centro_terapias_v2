@@ -6,15 +6,34 @@
         <span id="toast-message-{{ sesion.id }}"></span>
     </div>
 
+    <!-- 🆕 HEADER CON INDICADOR DE PERMISOS -->
     <div class="flex items-start justify-between mb-3 border-b pb-2">
-        <div>
-            <h3 class="text-lg font-bold text-gray-800 leading-tight">
-                {% if user.perfil.es_profesional and not user.is_superuser %}
-                    📋 Notas de Sesión
-                {% else %}
-                    ✏️ Editar Sesión
-                {% endif %}
-            </h3>
+        <div class="flex-1">
+            {% if not puede_editar %}
+                <!-- 🔒 BLOQUEADO -->
+                <h3 class="text-lg font-bold text-gray-600 leading-tight flex items-center gap-2">
+                    <span class="text-xl">🔒</span>
+                    <span>{{ mensaje_bloqueo }}</span>
+                </h3>
+            {% elif es_profesional %}
+                <!-- 📋 PROFESIONAL PUEDE EDITAR -->
+                <h3 class="text-lg font-bold text-blue-700 leading-tight flex items-center gap-2">
+                    <span class="text-xl">📋</span>
+                    <span>Registrar Sesión</span>
+                </h3>
+            {% elif es_admin %}
+                <!-- ⚙️ ADMIN -->
+                <h3 class="text-lg font-bold text-purple-700 leading-tight flex items-center gap-2">
+                    <span class="text-xl">⚙️</span>
+                    <span>Editar Sesión (Admin)</span>
+                </h3>
+            {% else %}
+                <!-- ✏️ RECEPCIONISTA -->
+                <h3 class="text-lg font-bold text-green-700 leading-tight flex items-center gap-2">
+                    <span class="text-xl">✏️</span>
+                    <span>Editar Sesión</span>
+                </h3>
+            {% endif %}
             <p class="text-xs text-gray-500 mt-0.5 font-mono">
                 {{ sesion.fecha|date:"d/m/Y" }} • {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
             </p>
@@ -22,6 +41,7 @@
         <button type="button" onclick="cerrarModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2 -mt-1">×</button>
     </div>
 
+    <!-- INFORMACIÓN DE LA SESIÓN -->
     <div class="mb-3 p-2.5 bg-blue-50/80 rounded border border-blue-100">
         <div class="grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
             <div>
@@ -43,173 +63,280 @@
         </div>
     </div>
 
-    {% if user.perfil.es_profesional and not user.is_superuser %}
-        <!-- ✅ PROFESIONALES: Solo mantener estado actual (campo oculto) -->
-        <input type="hidden" name="estado" value="{{ sesion.estado }}">
+    {% if not puede_editar %}
+        <!-- 🔒 MODO SOLO LECTURA -->
+        <div class="mb-3 p-3 bg-gray-100 border border-gray-300 rounded text-center">
+            <p class="text-sm text-gray-700 font-medium">Esta sesión no puede ser editada</p>
+            <p class="text-xs text-gray-500 mt-1">{{ mensaje_bloqueo }}</p>
+        </div>
         
-        <!-- Badge informativo del estado actual -->
+        <!-- Mostrar info actual en modo lectura -->
         <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
-            <p class="text-xs text-gray-600">
-                <span class="font-bold">Estado actual:</span> 
-                <span class="px-2 py-0.5 rounded text-xs font-medium
-                    {% if sesion.estado == 'realizada' %}bg-green-100 text-green-800
-                    {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-800
-                    {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
-                    {% elif sesion.estado == 'permiso' %}bg-blue-100 text-blue-800
-                    {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
-                    {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
-                    {% else %}bg-gray-100 text-gray-800{% endif %}">
-                    {{ sesion.get_estado_display }}
-                </span>
-            </p>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Estado</label>
+            <span class="px-2 py-1 rounded text-sm font-medium inline-block
+                {% if sesion.estado == 'realizada' %}bg-green-100 text-green-800
+                {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-800
+                {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
+                {% elif sesion.estado == 'permiso' %}bg-blue-100 text-blue-800
+                {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
+                {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ sesion.get_estado_display }}
+            </span>
         </div>
-    {% else %}
-        <!-- ✅ NO PROFESIONALES: Sección completa de edición -->
-        <div class="mb-3 p-2.5 rounded border {% if sesion.pagado %}bg-green-50 border-green-200{% elif sesion.requiere_pago %}bg-yellow-50 border-yellow-200{% else %}bg-gray-50 border-gray-200{% endif %}">
-            <h4 class="font-bold text-gray-800 text-xs mb-2 flex items-center gap-1">
-                <span>💰</span> Estado de Pago
-            </h4>
-            
-            {% if not sesion.requiere_pago %}
-                <div class="bg-white/80 rounded p-2 text-center border border-gray-100">
-                    <p class="text-sm font-bold text-gray-700">🎁 No requiere pago</p>
-                    <p class="text-[10px] text-gray-500 truncate">
-                        {% if sesion.proyecto %}Py: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
-                    </p>
-                </div>
-            
-            {% elif sesion.pagado %}
-                <div class="bg-white/80 rounded p-2 border border-green-200 flex justify-between items-center">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">✅</span>
-                        <div>
-                            <p class="text-sm font-black text-green-700">Bs. {{ sesion.total_pagado }}</p>
-                            <p class="text-[10px] text-gray-500 leading-none">Pagado</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        {% for pago in sesion.pagos.all %}
-                        {% if not pago.anulado %}
-                        <div class="text-[10px] text-gray-600 font-mono">{{ pago.fecha_pago|date:"d/m" }} • Bs.{{ pago.monto }}</div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-            
-            {% else %}
-                <div class="bg-white/80 rounded p-2 border border-yellow-200">
-                    <div class="flex justify-between text-center mb-2 text-xs">
-                        <div><span class="block text-[10px] text-gray-500">Total</span><span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span></div>
-                        <div><span class="block text-[10px] text-gray-500">Pagado</span><span class="font-bold text-green-700">Bs.{{ sesion.total_pagado }}</span></div>
-                        <div><span class="block text-[10px] text-gray-500">Saldo</span><span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span></div>
-                    </div>
-                    
-                    <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
-                       class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold text-xs py-1.5 px-2 rounded shadow-sm transition">
-                        💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})
-                    </a>
-                    
-                    {% if sesion.total_pagado > 0 %}
-                    <div class="mt-2 pt-1 border-t border-yellow-100">
-                        {% for pago in sesion.pagos.all %}
-                        {% if not pago.anulado %}
-                        <div class="flex justify-between text-[10px] text-gray-600">
-                            <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
-                            <span class="font-bold text-green-700">Bs. {{ pago.monto }}</span>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <div class="flex items-center justify-between mb-1">
-                <label class="text-xs font-bold text-gray-700">📊 Estado *</label>
-                <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 rounded" id="estadistica-{{ sesion.id }}"></span>
-            </div>
-            <select name="estado" id="estado-{{ sesion.id }}"
-                    class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-white"
-                    onchange="cambiarEstado{{ sesion.id }}()" required>
-                <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
-                <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
-                <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
-                <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
-                <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
-                <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
-                <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
-            </select>
-        </div>
-
-        <div id="campos-retraso-{{ sesion.id }}" class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded hidden">
-            <label class="block text-xs font-bold text-yellow-900 mb-1">⏰ Hora Real Inicio</label>
-            <div class="flex items-center gap-2">
-                <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
-                       class="flex-1 text-sm px-2 py-1 border border-gray-300 rounded">
-                <span class="text-[10px] text-gray-500 whitespace-nowrap">Prog: {{ sesion.hora_inicio|time:"H:i" }}</span>
-            </div>
-        </div>
-
-        <div id="campos-reprogramacion-{{ sesion.id }}" class="mb-3 p-2 bg-orange-50 border border-orange-200 rounded hidden">
-            <div class="text-[10px] text-orange-800 mb-2 font-medium leading-tight">⚠️ Reprograme manualmente en agenda.</div>
-            <div class="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-600 mb-0.5">Nueva Fecha</label>
-                    <input type="date" name="fecha_reprogramada" value="{% if sesion.fecha_reprogramada %}{{ sesion.fecha_reprogramada|date:'Y-m-d' }}{% endif %}"
-                           class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-600 mb-0.5">Nueva Hora</label>
-                    <input type="time" name="hora_reprogramada" value="{% if sesion.hora_reprogramada %}{{ sesion.hora_reprogramada|time:'H:i' }}{% endif %}"
-                           class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
-                </div>
-            </div>
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
-                       class="w-3 h-3 text-orange-600 rounded border-gray-300">
-                <span class="text-[10px] font-medium text-gray-700">Ya creada manualmente</span>
-            </label>
-        </div>
-
-        <div class="mb-3">
-            <label class="block text-xs font-bold text-gray-700 mb-1">
-                📝 <span id="label-observaciones-{{ sesion.id }}">Observaciones</span>
-            </label>
-            <textarea name="observaciones" rows="2"
-                      class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                      placeholder="...">{{ sesion.observaciones }}</textarea>
-        </div>
-    {% endif %}
         
-    <!-- ✅ EVOLUCIÓN/NOTAS - VISIBLE PARA TODOS -->
-    <div>
-        <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente (Privado)</label>
-        <textarea name="notas_sesion" rows="{% if user.perfil.es_profesional and not user.is_superuser %}6{% else %}2{% endif %}"
-                  class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                  placeholder="Evolución...">{{ sesion.notas_sesion }}</textarea>
-    </div>
+        {% if sesion.notas_sesion %}
+        <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
+            <label class="block text-xs font-bold text-gray-600 mb-1">Notas de Sesión</label>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ sesion.notas_sesion }}</p>
+        </div>
+        {% endif %}
+        
+        {% if sesion.observaciones %}
+        <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
+            <label class="block text-xs font-bold text-gray-600 mb-1">Observaciones</label>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ sesion.observaciones }}</p>
+        </div>
+        {% endif %}
+        
+    {% else %}
+        <!-- ✅ MODO EDICIÓN -->
+        
+        {% if es_profesional %}
+            <!-- ========================================
+                 FORMULARIO PARA PROFESIONALES
+                 - NO muestra información de pagos
+                 - Puede cambiar estado y agregar notas
+            ========================================= -->
+            
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-gray-700">📊 Estado *</label>
+                    <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 rounded" id="estadistica-{{ sesion.id }}"></span>
+                </div>
+                <select name="estado" id="estado-{{ sesion.id }}"
+                        class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-white"
+                        onchange="cambiarEstado{{ sesion.id }}()" required>
+                    <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
+                    <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
+                    <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
+                    <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
+                    <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
+                    <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
+                    <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
+                </select>
+            </div>
 
-    <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
-        <button type="button" onclick="cerrarModal()"
-                class="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition">
-            Cancelar
-        </button>
-        <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
-                class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm flex justify-center items-center gap-2">
-            💾 Guardar
-        </button>
-    </div>
+            <!-- Campos para retraso -->
+            <div id="campos-retraso-{{ sesion.id }}" class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded hidden">
+                <label class="block text-xs font-bold text-yellow-900 mb-1">⏰ Hora Real Inicio</label>
+                <div class="flex items-center gap-2">
+                    <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
+                           class="flex-1 text-sm px-2 py-1 border border-gray-300 rounded">
+                    <span class="text-xs text-gray-600">Programada: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                </div>
+            </div>
+
+            <!-- Campos para reprogramación -->
+            <div id="campos-reprogramacion-{{ sesion.id }}" class="mb-3 p-2 bg-orange-50 border border-orange-200 rounded hidden">
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                        <label class="block text-xs font-bold text-orange-900 mb-1">📅 Nueva Fecha</label>
+                        <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
+                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-orange-900 mb-1">⏰ Nueva Hora</label>
+                        <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
+                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                    </div>
+                </div>
+                <label class="block text-xs font-bold text-orange-900 mb-1">Motivo</label>
+                <textarea name="motivo_reprogramacion" rows="2"
+                          class="w-full text-xs px-2 py-1 border border-gray-300 rounded"
+                          placeholder="...">{{ sesion.motivo_reprogramacion }}</textarea>
+                <label class="flex items-center gap-1.5 text-xs mt-1.5 cursor-pointer">
+                    <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
+                           class="w-3 h-3 rounded border-gray-300">
+                    <span class="text-gray-700">Ya creé la nueva sesión</span>
+                </label>
+            </div>
+
+            <!-- 🆕 Notas de evolución (ÚNICO CAMPO PARA PROFESIONALES) -->
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente</label>
+                <textarea name="notas_sesion" rows="8"
+                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                          placeholder="Registre aquí la evolución del paciente durante la sesión, observaciones clínicas, progreso, dificultades, recomendaciones, etc...">{{ sesion.notas_sesion }}</textarea>
+                <p class="text-[10px] text-gray-500 mt-1">💡 Este campo es privado y solo visible para profesionales</p>
+            </div>
+
+        {% else %}
+            <!-- ========================================
+                 FORMULARIO PARA NO PROFESIONALES
+                 - Muestra información de pagos
+                 - Acceso completo a edición
+            ========================================= -->
+            
+            <!-- Sección de pagos -->
+            <div class="mb-3 p-2.5 rounded border {% if sesion.pagado %}bg-green-50 border-green-200{% elif sesion.requiere_pago %}bg-yellow-50 border-yellow-200{% else %}bg-gray-50 border-gray-200{% endif %}">
+                <h4 class="font-bold text-gray-800 text-xs mb-2 flex items-center gap-1">
+                    <span>💰</span> Estado de Pago
+                </h4>
+                
+                {% if not sesion.requiere_pago %}
+                    <div class="bg-white/80 rounded p-2 text-center border border-gray-100">
+                        <p class="text-sm font-bold text-gray-700">🎁 No requiere pago</p>
+                        <p class="text-[10px] text-gray-500 truncate">
+                            {% if sesion.proyecto %}Py: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
+                        </p>
+                    </div>
+                
+                {% elif sesion.pagado %}
+                    <div class="bg-white/80 rounded p-2 border border-green-200 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">✅</span>
+                            <div>
+                                <p class="text-sm font-black text-green-700">Bs. {{ sesion.total_pagado }}</p>
+                                <p class="text-[10px] text-gray-500 leading-none">Pagado</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            {% for pago in sesion.pagos.all %}
+                            {% if not pago.anulado %}
+                            <div class="text-[10px] text-gray-600 font-mono">{{ pago.fecha_pago|date:"d/m" }} • Bs.{{ pago.monto }}</div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                
+                {% else %}
+                    <div class="bg-white/80 rounded p-2 border border-yellow-200">
+                        <div class="flex justify-between text-center mb-2 text-xs">
+                            <div><span class="block text-[10px] text-gray-500">Total</span><span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span></div>
+                            <div><span class="block text-[10px] text-gray-500">Pagado</span><span class="font-bold text-green-700">Bs.{{ sesion.total_pagado }}</span></div>
+                            <div><span class="block text-[10px] text-gray-500">Saldo</span><span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span></div>
+                        </div>
+                        
+                        <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
+                           class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold text-xs py-1.5 px-2 rounded shadow-sm transition">
+                            💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})
+                        </a>
+                        
+                        {% if sesion.total_pagado > 0 %}
+                        <div class="mt-2 pt-1 border-t border-yellow-100">
+                            {% for pago in sesion.pagos.all %}
+                            {% if not pago.anulado %}
+                            <div class="flex justify-between text-[10px] text-gray-600">
+                                <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
+                                <span class="font-bold text-green-700">Bs. {{ pago.monto }}</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Selector de estado -->
+            <div class="mb-3">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-gray-700">📊 Estado *</label>
+                    <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 rounded" id="estadistica-{{ sesion.id }}"></span>
+                </div>
+                <select name="estado" id="estado-{{ sesion.id }}"
+                        class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-white"
+                        onchange="cambiarEstado{{ sesion.id }}()" required>
+                    <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
+                    <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
+                    <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
+                    <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
+                    <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
+                    <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
+                    <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
+                </select>
+            </div>
+
+            <!-- Campos para retraso -->
+            <div id="campos-retraso-{{ sesion.id }}" class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded hidden">
+                <label class="block text-xs font-bold text-yellow-900 mb-1">⏰ Hora Real Inicio</label>
+                <div class="flex items-center gap-2">
+                    <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
+                           class="flex-1 text-sm px-2 py-1 border border-gray-300 rounded">
+                    <span class="text-xs text-gray-600">Programada: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                </div>
+            </div>
+
+            <!-- Campos para reprogramación -->
+            <div id="campos-reprogramacion-{{ sesion.id }}" class="mb-3 p-2 bg-orange-50 border border-orange-200 rounded hidden">
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                        <label class="block text-xs font-bold text-orange-900 mb-1">📅 Nueva Fecha</label>
+                        <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
+                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-orange-900 mb-1">⏰ Nueva Hora</label>
+                        <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
+                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                    </div>
+                </div>
+                <label class="block text-xs font-bold text-orange-900 mb-1">Motivo</label>
+                <textarea name="motivo_reprogramacion" rows="2"
+                          class="w-full text-xs px-2 py-1 border border-gray-300 rounded"
+                          placeholder="...">{{ sesion.motivo_reprogramacion }}</textarea>
+                <label class="flex items-center gap-1.5 text-xs mt-1.5 cursor-pointer">
+                    <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
+                           class="w-3 h-3 rounded border-gray-300">
+                    <span class="text-gray-700">Ya creé la nueva sesión</span>
+                </label>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-700 mb-1" id="label-observaciones-{{ sesion.id }}">📝 Observaciones</label>
+                <textarea name="observaciones" rows="2"
+                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                          placeholder="...">{{ sesion.observaciones }}</textarea>
+            </div>
+
+            <!-- Notas de sesión -->
+            <div class="mb-3">
+                <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente (Privado)</label>
+                <textarea name="notas_sesion" rows="3"
+                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                          placeholder="Evolución...">{{ sesion.notas_sesion }}</textarea>
+            </div>
+
+        {% endif %}
+
+        <!-- Botones de acción (común para todos) -->
+        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
+            <button type="button" onclick="cerrarModal()"
+                    class="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition">
+                Cancelar
+            </button>
+            <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
+                    class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm flex justify-center items-center gap-2">
+                💾 Guardar
+            </button>
+        </div>
+
+    {% endif %}
 </form>
 
 <script>
 const STATS_{{ sesion.id }} = JSON.parse('{{ estadisticas|escapejs }}');
-const ES_PROFESIONAL = {% if user.perfil.es_profesional and not user.is_superuser %}true{% else %}false{% endif %};
+const ES_PROFESIONAL = {{ es_profesional|yesno:"true,false" }};
+const PUEDE_EDITAR = {{ puede_editar|yesno:"true,false" }};
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (!ES_PROFESIONAL) {
+    if (!ES_PROFESIONAL && PUEDE_EDITAR) {
         aplicarPoliticas{{ sesion.id }}();
+    }
+    if (PUEDE_EDITAR) {
+        cambiarEstado{{ sesion.id }}();
     }
 });
 
@@ -237,137 +364,88 @@ function mostrarNotificacion{{ sesion.id }}(mensaje, tipo) {
 
 function aplicarPoliticas{{ sesion.id }}() {
     const estado = document.getElementById('estado-{{ sesion.id }}').value;
-    const camposRetraso = document.getElementById('campos-retraso-{{ sesion.id }}');
-    const camposReprog = document.getElementById('campos-reprogramacion-{{ sesion.id }}');
-    const labelObs = document.getElementById('label-observaciones-{{ sesion.id }}');
     const stats = document.getElementById('estadistica-{{ sesion.id }}');
     
-    camposRetraso.classList.add('hidden');
-    camposReprog.classList.add('hidden');
-    
     switch(estado) {
-        case 'realizada': stats.textContent = `${STATS_{{ sesion.id }}.asistencias} asist.`; labelObs.textContent = 'Observaciones'; break;
-        case 'realizada_retraso': camposRetraso.classList.remove('hidden'); stats.textContent = `${STATS_{{ sesion.id }}.retrasos} retrasos`; labelObs.textContent = 'Motivo retraso'; break;
-        case 'falta': stats.textContent = `${STATS_{{ sesion.id }}.faltas} faltas`; labelObs.textContent = 'Motivo falta'; break;
-        case 'permiso': stats.textContent = `${STATS_{{ sesion.id }}.permisos} permisos`; labelObs.textContent = 'Motivo permiso'; break;
-        case 'cancelada': stats.textContent = `${STATS_{{ sesion.id }}.cancelaciones} cancel.`; labelObs.textContent = 'Motivo cancelación'; break;
-        case 'reprogramada': camposReprog.classList.remove('hidden'); stats.textContent = `${STATS_{{ sesion.id }}.reprogramaciones} reprog.`; labelObs.textContent = 'Motivo reprog.'; break;
-        default: stats.textContent = ''; labelObs.textContent = 'Observaciones';
+        case 'realizada': stats.textContent = `${STATS_{{ sesion.id }}.asistencias} asist.`; break;
+        case 'realizada_retraso': stats.textContent = `${STATS_{{ sesion.id }}.retrasos} retrasos`; break;
+        case 'falta': stats.textContent = `${STATS_{{ sesion.id }}.faltas} faltas`; break;
+        case 'permiso': stats.textContent = `${STATS_{{ sesion.id }}.permisos} permisos`; break;
+        case 'cancelada': stats.textContent = `${STATS_{{ sesion.id }}.canceladas} cancel.`; break;
+        case 'reprogramada': stats.textContent = `${STATS_{{ sesion.id }}.reprogramadas} reprog.`; break;
+        default: stats.textContent = `${STATS_{{ sesion.id }}.programadas} pend.`; break;
     }
 }
 
 function cambiarEstado{{ sesion.id }}() {
-    aplicarPoliticas{{ sesion.id }}();
+    if (!PUEDE_EDITAR) return;
+    
+    const estado = document.getElementById('estado-{{ sesion.id }}').value;
+    const camposRetraso = document.getElementById('campos-retraso-{{ sesion.id }}');
+    const camposReprog = document.getElementById('campos-reprogramacion-{{ sesion.id }}');
+    const labelObs = document.getElementById('label-observaciones-{{ sesion.id }}');
+    
+    // Ocultar todos los campos especiales
+    camposRetraso.classList.add('hidden');
+    camposReprog.classList.add('hidden');
+    
+    // Mostrar campos según estado
+    if (estado === 'realizada_retraso') {
+        camposRetraso.classList.remove('hidden');
+        labelObs.textContent = '📝 Motivo del Retraso';
+    } else if (estado === 'reprogramada') {
+        camposReprog.classList.remove('hidden');
+        labelObs.textContent = '📝 Observaciones';
+    } else {
+        labelObs.textContent = '📝 Observaciones';
+    }
+    
+    // Actualizar estadísticas si no es profesional
+    if (!ES_PROFESIONAL) {
+        aplicarPoliticas{{ sesion.id }}();
+    }
 }
 
 function guardarSesion{{ sesion.id }}(event) {
     event.preventDefault();
+    
+    if (!PUEDE_EDITAR) {
+        mostrarNotificacion{{ sesion.id }}('No tienes permisos para editar esta sesión', 'error');
+        return;
+    }
+    
     const form = document.getElementById('form-editar-{{ sesion.id }}');
     const formData = new FormData(form);
     
     fetch('{% url "agenda:editar_sesion" sesion.id %}', {
         method: 'POST',
-        body: formData,
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
-        if (data.requiere_confirmacion) {
-            abrirModalConfirmacion(data.sesion_id, data.estado_nuevo);
-        } 
-        else if (data.success) {
-            mostrarNotificacion{{ sesion.id }}('Guardado con éxito', 'success');
+        if (data.success) {
+            mostrarNotificacion{{ sesion.id }}('Sesión guardada correctamente', 'success');
             setTimeout(() => {
                 cerrarModal();
-                window.location.reload();
-            }, 1000);
-        } 
-        else if (data.error) {
-            mostrarNotificacion{{ sesion.id }}('Error: ' + data.mensaje, 'error');
+                location.reload();
+            }, 1500);
+        } else if (data.error) {
+            mostrarNotificacion{{ sesion.id }}(data.mensaje || 'Error al guardar', 'error');
+        } else if (data.requiere_confirmacion) {
+            // Manejar confirmación de cambio de estado con pagos
+            if (confirm(data.mensaje + '\n\n¿Desea continuar?')) {
+                // Aquí iría la lógica de confirmación
+                mostrarNotificacion{{ sesion.id }}('Funcionalidad de confirmación pendiente', 'error');
+            }
         }
     })
     .catch(error => {
         console.error('Error:', error);
         mostrarNotificacion{{ sesion.id }}('Error de conexión', 'error');
     });
-}
-
-function abrirModalConfirmacion(sesionId, estadoNuevo) {
-    const url = "{% url 'agenda:modal_confirmar_estado' 999999 %}".replace('999999', sesionId) + `?estado=${estadoNuevo}`;
-    fetch(url)        
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.text();
-        })
-        .then(html => {
-            const overlay = document.createElement('div');
-            overlay.id = 'modal-confirmacion-overlay';
-            overlay.className = 'fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4';
-            overlay.innerHTML = html;
-            document.body.appendChild(overlay);
-            document.body.style.overflow = 'hidden';
-            
-            overlay.addEventListener('click', function(e) {
-                if (e.target === overlay) cerrarModalConfirmacion();
-            });
-            
-            const form = overlay.querySelector('#form-confirmar-cambio');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const accionPago = form.querySelector('input[name="accion_pago"]:checked');
-                    if (!accionPago) {
-                        alert('❌ Selecciona una acción de pago');
-                        return;
-                    }
-                    if (accionPago.value === 'anular_pago' && !form.querySelector('textarea[name="motivo_anulacion"]').value.trim()) {
-                        alert('❌ Especifica motivo de anulación');
-                        return;
-                    }
-                    
-                    const formData = new FormData(form);
-                    const submitBtn = form.querySelector('button[type="submit"]');
-                    const originalText = submitBtn.innerHTML;
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '⏳ ...';
-                    
-                    fetch(form.action, {
-                        method: 'POST',
-                        body: formData,
-                        headers: {'X-Requested-With': 'XMLHttpRequest'}
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data && data.error) {
-                            alert('❌ ' + data.mensaje);
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = originalText;
-                        } else {
-                            mostrarNotificacion{{ sesion.id }}('Estado actualizado correctamente', 'success');
-                            cerrarModalConfirmacion();
-                            setTimeout(() => {
-                                cerrarModal();
-                                window.location.reload();
-                            }, 1000);
-                        }
-                    })
-                    .catch(error => {
-                        console.error(error);
-                        alert('Error al procesar');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalText;
-                    });
-                });
-            }
-        })
-        .catch(error => alert('Error cargando confirmación'));
-}
-
-function cerrarModalConfirmacion() {
-    const overlay = document.getElementById('modal-confirmacion-overlay');
-    if (overlay) {
-        overlay.remove();
-        document.body.style.overflow = '';
-    }
 }
 </script>

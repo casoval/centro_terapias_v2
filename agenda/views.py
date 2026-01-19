@@ -298,20 +298,19 @@ def calendario(request):
     sucursal_id = request.GET.get('sucursal', '').strip() or None
     tipo_sesion = request.GET.get('tipo_sesion', '').strip() or None
     
-    # ✅ CRÍTICO: Si el usuario es profesional, FORZAR filtro por su ID
+    # ✅ CORREGIDO: Verificar si es profesional Y tiene registro
     es_profesional = False
-    if hasattr(request.user, 'perfil') and request.user.perfil.es_profesional and not request.user.is_superuser:
-        try:
-            # Obtener el profesional asociado al usuario
-            profesional_usuario = request.user.perfil.profesional
-            if profesional_usuario:
-                profesional_id = str(profesional_usuario.id)
-                es_profesional = True
-            else:
-                messages.error(request, '❌ Tu usuario de profesional no tiene un registro asignado')
-                return redirect('/')
-        except AttributeError:
-            messages.error(request, '❌ Tu usuario no tiene configuración de profesional')
+    profesional_actual = None
+    
+    if hasattr(request.user, 'perfil') and request.user.perfil.es_profesional() and not request.user.is_superuser:
+        # ✅ Verificar que tenga profesional asignado
+        if request.user.perfil.profesional:
+            profesional_actual = request.user.perfil.profesional
+            profesional_id = str(profesional_actual.id)
+            es_profesional = True
+        else:
+            # ❌ Es profesional pero no tiene registro
+            messages.error(request, '❌ Tu usuario de profesional no tiene un registro asignado')
             return redirect('/')
     
     # Fecha base
@@ -361,7 +360,6 @@ def calendario(request):
         fecha_fin = fecha_inicio + timedelta(days=6)
 
     # 1. Obtener sesiones filtradas usando el servicio
-    # ✅ Ahora profesional_id está forzado si es profesional
     sesiones = CalendarService.get_filtered_sessions(
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
@@ -370,7 +368,7 @@ def calendario(request):
         tipo_sesion=tipo_sesion,
         estado=estado_filtro,
         paciente_id=paciente_id,
-        profesional_id=profesional_id,  # ✅ Ya está forzado arriba si es profesional
+        profesional_id=profesional_id,
         servicio_id=servicio_id
     )
     
@@ -562,7 +560,7 @@ def calendario(request):
             fecha_siguiente = fecha_base.replace(year=fecha_base.year + 1, month=1, day=1)
         else:
             fecha_siguiente = fecha_base.replace(month=fecha_base.month + 1, day=1)
-    elif vista == 'semanal':  # ✅ IMPORTANTE: Cambiar else por elif
+    elif vista == 'semanal':
         fecha_anterior = fecha_inicio - timedelta(days=7)
         fecha_siguiente = fecha_inicio + timedelta(days=7)
     else:
@@ -603,9 +601,9 @@ def calendario(request):
         'count_reprogramada': estadisticas['count_reprogramada'],
         'count_pagados': estadisticas['count_pagados'],
         'count_pendientes': estadisticas['count_pendientes'],
-        'page_obj': page_obj,  # Objeto de paginación
+        'page_obj': page_obj,
         'por_pagina': request.GET.get('por_pagina', '50'),
-        'es_profesional': es_profesional,  # ✅ Para usar en template si necesitas
+        'es_profesional': es_profesional,
     }
     
     return render(request, 'agenda/calendario.html', context)
@@ -1258,15 +1256,66 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
 
 @login_required
 def editar_sesion(request, sesion_id):
-    """Editar sesión con validación de pagos"""
+    """
+    Editar sesión con validación de pagos y permisos por rol
+    
+    🆕 PERMISOS:
+    - Profesionales: Pueden editar SOLO sesiones de HOY, una sola vez
+    - Recepcionistas: Pueden editar sesiones de HOY si no fueron editadas por profesional
+    - Admins: Sin restricciones
+    """
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
+    # 🆕 Verificar permisos según rol
+    es_profesional = hasattr(request.user, 'perfil') and request.user.perfil.es_profesional
+    es_admin = request.user.is_superuser or (hasattr(request.user, 'perfil') and request.user.perfil.rol in ['gerente', 'administrador'])
+    
+    # Obtener el objeto Profesional si es profesional
+    profesional_actual = None
+    if es_profesional:
+        try:
+            from core.utils import get_profesional_usuario
+            profesional_actual = get_profesional_usuario(request.user)
+        except:
+            pass
+    
+    # Validaciones de permisos
+    hoy = date.today()
+    puede_editar = True
+    mensaje_bloqueo = None
+    
+    if not es_admin:
+        # 🔒 RESTRICCIÓN 1: Solo sesiones de HOY
+        if sesion.fecha != hoy:
+            puede_editar = False
+            if sesion.fecha < hoy:
+                mensaje_bloqueo = "Solo lectura - Sesión pasada"
+            else:
+                mensaje_bloqueo = "Solo lectura - Sesión futura"
+        
+        # 🔒 RESTRICCIÓN 2: Profesionales solo editan una vez
+        elif es_profesional and sesion.editada_por_profesional:
+            puede_editar = False
+            mensaje_bloqueo = "Solo lectura - Ya fue editada"
+        
+        # 🔒 RESTRICCIÓN 3: Recepcionistas no editan si profesional ya editó
+        elif not es_profesional and sesion.editada_por_profesional:
+            puede_editar = False
+            mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
+    
     if request.method == 'POST':
+        # Verificar permisos antes de procesar
+        if not puede_editar:
+            return JsonResponse({
+                'error': True,
+                'mensaje': f'❌ {mensaje_bloqueo}. No tienes permisos para editar esta sesión.'
+            }, status=403)
+        
         try:
             estado_nuevo = request.POST.get('estado')
             
-            # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos
-            if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+            # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos (SOLO para NO profesionales)
+            if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                 pagos_activos = sesion.pagos.filter(anulado=False)
                 
                 if pagos_activos.exists():
@@ -1285,12 +1334,16 @@ def editar_sesion(request, sesion_id):
             # Si no hay pagos o no es estado sin cobro, continuar normal
             sesion.estado = estado_nuevo
             
-            # Aplicar políticas de cobro según estado
-            if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+            # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
+            if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                 sesion.monto_cobrado = Decimal('0.00')
             
             # Observaciones y notas
-            sesion.observaciones = request.POST.get('observaciones', '')
+            # 🆕 PROFESIONALES: NO modifican observaciones, solo notas_sesion
+            if not es_profesional:
+                sesion.observaciones = request.POST.get('observaciones', '')
+            # Si es profesional, conservar las observaciones existentes (no las modifica)
+            
             sesion.notas_sesion = request.POST.get('notas_sesion', '')
             
             # Campos específicos según estado
@@ -1312,6 +1365,13 @@ def editar_sesion(request, sesion_id):
                 sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
                 sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
             
+            # 🆕 Marcar como editada por profesional si aplica
+            if es_profesional:
+                sesion.editada_por_profesional = True
+                sesion.fecha_edicion_profesional = datetime.now()
+                if profesional_actual:
+                    sesion.profesional_editor = profesional_actual
+            
             sesion.modificada_por = request.user
             sesion.save()
             
@@ -1331,6 +1391,10 @@ def editar_sesion(request, sesion_id):
     return render(request, 'agenda/partials/editar_form.html', {
         'sesion': sesion,
         'estadisticas': json.dumps(estadisticas),
+        'puede_editar': puede_editar,
+        'mensaje_bloqueo': mensaje_bloqueo,
+        'es_profesional': es_profesional,
+        'es_admin': es_admin,
     })
 
 

@@ -6,11 +6,13 @@ from django.contrib import messages
 from django.db.models import Count, Sum, Q
 from datetime import date, timedelta, datetime, time
 from decimal import Decimal
+from core.utils import solo_sus_sucursales
 
 
 @login_required
+@solo_sus_sucursales  # ✅ Aplicar filtrado automático
 def dashboard(request):
-    """Dashboard principal con estadísticas"""
+    """Dashboard principal con estadísticas FILTRADAS por sucursal"""
     
     # ✅ REDIRECCIONAR SEGÚN ROL
     if not request.user.is_superuser:
@@ -35,29 +37,50 @@ def dashboard(request):
         inicio_semana = hoy - timedelta(days=hoy.weekday())
         fin_semana = inicio_semana + timedelta(days=6)
         
-        # ===== ESTADÍSTICAS PRINCIPALES =====
+        # ✅ OBTENER SUCURSALES DEL USUARIO (ya viene del decorator)
+        sucursales_usuario = request.sucursales_usuario
+        
+        # ===== ESTADÍSTICAS PRINCIPALES (FILTRADAS) =====
+        
+        # Base query de sesiones según sucursales
+        if sucursales_usuario is not None:
+            if sucursales_usuario.exists():
+                sesiones_base = Sesion.objects.filter(sucursal__in=sucursales_usuario)
+                pacientes_base = Paciente.objects.filter(sucursales__in=sucursales_usuario).distinct()
+                profesionales_base = Profesional.objects.filter(sucursales__in=sucursales_usuario).distinct()
+                servicios_base = TipoServicio.objects.all()  # Los servicios son globales
+            else:
+                # Sin sucursales asignadas = no ve nada
+                sesiones_base = Sesion.objects.none()
+                pacientes_base = Paciente.objects.none()
+                profesionales_base = Profesional.objects.none()
+                servicios_base = TipoServicio.objects.none()
+        else:
+            # Superadmin = ve todo
+            sesiones_base = Sesion.objects.all()
+            pacientes_base = Paciente.objects.all()
+            profesionales_base = Profesional.objects.all()
+            servicios_base = TipoServicio.objects.all()
         
         # Sesiones de hoy
-        sesiones_hoy = Sesion.objects.filter(fecha=hoy).count()
+        sesiones_hoy = sesiones_base.filter(fecha=hoy).count()
         
         # Pacientes activos
-        pacientes_activos = Paciente.objects.filter(estado='activo').count()
+        pacientes_activos = pacientes_base.filter(estado='activo').count()
         
         # Sesiones de la semana
-        sesiones_semana = Sesion.objects.filter(
+        sesiones_semana = sesiones_base.filter(
             fecha__gte=inicio_semana,
             fecha__lte=fin_semana
         ).count()
         
-        # ✅ CORREGIDO: Pendientes de pago
-        # Obtener sesiones realizadas con monto > 0
-        sesiones_pendientes = Sesion.objects.filter(
+        # ✅ Pendientes de pago (solo de sus sucursales)
+        sesiones_pendientes = sesiones_base.filter(
             estado__in=['realizada', 'realizada_retraso', 'falta'],
-            proyecto__isnull=True,  # Excluir sesiones de proyectos
+            proyecto__isnull=True,
             monto_cobrado__gt=0
         ).select_related('paciente')
         
-        # Calcular total pendiente sumando saldo_pendiente de cada sesión
         total_pendiente = Decimal('0.00')
         for sesion in sesiones_pendientes:
             if sesion.saldo_pendiente > 0:
@@ -65,53 +88,67 @@ def dashboard(request):
         
         pendientes_pago = total_pendiente
         
-        # ===== NUEVAS ESTADÍSTICAS =====
+        # ===== NUEVAS ESTADÍSTICAS (FILTRADAS) =====
         
-        # Sucursales activas
-        sucursales_activas = Sucursal.objects.filter(activa=True).count()
+        # Sucursales (mostrar solo las asignadas)
+        if sucursales_usuario is not None and sucursales_usuario.exists():
+            sucursales_activas = sucursales_usuario.filter(activa=True).count()
+            sucursales_para_top = sucursales_usuario.filter(activa=True)
+        else:
+            sucursales_activas = Sucursal.objects.filter(activa=True).count()
+            sucursales_para_top = Sucursal.objects.filter(activa=True)
         
-        # Profesionales activos
-        profesionales_activos = Profesional.objects.filter(activo=True).count()
+        # Profesionales activos (solo de sus sucursales)
+        profesionales_activos = profesionales_base.filter(activo=True).count()
         
-        # Servicios activos
-        servicios_activos = TipoServicio.objects.filter(activo=True).count()
+        # Servicios activos (globales, pero se pueden filtrar)
+        servicios_activos = servicios_base.filter(activo=True).count()
         
-        # ===== TOP 5 POR CATEGORÍA =====
+        # ===== TOP 5 POR CATEGORÍA (FILTRADO) =====
         
-        # Top 5 Sucursales (por cantidad de sesiones esta semana)
-        top_sucursales = Sucursal.objects.filter(
-            activa=True
-        ).annotate(
+        # Top 5 Sucursales (solo las asignadas)
+        top_sucursales = sucursales_para_top.annotate(
             sesiones_semana=Count('sesiones', filter=Q(
                 sesiones__fecha__gte=inicio_semana,
                 sesiones__fecha__lte=fin_semana
             ))
         ).order_by('-sesiones_semana')[:5]
         
-        # Top 5 Profesionales (por cantidad de sesiones esta semana)
-        top_profesionales = Profesional.objects.filter(
+        # Top 5 Profesionales (solo de sus sucursales)
+        top_profesionales = profesionales_base.filter(
             activo=True
         ).annotate(
             sesiones_semana=Count('sesiones', filter=Q(
                 sesiones__fecha__gte=inicio_semana,
-                sesiones__fecha__lte=fin_semana
+                sesiones__fecha__lte=fin_semana,
+                sesiones__sucursal__in=sucursales_para_top if sucursales_usuario is not None else []
             ))
         ).order_by('-sesiones_semana')[:5]
         
-        # Top 5 Servicios (por cantidad de sesiones esta semana)
-        top_servicios = TipoServicio.objects.filter(
-            activo=True
-        ).annotate(
-            sesiones_semana=Count('sesiones', filter=Q(
-                sesiones__fecha__gte=inicio_semana,
-                sesiones__fecha__lte=fin_semana
-            ))
-        ).order_by('-sesiones_semana')[:5]
+        # Top 5 Servicios (filtrado por sesiones de sus sucursales)
+        if sucursales_usuario is not None and sucursales_usuario.exists():
+            top_servicios = servicios_base.filter(
+                activo=True
+            ).annotate(
+                sesiones_semana=Count('sesiones', filter=Q(
+                    sesiones__fecha__gte=inicio_semana,
+                    sesiones__fecha__lte=fin_semana,
+                    sesiones__sucursal__in=sucursales_usuario
+                ))
+            ).order_by('-sesiones_semana')[:5]
+        else:
+            top_servicios = servicios_base.filter(
+                activo=True
+            ).annotate(
+                sesiones_semana=Count('sesiones', filter=Q(
+                    sesiones__fecha__gte=inicio_semana,
+                    sesiones__fecha__lte=fin_semana
+                ))
+            ).order_by('-sesiones_semana')[:5]
         
-        # ===== PRÓXIMAS SESIONES CON FILTRADO INTELIGENTE =====
+        # ===== PRÓXIMAS SESIONES (FILTRADAS) =====
         
-        # Obtener todas las sesiones programadas desde hoy hasta 7 días
-        todas_sesiones = Sesion.objects.filter(
+        todas_sesiones = sesiones_base.filter(
             fecha__gte=hoy,
             fecha__lte=hoy + timedelta(days=7),
             estado='programada'
@@ -119,35 +156,24 @@ def dashboard(request):
             'paciente', 'servicio', 'profesional', 'sucursal'
         ).order_by('fecha', 'hora_inicio')
         
-        # Filtrar sesiones según la hora actual
         sesiones_filtradas = []
         
         for sesion in todas_sesiones:
-            # Si es HOY
             if sesion.fecha == hoy:
-                # Solo mostrar si:
-                # 1. Está EN CURSO (hora_inicio <= ahora < hora_fin)
-                # 2. AÚN NO EMPEZÓ (hora_inicio > ahora)
-                # NO mostrar si ya terminó (hora_fin <= ahora)
-                
                 if sesion.hora_fin > hora_actual:
-                    # Determinar si está en curso o es próxima
                     if sesion.hora_inicio <= hora_actual < sesion.hora_fin:
                         sesion.estado_tiempo = 'en_curso'
                     else:
                         sesion.estado_tiempo = 'proxima'
-                    
                     sesiones_filtradas.append(sesion)
             else:
-                # Si es día futuro, siempre mostrar
                 sesion.estado_tiempo = 'proxima'
                 sesiones_filtradas.append(sesion)
         
-        # Limitar a máximo 30 sesiones
         proximas_sesiones = sesiones_filtradas[:30]
         
-        # Sesiones recientes
-        sesiones_recientes = Sesion.objects.filter(
+        # Sesiones recientes (filtradas)
+        sesiones_recientes = sesiones_base.filter(
             fecha__lte=hoy
         ).select_related(
             'paciente', 'servicio', 'profesional', 'sucursal'
@@ -177,10 +203,10 @@ def dashboard(request):
             # Para el template
             'hora_actual': hora_actual,
             'fecha_actual': hoy,
+            'sucursales_usuario': sucursales_usuario,  # ✅ Pasar al template
         }
         
     except Exception as e:
-        # Si hay error, mostrar dashboard básico con el error para debugging
         import traceback
         print("❌ ERROR EN DASHBOARD:")
         print(traceback.format_exc())
@@ -212,25 +238,20 @@ class CustomLoginView(LoginView):
         """Redirigir según el rol del usuario después del login"""
         user = self.request.user
         
-        # ✅ Redireccionar según rol
         if not user.is_superuser:
             if hasattr(user, 'perfil'):
-                # Si es profesional, ir directo a agenda
                 if user.perfil.es_profesional():
                     return '/agenda/'
-                
-                # ✅ Si es paciente, ir a su cuenta
                 if user.perfil.es_paciente():
                     return '/facturacion/mi-cuenta/'
         
-        # Para otros roles, ir al dashboard
         return '/'
 
 
 def logout_view(request):
+    from django.contrib.auth import logout as auth_logout
     auth_logout(request)
     return redirect('core:login')
-
 
 # ==================== GESTIÓN DE USUARIOS ====================
 

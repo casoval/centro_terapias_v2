@@ -260,6 +260,25 @@ class Sesion(models.Model):
         help_text="Notas clínicas/evolución de la sesión"
     )
     
+    # 🆕 Control de edición por profesionales
+    editada_por_profesional = models.BooleanField(
+        default=False,
+        help_text="Indica si un profesional ya editó esta sesión"
+    )
+    fecha_edicion_profesional = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha en que el profesional editó la sesión"
+    )
+    profesional_editor = models.ForeignKey(
+        Profesional,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sesiones_editadas',
+        help_text="Profesional que editó la sesión"
+    )
+    
     # Control
     creada_por = models.ForeignKey(
         User,

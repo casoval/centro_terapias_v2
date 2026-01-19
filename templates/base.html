@@ -123,7 +123,7 @@
                         
                         <!-- ✅ RECEPCIONISTAS Y GERENTES: Catálogos -->
                         {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                        <!-- ✅ Dropdown: Catálogos (Recepcionistas/Gerentes/Superadmin) -->
+                        <!-- ✅ DROPDOWN DESKTOP: Catálogos -->
                         <div class="dropdown inline-flex items-center">
                             <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
                                 Catálogos
@@ -131,34 +131,52 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                             </button>
+                            
+                            <!-- ✅ CONTENIDO DEL DROPDOWN -->
                             <div class="dropdown-menu">
+                                <!-- ✅ SECCIÓN 1: Agenda -->
                                 <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item">
                                     📅 Agendar Sesión
                                 </a>
-                                <div class="border-t border-gray-200 my-1"></div>
                                 <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item">
                                     📦 Proy/Evaluación
                                 </a>
+                                
+                                <!-- ✅ LÍNEA SEPARADORA -->
+                                <div class="border-t border-gray-200 my-1"></div>
+                                
+                                <!-- ✅ SECCIÓN 2: Personas -->
                                 <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
                                     👶 Pacientes
                                 </a>
                                 
-                                <!-- ✅ Solo Gerentes y Superadmin -->
+                                <!-- ✅ Profesionales: Solo Gerentes y Superadmin -->
                                 {% if user.is_superuser or user.perfil.es_gerente %}
-                                <div class="border-t border-gray-200 my-1"></div>
-                                <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
-                                    🏥 Servicios
-                                </a>
                                 <a href="{% url 'profesionales:lista' %}" class="dropdown-item">
                                     👨‍⚕️ Profesionales
                                 </a>
                                 {% endif %}
                                 
-                                <!-- ✅ Solo Superadmin -->
-                                {% if user.is_superuser %}
+                                <!-- ✅ Solo Gerentes y Superadmin: Servicios y Sucursales -->
+                                {% if user.is_superuser or user.perfil.es_gerente %}
+                                <!-- ✅ LÍNEA SEPARADORA -->
+                                <div class="border-t border-gray-200 my-1"></div>
+                                
+                                <!-- ✅ SECCIÓN 3: Configuración -->
+                                <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
+                                    🥼 Servicios
+                                </a>
                                 <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item">
                                     🏢 Sucursales
                                 </a>
+                                {% endif %}
+                                
+                                <!-- ✅ ❌ USUARIOS/ROLES: SOLO SUPERADMIN (RECEPCIONISTAS NO LO VEN) -->
+                                {% if user.is_superuser %}
+                                <!-- ✅ LÍNEA SEPARADORA -->
+                                <div class="border-t border-gray-200 my-1"></div>
+                                
+                                <!-- ✅ SECCIÓN 4: Sistema -->
                                 <a href="{% url 'core:lista_usuarios' %}" class="dropdown-item">
                                     👥 Usuarios y Roles
                                 </a>
@@ -254,6 +272,7 @@
                 
                 <!-- ✅ Catálogos: Recepcionistas/Gerentes/Superadmin -->
                 {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                <!-- ✅ MENÚ MÓVIL: Catálogos -->
                 <div>
                     <button id="catalogos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 focus:outline-none">
                         <span>Catálogos</span>
@@ -261,31 +280,48 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
+                    
+                    <!-- ✅ CONTENIDO DEL SUBMENÚ -->
                     <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1">
+                        <!-- SECCIÓN 1: Agenda -->
                         <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             📅 Agendar Sesión
                         </a>
                         <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             📦 Proy/Evaluación
                         </a>
+                        
+                        <!-- LÍNEA SEPARADORA -->
+                        <div class="border-t border-gray-300 my-2"></div>
+                        
+                        <!-- SECCIÓN 2: Personas -->
                         <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👶 Pacientes
                         </a>
                         
                         {% if user.is_superuser or user.perfil.es_gerente %}
-                        <div class="border-t border-gray-300 my-2"></div>
-                        <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
-                            🏥 Servicios
-                        </a>
                         <a href="{% url 'profesionales:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👨‍⚕️ Profesionales
                         </a>
-                        {% endif %}
                         
-                        {% if user.is_superuser %}
+                        <!-- LÍNEA SEPARADORA -->
+                        <div class="border-t border-gray-300 my-2"></div>
+                        
+                        <!-- SECCIÓN 3: Configuración -->
+                        <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                            🥼 Servicios
+                        </a>
                         <a href="{% url 'servicios:lista_sucursales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             🏢 Sucursales
                         </a>
+                        {% endif %}
+                        
+                        <!-- ✅ ❌ USUARIOS: SOLO SUPERADMIN (RECEPCIONISTAS NO LO VEN) -->
+                        {% if user.is_superuser %}
+                        <!-- LÍNEA SEPARADORA -->
+                        <div class="border-t border-gray-300 my-2"></div>
+                        
+                        <!-- SECCIÓN 4: Sistema -->
                         <a href="{% url 'core:lista_usuarios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
                             👥 Usuarios y Roles
                         </a>
@@ -491,7 +527,7 @@
                 catalogosIcon.classList.toggle('rotate-180');
             });
         }
-        
+
         // Toggle submenú facturación en móvil
         const facturacionToggle = document.getElementById('facturacion-toggle');
         const facturacionMenu = document.getElementById('facturacion-menu');
