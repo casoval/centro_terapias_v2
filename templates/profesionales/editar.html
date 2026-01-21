@@ -4,315 +4,251 @@
 
 {% block content %}
 <style>
-    .seccion-form { transition: all 0.3s ease; }
-    .seccion-form:hover { transform: translateY(-2px); }
+    .seccion-card { 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .seccion-card:hover { 
+        transform: translateY(-2px); 
+        box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.1), 0 4px 6px -2px rgba(16, 185, 129, 0.05);
+    }
     .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
-    .foto-preview {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        border: 3px solid #e5e7eb;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        object-fit: cover;
-    }
-    .foto-preview:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-    .checkbox-servicio, .checkbox-sucursal {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border: 2px solid #e5e7eb;
-        border-radius: 8px;
+    
+    input[type="text"], input[type="email"], input[type="number"], input[type="tel"], select, textarea {
+        border-radius: 0.75rem;
+        border-color: #e5e7eb;
+        padding-top: 0.625rem;
+        padding-bottom: 0.625rem;
         transition: all 0.2s;
-        cursor: pointer;
     }
-    .checkbox-servicio:hover, .checkbox-sucursal:hover {
-        background-color: #f0fdf4;
-        border-color: #86efac;
+    input:focus, select:focus, textarea:focus {
+        border-color: #10b981;
+        --tw-ring-color: #10b981;
+    }
+    
+    .checkbox-wrapper input:checked + div {
+        background-color: #ecfdf5;
+        border-color: #10b981;
+        color: #065f46;
     }
 </style>
 
-<!-- Header Compacto -->
-<div class="mb-4">
-    <div class="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 rounded-xl p-3 shadow-lg">
-        <div class="flex justify-between items-center">
+<div class="mb-8">
+    <div class="relative bg-gradient-to-r from-teal-500 via-emerald-500 to-green-600 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-cyan-300 opacity-20 blur-xl"></div>
+        
+        <div class="relative flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-                    <span>✏️</span> Editar Profesional
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">✏️</span> 
+                    Editar Profesional
                 </h1>
-                <p class="text-white text-[10px] font-bold opacity-90">Actualiza los datos de {{ profesional.nombre_completo }}</p>
+                <p class="text-teal-100 text-sm mt-2 font-medium">Actualizando datos de {{ profesional.nombre_completo }}</p>
             </div>
             <a href="{% url 'profesionales:detalle' profesional.id %}" 
-               class="bg-white text-green-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
-                ← Volver
+               class="group bg-white/10 text-white px-6 py-2.5 rounded-full font-bold text-sm shadow-lg hover:bg-white hover:text-teal-600 transition-all flex items-center gap-2 border border-white/20 backdrop-blur-md">
+                <span>←</span> Volver al perfil
             </a>
         </div>
     </div>
 </div>
 
-<!-- Formulario -->
-<form method="post" enctype="multipart/form-data" class="space-y-3">
-    {% csrf_token %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-10">
     
-    <!-- Mensajes de error -->
-    {% if form.non_field_errors %}
-    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
-        <p class="text-red-700 font-bold text-sm">❌ Errores:</p>
-        <ul class="list-disc list-inside text-red-600 text-xs mt-1">
-            {% for error in form.non_field_errors %}
-            <li>{{ error }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
+    <div class="lg:col-span-8">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm">
+                <div class="flex items-center gap-2 text-red-700 font-bold text-sm mb-2"><span>❌</span> Errores:</div>
+                <ul class="list-disc list-inside text-red-600 text-xs ml-2">
+                    {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
 
-    <!-- FILA 1: Foto del Profesional -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-green-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-100">
-            <div class="bg-green-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📸</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Foto del Profesional</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Opcional - Se optimizará automáticamente</p>
-            </div>
-        </div>
-        
-        <div class="flex flex-col sm:flex-row gap-4 items-center">
-            <div class="flex-shrink-0">
-                {% if profesional.tiene_foto %}
-                <img src="{{ profesional.get_foto_url }}" alt="{{ profesional.nombre_completo }}" 
-                     class="foto-preview">
-                <p class="text-[9px] text-gray-500 text-center mt-2">Foto Actual</p>
-                {% else %}
-                <div class="foto-preview bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center text-4xl">
-                    👨‍⚕️
-                </div>
-                <p class="text-[9px] text-gray-500 text-center mt-2">Sin foto</p>
-                {% endif %}
-            </div>
-            <div class="flex-1 w-full">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.foto.label }}</label>
-                {{ form.foto }}
-                {% if form.foto.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.foto.errors.0 }}</p>
-                {% endif %}
-                <p class="text-[10px] text-gray-500 mt-2">📸 Sube una nueva para reemplazarla</p>
-                <div id="foto-preview-container" class="hidden mt-3">
-                    <p class="text-[10px] font-bold text-gray-600 mb-1">Nueva Vista Previa:</p>
-                    <img id="foto-preview-new" src="" alt="Preview" class="w-32 h-32 rounded-lg border border-gray-200 shadow-sm">
-                    <button type="button" id="remove-foto" class="mt-1 text-[10px] text-red-600 font-bold hover:underline">
-                        ❌ Cancelar cambio
-                    </button>
+            <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-50 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
+                <div class="relative z-10">
+                    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-emerald-50">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl text-emerald-600 shadow-sm">👤</div>
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-800">Información Personal</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="campo-requerido">
+                            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.nombre.label }}</label>
+                            {{ form.nombre }}
+                            {% if form.nombre.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div class="campo-requerido">
+                            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.apellido.label }}</label>
+                            {{ form.apellido }}
+                            {% if form.apellido.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.apellido.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div class="campo-requerido sm:col-span-2">
+                            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.especialidad.label }}</label>
+                            {{ form.especialidad }}
+                            {% if form.especialidad.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.especialidad.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-xl text-teal-600 shadow-sm">📸</div>
+                        <h2 class="text-base font-bold text-gray-800">Foto</h2>
+                    </div>
+                    
+                    <div class="flex flex-col items-center mb-4">
+                        {% if profesional.tiene_foto %}
+                            <img src="{{ profesional.get_foto_url }}" class="w-24 h-24 rounded-full border-4 border-emerald-50 shadow-sm object-cover mb-2">
+                            <p class="text-[10px] text-gray-400 font-bold">Actual</p>
+                        {% else %}
+                            <div class="w-24 h-24 rounded-full bg-emerald-50 border-4 border-white shadow-sm flex items-center justify-center text-3xl">👨‍⚕️</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="text-xs">{{ form.foto }}</div>
+                        {% if form.foto.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.foto.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+
+                <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl text-blue-600 shadow-sm">📞</div>
+                        <h2 class="text-base font-bold text-gray-800">Contacto</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono.label }}</label>
+                            {{ form.telefono }}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email.label }}</label>
+                            {{ form.email }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-purple-50">
+                    <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl text-purple-600 shadow-sm">📍</div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Sucursales</h2>
+                        <p class="text-xs text-gray-500 font-medium">Ubicaciones asignadas</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-3 uppercase tracking-wide">{{ form.sucursales.label }}</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {% for checkbox in form.sucursales %}
+                        <label class="checkbox-wrapper cursor-pointer group">
+                            {{ checkbox.tag }}
+                            <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all bg-white shadow-sm group-hover:border-purple-300">
+                                <span class="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center group-hover:border-purple-500 transition-colors">
+                                    <div class="w-2 h-2 rounded-full bg-purple-500 opacity-0 transition-opacity check-dot"></div>
+                                </span>
+                                <span class="text-xs font-bold text-gray-700">{{ checkbox.choice_label }}</span>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-blue-50">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl text-blue-600 shadow-sm">🏥</div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Servicios</h2>
+                        <p class="text-xs text-gray-500 font-medium">Oferta profesional</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-3 uppercase tracking-wide">{{ form.servicios.label }}</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {% for checkbox in form.servicios %}
+                        <label class="checkbox-wrapper cursor-pointer group">
+                            {{ checkbox.tag }}
+                            <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all bg-white shadow-sm group-hover:border-blue-300">
+                                <span class="text-lg">🩺</span>
+                                <span class="text-xs font-bold text-gray-700">{{ checkbox.choice_label }}</span>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 mt-6">
+                <button type="submit" 
+                        class="flex-1 bg-gradient-to-r from-teal-600 to-emerald-600 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
+                    <span>✅</span> Guardar Cambios
+                </button>
+                <a href="{% url 'profesionales:detalle' profesional.id %}" 
+                   class="px-8 py-3.5 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center">
+                    Cancelar
+                </a>
+            </div>
+        </form>
     </div>
 
-    <!-- FILA 2: Información Personal -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-emerald-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-emerald-100">
-            <div class="bg-emerald-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👤</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Información Personal</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Datos básicos del profesional</p>
+    <div class="lg:col-span-4 space-y-6">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-600 shadow-sm">⚙️</div>
+                <h2 class="text-base font-bold text-gray-800">Sistema</h2>
             </div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre.label }}</label>
-                {{ form.nombre }}
-                {% if form.nombre.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.apellido.label }}</label>
-                {{ form.apellido }}
-                {% if form.apellido.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.apellido.errors.0 }}</p>
-                {% endif %}
-            </div>
-            
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.especialidad.label }}</label>
-                {{ form.especialidad }}
-                {% if form.especialidad.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.especialidad.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 
-    <!-- FILA 3: Información de Contacto -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-            <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📞</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Información de Contacto</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Datos opcionales de contacto</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
-                {{ form.telefono }}
-                {% if form.telefono.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono.errors.0 }}</p>
-                {% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">📱 Número de contacto</p>
-            </div>
-            
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
-                {{ form.email }}
-                {% if form.email.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email.errors.0 }}</p>
-                {% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">📧 Correo electrónico</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- FILA 4: Sucursales -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-purple-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100">
-            <div class="bg-purple-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🏢</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Sucursales</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Lugares donde trabaja el profesional</p>
-            </div>
-        </div>
-        
-        <div class="campo-requerido">
-            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {% for checkbox in form.sucursales %}
-                <div class="checkbox-sucursal">
-                    {{ checkbox.tag }}
-                    <label for="{{ checkbox.id_for_label }}" class="text-xs font-bold text-gray-700 cursor-pointer">
-                        {{ checkbox.choice_label }}
+            <div class="space-y-4">
+                <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        {{ form.activo }}
+                        <div>
+                            <span class="block text-xs font-bold text-emerald-800">Profesional Activo</span>
+                        </div>
                     </label>
                 </div>
-                {% endfor %}
-            </div>
-            {% if form.sucursales.errors %}
-            <p class="text-red-500 text-[10px] font-bold mt-2">{{ form.sucursales.errors.0 }}</p>
-            {% endif %}
-        </div>
-    </div>
 
-    <!-- FILA 5: Servicios que Ofrece -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
-            <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🏥</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Servicios que Ofrece</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Terapias o servicios que puede brindar</p>
-            </div>
-        </div>
-        
-        <div class="campo-requerido">
-            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.servicios.label }}</label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {% for checkbox in form.servicios %}
-                <div class="checkbox-servicio">
-                    {{ checkbox.tag }}
-                    <label for="{{ checkbox.id_for_label }}" class="text-xs font-bold text-gray-700 cursor-pointer">
-                        {{ checkbox.choice_label }}
-                    </label>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.user.label }}</label>
+                    {{ form.user }}
+                    {% if form.user.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>{% endif %}
+                    <p class="text-[10px] text-gray-500 mt-2">Usuario Actual: 
+                        {% if profesional.user %}
+                            <span class="font-bold text-green-700">{{ profesional.user.username }}</span>
+                        {% else %}
+                            <span class="italic text-gray-400">Sin usuario</span>
+                        {% endif %}
+                    </p>
                 </div>
-                {% endfor %}
-            </div>
-            {% if form.servicios.errors %}
-            <p class="text-red-500 text-[10px] font-bold mt-2">{{ form.servicios.errors.0 }}</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- FILA 6: Configuración -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-teal-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-teal-100">
-            <div class="bg-teal-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">⚙️</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Configuración</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Estado y acceso al sistema</p>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.activo.label }}</label>
-                <div class="flex items-center gap-2 p-3 border-2 border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all">
-                    {{ form.activo }}
-                    <span class="text-xs font-bold text-gray-700">Profesional activo en el sistema</span>
-                </div>
-                {% if form.activo.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.activo.errors.0 }}</p>
-                {% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">✅ Activar para que aparezca en el sistema</p>
-            </div>
-            
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.user.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
-                {{ form.user }}
-                {% if form.user.errors %}
-                <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>
-                {% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">
-                    👤 Usuario actual: {% if profesional.user %}<span class="font-bold text-green-700">{{ profesional.user.username }}</span>{% else %}<span class="text-gray-400">Sin usuario vinculado</span>{% endif %}
-                </p>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Botones de Acción -->
-    <div class="flex gap-3 pt-2">
-        <button type="submit" 
-                class="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-            ✅ Guardar Cambios
-        </button>
-        <a href="{% url 'profesionales:detalle' profesional.id %}" 
-           class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
-            Cancelar
-        </a>
-    </div>
-</form>
-
-<!-- JavaScript para preview de foto -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const fotoInput = document.getElementById('id_foto');
-        const previewContainer = document.getElementById('foto-preview-container');
-        const previewImg = document.getElementById('foto-preview-new');
-        const removeBtn = document.getElementById('remove-foto');
+        const checkboxes = document.querySelectorAll('.checkbox-wrapper input[type="checkbox"]');
         
-        if (fotoInput) {
-            fotoInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        previewImg.src = e.target.result;
-                        previewContainer.classList.remove('hidden');
-                    }
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-        
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                fotoInput.value = '';
-                previewContainer.classList.add('hidden');
-                previewImg.src = '';
-            });
-        }
+        checkboxes.forEach(cb => {
+            const updateState = () => {
+                const dot = cb.parentElement.querySelector('.check-dot');
+                if(dot) dot.style.opacity = cb.checked ? '1' : '0';
+            };
+            cb.addEventListener('change', updateState);
+            updateState(); // Init
+        });
     });
 </script>
 {% endblock %}

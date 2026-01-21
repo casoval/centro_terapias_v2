@@ -4,39 +4,59 @@
 
 {% block content %}
 <style>
-    .seccion-form { transition: all 0.3s ease; }
-    .seccion-form:hover { transform: translateY(-2px); }
-    #foto-preview { transition: all 0.3s ease; }
+    .seccion-card { 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .seccion-card:hover { 
+        transform: translateY(-2px); 
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
     .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
+    
+    /* Input Styling match */
+    input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="tel"], select, textarea {
+        border-radius: 0.75rem; /* rounded-xl */
+        border-color: #e5e7eb;
+        padding-top: 0.625rem;
+        padding-bottom: 0.625rem;
+        transition: all 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+        border-color: #6366f1;
+        --tw-ring-color: #6366f1;
+    }
 </style>
 
-<!-- Header Compacto -->
-<div class="mb-4">
-    <div class="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-xl p-3 shadow-lg">
-        <div class="flex justify-between items-center">
+<div class="mb-8">
+    <div class="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-pink-400 opacity-20 blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-cyan-400 opacity-20 blur-xl"></div>
+        
+        <div class="relative flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-                <h1 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-                    <span>➕</span> Nuevo Paciente
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">➕</span> 
+                    Nuevo Paciente
                 </h1>
-                <p class="text-white text-[10px] font-bold opacity-90">Completa los datos del nuevo paciente</p>
+                <p class="text-indigo-100 text-sm mt-2 font-medium">Completa los datos para registrar un nuevo ingreso</p>
             </div>
             <a href="{% url 'pacientes:lista' %}" 
-               class="bg-white text-purple-700 px-3 py-1 rounded-full font-black text-xs shadow-md hover:scale-105 transition-transform">
-                ← Volver
+               class="group bg-white/10 text-white px-6 py-2.5 rounded-full font-bold text-sm shadow-lg hover:bg-white hover:text-indigo-600 transition-all flex items-center gap-2 border border-white/20 backdrop-blur-md">
+                <span>←</span> Volver a la lista
             </a>
         </div>
     </div>
 </div>
 
-<!-- Formulario -->
-<form method="post" enctype="multipart/form-data" class="space-y-3">
+<form method="post" enctype="multipart/form-data" class="space-y-6 pb-10">
     {% csrf_token %}
     
-    <!-- Mensajes de error -->
     {% if form.non_field_errors %}
-    <div class="bg-red-50 border-2 border-red-200 rounded-lg p-3">
-        <p class="text-red-700 font-bold text-sm">❌ Errores:</p>
-        <ul class="list-disc list-inside text-red-600 text-xs mt-1">
+    <div class="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center gap-2 text-red-700 font-bold text-sm mb-2">
+            <span>❌</span> Errores encontrados:
+        </div>
+        <ul class="list-disc list-inside text-red-600 text-xs ml-2">
             {% for error in form.non_field_errors %}
             <li>{{ error }}</li>
             {% endfor %}
@@ -44,312 +64,321 @@
     </div>
     {% endif %}
 
-    <!-- FILA 1: Sucursales + Foto + Datos Básicos -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- 🏢 SUCURSALES -->
-        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-orange-100">
-            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-orange-100">
-                <div class="bg-orange-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🏢</div>
-                <div>
-                    <h2 class="text-sm font-black text-gray-800">Sucursales</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Selecciona donde puede ser atendido</p>
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-xl text-orange-600 shadow-sm">🏢</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-800">Sucursales</h2>
+                        <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Ubicación de atención</p>
+                    </div>
                 </div>
-            </div>
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
-                <div class="space-y-2">
-                    {% for checkbox in form.sucursales %}
-                    <label class="flex items-center gap-2 p-2 border border-gray-200 rounded-lg hover:bg-orange-50 hover:border-orange-300 cursor-pointer transition-all">
-                        {{ checkbox.tag }}
-                        <span class="text-xs font-bold text-gray-700">{{ checkbox.choice_label }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-                {% if form.sucursales.errors %}
-                <p class="text-red-500 text-xs font-bold mt-1">{{ form.sucursales.errors.0 }}</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- 📸 FOTO -->
-        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
-            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📸</div>
-                <div>
-                    <h2 class="text-sm font-black text-gray-800">Foto del Paciente</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Opcional - Se optimizará automáticamente</p>
-                </div>
-            </div>
-            <div class="space-y-2">
-                {{ form.foto }}
-                <p class="text-[10px] text-gray-500">📌 Formatos: JPG, PNG, WebP</p>
-                <div id="foto-preview-container" class="hidden">
-                    <p class="text-[10px] font-bold text-gray-600 mb-1">Vista Previa:</p>
-                    <img id="foto-preview" src="" alt="Preview" class="w-full rounded-lg border border-gray-200 shadow-sm">
-                    <button type="button" id="remove-foto" class="mt-1 text-[10px] text-red-600 font-bold hover:underline">
-                        ❌ Eliminar foto
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 📊 ESTADO -->
-        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-gray-100">
-            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
-                <div class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">📊</div>
-                <div>
-                    <h2 class="text-sm font-black text-gray-800">Estado del Paciente</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Generalmente se deja en "Activo"</p>
-                </div>
-            </div>
-            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
-            {{ form.estado }}
-            {% if form.estado.errors %}
-            <p class="text-red-500 text-xs font-bold mt-1">{{ form.estado.errors.0 }}</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- FILA 2: Información del Paciente (4 columnas) -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-blue-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-            <div class="bg-blue-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👤</div>
-            <div>
-                <h2 class="text-sm font-black text-gray-800">Datos del Paciente</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Información básica del menor</p>
-            </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre.label }}</label>
-                {{ form.nombre }}
-                {% if form.nombre.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre.errors.0 }}</p>{% endif %}
-            </div>
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.apellido.label }}</label>
-                {{ form.apellido }}
-                {% if form.apellido.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.apellido.errors.0 }}</p>{% endif %}
-            </div>
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.fecha_nacimiento.label }}</label>
-                {{ form.fecha_nacimiento }}
-                {% if form.fecha_nacimiento.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.fecha_nacimiento.errors.0 }}</p>{% endif %}
-                <p class="text-[10px] text-gray-500 mt-1">📌 Se calculará la edad automáticamente</p>
-            </div>
-            <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.genero.label }}</label>
-                {{ form.genero }}
-                {% if form.genero.errors %}<p class="text-[10px] text-red-500 font-bold mt-1">{{ form.genero.errors.0 }}</p>{% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- FILA 3: Tutores (2 columnas) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        
-        <!-- 👨‍👩‍👧 TUTOR PRINCIPAL -->
-        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-purple-100">
-            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-purple-100">
-                <div class="bg-purple-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👨‍👩‍👧</div>
-                <div>
-                    <h2 class="text-sm font-black text-gray-800">Tutor Principal</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Contacto principal del paciente</p>
-                </div>
-            </div>
-            <div class="space-y-3">
                 <div class="campo-requerido">
-                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor.label }}</label>
-                    {{ form.nombre_tutor }}
-                    {% if form.nombre_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor.errors.0 }}</p>{% endif %}
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="campo-requerido">
-                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco.label }}</label>
-                        {{ form.parentesco }}
-                        {% if form.parentesco.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco.errors.0 }}</p>{% endif %}
+                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
+                    <div class="space-y-2">
+                        {% for checkbox in form.sucursales %}
+                        <label class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-orange-50/50 hover:border-orange-200 cursor-pointer transition-all bg-gray-50/50">
+                            {{ checkbox.tag }}
+                            <span class="text-sm font-medium text-gray-700">{{ checkbox.choice_label }}</span>
+                        </label>
+                        {% endfor %}
                     </div>
-                    <div class="campo-requerido">
-                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor.label }}</label>
-                        {{ form.telefono_tutor }}
-                        {% if form.telefono_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor.errors.0 }}</p>{% endif %}
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
-                    {{ form.email_tutor }}
-                    {% if form.email_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor.errors.0 }}</p>{% endif %}
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.direccion.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
-                    {{ form.direccion }}
-                    {% if form.direccion.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.direccion.errors.0 }}</p>{% endif %}
+                    {% if form.sucursales.errors %}
+                    <p class="text-red-500 text-xs font-bold mt-2 bg-red-50 p-2 rounded-lg">{{ form.sucursales.errors.0 }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- 👥 SEGUNDO TUTOR -->
-        <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-green-100">
-            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-green-100">
-                <div class="bg-green-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">👥</div>
-                <div>
-                    <h2 class="text-sm font-black text-gray-800">Segundo Tutor / Contacto de Emergencia</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Opcional - Contacto adicional</p>
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl text-blue-600 shadow-sm">📸</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-800">Foto del Paciente</h2>
+                        <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Opcional</p>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs">
+                        {{ form.foto }}
+                    </div>
+                    <p class="text-[10px] text-gray-400 flex items-center gap-1">📌 Formatos: JPG, PNG, WebP</p>
+                    <div id="foto-preview-container" class="hidden mt-2">
+                        <p class="text-[10px] font-bold text-gray-600 mb-2">Vista Previa:</p>
+                        <img id="foto-preview" src="" alt="Preview" class="w-full h-40 object-cover rounded-xl border-2 border-white shadow-md">
+                        <button type="button" id="remove-foto" class="mt-2 text-xs text-red-600 font-bold hover:bg-red-50 px-3 py-1 rounded-lg transition-colors w-full border border-red-100">
+                            ❌ Eliminar foto
+                        </button>
+                    </div>
                 </div>
             </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor_2.label }}</label>
-                    {{ form.nombre_tutor_2 }}
-                    {% if form.nombre_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor_2.errors.0 }}</p>{% endif %}
-                </div>
-                <div class="grid grid-cols-2 gap-3">
+        </div>
+
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-16 h-16 bg-gray-100 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-600 shadow-sm">📊</div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco_2.label }}</label>
-                        {{ form.parentesco_2 }}
-                        {% if form.parentesco_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>{% endif %}
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor_2.label }}</label>
-                        {{ form.telefono_tutor_2 }}
-                        {% if form.telefono_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor_2.errors.0 }}</p>{% endif %}
+                        <h2 class="text-base font-bold text-gray-800">Estado</h2>
+                        <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Situación Actual</p>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor_2.label }}</label>
-                    {{ form.email_tutor_2 }}
-                    {% if form.email_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor_2.errors.0 }}</p>{% endif %}
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
+                    <div class="w-full">
+                        {{ form.estado }}
+                    </div>
+                    {% if form.estado.errors %}
+                    <p class="text-red-500 text-xs font-bold mt-2">{{ form.estado.errors.0 }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- FILA 4: Información Clínica -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-red-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-red-100">
-            <div class="bg-red-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🩺</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-indigo-50">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl text-indigo-600 shadow-sm">👤</div>
             <div>
-                <h2 class="text-sm font-black text-gray-800">Información Clínica</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Diagnóstico y observaciones médicas</p>
+                <h2 class="text-lg font-bold text-gray-800">Datos Personales</h2>
+                <p class="text-xs text-gray-500 font-medium">Información básica del menor</p>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.nombre.label }}</label>
+                {{ form.nombre }}
+                {% if form.nombre.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.nombre.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.apellido.label }}</label>
+                {{ form.apellido }}
+                {% if form.apellido.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.apellido.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.fecha_nacimiento.label }}</label>
+                {{ form.fecha_nacimiento }}
+                {% if form.fecha_nacimiento.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.fecha_nacimiento.errors.0 }}</p>{% endif %}
+                <p class="text-[10px] text-indigo-400 mt-1 font-medium">📌 La edad se calcula automáticamente</p>
+            </div>
+            <div class="campo-requerido">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.genero.label }}</label>
+                {{ form.genero }}
+                {% if form.genero.errors %}<p class="text-[10px] text-red-500 font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.genero.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-20 h-20 bg-purple-50 rounded-bl-full -mr-6 -mt-6 z-0"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl text-purple-600 shadow-sm">👨‍👩‍👧</div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Tutor Principal</h2>
+                        <p class="text-xs text-gray-500 font-medium">Responsable legal y contacto</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="campo-requerido">
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.nombre_tutor.label }}</label>
+                        {{ form.nombre_tutor }}
+                        {% if form.nombre_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="campo-requerido">
+                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.parentesco.label }}</label>
+                            {{ form.parentesco }}
+                            {% if form.parentesco.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div class="campo-requerido">
+                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.telefono_tutor.label }}</label>
+                            {{ form.telefono_tutor }}
+                            {% if form.telefono_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.email_tutor.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                        {{ form.email_tutor }}
+                        {% if form.email_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.direccion.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                        {{ form.direccion }}
+                        {% if form.direccion.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.direccion.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full -mr-6 -mt-6 z-0"></div>
+            <div class="relative z-10">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-xl text-green-600 shadow-sm">👥</div>
+                    <div>
+                        <h2 class="text-lg font-bold text-gray-800">Segundo Contacto</h2>
+                        <p class="text-xs text-gray-500 font-medium">Tutor secundario o emergencia</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.nombre_tutor_2.label }}</label>
+                        {{ form.nombre_tutor_2 }}
+                        {% if form.nombre_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor_2.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.parentesco_2.label }}</label>
+                            {{ form.parentesco_2 }}
+                            {% if form.parentesco_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.telefono_tutor_2.label }}</label>
+                            {{ form.telefono_tutor_2 }}
+                            {% if form.telefono_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor_2.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.email_tutor_2.label }}</label>
+                        {{ form.email_tutor_2 }}
+                        {% if form.email_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor_2.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-red-50">
+            <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl text-red-600 shadow-sm">🩺</div>
             <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.diagnostico.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+                <h2 class="text-lg font-bold text-gray-800">Información Clínica</h2>
+                <p class="text-xs text-gray-500 font-medium">Diagnóstico y observaciones médicas</p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.diagnostico.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.diagnostico }}
                 {% if form.diagnostico.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.diagnostico.errors.0 }}</p>{% endif %}
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.observaciones_medicas.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.observaciones_medicas.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.observaciones_medicas }}
                 {% if form.observaciones_medicas.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.observaciones_medicas.errors.0 }}</p>{% endif %}
             </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.alergias.label }} <span class="text-gray-400 text-[10px]">(opcional)</span></label>
+            <div class="lg:col-span-1">
+                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.alergias.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.alergias }}
                 {% if form.alergias.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.alergias.errors.0 }}</p>{% endif %}
             </div>
         </div>
     </div>
 
-    <!-- FILA 5: Servicios -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
-        <div class="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
-            <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🎯</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-indigo-50">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl text-indigo-600 shadow-sm">🎯</div>
             <div>
-                <h2 class="text-sm font-black text-gray-800">Servicios a Contratar</h2>
-                <p class="text-[9px] text-gray-500 font-bold">Opcional - Selecciona servicios y personaliza si es necesario</p>
+                <h2 class="text-lg font-bold text-gray-800">Servicios a Contratar</h2>
+                <p class="text-xs text-gray-500 font-medium">Selecciona y personaliza los servicios</p>
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {% for servicio in servicios %}
-            <div class="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 transition-all servicio-item">
-                <div class="flex items-center gap-2 mb-2">
-                    <input type="checkbox" name="servicio_{{ servicio.id }}" id="id_servicio_{{ servicio.id }}"
-                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                    <label for="id_servicio_{{ servicio.id }}" class="text-xs font-bold text-gray-800 cursor-pointer flex-1">
+            <div class="border border-gray-100 bg-gray-50/50 rounded-2xl p-4 hover:border-indigo-300 hover:bg-white hover:shadow-md transition-all servicio-item group">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="relative flex items-center justify-center">
+                         <input type="checkbox" name="servicio_{{ servicio.id }}" id="id_servicio_{{ servicio.id }}"
+                           class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 transition-colors">
+                    </div>
+                   
+                    <label for="id_servicio_{{ servicio.id }}" class="text-sm font-bold text-gray-800 cursor-pointer flex-1 group-hover:text-indigo-700 transition-colors">
                         {{ servicio.nombre }}
-                        <span class="text-indigo-600 block text-[10px]">Bs. {{ servicio.costo_base }}</span>
+                        <span class="text-indigo-500 block text-xs font-medium">Bs. {{ servicio.costo_base }}</span>
                     </label>
                 </div>
-                <div class="servicio-details space-y-2" style="display: none;">
+                <div class="servicio-details space-y-3 pl-8 border-l-2 border-indigo-100 ml-2" style="display: none;">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-600 mb-1">💰 Precio Personalizado</label>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wide">💰 Precio Personalizado</label>
                         <input type="number" name="precio_{{ servicio.id }}" id="id_precio_{{ servicio.id }}" step="0.01"
-                               class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
-                               placeholder="Dejar vacío para usar Bs. {{ servicio.costo_base }}">
-                        <p class="text-[9px] text-gray-500 mt-1">💡 Si dejas vacío o en 0, se usará el precio base (Bs. {{ servicio.costo_base }})</p>
+                               class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold focus:ring-2 focus:ring-indigo-400 bg-white"
+                               placeholder="Base: Bs. {{ servicio.costo_base }}">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-600 mb-1">📝 Observaciones</label>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wide">📝 Observaciones</label>
                         <textarea name="obs_{{ servicio.id }}" id="id_obs_{{ servicio.id }}" rows="2"
-                                  class="w-full px-2 py-1 border border-gray-200 rounded text-xs font-bold focus:ring-2 focus:ring-indigo-400"
-                                  placeholder="Observaciones sobre este servicio..."></textarea>
+                                  class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-400 bg-white"
+                                  placeholder="Detalles adicionales..."></textarea>
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
-        <p class="text-[10px] text-gray-500 mt-3 bg-blue-50 p-2 rounded border border-blue-100">
-            💡 <strong>Tip:</strong> Marca los servicios que el paciente necesitará. Si no colocas un precio personalizado, se usará el precio base del servicio.
+        <p class="text-xs text-indigo-600 mt-4 bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex items-center gap-2">
+            <span>💡</span> <strong>Tip:</strong> Marca los servicios necesarios. Si no defines un precio personalizado, se usará el costo base.
         </p>
     </div>
         
-    <!-- ✅ NUEVA SECCIÓN: Usuario del Sistema -->
-    <div class="seccion-form bg-white rounded-xl shadow-md p-4 border-2 border-indigo-100">
-        <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-indigo-100">
-            <div class="flex items-center gap-2">
-                <div class="bg-indigo-100 w-8 h-8 rounded-full flex items-center justify-center text-lg">🔐</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-indigo-50">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-xl text-violet-600 shadow-sm">🔐</div>
                 <div>
-                    <h2 class="text-sm font-black text-gray-800">Usuario del Sistema</h2>
-                    <p class="text-[9px] text-gray-500 font-bold">Credenciales de acceso (opcional)</p>
+                    <h2 class="text-lg font-bold text-gray-800">Usuario del Sistema</h2>
+                    <p class="text-xs text-gray-500 font-medium">Acceso para padres (opcional)</p>
                 </div>
             </div>
             
-            <!-- ✅ BOTÓN: Crear Usuario -->
             <a href="{% url 'core:agregar_usuario' %}?from=paciente" 
-            class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-black text-[10px] shadow-md hover:scale-105 transition-transform flex items-center gap-1">
-                <span>👤</span> Añadir Usuario
+            class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-xs shadow-md hover:scale-105 transition-transform flex items-center justify-center gap-2">
+                <span>👤</span> Añadir Usuario Nuevo
             </a>
         </div>
         
         {% if usuario_seleccionado %}
-        <!-- Mensaje de confirmación si viene desde crear usuario -->
-        <div class="mb-3 p-3 bg-green-50 border-2 border-green-200 rounded-lg">
-            <div class="flex items-center gap-2">
-                <span class="text-xl">✅</span>
-                <div>
-                    <p class="text-xs font-black text-green-800">Usuario creado correctamente</p>
-                    <p class="text-[10px] text-green-700 mt-1">
-                        El usuario <span class="font-black">{{ usuario_seleccionado.username }}</span> se vinculará automáticamente con este paciente.
-                    </p>
-                </div>
+        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3">
+            <span class="text-xl bg-white rounded-full p-1 shadow-sm">✅</span>
+            <div>
+                <p class="text-sm font-bold text-green-800">Usuario creado correctamente</p>
+                <p class="text-xs text-green-700 mt-1">
+                    El usuario <span class="font-black underline">{{ usuario_seleccionado.username }}</span> se vinculará automáticamente.
+                </p>
             </div>
         </div>
         {% endif %}
         
-        <div>
-            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.user.label }}</label>
+        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.user.label }}</label>
             {{ form.user }}
             {% if form.user.errors %}
             <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>
             {% endif %}
-            <p class="text-[10px] text-gray-500 mt-1">
-                🔐 Si el paciente necesita acceder al sistema, selecciona o crea un usuario.
+            <p class="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                🔐 Selecciona un usuario existente si ya está registrado en el sistema.
             </p>
         </div>
     </div>
 
-    <!-- Botones -->
-    <div class="flex gap-3 pt-2">
-        <button type="submit" 
-                class="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-            ✅ Registrar Paciente
-        </button>
-        <a href="{% url 'pacientes:lista' %}" 
-           class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-300 transition-colors">
-            Cancelar
-        </a>
+    <div class="sticky bottom-4 z-50 bg-white/80 backdrop-blur-md p-4 rounded-3xl shadow-2xl border border-gray-200 mt-6 max-w-4xl mx-auto">
+        <div class="flex gap-4">
+            <button type="submit" 
+                    class="flex-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 text-white py-3 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
+                <span>✅</span> Registrar Paciente
+            </button>
+            <a href="{% url 'pacientes:lista' %}" 
+               class="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors flex items-center justify-center">
+                Cancelar
+            </a>
+        </div>
     </div>
 </form>
 
@@ -387,11 +416,18 @@
             const container = checkbox.closest('.servicio-item');
             const details = container.querySelector('.servicio-details');
             
-            if (checkbox.checked) details.style.display = 'block';
+            if (checkbox.checked) {
+                details.style.display = 'block';
+                container.classList.add('bg-white', 'border-indigo-200', 'shadow-sm');
+                container.classList.remove('bg-gray-50/50');
+            }
             
             checkbox.addEventListener('change', function() {
                 if (this.checked) {
                     details.style.display = 'block';
+                    container.classList.add('bg-white', 'border-indigo-200', 'shadow-sm');
+                    container.classList.remove('bg-gray-50/50');
+                    
                     details.style.opacity = '0';
                     setTimeout(() => {
                         details.style.transition = 'opacity 0.3s ease';
@@ -399,6 +435,8 @@
                     }, 10);
                 } else {
                     details.style.opacity = '0';
+                    container.classList.remove('bg-white', 'border-indigo-200', 'shadow-sm');
+                    container.classList.add('bg-gray-50/50');
                     setTimeout(() => details.style.display = 'none', 300);
                 }
             });

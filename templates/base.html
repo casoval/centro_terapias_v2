@@ -1,20 +1,22 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Centro de Terapias{% endblock %}</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
     {% block extra_css %}{% endblock %}
     
     <style>
-        /* Estilos para el dropdown desktop */
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Estilos mejorados para el dropdown desktop */
         .dropdown {
             position: relative;
         }
@@ -24,217 +26,198 @@
             top: 100%;
             left: 0;
             z-index: 1000;
-            min-width: 12rem;
-            padding: 0.5rem 0;
-            margin: 0.125rem 0 0;
-            background-color: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            border: 3px solid #e5e7eb;
+            min-width: 14rem;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border: 1px solid #f1f5f9;
+            animation: fadeIn 0.15s ease-out;
         }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .dropdown:hover .dropdown-menu {
             display: block;
         }
         .dropdown-item {
-            display: block;
-            padding: 0.75rem 1.5rem;
-            color: #374151;
+            display: flex;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            color: #475569;
             text-decoration: none;
             transition: all 0.2s;
-            font-weight: 600;
-            font-size: 0.85rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
         }
         .dropdown-item:hover {
-            background-color: #f3f4f6;
-            color: #1f2937;
-            transform: translateX(5px);
+            background-color: #f8fafc;
+            color: #2563eb;
+            transform: translateX(2px);
         }
         
         /* Menú móvil oculto por defecto */
-        .mobile-menu {
-            display: none;
-        }
-        .mobile-menu.active {
-            display: block;
+        .mobile-menu { display: none; }
+        .mobile-menu.active { display: block; animation: slideDown 0.2s ease-out; }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         /* Animación para el ícono de flecha en móvil */
-        .rotate-180 {
-            transform: rotate(180deg);
-        }
+        .rotate-180 { transform: rotate(180deg); }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-slate-50 flex flex-col min-h-screen">
     
     {% if user.is_authenticated %}
     
-    <!-- ==================== NAVEGACIÓN PARA STAFF (No Pacientes) ==================== -->
     {% if not user.perfil.es_paciente %}
-    <nav class="bg-white shadow-lg">
+    <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 shadow-sm transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center">
+                <div class="flex items-center gap-3">
                     <div class="flex-shrink-0">
-                        <h1 class="text-lg lg:text-xl font-bold text-blue-600">
-                            Centro de Neurodesarrollo Infantil Misael
+                        <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
+                            Centro de Neurodesarrollo Infantil <span class="text-blue-600">Misael</span>
                         </h1>
 
-                        <!-- 👤 Usuario y rol debajo del título -->
-                        <div class="text-xs text-gray-600 leading-tight">
-                            <span class="font-semibold">
+                        <div class="text-xs text-slate-500 font-medium">
+                            <span class="text-slate-700">
                                 {{ user.get_full_name|default:user.username }}
                             </span>
                             {% if user.is_superuser %}
-                                <span class="ml-1 text-blue-600 font-bold">⭐ Super Admin</span>
+                                <span class="ml-1 text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded-full">Super Admin</span>
                             {% elif user.perfil.rol %}
-                                <span class="ml-1 text-gray-500">
+                                <span class="ml-1 text-slate-400">
                                     ({{ user.perfil.get_rol_display }})
                                 </span>
                             {% endif %}
                         </div>
                     </div>
                     
-                    <!-- ✅ MENÚ DESKTOP CON PERMISOS -->
-                    <div class="hidden lg:ml-6 lg:flex lg:space-x-4 xl:space-x-8">
+                    <div class="hidden lg:ml-8 lg:flex lg:space-x-1 lg:items-center">
                         
-                        <!-- Menú Principal - TODOS EXCEPTO PROFESIONALES -->
                         {% if not user.perfil.es_profesional or user.is_superuser %}
                         <a href="{% url 'core:dashboard' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             Menu Principal
                         </a>
                         {% endif %}
                         
-                        <!-- ✅ Agenda: Para todos los roles que tienen acceso -->
                         {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                         <a href="{% url 'agenda:calendario' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
                         </a>
                         {% endif %}
                         
-                        <!-- ✅ NUEVA: Mis Pacientes (Solo Profesionales) -->
                         {% if user.perfil.es_profesional %}
                         <a href="{% url 'profesionales:mis_pacientes' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             👶 Mis Pacientes
                         </a>
                         {% endif %}
                         
-                        <!-- ✅ RECEPCIONISTAS Y GERENTES: Catálogos -->
                         {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                        <!-- ✅ DROPDOWN DESKTOP: Catálogos -->
-                        <div class="dropdown inline-flex items-center">
-                            <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
+                        <div class="dropdown group">
+                            <button class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors focus:outline-none">
                                 Catálogos
-                                <svg class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="ml-1.5 h-4 w-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                             </button>
                             
-                            <!-- ✅ CONTENIDO DEL DROPDOWN -->
                             <div class="dropdown-menu">
-                                <!-- ✅ SECCIÓN 1: Agenda -->
                                 <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item">
-                                    📅 Agendar Sesión
+                                    <span class="mr-2">📅</span> Agendar Sesión
                                 </a>
                                 <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item">
-                                    📦 Proy/Evaluación
+                                    <span class="mr-2">📦</span> Proy/Evaluación
                                 </a>
                                 
-                                <!-- ✅ LÍNEA SEPARADORA -->
-                                <div class="border-t border-gray-200 my-1"></div>
+                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
                                 
-                                <!-- ✅ SECCIÓN 2: Personas -->
                                 <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
-                                    👶 Pacientes
+                                    <span class="mr-2">👶</span> Pacientes
                                 </a>
                                 
-                                <!-- ✅ Profesionales: Solo Gerentes y Superadmin -->
-                                {% if user.is_superuser or user.perfil.es_gerente %}
                                 <a href="{% url 'profesionales:lista' %}" class="dropdown-item">
-                                    👨‍⚕️ Profesionales
+                                    <span class="mr-2">👨‍⚕️</span> Profesionales
                                 </a>
-                                {% endif %}
                                 
-                                <!-- ✅ Solo Gerentes y Superadmin: Servicios y Sucursales -->
-                                {% if user.is_superuser or user.perfil.es_gerente %}
-                                <!-- ✅ LÍNEA SEPARADORA -->
-                                <div class="border-t border-gray-200 my-1"></div>
+                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
                                 
-                                <!-- ✅ SECCIÓN 3: Configuración -->
                                 <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
-                                    🥼 Servicios
+                                    <span class="mr-2">🥼</span> Servicios
                                 </a>
                                 <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item">
-                                    🏢 Sucursales
+                                    <span class="mr-2">🏢</span> Sucursales
                                 </a>
-                                {% endif %}
                                 
-                                <!-- ✅ ❌ USUARIOS/ROLES: SOLO SUPERADMIN (RECEPCIONISTAS NO LO VEN) -->
                                 {% if user.is_superuser %}
-                                <!-- ✅ LÍNEA SEPARADORA -->
-                                <div class="border-t border-gray-200 my-1"></div>
+                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
                                 
-                                <!-- ✅ SECCIÓN 4: Sistema -->
                                 <a href="{% url 'core:lista_usuarios' %}" class="dropdown-item">
-                                    👥 Usuarios y Roles
+                                    <span class="mr-2">👥</span> Usuarios y Roles
                                 </a>
                                 {% endif %}
                             </div>
                         </div>
 
-                        <!-- ✅ Dropdown: Facturación -->
-                        <div class="dropdown inline-flex items-center">
-                            <button class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium cursor-pointer whitespace-nowrap">
+                        <div class="dropdown group">
+                            <button class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors focus:outline-none">
                                 Facturación
-                                <svg class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="ml-1.5 h-4 w-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                             </button>
                             <div class="dropdown-menu">
                                 <a href="{% url 'facturacion:cuentas_corrientes' %}" class="dropdown-item">
-                                    📋 Cuentas Corrientes
+                                    <span class="mr-2">📋</span> Cuentas Corrientes
                                 </a>
                                 <a href="{% url 'facturacion:pagos_masivos' %}" class="dropdown-item">
-                                    💰 Pagos Masivos
+                                    <span class="mr-2">💰</span> Pagos Masivos
                                 </a>
                                 <a href="{% url 'facturacion:historial_pagos' %}" class="dropdown-item">
-                                    📜 Historial de Pagos
+                                    <span class="mr-2">📜</span> Historial de Pagos
                                 </a>
                                 <a href="{% url 'facturacion:registrar_pago' %}" class="dropdown-item">
-                                    ➕ Registrar Pago
+                                    <span class="mr-2">➕</span> Registrar Pago
                                 </a>
                                 
-                                <!-- ✅ Reportes: Solo Gerentes y Superadmin -->
                                 {% if user.is_superuser or user.perfil.es_gerente %}
+                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
                                 <a href="{% url 'facturacion:dashboard_reportes' %}" class="dropdown-item">
-                                    📊 Reportes
+                                    <span class="mr-2">📊</span> Reportes
                                 </a>
                                 {% endif %}
                             </div>
                         </div>
                         {% endif %}
                         
-                        <!-- ✅ Admin: Solo Superadmin -->
                         {% if user.is_superuser %}
                         <a href="/admin/" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium whitespace-nowrap">
-                            ⭐ Admin
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
+                            Admin
                         </a>
                         {% endif %}
                     </div>
                 </div>
                 
-                <!-- Botón cerrar sesión y hamburguesa -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3">
                     <a href="{% url 'core:logout' %}" 
-                       class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap hidden sm:inline-block">
+                       class="hidden sm:inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                         Cerrar Sesión
                     </a>
                     
-                    <!-- Botón hamburguesa (solo móvil <1024px) -->
-                    <button id="mobile-menu-button" class="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none">
+                    <button id="mobile-menu-button" class="lg:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 focus:outline-none transition-colors">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
@@ -243,116 +226,98 @@
             </div>
         </div>
         
-        <!-- ✅ MENÚ MÓVIL CON PERMISOS -->
-        <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-gray-200">
+        <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-slate-100 bg-white">
             <div class="px-2 pt-2 pb-3 space-y-1">
-                <!-- Menú Principal - TODOS EXCEPTO PROFESIONALES -->
                 {% if not user.perfil.es_profesional or user.is_superuser %}
                 <a href="{% url 'core:dashboard' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     Menú Principal
                 </a>
                 {% endif %}
                 
-                <!-- ✅ Agenda según rol -->
                 {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                 <a href="{% url 'agenda:calendario' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
                 </a>
                 {% endif %}
                 
-                <!-- ✅ NUEVA: Mis Pacientes (Solo Profesionales) -->
                 {% if user.perfil.es_profesional %}
                 <a href="{% url 'profesionales:mis_pacientes' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     👶 Mis Pacientes
                 </a>
                 {% endif %}
                 
-                <!-- ✅ Catálogos: Recepcionistas/Gerentes/Superadmin -->
                 {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                <!-- ✅ MENÚ MÓVIL: Catálogos -->
                 <div>
-                    <button id="catalogos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 focus:outline-none">
+                    <button id="catalogos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 focus:outline-none">
                         <span>Catálogos</span>
                         <svg id="catalogos-icon" class="h-5 w-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
                     
-                    <!-- ✅ CONTENIDO DEL SUBMENÚ -->
-                    <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1">
-                        <!-- SECCIÓN 1: Agenda -->
-                        <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1 bg-slate-50 rounded-lg mx-2">
+                        <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📅 Agendar Sesión
                         </a>
-                        <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📦 Proy/Evaluación
                         </a>
                         
-                        <!-- LÍNEA SEPARADORA -->
-                        <div class="border-t border-gray-300 my-2"></div>
+                        <div class="border-t border-slate-200 my-1 mx-3"></div>
                         
-                        <!-- SECCIÓN 2: Personas -->
-                        <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             👶 Pacientes
                         </a>
                         
-                        {% if user.is_superuser or user.perfil.es_gerente %}
-                        <a href="{% url 'profesionales:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'profesionales:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             👨‍⚕️ Profesionales
                         </a>
                         
-                        <!-- LÍNEA SEPARADORA -->
-                        <div class="border-t border-gray-300 my-2"></div>
+                        <div class="border-t border-slate-200 my-1 mx-3"></div>
                         
-                        <!-- SECCIÓN 3: Configuración -->
-                        <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             🥼 Servicios
                         </a>
-                        <a href="{% url 'servicios:lista_sucursales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'servicios:lista_sucursales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             🏢 Sucursales
                         </a>
-                        {% endif %}
                         
-                        <!-- ✅ ❌ USUARIOS: SOLO SUPERADMIN (RECEPCIONISTAS NO LO VEN) -->
                         {% if user.is_superuser %}
-                        <!-- LÍNEA SEPARADORA -->
-                        <div class="border-t border-gray-300 my-2"></div>
+                        <div class="border-t border-slate-200 my-1 mx-3"></div>
                         
-                        <!-- SECCIÓN 4: Sistema -->
-                        <a href="{% url 'core:lista_usuarios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'core:lista_usuarios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             👥 Usuarios y Roles
                         </a>
                         {% endif %}
                     </div>
                 </div>
                 
-                <!-- ✅ Facturación -->
                 <div>
-                    <button id="facturacion-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 focus:outline-none">
+                    <button id="facturacion-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 focus:outline-none">
                         <span>Facturación</span>
                         <svg id="facturacion-icon" class="h-5 w-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="facturacion-menu" class="hidden pl-4 space-y-1 mt-1">
-                        <a href="{% url 'facturacion:cuentas_corrientes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                    <div id="facturacion-menu" class="hidden pl-4 space-y-1 mt-1 bg-slate-50 rounded-lg mx-2">
+                        <a href="{% url 'facturacion:cuentas_corrientes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📋 Cuentas Corrientes
                         </a>
-                        <a href="{% url 'facturacion:pagos_masivos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'facturacion:pagos_masivos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             💰 Pagos Masivos
                         </a>
-                        <a href="{% url 'facturacion:historial_pagos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'facturacion:historial_pagos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📜 Historial de Pagos
                         </a>
-                        <a href="{% url 'facturacion:registrar_pago' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'facturacion:registrar_pago' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             ➕ Registrar Pago
                         </a>
                         
                         {% if user.is_superuser or user.perfil.es_gerente %}
-                        <a href="{% url 'facturacion:dashboard_reportes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-100">
+                        <a href="{% url 'facturacion:dashboard_reportes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📊 Reportes
                         </a>
                         {% endif %}
@@ -362,22 +327,22 @@
                 
                 {% if user.is_superuser %}
                 <a href="/admin/" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     ⭐ Admin
                 </a>
                 {% endif %}
                 
-                <div class="border-t border-gray-200 pt-2 mt-2">
+                <div class="border-t border-slate-100 pt-3 mt-3">
                     <div class="px-3 py-2 text-sm">
-                        <p class="text-gray-900 font-semibold">{{ user.get_full_name|default:user.username }}</p>
+                        <p class="text-slate-800 font-bold">{{ user.get_full_name|default:user.username }}</p>
                         {% if user.is_superuser %}
                         <p class="text-xs text-blue-600 font-bold">⭐ Super Admin</p>
                         {% elif user.perfil.rol %}
-                        <p class="text-xs text-gray-500">{{ user.perfil.get_rol_display }}</p>
+                        <p class="text-xs text-slate-500">{{ user.perfil.get_rol_display }}</p>
                         {% endif %}
                     </div>
                     <a href="{% url 'core:logout' %}" 
-                       class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">
+                       class="block px-3 py-2 rounded-lg text-base font-medium text-red-600 hover:bg-red-50">
                         Cerrar Sesión
                     </a>
                 </div>
@@ -386,54 +351,50 @@
     </nav>
     {% endif %}
     
-    <!-- ==================== NAVEGACIÓN PARA PACIENTES ==================== -->
     {% if user.perfil.es_paciente %}
-    <nav class="bg-white shadow-lg">
+    <nav class="bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center">
+                <div class="flex items-center gap-3">
                     <div class="flex-shrink-0">
-                        <h1 class="text-lg lg:text-xl font-bold text-blue-600">
-                            Centro de Neurodesarrollo Infantil Misael
+                        <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
+                            Centro <span class="text-blue-600">Misael</span>
                         </h1>
-                        <div class="text-xs text-gray-600 leading-tight">
-                            <span class="font-semibold">👤 Portal del Paciente</span>
+                        <div class="text-xs text-slate-500 leading-tight">
+                            <span class="font-medium bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Portal del Paciente</span>
                         </div>
                     </div>
                     
-                    <!-- Menú Desktop Pacientes -->
-                    <div class="hidden lg:ml-6 lg:flex lg:space-x-4">
+                    <div class="hidden lg:ml-8 lg:flex lg:space-x-2">
                         <a href="{% url 'facturacion:mi_cuenta' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             💰 Mi Cuenta
                         </a>
                         <a href="{% url 'pacientes:mis_sesiones' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             📅 Mis Sesiones
                         </a>
                         <a href="{% url 'pacientes:mis_profesionales' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             👨‍⚕️ Mis Profesionales
                         </a>
                         <a href="{% url 'facturacion:mis_pagos' %}" 
-                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
                             💵 Mis Pagos
                         </a>
                     </div>
                 </div>
                 
-                <!-- Usuario y botones -->
-                <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-600 hidden sm:block">
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-slate-600 hidden sm:block">
                         Hola, <strong>{{ user.perfil.paciente.nombre }}</strong>
                     </span>
                     <a href="{% url 'core:logout' %}" 
-                       class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm whitespace-nowrap hidden sm:inline-block">
+                       class="hidden sm:inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                         Cerrar Sesión
                     </a>
                     
-                    <!-- Botón hamburguesa -->
-                    <button id="mobile-menu-button-paciente" class="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none">
+                    <button id="mobile-menu-button-paciente" class="lg:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 focus:outline-none transition-colors">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
@@ -442,33 +403,32 @@
             </div>
         </div>
         
-        <!-- Menú Móvil Pacientes -->
-        <div id="mobile-menu-paciente" class="mobile-menu lg:hidden border-t border-gray-200">
+        <div id="mobile-menu-paciente" class="mobile-menu lg:hidden border-t border-slate-100 bg-white">
             <div class="px-2 pt-2 pb-3 space-y-1">
                 <a href="{% url 'facturacion:mi_cuenta' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     💰 Mi Cuenta
                 </a>
                 <a href="{% url 'pacientes:mis_sesiones' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     📅 Mis Sesiones
                 </a>
                 <a href="{% url 'pacientes:mis_profesionales' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     👨‍⚕️ Mis Profesionales
                 </a>
                 <a href="{% url 'facturacion:mis_pagos' %}" 
-                   class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100">
+                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
                     💵 Mis Pagos
                 </a>
                 
-                <div class="border-t border-gray-200 pt-2 mt-2">
+                <div class="border-t border-slate-100 pt-3 mt-3">
                     <div class="px-3 py-2 text-sm">
-                        <p class="text-gray-900 font-semibold">{{ user.perfil.paciente.nombre }}</p>
-                        <p class="text-xs text-gray-500">Paciente</p>
+                        <p class="text-slate-800 font-bold">{{ user.perfil.paciente.nombre }}</p>
+                        <p class="text-xs text-slate-500">Paciente</p>
                     </div>
                     <a href="{% url 'core:logout' %}" 
-                       class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">
+                       class="block px-3 py-2 rounded-lg text-base font-medium text-red-600 hover:bg-red-50">
                         Cerrar Sesión
                     </a>
                 </div>
@@ -479,19 +439,20 @@
     
     {% endif %}
     
-    <!-- Messages -->
     {% if messages %}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         {% for message in messages %}
-        <div class="rounded-md p-4 mb-4 {% if message.tags == 'error' %}bg-red-50 text-red-800{% elif message.tags == 'success' %}bg-green-50 text-green-800{% else %}bg-blue-50 text-blue-800{% endif %}">
-            {{ message }}
+        <div class="rounded-xl p-4 mb-4 shadow-sm border border-l-4 flex items-center
+            {% if message.tags == 'error' %}bg-red-50 border-red-500 text-red-700
+            {% elif message.tags == 'success' %}bg-green-50 border-green-500 text-green-700
+            {% else %}bg-blue-50 border-blue-500 text-blue-700{% endif %}">
+            <span class="font-medium">{{ message }}</span>
         </div>
         {% endfor %}
     </div>
     {% endif %}
     
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {% block content %}{% endblock %}
     </main>
     

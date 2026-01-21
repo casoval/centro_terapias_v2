@@ -8,11 +8,46 @@ from .forms import PacienteForm
 
 @login_required
 def lista_pacientes(request):
-    """Lista de pacientes activos"""
-    # 1. Ordenamiento: Primero por nombre, luego apellido
-    pacientes = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
+    """
+    Lista de pacientes activos
+    ✅ FILTRADO POR SUCURSAL SEGÚN ROL
+    """
+    # ✅ FILTRADO SEGÚN ROL DEL USUARIO
+    if request.user.is_superuser:
+        # Superadmin ve TODOS los pacientes
+        pacientes = Paciente.objects.filter(estado='activo')
+        sucursales_disponibles = None  # Todas
+    elif hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_gerente():
+            # Gerentes ven TODOS los pacientes
+            pacientes = Paciente.objects.filter(estado='activo')
+            sucursales_disponibles = None  # Todas
+        elif request.user.perfil.es_recepcionista():
+            # ✅ RECEPCIONISTAS: Solo pacientes de SUS sucursales
+            mis_sucursales = request.user.perfil.sucursales.all()
+            
+            if mis_sucursales.exists():
+                pacientes = Paciente.objects.filter(
+                    estado='activo',
+                    sucursales__in=mis_sucursales
+                ).distinct()
+                sucursales_disponibles = mis_sucursales
+            else:
+                # Sin sucursales asignadas = no ve nada
+                pacientes = Paciente.objects.none()
+                sucursales_disponibles = Paciente.objects.none()
+        else:
+            # Otros roles (profesionales, pacientes) no deberían estar aquí
+            pacientes = Paciente.objects.none()
+            sucursales_disponibles = Paciente.objects.none()
+    else:
+        pacientes = Paciente.objects.none()
+        sucursales_disponibles = Paciente.objects.none()
     
-    # 2. Lógica de Búsqueda
+    # Ordenamiento: Primero por nombre, luego apellido
+    pacientes = pacientes.order_by('nombre', 'apellido')
+    
+    # Lógica de Búsqueda
     buscar = request.GET.get('q', '')
     if buscar:
         pacientes = pacientes.filter(
@@ -20,15 +55,23 @@ def lista_pacientes(request):
             Q(apellido__icontains=buscar)
         )
     
-    # 3. Lógica de Filtro por Sucursal
+    # Lógica de Filtro por Sucursal
     sucursal_id = request.GET.get('sucursal')
     if sucursal_id:
         pacientes = pacientes.filter(sucursales__id=sucursal_id)
     
-    # Obtener sucursales para el filtro
+    # ✅ Obtener sucursales para el filtro SEGÚN PERMISOS
     from servicios.models import Sucursal
-    # ✅ CORRECCIÓN: Usar 'activa=True' en lugar de 'activo=True'
-    sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
+    
+    if sucursales_disponibles is None:
+        # Superadmin/Gerente: Todas las sucursales activas
+        sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
+    elif hasattr(sucursales_disponibles, 'exists') and sucursales_disponibles.exists():
+        # Recepcionista: Solo sus sucursales
+        sucursales = sucursales_disponibles.filter(activa=True).order_by('nombre')
+    else:
+        # Sin permisos
+        sucursales = Sucursal.objects.none()
     
     context = {
         'pacientes': pacientes,
@@ -43,6 +86,7 @@ def agregar_paciente(request):
     """
     ✅ Vista para agregar nuevo paciente con formulario personalizado
     ✅ Con sincronización de usuario del sistema
+    ✅ LIMITADO A SUCURSALES DEL RECEPCIONISTA
     """
     # ✅ Verificar si viene con user_id (desde crear usuario)
     user_id = request.GET.get('user_id')
@@ -56,10 +100,27 @@ def agregar_paciente(request):
             messages.warning(request, '⚠️ Usuario no encontrado.')
     
     if request.method == 'POST':
-        form = PacienteForm(request.POST, request.FILES)
+        form = PacienteForm(request.POST, request.FILES, user=request.user)
         
         if form.is_valid():
             paciente = form.save()
+            
+            # ✅ VALIDACIÓN: Verificar que las sucursales sean permitidas
+            if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+                if request.user.perfil.es_recepcionista():
+                    mis_sucursales = request.user.perfil.sucursales.all()
+                    sucursales_paciente = paciente.sucursales.all()
+                    
+                    # Verificar que todas las sucursales del paciente estén en las del recepcionista
+                    sucursales_no_permitidas = sucursales_paciente.exclude(id__in=mis_sucursales.values_list('id', flat=True))
+                    
+                    if sucursales_no_permitidas.exists():
+                        messages.error(
+                            request,
+                            '❌ No tienes permiso para asignar algunas de las sucursales seleccionadas.'
+                        )
+                        paciente.delete()
+                        return redirect('pacientes:agregar')
             
             # ✅ SINCRONIZACIÓN: Si tiene usuario, crear/actualizar perfil
             if paciente.user:
@@ -93,20 +154,20 @@ def agregar_paciente(request):
                 '❌ Por favor corrige los errores en el formulario'
             )
     else:
-        form = PacienteForm()
+        form = PacienteForm(user=request.user)
         
         # ✅ Pre-seleccionar usuario si viene desde crear usuario
         if usuario_seleccionado:
             form.initial['user'] = usuario_seleccionado.id
     
-    # Obtener servicios disponibles
+    # ✅ Obtener servicios disponibles (todos para todos los roles)
     from servicios.models import TipoServicio
     servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
     context = {
         'form': form,
         'servicios': servicios,
-        'usuario_seleccionado': usuario_seleccionado,  # ✅ Para mostrar en template
+        'usuario_seleccionado': usuario_seleccionado,
     }
     return render(request, 'pacientes/agregar.html', context)
 
@@ -115,15 +176,45 @@ def agregar_paciente(request):
 def editar_paciente(request, pk):
     """
     ✅ Vista para editar paciente existente
+    ✅ VALIDAR QUE RECEPCIONISTA SOLO EDITE PACIENTES DE SUS SUCURSALES
     """
     paciente = get_object_or_404(Paciente, pk=pk)
     
+    # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
+    if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_recepcionista():
+            mis_sucursales = request.user.perfil.sucursales.all()
+            sucursales_paciente = paciente.sucursales.all()
+            
+            # Verificar que el paciente tenga al menos una sucursal del recepcionista
+            if not sucursales_paciente.filter(id__in=mis_sucursales.values_list('id', flat=True)).exists():
+                messages.error(
+                    request,
+                    '⚠️ No tienes permiso para editar este paciente (no pertenece a tus sucursales).'
+                )
+                return redirect('pacientes:lista')
+    
     if request.method == 'POST':
-        form = PacienteForm(request.POST, request.FILES, instance=paciente)
+        form = PacienteForm(request.POST, request.FILES, instance=paciente, user=request.user)
         
         if form.is_valid():
             # Guardar paciente
             paciente = form.save()
+            
+            # ✅ VALIDACIÓN: Verificar que las nuevas sucursales sean permitidas
+            if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+                if request.user.perfil.es_recepcionista():
+                    mis_sucursales = request.user.perfil.sucursales.all()
+                    sucursales_paciente = paciente.sucursales.all()
+                    
+                    sucursales_no_permitidas = sucursales_paciente.exclude(id__in=mis_sucursales.values_list('id', flat=True))
+                    
+                    if sucursales_no_permitidas.exists():
+                        messages.error(
+                            request,
+                            '❌ No puedes asignar sucursales fuera de tus permisos.'
+                        )
+                        return redirect('pacientes:editar', pk=pk)
             
             # ✅ SINCRONIZACIÓN: Actualizar perfil si cambió el usuario
             if paciente.user:
@@ -185,7 +276,7 @@ def editar_paciente(request, pk):
                 '❌ Por favor corrige los errores en el formulario'
             )
     else:
-        form = PacienteForm(instance=paciente)
+        form = PacienteForm(instance=paciente, user=request.user)
     
     # Obtener servicios y servicios del paciente
     from servicios.models import TipoServicio
@@ -209,9 +300,22 @@ def editar_paciente(request, pk):
 def eliminar_paciente(request, pk):
     """
     ✅ Vista para eliminar o desactivar paciente
-    Similar a la de usuarios
+    ✅ VALIDAR PERMISOS DE RECEPCIONISTA
     """
     paciente = get_object_or_404(Paciente, pk=pk)
+    
+    # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
+    if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_recepcionista():
+            mis_sucursales = request.user.perfil.sucursales.all()
+            sucursales_paciente = paciente.sucursales.all()
+            
+            if not sucursales_paciente.filter(id__in=mis_sucursales.values_list('id', flat=True)).exists():
+                messages.error(
+                    request,
+                    '⚠️ No tienes permiso para eliminar este paciente.'
+                )
+                return redirect('pacientes:lista')
     
     # ✅ Verificar si tiene datos asociados
     from agenda.models import Sesion
@@ -287,19 +391,35 @@ def eliminar_paciente(request, pk):
 
 @login_required
 def detalle_paciente(request, pk):
-    """Detalle de un paciente con profesionales y sucursales"""
+    """
+    Detalle de un paciente con profesionales y sucursales
+    ✅ VALIDAR ACCESO PARA RECEPCIONISTAS
+    """
     paciente = get_object_or_404(Paciente, pk=pk)
+    
+    # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
+    if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_recepcionista():
+            mis_sucursales = request.user.perfil.sucursales.all()
+            sucursales_paciente = paciente.sucursales.all()
+            
+            if not sucursales_paciente.filter(id__in=mis_sucursales.values_list('id', flat=True)).exists():
+                messages.error(
+                    request,
+                    '⚠️ No tienes permiso para ver este paciente.'
+                )
+                return redirect('pacientes:lista')
     
     # Últimas 10 sesiones
     sesiones = paciente.sesiones.all().order_by('-fecha', '-hora_inicio')[:10]
     
-    # ✅ CORRECCIÓN: Servicios contratados usando consulta directa
+    # ✅ Servicios contratados
     servicios = PacienteServicio.objects.filter(
         paciente=paciente,
         activo=True
     ).select_related('servicio')
     
-    # ✅ NUEVO: Obtener sucursales donde ha sido atendido
+    # ✅ Obtener sucursales donde ha sido atendido
     from agenda.models import Sesion
     sucursales_ids = Sesion.objects.filter(
         paciente=paciente
@@ -310,7 +430,7 @@ def detalle_paciente(request, pk):
         id__in=sucursales_ids
     ).order_by('nombre')
     
-    # ✅ NUEVO: Obtener profesionales que le han atendido
+    # ✅ Obtener profesionales que le han atendido
     profesionales_ids = Sesion.objects.filter(
         paciente=paciente
     ).values_list('profesional_id', flat=True).distinct()
@@ -320,7 +440,7 @@ def detalle_paciente(request, pk):
         id__in=profesionales_ids
     ).prefetch_related('servicios', 'sucursales')
     
-    # ✅ NUEVO: Agregar estadísticas por profesional
+    # ✅ Agregar estadísticas por profesional
     profesionales_data = []
     for profesional in profesionales:
         # Contar sesiones totales con este profesional

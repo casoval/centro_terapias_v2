@@ -5,31 +5,38 @@
 {% block content %}
 <style>
     .campo-requerido label::after { content: ' *'; color: #ef4444; font-weight: bold; }
+    .form-card { transition: all 0.3s ease; }
+    .form-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); }
 </style>
 
-<!-- Header Ultra Compacto -->
-<div class="mb-3">
-    <div class="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-xl p-2.5 shadow-lg flex justify-between items-center">
-        <div>
-            <h1 class="text-base sm:text-lg font-black text-white flex items-center gap-1.5">
-                <span class="text-lg">🏢</span> Nueva Sucursal
-            </h1>
+<div class="mb-8">
+    <div class="relative bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-600 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-yellow-300 opacity-20 blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-20 blur-xl"></div>
+        
+        <div class="relative flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">🏢</span> 
+                    Nueva Sucursal
+                </h1>
+                <p class="text-teal-50 text-sm mt-2 font-medium">Registrar una nueva sede en el sistema</p>
+            </div>
+            <a href="{% url 'servicios:lista_sucursales' %}" 
+               class="group bg-white/20 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg hover:bg-white hover:text-teal-700 transition-all backdrop-blur-md border border-white/30">
+                ← Volver
+            </a>
         </div>
-        <a href="{% url 'servicios:lista_sucursales' %}" 
-           class="bg-white text-cyan-700 px-2.5 py-1 rounded-full font-black text-[10px] shadow-md hover:scale-105 transition-transform">
-            ← Volver
-        </a>
     </div>
 </div>
 
-<form method="post" class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+<form method="post" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {% csrf_token %}
     
-    <!-- Mensajes de error -->
     {% if form.non_field_errors %}
-    <div class="lg:col-span-3 bg-red-50 border-2 border-red-200 rounded-lg p-2.5">
-        <p class="text-red-700 font-bold text-xs">❌ Errores:</p>
-        <ul class="list-disc list-inside text-red-600 text-[10px] mt-1">
+    <div class="lg:col-span-3 bg-red-50 border border-red-200 rounded-2xl p-4 shadow-sm">
+        <p class="text-red-700 font-bold text-sm flex items-center gap-2">❌ Errores encontrados:</p>
+        <ul class="list-disc list-inside text-red-600 text-sm mt-2 ml-2">
             {% for error in form.non_field_errors %}
             <li>{{ error }}</li>
             {% endfor %}
@@ -37,178 +44,175 @@
     </div>
     {% endif %}
 
-    <!-- COLUMNA 1: Formulario Compacto -->
-    <div class="lg:col-span-2 space-y-2.5">
-        <!-- Info Básica -->
-        <div class="bg-white rounded-xl shadow-md p-3 border-2 border-cyan-100">
-            <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-cyan-100">
-                <div class="bg-cyan-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">🏢</div>
-                <h2 class="text-xs font-black text-gray-800">Información Básica</h2>
+    <div class="lg:col-span-2 space-y-6">
+        <div class="form-card bg-white rounded-3xl shadow-md p-6 sm:p-8 border border-gray-100">
+            <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div class="bg-teal-50 w-10 h-10 rounded-xl flex items-center justify-center text-teal-600 text-xl">🏢</div>
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800">Información Básica</h2>
+                    <p class="text-xs text-gray-500 font-medium">Datos de ubicación e identificación</p>
+                </div>
             </div>
             
-            <div class="space-y-2">
+            <div class="space-y-5">
                 <div class="campo-requerido">
-                    <label class="block text-[10px] font-bold text-gray-700 mb-0.5">{{ form.nombre.label }}</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.nombre.label }}</label>
                     {{ form.nombre }}
                     {% if form.nombre.errors %}
-                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.nombre.errors.0 }}</p>
+                    <p class="text-red-500 text-xs font-bold mt-2 ml-1">{{ form.nombre.errors.0 }}</p>
                     {% endif %}
                 </div>
                 
                 <div class="campo-requerido">
-                    <label class="block text-[10px] font-bold text-gray-700 mb-0.5">{{ form.direccion.label }}</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">{{ form.direccion.label }}</label>
                     {{ form.direccion }}
                     {% if form.direccion.errors %}
-                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.direccion.errors.0 }}</p>
+                    <p class="text-red-500 text-xs font-bold mt-2 ml-1">{{ form.direccion.errors.0 }}</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Contacto y Estado en Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <!-- Contacto -->
-            <div class="bg-white rounded-xl shadow-md p-3 border-2 border-blue-100">
-                <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-blue-100">
-                    <div class="bg-blue-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">📞</div>
-                    <h2 class="text-xs font-black text-gray-800">Contacto</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div class="form-card bg-white rounded-3xl shadow-md p-6 border border-gray-100">
+                <div class="flex items-center gap-3 mb-4 pb-2 border-b border-gray-100">
+                    <div class="bg-cyan-50 w-8 h-8 rounded-lg flex items-center justify-center text-cyan-600 text-lg">📞</div>
+                    <h2 class="text-base font-bold text-gray-800">Contacto</h2>
                 </div>
                 
-                <div class="space-y-2">
+                <div class="space-y-4">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-0.5">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
                             {{ form.telefono.label }} 
-                            <span class="text-gray-400 text-[9px]">(opcional)</span>
+                            <span class="text-gray-300 font-normal lowercase">(opcional)</span>
                         </label>
                         {{ form.telefono }}
                         {% if form.telefono.errors %}
-                        <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.telefono.errors.0 }}</p>
+                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.telefono.errors.0 }}</p>
                         {% endif %}
                     </div>
                     
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-0.5">
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
                             {{ form.email.label }}
-                            <span class="text-gray-400 text-[9px]">(opcional)</span>
+                            <span class="text-gray-300 font-normal lowercase">(opcional)</span>
                         </label>
                         {{ form.email }}
                         {% if form.email.errors %}
-                        <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.email.errors.0 }}</p>
+                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.email.errors.0 }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <!-- Estado -->
-            <div class="bg-white rounded-xl shadow-md p-3 border-2 border-teal-100">
-                <div class="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-teal-100">
-                    <div class="bg-teal-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">⚙️</div>
-                    <h2 class="text-xs font-black text-gray-800">Configuración</h2>
+            <div class="form-card bg-white rounded-3xl shadow-md p-6 border border-gray-100">
+                <div class="flex items-center gap-3 mb-4 pb-2 border-b border-gray-100">
+                    <div class="bg-emerald-50 w-8 h-8 rounded-lg flex items-center justify-center text-emerald-600 text-lg">⚙️</div>
+                    <h2 class="text-base font-bold text-gray-800">Estado</h2>
                 </div>
                 
                 <div class="campo-requerido">
-                    <label class="block text-[10px] font-bold text-gray-700 mb-1">{{ form.activa.label }}</label>
-                    <div class="flex items-center gap-2 p-2 border-2 border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-all">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{{ form.activa.label }}</label>
+                    <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 transition-all">
                         {{ form.activa }}
-                        <span class="text-[10px] font-bold text-gray-700">Sucursal operativa</span>
+                        <span class="text-sm font-bold text-gray-700">Sucursal Operativa</span>
                     </div>
                     {% if form.activa.errors %}
-                    <p class="text-red-500 text-[9px] font-bold mt-0.5">{{ form.activa.errors.0 }}</p>
+                    <p class="text-red-500 text-xs font-bold mt-1">{{ form.activa.errors.0 }}</p>
                     {% endif %}
-                    <p class="text-[9px] text-gray-500 mt-1">✅ Activar para que aparezca en el sistema</p>
+                    <p class="text-xs text-gray-400 mt-2">✅ Marcar para habilitar en el sistema</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- COLUMNA 2: Vista Previa Sticky -->
     <div class="lg:col-span-1">
-        <div class="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl shadow-md p-3 border-2 border-cyan-100 lg:sticky lg:top-4">
-            <div class="flex items-center gap-1.5 mb-2">
-                <div class="bg-cyan-100 w-6 h-6 rounded-full flex items-center justify-center text-sm">👁️</div>
-                <h2 class="text-xs font-black text-gray-800">Vista Previa</h2>
-            </div>
+        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-3xl p-6 border border-gray-200 lg:sticky lg:top-6">
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 text-center">Vista Previa de Tarjeta</h3>
             
-            <div class="bg-white rounded-xl shadow-sm border-2 border-gray-100 overflow-hidden">
-                <!-- Header -->
-                <div class="bg-gradient-to-br from-cyan-400 to-blue-500 p-2.5 text-white">
-                    <div class="flex justify-between items-start gap-2">
-                        <div class="min-w-0 flex-1">
-                            <div class="text-xl mb-0.5">🏢</div>
-                            <h3 id="preview-nombre" class="text-sm font-black truncate leading-tight">
-                                Nombre de la Sucursal
-                            </h3>
-                            <p id="preview-direccion" class="text-[9px] font-bold text-cyan-100 mt-0.5 truncate">
-                                📍 Dirección de la sucursal
-                            </p>
-                        </div>
-                        <span id="preview-estado" class="px-1.5 py-0.5 text-[8px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0">
-                            ACTIVA
-                        </span>
+            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 flex flex-col relative overflow-hidden transform hover:-translate-y-1 transition-transform">
+                
+                <div class="absolute top-4 right-4 z-10">
+                    <span id="preview-estado" class="px-3 py-1 text-[10px] font-bold tracking-wider rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVA
+                    </span>
+                </div>
+
+                <div class="h-20 bg-gradient-to-br from-teal-50 to-cyan-100 rounded-t-3xl border-b border-gray-100"></div>
+                
+                <div class="px-5 -mt-10 mb-3 flex flex-col items-center text-center relative z-10">
+                    <div class="w-20 h-20 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-3xl text-teal-600">
+                        🏢
                     </div>
+                    
+                    <h3 id="preview-nombre" class="text-lg font-bold text-gray-800 mt-2 leading-tight px-1">
+                        Nombre de la Sucursal
+                    </h3>
+                    
+                    <p id="preview-direccion" class="mt-1 px-3 py-1 text-[10px] font-medium text-gray-500 bg-gray-50 rounded-full border border-gray-100 truncate max-w-full">
+                         📍 Dirección de la sucursal
+                    </p>
                 </div>
                 
-                <!-- Contenido -->
-                <div class="p-2.5">
-                    <div class="space-y-1.5">
-                        <!-- Teléfono -->
-                        <div id="preview-telefono-container" class="flex items-center gap-1.5 p-1.5 bg-blue-50 rounded-lg border border-blue-100">
-                            <span class="text-sm">📞</span>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-[8px] font-bold text-blue-800 uppercase leading-none">Teléfono</p>
-                                <p id="preview-telefono" class="text-[10px] font-bold text-gray-800 truncate">No especificado</p>
+                <div class="p-4 pt-0 flex-1 space-y-3 pb-6">
+                    <hr class="border-gray-100 mb-2">
+
+                    <div class="space-y-2">
+                        <div id="preview-telefono-container" class="flex items-center gap-3 opacity-50 transition-opacity">
+                            <div class="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 flex-shrink-0 text-sm">
+                                📞
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-0.5">Teléfono</p>
+                                <p id="preview-telefono" class="text-xs font-bold text-gray-700 truncate">No especificado</p>
                             </div>
                         </div>
                         
-                        <!-- Email -->
-                        <div id="preview-email-container" class="flex items-center gap-1.5 p-1.5 bg-purple-50 rounded-lg border border-purple-100">
-                            <span class="text-sm">📧</span>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-[8px] font-bold text-purple-800 uppercase leading-none">Email</p>
-                                <p id="preview-email" class="text-[10px] font-bold text-gray-800 truncate">No especificado</p>
+                        <div id="preview-email-container" class="flex items-center gap-3 opacity-50 transition-opacity">
+                            <div class="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-violet-500 flex-shrink-0 text-sm">
+                                📧
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-0.5">Email</p>
+                                <p id="preview-email" class="text-xs font-bold text-gray-700 truncate">No especificado</p>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Estadísticas simuladas -->
-                    <div class="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-gray-200">
-                        <div class="flex flex-col items-center p-1 bg-blue-50 rounded-lg border border-blue-100 text-center">
-                            <span class="text-sm">👨‍⚕️</span>
-                            <p class="text-[7px] font-bold text-blue-700 uppercase leading-tight">Profesionales</p>
-                            <p class="text-[10px] font-black text-blue-900">0</p>
+                    <div class="grid grid-cols-3 gap-2 mt-2 pt-2">
+                        <div class="flex flex-col items-center p-2 bg-gray-50 rounded-xl border border-gray-100 opacity-60">
+                            <span class="text-xs mb-0.5">👨‍⚕️</span>
+                            <p class="text-[8px] font-bold text-gray-400 uppercase">Staff</p>
+                            <p class="text-xs font-bold text-gray-600">-</p>
                         </div>
-                        <div class="flex flex-col items-center p-1 bg-purple-50 rounded-lg border border-purple-100 text-center">
-                            <span class="text-sm">👶</span>
-                            <p class="text-[7px] font-bold text-purple-700 uppercase leading-tight">Pacientes</p>
-                            <p class="text-[10px] font-black text-purple-900">0</p>
+                        <div class="flex flex-col items-center p-2 bg-gray-50 rounded-xl border border-gray-100 opacity-60">
+                            <span class="text-xs mb-0.5">👶</span>
+                            <p class="text-[8px] font-bold text-gray-400 uppercase">Niños</p>
+                            <p class="text-xs font-bold text-gray-600">-</p>
                         </div>
-                        <div class="flex flex-col items-center p-1 bg-yellow-50 rounded-lg border border-yellow-100 text-center">
-                            <span class="text-sm">🎯</span>
-                            <p class="text-[7px] font-bold text-yellow-700 uppercase leading-tight">Sesiones</p>
-                            <p class="text-[10px] font-black text-yellow-900">0</p>
+                        <div class="flex flex-col items-center p-2 bg-gray-50 rounded-xl border border-gray-100 opacity-60">
+                            <span class="text-xs mb-0.5">🎯</span>
+                            <p class="text-[8px] font-bold text-gray-400 uppercase">Sesiones</p>
+                            <p class="text-xs font-bold text-gray-600">-</p>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <p class="text-[9px] text-cyan-700 mt-2 font-bold">💡 Así se verá en la lista</p>
         </div>
     </div>
 
-    <!-- Botones de Acción - Anchura completa -->
-    <div class="lg:col-span-3 flex gap-2.5 pt-1">
+    <div class="lg:col-span-3 flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100">
         <button type="submit" 
-                class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-2 rounded-xl font-black text-xs shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                class="flex-1 bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-3.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex justify-center items-center gap-2">
             ✅ Crear Sucursal
         </button>
         <a href="{% url 'servicios:lista_sucursales' %}" 
-           class="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl font-black text-xs hover:bg-gray-300 transition-colors">
+           class="px-8 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:text-gray-900 transition-all text-center shadow-sm">
             Cancelar
         </a>
     </div>
 </form>
 
-<!-- JavaScript para preview en tiempo real -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const nombreInput = document.getElementById('id_nombre');
@@ -233,7 +237,8 @@
         
         if (direccionInput) {
             direccionInput.addEventListener('input', function() {
-                previewDireccion.textContent = '📍 ' + (this.value || 'Dirección de la sucursal');
+                const val = this.value || 'Dirección de la sucursal';
+                previewDireccion.textContent = '📍 ' + val;
             });
         }
         
@@ -247,10 +252,7 @@
                     previewTelefonoContainer.classList.add('opacity-50');
                 }
             });
-            
-            if (!telefonoInput.value) {
-                previewTelefonoContainer.classList.add('opacity-50');
-            }
+            if (!telefonoInput.value) previewTelefonoContainer.classList.add('opacity-50');
         }
         
         if (emailInput) {
@@ -263,20 +265,17 @@
                     previewEmailContainer.classList.add('opacity-50');
                 }
             });
-            
-            if (!emailInput.value) {
-                previewEmailContainer.classList.add('opacity-50');
-            }
+            if (!emailInput.value) previewEmailContainer.classList.add('opacity-50');
         }
         
         if (activaInput) {
             activaInput.addEventListener('change', function() {
                 if (this.checked) {
-                    previewEstado.textContent = 'ACTIVA';
-                    previewEstado.className = 'px-1.5 py-0.5 text-[8px] font-black rounded-full bg-green-400 text-green-900 border border-white flex-shrink-0';
+                    previewEstado.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVA';
+                    previewEstado.className = 'px-3 py-1 text-[10px] font-bold tracking-wider rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm flex items-center gap-1';
                 } else {
                     previewEstado.textContent = 'INACTIVA';
-                    previewEstado.className = 'px-1.5 py-0.5 text-[8px] font-black rounded-full bg-gray-400 text-gray-900 border border-white flex-shrink-0';
+                    previewEstado.className = 'px-3 py-1 text-[10px] font-bold tracking-wider rounded-full bg-gray-100 text-gray-500 border border-gray-200 shadow-sm';
                 }
             });
         }

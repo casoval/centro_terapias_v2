@@ -7,7 +7,7 @@
     .usuario-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     .usuario-card:hover { 
         transform: translateY(-5px); 
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
     .rol-badge {
         display: inline-flex;
@@ -19,10 +19,10 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        border: 1px solid;
     }
-    /* Estilos para la transición de vistas */
     .view-hidden { display: none !important; }
-    .btn-view-active { background-color: #7c3aed; color: white; border-color: #7c3aed; } /* Violet-600 */
+    .btn-view-active { background-color: #7c3aed; color: white; border-color: #7c3aed; }
     .btn-view-inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; }
 </style>
 
@@ -55,7 +55,7 @@
         
         <div class="flex-1 flex flex-col sm:flex-row gap-4">
             <div class="relative group flex-1">
-                <div class="absolute -inset-1 bg-gradient-to-r from-violet-400 to-indigo-400 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
+                <div class="absolute -inset-1 bg-gradient-to-r from-violet-400 to-indigo-400 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
                 <div class="relative flex bg-white rounded-xl shadow-sm h-full">
                     <div class="flex-1 relative flex items-center">
                         <span class="absolute left-4 text-gray-400">🔍</span>
@@ -66,9 +66,9 @@
             </div>
 
             <div class="relative group sm:w-64">
-                <div class="absolute -inset-1 bg-gradient-to-r from-purple-400 to-violet-500 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
+                <div class="absolute -inset-1 bg-gradient-to-r from-purple-400 to-violet-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
                 <div class="relative bg-white rounded-xl shadow-sm h-full flex items-center">
-                    <span class="absolute left-4 text-purple-500">👤</span>
+                    <span class="absolute left-4 text-purple-500">🎭</span>
                     <select name="rol" onchange="this.form.submit()" 
                             class="w-full py-3 pl-11 pr-8 bg-transparent border-none rounded-xl focus:ring-0 text-gray-700 font-medium cursor-pointer h-12">
                         <option value="">Todos los roles</option>
@@ -86,43 +86,43 @@
 
         <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 self-end lg:self-auto h-12 lg:h-auto">
             <button type="button" id="btn-grid" onclick="switchView('grid')" 
-                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-active">
+                    class="px-4 py-2 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-active">
                 <span>📲</span> Tarjetas
             </button>
             <button type="button" id="btn-list" onclick="switchView('list')" 
-                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-inactive">
+                    class="px-4 py-2 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-inactive">
                 <span>📋</span> Lista
             </button>
         </div>
     </form>
 </div>
 
-<div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 pb-10">
+<div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
     {% for usuario in usuarios %}
     <div class="usuario-card bg-white rounded-3xl shadow-md border border-gray-100 flex flex-col h-full relative group overflow-hidden">
         
-        <div class="absolute top-4 right-4 z-10 flex flex-col items-end gap-1">
+        <div class="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
             {% if usuario.is_active %}
-            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
-                ACTIVO
+            <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm flex items-center gap-1 backdrop-blur-sm bg-opacity-90">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVO
             </span>
             {% else %}
-            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-gray-100 text-gray-500 border border-gray-200 shadow-sm">
+            <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-gray-100 text-gray-500 border border-gray-200 shadow-sm backdrop-blur-sm bg-opacity-90">
                 INACTIVO
             </span>
             {% endif %}
             
             {% if usuario.is_superuser %}
-            <span class="px-2 py-1 text-[9px] font-black rounded-full bg-amber-100 text-amber-700 border border-amber-200 shadow-sm flex items-center gap-1">
+            <span class="px-2 py-0.5 text-[9px] font-black rounded-full bg-amber-100 text-amber-700 border border-amber-200 shadow-sm flex items-center gap-1 backdrop-blur-sm bg-opacity-90">
                 🔒 ADMIN
             </span>
             {% endif %}
         </div>
 
-        <div class="h-24 bg-gradient-to-br from-violet-50 to-indigo-100 rounded-t-3xl border-b border-gray-100"></div>
+        <div class="h-20 bg-gradient-to-br from-violet-50 to-indigo-100 rounded-t-3xl border-b border-gray-100"></div>
         
-        <div class="px-5 -mt-12 mb-3 flex flex-col items-center text-center">
-            <div class="w-24 h-24 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-4xl group-hover:scale-105 transition-transform">
+        <div class="px-4 -mt-10 mb-2 flex flex-col items-center text-center">
+            <div class="w-20 h-20 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-3xl group-hover:scale-105 transition-transform z-10">
                 {% if usuario.perfil.es_profesional %}👨‍⚕️
                 {% elif usuario.perfil.es_paciente %}👶
                 {% elif usuario.perfil.es_recepcionista %}📋
@@ -130,25 +130,25 @@
                 {% else %}👤{% endif %}
             </div>
             
-            <h3 class="text-xl font-bold text-gray-800 mt-3 leading-tight px-2">
+            <h3 class="text-lg font-bold text-gray-800 mt-2 leading-tight px-1 break-words w-full">
                 {{ usuario.username }}
             </h3>
             
             {% if usuario.first_name or usuario.last_name %}
-            <p class="text-sm font-medium text-gray-500 mt-1">{{ usuario.get_full_name }}</p>
+            <p class="text-xs font-medium text-gray-500 mt-0.5 line-clamp-1">{{ usuario.get_full_name }}</p>
             {% endif %}
         </div>
         
-        <div class="p-5 pt-2 flex-1 space-y-4">
+        <div class="p-4 pt-1 flex-1 space-y-3">
             <hr class="border-gray-100">
 
             <div class="flex justify-center">
                 {% if usuario.perfil.rol %}
                     <span class="rol-badge 
-                        {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border border-cyan-200
-                        {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border border-blue-200
-                        {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200
-                        {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border border-orange-200
+                        {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border-cyan-200
+                        {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border-blue-200
+                        {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200
+                        {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border-orange-200
                         {% endif %}">
                         {% if usuario.perfil.rol == 'profesional' %}🩺
                         {% elif usuario.perfil.rol == 'paciente' %}🧸
@@ -158,26 +158,26 @@
                         {{ usuario.perfil.get_rol_display }}
                     </span>
                 {% else %}
-                    <span class="rol-badge bg-gray-50 text-gray-500 border border-gray-200">
+                    <span class="rol-badge bg-gray-50 text-gray-500 border-gray-200">
                         ⛔ Sin Rol
                     </span>
                 {% endif %}
             </div>
 
             {% if usuario.email %}
-            <div class="flex items-center gap-3 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm text-sm">📧</div>
-                <div class="min-w-0">
-                    <p class="text-[10px] uppercase tracking-wide text-gray-400 font-bold">Email</p>
-                    <p class="text-xs font-bold text-gray-700 truncate">{{ usuario.email }}</p>
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-gray-400 shadow-sm text-xs">📧</div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold mb-0.5">Email</p>
+                    <p class="text-xs font-bold text-gray-700 truncate" title="{{ usuario.email }}">{{ usuario.email }}</p>
                 </div>
             </div>
             {% endif %}
             
             {% if usuario.perfil.profesional or usuario.perfil.paciente %}
-            <div class="flex flex-col items-center p-2 bg-indigo-50 rounded-xl border border-indigo-100">
-                <p class="text-[9px] font-bold text-indigo-400 uppercase text-center leading-tight mb-1">Perfil Vinculado</p>
-                <p class="text-xs font-bold text-indigo-800 flex items-center gap-1">
+            <div class="flex flex-col items-center p-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                <p class="text-[9px] font-bold text-indigo-400 uppercase text-center leading-tight mb-0.5">Perfil Vinculado</p>
+                <p class="text-xs font-bold text-indigo-800 flex items-center gap-1 truncate max-w-full">
                     {% if usuario.perfil.profesional %}
                     👨‍⚕️ {{ usuario.perfil.profesional }}
                     {% elif usuario.perfil.paciente %}
@@ -188,14 +188,14 @@
             {% endif %}
         </div>
         
-        <div class="p-4 bg-gray-50 rounded-b-3xl border-t border-gray-100 grid grid-cols-4 gap-2">
+        <div class="p-3 bg-gray-50 rounded-b-3xl border-t border-gray-100 grid grid-cols-4 gap-2">
             <a href="{% url 'core:editar_usuario' usuario.id %}" 
-               class="col-span-{% if request.user.is_superuser %}3{% else %}4{% endif %} flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl font-bold text-xs shadow-sm transition-colors">
-                <span>✏️</span> Editar Usuario
+               class="col-span-{% if request.user.is_superuser %}3{% else %}4{% endif %} flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl font-bold text-xs shadow-sm transition-colors group-hover:shadow-md">
+                <span>✏️</span> Editar
             </a>
             {% if request.user.is_superuser and usuario != request.user %}
             <a href="{% url 'core:eliminar_usuario' usuario.id %}" 
-               class="col-span-1 flex items-center justify-center bg-white hover:bg-red-50 border border-gray-200 text-red-500 rounded-xl transition-colors text-lg"
+               class="col-span-1 flex items-center justify-center bg-white hover:bg-red-50 border border-gray-200 text-red-500 rounded-xl transition-colors text-base"
                title="Eliminar">
                 🗑️
             </a>
@@ -257,10 +257,10 @@
                         <td class="p-4">
                             {% if usuario.perfil.rol %}
                                 <span class="rol-badge 
-                                    {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border border-cyan-200
-                                    {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border border-blue-200
-                                    {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200
-                                    {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border border-orange-200
+                                    {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border-cyan-200
+                                    {% elif usuario.perfil.rol == 'paciente' %}bg-blue-50 text-blue-700 border-blue-200
+                                    {% elif usuario.perfil.rol == 'recepcionista' %}bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200
+                                    {% elif usuario.perfil.rol == 'gerente' %}bg-orange-50 text-orange-700 border-orange-200
                                     {% endif %}">
                                     {{ usuario.perfil.get_rol_display }}
                                 </span>
@@ -328,7 +328,7 @@
         const btnGrid = document.getElementById('btn-grid');
         const btnList = document.getElementById('btn-list');
         
-        // Clave única para usuarios
+        // Recuperar preferencia
         const currentView = localStorage.getItem('usuariosViewMode') || 'grid';
         applyView(currentView);
 

@@ -7,40 +7,52 @@
 {% block content %}
 <style>
     .vista-btn {
-        transition: all 0.3s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .vista-btn:hover {
-        transform: translateY(-2px);
+        transform: translateY(-1px);
     }
 
-    /* Botón eliminar flotante */
-    .group:hover .opacity-0 {
-        opacity: 1;
+    /* Custom Scrollbar for form filters if needed */
+    .filters-container::-webkit-scrollbar {
+        height: 6px;
+    }
+    .filters-container::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 4px;
     }
     
-    /* Prevenir que el click en eliminar abra el modal */
-    button[onclick*="confirmarEliminar"] {
-        z-index: 20;
+    /* Animación suave para ocultar el header */
+    #header-agenda {
+        transition: all 0.5s ease-in-out;
+        max-height: 1000px;
+        opacity: 1;
+        overflow: hidden;
     }
-
+    #header-agenda.hidden-zen {
+        max-height: 0;
+        opacity: 0;
+        margin-bottom: 0;
+        padding: 0;
+        border: none;
+    }
 </style>
 
-<div class="min-h-screen">
-    <!-- Header con filtros -->
-    <div class="bg-white shadow-lg border-b-2 border-blue-200 rounded-b-2xl">
-        <div class="max-w-full mx-auto px-2 py-3">
-            <!-- Título y acciones -->
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+<div class="min-h-screen pb-12 relative">
+    
+    <div id="header-agenda" class="bg-white shadow-lg shadow-slate-200/50 border border-slate-100 rounded-2xl mb-6">
+        <div class="p-4 sm:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span class="text-lg">📅</span>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                            <span class="text-xl">📅</span>
                         </div>
-                        <h1 class="text-xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                        <h1 class="text-2xl font-black text-slate-800 tracking-tight">
                             Agenda
                         </h1>
                     </div>
-                    <p class="text-xs text-gray-700 font-bold ml-10">
+                    <p class="text-sm text-slate-500 font-bold ml-12">
                         {% if vista == 'diaria' %}
                             📆 {{ fecha_base|fecha_larga }}
                         {% elif vista == 'semanal' %}
@@ -53,86 +65,77 @@
                     </p>
                 </div>
                 
-                <!-- ✅ Botones solo para NO profesionales -->
                 {% if not user.perfil.es_profesional or user.is_superuser %}
-                <div class="flex gap-2">
-                    <!-- Botón Proyectos -->
+                <div class="flex flex-wrap gap-3">
                     <a href="{% url 'agenda:lista_proyectos' %}" 
-                       class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-3 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg font-bold text-xs">
-                        <span class="text-base">📦</span>
+                       class="group bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all font-bold text-xs shadow-sm hover:shadow-md">
+                        <span class="text-base group-hover:scale-110 transition-transform">📦</span>
                         <span>Proyecto/Evaluación</span>
                     </a>
                     
                     <a href="{% url 'agenda:agendar_recurrente' %}" 
-                       class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-full flex items-center gap-2 transition-all shadow-lg font-bold text-xs">
-                        <span class="text-base">➕</span>
+                       class="group bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 font-bold text-xs">
+                        <span class="text-base group-hover:scale-110 transition-transform">➕</span>
                         <span>Agendar Sesión</span>
                     </a>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- Navegación y cambio de vista -->
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <!-- ✅ Navegación de fechas CON TODOS LOS FILTROS -->
-                <div class="flex items-center gap-1">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 bg-slate-50/50 p-2 rounded-xl border border-slate-100">
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
                     <a href="?vista={{ vista }}&fecha={{ fecha_anterior|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
+                    class="bg-white border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-blue-600 px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">
                         ←
                     </a>
                     
                     <a href="?vista={{ vista }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg font-bold text-xs">
-                        🎯 Hoy
+                    class="bg-white border border-slate-200 hover:border-blue-300 text-slate-700 hover:text-blue-600 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                        <span class="text-blue-500">🎯</span> Hoy
                     </a>
                     
                     <a href="?vista={{ vista }}&fecha={{ fecha_siguiente|date:'Y-m-d' }}{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">
+                    class="bg-white border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-blue-600 px-3 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">
                         →
                     </a>
                 </div>
 
-                <!-- ✅ Cambio de vista CON TODOS LOS FILTROS -->
-                <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                <div class="flex bg-slate-200/50 p-1 rounded-xl w-full sm:w-auto">
                     <a href="?vista=diaria{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'diaria' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    class="vista-btn flex-1 sm:flex-none text-center px-4 py-1.5 rounded-lg text-xs font-bold transition-all {% if vista == 'diaria' %}bg-white text-blue-600 shadow-sm ring-1 ring-black/5{% else %}text-slate-500 hover:text-slate-700 hover:bg-slate-200/50{% endif %}">
                         📄 Diaria
                     </a>
                     <a href="?vista=semanal{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'semanal' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    class="vista-btn flex-1 sm:flex-none text-center px-4 py-1.5 rounded-lg text-xs font-bold transition-all {% if vista == 'semanal' %}bg-white text-blue-600 shadow-sm ring-1 ring-black/5{% else %}text-slate-500 hover:text-slate-700 hover:bg-slate-200/50{% endif %}">
                         📊 Semanal
                     </a>
                     <a href="?vista=mensual{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'mensual' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    class="vista-btn flex-1 sm:flex-none text-center px-4 py-1.5 rounded-lg text-xs font-bold transition-all {% if vista == 'mensual' %}bg-white text-blue-600 shadow-sm ring-1 ring-black/5{% else %}text-slate-500 hover:text-slate-700 hover:bg-slate-200/50{% endif %}">
                         📅 Mensual
                     </a>
                     <a href="?vista=lista{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if paciente_id %}&paciente={{ paciente_id }}{% endif %}{% if profesional_id %}&profesional={{ profesional_id }}{% endif %}{% if servicio_id %}&servicio={{ servicio_id }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if tipo_sesion %}&tipo_sesion={{ tipo_sesion }}{% endif %}" 
-                    class="vista-btn px-2 py-1 rounded-lg text-xs font-bold {% if vista == 'lista' %}bg-white text-blue-600 shadow{% else %}text-gray-600 hover:bg-white{% endif %}">
+                    class="vista-btn flex-1 sm:flex-none text-center px-4 py-1.5 rounded-lg text-xs font-bold transition-all {% if vista == 'lista' %}bg-white text-blue-600 shadow-sm ring-1 ring-black/5{% else %}text-slate-500 hover:text-slate-700 hover:bg-slate-200/50{% endif %}">
                         📋 Lista
                     </a>
                 </div>
             </div>
 
-            <!-- ✅ FILTROS AVANZADOS -->
-            <form method="get" class="bg-yellow-50 p-2 rounded-lg border-2 border-yellow-200" id="filtrosForm">
-                <!-- ✅ MANTENER VISTA Y FECHA EN HIDDEN -->
+            <form method="get" class="bg-slate-50 p-4 rounded-xl border border-slate-200" id="filtrosForm">
                 <input type="hidden" name="vista" value="{{ vista }}">
                 <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
                 
-                <!-- ✅ NUEVO: Si es profesional, mantener el filtro oculto -->
                 {% if user.perfil.es_profesional and not user.is_superuser %}
                 <input type="hidden" name="profesional" value="{{ profesional_id }}">
                 {% endif %}
                 
-                <div class="grid grid-cols-2 lg:grid-cols-{% if user.perfil.es_profesional and not user.is_superuser %}6{% else %}7{% endif %} gap-2">
-                    <!-- Filtro Paciente -->
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                <div class="grid grid-cols-2 lg:grid-cols-{% if user.perfil.es_profesional and not user.is_superuser %}6{% else %}7{% endif %} gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             👶 Paciente
                         </label>
                         <select name="paciente" 
                                 id="filtro-paciente"
-                                class="w-full px-2 py-1 border border-blue-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for p in pacientes %}
@@ -143,15 +146,14 @@
                         </select>
                     </div>
 
-                    <!-- ✅ Filtro Profesional - SOLO para NO profesionales -->
                     {% if not user.perfil.es_profesional or user.is_superuser %}
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             👨‍⚕️ Profesional
                         </label>
                         <select name="profesional" 
                                 id="filtro-profesional"
-                                class="w-full px-2 py-1 border border-green-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for prof in profesionales %}
@@ -163,14 +165,13 @@
                     </div>
                     {% endif %}
 
-                    <!-- Filtro Servicio -->
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             🥼 Servicio
                         </label>
                         <select name="servicio" 
                                 id="filtro-servicio"
-                                class="w-full px-2 py-1 border border-purple-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for srv in servicios %}
@@ -181,14 +182,13 @@
                         </select>
                     </div>
 
-                    <!-- Filtro Sucursal -->
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             🏢 Sucursal
                         </label>
                         <select name="sucursal" 
                                 id="filtro-sucursal"
-                                class="w-full px-2 py-1 border border-cyan-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="">Todas</option>
                             {% for sucursal in sucursales %}
@@ -199,14 +199,13 @@
                         </select>
                     </div>
 
-                    <!-- ✅ Filtro Tipo de Sesión -->
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             📦 Tipo
                         </label>
                         <select name="tipo_sesion" 
                                 id="filtro-tipo"
-                                class="w-full px-2 py-1 border border-indigo-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="" {% if not tipo_sesion %}selected{% endif %}>Todas</option>
                             <option value="normal" {% if tipo_sesion == 'normal' %}selected{% endif %}>Sesiones Normales</option>
@@ -214,14 +213,13 @@
                         </select>
                     </div>
 
-                    <!-- Filtro Estado -->
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1">
+                    <div class="space-y-1">
+                        <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500">
                             📊 Estado
                         </label>
                         <select name="estado" 
                                 id="filtro-estado"
-                                class="w-full px-2 py-1 border border-pink-300 rounded-lg text-[10px] font-bold"
+                                class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent shadow-sm transition-all"
                                 onchange="aplicarFiltros()">
                             <option value="">Todos</option>
                             {% for estado_val, estado_nombre in estados %}
@@ -232,21 +230,19 @@
                         </select>
                     </div>
 
-                    <!-- ✅ Botón limpiar -->
                     <div class="flex items-end">
                         <button type="button"
                                 onclick="limpiarFiltros()"
-                                class="w-full bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded-lg text-center text-[10px] font-bold">
-                            🔄 Limpiar
+                                class="w-full bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 px-3 py-2 rounded-lg text-center text-xs font-bold transition-colors flex items-center justify-center gap-1 group h-[38px]">
+                            <span class="group-hover:rotate-180 transition-transform duration-300">🔄</span> Limpiar
                         </button>
                     </div>
                 </div>
                 
-                <!-- ✅ NUEVO: Indicador visual para profesionales -->
                 {% if user.perfil.es_profesional and not user.is_superuser %}
-                <div class="mt-2 bg-blue-50 border border-blue-200 rounded px-2 py-1 flex items-center gap-2">
-                    <span class="text-blue-600 text-xs">ℹ️</span>
-                    <p class="text-[10px] text-blue-700">
+                <div class="mt-4 bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <span class="text-blue-500 text-sm">ℹ️</span>
+                    <p class="text-xs text-blue-700 font-medium">
                         <strong>Modo Profesional:</strong> Mostrando solo tus sesiones
                     </p>
                 </div>
@@ -255,8 +251,7 @@
         </div>
     </div>
 
-    <!-- Contenido según vista -->
-    <div class="max-w-full mx-auto p-2">
+    <div class="max-w-full mx-auto">
         {% if vista == 'diaria' %}
             {% include 'agenda/partials/calendario_diario.html' %}
         {% elif vista == 'semanal' %}
@@ -267,22 +262,55 @@
             {% include 'agenda/partials/calendario_lista.html' %}
         {% endif %}
     </div>
+
+    <button onclick="toggleZenMode()" 
+            class="fixed bottom-6 right-6 z-40 bg-slate-800 hover:bg-black text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 group border-4 border-white"
+            title="Modo Pantalla Completa"
+            style="box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
+        <span id="zen-icon" class="text-2xl group-hover:rotate-90 transition-transform duration-300">⛶</span>
+    </button>
 </div>
 
-<!-- Modal para editar sesión (HTMX) -->
-<div id="modal-editar" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-2">
-    <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-gray-200">
+<div id="modal-editar" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 transform transition-all scale-100">
         <div id="modal-content">
-            <!-- Contenido cargado por HTMX -->
-        </div>
+            </div>
     </div>
 </div>
 
 <script>
+// ============= MODO ZEN (PANTALLA COMPLETA) =============
+function toggleZenMode() {
+    const header = document.getElementById('header-agenda');
+    const icon = document.getElementById('zen-icon');
+    const navbar = document.querySelector('nav');
+    const sidebar = document.querySelector('aside');
+    const sidebarMenu = document.querySelector('.sidebar');
+    
+    if (header.classList.contains('hidden-zen')) {
+        // === SALIR DEL MODO ZEN (MOSTRAR TODO) ===
+        header.classList.remove('hidden-zen');
+        if(navbar) navbar.style.display = '';
+        if(sidebar) sidebar.style.display = '';
+        if(sidebarMenu) sidebarMenu.style.display = '';
+        icon.innerText = '⛶';
+        document.body.style.overflow = '';
+    } else {
+        // === ENTRAR AL MODO ZEN (OCULTAR TODO) ===
+        header.classList.add('hidden-zen');
+        if(navbar) navbar.style.display = 'none';
+        if(sidebar) sidebar.style.display = 'none';
+        if(sidebarMenu) sidebarMenu.style.display = 'none';
+        icon.innerText = '↩';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
 // ============= MANEJO DEL MODAL =============
 function abrirModal() {
     const modal = document.getElementById('modal-editar');
     modal.classList.remove('hidden');
+    modal.querySelector('div').classList.add('scale-100');
     document.body.style.overflow = 'hidden';
 }
 
@@ -345,43 +373,108 @@ function limpiarFiltros() {
     {% endif %}
 }
 
-// ============= ELIMINAR SESIÓN =============
+// ============= 🗑️ ELIMINAR SESIÓN CON SWEETALERT2 =============
 function confirmarEliminar(event, sesionId, paciente, servicio, fecha, hora) {
-    event.stopPropagation(); // Evitar que abra el modal de editar
+    // Prevenir que se abra el modal de edición
+    event.stopPropagation();
+    event.preventDefault();
     
-    const mensaje = `¿Estás seguro de eliminar esta sesión?
-
-📅 Fecha: ${fecha} ${hora}
-👶 Paciente: ${paciente}
-🥼 Servicio: ${servicio}
-
-⚠️ Esta acción no se puede deshacer.`;
-    
-    if (confirm(mensaje)) {
-        eliminarSesion(sesionId);
-    }
+    // Mostrar modal de confirmación con SweetAlert2
+    Swal.fire({
+        title: '🗑️ ¿Eliminar sesión?',
+        html: `
+            <div class="text-left space-y-2">
+                <p class="text-sm text-gray-700 mb-4">
+                    ⚠️ Esta acción <strong>no se puede deshacer</strong>
+                </p>
+                <div class="bg-gray-50 rounded-lg p-3 space-y-1.5 text-xs">
+                    <div class="flex items-start gap-2">
+                        <span class="font-semibold text-gray-600 min-w-[70px]">👤 Paciente:</span>
+                        <span class="text-gray-900">${paciente}</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="font-semibold text-gray-600 min-w-[70px]">📋 Servicio:</span>
+                        <span class="text-gray-900">${servicio}</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="font-semibold text-gray-600 min-w-[70px]">📅 Fecha:</span>
+                        <span class="text-gray-900">${fecha}</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                        <span class="font-semibold text-gray-600 min-w-[70px]">🕐 Hora:</span>
+                        <span class="text-gray-900">${hora}</span>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: '🗑️ Sí, eliminar',
+        cancelButtonText: '❌ Cancelar',
+        reverseButtons: true,
+        focusCancel: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            eliminarSesion(sesionId);
+        }
+    });
 }
 
 function eliminarSesion(sesionId) {
+    // Mostrar loading
+    Swal.fire({
+        title: 'Eliminando...',
+        text: 'Por favor espera',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    // Obtener CSRF token
+    const csrfToken = getCookie('csrftoken');
+    
+    // Realizar petición AJAX
     fetch(`/agenda/api/eliminar/${sesionId}/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+        },
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Recargar la página para reflejar los cambios
-            window.location.reload();
-        } else {
-            alert(data.mensaje || 'Error al eliminar la sesión');
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.mensaje || 'Error al eliminar la sesión');
+            });
         }
+        return response.json();
+    })
+    .then(data => {
+        // Éxito
+        Swal.fire({
+            title: '✅ Eliminada',
+            text: data.mensaje || 'Sesión eliminada correctamente',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        }).then(() => {
+            // Recargar la página
+            window.location.reload();
+        });
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('Error al eliminar la sesión');
+        // Error
+        Swal.fire({
+            title: '❌ Error',
+            text: error.message || 'No se pudo eliminar la sesión',
+            icon: 'error',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#dc2626'
+        });
     });
 }
 

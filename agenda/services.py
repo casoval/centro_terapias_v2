@@ -33,12 +33,49 @@ class CalendarService:
 
     @staticmethod
     def _generate_daily(fecha, sesiones):
+        """
+        ✅ CORREGIDO: Genera estructura diaria con sesiones agrupadas
+        y cálculo de mostrar_linea_tarde (igual que vista semanal)
+        """
         sesiones_dia = [s for s in sesiones if s.fecha == fecha]
+        
+        # Calcular si hay sesiones de mañana y tarde
+        tiene_manana = any(s.hora_inicio.hour < 13 for s in sesiones_dia)
+        tiene_tarde = any(s.hora_inicio.hour >= 13 for s in sesiones_dia)
+        
+        # Agrupar sesiones por hora
+        sesiones_agrupadas = []
+        if sesiones_dia:
+            from itertools import groupby
+            
+            sesiones_ordenadas = sorted(sesiones_dia, key=lambda s: s.hora_inicio)
+            
+            grupos = []
+            for hora, grupo_sesiones in groupby(sesiones_ordenadas, key=lambda s: s.hora_inicio.hour):
+                grupos.append({
+                    'hora': hora,
+                    'sesiones': list(grupo_sesiones)
+                })
+            
+            # ✅ CLAVE: Marcar SOLO el primer grupo >= 13 para mostrar la línea
+            # SOLO si hay sesiones de mañana (tiene_manana = True)
+            primer_tarde_encontrado = False
+            for grupo in grupos:
+                grupo['mostrar_linea_tarde'] = False
+                if grupo['hora'] >= 13 and not primer_tarde_encontrado and tiene_manana:
+                    grupo['mostrar_linea_tarde'] = True
+                    primer_tarde_encontrado = True
+            
+            sesiones_agrupadas = grupos
+        
         return {
             'fecha': fecha,
             'es_hoy': fecha == date.today(),
             'sesiones': sesiones_dia,
+            'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
             'dia_nombre': fecha.strftime('%A'),
+            'tiene_sesiones_manana': tiene_manana,  # ✅ NUEVO
+            'tiene_sesiones_tarde': tiene_tarde,  # ✅ NUEVO
             'tipo': 'diaria'
         }
 

@@ -14,6 +14,20 @@ def lista_profesionales(request):
     # 1. Ordenar por apellido y nombre
     profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
     
+    # ✅ FILTRO POR SUCURSALES DEL RECEPCIONISTA
+    sucursales_usuario = None
+    
+    # Verificar si el usuario tiene perfil
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            # Obtener solo sucursales asignadas al recepcionista/gerente
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Filtrar profesionales que trabajen en esas sucursales
+                profesionales = profesionales.filter(sucursales__in=sucursales_usuario).distinct()
+    
     # 2. Búsqueda por texto
     buscar = request.GET.get('q', '')
     if buscar:
@@ -44,14 +58,17 @@ def lista_profesionales(request):
         ).count()
         profesional.total_pacientes = profesional.get_pacientes().count()
     
-    # Obtener sucursales para el select
-    sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
+    # ✅ Obtener sucursales para el select (solo las del usuario si es recepcionista)
+    if sucursales_usuario and sucursales_usuario.exists():
+        sucursales = sucursales_usuario.filter(activa=True).order_by('nombre')
+    else:
+        sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
 
     context = {
         'profesionales': profesionales,
         'buscar': buscar,
-        'sucursales': sucursales,      # Nueva variable de contexto
-        'sucursal_id': sucursal_id,    # Para mantener la selección
+        'sucursales': sucursales,
+        'sucursal_id': sucursal_id,
     }
     return render(request, 'profesionales/lista.html', context)
 
@@ -60,17 +77,55 @@ def detalle_profesional(request, pk):
     """Detalle de un profesional"""
     profesional = get_object_or_404(Profesional, pk=pk)
     
+    # ✅ FILTRAR SESIONES POR SUCURSALES DEL RECEPCIONISTA
+    sesiones = profesional.sesiones.all()
+    
+    # Verificar si el usuario tiene perfil
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Solo mostrar sesiones de sucursales asignadas
+                sesiones = sesiones.filter(sucursal__in=sucursales_usuario)
+    
     # Últimas 10 sesiones
-    sesiones = profesional.sesiones.all().order_by('-fecha', '-hora_inicio')[:10]
+    sesiones = sesiones.order_by('-fecha', '-hora_inicio')[:10]
     
     # Servicios que ofrece
     servicios = profesional.servicios.filter(activo=True)
     
-    # Sucursales donde trabaja
+    # ✅ FILTRAR SUCURSALES SEGÚN ROL
     sucursales = profesional.sucursales.filter(activa=True)
     
-    # Pacientes que atiende
-    pacientes = profesional.get_pacientes()[:10]
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Solo mostrar sucursales asignadas al recepcionista
+                sucursales = sucursales.filter(id__in=sucursales_usuario)
+    
+    # ✅ FILTRAR PACIENTES POR SUCURSALES DEL RECEPCIONISTA
+    pacientes = profesional.get_pacientes()
+    
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Solo mostrar pacientes atendidos en sucursales asignadas
+                from agenda.models import Sesion
+                pacientes_ids = Sesion.objects.filter(
+                    profesional=profesional,
+                    sucursal__in=sucursales_usuario
+                ).values_list('paciente_id', flat=True).distinct()
+                pacientes = pacientes.filter(id__in=pacientes_ids)
+    
+    pacientes = pacientes[:10]
     
     context = {
         'profesional': profesional,

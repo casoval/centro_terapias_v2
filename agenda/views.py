@@ -1259,10 +1259,12 @@ def editar_sesion(request, sesion_id):
     """
     Editar sesión con validación de pagos y permisos por rol
     
-    🆕 PERMISOS:
+    ✅ PERMISOS ACTUALIZADOS:
     - Profesionales: Pueden editar SOLO sesiones de HOY, una sola vez
-    - Recepcionistas: Pueden editar sesiones de HOY si no fueron editadas por profesional
-    - Admins: Sin restricciones
+    - Recepcionistas: Pueden editar sesiones de CUALQUIER FECHA (pasadas, presentes, futuras)
+      - ✅ NUEVO: Pueden editar pago SIEMPRE (sin bloqueo)
+      - Bloqueado solo si un profesional ya editó la sesión
+    - Gerentes/Admins: Sin restricciones
     """
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
@@ -1282,30 +1284,45 @@ def editar_sesion(request, sesion_id):
     # Validaciones de permisos
     hoy = date.today()
     puede_editar = True
+    puede_editar_pago = True  # ✅ NUEVO: Variable separada para edición de pago
     mensaje_bloqueo = None
     
+    # ✅ NUEVO: Identificar si es recepcionista
+    es_recepcionista = hasattr(request.user, 'perfil') and request.user.perfil.es_recepcionista()
+    
     if not es_admin:
-        # 🔒 RESTRICCIÓN 1: Solo sesiones de HOY
-        if sesion.fecha != hoy:
-            puede_editar = False
-            if sesion.fecha < hoy:
-                mensaje_bloqueo = "Solo lectura - Sesión pasada"
-            else:
-                mensaje_bloqueo = "Solo lectura - Sesión futura"
+        # ✅ MODIFICADO: Recepcionistas pueden editar sesiones de cualquier fecha
+        # Solo profesionales tienen restricción de fecha
+        if es_profesional:
+            # 🔒 RESTRICCIÓN 1: Profesionales solo editan sesiones de HOY
+            if sesion.fecha != hoy:
+                puede_editar = False
+                puede_editar_pago = False  # ✅ Profesionales tampoco editan pago
+                if sesion.fecha < hoy:
+                    mensaje_bloqueo = "Solo lectura - Sesión pasada (Profesionales solo editan hoy)"
+                else:
+                    mensaje_bloqueo = "Solo lectura - Sesión futura (Profesionales solo editan hoy)"
+            
+            # 🔒 RESTRICCIÓN 2: Profesionales solo editan una vez
+            elif sesion.editada_por_profesional:
+                puede_editar = False
+                puede_editar_pago = False  # ✅ Profesionales tampoco editan pago
+                mensaje_bloqueo = "Solo lectura - Ya fue editada por ti"
         
-        # 🔒 RESTRICCIÓN 2: Profesionales solo editan una vez
-        elif es_profesional and sesion.editada_por_profesional:
-            puede_editar = False
-            mensaje_bloqueo = "Solo lectura - Ya fue editada"
-        
-        # 🔒 RESTRICCIÓN 3: Recepcionistas no editan si profesional ya editó
-        elif not es_profesional and sesion.editada_por_profesional:
-            puede_editar = False
-            mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
+        # ✅ NUEVO: Recepcionistas pueden editar SIEMPRE (sin restricción de fecha)
+        # Solo se bloquea si un profesional ya editó (para proteger sus notas privadas)
+        elif es_recepcionista:
+            # 🔒 RESTRICCIÓN: No editar si profesional ya registró la sesión
+            if sesion.editada_por_profesional:
+                puede_editar = False
+                mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
+            
+            # ✅ CLAVE: Recepcionistas SIEMPRE pueden editar pago hasta que esté pagado
+            puede_editar_pago = not sesion.pagado  # Solo bloquear si está totalmente pagado
     
     if request.method == 'POST':
         # Verificar permisos antes de procesar
-        if not puede_editar:
+        if not puede_editar and not puede_editar_pago:
             return JsonResponse({
                 'error': True,
                 'mensaje': f'❌ {mensaje_bloqueo}. No tienes permisos para editar esta sesión.'
@@ -1331,49 +1348,58 @@ def editar_sesion(request, sesion_id):
                         'mensaje': f'Esta sesión tiene {pagos_activos.count()} pago(s) registrado(s) por Bs. {total_pagado}'
                     })
             
-            # Si no hay pagos o no es estado sin cobro, continuar normal
-            sesion.estado = estado_nuevo
+            # ✅ MODIFICADO: Solo actualizar si tiene permiso de edición
+            if puede_editar:
+                # Si no hay pagos o no es estado sin cobro, continuar normal
+                sesion.estado = estado_nuevo
+                
+                # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
+                if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+                    sesion.monto_cobrado = Decimal('0.00')
+                
+                # Observaciones y notas
+                # 🆕 PROFESIONALES: NO modifican observaciones, solo notas_sesion
+                if not es_profesional:
+                    sesion.observaciones = request.POST.get('observaciones', '')
+                # Si es profesional, conservar las observaciones existentes (no las modifica)
+                
+                sesion.notas_sesion = request.POST.get('notas_sesion', '')
+                
+                # Campos específicos según estado
+                if estado_nuevo == 'realizada_retraso':
+                    hora_real = request.POST.get('hora_real_inicio')
+                    if hora_real:
+                        sesion.hora_real_inicio = datetime.strptime(hora_real, '%H:%M').time()
+                        inicio = datetime.combine(sesion.fecha, sesion.hora_inicio)
+                        real = datetime.combine(sesion.fecha, sesion.hora_real_inicio)
+                        sesion.minutos_retraso = int((real - inicio).total_seconds() / 60)
+                
+                if estado_nuevo == 'reprogramada':
+                    fecha_nueva = request.POST.get('fecha_reprogramada')
+                    hora_nueva = request.POST.get('hora_reprogramada')
+                    if fecha_nueva:
+                        sesion.fecha_reprogramada = datetime.strptime(fecha_nueva, '%Y-%m-%d').date()
+                    if hora_nueva:
+                        sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
+                    sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
+                    sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
+                
+                # 🆕 Marcar como editada por profesional si aplica
+                if es_profesional:
+                    sesion.editada_por_profesional = True
+                    sesion.fecha_edicion_profesional = datetime.now()
+                    if profesional_actual:
+                        sesion.profesional_editor = profesional_actual
+                
+                sesion.modificada_por = request.user
+                sesion.save()
             
-            # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
-            if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
-                sesion.monto_cobrado = Decimal('0.00')
-            
-            # Observaciones y notas
-            # 🆕 PROFESIONALES: NO modifican observaciones, solo notas_sesion
-            if not es_profesional:
+            # ✅ NUEVO: Si solo tiene permiso de pago (recepcionista con sesión bloqueada)
+            elif puede_editar_pago and es_recepcionista:
+                # Solo actualizar observaciones (sin cambiar estado ni notas privadas)
                 sesion.observaciones = request.POST.get('observaciones', '')
-            # Si es profesional, conservar las observaciones existentes (no las modifica)
-            
-            sesion.notas_sesion = request.POST.get('notas_sesion', '')
-            
-            # Campos específicos según estado
-            if estado_nuevo == 'realizada_retraso':
-                hora_real = request.POST.get('hora_real_inicio')
-                if hora_real:
-                    sesion.hora_real_inicio = datetime.strptime(hora_real, '%H:%M').time()
-                    inicio = datetime.combine(sesion.fecha, sesion.hora_inicio)
-                    real = datetime.combine(sesion.fecha, sesion.hora_real_inicio)
-                    sesion.minutos_retraso = int((real - inicio).total_seconds() / 60)
-            
-            if estado_nuevo == 'reprogramada':
-                fecha_nueva = request.POST.get('fecha_reprogramada')
-                hora_nueva = request.POST.get('hora_reprogramada')
-                if fecha_nueva:
-                    sesion.fecha_reprogramada = datetime.strptime(fecha_nueva, '%Y-%m-%d').date()
-                if hora_nueva:
-                    sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
-                sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
-                sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
-            
-            # 🆕 Marcar como editada por profesional si aplica
-            if es_profesional:
-                sesion.editada_por_profesional = True
-                sesion.fecha_edicion_profesional = datetime.now()
-                if profesional_actual:
-                    sesion.profesional_editor = profesional_actual
-            
-            sesion.modificada_por = request.user
-            sesion.save()
+                sesion.modificada_por = request.user
+                sesion.save()
             
             messages.success(request, '✅ Sesión actualizada correctamente')
             
@@ -1392,11 +1418,12 @@ def editar_sesion(request, sesion_id):
         'sesion': sesion,
         'estadisticas': json.dumps(estadisticas),
         'puede_editar': puede_editar,
+        'puede_editar_pago': puede_editar_pago,  # ✅ NUEVO
         'mensaje_bloqueo': mensaje_bloqueo,
         'es_profesional': es_profesional,
+        'es_recepcionista': es_recepcionista,  # ✅ NUEVO
         'es_admin': es_admin,
     })
-
 
 @login_required
 def modal_confirmar_cambio_estado(request, sesion_id):

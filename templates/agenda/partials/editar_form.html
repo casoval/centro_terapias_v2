@@ -1,11 +1,7 @@
 <form class="p-3 sm:p-4 bg-white relative" id="form-editar-{{ sesion.id }}">
     {% csrf_token %}
     
-    <div id="toast-notification-{{ sesion.id }}" class="hidden fixed top-4 right-4 z-50 px-4 py-2 rounded shadow-lg transform transition-all duration-300 text-sm font-bold flex items-center gap-2">
-        <span id="toast-icon-{{ sesion.id }}"></span>
-        <span id="toast-message-{{ sesion.id }}"></span>
-    </div>
-
+    
     <!-- 🆕 HEADER CON INDICADOR DE PERMISOS -->
     <div class="flex items-start justify-between mb-3 border-b pb-2">
         <div class="flex-1">
@@ -70,7 +66,67 @@
             <p class="text-xs text-gray-500 mt-1">{{ mensaje_bloqueo }}</p>
         </div>
         
-        <!-- Mostrar info actual en modo lectura -->
+        <!-- ✅ NUEVO: Permitir registrar pago incluso si está bloqueada (SOLO RECEPCIONISTAS) -->
+        {% if es_recepcionista and puede_editar_pago and sesion.requiere_pago and not sesion.pagado %}
+        <!-- Sección de pagos EDITABLE -->
+        <div class="mb-3 p-2.5 rounded border bg-yellow-50 border-yellow-200">
+            <h4 class="font-bold text-gray-800 text-xs mb-2 flex items-center gap-1">
+                <span>💰</span> Estado de Pago (Editable)
+            </h4>
+            
+            <div class="bg-white/80 rounded p-2 border border-yellow-200">
+                <div class="flex justify-between text-center mb-2 text-xs">
+                    <div><span class="block text-[10px] text-gray-500">Total</span><span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span></div>
+                    <div><span class="block text-[10px] text-gray-500">Pagado</span><span class="font-bold text-green-700">Bs.{{ sesion.total_pagado }}</span></div>
+                    <div><span class="block text-[10px] text-gray-500">Saldo</span><span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span></div>
+                </div>
+                
+                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
+                   class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold text-xs py-1.5 px-2 rounded shadow-sm transition">
+                    💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})
+                </a>
+                
+                {% if sesion.total_pagado > 0 %}
+                <div class="mt-2 pt-1 border-t border-yellow-100">
+                    {% for pago in sesion.pagos.all %}
+                    {% if not pago.anulado %}
+                    <div class="flex justify-between text-[10px] text-gray-600">
+                        <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
+                        <span class="font-bold text-green-700">Bs. {{ pago.monto }}</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <p class="text-[10px] text-yellow-700 mt-2 text-center">
+                💡 Puedes registrar pagos aunque la sesión esté bloqueada
+            </p>
+        </div>
+        
+        <!-- Observaciones editables solo para registrar notas de pago -->
+        <div class="mb-3">
+            <label class="block text-xs font-bold text-gray-700 mb-1">📝 Observaciones (Solo notas de pago)</label>
+            <textarea name="observaciones" rows="2"
+                      class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
+                      placeholder="Ej: Cliente pagará el próximo lunes...">{{ sesion.observaciones }}</textarea>
+        </div>
+        
+        <!-- Botón para guardar solo observaciones -->
+        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
+            <button type="button" onclick="cerrarModal()"
+                    class="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition">
+                Cancelar
+            </button>
+            <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
+                    class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm flex justify-center items-center gap-2">
+                💾 Guardar Nota
+            </button>
+        </div>
+        
+        {% else %}
+        <!-- Mostrar info actual en modo lectura completo -->
         <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
             <label class="block text-xs font-bold text-gray-600 mb-1">Estado</label>
             <span class="px-2 py-1 rounded text-sm font-medium inline-block
@@ -97,6 +153,7 @@
             <label class="block text-xs font-bold text-gray-600 mb-1">Observaciones</label>
             <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ sesion.observaciones }}</p>
         </div>
+        {% endif %}
         {% endif %}
         
     {% else %}
@@ -301,13 +358,16 @@
                           placeholder="...">{{ sesion.observaciones }}</textarea>
             </div>
 
-            <!-- Notas de sesión -->
+            <!-- ✅ OCULTAR Notas de sesión privadas para recepcionistas -->
+            {% if user.is_superuser or user.perfil.es_gerente %}
             <div class="mb-3">
                 <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente (Privado)</label>
                 <textarea name="notas_sesion" rows="3"
                           class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
                           placeholder="Evolución...">{{ sesion.notas_sesion }}</textarea>
+                <p class="text-[10px] text-gray-500 mt-1">💡 Este campo es privado y solo visible para profesionales y administradores</p>
             </div>
+            {% endif %}
 
         {% endif %}
 
@@ -340,27 +400,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function mostrarNotificacion{{ sesion.id }}(mensaje, tipo) {
-    const toast = document.getElementById('toast-notification-{{ sesion.id }}');
-    const icon = document.getElementById('toast-icon-{{ sesion.id }}');
-    const text = document.getElementById('toast-message-{{ sesion.id }}');
-    
-    if (tipo === 'success') {
-        toast.className = 'fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-xl transform transition-all duration-300 flex items-center gap-3 bg-green-600 text-white';
-        icon.innerHTML = '✅';
-    } else {
-        toast.className = 'fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-xl transform transition-all duration-300 flex items-center gap-3 bg-red-600 text-white';
-        icon.innerHTML = '❌';
-    }
-    
-    text.textContent = mensaje;
-    toast.classList.remove('hidden', 'translate-y-[-20px]', 'opacity-0');
-    
-    setTimeout(() => {
-        toast.classList.add('translate-y-[-20px]', 'opacity-0');
-        setTimeout(() => toast.classList.add('hidden'), 300);
-    }, 3000);
-}
 
 function aplicarPoliticas{{ sesion.id }}() {
     const estado = document.getElementById('estado-{{ sesion.id }}').value;
@@ -409,10 +448,29 @@ function cambiarEstado{{ sesion.id }}() {
 function guardarSesion{{ sesion.id }}(event) {
     event.preventDefault();
     
-    if (!PUEDE_EDITAR) {
-        mostrarNotificacion{{ sesion.id }}('No tienes permisos para editar esta sesión', 'error');
+    // ✅ MODIFICADO: Permitir guardar si tiene permiso de edición O permiso de pago
+    const PUEDE_EDITAR_PAGO = {{ puede_editar_pago|yesno:"true,false" }};
+    
+    if (!PUEDE_EDITAR && !PUEDE_EDITAR_PAGO) {
+        Swal.fire({
+            title: '❌ Sin permisos',
+            text: 'No tienes permisos para editar esta sesión',
+            icon: 'error',
+            confirmButtonColor: '#dc2626',
+        });
         return;
     }
+    
+    // Mostrar loading
+    Swal.fire({
+        title: 'Guardando...',
+        text: 'Por favor espera',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
     
     const form = document.getElementById('form-editar-{{ sesion.id }}');
     const formData = new FormData(form);
@@ -428,24 +486,73 @@ function guardarSesion{{ sesion.id }}(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            mostrarNotificacion{{ sesion.id }}('Sesión guardada correctamente', 'success');
-            setTimeout(() => {
+            // ✅ Éxito
+            Swal.fire({
+                title: '✅ ¡Guardado!',
+                text: 'La sesión se actualizó correctamente',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
                 cerrarModal();
                 location.reload();
-            }, 1500);
+            });
         } else if (data.error) {
-            mostrarNotificacion{{ sesion.id }}(data.mensaje || 'Error al guardar', 'error');
+            // ❌ Error
+            Swal.fire({
+                title: '❌ Error',
+                text: data.mensaje || 'No se pudo guardar la sesión',
+                icon: 'error',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#dc2626'
+            });
         } else if (data.requiere_confirmacion) {
-            // Manejar confirmación de cambio de estado con pagos
-            if (confirm(data.mensaje + '\n\n¿Desea continuar?')) {
-                // Aquí iría la lógica de confirmación
-                mostrarNotificacion{{ sesion.id }}('Funcionalidad de confirmación pendiente', 'error');
-            }
+            // ⚠️ Requiere confirmación (cambio de estado con pagos)
+            Swal.fire({
+                title: '⚠️ Confirmación requerida',
+                html: `
+                    <div class="text-left">
+                        <p class="mb-3">${data.mensaje}</p>
+                        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+                            <p class="text-sm font-semibold text-yellow-800">
+                                💰 Pagos registrados: ${data.cantidad_pagos}
+                            </p>
+                            <p class="text-lg font-bold text-yellow-900">
+                                Total: Bs. ${data.total_pagado}
+                            </p>
+                        </div>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '✅ Sí, continuar',
+                cancelButtonText: '❌ Cancelar',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Aquí iría la lógica de confirmación
+                    // Por ahora mostrar que falta implementar
+                    Swal.fire({
+                        title: 'ℹ️ Pendiente',
+                        text: 'Funcionalidad de confirmación de cambio de estado con pagos pendiente de implementar',
+                        icon: 'info',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            });
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        mostrarNotificacion{{ sesion.id }}('Error de conexión', 'error');
+        Swal.fire({
+            title: '❌ Error de conexión',
+            text: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
+            icon: 'error',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#dc2626'
+        });
     });
 }
 </script>

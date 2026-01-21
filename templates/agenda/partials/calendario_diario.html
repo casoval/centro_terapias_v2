@@ -86,13 +86,14 @@
     <!-- SESIONES EN GRID 3 COLUMNAS CON LÍNEA DIVISORIA 13:00 -->
     <div class="p-3">
         {% if calendario_data.sesiones %}
-            {% regroup calendario_data.sesiones by hora_inicio|time:"H" as sesiones_por_hora %}
-            
-            {% for grupo in sesiones_por_hora %}
-                {% if forloop.first or grupo.grouper|add:"0" >= 13 and forloop.counter0 > 0 %}
-                    {% if grupo.grouper|add:"0" >= 13 and forloop.counter0 > 0 %}
-                        <!-- LÍNEA DIVISORIA TARDE (13:00) -->
-                        <div class="my-3 flex items-center">
+            <!-- GRID 3 COLUMNAS ÚNICO -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {# ✅ IGUAL QUE CALENDARIO SEMANAL: Backend ya calculó mostrar_linea_tarde #}
+                {% for grupo in calendario_data.sesiones_agrupadas %}
+                    {# ✅ SIMPLE: Backend ya calculó si mostrar la línea #}
+                    {% if grupo.mostrar_linea_tarde %}
+                        <!-- LÍNEA DIVISORIA TARDE (13:00) - OCUPA TODA LA FILA -->
+                        <div class="col-span-1 md:col-span-2 lg:col-span-3 my-3 flex items-center">
                             <div class="flex-1 border-t-2 border-orange-400"></div>
                             <span class="px-3 text-xs font-bold text-orange-600 bg-orange-50 rounded-full py-1">
                                 🌅 Medio Dia
@@ -100,11 +101,9 @@
                             <div class="flex-1 border-t-2 border-orange-400"></div>
                         </div>
                     {% endif %}
-                {% endif %}
-                
-                <!-- GRID 3 COLUMNAS -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-2">
-                    {% for sesion in grupo.list %}
+                    
+                    <!-- SESIONES DEL GRUPO -->
+                    {% for sesion in grupo.sesiones %}
                     <div class="group relative cursor-pointer hover:shadow-lg transition-all duration-200 rounded-lg border-l-4 
                         {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50 hover:bg-blue-100
                         {% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50 hover:bg-green-100
@@ -213,19 +212,21 @@
                                 {% endif %}
                             </div>
 
-                            <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago Y NO PROFESIONALES) -->
-                            {% if sesion.estado == 'programada' and not sesion.pagos.exists and not user.perfil.es_profesional %}
+                            <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago, SOLO GERENTES Y SUPERADMIN) -->
+                            {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
+                            {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
                             <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
                                     class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                     title="Eliminar sesión">
                                 🗑️
                             </button>
                             {% endif %}
+                        {% endif %}
                         </div>
                     </div>
                     {% endfor %}
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         {% else %}
         <div class="text-center py-8">
             <div class="text-4xl mb-2">📅</div>

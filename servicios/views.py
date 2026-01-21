@@ -59,11 +59,27 @@ def detalle_servicio(request, pk):
     mostrar_todos_profesionales = request.GET.get('todos_prof', '') == '1'
     mostrar_todos_pacientes = request.GET.get('todos_pac', '') == '1'
     
+    # ✅ FILTRAR POR SUCURSALES DEL RECEPCIONISTA
+    sesiones = servicio.sesiones.all()
+    profesionales_query = servicio.profesionales.filter(activo=True)
+    
+    # Verificar si el usuario tiene perfil y es recepcionista
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Filtrar sesiones por sucursales del recepcionista
+                sesiones = sesiones.filter(sucursal__in=sucursales_usuario)
+                # Filtrar profesionales por sucursales del recepcionista
+                profesionales_query = profesionales_query.filter(sucursales__in=sucursales_usuario).distinct()
+    
     # Últimas 10 sesiones
-    sesiones = servicio.sesiones.all().order_by('-fecha', '-hora_inicio')[:10]
+    sesiones = sesiones.order_by('-fecha', '-hora_inicio')[:10]
     
     # ✅ Profesionales que ofrecen este servicio
-    profesionales_query = servicio.profesionales.filter(activo=True).order_by('apellido', 'nombre')
+    profesionales_query = profesionales_query.order_by('apellido', 'nombre')
     total_profesionales = profesionales_query.count()
     
     if mostrar_todos_profesionales:
@@ -71,7 +87,7 @@ def detalle_servicio(request, pk):
     else:
         profesionales = profesionales_query[:6]  # Mostrar solo 6 inicialmente
     
-    # ✅ NUEVO: Pacientes que reciben este servicio
+    # ✅ NUEVO: Pacientes que reciben este servicio (filtrados por sucursal si es recepcionista)
     try:
         from pacientes.models import PacienteServicio
         pacientes_query = PacienteServicio.objects.filter(
@@ -79,8 +95,20 @@ def detalle_servicio(request, pk):
             activo=True
         ).select_related('paciente').filter(
             paciente__estado='activo'
-        ).order_by('paciente__apellido', 'paciente__nombre')
+        )
         
+        # Filtrar pacientes por sucursales del recepcionista
+        if hasattr(request.user, 'perfil'):
+            perfil = request.user.perfil
+            
+            if perfil.es_recepcionista() or perfil.es_gerente():
+                sucursales_usuario = perfil.get_sucursales()
+                if sucursales_usuario and sucursales_usuario.exists():
+                    pacientes_query = pacientes_query.filter(
+                        paciente__sucursales__in=sucursales_usuario
+                    ).distinct()
+        
+        pacientes_query = pacientes_query.order_by('paciente__apellido', 'paciente__nombre')
         total_pacientes = pacientes_query.count()
         
         if mostrar_todos_pacientes:
@@ -218,6 +246,16 @@ def lista_sucursales(request):
     """Lista de sucursales activas"""
     sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
     
+    # ✅ FILTRAR POR SUCURSALES DEL RECEPCIONISTA
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Mostrar solo las sucursales asignadas al recepcionista
+                sucursales = sucursales.filter(id__in=sucursales_usuario)
+    
     # Búsqueda
     buscar = request.GET.get('q', '')
     if buscar:
@@ -248,6 +286,18 @@ def lista_sucursales(request):
 def detalle_sucursal(request, pk):
     """Detalle de una sucursal"""
     sucursal = get_object_or_404(Sucursal, pk=pk)
+    
+    # ✅ VERIFICAR ACCESO DEL RECEPCIONISTA A ESTA SUCURSAL
+    if hasattr(request.user, 'perfil'):
+        perfil = request.user.perfil
+        
+        if perfil.es_recepcionista() or perfil.es_gerente():
+            sucursales_usuario = perfil.get_sucursales()
+            if sucursales_usuario and sucursales_usuario.exists():
+                # Verificar que tenga acceso a esta sucursal
+                if not sucursales_usuario.filter(id=sucursal.id).exists():
+                    messages.error(request, '⚠️ No tienes acceso a esta sucursal.')
+                    return redirect('servicios:lista_sucursales')
     
     # ✅ Parámetros para mostrar todos
     mostrar_todos_profesionales = request.GET.get('todos_prof', '') == '1'

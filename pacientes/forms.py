@@ -6,10 +6,41 @@ from datetime import date
 
 
 class PacienteForm(forms.ModelForm):
-    """Formulario personalizado para crear/editar pacientes"""
+    """
+    Formulario personalizado para crear/editar pacientes
+    ✅ CON FILTRADO DE SUCURSALES SEGÚN ROL DEL USUARIO
+    """
     
     def __init__(self, *args, **kwargs):
+        # ✅ RECIBIR USUARIO PARA FILTRAR SUCURSALES
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        
+        # ✅ FILTRADO DE SUCURSALES SEGÚN ROL DEL USUARIO
+        if user:
+            if user.is_superuser:
+                # Superadmin: Todas las sucursales activas
+                self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
+            elif hasattr(user, 'perfil'):
+                if user.perfil.es_gerente():
+                    # Gerente: Todas las sucursales activas
+                    self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
+                elif user.perfil.es_recepcionista():
+                    # ✅ RECEPCIONISTA: Solo sus sucursales asignadas
+                    mis_sucursales = user.perfil.sucursales.filter(activa=True)
+                    self.fields['sucursales'].queryset = mis_sucursales.order_by('nombre')
+                    
+                    # ✅ MENSAJE INFORMATIVO si no tiene sucursales
+                    if not mis_sucursales.exists():
+                        self.fields['sucursales'].help_text = '⚠️ No tienes sucursales asignadas. Contacta al administrador.'
+                else:
+                    # Otros roles: Sin sucursales
+                    self.fields['sucursales'].queryset = Sucursal.objects.none()
+            else:
+                self.fields['sucursales'].queryset = Sucursal.objects.none()
+        else:
+            # Sin usuario: Todas las sucursales (fallback para compatibilidad)
+            self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
         
         # ✅ FILTRAR: Solo usuarios con rol "paciente" que NO estén vinculados
         from core.models import PerfilUsuario
