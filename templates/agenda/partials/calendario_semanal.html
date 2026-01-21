@@ -16,10 +16,10 @@
     <!-- Header días de la semana COMPACTO -->
     <div id="header-dias" class="grid grid-cols-7 gap-0 border-b bg-gray-50">
         {% for dia in calendario_data.dias %}
-        <div class="dia-header p-2 text-center border-r last:border-r-0 {% if dia.es_hoy %}bg-blue-50{% endif %} {% if forloop.last %}columna-domingo{% endif %}" 
+        <div class="dia-header p-2 text-center border-r last:border-r-0 {% if dia.es_hoy %}bg-gray-200{% endif %} {% if forloop.last %}columna-domingo{% endif %}" 
              data-dia="{{ forloop.counter0 }}">
             <div class="text-[9px] font-semibold text-gray-500 uppercase">{{ dia.fecha|dia_semana|slice:":3" }}</div>
-            <div class="text-lg font-bold {% if dia.es_hoy %}text-blue-600{% else %}text-gray-900{% endif %}">
+            <div class="text-lg font-bold {% if dia.es_hoy %}text-gray-900{% else %}text-gray-900{% endif %}">
                 {{ dia.dia_numero }}
             </div>
             <div class="text-[9px] text-gray-500">{{ dia.fecha|mes_nombre|slice:":3" }}</div>
@@ -30,7 +30,7 @@
     <!-- Grid de sesiones COMPACTO -->
     <div id="grid-sesiones" class="grid grid-cols-7 gap-0 divide-x" style="min-height: 400px;">
         {% for dia in calendario_data.dias %}
-        <div class="{% if dia.es_hoy %}bg-blue-50{% else %}bg-white{% endif %} p-1 {% if forloop.last %}columna-domingo{% endif %}" 
+        <div class="{% if dia.es_hoy %}bg-gray-200{% else %}bg-white{% endif %} p-1 {% if forloop.last %}columna-domingo{% endif %}" 
              data-dia="{{ forloop.counter0 }}">
             <!-- Sesiones del día -->
             <div class="space-y-1">
@@ -159,7 +159,7 @@
                                 </div>
                             </div>
                             <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago, SOLO GERENTES Y SUPERADMIN) -->
-                            {{% if sesion.estado == 'programada' and not sesion.pagos.exists %}
+                            {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                                 {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
                                 <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
                                         class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"

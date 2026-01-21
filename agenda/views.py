@@ -6,6 +6,7 @@ from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, V
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
+from calendar import monthrange
 from decimal import Decimal
 
 from agenda.models import Sesion, Proyecto  # ✅ AGREGAR ESTA LÍNEA
@@ -348,10 +349,9 @@ def calendario(request):
         fecha_fin = fecha_base
     elif vista == 'mensual':
         primer_dia = fecha_base.replace(day=1)
-        if fecha_base.month == 12:
-            ultimo_dia = fecha_base.replace(day=31)
-        else:
-            ultimo_dia = (fecha_base.replace(day=1, month=fecha_base.month + 1) - timedelta(days=1))
+        # ✅ CORREGIDO: Usar monthrange para obtener el último día válido del mes
+        ultimo_dia_del_mes = monthrange(fecha_base.year, fecha_base.month)[1]
+        ultimo_dia = fecha_base.replace(day=ultimo_dia_del_mes)
         fecha_inicio = primer_dia
         fecha_fin = ultimo_dia
     else: # semanal por defecto
@@ -383,6 +383,9 @@ def calendario(request):
     sesiones = sesiones.annotate(
         latest_sesion_id=Subquery(latest_sesion_sq)
     )
+    
+    # ✅ ORDENAR: Las fechas más recientes primero (descendente)
+    sesiones = sesiones.order_by('-fecha', '-hora_inicio')
     
     sesiones_lista = []
     for sesion in sesiones:
@@ -1542,10 +1545,10 @@ def procesar_cambio_estado(request, sesion_id):
 def _calcular_estadisticas_mes(sesion):
     """Calcular estadísticas del mes para el paciente"""
     primer_dia = sesion.fecha.replace(day=1)
-    if sesion.fecha.month == 12:
-        ultimo_dia = sesion.fecha.replace(day=31)
-    else:
-        ultimo_dia = (sesion.fecha.replace(month=sesion.fecha.month + 1) - timedelta(days=1))
+    
+    # ✅ CORREGIDO: Usar monthrange para obtener el último día válido del mes
+    ultimo_dia_del_mes = monthrange(sesion.fecha.year, sesion.fecha.month)[1]
+    ultimo_dia = sesion.fecha.replace(day=ultimo_dia_del_mes)
     
     sesiones_mes = Sesion.objects.filter(
         paciente=sesion.paciente,
