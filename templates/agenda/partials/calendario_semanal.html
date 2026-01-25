@@ -1,170 +1,204 @@
-<!-- Vista Semanal 40% COMPACTA -->
 {% load fecha_tags %}
-<div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- ✅ NUEVO: Botón para mostrar/ocultar domingo -->
-    <div class="p-2 bg-gray-100 border-b flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-700">📅 Vista Semanal</h3>
-        <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" 
-                   id="toggle-domingo" 
-                   class="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                   onchange="toggleDomingo(this.checked)">
-            <span class="text-xs text-gray-600 font-medium">Mostrar Domingo</span>
-        </label>
+<div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 h-screen flex flex-col">
+    
+    <div class="p-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden flex flex-wrap items-center justify-between gap-2">
+        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg pointer-events-none"></div>
+
+        <div class="relative z-10 flex items-center gap-2">
+            <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-base font-black tracking-tight text-white leading-none">Vista Semanal</h3>
+                <p class="text-[10px] text-blue-100 font-medium opacity-90">Gestión de agenda</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-restaurar" onclick="toggleZoomDia(-1)" class="hidden relative z-10 px-2 py-1 bg-white/20 text-white text-[10px] font-bold rounded-full hover:bg-white/30 transition-all border border-white/30 animate-fade-in">
+                ↺ Ver Todo
+            </button>
+
+            <label class="relative z-10 flex items-center gap-1.5 cursor-pointer bg-white/10 px-2 py-1 rounded-full border border-white/20 hover:bg-white/20 transition-all">
+                <input type="checkbox" 
+                       id="toggle-domingo" 
+                       class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
+                       onchange="toggleDomingo(this.checked)">
+                <span class="text-[10px] text-white font-bold tracking-wide">Domingo</span>
+            </label>
+        </div>
     </div>
 
-    <!-- Header días de la semana COMPACTO -->
-    <div id="header-dias" class="grid grid-cols-7 gap-0 border-b bg-gray-50">
+    <div id="header-dias" class="flex w-full bg-gray-200 border-b border-gray-200 divide-x divide-gray-200 flex-shrink-0">
         {% for dia in calendario_data.dias %}
-        <div class="dia-header p-2 text-center border-r last:border-r-0 {% if dia.es_hoy %}bg-gray-200{% endif %} {% if forloop.last %}columna-domingo{% endif %}" 
-             data-dia="{{ forloop.counter0 }}">
-            <div class="text-[9px] font-semibold text-gray-500 uppercase">{{ dia.fecha|dia_semana|slice:":3" }}</div>
-            <div class="text-lg font-bold {% if dia.es_hoy %}text-gray-900{% else %}text-gray-900{% endif %}">
-                {{ dia.dia_numero }}
+        <div class="dia-header flex-1 min-w-0 transition-all duration-500 ease-in-out py-2.5 px-1 text-center bg-gray-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 relative overflow-hidden
+                    {% if dia.es_hoy %}bg-blue-50/50{% endif %} 
+                    {% if forloop.last %}columna-domingo border-r-0{% endif %}" 
+             data-dia="{{ forloop.counter0 }}"
+             onclick="toggleZoomDia({{ forloop.counter0 }})"
+             title="Click para enfocar este día">
+            
+            <div class="header-content w-full flex flex-col items-center whitespace-nowrap">
+                <span class="text-[9px] font-bold uppercase tracking-widest mb-0.5 
+                    {% if dia.es_hoy %}text-blue-600{% else %}text-gray-400{% endif %}">
+                    {{ dia.fecha|dia_semana|slice:":3" }}
+                </span>
+                <div class="w-7 h-7 flex items-center justify-center rounded-full mb-0.5 text-xs font-black shadow-sm transition-transform duration-300
+                    {% if dia.es_hoy %}bg-blue-600 text-white shadow-blue-200 scale-110{% else %}bg-white text-gray-700 border border-gray-200{% endif %}">
+                    {{ dia.dia_numero }}
+                </div>
+                <span class="text-[8px] font-medium text-gray-400 uppercase">{{ dia.fecha|mes_nombre|slice:":3" }}</span>
             </div>
-            <div class="text-[9px] text-gray-500">{{ dia.fecha|mes_nombre|slice:":3" }}</div>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Grid de sesiones COMPACTO -->
-    <div id="grid-sesiones" class="grid grid-cols-7 gap-0 divide-x" style="min-height: 400px;">
+    <div id="grid-sesiones" class="flex w-full bg-gray-200 divide-x divide-gray-200 overflow-hidden flex-1 min-h-0">
         {% for dia in calendario_data.dias %}
-        <div class="{% if dia.es_hoy %}bg-gray-200{% else %}bg-white{% endif %} p-1 {% if forloop.last %}columna-domingo{% endif %}" 
+        <div class="columna-dia flex-1 min-w-0 transition-all duration-500 ease-in-out bg-white p-1.5 flex flex-col gap-1.5 relative overflow-y-auto
+                    {% if dia.es_hoy %}bg-blue-50/10{% endif %}
+                    {% if forloop.last %}columna-domingo{% endif %}" 
              data-dia="{{ forloop.counter0 }}">
-            <!-- Sesiones del día -->
-            <div class="space-y-1">
+            
+            <div class="content-wrapper h-full w-full transition-opacity duration-300" 
+                 onclick="handleColumnClick(event, {{ forloop.counter0 }})">
+                
                 {% if dia.sesiones_agrupadas %}
                     {% for grupo in dia.sesiones_agrupadas %}
-                        {# ✅ SIMPLE: Backend ya calculó si mostrar la línea #}
+                        
                         {% if grupo.mostrar_linea_tarde %}
-                            <!-- LÍNEA DIVISORIA TARDE -->
-                            <div class="my-1 border-t-2 border-orange-400 relative">
-                                <span class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-orange-50 px-1 text-[8px] font-bold text-orange-600">
-                                    Medio Dia
+                            <div class="my-1.5 relative flex items-center justify-center pointer-events-none">
+                                <div class="h-px bg-orange-200 w-full absolute"></div>
+                                <span class="relative z-10 px-1.5 py-0.5 text-[7px] font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-full shadow-sm whitespace-nowrap">
+                                    ☀️ Tarde
                                 </span>
                             </div>
                         {% endif %}
                         
                         {% for sesion in grupo.sesiones %}
-                        <div class="group relative cursor-pointer hover:shadow-md rounded border-l-2 
-                            {% if sesion.estado == 'programada' %}border-blue-500 bg-blue-50
-                            {% elif sesion.estado == 'realizada' %}border-green-500 bg-green-50
-                            {% elif sesion.estado == 'realizada_retraso' %}border-yellow-500 bg-yellow-50
-                            {% elif sesion.estado == 'falta' %}border-red-500 bg-red-50
-                            {% elif sesion.estado == 'permiso' %}border-purple-500 bg-purple-50
-                            {% elif sesion.estado == 'cancelada' %}border-gray-500 bg-gray-50
-                            {% elif sesion.estado == 'reprogramada' %}border-orange-500 bg-orange-50
-                            {% endif %} p-1.5"
+                        <div class="group relative cursor-pointer rounded-md border-l-[3px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden bg-opacity-90 mb-1.5
+                            {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
+                            {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
+                            {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
+                            {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
+                            {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
+                            {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-75
+                            {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
+                            {% endif %}"
                              hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
                              hx-target="#modal-content"
                              hx-swap="innerHTML">
                             
-                            <!-- Hora + Estado pago -->
-                            <div class="flex items-center justify-between gap-1 mb-0.5">
-                                <div>
-                                    <span class="text-xs font-bold 
-                                        {% if sesion.estado == 'programada' %}text-blue-700
-                                        {% elif sesion.estado == 'realizada' %}text-green-700
-                                        {% elif sesion.estado == 'realizada_retraso' %}text-yellow-700
-                                        {% elif sesion.estado == 'falta' %}text-red-700
-                                        {% elif sesion.estado == 'permiso' %}text-purple-700
-                                        {% elif sesion.estado == 'cancelada' %}text-gray-700
-                                        {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                            <div class="p-2">
+                                <div class="flex items-center justify-between mb-1 border-b border-black/5 pb-1 gap-1">
+                                    <div class="flex items-baseline gap-0.5 min-w-0">
+                                        <span class="text-[10px] font-black leading-none whitespace-nowrap
+                                            {% if sesion.estado == 'programada' %}text-blue-700
+                                            {% elif sesion.estado == 'realizada' %}text-emerald-700
+                                            {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
+                                            {% elif sesion.estado == 'falta' %}text-rose-700
+                                            {% elif sesion.estado == 'permiso' %}text-purple-700
+                                            {% elif sesion.estado == 'cancelada' %}text-gray-600
+                                            {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                            {% endif %}">
+                                            {{ sesion.hora_inicio|time:"H:i" }}
+                                        </span>
+                                        <span class="text-[8px] text-gray-500 font-medium whitespace-nowrap">
+                                            -{{ sesion.hora_fin|time:"H:i" }}
+                                        </span>
+                                    </div>
+
+                                    <span class="text-[7px] font-bold uppercase px-1 py-0.5 rounded-full border whitespace-nowrap flex-shrink-0
+                                        {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800 border-blue-200
+                                        {% elif sesion.estado == 'realizada' %}bg-emerald-100 text-emerald-800 border-emerald-200
+                                        {% elif sesion.estado == 'realizada_retraso' %}bg-amber-100 text-amber-800 border-amber-200
+                                        {% elif sesion.estado == 'falta' %}bg-rose-100 text-rose-800 border-rose-200
+                                        {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800 border-purple-200
+                                        {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800 border-gray-200
+                                        {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800 border-orange-200
                                         {% endif %}">
-                                        {{ sesion.hora_inicio|time:"H:i" }}
+                                        {% if sesion.estado == 'programada' %}Prog
+                                        {% elif sesion.estado == 'realizada' %}Real
+                                        {% elif sesion.estado == 'realizada_retraso' %}Retr
+                                        {% elif sesion.estado == 'falta' %}Falt
+                                        {% elif sesion.estado == 'permiso' %}Perm
+                                        {% elif sesion.estado == 'cancelada' %}Canc
+                                        {% elif sesion.estado == 'reprogramada' %}Repr
+                                        {% endif %}
                                     </span>
-                                    <span class="text-[8px] text-gray-500">{{ sesion.hora_fin|time:"H:i" }}</span>
                                 </div>
-                                {% if sesion.monto_cobrado > 0 %}
-                                    {% if not sesion.pagado %}
-                                    <span class="text-[8px] bg-red-100 text-red-700 px-1 rounded-full font-medium">
-                                        💰{{ sesion.monto_cobrado }}
-                                    </span>
-                                    {% else %}
-                                    <span class="text-xs text-green-700">✅</span>
+
+                                <div class="mb-1">
+                                    <h4 class="text-[10px] font-bold text-gray-800 leading-tight truncate mb-0.5">
+                                        {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                                    </h4>
+                                    <div class="flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }};"></span>
+                                        <span class="text-[8px] text-gray-600 truncate font-medium">{{ sesion.servicio.nombre }}</span>
+                                    </div>
+                                </div>
+                                
+                                {% if sesion.proyecto or sesion.mensualidad %}
+                                <div class="flex gap-1 mb-1 flex-wrap">
+                                    {% if sesion.proyecto %}
+                                    <span class="px-1 py-0.5 bg-white rounded border border-purple-200 text-[7px] font-bold text-purple-700 leading-none shadow-sm whitespace-nowrap">📦 Proy.</span>
                                     {% endif %}
-                                {% endif %}
-                            </div>
-
-                            <!-- Paciente + ✅ INDICADOR DE PROYECTO -->
-                            <div class="flex items-center gap-0.5 mb-0.5">
-                                <div class="font-semibold text-gray-900 text-[10px] truncate flex-1">
-                                    {{ sesion.paciente.nombre|slice:":10" }} {{ sesion.paciente.apellido|slice:":1" }}.
+                                    {% if sesion.mensualidad %}
+                                    <span class="px-1 py-0.5 bg-white rounded border border-indigo-200 text-[7px] font-bold text-indigo-700 leading-none shadow-sm whitespace-nowrap">💳 Mens.</span>
+                                    {% endif %}
                                 </div>
-                                {% if sesion.proyecto %}
-                                <span class="inline-block text-[10px]" title="Proyecto: {{ sesion.proyecto.codigo }}">
-                                    📦
-                                </span>
                                 {% endif %}
-                            </div>
 
-                            <!-- Servicio -->
-                            <div class="text-[9px] text-gray-600 flex items-center gap-0.5 truncate">
-                                <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
-                                {{ sesion.servicio.nombre|slice:":12" }}
-                            </div>
+                                <div class="mt-1 pt-1 border-t border-black/5 flex items-end justify-between gap-1">
+                                    <div class="flex flex-col gap-0.5 min-w-0">
+                                        <div class="flex items-center gap-1 text-[7px] text-gray-500" title="Profesional">
+                                            <span class="flex-shrink-0">👨‍⚕️</span>
+                                            <span class="truncate">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1 text-[7px] text-gray-400" title="Sucursal">
+                                            <span class="flex-shrink-0">🏢</span>
+                                            <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                                        </div>
+                                    </div>
 
-                            <!-- Profesional y Sucursal ULTRA ABREVIADOS -->
-                            <div class="text-[8px] text-gray-600 truncate" title="Profesional: {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}">
-                                👨‍⚕️{{ sesion.profesional.nombre|slice:":1" }}.{{ sesion.profesional.apellido|slice:":4" }}
+                                    {% if sesion.monto_cobrado > 0 %}
+                                        <div class="flex flex-col items-end flex-shrink-0">
+                                            <div class="text-[9px] font-black text-gray-800 leading-none mb-0.5">
+                                                Bs.{{ sesion.monto_cobrado|floatformat:0 }}
+                                            </div>
+                                            <div class="flex items-center gap-0.5 px-1 py-0.5 rounded shadow-sm border
+                                                {% if sesion.pagado %}bg-emerald-100 border-emerald-200 text-emerald-800
+                                                {% else %}bg-rose-50 border-rose-200 text-rose-700 animate-pulse{% endif %}">
+                                                <span class="text-[7px]">💰</span>
+                                                <span class="text-[7px] font-bold uppercase">
+                                                    {% if sesion.pagado %}Pag{% else %}Pend{% endif %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
-                            <div class="text-[8px] text-gray-500 truncate" title="Sucursal: {{ sesion.sucursal.nombre }}">
-                                🏢{{ sesion.sucursal.nombre|slice:":6" }}
-                            </div>
-
-                            <!-- Badge de estado -->
-                            <div class="mt-1">
-                                <span class="text-[8px] px-1 py-0.5 rounded-full font-medium
-                                    {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800
-                                    {% elif sesion.estado == 'realizada' %}bg-green-100 text-green-800
-                                    {% elif sesion.estado == 'realizada_retraso' %}bg-yellow-100 text-yellow-800
-                                    {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
-                                    {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800
-                                    {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
-                                    {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
-                                    {% endif %}">
-                                    {{ sesion.get_estado_display|slice:":3" }}
-                                </span>
-                            </div>
-
-                            <!-- ALERTA ÚLTIMA SESIÓN VISIBLE -->
+                            
                             {% if sesion.es_ultima_sesion_paciente_servicio %}
-                            <div class="mt-1 px-1 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-[8px] font-bold text-yellow-800 text-center">
-                                ⚠️ ÚLTIMA
+                            <div class="absolute top-0 right-0">
+                                <span class="flex h-2 w-2 relative">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
                             </div>
                             {% endif %}
 
-                            <!-- Tooltip -->
-                            <div class="absolute left-0 top-full mt-1 hidden group-hover:block z-10 bg-gray-900 text-white p-2 rounded shadow-xl text-[10px] w-48">
-                                <div class="space-y-0.5">
-                                    <div><strong>Hora:</strong> {{ sesion.hora_inicio|time:"H:i" }}-{{ sesion.hora_fin|time:"H:i" }}</div>
-                                    <div><strong>Paciente:</strong> {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
-                                    <div><strong>Servicio:</strong> {{ sesion.servicio.nombre }}</div>
-                                    <div><strong>Prof:</strong> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
-                                    <div><strong>Sucursal:</strong> {{ sesion.sucursal.nombre }}</div>
-                                    {% if sesion.proyecto %}
-                                    <div><strong>📦 Proyecto:</strong> {{ sesion.proyecto.codigo }}</div>
-                                    {% endif %}
-                                    {% if sesion.observaciones %}
-                                    <div><strong>Obs:</strong> {{ sesion.observaciones|truncatewords:8 }}</div>
-                                    {% endif %}
-                                    <div class="mt-1 pt-1 border-t border-gray-700 text-blue-300">
-                                        {% if sesion.es_ultima_sesion_paciente_servicio %}
-                                        ⚠️ Última sesión de este servicio
-                                        {% else %}
-                                        💡 Click para editar
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- ✅ BOTÓN ELIMINAR (solo programadas sin pago, SOLO GERENTES Y SUPERADMIN) -->
                             {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                                 {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
                                 <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
-                                        class="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                        class="absolute bottom-1 left-1 p-0.5 bg-rose-500 text-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20 hover:scale-110"
                                         title="Eliminar sesión">
-                                    🗑️
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                 </button>
                                 {% endif %}
                             {% endif %}
@@ -172,74 +206,56 @@
                         {% endfor %}
                     {% endfor %}
                 {% else %}
-                <div class="text-center text-gray-400 py-4 text-[10px]">
-                    Sin sesiones
-                </div>
+                    <div class="h-full flex flex-col items-center justify-center opacity-30 cursor-pointer hover:opacity-60 transition-opacity min-h-[100px]"
+                         onclick="toggleZoomDia({{ forloop.counter0 }})">
+                        <span class="text-xl mb-1">☕</span>
+                        <span class="text-[8px] font-medium text-center">Libre</span>
+                    </div>
                 {% endif %}
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Leyenda COMPACTA -->
-    <div class="p-2 bg-gray-50 border-t">
-        <div class="flex flex-wrap gap-2 items-center justify-center text-[9px]">
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-blue-500 rounded"></div>
-                <span>Prog.</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-green-500 rounded"></div>
-                <span>Real.</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-yellow-500 rounded"></div>
-                <span>Retraso</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-red-500 rounded"></div>
-                <span>Falta</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-purple-500 rounded"></div>
-                <span>Permiso</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-gray-500 rounded"></div>
-                <span>Cancel.</span>
-            </div>
-            <div class="flex items-center gap-0.5">
-                <div class="w-2 h-2 bg-orange-500 rounded"></div>
-                <span>Reprog.</span>
-            </div>
-            <!-- ✅ NUEVO: Leyenda de proyecto -->
-            <div class="flex items-center gap-0.5 ml-2 border-l pl-2">
-                <span class="text-purple-600">📦</span>
-                <span>Evaluación</span>
+    <div class="p-3 bg-white border-t border-gray-200 flex-shrink-0">
+        <div class="flex flex-wrap gap-2 items-center justify-center text-[9px] font-medium text-gray-600">
+            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Prog.</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Real.</span>
+            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Retraso</span>
+            <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">Falta</span>
+            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">Permiso</span>
+            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">Cancel.</span>
+            
+            <div class="w-px h-3 bg-gray-300 mx-1"></div>
+            
+            <span class="px-2 py-0.5 bg-white rounded border border-purple-200 text-purple-700 font-bold shadow-sm">
+                📦 Proyecto
+            </span>
+            <span class="px-2 py-0.5 bg-white rounded border border-indigo-200 text-indigo-700 font-bold shadow-sm">
+                💳 Mensualidad
+            </span>
+
+            <div class="w-px h-3 bg-gray-300 mx-1"></div>
+            
+            <div class="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                <span class="text-[8px]">💰</span>
+                <span>Pago Pend/Realiz</span>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// ✅ SCRIPT PARA CONTROLAR VISIBILIDAD DEL DOMINGO
 document.addEventListener('DOMContentLoaded', function() {
     const toggle = document.getElementById('toggle-domingo');
-    const headerDias = document.getElementById('header-dias');
-    const gridSesiones = document.getElementById('grid-sesiones');
     
-    // Verificar si hay sesiones en domingo (día 6)
+    // Verificar si hay sesiones en domingo
     const columnaDomingo = document.querySelectorAll('[data-dia="6"]');
     let tieneSesiones = false;
-    
     columnaDomingo.forEach(col => {
-        const sesiones = col.querySelectorAll('.group');
-        if (sesiones.length > 0) {
-            tieneSesiones = true;
-        }
+        if (col.querySelector('.group')) tieneSesiones = true;
     });
     
-    // Si no hay sesiones, ocultar por defecto
     if (!tieneSesiones) {
         ocultarDomingo();
         toggle.checked = false;
@@ -248,60 +264,107 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+let diaZoomed = -1;
+
 function toggleDomingo(mostrar) {
-    if (mostrar) {
-        mostrarDomingo();
-    } else {
-        ocultarDomingo();
-    }
+    // Si hay un zoom activo, no permitir ocultar/mostrar domingo para evitar glitches visuales hasta restaurar
+    if (diaZoomed !== -1) return;
+
+    const columnas = document.querySelectorAll('.columna-domingo');
+    columnas.forEach(col => {
+        if (mostrar) {
+            col.style.display = ''; // Restaurar display flex (default del css)
+            // Necesitamos asegurarnos que recupere su clase flex-1 si no hay zoom
+            if (diaZoomed === -1) col.classList.add('flex-1');
+        } else {
+            col.style.display = 'none';
+        }
+    });
 }
 
 function ocultarDomingo() {
-    const columnasDomingo = document.querySelectorAll('.columna-domingo');
-    const headerDias = document.getElementById('header-dias');
-    const gridSesiones = document.getElementById('grid-sesiones');
-    
-    columnasDomingo.forEach(col => {
-        col.style.display = 'none';
-    });
-    
-    // Cambiar grid a 6 columnas (sin transición)
-    headerDias.style.transition = 'none';
-    gridSesiones.style.transition = 'none';
-    
-    headerDias.classList.remove('grid-cols-7');
-    headerDias.classList.add('grid-cols-6');
-    gridSesiones.classList.remove('grid-cols-7');
-    gridSesiones.classList.add('grid-cols-6');
+    document.querySelectorAll('.columna-domingo').forEach(col => col.style.display = 'none');
 }
 
 function mostrarDomingo() {
-    const columnasDomingo = document.querySelectorAll('.columna-domingo');
-    const headerDias = document.getElementById('header-dias');
-    const gridSesiones = document.getElementById('grid-sesiones');
+    document.querySelectorAll('.columna-domingo').forEach(col => col.style.display = '');
+}
+
+function handleColumnClick(event, diaIndex) {
+    // Si el click fue en una sesión específica (la tarjeta), no disparamos el zoom para dejar que HTMX funcione
+    if (event.target.closest('.group')) return;
     
-    columnasDomingo.forEach(col => {
-        col.style.display = '';
-    });
-    
-    // Cambiar grid a 7 columnas (sin transición)
-    headerDias.style.transition = 'none';
-    gridSesiones.style.transition = 'none';
-    
-    headerDias.classList.remove('grid-cols-6');
-    headerDias.classList.add('grid-cols-7');
-    gridSesiones.classList.remove('grid-cols-6');
-    gridSesiones.classList.add('grid-cols-7');
+    toggleZoomDia(diaIndex);
+}
+
+function toggleZoomDia(index) {
+    const headers = document.querySelectorAll('.dia-header');
+    const columns = document.querySelectorAll('.columna-dia');
+    const btnRestaurar = document.getElementById('btn-restaurar');
+    const isDomingoVisible = document.getElementById('toggle-domingo').checked;
+
+    // Si clicamos el mismo día ya activo o pasamos -1, restauramos la vista
+    if (diaZoomed === index || index === -1) {
+        // Restaurar estado original
+        headers.forEach(h => {
+            h.classList.remove('flex-[4]', 'w-12', 'flex-none');
+            h.classList.add('flex-1');
+            h.querySelector('.header-content').style.opacity = '1';
+            h.querySelector('.header-content').style.transform = 'scale(1)';
+        });
+        
+        columns.forEach(c => {
+            c.classList.remove('flex-[4]', 'w-12', 'flex-none', 'bg-gray-100');
+            c.classList.add('flex-1', 'bg-white');
+            c.querySelector('.content-wrapper').style.opacity = '1';
+            c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
+        });
+
+        btnRestaurar.classList.add('hidden');
+        diaZoomed = -1;
+
+    } else {
+        // Activar Zoom
+        headers.forEach((h, i) => {
+            // Resetear clases base
+            h.classList.remove('flex-1');
+            
+            if (i === index) {
+                // Día Activo
+                h.classList.add('flex-[4]'); // Ocupa mucho espacio
+                h.classList.remove('w-12', 'flex-none');
+                h.querySelector('.header-content').style.opacity = '1';
+                h.querySelector('.header-content').style.transform = 'scale(1.1)';
+            } else {
+                // Días Inactivos
+                h.classList.add('w-12', 'flex-none'); // Ancho fijo pequeño
+                h.classList.remove('flex-[4]');
+                h.querySelector('.header-content').style.opacity = '0.5';
+                h.querySelector('.header-content').style.transform = 'scale(0.9)';
+            }
+        });
+
+        columns.forEach((c, i) => {
+            c.classList.remove('flex-1');
+            
+            if (i === index) {
+                // Columna Activa
+                c.classList.add('flex-[4]', 'bg-white');
+                c.classList.remove('w-12', 'flex-none', 'bg-gray-100');
+                c.querySelector('.content-wrapper').style.opacity = '1';
+                c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
+            } else {
+                // Columna Inactiva
+                c.classList.add('w-12', 'flex-none', 'bg-gray-100');
+                c.classList.remove('flex-[4]', 'bg-white');
+                // Ocultar contenido visualmente para evitar desorden
+                c.querySelector('.content-wrapper').style.opacity = '0'; 
+                c.querySelector('.content-wrapper').style.pointerEvents = 'none';
+            }
+        });
+
+        btnRestaurar.classList.remove('hidden');
+        diaZoomed = index;
+    }
 }
 </script>
-
-<style>
-/* ✅ Desactivar todas las transiciones para cambio rápido de semana */
-#header-dias, #grid-sesiones {
-    transition: none !important;
-}
-
-#header-dias *, #grid-sesiones * {
-    transition: none !important;
-}
-</style>

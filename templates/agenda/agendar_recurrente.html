@@ -23,6 +23,141 @@
         <form method="post" class="space-y-4">
             {% csrf_token %}
 
+            <!-- ✨ SECCIÓN DESTACADA: PROYECTO Y MENSUALIDAD -->
+            <div class="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 rounded-2xl shadow-lg border-2 border-purple-200 overflow-hidden mb-6">
+                <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">✨</span>
+                        <div>
+                            <h3 class="font-bold text-white text-sm">Opciones Especiales</h3>
+                            <p class="text-purple-100 text-xs">Asignar sesiones a proyectos o mensualidades</p>
+                        </div>
+                    </div>
+                    <span class="text-purple-200 text-xl">📋</span>
+                </div>
+
+                <div class="p-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- 📦 PROYECTO (EVALUACIÓN) -->
+                    <div class="bg-white rounded-xl shadow-md border-2 border-purple-200 hover:border-purple-400 transition-all duration-300 overflow-hidden">
+                        <div class="bg-gradient-to-r from-purple-100 to-purple-50 px-4 py-3 border-b border-purple-200">
+                            <label class="flex items-center gap-3 cursor-pointer select-none group">
+                                <div class="relative">
+                                    <input type="checkbox" id="asignar_proyecto" name="asignar_proyecto" class="sr-only peer" onchange="toggleProyectoSelect()">
+                                    <div class="w-12 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-600 peer-checked:to-purple-500 shadow-inner"></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">📦</span>
+                                    <span class="font-bold text-purple-900 text-sm group-hover:text-purple-700">Asignar a Proyecto (Evaluaciones)</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="proyecto-select-container" class="hidden p-4 animate-fade-in">
+                            <label class="block text-xs font-semibold text-purple-800 mb-2">Seleccionar Proyecto</label>
+                            <select name="proyecto_id" id="proyecto_id" 
+                                    class="w-full px-3 py-2 border-2 border-purple-200 rounded-lg text-xs focus:ring-2 focus:ring-purple-300 focus:border-purple-400 outline-none mb-3 bg-white shadow-sm" 
+                                    onchange="mostrarInfoProyecto()">
+                                <option value="">-- Seleccionar Proyecto --</option>
+                            </select>
+                            
+                            <div id="sin-proyectos" class="hidden text-xs bg-yellow-50 text-yellow-800 p-3 rounded-lg border border-yellow-200 flex items-center gap-2">
+                                ⚠️ <span>Sin proyectos activos.</span> <a href="{% url 'agenda:crear_proyecto' %}" class="underline font-bold hover:text-yellow-900">Crear uno</a>
+                            </div>
+                            
+                            <div id="proyecto-info" class="hidden bg-purple-50 p-3 rounded-lg border border-purple-200 shadow-sm">
+                                <div class="flex justify-between text-xs mb-2">
+                                    <span class="text-purple-600 font-semibold">Tipo:</span>
+                                    <span id="proyecto-tipo" class="font-bold text-purple-900">-</span>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-purple-600 font-semibold">Saldo:</span>
+                                    <span class="font-bold text-green-600">Bs. <span id="proyecto-costo">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 💳 MENSUALIDAD -->
+                    <div class="bg-white rounded-xl shadow-md border-2 border-indigo-200 hover:border-indigo-400 transition-all duration-300 overflow-hidden">
+                        <div class="bg-gradient-to-r from-indigo-100 to-indigo-50 px-4 py-3 border-b border-indigo-200">
+                            <label class="flex items-center gap-3 cursor-pointer select-none group">
+                                <div class="relative">
+                                    <input type="checkbox" id="asignar_mensualidad" name="asignar_mensualidad" 
+                                        class="sr-only peer" onchange="toggleMensualidadSelect()">
+                                    <div class="w-12 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-indigo-600 peer-checked:to-indigo-500 shadow-inner"></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl group-hover:scale-110 transition-transform">💳</span>
+                                    <span class="font-bold text-indigo-900 text-sm group-hover:text-indigo-700">Asignar a Mensualidad</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="mensualidad-select-container" class="hidden p-4 animate-fade-in">
+                            <label class="block text-xs font-semibold text-indigo-800 mb-2">Seleccionar Mensualidad</label>
+                            
+                            <select name="mensualidad_id" id="mensualidad_id" 
+                                    class="w-full px-3 py-2 border-2 border-indigo-200 bg-white rounded-lg text-xs focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none mb-3 shadow-sm"
+                                    onchange="mostrarInfoMensualidad()">
+                                <option value="">-- Seleccione Mensualidad --</option>
+                            </select>
+
+                            <!-- ✨ NUEVA OPCIÓN: Programar sesiones pasadas -->
+                            <div class="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <label class="flex items-start gap-2 cursor-pointer select-none group">
+                                    <input type="checkbox" id="incluir_sesiones_pasadas" name="incluir_sesiones_pasadas" 
+                                           class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300" 
+                                           onchange="actualizarVistaPrevia()">
+                                    <div class="flex-1">
+                                        <span class="text-xs font-semibold text-blue-900 group-hover:text-blue-700">📅 Programar sesiones pasadas</span>
+                                        <p class="text-xs text-blue-700 mt-1">Si está desmarcado, solo se mostrarán sesiones desde mañana en adelante.</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div id="sin-mensualidades" class="hidden p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p class="text-xs text-yellow-800 mb-2">
+                                    ⚠️ No hay mensualidades activas para esta combinación.
+                                </p>
+                                <a href="{% url 'agenda:crear_mensualidad' %}" 
+                                   class="text-xs text-indigo-600 hover:underline font-semibold">
+                                    + Crear nueva mensualidad
+                                </a>
+                            </div>
+
+                            <div id="mensualidad-info" class="hidden bg-indigo-50 p-3 rounded-lg border border-indigo-200 shadow-sm">
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <span class="text-indigo-600 font-semibold">📅 Período:</span>
+                                        <p class="font-bold text-indigo-900" id="mensualidad-periodo">-</p>
+                                    </div>
+                                    <div>
+                                        <span class="text-indigo-600 font-semibold">💰 Costo:</span>
+                                        <p class="font-bold text-indigo-900">Bs. <span id="mensualidad-costo">0.00</span></p>
+                                    </div>
+                                    <div>
+                                        <span class="text-indigo-600 font-semibold">✅ Pagado:</span>
+                                        <p class="font-bold text-green-700">Bs. <span id="mensualidad-pagado">0.00</span></p>
+                                    </div>
+                                    <div>
+                                        <span class="text-indigo-600 font-semibold">⏳ Saldo:</span>
+                                        <p class="font-bold text-orange-700">Bs. <span id="mensualidad-saldo">0.00</span></p>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span class="text-indigo-600 font-semibold">📊 Sesiones:</span>
+                                        <p class="font-bold text-indigo-900" id="mensualidad-sesiones">0 / 0</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                                    <strong>ℹ️ Importante:</strong> Las fechas se calculan según el mes seleccionado. Las sesiones tendrán monto = Bs. 0.00.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden border-t-4 border-t-blue-500">
                     <div class="bg-gradient-to-r from-blue-50 to-white px-4 py-2 border-b border-blue-100 flex items-center justify-between">
@@ -31,6 +166,7 @@
                     </div>
                     
                     <div class="p-4 space-y-3">
+                        <!-- ✅ SUCURSAL -->
                         <div>
                             <label class="block text-gray-700 mb-1">Sucursal</label>
                             <select name="sucursal" id="sucursal-select"
@@ -40,7 +176,7 @@
                                     hx-swap="innerHTML"
                                     hx-trigger="change"
                                     hx-include="this"
-                                    onchange="resetearCascada()"
+                                    onchange="resetearCascadaCompleta()"
                                     required>
                                 <option value="">Seleccione sucursal...</option>
                                 {% for sucursal in sucursales %}
@@ -49,23 +185,38 @@
                             </select>
                         </div>
 
+                        <!-- ✅ PACIENTE (carga dinámica) -->
                         <div id="pacientes-container">
-                            <label class="block text-gray-700 mb-1">Paciente</label>
-                            <select name="paciente" id="paciente-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                            <label class="block text-xs font-bold text-emerald-900 mb-1">
+                                👤 Paciente * <span class="text-gray-500 font-normal">(Paso 1)</span>
+                            </label>
+                            <select name="paciente_id" id="paciente-select" 
+                                    class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                    disabled required>
                                 <option value="">⏳ Esperando sucursal...</option>
                             </select>
                         </div>
 
+                        <!-- ✅ SERVICIO (carga dinámica) -->
                         <div id="servicios-container">
-                            <label class="block text-gray-700 mb-1">Servicio</label>
-                            <select name="servicio" id="servicio-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                            <label class="block text-xs font-bold text-emerald-900 mb-1">
+                                🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+                            </label>
+                            <select name="servicio_id" id="servicio-select" 
+                                    class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                    disabled required>
                                 <option value="">⏳ Esperando paciente...</option>
                             </select>
                         </div>
 
+                        <!-- ✅ PROFESIONAL (carga dinámica) -->
                         <div id="profesionales-container">
-                            <label class="block text-gray-700 mb-1">Profesional</label>
-                            <select name="profesional" id="profesional-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
+                            <label class="block text-xs font-bold text-emerald-900 mb-1">
+                                👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+                            </label>
+                            <select name="profesional_id" id="profesional-select" 
+                                    class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                    disabled required>
                                 <option value="">⏳ Esperando servicio...</option>
                             </select>
                         </div>
@@ -118,41 +269,11 @@
                             </div>
                         </div>
 
-                        <div class="bg-purple-50/50 rounded-lg p-3 border border-purple-100">
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
-                                <div class="relative">
-                                    <input type="checkbox" id="asignar_proyecto" name="asignar_proyecto" class="sr-only peer" onchange="toggleProyectoSelect()">
-                                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-                                </div>
-                                <span class="font-bold text-purple-900">Asignar a Proyecto (Evaluación)</span>
-                            </label>
-
-                            <div id="proyecto-select-container" class="hidden mt-3 pt-2 border-t border-purple-200">
-                                <select name="proyecto_id" id="proyecto_id" class="w-full px-2 py-1.5 border border-purple-300 rounded text-xs focus:ring-2 focus:ring-purple-200 outline-none mb-2" onchange="mostrarInfoProyecto()">
-                                    <option value="">-- Seleccionar Proyecto --</option>
-                                </select>
-                                
-                                <div id="sin-proyectos" class="hidden text-[10px] bg-yellow-50 text-yellow-800 p-2 rounded border border-yellow-200 flex items-center gap-2">
-                                    ⚠️ <span>Sin proyectos o evaluaciones activos.</span> <a href="{% url 'agenda:crear_proyecto' %}" class="underline font-bold">Crear uno nuevo</a>
-                                </div>
-                                
-                                <div id="proyecto-info" class="hidden bg-white p-2 rounded border border-purple-100 shadow-sm">
-                                    <div class="flex justify-between text-[10px] mb-1">
-                                        <span class="text-gray-500">Tipo:</span>
-                                        <span id="proyecto-tipo" class="font-bold text-gray-800">-</span>
-                                    </div>
-                                    <div class="flex justify-between text-[10px]">
-                                        <span class="text-gray-500">Saldo:</span>
-                                        <span class="font-bold text-green-600">Bs. <span id="proyecto-costo">0</span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        
                     </div>
                 </div>
             </div>
 
-            <!-- ✅ RECUADRO VERDE SIN ALTURA FIJA -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden border-t-4 border-t-green-500">
                 <div class="bg-gradient-to-r from-green-50 to-white px-4 py-2 border-b border-green-100 flex items-center justify-between">
                     <h3 class="font-bold text-green-800 uppercase tracking-wide text-[11px]">3. Selección de Días y Vista Previa</h3>
@@ -198,7 +319,6 @@
                         </div>
                     </div>
 
-                    <!-- ✅ SIN SCROLL, SIN ALTURA FIJA -->
                     <div class="border rounded-lg bg-gray-50/50">
                         <div id="vista-previa" class="p-4">
                             <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
@@ -210,7 +330,6 @@
                 </div>
             </div>
 
-            <!-- ✅ BOTONES FUERA DEL RECUADRO VERDE -->
             <div class="flex gap-3">
                 <button type="submit" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md shadow-green-200 transition-all transform hover:-translate-y-0.5 text-xs uppercase tracking-wide flex items-center justify-center gap-2">
                     <span>🚀</span> Generar Sesiones
@@ -224,7 +343,412 @@
 </div>
 
 <script>
-// Toggle de proyecto
+// ========================================
+// RESETEAR CASCADA COMPLETA
+// ========================================
+function resetearCascadaCompleta() {
+    console.log('🔄 Reseteando cascada completa');
+    
+    // Resetear servicios
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando paciente...</option>
+        </select>
+    `;
+    
+    // Resetear profesionales
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    profesionalesContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando servicio...</option>
+        </select>
+    `;
+    
+    // Resetear duración
+    document.getElementById('duracion-servicio-info').textContent = '-- min';
+    document.getElementById('usar-duracion-estandar').checked = true;
+    document.getElementById('duracion-personalizada-container').classList.add('hidden');
+    
+    // Limpiar vista previa
+    document.getElementById('vista-previa').innerHTML = 
+        '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><p class="text-xs">Seleccione fechas y días para generar la vista previa</p></div>';
+}
+
+// ========================================
+// AGREGAR EVENT LISTENER AL SELECT DE PACIENTES
+// ========================================
+function agregarEventoPaciente() {
+    const pacienteSelect = document.getElementById('paciente-select');
+    
+    if (pacienteSelect && !pacienteSelect.disabled && !pacienteSelect.dataset.listenerAdded) {
+        pacienteSelect.dataset.listenerAdded = 'true';
+        
+        console.log('🎯 Evento agregado al select de pacientes');
+        
+        pacienteSelect.addEventListener('change', function() {
+            const pacienteId = this.value;
+            
+            console.log('👤 Paciente seleccionado:', pacienteId);
+            
+            if (!pacienteId) {
+                resetearServicios();
+                resetearProfesionales();
+                return;
+            }
+            
+            // Mostrar estado de carga
+            const serviciosContainer = document.getElementById('servicios-container');
+            serviciosContainer.innerHTML = `
+                <label class="block text-xs font-bold text-emerald-900 mb-1">
+                    🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+                </label>
+                <select name="servicio_id" id="servicio-select" 
+                        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                        disabled>
+                    <option value="">⏳ Cargando servicios...</option>
+                </select>
+            `;
+            
+            resetearProfesionales();
+            
+            // Hacer fetch de servicios
+            fetch(`{% url 'agenda:servicios_paciente' %}?paciente=${pacienteId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la petición');
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('✅ Servicios cargados');
+                    serviciosContainer.innerHTML = html;
+                    
+                    // Agregar evento al nuevo select de servicios
+                    agregarEventoServicio();
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando servicios:', error);
+                    serviciosContainer.innerHTML = `
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            🏥 Servicio Base *
+                        </label>
+                        <select name="servicio_id" class="w-full px-2 py-1.5 border-2 border-red-200 rounded-lg text-xs" disabled>
+                            <option value="">❌ Error al cargar</option>
+                        </select>
+                        <p class="text-xs text-red-600 mt-1">Error: ${error.message}</p>
+                    `;
+                });
+        });
+    }
+}
+
+// ========================================
+// AGREGAR EVENT LISTENER AL SELECT DE SERVICIOS
+// ========================================
+function agregarEventoServicio() {
+    const servicioSelect = document.getElementById('servicio-select');
+    
+    if (servicioSelect && !servicioSelect.disabled && !servicioSelect.dataset.listenerAdded) {
+        servicioSelect.dataset.listenerAdded = 'true';
+        
+        console.log('🎯 Evento agregado al select de servicios');
+        
+        servicioSelect.addEventListener('change', function() {
+            const servicioId = this.value;
+            const sucursalId = document.getElementById('sucursal-select').value;
+            
+            if (!servicioId) {
+                resetearProfesionales();
+                return;
+            }
+            
+            // Actualizar duración del servicio
+            const selectedOption = this.options[this.selectedIndex];
+            const duracion = selectedOption.getAttribute('data-duracion');
+            if (duracion) {
+                document.getElementById('duracion-servicio-info').textContent = `${duracion} min`;
+            }
+            
+            // Cargar profesionales
+            const profesionalesContainer = document.getElementById('profesionales-container');
+            profesionalesContainer.innerHTML = `
+                <label class="block text-xs font-bold text-emerald-900 mb-1">
+                    👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+                </label>
+                <select name="profesional_id" id="profesional-select" 
+                        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                        disabled>
+                    <option value="">⏳ Cargando profesionales...</option>
+                </select>
+            `;
+            
+            if (!sucursalId) return;
+            
+            const params = new URLSearchParams({
+                servicio: servicioId,
+                sucursal: sucursalId
+            });
+            
+            fetch(`{% url 'agenda:profesionales_servicio' %}?${params}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la petición');
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('✅ Profesionales cargados');
+                    profesionalesContainer.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando profesionales:', error);
+                    profesionalesContainer.innerHTML = `
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            👨‍⚕️ Responsable *
+                        </label>
+                        <select name="profesional_id" class="w-full px-2 py-1.5 border-2 border-red-200 rounded-lg text-xs" disabled>
+                            <option value="">❌ Error al cargar</option>
+                        </select>
+                        <p class="text-xs text-red-600 mt-1">Error: ${error.message}</p>
+                    `;
+                });
+        });
+    }
+}
+
+// ========================================
+// RESETEAR SERVICIOS
+// ========================================
+function resetearServicios() {
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando paciente...</option>
+        </select>
+    `;
+    
+    // Resetear duración
+    document.getElementById('duracion-servicio-info').textContent = '-- min';
+}
+
+// ========================================
+// RESETEAR PROFESIONALES
+// ========================================
+function resetearProfesionales() {
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    profesionalesContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando servicio...</option>
+        </select>
+    `;
+}
+
+// ========================================
+// OBSERVERS
+// ========================================
+const observerPaciente = new MutationObserver(function(mutations) {
+    agregarEventoPaciente();
+});
+
+observerPaciente.observe(document.getElementById('pacientes-container'), {
+    childList: true,
+    subtree: true
+});
+
+const observerServicios = new MutationObserver(function(mutations) {
+    agregarEventoServicio();
+});
+
+observerServicios.observe(document.getElementById('servicios-container'), {
+    childList: true,
+    subtree: true
+});
+
+// ========================================
+// TOGGLE DURACIÓN PERSONALIZADA
+// ========================================
+function toggleDuracionPersonalizada() {
+    const checkbox = document.getElementById('usar-duracion-estandar');
+    const container = document.getElementById('duracion-personalizada-container');
+    const inputPersonalizado = document.getElementById('duracion-personalizada');
+    
+    if (checkbox.checked) {
+        container.classList.add('hidden');
+        inputPersonalizado.value = '';
+    } else {
+        container.classList.remove('hidden');
+        const servicioSelect = document.getElementById('servicio-select');
+        if (servicioSelect && servicioSelect.value) {
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            const duracion = selectedOption.getAttribute('data-duracion');
+            if (duracion) {
+                inputPersonalizado.value = duracion;
+            }
+        }
+        inputPersonalizado.focus();
+    }
+    
+    actualizarVistaPrevia();
+}
+
+// ========================================
+// OBTENER DURACIÓN EFECTIVA
+// ========================================
+function obtenerDuracionEfectiva() {
+    const usarEstandar = document.getElementById('usar-duracion-estandar').checked;
+    
+    if (usarEstandar) {
+        const servicioSelect = document.getElementById('servicio-select');
+        if (servicioSelect && servicioSelect.value) {
+            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
+            return parseInt(selectedOption.getAttribute('data-duracion')) || 60;
+        }
+        return 60;
+    } else {
+        const duracionPersonalizada = document.getElementById('duracion-personalizada').value;
+        return parseInt(duracionPersonalizada) || 60;
+    }
+}
+
+// ========================================
+// ACTUALIZAR VISTA PREVIA
+// ========================================
+function actualizarVistaPrevia() {
+    const fechaInicio = document.getElementById('fecha-inicio').value;
+    const fechaFin = document.getElementById('fecha-fin').value;
+    const hora = document.getElementById('hora').value;
+    
+    const diasSeleccionados = [];
+    document.querySelectorAll('input[name="dias_semana"]:checked').forEach(checkbox => {
+        diasSeleccionados.push(checkbox.value);
+    });
+    
+    if (!fechaInicio || !fechaFin || !hora || diasSeleccionados.length === 0) {
+        document.getElementById('vista-previa').innerHTML = 
+            '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><p class="text-xs">Complete fecha inicio, fin, hora y seleccione días</p></div>';
+        return;
+    }
+    
+    if (new Date(fechaInicio) > new Date(fechaFin)) {
+        document.getElementById('vista-previa').innerHTML = 
+            '<p class="text-red-500 text-center mt-4 bg-red-50 p-2 rounded border border-red-200">⚠️ La fecha de inicio no puede ser mayor a la fecha fin</p>';
+        return;
+    }
+    
+    const pacienteId = document.getElementById('paciente-select')?.value || '';
+    const profesionalId = document.getElementById('profesional-select')?.value || '';
+    const servicioId = document.getElementById('servicio-select')?.value || '';
+    const duracionEfectiva = obtenerDuracionEfectiva();
+    
+    // ✨ NUEVO: Verificar si se deben incluir sesiones pasadas
+    const incluirPasadas = document.getElementById('incluir_sesiones_pasadas')?.checked || false;
+    
+    const params = new URLSearchParams({
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        hora: hora,
+        paciente: pacienteId,
+        profesional: profesionalId,
+        servicio: servicioId,
+        duracion: duracionEfectiva,
+        incluir_pasadas: incluirPasadas ? 'true' : 'false'  // ✨ NUEVO
+    });
+    
+    diasSeleccionados.forEach(dia => {
+        params.append('dias_semana', dia);
+    });
+    
+    document.getElementById('vista-previa').innerHTML = 
+        '<div class="flex items-center justify-center h-full text-blue-500"><span class="animate-pulse">⏳ Calculando sesiones...</span></div>';
+    
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const url = '{% url "agenda:vista_previa" %}?' + params.toString();
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Error');
+        return response.text();
+    })
+    .then(html => {
+        const container = document.getElementById('vista-previa');
+        if (container) {
+            container.innerHTML = html;
+            actualizarContador();
+            agregarEventListenersCheckboxes();
+        }
+    })
+    .catch(error => {
+        document.getElementById('vista-previa').innerHTML = 
+            '<p class="text-red-500 text-center">❌ Error de conexión</p>';
+    });
+}
+
+// ========================================
+// AGREGAR EVENT LISTENERS A CHECKBOXES
+// ========================================
+function agregarEventListenersCheckboxes() {
+    const checkboxes = document.querySelectorAll('.sesion-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', actualizarContador);
+    });
+}
+
+// ========================================
+// TOGGLE CONFLICTO
+// ========================================
+window.toggleConflicto = function(panelId, btn) {
+    var panel = document.getElementById(panelId);
+    if (panel) {
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            btn.innerHTML = '▲';
+        } else {
+            panel.style.display = 'none';
+            btn.innerHTML = '▼';
+        }
+    }
+};
+
+// ========================================
+// ACTUALIZAR CONTADOR
+// ========================================
+window.actualizarContador = function() {
+    const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
+    const total = document.querySelectorAll('.sesion-checkbox').length;
+    const contadorElement = document.getElementById('contador-seleccionadas');
+    if (contadorElement) contadorElement.textContent = checkboxes.length;
+    
+    const totalElement = document.getElementById('total-sesiones');
+    if (totalElement) totalElement.textContent = total;
+};
+
+// ========================================
+// TOGGLE PROYECTO SELECT
+// ========================================
 function toggleProyectoSelect() {
     const checkbox = document.getElementById('asignar_proyecto');
     const container = document.getElementById('proyecto-select-container');
@@ -239,7 +763,9 @@ function toggleProyectoSelect() {
     }
 }
 
-// Cargar proyectos del paciente
+// ========================================
+// CARGAR PROYECTOS DEL PACIENTE
+// ========================================
 function cargarProyectosDelPaciente() {
     const pacienteSelect = document.getElementById('paciente-select');
     const pacienteId = pacienteSelect?.value;
@@ -292,7 +818,9 @@ function cargarProyectosDelPaciente() {
         });
 }
 
-// Mostrar info del proyecto
+// ========================================
+// MOSTRAR INFO PROYECTO
+// ========================================
 function mostrarInfoProyecto() {
     const select = document.getElementById('proyecto_id');
     const info = document.getElementById('proyecto-info');
@@ -310,191 +838,9 @@ function mostrarInfoProyecto() {
     info.classList.remove('hidden');
 }
 
-// Función para resetear la cascada cuando cambia la sucursal
-function resetearCascada() {
-    // Resetear paciente
-    const pacienteContainer = document.getElementById('pacientes-container');
-    pacienteContainer.innerHTML = `
-        <label class="block text-gray-700 mb-1">Paciente</label>
-        <select name="paciente" id="paciente-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
-            <option value="">⏳ Cargando...</option>
-        </select>
-    `;
-    
-    // Resetear servicio
-    const serviciosContainer = document.getElementById('servicios-container');
-    serviciosContainer.innerHTML = `
-        <label class="block text-gray-700 mb-1">Servicio</label>
-        <select name="servicio" id="servicio-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
-            <option value="">⏳ Esperando paciente...</option>
-        </select>
-    `;
-    
-    // Resetear profesional
-    const profesionalesContainer = document.getElementById('profesionales-container');
-    profesionalesContainer.innerHTML = `
-        <label class="block text-gray-700 mb-1">Profesional</label>
-        <select name="profesional" id="profesional-select" class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" disabled required>
-            <option value="">⏳ Esperando servicio...</option>
-        </select>
-    `;
-    
-    // Resetear duración
-    document.getElementById('duracion-servicio-info').textContent = '-- min';
-    document.getElementById('usar-duracion-estandar').checked = true;
-    document.getElementById('duracion-personalizada-container').classList.add('hidden');
-    
-    // Limpiar vista previa
-    document.getElementById('vista-previa').innerHTML = 
-        '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><p class="text-xs">Seleccione fechas y días para generar la vista previa</p></div>';
-}
-
-// Función para toggle de duración personalizada
-function toggleDuracionPersonalizada() {
-    const checkbox = document.getElementById('usar-duracion-estandar');
-    const container = document.getElementById('duracion-personalizada-container');
-    const inputPersonalizado = document.getElementById('duracion-personalizada');
-    
-    if (checkbox.checked) {
-        container.classList.add('hidden');
-        inputPersonalizado.value = '';
-    } else {
-        container.classList.remove('hidden');
-        const servicioSelect = document.getElementById('servicio-select');
-        if (servicioSelect && servicioSelect.value) {
-            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
-            const duracion = selectedOption.getAttribute('data-duracion');
-            if (duracion) {
-                inputPersonalizado.value = duracion;
-            }
-        }
-        inputPersonalizado.focus();
-    }
-    
-    actualizarVistaPrevia();
-}
-
-function obtenerDuracionEfectiva() {
-    const usarEstandar = document.getElementById('usar-duracion-estandar').checked;
-    
-    if (usarEstandar) {
-        const servicioSelect = document.getElementById('servicio-select');
-        if (servicioSelect && servicioSelect.value) {
-            const selectedOption = servicioSelect.options[servicioSelect.selectedIndex];
-            return parseInt(selectedOption.getAttribute('data-duracion')) || 60;
-        }
-        return 60;
-    } else {
-        const duracionPersonalizada = document.getElementById('duracion-personalizada').value;
-        return parseInt(duracionPersonalizada) || 60;
-    }
-}
-
-function actualizarVistaPrevia() {
-    const fechaInicio = document.getElementById('fecha-inicio').value;
-    const fechaFin = document.getElementById('fecha-fin').value;
-    const hora = document.getElementById('hora').value;
-    
-    const diasSeleccionados = [];
-    document.querySelectorAll('input[name="dias_semana"]:checked').forEach(checkbox => {
-        diasSeleccionados.push(checkbox.value);
-    });
-    
-    if (!fechaInicio || !fechaFin || !hora || diasSeleccionados.length === 0) {
-        document.getElementById('vista-previa').innerHTML = 
-            '<div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60"><p class="text-xs">Complete fecha inicio, fin, hora y seleccione días</p></div>';
-        return;
-    }
-    
-    if (new Date(fechaInicio) > new Date(fechaFin)) {
-        document.getElementById('vista-previa').innerHTML = 
-            '<p class="text-red-500 text-center mt-4 bg-red-50 p-2 rounded border border-red-200">⚠️ La fecha de inicio no puede ser mayor a la fecha fin</p>';
-        return;
-    }
-    
-    const pacienteId = document.getElementById('paciente-select')?.value || '';
-    const profesionalId = document.getElementById('profesional-select')?.value || '';
-    const servicioId = document.getElementById('servicio-select')?.value || '';
-    const duracionEfectiva = obtenerDuracionEfectiva();
-    
-    const params = new URLSearchParams({
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
-        hora: hora,
-        paciente: pacienteId,
-        profesional: profesionalId,
-        servicio: servicioId,
-        duracion: duracionEfectiva
-    });
-    
-    diasSeleccionados.forEach(dia => {
-        params.append('dias_semana', dia);
-    });
-    
-    document.getElementById('vista-previa').innerHTML = 
-        '<div class="flex items-center justify-center h-full text-blue-500"><span class="animate-pulse">⏳ Calculando sesiones...</span></div>';
-    
-    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    const url = '{% url "agenda:vista_previa" %}?' + params.toString();
-    
-    fetch(url, {
-        method: 'GET',
-        headers: {
-            'X-CSRFToken': csrftoken,
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('Error');
-        return response.text();
-    })
-    .then(html => {
-        const container = document.getElementById('vista-previa');
-        if (container) {
-            container.innerHTML = html;
-            actualizarContador();
-            // ✅ Agregar event listeners a los nuevos checkboxes
-            agregarEventListenersCheckboxes();
-        }
-    })
-    .catch(error => {
-        document.getElementById('vista-previa').innerHTML = 
-            '<p class="text-red-500 text-center">❌ Error de conexión</p>';
-    });
-}
-
-// ✅ Función para agregar event listeners a checkboxes dinámicos
-function agregarEventListenersCheckboxes() {
-    const checkboxes = document.querySelectorAll('.sesion-checkbox');
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', actualizarContador);
-    });
-}
-
-window.toggleConflicto = function(panelId, btn) {
-    var panel = document.getElementById(panelId);
-    if (panel) {
-        if (panel.style.display === 'none' || panel.style.display === '') {
-            panel.style.display = 'block';
-            btn.innerHTML = '▲';
-        } else {
-            panel.style.display = 'none';
-            btn.innerHTML = '▼';
-        }
-    }
-};
-
-window.actualizarContador = function() {
-    const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
-    const total = document.querySelectorAll('.sesion-checkbox').length;
-    const contadorElement = document.getElementById('contador-seleccionadas');
-    if (contadorElement) contadorElement.textContent = checkboxes.length;
-    
-    const totalElement = document.getElementById('total-sesiones');
-    if (totalElement) totalElement.textContent = total;
-};
-
+// ========================================
+// VALIDACIÓN DE FORMULARIO
+// ========================================
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     if (form) {
@@ -508,26 +854,364 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+</script>
 
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        const servicioSelect = document.getElementById('servicio-select');
-        if (servicioSelect && !servicioSelect.disabled) {
-            servicioSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                const duracion = selectedOption.getAttribute('data-duracion');
-                if (duracion) {
-                    document.getElementById('duracion-servicio-info').textContent = 
-                        `${duracion} min`;
+<script>
+// ========================================
+// FUNCIONES PARA MANEJO DE MENSUALIDADES
+// ========================================
+
+/**
+ * Alternar la visibilidad del select de mensualidades
+ */
+function toggleMensualidadSelect() {
+    console.log('🔧 toggleMensualidadSelect llamada');
+    
+    const checkbox = document.getElementById('asignar_mensualidad');
+    const container = document.getElementById('mensualidad-select-container');
+    const checkboxProyecto = document.getElementById('asignar_proyecto');
+    const fechaInicio = document.getElementById('fecha-inicio');
+    const fechaFin = document.getElementById('fecha-fin');
+    
+    console.log('Checkbox:', checkbox?.checked);
+    console.log('Container:', container);
+    
+    if (checkbox && checkbox.checked) {
+        console.log('✅ Activando mensualidad...');
+        
+        // ✅ Mostrar contenedor de mensualidades
+        if (container) {
+            container.classList.remove('hidden');
+            console.log('✅ Contenedor mostrado');
+        }
+        
+        // ✅ Desactivar "Asignar a Proyecto" (exclusividad)
+        if (checkboxProyecto) {
+            checkboxProyecto.checked = false;
+            checkboxProyecto.disabled = true;
+            const proyectoContainer = document.getElementById('proyecto-select-container');
+            if (proyectoContainer) {
+                proyectoContainer.classList.add('hidden');
+            }
+            const proyectoSelect = document.getElementById('proyecto_id');
+            if (proyectoSelect) {
+                proyectoSelect.value = '';
+            }
+            const proyectoInfo = document.getElementById('proyecto-info');
+            if (proyectoInfo) {
+                proyectoInfo.classList.add('hidden');
+            }
+        }
+        
+        // ✅ Ocultar campos de fecha
+        if (fechaInicio && fechaInicio.parentElement) {
+            fechaInicio.parentElement.style.display = 'none';
+            fechaInicio.removeAttribute('required');
+        }
+        if (fechaFin && fechaFin.parentElement) {
+            fechaFin.parentElement.style.display = 'none';
+            fechaFin.removeAttribute('required');
+        }
+        
+        // ✅ Cargar mensualidades
+        cargarMensualidadesDelPaciente();
+        
+    } else {
+        console.log('❌ Desactivando mensualidad...');
+        
+        // ❌ Ocultar contenedor
+        if (container) {
+            container.classList.add('hidden');
+            console.log('✅ Contenedor ocultado');
+        }
+        
+        // ❌ Reactivar "Asignar a Proyecto"
+        if (checkboxProyecto) {
+            checkboxProyecto.disabled = false;
+        }
+        
+        // ❌ Mostrar campos de fecha
+        if (fechaInicio && fechaInicio.parentElement) {
+            fechaInicio.parentElement.style.display = 'block';
+            fechaInicio.setAttribute('required', 'required');
+        }
+        if (fechaFin && fechaFin.parentElement) {
+            fechaFin.parentElement.style.display = 'block';
+            fechaFin.setAttribute('required', 'required');
+        }
+        
+        // ❌ Limpiar select
+        const select = document.getElementById('mensualidad_id');
+        if (select) {
+            select.value = '';
+        }
+        const info = document.getElementById('mensualidad-info');
+        if (info) {
+            info.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Cargar mensualidades del paciente
+ */
+function cargarMensualidadesDelPaciente() {
+    console.log('🔄 Cargando mensualidades...');
+    
+    const pacienteSelect = document.getElementById('paciente-select');
+    const servicioSelect = document.getElementById('servicio-select');
+    const profesionalSelect = document.getElementById('profesional-select');
+    const sucursalSelect = document.getElementById('sucursal-select');
+    
+    const pacienteId = pacienteSelect?.value;
+    const servicioId = servicioSelect?.value;
+    const profesionalId = profesionalSelect?.value;
+    const sucursalId = sucursalSelect?.value;
+    
+    console.log('Filtros:', { pacienteId, servicioId, profesionalId, sucursalId });
+    
+    // Validar parámetros
+    if (!pacienteId || !servicioId || !profesionalId || !sucursalId) {
+        alert('⚠️ Primero selecciona: Sucursal, Paciente, Servicio y Profesional');
+        const checkbox = document.getElementById('asignar_mensualidad');
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+        const container = document.getElementById('mensualidad-select-container');
+        if (container) {
+            container.classList.add('hidden');
+        }
+        return;
+    }
+    
+    const select = document.getElementById('mensualidad_id');
+    const sinMensualidades = document.getElementById('sin-mensualidades');
+    
+    if (!select) {
+        console.error('❌ No se encontró el select de mensualidades');
+        return;
+    }
+    
+    select.innerHTML = '<option value="">⏳ Cargando...</option>';
+    select.disabled = true;
+    
+    const url = `/agenda/api/mensualidades-paciente/?paciente=${pacienteId}&servicio=${servicioId}&profesional=${profesionalId}&sucursal=${sucursalId}`;
+    console.log('📡 Llamando a:', url);
+    
+    fetch(url)
+        .then(response => {
+            console.log('📥 Respuesta recibida:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Datos recibidos:', data);
+            
+            select.innerHTML = '<option value="">-- Seleccione Mensualidad --</option>';
+            select.disabled = false;
+            
+            if (data.success && data.mensualidades && data.mensualidades.length > 0) {
+                console.log(`✅ ${data.mensualidades.length} mensualidades encontradas`);
+                
+                data.mensualidades.forEach(mensualidad => {
+                    const option = document.createElement('option');
+                    option.value = mensualidad.id;
+                    option.textContent = `${mensualidad.periodo} - ${mensualidad.codigo} (${mensualidad.num_sesiones_realizadas}/${mensualidad.num_sesiones} sesiones)`;
+                    
+                    // Guardar datos en dataset
+                    option.dataset.mes = mensualidad.mes;
+                    option.dataset.anio = mensualidad.anio;
+                    option.dataset.costo = mensualidad.costo_mensual;
+                    option.dataset.pagado = mensualidad.total_pagado;
+                    option.dataset.saldo = mensualidad.saldo_pendiente;
+                    option.dataset.sesiones = mensualidad.num_sesiones;
+                    option.dataset.realizadas = mensualidad.num_sesiones_realizadas;
+                    option.dataset.estado = mensualidad.estado;
+                    option.dataset.periodo = mensualidad.periodo;
+                    
+                    select.appendChild(option);
+                });
+                
+                if (sinMensualidades) {
+                    sinMensualidades.classList.add('hidden');
                 }
-            });
+            } else {
+                console.log('📭 No hay mensualidades');
+                if (sinMensualidades) {
+                    sinMensualidades.classList.remove('hidden');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error:', error);
+            select.innerHTML = '<option value="">⚠️ Error al cargar</option>';
+            select.disabled = false;
+            alert('Error al cargar mensualidades. Por favor, intenta nuevamente.');
+        });
+}
+
+/**
+ * Mostrar información de la mensualidad seleccionada
+ */
+function mostrarInfoMensualidad() {
+    console.log('📊 Mostrando info de mensualidad...');
+    
+    const select = document.getElementById('mensualidad_id');
+    const info = document.getElementById('mensualidad-info');
+    const fechaInicio = document.getElementById('fecha-inicio');
+    const fechaFin = document.getElementById('fecha-fin');
+    
+    if (!select || !select.value) {
+        if (info) {
+            info.classList.add('hidden');
+        }
+        return;
+    }
+    
+    const selectedOption = select.options[select.selectedIndex];
+    
+    // Extraer datos
+    const mes = parseInt(selectedOption.dataset.mes);
+    const anio = parseInt(selectedOption.dataset.anio);
+    const costo = parseFloat(selectedOption.dataset.costo || '0');
+    const pagado = parseFloat(selectedOption.dataset.pagado || '0');
+    const saldo = parseFloat(selectedOption.dataset.saldo || '0');
+    const sesiones = parseInt(selectedOption.dataset.sesiones || '0');
+    const realizadas = parseInt(selectedOption.dataset.realizadas || '0');
+    const periodo = selectedOption.dataset.periodo || '';
+    
+    console.log('Datos de mensualidad:', { mes, anio, costo, pagado, saldo, sesiones, realizadas });
+    
+    // Actualizar información
+    const periodoElement = document.getElementById('mensualidad-periodo');
+    if (periodoElement) periodoElement.textContent = periodo;
+    
+    const costoElement = document.getElementById('mensualidad-costo');
+    if (costoElement) costoElement.textContent = costo.toFixed(2);
+    
+    const pagadoElement = document.getElementById('mensualidad-pagado');
+    if (pagadoElement) pagadoElement.textContent = pagado.toFixed(2);
+    
+    const saldoElement = document.getElementById('mensualidad-saldo');
+    if (saldoElement) saldoElement.textContent = saldo.toFixed(2);
+    
+    const sesionesElement = document.getElementById('mensualidad-sesiones');
+    if (sesionesElement) sesionesElement.textContent = `${realizadas} / ${sesiones}`;
+    
+    // Calcular fechas
+    const fechaInicioCalculada = calcularPrimerDiaMes(anio, mes);
+    const fechaFinCalculada = calcularUltimoDiaMes(anio, mes);
+    
+    console.log('Fechas calculadas:', { fechaInicioCalculada, fechaFinCalculada });
+    
+    if (fechaInicio) fechaInicio.value = fechaInicioCalculada;
+    if (fechaFin) fechaFin.value = fechaFinCalculada;
+    
+    // Mostrar panel
+    if (info) {
+        info.classList.remove('hidden');
+    }
+    
+    // Actualizar vista previa
+    if (typeof actualizarVistaPrevia === 'function') {
+        actualizarVistaPrevia();
+    }
+}
+
+/**
+ * Calcular primer día del mes
+ */
+function calcularPrimerDiaMes(anio, mes) {
+    const mesStr = mes.toString().padStart(2, '0');
+    return `${anio}-${mesStr}-01`;
+}
+
+/**
+ * Calcular último día del mes
+ */
+function calcularUltimoDiaMes(anio, mes) {
+    const ultimoDia = new Date(anio, mes, 0);
+    const dia = ultimoDia.getDate().toString().padStart(2, '0');
+    const mesStr = mes.toString().padStart(2, '0');
+    return `${anio}-${mesStr}-${dia}`;
+}
+
+/**
+ * Resetear mensualidad
+ */
+function resetearMensualidad() {
+    const checkbox = document.getElementById('asignar_mensualidad');
+    const container = document.getElementById('mensualidad-select-container');
+    const select = document.getElementById('mensualidad_id');
+    const info = document.getElementById('mensualidad-info');
+    
+    if (checkbox) checkbox.checked = false;
+    if (container) container.classList.add('hidden');
+    if (select) {
+        select.innerHTML = '<option value="">-- Seleccione Mensualidad --</option>';
+        select.value = '';
+    }
+    if (info) info.classList.add('hidden');
+    
+    const checkboxProyecto = document.getElementById('asignar_proyecto');
+    if (checkboxProyecto) checkboxProyecto.disabled = false;
+    
+    const fechaInicio = document.getElementById('fecha-inicio');
+    const fechaFin = document.getElementById('fecha-fin');
+    if (fechaInicio && fechaInicio.parentElement) {
+        fechaInicio.parentElement.style.display = 'block';
+        fechaInicio.setAttribute('required', 'required');
+    }
+    if (fechaFin && fechaFin.parentElement) {
+        fechaFin.parentElement.style.display = 'block';
+        fechaFin.setAttribute('required', 'required');
+    }
+}
+
+// ========================================
+// INICIALIZACIÓN
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Inicializando funciones de mensualidad...');
+    
+    // Event listener para checkbox
+    const checkboxMensualidad = document.getElementById('asignar_mensualidad');
+    if (checkboxMensualidad) {
+        // Remover el onchange inline si existe
+        checkboxMensualidad.removeAttribute('onchange');
+        checkboxMensualidad.addEventListener('change', toggleMensualidadSelect);
+        console.log('✅ Event listener agregado al checkbox');
+    } else {
+        console.warn('⚠️ No se encontró checkbox asignar_mensualidad');
+    }
+    
+    // Event listener para select
+    const selectMensualidad = document.getElementById('mensualidad_id');
+    if (selectMensualidad) {
+        selectMensualidad.removeAttribute('onchange');
+        selectMensualidad.addEventListener('change', mostrarInfoMensualidad);
+        console.log('✅ Event listener agregado al select');
+    } else {
+        console.warn('⚠️ No se encontró select mensualidad_id');
+    }
+    
+    // Event listeners para resetear
+    ['paciente-select', 'servicio-select', 'profesional-select'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', resetearMensualidad);
         }
     });
+    
+    console.log('✅ Funciones de mensualidad listas');
 });
 
-observer.observe(document.getElementById('servicios-container'), {
-    childList: true,
-    subtree: true
-});
+// Exponer funciones globalmente
+window.toggleMensualidadSelect = toggleMensualidadSelect;
+window.cargarMensualidadesDelPaciente = cargarMensualidadesDelPaciente;
+window.mostrarInfoMensualidad = mostrarInfoMensualidad;
+window.resetearMensualidad = resetearMensualidad;
 </script>
 {% endblock %}

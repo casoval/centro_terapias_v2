@@ -235,7 +235,7 @@ class CalendarService:
         ✅ CORREGIDO: fecha_inicio y fecha_fin pueden ser None para vista lista sin límites
         """
         sesiones = Sesion.objects.select_related(
-            'paciente', 'profesional', 'servicio', 'sucursal', 'proyecto'
+            'paciente', 'profesional', 'servicio', 'sucursal', 'proyecto', 'mensualidad'
         )
         
         # ✅ Filtro de fechas (opcional para vista lista)
@@ -259,9 +259,11 @@ class CalendarService:
             sesiones = sesiones.filter(sucursal_id=sucursal_id)
         
         if tipo_sesion == 'normal':
-            sesiones = sesiones.filter(proyecto__isnull=True)
+            sesiones = sesiones.filter(proyecto__isnull=True, mensualidad__isnull=True)
         elif tipo_sesion == 'evaluacion':
             sesiones = sesiones.filter(proyecto__isnull=False)
+        elif tipo_sesion == 'mensualidad':
+            sesiones = sesiones.filter(mensualidad__isnull=False)
             
         if estado:
             sesiones = sesiones.filter(estado=estado)

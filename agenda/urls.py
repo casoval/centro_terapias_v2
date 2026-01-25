@@ -33,6 +33,16 @@ urlpatterns = [
     path('proyectos/<int:proyecto_id>/', views.detalle_proyecto, name='detalle_proyecto'),
     path('proyectos/<int:proyecto_id>/actualizar-estado/', views.actualizar_estado_proyecto, name='actualizar_estado_proyecto'),
 
+     # 💳 MENSUALIDADES
+     path('mensualidades/', views.lista_mensualidades, name='lista_mensualidades'),
+     path('mensualidades/crear/', views.crear_mensualidad, name='crear_mensualidad'),
+     path('mensualidades/<int:mensualidad_id>/', views.detalle_mensualidad, name='detalle_mensualidad'),
+     path('mensualidades/<int:mensualidad_id>/actualizar-estado/', 
+          views.actualizar_estado_mensualidad, 
+          name='actualizar_estado_mensualidad'),
+     path('confirmacion-mensualidad/', views.confirmacion_mensualidad, name='confirmacion_mensualidad'), 
+     path('api/mensualidades-paciente/', views.obtener_mensualidades_paciente, name='mensualidades_paciente'),
+     
     # 🆕 Procesar cambio de estado con confirmación
     path('sesion/<int:sesion_id>/procesar-cambio-estado/', 
          views.procesar_cambio_estado, 

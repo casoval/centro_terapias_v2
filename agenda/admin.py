@@ -1,7 +1,90 @@
 from django.contrib import admin
-from .models import Sesion, Proyecto
+from .models import Sesion, Proyecto, Mensualidad 
 
-
+@admin.register(Mensualidad)
+class MensualidadAdmin(admin.ModelAdmin):
+    list_display = [
+        'codigo',
+        'paciente',
+        'periodo_display',
+        'servicio',
+        'profesional',
+        'estado',
+        'costo_mensual',
+        'total_pagado',
+        'saldo_pendiente',
+        'num_sesiones',
+        'num_sesiones_realizadas'
+    ]
+    list_filter = [
+        'estado',
+        'anio',
+        'mes',
+        'sucursal',
+        'profesional',
+        'servicio'
+    ]
+    search_fields = [
+        'codigo',
+        'paciente__nombre',
+        'paciente__apellido',
+        'observaciones'
+    ]
+    
+    fieldsets = (
+        ('Información Principal', {
+            'fields': (
+                'codigo',
+                'paciente',
+                'servicio',
+                'profesional',
+                'sucursal'
+            )
+        }),
+        ('Período', {
+            'fields': (
+                'mes',
+                'anio'
+            )
+        }),
+        ('Costos', {
+            'fields': (
+                'costo_mensual',
+            )
+        }),
+        ('Estado', {
+            'fields': (
+                'estado',
+            )
+        }),
+        ('Observaciones', {
+            'fields': (
+                'observaciones',
+            )
+        }),
+        ('Control', {
+            'fields': (
+                'creada_por',
+                'fecha_creacion',
+                'modificada_por',
+                'fecha_modificacion'
+            ),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    readonly_fields = [
+        'codigo',
+        'fecha_creacion',
+        'fecha_modificacion'
+    ]
+    
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.creada_por = request.user
+        obj.modificada_por = request.user
+        super().save_model(request, obj, form, change)
+        
 @admin.register(Proyecto)
 class ProyectoAdmin(admin.ModelAdmin):
     list_display = [
@@ -106,14 +189,16 @@ class SesionAdmin(admin.ModelAdmin):
         'estado', 
         'monto_cobrado',
         'estado_pago_display',
-        'proyecto'
+        'proyecto',
+        'mensualidad'
     ]
     list_filter = [
         'estado', 
         'fecha', 
         'profesional', 
         'servicio',
-        'proyecto'
+        'proyecto',
+        'mensualidad'
     ]
     search_fields = [
         'paciente__nombre',
@@ -122,7 +207,8 @@ class SesionAdmin(admin.ModelAdmin):
         'profesional__apellido',
         'observaciones',
         'proyecto__codigo',
-        'proyecto__nombre'
+        'proyecto__nombre',
+        'mensualidad__codigo'
     ]
     date_hierarchy = 'fecha'
     
@@ -133,7 +219,8 @@ class SesionAdmin(admin.ModelAdmin):
                 'servicio', 
                 'profesional',
                 'sucursal',
-                'proyecto'
+                'proyecto',
+                'mensualidad'
             )
         }),
         ('Fecha y Hora', {

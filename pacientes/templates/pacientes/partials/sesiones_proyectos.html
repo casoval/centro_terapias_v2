@@ -1,0 +1,153 @@
+<!-- pacientes/templates/pacientes/partials/sesiones_proyectos.html -->
+
+{% if proyectos_agrupados %}
+    <!-- ✅ GRID DE 3 COLUMNAS EN PANTALLAS GRANDES -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {% for item in proyectos_agrupados %}
+        <div class="border-2 border-purple-200 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <!-- Header Proyecto -->
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-5">
+                <h3 class="text-xl font-black">📦 {{ item.proyecto.codigo }}</h3>
+                <p class="text-purple-100 mt-1 text-sm">{{ item.proyecto.nombre }}</p>
+            </div>
+            
+            <!-- Info Proyecto -->
+            <div class="p-5 bg-white">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <p class="text-xs text-gray-600 font-bold">Tipo</p>
+                        <p class="text-sm font-black">{{ item.proyecto.get_tipo_display }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 font-bold">Estado</p>
+                        <p class="text-sm font-black">{{ item.proyecto.get_estado_display }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 font-bold">Inicio</p>
+                        <p class="text-sm font-black">{{ item.proyecto.fecha_inicio|date:"d/m/Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-600 font-bold">Fin</p>
+                        <p class="text-sm font-black">
+                            {% if item.proyecto.fecha_fin_real %}
+                                {{ item.proyecto.fecha_fin_real|date:"d/m/Y" }}
+                            {% else %}
+                                {% if item.proyecto.fecha_fin_estimada %}
+                                    {{ item.proyecto.fecha_fin_estimada|date:"d/m/Y" }} <span class="text-xs text-gray-500">(est.)</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Financiero -->
+                <div class="grid grid-cols-3 gap-2 mb-4">
+                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                        <p class="text-xs text-blue-600 font-bold">Costo</p>
+                        <p class="text-lg font-black text-blue-900">Bs. {{ item.proyecto.costo_total }}</p>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-2 text-center">
+                        <p class="text-xs text-green-600 font-bold">Pagado</p>
+                        <p class="text-lg font-black text-green-900">Bs. {{ item.proyecto.total_pagado }}</p>
+                    </div>
+                    <div class="{% if item.proyecto.saldo_pendiente > 0 %}bg-red-50{% else %}bg-gray-50{% endif %} rounded-lg p-2 text-center">
+                        <p class="text-xs {% if item.proyecto.saldo_pendiente > 0 %}text-red-600{% else %}text-gray-600{% endif %} font-bold">Saldo</p>
+                        <p class="text-lg font-black {% if item.proyecto.saldo_pendiente > 0 %}text-red-900{% else %}text-gray-900{% endif %}">
+                            Bs. {{ item.proyecto.saldo_pendiente }}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Sesiones MEJORADAS -->
+                <h4 class="text-sm font-black text-gray-800 mb-2 flex items-center justify-between">
+                    <span>📅 Sesiones del Proyecto:</span>
+                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                        {{ item.sesiones_realizadas }}/{{ item.total_sesiones }}
+                    </span>
+                </h4>
+                
+                <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {% for sesion in item.sesiones %}
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-purple-300 hover:shadow-sm transition-all">
+                        <!-- Header de sesión -->
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                {% if sesion.estado == 'realizada' %}
+                                    <span class="text-xl" title="Realizada">✅</span>
+                                {% elif sesion.estado == 'realizada_retraso' %}
+                                    <span class="text-xl" title="Con Retraso">⏰</span>
+                                {% elif sesion.estado == 'programada' %}
+                                    <span class="text-xl" title="Programada">🟢</span>
+                                {% elif sesion.estado == 'falta' %}
+                                    <span class="text-xl" title="Falta">❌</span>
+                                {% elif sesion.estado == 'permiso' %}
+                                    <span class="text-xl" title="Permiso">📋</span>
+                                {% elif sesion.estado == 'cancelada' %}
+                                    <span class="text-xl" title="Cancelada">🚫</span>
+                                {% endif %}
+                                
+                                <div>
+                                    <p class="text-sm font-bold text-gray-900">{{ sesion.fecha|date:"d/m/Y" }}</p>
+                                    <p class="text-xs text-gray-600">{{ sesion.hora_inicio|time:"H:i" }}</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Estado badge -->
+                            {% if sesion.estado == 'realizada' %}
+                                <span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-bold">Realizada</span>
+                            {% elif sesion.estado == 'realizada_retraso' %}
+                                <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full font-bold">Retraso</span>
+                            {% elif sesion.estado == 'programada' %}
+                                <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-bold">Programada</span>
+                            {% elif sesion.estado == 'falta' %}
+                                <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-bold">Falta</span>
+                            {% elif sesion.estado == 'permiso' %}
+                                <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-bold">Permiso</span>
+                            {% elif sesion.estado == 'cancelada' %}
+                                <span class="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-full font-bold">Cancelada</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Info de servicio y profesional -->
+                        <div class="space-y-1 mb-2">
+                            <p class="text-xs text-gray-700">
+                                <span class="font-bold">Servicio:</span> {{ sesion.servicio.nombre }}
+                            </p>
+                            <p class="text-xs text-gray-700 flex items-center gap-1">
+                                <span class="text-sm">👨‍⚕️</span>
+                                <span class="font-bold">Profesional:</span> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                            </p>
+                        </div>
+                        
+                        <!-- ✅ OBSERVACIONES -->
+                        {% if sesion.observaciones %}
+                        <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded-r mb-2">
+                            <p class="text-xs font-bold text-yellow-800 mb-1">📝 Observaciones:</p>
+                            <p class="text-xs text-gray-700 whitespace-pre-line">{{ sesion.observaciones }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- ✅ EVOLUCIÓN / NOTAS -->
+                        {% if sesion.notas_sesion %}
+                        <div class="bg-blue-50 border-l-2 border-blue-400 p-2 rounded-r">
+                            <p class="text-xs font-bold text-blue-800 mb-1">🩺 Evolución:</p>
+                            <p class="text-xs text-gray-700 whitespace-pre-line">{{ sesion.notas_sesion }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-gray-500 text-xs py-4">Sin sesiones registradas</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-12 text-gray-500">
+        <div class="text-6xl mb-4">📦</div>
+        <p class="text-lg font-bold">No hay proyectos registrados</p>
+    </div>
+{% endif %}

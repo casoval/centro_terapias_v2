@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💳 {{ mensualidad.codigo }} - {{ mensualidad.paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-5 text-[13px]">
+    
+    <!-- Header -->
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-slate-200 pb-5">
+        <div class="flex items-center gap-4">
+            <div class="bg-gradient-to-br from-purple-700 to-purple-900 text-white p-3.5 rounded-2xl shadow-lg">
+                <span class="text-3xl">💳</span>
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none">{{ mensualidad.periodo_display }}</h1>
+                <div class="flex gap-3 items-center mt-2">
+                    <span class="font-mono text-[12px] font-bold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">{{ mensualidad.codigo }}</span>
+                    <span class="px-3 py-1 rounded-full text-[11px] font-black border uppercase shadow-sm tracking-wider
+                        {% if mensualidad.estado == 'activa' %}bg-emerald-100 text-emerald-700 border-emerald-300
+                        {% elif mensualidad.estado == 'pausada' %}bg-amber-100 text-amber-700 border-amber-300
+                        {% elif mensualidad.estado == 'completada' %}bg-purple-100 text-purple-700 border-purple-300
+                        {% else %}bg-slate-100 text-slate-700 border-slate-300{% endif %}">
+                        {{ mensualidad.get_estado_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'agenda:lista_mensualidades' %}" class="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-xl font-black text-[11px] border border-slate-200 transition-all shadow-sm uppercase tracking-wide">← Volver al Listado</a>
+    </div>
+
+    <!-- Información Principal -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        
+        <!-- Paciente -->
+        <div class="bg-blue-50/60 rounded-2xl shadow-sm border border-blue-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-2.5 border-b border-blue-200">
+                <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">👤 Ficha del Paciente</h2>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Nombre Completo</p>
+                    <p class="text-base font-black text-slate-800 uppercase leading-tight">{{ mensualidad.paciente.nombre_completo }}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-3 border-t border-blue-200/50">
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Tutor</p>
+                        <p class="font-bold text-slate-700 text-[12px]">{{ mensualidad.paciente.nombre_tutor }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Contacto</p>
+                        <p class="font-bold text-slate-700 text-[12px]">{{ mensualidad.paciente.telefono_tutor }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Servicio -->
+        <div class="bg-purple-50/60 rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-600 to-purple-400 px-5 py-2.5 border-b border-purple-200">
+                <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">📋 Información del Servicio</h2>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <p class="text-[10px] uppercase font-bold text-purple-500 mb-1">Servicio</p>
+                    <p class="font-black text-slate-800 text-[13px]">{{ mensualidad.servicio.nombre }}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4 pt-3 border-t border-purple-200/50">
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-purple-500 mb-1">Profesional</p>
+                        <p class="font-black text-slate-700 text-[12px]">{{ mensualidad.profesional.nombre }} {{ mensualidad.profesional.apellido }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase font-bold text-purple-500 mb-1">Sucursal</p>
+                        <p class="font-black text-slate-700 text-[12px]">🏢 {{ mensualidad.sucursal.nombre }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado Financiero -->
+        <div class="bg-emerald-50/60 rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 px-5 py-2.5 border-b border-emerald-200">
+                <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">💰 Estado Financiero</h2>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-emerald-100 shadow-sm">
+                    <span class="text-[11px] font-bold uppercase text-slate-400">Costo Mensual</span>
+                    <span class="text-xl font-black text-slate-800">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="text-center py-3 px-2 rounded-xl bg-white border border-emerald-100">
+                        <p class="text-[10px] uppercase font-bold text-emerald-500 mb-1">Pagado</p>
+                        <p class="text-sm font-black text-emerald-700">Bs. {{ mensualidad.total_pagado|floatformat:0 }}</p>
+                    </div>
+                    <div class="text-center py-3 px-2 rounded-xl bg-white border border-red-100">
+                        <p class="text-[10px] uppercase font-bold text-red-500 mb-1">Saldo</p>
+                        <p class="text-sm font-black text-red-600">Bs. {{ mensualidad.saldo_pendiente|floatformat:0 }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información de Configuración -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-5 mb-6">
+        <div class="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-around">
+            <div class="text-center px-4">
+                <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Días</p>
+                <p class="text-[14px] font-black text-slate-800">{{ mensualidad.dias_display }}</p>
+            </div>
+            <div class="h-10 border-l border-slate-100"></div>
+            <div class="text-center px-4">
+                <p class="text-[10px] font-black text-amber-500 uppercase mb-1">Horario</p>
+                <p class="text-[14px] font-black text-slate-800 font-mono">{{ mensualidad.hora_inicio|time:"H:i" }}</p>
+            </div>
+            <div class="h-10 border-l border-slate-100"></div>
+            <div class="text-center px-4">
+                <p class="text-[10px] font-black text-blue-500 uppercase mb-1">Sesiones</p>
+                <p class="text-[14px] font-black text-slate-800">{{ stats.sesiones_realizadas }} / {{ stats.total_sesiones }}</p>
+            </div>
+            <div class="h-10 border-l border-slate-100"></div>
+            <div class="text-center px-4">
+                <p class="text-[10px] font-black text-purple-500 uppercase mb-1">Horas Totales</p>
+                <p class="text-[14px] font-black text-slate-800">{{ stats.total_horas|floatformat:1 }}</p>
+            </div>
+        </div>
+
+        <!-- Cambiar Estado -->
+        <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-4 shadow-md flex items-center">
+            <form method="post" action="{% url 'agenda:actualizar_estado_mensualidad' mensualidad.id %}" class="flex w-full gap-2" id="estadoForm">
+                {% csrf_token %}
+                <select name="estado" class="flex-grow bg-slate-700 border-none rounded-lg text-[12px] font-bold text-white py-2 focus:ring-2 focus:ring-purple-500">
+                    {% for ev, en in mensualidad.ESTADO_CHOICES %}
+                    <option value="{{ ev }}" {% if mensualidad.estado == ev %}selected{% endif %}>{{ en }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-black text-[11px] hover:bg-purple-500 transition-all uppercase shadow-lg">OK</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sesiones y Pagos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Sesiones -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3 flex justify-between items-center">
+                <h3 class="text-[12px] font-black uppercase text-white tracking-widest">🗓️ Sesiones del Mes</h3>
+                <span class="bg-white/20 text-white px-3 py-1 rounded-lg text-[11px] font-black">{{ sesiones.count }}</span>
+            </div>
+            <div class="max-h-[400px] overflow-y-auto">
+                <table class="w-full text-[12px]">
+                    <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Fecha</th>
+                            <th class="px-5 py-3 text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {% for s in sesiones %}
+                        <tr class="hover:bg-blue-50/40 transition-colors">
+                            <td class="px-5 py-3.5">
+                                <span class="font-black text-slate-800 block text-[13px]">{{ s.fecha|date:"d/m/Y" }}</span>
+                                <span class="text-[11px] text-slate-400 font-mono">{{ s.hora_inicio|time:"H:i" }}</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-center">
+                                <span class="text-[10px] font-black uppercase px-3 py-1 rounded-lg border 
+                                    {% if s.estado == 'realizada' or s.estado == 'realizada_retraso' %}bg-emerald-50 text-emerald-600 border-emerald-200
+                                    {% elif s.estado == 'falta' %}bg-red-50 text-red-600 border-red-200
+                                    {% else %}bg-blue-50 text-blue-600 border-blue-200{% endif %}">
+                                    {{ s.get_estado_display }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="px-5 py-8 text-center text-slate-400 italic">No hay sesiones registradas</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagos -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div class="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-3 flex justify-between items-center">
+                <h3 class="text-[12px] font-black uppercase text-white tracking-widest">💵 Registro de Pagos</h3>
+                <span class="bg-white/20 text-white px-3 py-1 rounded-lg text-[11px] font-black">Bs. {{ mensualidad.total_pagado|floatformat:0 }}</span>
+            </div>
+            <div class="max-h-[400px] overflow-y-auto">
+                <table class="w-full text-[12px]">
+                    <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Recibo</th>
+                            <th class="px-5 py-3 text-left">Método</th>
+                            <th class="px-5 py-3 text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-emerald-50">
+                        {% for pago in pagos %}
+                        <tr class="hover:bg-emerald-50/40 transition-colors">
+                            <td class="px-5 py-3.5 font-black text-slate-800">
+                                #{{ pago.numero_recibo }}
+                                <p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
+                            </td>
+                            <td class="px-5 py-3.5">
+                                <span class="text-[10px] font-black text-blue-600 uppercase">{{ pago.metodo_pago.nombre }}</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="px-5 py-8 text-center text-slate-400 italic">No hay pagos registrados</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón de Pago -->
+    {% if mensualidad.saldo_pendiente > 0 %}
+    <div class="mt-6 flex justify-center">
+        <a href="{% url 'facturacion:registrar_pago' %}?mensualidad_id={{ mensualidad.id }}" 
+           class="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-3 px-8 rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95">
+            💵 Registrar Pago de Mensualidad
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.querySelector('#estadoForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) { window.location.reload(); }
+        else { alert('Error al actualizar'); }
+    })
+    .catch(error => { console.error('Error:', error); });
+});
+</script>
+{% endblock %}

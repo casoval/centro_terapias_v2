@@ -9,6 +9,10 @@ urlpatterns = [
     path('<int:pk>/', views.detalle_paciente, name='detalle'),
     path('<int:pk>/editar/', views.editar_paciente, name='editar'),  # ✅ NUEVA RUTA
     path('<int:pk>/eliminar/', views.eliminar_paciente, name='eliminar'),  # ✅ NUEVA RUTA
+    
+    # ✅ NUEVA: Vista completa de sesiones
+    path('<int:pk>/sesiones/', views.detalle_sesiones_completo, name='detalle_sesiones'),
+
     path('mis-sesiones/', views.mis_sesiones, name='mis_sesiones'),
     path('mis-profesionales/', views.mis_profesionales, name='mis_profesionales'),
 ]

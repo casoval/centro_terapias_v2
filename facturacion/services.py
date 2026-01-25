@@ -10,6 +10,7 @@ from .models import Pago, MetodoPago, CuentaCorriente
 from agenda.models import Sesion, Proyecto
 from pacientes.models import Paciente
 
+
 class AccountService:
     @staticmethod
     def update_balance(paciente: Paciente) -> Decimal:
@@ -20,7 +21,8 @@ class AccountService:
             paciente=paciente,
             anulado=False,
             sesion__isnull=True,
-            proyecto__isnull=True
+            proyecto__isnull=True,
+            mensualidad__isnull=True  # ✅ ACTUALIZADO
         ).exclude(
             metodo_pago__nombre="Uso de Crédito"
         ).aggregate(total=Coalesce(Sum('monto'), Decimal('0.00')))['total']
@@ -35,7 +37,6 @@ class AccountService:
         ).aggregate(total=Coalesce(Sum('monto'), Decimal('0.00')))['total']
         
         # 3. Excedentes (OPTIMIZADO: De N consultas a 1 consulta)
-        # Calculamos el total pagado por sesión usando la BD, no Python
         sesiones_con_excedente = Sesion.objects.filter(
             paciente=paciente,
             proyecto__isnull=True,
@@ -49,7 +50,6 @@ class AccountService:
             total_pagado_calc__gt=F('monto_cobrado')
         )
         
-        # Sumar las diferencias
         excedentes_total = sesiones_con_excedente.aggregate(
             total=Coalesce(Sum(F('total_pagado_calc') - F('monto_cobrado')), Decimal('0.00'))
         )['total']
@@ -89,6 +89,7 @@ class AccountService:
         
         return cuenta.saldo
 
+
 class PaymentService:
     @staticmethod
     def process_payment(
@@ -99,13 +100,14 @@ class PaymentService:
         metodo_pago_id: int,
         fecha_pago: date,
         tipo_pago: str,
-        referencia_id: int = None,  # sesion_id, proyecto_id, or None for adelantado
+        referencia_id: int = None,
         es_pago_completo: bool = False,
         observaciones: str = "",
         numero_transaccion: str = ""
     ) -> dict:
         """
         Process a payment transaction including validation, credit application, and receipt generation.
+        Soporta: sesion, proyecto, mensualidad, adelantado
         Returns a dictionary with result details.
         """
         
@@ -117,9 +119,6 @@ class PaymentService:
         cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
         
         if usar_credito:
-            current_balance = cuenta.saldo
-            # If logic allows calling update_balance before check, do it. But assumes caller likely updated it.
-            # We will force update to be safe.
             current_balance = AccountService.update_balance(paciente)
             if current_balance < monto_credito:
                 raise ValidationError(f"Crédito insuficiente. Disponible: Bs. {current_balance}")
@@ -135,6 +134,7 @@ class PaymentService:
         with transaction.atomic():
             sesion = None
             proyecto = None
+            mensualidad = None  # ✅ NUEVO
             recibos_generados = []
             monto_total_aportado = monto_efectivo + monto_credito
             
@@ -145,7 +145,6 @@ class PaymentService:
                     raise ValidationError("ID de sesión requerido.")
                 sesion = Sesion.objects.get(id=referencia_id)
                 
-                # Logic: Adjust price if "Pago Completo"
                 if es_pago_completo:
                     pagado_previo = sesion.pagos.filter(anulado=False).exclude(
                         metodo_pago__nombre="Uso de Crédito"
@@ -172,6 +171,23 @@ class PaymentService:
                     if proyecto.costo_total != nuevo_costo:
                         proyecto.costo_total = nuevo_costo
                         proyecto.save()
+            
+            # ✅ NUEVO: Soporte para mensualidades
+            elif tipo_pago == 'mensualidad':
+                if not referencia_id:
+                    raise ValidationError("ID de mensualidad requerido.")
+                from agenda.models import Mensualidad
+                mensualidad = Mensualidad.objects.get(id=referencia_id)
+                
+                if es_pago_completo:
+                    pagado_previo = mensualidad.pagos.filter(anulado=False).exclude(
+                        metodo_pago__nombre="Uso de Crédito"
+                    ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                    
+                    nuevo_costo = pagado_previo + monto_total_aportado
+                    if mensualidad.monto_mensual != nuevo_costo:
+                        mensualidad.monto_mensual = nuevo_costo
+                        mensualidad.save()
                         
             elif tipo_pago == 'adelantado':
                 if monto_efectivo <= 0:
@@ -187,13 +203,18 @@ class PaymentService:
                 )
                 
                 concepto = f"Uso de crédito"
-                if sesion: concepto += f" - Sesión {sesion.fecha}"
-                elif proyecto: concepto += f" - Proyecto {proyecto.codigo}"
+                if sesion: 
+                    concepto += f" - Sesión {sesion.fecha}"
+                elif proyecto: 
+                    concepto += f" - Proyecto {proyecto.codigo}"
+                elif mensualidad:  # ✅ NUEVO
+                    concepto += f" - Mensualidad {mensualidad.codigo}"
                 
                 pago_credito = Pago.objects.create(
                     paciente=paciente,
                     sesion=sesion,
                     proyecto=proyecto,
+                    mensualidad=mensualidad,  # ✅ NUEVO
                     fecha_pago=fecha_pago,
                     monto=monto_credito,
                     metodo_pago=metodo_credito,
@@ -201,9 +222,6 @@ class PaymentService:
                     observaciones=f"Aplicación de saldo a favor\n{observaciones}",
                     registrado_por=user
                 )
-                # Override receipt number format for credit
-                # Note: The model's save method auto-generates REC-XXXX. We might want to customize it.
-                # The original view code did this: 
                 pago_credito.numero_recibo = f"CREDITO-{fecha_pago.strftime('%Y%m%d')}-{pago_credito.id}"
                 pago_credito.save()
                 
@@ -211,14 +229,20 @@ class PaymentService:
             pago_efectivo = None
             if monto_efectivo > 0:
                 concepto = "Pago"
-                if sesion: concepto += f" sesión {sesion.fecha} - {sesion.servicio.nombre}"
-                elif proyecto: concepto += f" proyecto {proyecto.codigo}"
-                else: concepto += " adelantado"
+                if sesion: 
+                    concepto += f" sesión {sesion.fecha} - {sesion.servicio.nombre}"
+                elif proyecto: 
+                    concepto += f" proyecto {proyecto.codigo}"
+                elif mensualidad:  # ✅ CORREGIDO
+                    concepto += f" mensualidad {mensualidad.codigo} - {mensualidad.periodo_display}"
+                else: 
+                    concepto += " adelantado"
                 
                 pago_efectivo = Pago.objects.create(
                     paciente=paciente,
                     sesion=sesion,
                     proyecto=proyecto,
+                    mensualidad=mensualidad,  # ✅ NUEVO
                     fecha_pago=fecha_pago,
                     monto=monto_efectivo,
                     metodo_pago=metodo_pago,

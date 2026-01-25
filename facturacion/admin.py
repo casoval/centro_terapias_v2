@@ -21,7 +21,7 @@ class PagoAdmin(admin.ModelAdmin):
             'fields': ('numero_recibo', 'paciente', 'fecha_pago', 'monto', 'metodo_pago')
         }),
         ('Relaciones', {
-            'fields': ('sesion', 'proyecto')
+            'fields': ('sesion', 'proyecto', 'mensualidad')
         }),
         ('Detalles', {
             'fields': ('concepto', 'numero_transaccion', 'observaciones')

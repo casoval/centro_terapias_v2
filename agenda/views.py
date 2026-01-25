@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, date
 from calendar import monthrange
 from decimal import Decimal
 
-from agenda.models import Sesion, Proyecto  # ✅ AGREGAR ESTA LÍNEA
+from agenda.models import Sesion, Proyecto, Mensualidad
 from pacientes.models import Paciente, PacienteServicio
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
@@ -280,6 +280,272 @@ def actualizar_estado_proyecto(request, proyecto_id):
         return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+# ============= 💳 MENSUALIDADES =============
+
+@login_required
+@solo_sus_sucursales
+def crear_mensualidad(request):
+    """Crear nueva mensualidad"""
+    
+    if request.method == 'POST':
+        try:
+            from django.db import transaction
+            
+            # Obtener datos del formulario
+            paciente_id = request.POST.get('paciente_id')
+            servicio_id = request.POST.get('servicio_id')
+            profesional_id = request.POST.get('profesional_id')
+            sucursal_id = request.POST.get('sucursal_id')
+            mes = int(request.POST.get('mes'))
+            anio = int(request.POST.get('anio'))
+            costo_mensual = Decimal(request.POST.get('costo_mensual'))
+            observaciones = request.POST.get('observaciones', '')
+            
+            # Validaciones básicas
+            if not all([paciente_id, servicio_id, profesional_id, sucursal_id, mes, anio, costo_mensual]):
+                messages.error(request, '❌ Faltan datos obligatorios')
+                return redirect('agenda:crear_mensualidad')
+            
+            paciente = Paciente.objects.get(id=paciente_id)
+            servicio = TipoServicio.objects.get(id=servicio_id)
+            profesional = Profesional.objects.get(id=profesional_id)
+            sucursal = Sucursal.objects.get(id=sucursal_id)
+            
+            # Verificar permisos
+            sucursales_usuario = request.sucursales_usuario
+            if sucursales_usuario is not None:
+                if not sucursales_usuario.filter(id=sucursal.id).exists():
+                    messages.error(request, '❌ No tienes permiso para crear mensualidades en esta sucursal')
+                    return redirect('agenda:crear_mensualidad')
+            
+            # Verificar si ya existe mensualidad para ese paciente/servicio/período
+            mensualidad_existente = Mensualidad.objects.filter(
+                paciente=paciente,
+                servicio=servicio,
+                mes=mes,
+                anio=anio
+            ).first()
+            
+            if mensualidad_existente:
+                messages.error(
+                    request, 
+                    f'❌ Ya existe una mensualidad para {paciente} - {servicio} en {mensualidad_existente.periodo_display}'
+                )
+                return redirect('agenda:crear_mensualidad')
+            
+            # ✅ Crear mensualidad (sin configuración de sesiones)
+            with transaction.atomic():
+                mensualidad = Mensualidad.objects.create(
+                    paciente=paciente,
+                    servicio=servicio,
+                    profesional=profesional,
+                    sucursal=sucursal,
+                    mes=mes,
+                    anio=anio,
+                    costo_mensual=costo_mensual,
+                    observaciones=observaciones,
+                    creada_por=request.user
+                )
+            
+            messages.success(request, f'✅ Mensualidad {mensualidad.codigo} creada correctamente')
+            messages.info(request, '📌 Ahora puedes agregar las sesiones desde "Agendar Sesión Recurrente"')
+            
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+            
+        except Exception as e:
+            messages.error(request, f'❌ Error: {str(e)}')
+            import traceback
+            print(traceback.format_exc())
+            return redirect('agenda:crear_mensualidad')
+    
+    # GET - Mostrar formulario
+    sucursales_usuario = request.sucursales_usuario
+    
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+    else:
+        sucursales = Sucursal.objects.filter(activa=True)
+    
+    context = {
+        'sucursales': sucursales,
+        'fecha_hoy': date.today(),
+    }
+    
+    return render(request, 'agenda/crear_mensualidad.html', context)
+
+@login_required
+@solo_sus_sucursales
+def lista_mensualidades(request):
+    """Lista de mensualidades con filtros"""
+    
+    # Filtros
+    buscar = request.GET.get('q', '').strip()
+    estado_filtro = request.GET.get('estado', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    
+    # Query base - ✅ SIN ANOTACIONES
+    mensualidades = Mensualidad.objects.select_related(
+        'paciente', 'servicio', 'profesional', 'sucursal'
+    ).prefetch_related('sesiones')  # ✅ Optimiza las queries de las propiedades
+    
+    # Filtrar por sucursales del usuario
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if sucursales_usuario.exists():
+            mensualidades = mensualidades.filter(sucursal__in=sucursales_usuario)
+        else:
+            mensualidades = mensualidades.none()
+    
+    # Aplicar filtros
+    if buscar:
+        mensualidades = mensualidades.filter(
+            Q(codigo__icontains=buscar) |
+            Q(paciente__nombre__icontains=buscar) |
+            Q(paciente__apellido__icontains=buscar)
+        )
+    
+    if estado_filtro:
+        mensualidades = mensualidades.filter(estado=estado_filtro)
+    
+    if sucursal_id:
+        mensualidades = mensualidades.filter(sucursal_id=sucursal_id)
+    
+    mensualidades = mensualidades.order_by('-anio', '-mes', '-fecha_creacion')
+    
+    # Paginación
+    paginator = Paginator(mensualidades, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    # Estadísticas
+    estadisticas = {
+        'total': mensualidades.count(),
+        'activas': mensualidades.filter(estado='activa').count(),
+        'pausadas': mensualidades.filter(estado='pausada').count(),
+        'completadas': mensualidades.filter(estado='completada').count(),
+    }
+    
+    # Sucursales para filtro
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+    else:
+        sucursales = Sucursal.objects.filter(activa=True)
+    
+    context = {
+        'page_obj': page_obj,
+        'estadisticas': estadisticas,
+        'buscar': buscar,
+        'estado_filtro': estado_filtro,
+        'sucursal_id': sucursal_id,
+        'sucursales': sucursales,
+        'estados': Mensualidad.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'agenda/lista_mensualidades.html', context)
+
+@login_required
+@solo_sus_sucursales
+def detalle_mensualidad(request, mensualidad_id):
+    """Detalle completo de una mensualidad"""
+    
+    mensualidad = get_object_or_404(
+        Mensualidad.objects.select_related(
+            'paciente', 'servicio', 'profesional', 'sucursal'
+        ),
+        id=mensualidad_id
+    )
+    
+    # Verificar permisos de sucursal
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if not sucursales_usuario.filter(id=mensualidad.sucursal.id).exists():
+            messages.error(request, '❌ No tienes permiso para ver esta mensualidad')
+            return redirect('agenda:lista_mensualidades')
+    
+    # Sesiones de la mensualidad
+    sesiones = mensualidad.sesiones.select_related(
+        'profesional', 'servicio'
+    ).order_by('fecha', 'hora_inicio')
+    
+    # Pagos de la mensualidad
+    from facturacion.models import Pago
+    pagos = Pago.objects.filter(
+        mensualidad=mensualidad,
+        anulado=False
+    ).select_related(
+        'metodo_pago', 'registrado_por'
+    ).order_by('-fecha_pago')
+    
+    # Estadísticas
+    stats = {
+        'total_sesiones': sesiones.count(),
+        'sesiones_realizadas': sesiones.filter(
+            estado__in=['realizada', 'realizada_retraso']
+        ).count(),
+        'total_horas': sum(s.duracion_minutos for s in sesiones) / 60,
+    }
+    
+    context = {
+        'mensualidad': mensualidad,
+        'sesiones': sesiones,
+        'pagos': pagos,
+        'stats': stats,
+    }
+    
+    return render(request, 'agenda/detalle_mensualidad.html', context)
+
+
+@login_required
+def actualizar_estado_mensualidad(request, mensualidad_id):
+    """Actualizar estado de una mensualidad (AJAX)"""
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        mensualidad = Mensualidad.objects.get(id=mensualidad_id)
+        nuevo_estado = request.POST.get('estado')
+        
+        if nuevo_estado not in dict(Mensualidad.ESTADO_CHOICES):
+            return JsonResponse({'error': 'Estado inválido'}, status=400)
+        
+        mensualidad.estado = nuevo_estado
+        mensualidad.modificada_por = request.user
+        mensualidad.save()
+        
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Estado actualizado a: {mensualidad.get_estado_display()}'
+        })
+        
+    except Mensualidad.DoesNotExist:
+        return JsonResponse({'error': 'Mensualidad no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def confirmacion_mensualidad(request):
+    """
+    Vista de confirmación después de crear mensualidad
+    """
+    
+    # Obtener datos de la sesión
+    datos_mensualidad = request.session.get('mensualidad_creada')
+    
+    if not datos_mensualidad:
+        messages.error(request, '❌ No hay datos de mensualidad para mostrar')
+        return redirect('agenda:lista_mensualidades')
+    
+    # Limpiar sesión después de obtener datos
+    del request.session['mensualidad_creada']
+    
+    context = {
+        'datos_mensualidad': datos_mensualidad,
+    }
+    
+    return render(request, 'agenda/confirmacion_mensualidad.html', context)
 
 @login_required
 @solo_sus_sucursales
@@ -618,10 +884,10 @@ def agendar_recurrente(request):
     
     if request.method == 'POST':
         try:
-            paciente_id = request.POST.get('paciente')
-            servicio_id = request.POST.get('servicio')
-            profesional_id = request.POST.get('profesional')
-            sucursal_id = request.POST.get('sucursal')
+            paciente_id = request.POST.get('paciente_id')  # Cambiado de 'paciente' a 'paciente_id'
+            servicio_id = request.POST.get('servicio_id')  # Cambiado de 'servicio' a 'servicio_id'
+            profesional_id = request.POST.get('profesional_id')  # Cambiado de 'profesional' a 'profesional_id'
+            sucursal_id = request.POST.get('sucursal')  # Este está correcto
             
             fecha_inicio = datetime.strptime(request.POST.get('fecha_inicio'), '%Y-%m-%d').date()
             fecha_fin = datetime.strptime(request.POST.get('fecha_fin'), '%Y-%m-%d').date()
@@ -655,6 +921,19 @@ def agendar_recurrente(request):
                     messages.error(request, '❌ El proyecto seleccionado no existe')
                     return redirect('agenda:agendar_recurrente')
             
+            # 💳 NUEVO: Obtener mensualidad si fue seleccionada
+            asignar_mensualidad = request.POST.get('asignar_mensualidad') == 'on'
+            mensualidad_id = request.POST.get('mensualidad_id')
+            mensualidad = None
+            
+            if asignar_mensualidad and mensualidad_id:
+                try:
+                    mensualidad = Mensualidad.objects.get(id=mensualidad_id)
+                    print(f"✅ Mensualidad seleccionada: {mensualidad.codigo} - {mensualidad.periodo_display}")
+                except Mensualidad.DoesNotExist:
+                    messages.error(request, '❌ La mensualidad seleccionada no existe')
+                    return redirect('agenda:agendar_recurrente')
+            
             # Obtener duración personalizada
             duracion_personalizada = request.POST.get('duracion_personalizada')
             
@@ -680,10 +959,13 @@ def agendar_recurrente(request):
                 messages.error(request, f'❌ El profesional no puede atender este servicio en esta sucursal.')
                 return redirect('agenda:agendar_recurrente')
             
-            # 🆕 DETERMINAR MONTO: Si es proyecto, monto = 0
+            # 🆕 DETERMINAR MONTO: Si es proyecto o mensualidad, monto = 0
             if proyecto:
                 monto = Decimal('0.00')
                 print(f"💰 Sesiones de proyecto: monto = Bs. 0.00")
+            elif mensualidad:
+                monto = Decimal('0.00')
+                print(f"💳 Sesiones de mensualidad: monto = Bs. 0.00")
             else:
                 paciente_servicio = PacienteServicio.objects.get(
                     paciente=paciente,
@@ -715,18 +997,19 @@ def agendar_recurrente(request):
                         )
                         
                         if disponible:
-                            # 🆕 CREAR SESIÓN CON PROYECTO
+                            # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
                             Sesion.objects.create(
                                 paciente=paciente,
                                 servicio=servicio,
                                 profesional=profesional,
                                 sucursal=sucursal,
                                 proyecto=proyecto,  # 🆕 NUEVO
+                                mensualidad=mensualidad,  # 💳 NUEVO
                                 fecha=fecha_actual,
                                 hora_inicio=hora,
                                 hora_fin=hora_fin,
                                 duracion_minutos=duracion_minutos,
-                                monto_cobrado=monto,  # 0 si es proyecto
+                                monto_cobrado=monto,  # 0 si es proyecto o mensualidad
                                 creada_por=request.user
                             )
                             sesiones_creadas += 1
@@ -750,6 +1033,7 @@ def agendar_recurrente(request):
                 
                 duracion_msg = f" de {duracion_minutos} minutos" if duracion_personalizada else ""
                 proyecto_msg = f" - Proyecto {proyecto.codigo}" if proyecto else ""
+                mensualidad_msg = f" - Mensualidad {mensualidad.codigo} ({mensualidad.periodo_display})" if mensualidad else ""
                 
                 # Construir período
                 periodo = f"{fecha_inicio.strftime('%d/%m/%Y')} al {fecha_fin.strftime('%d/%m/%Y')}"
@@ -768,6 +1052,7 @@ def agendar_recurrente(request):
                     'horario': horario,
                     'dias': ', '.join(dias_seleccionados_nombres),
                     'proyecto': f"{proyecto.codigo} - {proyecto.nombre}" if proyecto else None,
+                    'mensualidad': f"{mensualidad.codigo} - {mensualidad.periodo_display}" if mensualidad else None,
                     'errores': len(sesiones_error),
                 }
                 
@@ -872,10 +1157,27 @@ def cargar_servicios_paciente(request):
     """✅ API: Cargar servicios contratados por un paciente (HTMX)"""
     paciente_id = request.GET.get('paciente', '').strip()
     
+    # 🆕 DETECTAR TIPO DE PRECIO según el contexto
+    tipo_precio = request.GET.get('tipo_precio', '')  # Primero intentar desde parámetro GET
+    
+    if not tipo_precio:
+        # Si no viene el parámetro, detectar desde el referer
+        referer = request.META.get('HTTP_REFERER', '').lower()
+        
+        if 'mensualidad' in referer or 'crear-mensualidad' in referer:
+            tipo_precio = 'mensualidad'
+        elif 'proyecto' in referer or 'crear-proyecto' in referer:
+            tipo_precio = 'proyecto'
+        elif 'recurrente' in referer or 'agendar-recurrente' in referer:
+            tipo_precio = 'recurrente'
+        else:
+            tipo_precio = 'default'  # Mostrar costo_base por defecto
+    
     # ✅ Si no hay paciente, devolver lista vacía
     if not paciente_id:
         return render(request, 'agenda/partials/servicios_select.html', {
-            'servicios': []
+            'servicios': [],
+            'tipo_precio': tipo_precio,  # 🆕 AGREGAR tipo_precio
         })
     
     try:
@@ -891,16 +1193,19 @@ def cargar_servicios_paciente(request):
         if not servicios.exists():
             return render(request, 'agenda/partials/servicios_select.html', {
                 'servicios': [],
-                'error': 'Este paciente no tiene servicios contratados activos'
+                'error': 'Este paciente no tiene servicios contratados activos',
+                'tipo_precio': tipo_precio,  # 🆕 AGREGAR tipo_precio
             })
         
         return render(request, 'agenda/partials/servicios_select.html', {
-            'servicios': servicios
+            'servicios': servicios,
+            'tipo_precio': tipo_precio,  # 🆕 AGREGAR tipo_precio
         })
     except Exception as e:
         return render(request, 'agenda/partials/servicios_select.html', {
             'servicios': [],
-            'error': str(e)
+            'error': str(e),
+            'tipo_precio': tipo_precio,  # 🆕 AGREGAR tipo_precio
         })
 
 
@@ -958,6 +1263,9 @@ def vista_previa_recurrente(request):
     servicio_id = request.GET.get('servicio')
     duracion_str = request.GET.get('duracion', '60')
     
+    # ✨ NUEVO: Parámetro para incluir sesiones pasadas
+    incluir_pasadas = request.GET.get('incluir_pasadas', 'false').lower() == 'true'
+    
     # Validar parámetros básicos
     if not all([fecha_inicio_str, fecha_fin_str, hora_str, dias_semana]):
         return HttpResponse('''
@@ -975,6 +1283,27 @@ def vista_previa_recurrente(request):
         dias_semana = [int(d) for d in dias_semana if d]
         duracion_minutos = int(duracion_str)
         
+        # ✨ NUEVO: Si no se incluyen sesiones pasadas, ajustar fecha_inicio
+        hoy = date.today()
+        fecha_inicio_efectiva = fecha_inicio
+        
+        if not incluir_pasadas and fecha_inicio < hoy:
+            # Calcular fecha mínima (mañana)
+            fecha_minima = hoy + timedelta(days=1)
+            
+            # Si toda la mensualidad es pasada, no mostrar sesiones
+            if fecha_fin < fecha_minima:
+                return HttpResponse('''
+                    <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                        <div class="text-2xl mb-2">⚠️</div>
+                        <p class="text-xs text-yellow-700 font-semibold mb-1">Todas las fechas son pasadas</p>
+                        <p class="text-xs text-yellow-600">Marca "Programar sesiones pasadas" para incluirlas</p>
+                    </div>
+                ''')
+            
+            # Ajustar fecha_inicio para mostrar solo desde mañana
+            fecha_inicio_efectiva = max(fecha_inicio, fecha_minima)
+        
         # Validaciones básicas
         if not dias_semana:
             return HttpResponse('''
@@ -983,7 +1312,7 @@ def vista_previa_recurrente(request):
                 </div>
             ''')
         
-        if fecha_inicio > fecha_fin:
+        if fecha_inicio_efectiva > fecha_fin:
             return HttpResponse('''
                 <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
                     <p class="text-xs text-red-700">❌ Fecha inicio debe ser antes de fecha fin</p>
@@ -1018,9 +1347,9 @@ def vista_previa_recurrente(request):
         fin_dt = inicio_dt + timedelta(minutes=duracion_minutos)
         hora_fin = fin_dt.time()
         
-        # Generar lista de fechas con validación
+        # ✨ MODIFICADO: Generar lista de fechas desde fecha_inicio_efectiva
         sesiones_data = []
-        fecha_actual = fecha_inicio
+        fecha_actual = fecha_inicio_efectiva
         
         while fecha_actual <= fecha_fin:
             if fecha_actual.weekday() in dias_semana:
@@ -1064,6 +1393,26 @@ def vista_previa_recurrente(request):
         else:
             header_icon = "❌"
         
+        # ✨ NUEVO: Mostrar aviso si se están filtrando sesiones pasadas
+        aviso_filtrado = ''
+        if not incluir_pasadas and fecha_inicio < hoy:
+            sesiones_omitidas = 0
+            fecha_temp = fecha_inicio
+            while fecha_temp < fecha_inicio_efectiva:
+                if fecha_temp.weekday() in dias_semana:
+                    sesiones_omitidas += 1
+                fecha_temp += timedelta(days=1)
+            
+            if sesiones_omitidas > 0:
+                aviso_filtrado = f'''
+                    <div class="bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2">
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="text-blue-600">ℹ️</span>
+                            <span class="text-blue-800"><strong>{sesiones_omitidas}</strong> sesión(es) pasada(s) omitida(s). Marca "Programar sesiones pasadas" para incluirlas.</span>
+                        </div>
+                    </div>
+                '''
+        
         # 🆕 HTML ULTRA COMPACTO EN GRID
         html = f'''
             <div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-2">
@@ -1081,6 +1430,8 @@ def vista_previa_recurrente(request):
                     </div>
                 </div>
             </div>
+            
+            {aviso_filtrado}
             
             <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5 mb-2">
         '''
@@ -1261,13 +1612,7 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
 def editar_sesion(request, sesion_id):
     """
     Editar sesión con validación de pagos y permisos por rol
-    
-    ✅ PERMISOS ACTUALIZADOS:
-    - Profesionales: Pueden editar SOLO sesiones de HOY, una sola vez
-    - Recepcionistas: Pueden editar sesiones de CUALQUIER FECHA (pasadas, presentes, futuras)
-      - ✅ NUEVO: Pueden editar pago SIEMPRE (sin bloqueo)
-      - Bloqueado solo si un profesional ya editó la sesión
-    - Gerentes/Admins: Sin restricciones
+    ✅ CORREGIDO: Manejo robusto de errores y validaciones
     """
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
@@ -1287,20 +1632,18 @@ def editar_sesion(request, sesion_id):
     # Validaciones de permisos
     hoy = date.today()
     puede_editar = True
-    puede_editar_pago = True  # ✅ NUEVO: Variable separada para edición de pago
+    puede_editar_pago = True
     mensaje_bloqueo = None
     
-    # ✅ NUEVO: Identificar si es recepcionista
+    # 🆕 Identificar si es recepcionista
     es_recepcionista = hasattr(request.user, 'perfil') and request.user.perfil.es_recepcionista()
     
     if not es_admin:
-        # ✅ MODIFICADO: Recepcionistas pueden editar sesiones de cualquier fecha
-        # Solo profesionales tienen restricción de fecha
         if es_profesional:
             # 🔒 RESTRICCIÓN 1: Profesionales solo editan sesiones de HOY
             if sesion.fecha != hoy:
                 puede_editar = False
-                puede_editar_pago = False  # ✅ Profesionales tampoco editan pago
+                puede_editar_pago = False
                 if sesion.fecha < hoy:
                     mensaje_bloqueo = "Solo lectura - Sesión pasada (Profesionales solo editan hoy)"
                 else:
@@ -1309,22 +1652,20 @@ def editar_sesion(request, sesion_id):
             # 🔒 RESTRICCIÓN 2: Profesionales solo editan una vez
             elif sesion.editada_por_profesional:
                 puede_editar = False
-                puede_editar_pago = False  # ✅ Profesionales tampoco editan pago
+                puede_editar_pago = False
                 mensaje_bloqueo = "Solo lectura - Ya fue editada por ti"
         
-        # ✅ NUEVO: Recepcionistas pueden editar SIEMPRE (sin restricción de fecha)
-        # Solo se bloquea si un profesional ya editó (para proteger sus notas privadas)
         elif es_recepcionista:
-            # 🔒 RESTRICCIÓN: No editar si profesional ya registró la sesión
+            # 🔒 RESTRICCIÓN: No editar si profesional ya editó
             if sesion.editada_por_profesional:
                 puede_editar = False
                 mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
             
             # ✅ CLAVE: Recepcionistas SIEMPRE pueden editar pago hasta que esté pagado
-            puede_editar_pago = not sesion.pagado  # Solo bloquear si está totalmente pagado
+            puede_editar_pago = not sesion.pagado
     
     if request.method == 'POST':
-        # Verificar permisos antes de procesar
+        # ✅ CRÍTICO: Verificar permisos antes de procesar
         if not puede_editar and not puede_editar_pago:
             return JsonResponse({
                 'error': True,
@@ -1332,7 +1673,25 @@ def editar_sesion(request, sesion_id):
             }, status=403)
         
         try:
-            estado_nuevo = request.POST.get('estado')
+            # ✅ NUEVO: Importar aquí para evitar errores de importación circular
+            from django.db import transaction
+            from django.core.exceptions import ValidationError
+            
+            estado_nuevo = request.POST.get('estado', '').strip()
+            
+            # ✅ VALIDACIÓN: Estado debe ser válido
+            if not estado_nuevo:
+                return JsonResponse({
+                    'error': True,
+                    'mensaje': '❌ Debes seleccionar un estado'
+                }, status=400)
+            
+            estados_validos = dict(Sesion.ESTADO_CHOICES).keys()
+            if estado_nuevo not in estados_validos:
+                return JsonResponse({
+                    'error': True,
+                    'mensaje': f'❌ Estado inválido: {estado_nuevo}'
+                }, status=400)
             
             # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos (SOLO para NO profesionales)
             if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
@@ -1340,7 +1699,7 @@ def editar_sesion(request, sesion_id):
                 
                 if pagos_activos.exists():
                     # ✅ AJAX: Devolver JSON indicando que necesita confirmación
-                    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
+                    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
                     
                     return JsonResponse({
                         'requiere_confirmacion': True,
@@ -1351,68 +1710,143 @@ def editar_sesion(request, sesion_id):
                         'mensaje': f'Esta sesión tiene {pagos_activos.count()} pago(s) registrado(s) por Bs. {total_pagado}'
                     })
             
-            # ✅ MODIFICADO: Solo actualizar si tiene permiso de edición
-            if puede_editar:
-                # Si no hay pagos o no es estado sin cobro, continuar normal
-                sesion.estado = estado_nuevo
+            # ✅ USAR TRANSACCIÓN para garantizar atomicidad
+            with transaction.atomic():
+                # ✅ MODIFICADO: Solo actualizar si tiene permiso de edición
+                if puede_editar:
+                    # Guardar estado anterior para logging
+                    estado_anterior = sesion.estado
+                    
+                    # Actualizar estado
+                    sesion.estado = estado_nuevo
+                    
+                    # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
+                    if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+                        sesion.monto_cobrado = Decimal('0.00')
+                    
+                    # Observaciones y notas
+                    if not es_profesional:
+                        observaciones_nuevas = request.POST.get('observaciones', '').strip()
+                        sesion.observaciones = observaciones_nuevas
+                    
+                    # Notas de sesión (profesionales y admins)
+                    if es_profesional or es_admin:
+                        notas_nuevas = request.POST.get('notas_sesion', '').strip()
+                        sesion.notas_sesion = notas_nuevas
+                    
+                    # ✅ CAMPOS ESPECÍFICOS SEGÚN ESTADO
+                    if estado_nuevo == 'realizada_retraso':
+                        hora_real = request.POST.get('hora_real_inicio', '').strip()
+                        if hora_real:
+                            try:
+                                sesion.hora_real_inicio = datetime.strptime(hora_real, '%H:%M').time()
+                                inicio = datetime.combine(sesion.fecha, sesion.hora_inicio)
+                                real = datetime.combine(sesion.fecha, sesion.hora_real_inicio)
+                                sesion.minutos_retraso = int((real - inicio).total_seconds() / 60)
+                            except ValueError:
+                                return JsonResponse({
+                                    'error': True,
+                                    'mensaje': '❌ Formato de hora inválido'
+                                }, status=400)
+                    
+                    if estado_nuevo == 'reprogramada':
+                        fecha_nueva = request.POST.get('fecha_reprogramada', '').strip()
+                        hora_nueva = request.POST.get('hora_reprogramada', '').strip()
+                        
+                        if fecha_nueva:
+                            try:
+                                sesion.fecha_reprogramada = datetime.strptime(fecha_nueva, '%Y-%m-%d').date()
+                            except ValueError:
+                                return JsonResponse({
+                                    'error': True,
+                                    'mensaje': '❌ Formato de fecha inválido'
+                                }, status=400)
+                        
+                        if hora_nueva:
+                            try:
+                                sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
+                            except ValueError:
+                                return JsonResponse({
+                                    'error': True,
+                                    'mensaje': '❌ Formato de hora inválido'
+                                }, status=400)
+                        
+                        sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '').strip()
+                        sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
+                    
+                    # 🆕 Marcar como editada por profesional si aplica
+                    if es_profesional:
+                        sesion.editada_por_profesional = True
+                        sesion.fecha_edicion_profesional = datetime.now()
+                        if profesional_actual:
+                            sesion.profesional_editor = profesional_actual
+                    
+                    sesion.modificada_por = request.user
+                    
+                    # ✅ CRÍTICO: Guardar SIN validación de choques (solo cambio de estado)
+                    # Usamos update_fields para evitar full_clean()
+                    campos_actualizar = [
+                        'estado', 'monto_cobrado', 'observaciones', 'notas_sesion',
+                        'modificada_por', 'fecha_modificacion'
+                    ]
+                    
+                    if estado_nuevo == 'realizada_retraso' and sesion.hora_real_inicio:
+                        campos_actualizar.extend(['hora_real_inicio', 'minutos_retraso'])
+                    
+                    if estado_nuevo == 'reprogramada':
+                        campos_actualizar.extend([
+                            'fecha_reprogramada', 'hora_reprogramada',
+                            'motivo_reprogramacion', 'reprogramacion_realizada'
+                        ])
+                    
+                    if es_profesional:
+                        campos_actualizar.extend([
+                            'editada_por_profesional', 'fecha_edicion_profesional',
+                            'profesional_editor'
+                        ])
+                    
+                    # ✅ GUARDAR con update_fields (evita full_clean)
+                    sesion.save(update_fields=campos_actualizar)
                 
-                # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
-                if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
-                    sesion.monto_cobrado = Decimal('0.00')
-                
-                # Observaciones y notas
-                # 🆕 PROFESIONALES: NO modifican observaciones, solo notas_sesion
-                if not es_profesional:
-                    sesion.observaciones = request.POST.get('observaciones', '')
-                # Si es profesional, conservar las observaciones existentes (no las modifica)
-                
-                sesion.notas_sesion = request.POST.get('notas_sesion', '')
-                
-                # Campos específicos según estado
-                if estado_nuevo == 'realizada_retraso':
-                    hora_real = request.POST.get('hora_real_inicio')
-                    if hora_real:
-                        sesion.hora_real_inicio = datetime.strptime(hora_real, '%H:%M').time()
-                        inicio = datetime.combine(sesion.fecha, sesion.hora_inicio)
-                        real = datetime.combine(sesion.fecha, sesion.hora_real_inicio)
-                        sesion.minutos_retraso = int((real - inicio).total_seconds() / 60)
-                
-                if estado_nuevo == 'reprogramada':
-                    fecha_nueva = request.POST.get('fecha_reprogramada')
-                    hora_nueva = request.POST.get('hora_reprogramada')
-                    if fecha_nueva:
-                        sesion.fecha_reprogramada = datetime.strptime(fecha_nueva, '%Y-%m-%d').date()
-                    if hora_nueva:
-                        sesion.hora_reprogramada = datetime.strptime(hora_nueva, '%H:%M').time()
-                    sesion.motivo_reprogramacion = request.POST.get('motivo_reprogramacion', '')
-                    sesion.reprogramacion_realizada = request.POST.get('reprogramacion_realizada') == 'on'
-                
-                # 🆕 Marcar como editada por profesional si aplica
-                if es_profesional:
-                    sesion.editada_por_profesional = True
-                    sesion.fecha_edicion_profesional = datetime.now()
-                    if profesional_actual:
-                        sesion.profesional_editor = profesional_actual
-                
-                sesion.modificada_por = request.user
-                sesion.save()
+                # ✅ NUEVO: Si solo tiene permiso de pago (recepcionista con sesión bloqueada)
+                elif puede_editar_pago and es_recepcionista:
+                    # Solo actualizar observaciones
+                    observaciones_nuevas = request.POST.get('observaciones', '').strip()
+                    sesion.observaciones = observaciones_nuevas
+                    sesion.modificada_por = request.user
+                    
+                    sesion.save(update_fields=['observaciones', 'modificada_por', 'fecha_modificacion'])
             
-            # ✅ NUEVO: Si solo tiene permiso de pago (recepcionista con sesión bloqueada)
-            elif puede_editar_pago and es_recepcionista:
-                # Solo actualizar observaciones (sin cambiar estado ni notas privadas)
-                sesion.observaciones = request.POST.get('observaciones', '')
-                sesion.modificada_por = request.user
-                sesion.save()
+            # ✅ ÉXITO
+            return JsonResponse({
+                'success': True,
+                'mensaje': 'Sesión actualizada correctamente'
+            })
             
-            messages.success(request, '✅ Sesión actualizada correctamente')
+        except ValidationError as ve:
+            # ✅ Capturar errores de validación del modelo
+            errores = []
+            if hasattr(ve, 'message_dict'):
+                for campo, mensajes in ve.message_dict.items():
+                    errores.extend(mensajes)
+            else:
+                errores = [str(ve)]
             
-            return JsonResponse({'success': True})
-            
-        except Exception as e:
             return JsonResponse({
                 'error': True,
-                'mensaje': str(e)
+                'mensaje': '❌ Error de validación: ' + ', '.join(errores)
             }, status=400)
+        
+        except Exception as e:
+            # ✅ Log del error para debugging
+            import traceback
+            print("ERROR en editar_sesion:")
+            print(traceback.format_exc())
+            
+            return JsonResponse({
+                'error': True,
+                'mensaje': f'❌ Error inesperado: {str(e)}'
+            }, status=500)
     
     # GET - Mostrar formulario
     estadisticas = _calcular_estadisticas_mes(sesion)
@@ -1421,12 +1855,13 @@ def editar_sesion(request, sesion_id):
         'sesion': sesion,
         'estadisticas': json.dumps(estadisticas),
         'puede_editar': puede_editar,
-        'puede_editar_pago': puede_editar_pago,  # ✅ NUEVO
+        'puede_editar_pago': puede_editar_pago,
         'mensaje_bloqueo': mensaje_bloqueo,
         'es_profesional': es_profesional,
-        'es_recepcionista': es_recepcionista,  # ✅ NUEVO
+        'es_recepcionista': es_recepcionista,
         'es_admin': es_admin,
     })
+
 
 @login_required
 def modal_confirmar_cambio_estado(request, sesion_id):
@@ -1544,9 +1979,9 @@ def procesar_cambio_estado(request, sesion_id):
 
 def _calcular_estadisticas_mes(sesion):
     """Calcular estadísticas del mes para el paciente"""
-    primer_dia = sesion.fecha.replace(day=1)
+    from calendar import monthrange
     
-    # ✅ CORREGIDO: Usar monthrange para obtener el último día válido del mes
+    primer_dia = sesion.fecha.replace(day=1)
     ultimo_dia_del_mes = monthrange(sesion.fecha.year, sesion.fecha.month)[1]
     ultimo_dia = sesion.fecha.replace(day=ultimo_dia_del_mes)
     
@@ -1561,10 +1996,10 @@ def _calcular_estadisticas_mes(sesion):
         'retrasos': sesiones_mes.filter(estado='realizada_retraso').count(),
         'faltas': sesiones_mes.filter(estado='falta').count(),
         'permisos': sesiones_mes.filter(estado='permiso').count(),
-        'cancelaciones': sesiones_mes.filter(estado='cancelada').count(),
-        'reprogramaciones': sesiones_mes.filter(estado='reprogramada').count(),
+        'canceladas': sesiones_mes.filter(estado='cancelada').count(),
+        'reprogramadas': sesiones_mes.filter(estado='reprogramada').count(),
+        'programadas': sesiones_mes.filter(estado='programada').count(),
     }
-
 
 @login_required
 def validar_horario(request):
@@ -1655,6 +2090,90 @@ def obtener_proyectos_paciente(request, paciente_id):
             'error': 'Paciente no encontrado'
         }, status=404)
     
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+def obtener_mensualidades_paciente(request):
+    """
+    🆕 API JSON: Obtener mensualidades del paciente según sucursal, servicio y profesional
+    Usado en agendar_recurrente.html para cargar mensualidades dinámicamente
+    """
+    try:
+        # Obtener parámetros
+        paciente_id = request.GET.get('paciente')
+        servicio_id = request.GET.get('servicio')
+        profesional_id = request.GET.get('profesional')
+        sucursal_id = request.GET.get('sucursal')
+        
+        # Validar parámetros requeridos
+        if not all([paciente_id, servicio_id, profesional_id, sucursal_id]):
+            return JsonResponse({
+                'success': False,
+                'error': 'Faltan parámetros requeridos'
+            }, status=400)
+        
+        # Validar que existan los objetos
+        paciente = get_object_or_404(Paciente, id=paciente_id)
+        servicio = get_object_or_404(TipoServicio, id=servicio_id)
+        profesional = get_object_or_404(Profesional, id=profesional_id)
+        sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+        
+        # Buscar mensualidades con los 4 parámetros
+        mensualidades = Mensualidad.objects.filter(
+            paciente=paciente,
+            servicio=servicio,
+            profesional=profesional,
+            sucursal=sucursal,
+            estado__in=['activa', 'pausada']  # Solo activas y pausadas
+        ).order_by('-anio', '-mes')
+        
+        # Construir respuesta JSON
+        mensualidades_data = []
+        for mensualidad in mensualidades:
+            mensualidades_data.append({
+                'id': mensualidad.id,
+                'codigo': mensualidad.codigo,
+                'periodo': mensualidad.periodo_display,  # "Enero 2024"
+                'mes': mensualidad.mes,
+                'anio': mensualidad.anio,
+                'costo_mensual': float(mensualidad.costo_mensual),
+                'total_pagado': float(mensualidad.total_pagado),
+                'saldo_pendiente': float(mensualidad.saldo_pendiente),
+                'num_sesiones': mensualidad.num_sesiones,
+                'num_sesiones_realizadas': mensualidad.num_sesiones_realizadas,
+                'estado': mensualidad.get_estado_display(),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'mensualidades': mensualidades_data
+        })
+        
+    except Paciente.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Paciente no encontrado'
+        }, status=404)
+    except TipoServicio.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Servicio no encontrado'
+        }, status=404)
+    except Profesional.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Profesional no encontrado'
+        }, status=404)
+    except Sucursal.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Sucursal no encontrada'
+        }, status=404)
     except Exception as e:
         return JsonResponse({
             'success': False,

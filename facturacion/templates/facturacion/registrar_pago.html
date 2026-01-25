@@ -16,6 +16,7 @@
                 <p class="text-sm text-gray-500 font-medium">
                     {% if sesion %}Sesión <span class="text-indigo-600">#{{ sesion.id }}</span> &bull; {{ sesion.fecha|date:"d M Y" }}
                     {% elif proyecto %}Proyecto <span class="text-purple-600">{{ proyecto.codigo }}</span>
+                    {% elif mensualidad %}Mensualidad <span class="text-blue-600">{{ mensualidad.codigo }}</span> &bull; {{ mensualidad.periodo_display }}
                     {% elif modo == 'adelantado' %}Depósito a Billetera/Credito (Adelantado)
                     {% else %}Nueva Transacción{% endif %}
                 </p>
@@ -31,6 +32,7 @@
         
         {% if sesion %}<input type="hidden" name="tipo_pago" value="sesion"><input type="hidden" name="sesion_id" value="{{ sesion.id }}">
         {% elif proyecto %}<input type="hidden" name="tipo_pago" value="proyecto"><input type="hidden" name="proyecto_id" value="{{ proyecto.id }}">
+        {% elif mensualidad %}<input type="hidden" name="tipo_pago" value="mensualidad"><input type="hidden" name="mensualidad_id" value="{{ mensualidad.id }}">
         {% elif paciente %}<input type="hidden" name="tipo_pago" value="adelantado"><input type="hidden" name="paciente_adelantado" value="{{ paciente.id }}">
         {% endif %}
 
@@ -52,14 +54,27 @@
             </select>
             
             <div id="opciones-tipo-pago" class="hidden mt-6 space-y-4 animate-fade-in-down">
+                <!-- Proyectos -->
                 <div class="p-4 bg-purple-50 rounded-xl border border-purple-100 transition hover:border-purple-300 cursor-pointer">
                     <label class="flex items-center gap-3 cursor-pointer">
-                        <input type="checkbox" id="es_proyecto_checkbox" class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500" onchange="toggleSelectorProyecto()">
-                        <span class="font-semibold text-purple-800">Es pago de un Proyecto/Evaluación</span>
+                        <input type="checkbox" id="es_proyecto_checkbox" class="w-5 h-5 rounded text-purple-600 focus:ring-purple-500" onchange="toggleSelectorTipo('proyecto')">
+                        <span class="font-semibold text-purple-800">📦 Es pago de un Proyecto/Evaluación</span>
                     </label>
                     <div id="selector-proyectos" class="hidden mt-3 pl-8">
                         <select id="proyecto_select" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"></select>
                         <button type="button" onclick="irAProyecto()" class="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg text-sm font-medium transition shadow-sm">Continuar con Proyecto/Evaluación</button>
+                    </div>
+                </div>
+
+                <!-- ✅ NUEVO: Mensualidades -->
+                <div class="p-4 bg-blue-50 rounded-xl border border-blue-100 transition hover:border-blue-300 cursor-pointer">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" id="es_mensualidad_checkbox" class="w-5 h-5 rounded text-blue-600 focus:ring-blue-500" onchange="toggleSelectorTipo('mensualidad')">
+                        <span class="font-semibold text-blue-800">📅 Es pago de Mensualidad</span>
+                    </label>
+                    <div id="selector-mensualidades" class="hidden mt-3 pl-8">
+                        <select id="mensualidad_select" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"></select>
+                        <button type="button" onclick="irAMensualidad()" class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition shadow-sm">Continuar con Mensualidad</button>
                     </div>
                 </div>
 
@@ -172,6 +187,27 @@
                         </div>
                     </div>
                 </div>
+
+                {% elif mensualidad %}
+                <!-- ✅ Card para mensualidad -->
+                <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden relative">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                    <div class="bg-blue-50 px-5 py-3 border-b border-blue-100">
+                        <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wider">Mensualidad {{ mensualidad.codigo }}</h3>
+                    </div>
+                    <div class="p-5">
+                        <p class="text-lg font-bold text-gray-900 mb-2">{{ mensualidad.servicio.nombre|default:"Tratamiento mensual" }}</p>
+                        <p class="text-sm text-gray-600 mb-4">Periodo: {{ mensualidad.periodo_display }}</p>
+                        <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-3">
+                            <span class="text-gray-500">Monto Mensual:</span>
+                            <span class="font-bold text-gray-800">Bs. {{ mensualidad.costo_mensual }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm mt-2">
+                            <span class="text-gray-500">Saldo Pendiente:</span>
+                            <span class="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">Bs. {{ mensualidad.saldo_pendiente }}</span>
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
             </div>
 
@@ -218,18 +254,6 @@
                         </div>
                         {% endif %}
 
-                        {% if sesion and sesion.monto_cobrado == 0 %}
-                        <div class="mb-4 p-4 bg-green-50 border-2 border-green-400 rounded-xl">
-                            <div class="flex items-center gap-3">
-                                <span class="text-3xl">🎁</span>
-                                <div>
-                                    <h3 class="font-bold text-green-800">Sesión Gratuita</h3>
-                                    <p class="text-sm text-green-700">Esta sesión no requiere pago (monto = Bs. 0)</p>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %} 
-
                         <div class="rounded-xl border border-gray-200 bg-slate-50 p-5 relative">
                             <div class="absolute -top-3 left-4 bg-white px-2 text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-100 rounded shadow-sm">
                                 Pago Al Contado
@@ -255,13 +279,14 @@
                                             value="{{ monto_sugerido|default:'0' }}" 
                                             class="w-full pl-12 pr-4 py-2.5 text-xl font-bold text-gray-800 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors" 
                                             oninput="calcularTotal()" 
-                                            placeholder="0.00">                                    </div>
+                                            placeholder="0.00">
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="space-y-4">
-                            {% if modo == 'sesion' or modo == 'proyecto' %}
+                            {% if modo == 'sesion' or modo == 'proyecto' or modo == 'mensualidad' %}
                             <label class="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition border border-transparent hover:border-gray-200 cursor-pointer">
                                 <input type="checkbox" name="pago_completo" id="pago_completo" class="mt-1 rounded text-blue-600 focus:ring-blue-500" onchange="togglePagoCompleto()">
                                 <div>
@@ -321,24 +346,46 @@ function cargarOpcionesPaciente() {
         pacienteSeleccionadoId = select.value;
         opciones.classList.remove('hidden');
         cargarProyectosPaciente(pacienteSeleccionadoId);
+        cargarMensualidadesPaciente(pacienteSeleccionadoId);
     } else {
         pacienteSeleccionadoId = null;
         opciones.classList.add('hidden');
     }
 }
 
-function toggleSelectorProyecto() {
-    const checkbox = document.getElementById('es_proyecto_checkbox');
+function toggleSelectorTipo(tipo) {
+    const proyectoCheck = document.getElementById('es_proyecto_checkbox');
+    const mensualidadCheck = document.getElementById('es_mensualidad_checkbox');
     const selectorProyectos = document.getElementById('selector-proyectos');
+    const selectorMensualidades = document.getElementById('selector-mensualidades');
     const botonAdelantado = document.getElementById('boton-adelantado');
     
-    if (checkbox.checked) {
-        selectorProyectos.classList.remove('hidden');
-        if(botonAdelantado) botonAdelantado.classList.add('hidden');
-        if (pacienteSeleccionadoId) cargarProyectosPaciente(pacienteSeleccionadoId);
-    } else {
-        selectorProyectos.classList.add('hidden');
-        if(botonAdelantado) botonAdelantado.classList.remove('hidden');
+    if (tipo === 'proyecto') {
+        if (proyectoCheck.checked) {
+            // Desmarcar mensualidad
+            mensualidadCheck.checked = false;
+            selectorMensualidades.classList.add('hidden');
+            
+            selectorProyectos.classList.remove('hidden');
+            if(botonAdelantado) botonAdelantado.classList.add('hidden');
+            if (pacienteSeleccionadoId) cargarProyectosPaciente(pacienteSeleccionadoId);
+        } else {
+            selectorProyectos.classList.add('hidden');
+            if(botonAdelantado) botonAdelantado.classList.remove('hidden');
+        }
+    } else if (tipo === 'mensualidad') {
+        if (mensualidadCheck.checked) {
+            // Desmarcar proyecto
+            proyectoCheck.checked = false;
+            selectorProyectos.classList.add('hidden');
+            
+            selectorMensualidades.classList.remove('hidden');
+            if(botonAdelantado) botonAdelantado.classList.add('hidden');
+            if (pacienteSeleccionadoId) cargarMensualidadesPaciente(pacienteSeleccionadoId);
+        } else {
+            selectorMensualidades.classList.add('hidden');
+            if(botonAdelantado) botonAdelantado.classList.remove('hidden');
+        }
     }
 }
 
@@ -375,10 +422,71 @@ async function cargarProyectosPaciente(pacienteId) {
     }
 }
 
+// ✅ MEJORADO: Función para cargar mensualidades con mejor manejo de errores
+async function cargarMensualidadesPaciente(pacienteId) {
+    const select = document.getElementById('mensualidad_select');
+    if(!select) {
+        console.warn('⚠️ Select de mensualidades no encontrado');
+        return;
+    }
+    
+    select.innerHTML = '<option value="">⏳ Cargando mensualidades...</option>';
+    select.disabled = true;
+    
+    try {
+        console.log(`📡 Cargando mensualidades para paciente ${pacienteId}...`);
+        
+        const response = await fetch(`/facturacion/api/mensualidades-paciente/${pacienteId}/`);
+        const data = await response.json();
+        
+        console.log('📥 Respuesta recibida:', data);
+        
+        select.innerHTML = '';
+        select.disabled = false;
+        
+        if (data.success && data.mensualidades && data.mensualidades.length > 0) {
+            // Opción por defecto
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = `-- Seleccionar Mensualidad (${data.mensualidades.length}) --`;
+            select.appendChild(defaultOption);
+            
+            // Agregar cada mensualidad
+            data.mensualidades.forEach(mensualidad => {
+                const option = document.createElement('option');
+                option.value = mensualidad.id;
+                option.textContent = `${mensualidad.codigo} - ${mensualidad.periodo} (Debe: Bs. ${mensualidad.saldo_pendiente.toFixed(2)})`;
+                option.setAttribute('data-monto', mensualidad.saldo_pendiente);
+                select.appendChild(option);
+            });
+            
+            console.log(`✅ ${data.mensualidades.length} mensualidades cargadas`);
+        } else {
+            // Sin mensualidades pendientes
+            select.innerHTML = '<option value="">✓ Sin mensualidades pendientes</option>';
+            console.log('ℹ️ No hay mensualidades con saldo pendiente');
+        }
+    } catch (error) {
+        console.error('❌ Error al cargar mensualidades:', error);
+        select.innerHTML = '<option value="">❌ Error al cargar mensualidades</option>';
+        select.disabled = false;
+        
+        // Mostrar alerta al usuario
+        alert(`❌ Error al cargar mensualidades: ${error.message}\n\nRevisa la consola del navegador para más detalles.`);
+    }
+}
+
 function irAProyecto() {
     const proyectoId = document.getElementById('proyecto_select').value;
     if (!proyectoId) { alert('⚠️ Por favor selecciona un proyecto'); return; }
     window.location.href = `/facturacion/pago/registrar/?proyecto=${proyectoId}`;
+}
+
+// ✅ NUEVO: Función para ir a mensualidad
+function irAMensualidad() {
+    const mensualidadId = document.getElementById('mensualidad_select').value;
+    if (!mensualidadId) { alert('⚠️ Por favor selecciona una mensualidad'); return; }
+    window.location.href = `/facturacion/pago/registrar/?mensualidad=${mensualidadId}`;
 }
 
 function irAPagoAdelantado() {
@@ -402,10 +510,7 @@ function toggleCredito() {
 }
 
 function usarSoloPendiente() {
-    // Si hay deuda específica (sesion/proyecto), cubrir hasta el monto de deuda. Si es adelanto, cubrir todo el crédito
     let objetivo = montoPendiente > 0 ? montoPendiente : creditoDisponible;
-    
-    // El crédito no puede exceder lo que el usuario tiene
     const montoCubrir = Math.min(creditoDisponible, objetivo);
     
     const inputCred = document.getElementById('monto_credito');
@@ -420,7 +525,6 @@ function calcularTotal() {
     const montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
     const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
     
-    // Validacion visual
     if (montoCredito > creditoDisponible) {
         alert("El monto supera el crédito disponible");
         document.getElementById('monto_credito').value = creditoDisponible.toFixed(2);
@@ -433,12 +537,7 @@ function calcularTotal() {
     document.getElementById('resumen-adicional').textContent = `Bs. ${montoAdicional.toFixed(2)}`;
     document.getElementById('resumen-total').textContent = `Bs. ${total.toFixed(2)}`;
     
-    // Lógica de requeridos
     const metodo = document.getElementById('metodo_pago');
-    const montoInput = document.getElementById('monto');
-    
-    // Si se cubre todo con crédito Y hay deuda que pagar, el efectivo no es obligatorio
-    // PERO si el usuario pone monto efectivo > 0, debe elegir metodo
     
     if (montoAdicional > 0) {
         metodo.setAttribute('required', 'required');
@@ -462,7 +561,6 @@ document.addEventListener('DOMContentLoaded', () => {
     calcularTotal();
 });
 
-// ✅ Validación personalizada antes de enviar
 document.getElementById('form-pago').addEventListener('submit', function(e) {
     const pagoCompleto = document.getElementById('pago_completo')?.checked || false;
     const usarCredito = document.getElementById('usar_credito')?.checked || false;
@@ -470,14 +568,12 @@ document.getElementById('form-pago').addEventListener('submit', function(e) {
     const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
     const totalPago = montoCredito + montoAdicional;
     
-    // Si el total es 0 y NO es "Pago Completo" ni usa crédito
     if (totalPago === 0 && !pagoCompleto && !usarCredito) {
         e.preventDefault();
         alert('⚠️ Debes especificar un monto a pagar o marcar "Pago Completo"');
         return false;
     }
     
-    // Si monto adicional > 0, debe haber método de pago
     if (montoAdicional > 0) {
         const metodo = document.getElementById('metodo_pago').value;
         if (!metodo) {
@@ -495,5 +591,7 @@ document.getElementById('form-pago').addEventListener('submit', function(e) {
 <style>
     .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in-down { animation: fadeInDown 0.4s ease-out; }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 {% endblock %}

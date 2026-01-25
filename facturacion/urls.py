@@ -34,7 +34,8 @@ urlpatterns = [
     path('api/sesion/<int:sesion_id>/detalle/', views.api_detalle_sesion, name='api_detalle_sesion'),
     path('api/pago/<int:pago_id>/detalle/', views.api_detalle_pago, name='api_detalle_pago'),
     path('api/proyectos-paciente/<int:paciente_id>/', views.api_proyectos_paciente, name='api_proyectos_paciente'),
-
+    path('api/mensualidades-paciente/<int:paciente_id>/', views.api_mensualidades_paciente, name='api_mensualidades_paciente'),  # ✅ NUEVO
+    
     # ==================== REPORTES ====================
     path('reportes/', views.dashboard_reportes, name='dashboard_reportes'),
     path('reportes/paciente/', views.reporte_paciente, name='reporte_paciente'),

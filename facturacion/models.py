@@ -58,6 +58,15 @@ class Pago(models.Model):
         help_text="Proyecto asociado (evaluaciones, tratamientos especiales)"
     )
     
+    mensualidad = models.ForeignKey(
+        'agenda.Mensualidad',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos',
+        help_text="Mensualidad asociada (tratamientos mensuales regulares)"
+    )
+
     # Datos del pago
     fecha_pago = models.DateField()
     monto = models.DecimalField(
@@ -120,6 +129,7 @@ class Pago(models.Model):
             models.Index(fields=['-numero_recibo']),
             models.Index(fields=['sesion']),
             models.Index(fields=['proyecto']),
+            models.Index(fields=['mensualidad']),
             models.Index(
                 fields=['paciente', 'anulado'],
                 name='pago_paciente_anulado_idx'
@@ -144,31 +154,40 @@ class Pago(models.Model):
                 fields=['proyecto', 'anulado'],
                 name='pago_proyecto_anulado_idx'
             ),
+            models.Index(
+                fields=['mensualidad', 'anulado'],
+                name='pago_mensualidad_anulado_idx'
+            ), 
         ]
         
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(sesion__isnull=False, proyecto__isnull=True) |
-                    models.Q(sesion__isnull=True, proyecto__isnull=False) |
-                    models.Q(sesion__isnull=True, proyecto__isnull=True)
+                    models.Q(sesion__isnull=False, proyecto__isnull=True, mensualidad__isnull=True) |
+                    models.Q(sesion__isnull=True, proyecto__isnull=False, mensualidad__isnull=True) |
+                    models.Q(sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=False) |
+                    models.Q(sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True)
                 ),
-                name='pago_sesion_o_proyecto_o_ninguno'
+                name='pago_sesion_o_proyecto_o_mensualidad_o_ninguno'
             )
         ]
     
     def __str__(self):
-        if self.proyecto:
+        if self.mensualidad:
+            return f"Pago {self.numero_recibo} - {self.paciente} - Mensualidad: {self.mensualidad.codigo} - Bs. {self.monto}"
+        elif self.proyecto:
             return f"Pago {self.numero_recibo} - {self.paciente} - Proyecto: {self.proyecto.codigo} - Bs. {self.monto}"
         elif self.sesion:
             return f"Pago {self.numero_recibo} - {self.paciente} - Sesión - Bs. {self.monto}"
         else:
             return f"Pago {self.numero_recibo} - {self.paciente} - A cuenta - Bs. {self.monto}"
-    
+            
     @property
     def tipo_pago(self):
         """Retorna el tipo de pago como string"""
-        if self.proyecto:
+        if self.mensualidad:
+            return 'mensualidad'
+        elif self.proyecto:
             return 'proyecto'
         elif self.sesion:
             return 'sesion'

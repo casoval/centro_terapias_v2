@@ -1,48 +1,25 @@
-<label class="block text-sm font-medium text-gray-700 mb-2">
-    👤 Paciente * <span class="text-xs text-gray-500">(Paso 2)</span>
+<label class="block text-xs font-bold text-emerald-900 mb-1">
+    👶 Paciente * <span class="text-gray-500 font-normal">(Paso 1)</span>
 </label>
-<select name="paciente" 
+
+{% if pacientes %}
+<select name="paciente_id" 
         id="paciente-select"
-        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        hx-get="{% url 'agenda:servicios_paciente' %}"
-        hx-target="#servicios-container"
-        hx-swap="innerHTML"
-        hx-trigger="change"
-        hx-include="#sucursal-select"
-        onchange="resetearServicioYProfesional()"
-        required
-        {% if not pacientes %}disabled{% endif %}>
-    <option value="">Seleccione un paciente</option>
+        class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-xs focus:border-emerald-500"
+        required>
+    <option value="">Seleccione un paciente...</option>
     {% for paciente in pacientes %}
-    <option value="{{ paciente.id }}">{{ paciente.nombre }} {{ paciente.apellido }}</option>
+    <option value="{{ paciente.id }}">
+        {{ paciente.nombre }} {{ paciente.apellido }}
+        {% if paciente.ci %} - CI: {{ paciente.ci }}{% endif %}
+    </option>
     {% endfor %}
 </select>
-{% if not pacientes %}
-<p class="text-xs text-orange-600 mt-1">⚠️ No hay pacientes asignados a esta sucursal</p>
-{% else %}
 <p class="text-xs text-gray-500 mt-1">📊 {{ pacientes|length }} paciente(s) disponible(s)</p>
+{% else %}
+<select name="paciente_id" id="paciente-select" disabled
+        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400">
+    <option value="">No hay pacientes en esta sucursal</option>
+</select>
+<p class="text-xs text-orange-600 mt-1">⚠️ No hay pacientes asignados a esta sucursal</p>
 {% endif %}
-
-<script>
-function resetearServicioYProfesional() {
-    // Resetear servicio
-    document.getElementById('servicios-container').innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
-        </label>
-        <select name="servicio" id="servicio-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Cargando servicios...</option>
-        </select>
-    `;
-    
-    // Resetear profesional
-    document.getElementById('profesionales-container').innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
-        </label>
-        <select name="profesional" id="profesional-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Primero seleccione un servicio</option>
-        </select>
-    `;
-}
-</script>

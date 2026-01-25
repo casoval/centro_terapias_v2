@@ -636,3 +636,342 @@ def mis_profesionales(request):
     }
     
     return render(request, 'pacientes/mis_profesionales.html', context)
+
+# pacientes/views.py
+
+@login_required
+def detalle_sesiones_completo(request, pk):
+    """
+    Vista completa de todas las sesiones del paciente
+    ✅ Solo Admin/Recepcionista
+    ✅ Con gráficos estadísticos
+    ✅ Diseño combinado adaptativo
+    """
+    paciente = get_object_or_404(Paciente, pk=pk)
+    
+    # ✅ VALIDACIÓN DE ACCESO
+    if not request.user.is_superuser and hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_recepcionista():
+            mis_sucursales = request.user.perfil.sucursales.all()
+            sucursales_paciente = paciente.sucursales.all()
+            
+            if not sucursales_paciente.filter(id__in=mis_sucursales.values_list('id', flat=True)).exists():
+                messages.error(
+                    request,
+                    '⚠️ No tienes permiso para ver las sesiones de este paciente.'
+                )
+                return redirect('pacientes:lista')
+        elif not request.user.perfil.es_gerente() and not request.user.perfil.es_administrador():
+            messages.error(request, '⚠️ No tienes permiso para acceder a esta sección.')
+            return redirect('core:dashboard')
+    
+    # ==================== OBTENER FILTROS ====================
+    tab_activo = request.GET.get('tab', 'normales')  # normales, mensualidades, proyectos
+    estado_sesion = request.GET.get('estado', '')
+    estado_pago = request.GET.get('pago', '')
+    fecha_desde = request.GET.get('desde', '')
+    fecha_hasta = request.GET.get('hasta', '')
+    profesional_id = request.GET.get('profesional', '')
+    servicio_id = request.GET.get('servicio', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    buscar = request.GET.get('q', '')
+    
+    # ==================== QUERY BASE ====================
+    from agenda.models import Sesion
+    
+    sesiones = Sesion.objects.filter(
+        paciente=paciente
+    ).select_related(
+        'servicio', 'profesional', 'sucursal', 'proyecto', 'mensualidad'
+    ).prefetch_related(
+        'pagos', 'pagos__metodo_pago'
+    )
+    
+    # ==================== SEPARAR POR TIPO ====================
+    sesiones_normales = sesiones.filter(proyecto__isnull=True, mensualidad__isnull=True)
+    sesiones_mensualidades = sesiones.filter(mensualidad__isnull=False)
+    sesiones_proyectos = sesiones.filter(proyecto__isnull=False)
+    
+    # ==================== APLICAR FILTROS ====================
+    def aplicar_filtros(query):
+        q = query
+        
+        # Filtro por estado de sesión
+        if estado_sesion:
+            q = q.filter(estado=estado_sesion)
+        
+        # Filtro por estado de pago
+        if estado_pago:
+            if estado_pago == 'pagado':
+                # Sesiones completamente pagadas
+                sesiones_ids = [
+                    s.id for s in q 
+                    if s.monto_cobrado > 0 and s.pagado
+                ]
+                q = q.filter(id__in=sesiones_ids)
+            elif estado_pago == 'parcial':
+                # Pagos parciales
+                sesiones_ids = [
+                    s.id for s in q 
+                    if s.monto_cobrado > 0 and s.total_pagado > 0 and not s.pagado
+                ]
+                q = q.filter(id__in=sesiones_ids)
+            elif estado_pago == 'pendiente':
+                # Sin pagar
+                sesiones_ids = [
+                    s.id for s in q 
+                    if s.monto_cobrado > 0 and s.total_pagado == 0
+                ]
+                q = q.filter(id__in=sesiones_ids)
+            elif estado_pago == 'no_aplica':
+                # Gratuitas o de proyecto/mensualidad
+                q = q.filter(monto_cobrado=0)
+        
+        # Filtro por rango de fechas
+        if fecha_desde:
+            try:
+                q = q.filter(fecha__gte=fecha_desde)
+            except:
+                pass
+        
+        if fecha_hasta:
+            try:
+                q = q.filter(fecha__lte=fecha_hasta)
+            except:
+                pass
+        
+        # Filtro por profesional
+        if profesional_id:
+            q = q.filter(profesional_id=profesional_id)
+        
+        # Filtro por servicio
+        if servicio_id:
+            q = q.filter(servicio_id=servicio_id)
+        
+        # Filtro por sucursal
+        if sucursal_id:
+            q = q.filter(sucursal_id=sucursal_id)
+        
+        # Búsqueda
+        if buscar:
+            q = q.filter(
+                Q(observaciones__icontains=buscar) |
+                Q(notas_sesion__icontains=buscar) |
+                Q(servicio__nombre__icontains=buscar) |
+                Q(profesional__nombre__icontains=buscar) |
+                Q(profesional__apellido__icontains=buscar)
+            )
+        
+        return q
+    
+    # Aplicar filtros según tab activo
+    if tab_activo == 'normales':
+        sesiones_filtradas = aplicar_filtros(sesiones_normales).order_by('-fecha', '-hora_inicio')
+    elif tab_activo == 'mensualidades':
+        sesiones_filtradas = aplicar_filtros(sesiones_mensualidades).order_by('-fecha', '-hora_inicio')
+    elif tab_activo == 'proyectos':
+        sesiones_filtradas = aplicar_filtros(sesiones_proyectos).order_by('-fecha', '-hora_inicio')
+    else:
+        sesiones_filtradas = aplicar_filtros(sesiones).order_by('-fecha', '-hora_inicio')
+    
+    # ==================== AGRUPAR MENSUALIDADES ====================
+    mensualidades_agrupadas = []
+    if tab_activo == 'mensualidades':
+        from agenda.models import Mensualidad
+        mensualidades = Mensualidad.objects.filter(
+            paciente=paciente
+        ).select_related('servicio', 'profesional', 'sucursal').order_by('-anio', '-mes')
+        
+        for mensualidad in mensualidades:
+            sesiones_mens = sesiones_mensualidades.filter(mensualidad=mensualidad)
+            
+            # Aplicar filtros a las sesiones de esta mensualidad
+            sesiones_mens = aplicar_filtros(sesiones_mens)
+            
+            if sesiones_mens.exists() or not any([estado_sesion, estado_pago, profesional_id, servicio_id, fecha_desde, fecha_hasta]):
+                mensualidades_agrupadas.append({
+                    'mensualidad': mensualidad,
+                    'sesiones': sesiones_mens.order_by('fecha', 'hora_inicio'),
+                    'total_sesiones': sesiones_mens.count(),
+                    'sesiones_realizadas': sesiones_mens.filter(estado__in=['realizada', 'realizada_retraso']).count(),
+                })
+    
+    # ==================== AGRUPAR PROYECTOS ====================
+    proyectos_agrupados = []
+    if tab_activo == 'proyectos':
+        from agenda.models import Proyecto
+        proyectos = Proyecto.objects.filter(
+            paciente=paciente
+        ).select_related('servicio_base', 'profesional_responsable', 'sucursal').order_by('-fecha_inicio')
+        
+        for proyecto in proyectos:
+            sesiones_proy = sesiones_proyectos.filter(proyecto=proyecto)
+            
+            # Aplicar filtros
+            sesiones_proy = aplicar_filtros(sesiones_proy)
+            
+            if sesiones_proy.exists() or not any([estado_sesion, estado_pago, profesional_id, servicio_id, fecha_desde, fecha_hasta]):
+                proyectos_agrupados.append({
+                    'proyecto': proyecto,
+                    'sesiones': sesiones_proy.order_by('fecha', 'hora_inicio'),
+                    'total_sesiones': sesiones_proy.count(),
+                    'sesiones_realizadas': sesiones_proy.filter(estado__in=['realizada', 'realizada_retraso']).count(),
+                })
+    
+    # ==================== ESTADÍSTICAS GENERALES ====================
+    stats = {
+        'total_sesiones': sesiones.count(),
+        'total_normales': sesiones_normales.count(),
+        'total_mensualidades': sesiones_mensualidades.count(),
+        'total_proyectos': sesiones_proyectos.count(),
+        
+        # Por estado
+        'realizadas': sesiones.filter(estado='realizada').count(),
+        'con_retraso': sesiones.filter(estado='realizada_retraso').count(),
+        'programadas': sesiones.filter(estado='programada').count(),
+        'faltas': sesiones.filter(estado='falta').count(),
+        'permisos': sesiones.filter(estado='permiso').count(),
+        'canceladas': sesiones.filter(estado='cancelada').count(),
+        'reprogramadas': sesiones.filter(estado='reprogramada').count(),
+    }
+    
+    # Tasa de asistencia
+    sesiones_efectivas = stats['realizadas'] + stats['con_retraso']
+    sesiones_programadas_total = stats['total_sesiones'] - stats['canceladas'] - stats['permisos']
+    stats['tasa_asistencia'] = (sesiones_efectivas / sesiones_programadas_total * 100) if sesiones_programadas_total > 0 else 0
+    
+    # Estadísticas de pago
+    sesiones_con_cobro = [s for s in sesiones if s.monto_cobrado > 0]
+    
+    stats['total_cobrado'] = sum(s.monto_cobrado for s in sesiones_con_cobro)
+    stats['total_pagado'] = sum(s.total_pagado for s in sesiones_con_cobro)
+    stats['total_pendiente'] = stats['total_cobrado'] - stats['total_pagado']
+    
+    sesiones_pagadas = [s for s in sesiones_con_cobro if s.pagado]
+    sesiones_pendientes = [s for s in sesiones_con_cobro if not s.pagado and s.total_pagado == 0]
+    sesiones_parciales = [s for s in sesiones_con_cobro if s.total_pagado > 0 and not s.pagado]
+    
+    stats['count_pagadas'] = len(sesiones_pagadas)
+    stats['count_pendientes'] = len(sesiones_pendientes)
+    stats['count_parciales'] = len(sesiones_parciales)
+    
+    # Tasa de pago
+    stats['tasa_pago'] = (stats['count_pagadas'] / len(sesiones_con_cobro) * 100) if sesiones_con_cobro else 0
+    
+    # ==================== DATOS PARA GRÁFICOS ====================
+    import json
+    from datetime import timedelta
+    from collections import defaultdict
+    
+    # Gráfico 1: Asistencia por mes (últimos 6 meses)
+    hoy = date.today()
+    hace_6_meses = hoy - timedelta(days=180)
+    
+    sesiones_ultimos_6m = sesiones.filter(fecha__gte=hace_6_meses)
+    
+    # Agrupar por mes
+    from django.db.models.functions import TruncMonth
+    por_mes = sesiones_ultimos_6m.annotate(
+        mes=TruncMonth('fecha')
+    ).values('mes').annotate(
+        total=Count('id'),
+        realizadas=Count('id', filter=Q(estado='realizada')),
+        con_retraso=Count('id', filter=Q(estado='realizada_retraso')),
+        faltas=Count('id', filter=Q(estado='falta')),
+        permisos=Count('id', filter=Q(estado='permiso')),
+        canceladas=Count('id', filter=Q(estado='cancelada'))
+    ).order_by('mes')
+    
+    grafico_asistencia = {
+        'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+        'realizadas': [m['realizadas'] for m in por_mes],
+        'con_retraso': [m['con_retraso'] for m in por_mes],
+        'faltas': [m['faltas'] for m in por_mes],
+        'permisos': [m['permisos'] for m in por_mes],
+        'canceladas': [m['canceladas'] for m in por_mes],
+    }
+    
+    # Gráfico 2: Pagos vs Deuda
+    grafico_pagos = {
+        'pagado': float(stats['total_pagado']),
+        'pendiente': float(stats['total_pendiente']),
+    }
+    
+    # Gráfico 3: Distribución por servicio
+    por_servicio = sesiones.values(
+        'servicio__nombre', 'servicio__color'
+    ).annotate(
+        cantidad=Count('id')
+    ).order_by('-cantidad')[:5]
+    
+    grafico_servicios = {
+        'labels': [s['servicio__nombre'] for s in por_servicio],
+        'data': [s['cantidad'] for s in por_servicio],
+        'colors': [s['servicio__color'] for s in por_servicio],
+    }
+    
+    # ==================== DATOS PARA FILTROS ====================
+    # Profesionales que han atendido
+    profesionales_ids = sesiones.values_list('profesional_id', flat=True).distinct()
+    from profesionales.models import Profesional
+    profesionales = Profesional.objects.filter(id__in=profesionales_ids).order_by('apellido', 'nombre')
+    
+    # Servicios contratados
+    servicios_ids = sesiones.values_list('servicio_id', flat=True).distinct()
+    from servicios.models import TipoServicio
+    servicios = TipoServicio.objects.filter(id__in=servicios_ids).order_by('nombre')
+    
+    # Sucursales donde ha sido atendido
+    sucursales_ids = sesiones.values_list('sucursal_id', flat=True).distinct()
+    from servicios.models import Sucursal
+    sucursales = Sucursal.objects.filter(id__in=sucursales_ids).order_by('nombre')
+    
+    # ==================== PAGINACIÓN (Solo para sesiones normales) ====================
+    from django.core.paginator import Paginator
+    
+    if tab_activo == 'normales':
+        paginator = Paginator(sesiones_filtradas, 20)
+        page_number = request.GET.get('page', 1)
+        sesiones_page = paginator.get_page(page_number)
+    else:
+        sesiones_page = None
+    
+    # ==================== CONTEXT ====================
+    context = {
+        'paciente': paciente,
+        'tab_activo': tab_activo,
+        
+        # Sesiones
+        'sesiones_filtradas': sesiones_filtradas if tab_activo == 'normales' else None,
+        'sesiones_page': sesiones_page,
+        'mensualidades_agrupadas': mensualidades_agrupadas,
+        'proyectos_agrupados': proyectos_agrupados,
+        
+        # Estadísticas
+        'stats': stats,
+        
+        # Gráficos
+        'grafico_asistencia': json.dumps(grafico_asistencia),
+        'grafico_pagos': json.dumps(grafico_pagos),
+        'grafico_servicios': json.dumps(grafico_servicios),
+        
+        # Filtros
+        'profesionales': profesionales,
+        'servicios': servicios,
+        'sucursales': sucursales,
+        'estados_sesion': Sesion.ESTADO_CHOICES,
+        
+        # Valores actuales de filtros
+        'filtros': {
+            'estado': estado_sesion,
+            'pago': estado_pago,
+            'desde': fecha_desde,
+            'hasta': fecha_hasta,
+            'profesional': profesional_id,
+            'servicio': servicio_id,
+            'sucursal': sucursal_id,
+            'buscar': buscar,
+        },
+    }
+    
+    return render(request, 'pacientes/detalle_sesiones.html', context)

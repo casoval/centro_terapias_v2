@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💳 Nueva Mensualidad{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-3">
+                    <span class="bg-gradient-to-br from-purple-600 to-indigo-700 text-white p-3 rounded-2xl shadow-lg">💳</span>
+                    Nueva Mensualidad
+                </h1>
+                <p class="text-sm text-slate-500 mt-2">
+                    Paso 1: Crear la mensualidad base. Luego podrás agregar las sesiones.
+                </p>
+            </div>
+            <a href="{% url 'agenda:lista_mensualidades' %}" 
+               class="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-xl font-bold text-xs border border-slate-200 transition-all shadow-sm uppercase tracking-wide">
+                ← Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <form method="post" class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        {% csrf_token %}
+        
+        <!-- Header del formulario -->
+        <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 border-b border-purple-700">
+            <h2 class="text-lg font-black text-white uppercase tracking-wide">📋 Datos de la Mensualidad</h2>
+        </div>
+
+        <div class="p-6 space-y-6">
+            
+            <!-- Sucursal y Paciente -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">
+                        🏢 Sucursal <span class="text-red-500">*</span>
+                    </label>
+                    <select name="sucursal_id" id="sucursal-select" required
+                            onchange="cargarPacientesDeSucursal(this.value)"
+                            class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none transition-all">
+                        <option value="">Seleccione sucursal...</option>
+                        {% for sucursal in sucursales %}
+                        <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="pacientes-container">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">
+                        👶 Paciente <span class="text-red-500">*</span>
+                    </label>
+                    <select name="paciente_id" id="paciente-select" disabled required
+                            class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400">
+                        <option value="">⏳ Esperando sucursal...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Servicio y Profesional -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div id="servicios-container">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">
+                        🎯 Servicio <span class="text-red-500">*</span>
+                    </label>
+                    <select name="servicio_id" id="servicio-select" disabled required
+                            class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400">
+                        <option value="">⏳ Esperando paciente...</option>
+                    </select>
+                </div>
+
+                <div id="profesionales-container">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">
+                        👨‍⚕️ Profesional <span class="text-red-500">*</span>
+                    </label>
+                    <select name="profesional_id" id="profesional-select" disabled required
+                            class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400">
+                        <option value="">⏳ Esperando servicio...</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Período -->
+            <div class="bg-blue-50/50 rounded-xl p-5 border border-blue-200">
+                <h3 class="text-sm font-black text-blue-800 mb-4 uppercase tracking-wide">📅 Período</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">
+                            Mes <span class="text-red-500">*</span>
+                        </label>
+                        <select name="mes" id="mes-select" required
+                                class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none">
+                            <option value="">Seleccionar mes...</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">
+                            Año <span class="text-red-500">*</span>
+                        </label>
+                        <select name="anio" id="anio-select" required
+                                class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none">
+                            <option value="">Seleccionar año...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Costo Mensual -->
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    💰 Costo Mensual (Bs.) <span class="text-red-500">*</span>
+                </label>
+                <input type="number" name="costo_mensual" id="costo-mensual" 
+                       min="0" step="0.01" required
+                       placeholder="Ej: 500.00"
+                       class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none text-lg font-bold">
+                <p class="text-xs text-slate-500 mt-2">
+                    💡 Se autocompleta con el precio mensual del servicio, pero puedes modificarlo
+                </p>
+                <p class="text-xs text-slate-500 mt-1">
+                    ℹ️ Este es el costo total del mes, no por sesión individual
+                </p>
+            </div>
+
+            <!-- Observaciones -->
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    📝 Observaciones (opcional)
+                </label>
+                <textarea name="observaciones" rows="3"
+                          placeholder="Notas adicionales sobre esta mensualidad..."
+                          class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none resize-none"></textarea>
+            </div>
+
+        </div>
+
+        <!-- Footer con botones -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Después de crear, podrás agregar las sesiones</span>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'agenda:lista_mensualidades' %}" 
+                   class="px-6 py-3 bg-white border-2 border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">
+                    Cancelar
+                </a>
+                <button type="submit" 
+                        class="px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-black shadow-lg hover:shadow-xl transition-all transform hover:scale-105 active:scale-95">
+                    💾 Crear Mensualidad
+                </button>
+            </div>
+        </div>
+    </form>
+
+</div>
+
+<script>
+// ========================================
+// CARGAR PACIENTES DE SUCURSAL
+// ========================================
+function cargarPacientesDeSucursal(sucursalId) {
+    console.log('🏢 Cargando pacientes de sucursal:', sucursalId);
+    
+    if (!sucursalId) {
+        resetearCascadaCompleta();
+        return;
+    }
+    
+    const pacientesContainer = document.getElementById('pacientes-container');
+    pacientesContainer.innerHTML = `
+        <label class="block text-sm font-bold text-slate-700 mb-2">
+            👶 Paciente <span class="text-red-500">*</span>
+        </label>
+        <select name="paciente_id" id="paciente-select" 
+                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                disabled>
+            <option value="">⏳ Cargando pacientes...</option>
+        </select>
+    `;
+    
+    resetearServicios();
+    resetearProfesionales();
+    
+    fetch(`{% url 'agenda:pacientes_sucursal' %}?sucursal=${sucursalId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Error en la petición');
+            return response.text();
+        })
+        .then(html => {
+            console.log('✅ Pacientes cargados');
+            pacientesContainer.innerHTML = html;
+            agregarEventoPaciente();
+        })
+        .catch(error => {
+            console.error('❌ Error cargando pacientes:', error);
+            pacientesContainer.innerHTML = `
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    👶 Paciente <span class="text-red-500">*</span>
+                </label>
+                <select name="paciente_id" class="w-full px-4 py-3 border-2 border-red-200 rounded-xl text-slate-400" disabled>
+                    <option value="">❌ Error al cargar</option>
+                </select>
+                <p class="text-xs text-red-600 mt-2">Error: ${error.message}</p>
+            `;
+        });
+}
+
+// ========================================
+// RESETEAR CASCADA
+// ========================================
+function resetearCascadaCompleta() {
+    const pacienteContainer = document.getElementById('pacientes-container');
+    pacienteContainer.innerHTML = `
+        <label class="block text-sm font-bold text-slate-700 mb-2">
+            👶 Paciente <span class="text-red-500">*</span>
+        </label>
+        <select name="paciente_id" id="paciente-select" 
+                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                disabled required>
+            <option value="">⏳ Esperando sucursal...</option>
+        </select>
+    `;
+    resetearServicios();
+    resetearProfesionales();
+}
+
+function resetearServicios() {
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <label class="block text-sm font-bold text-slate-700 mb-2">
+            🎯 Servicio <span class="text-red-500">*</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" 
+                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                disabled required>
+            <option value="">⏳ Esperando paciente...</option>
+        </select>
+    `;
+}
+
+function resetearProfesionales() {
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    profesionalesContainer.innerHTML = `
+        <label class="block text-sm font-bold text-slate-700 mb-2">
+            👨‍⚕️ Profesional <span class="text-red-500">*</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" 
+                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                disabled required>
+            <option value="">⏳ Esperando servicio...</option>
+        </select>
+    `;
+}
+
+// ========================================
+// EVENTOS DE PACIENTE
+// ========================================
+function agregarEventoPaciente() {
+    const pacienteSelect = document.getElementById('paciente-select');
+    
+    if (pacienteSelect && !pacienteSelect.disabled && !pacienteSelect.dataset.listenerAdded) {
+        pacienteSelect.dataset.listenerAdded = 'true';
+        
+        console.log('🎯 Evento agregado al select de pacientes');
+        
+        pacienteSelect.addEventListener('change', function() {
+            const pacienteId = this.value;
+            
+            console.log('👤 Paciente seleccionado:', pacienteId);
+            
+            if (!pacienteId) {
+                resetearServicios();
+                resetearProfesionales();
+                return;
+            }
+            
+            const serviciosContainer = document.getElementById('servicios-container');
+            serviciosContainer.innerHTML = `
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    🎯 Servicio <span class="text-red-500">*</span>
+                </label>
+                <select name="servicio_id" id="servicio-select" 
+                        class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                        disabled>
+                    <option value="">⏳ Cargando servicios...</option>
+                </select>
+            `;
+            
+            resetearProfesionales();
+            
+            fetch(`{% url 'agenda:servicios_paciente' %}?paciente=${pacienteId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la petición');
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('✅ Servicios cargados');
+                    serviciosContainer.innerHTML = html;
+                    agregarEventoServicio();
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando servicios:', error);
+                    serviciosContainer.innerHTML = `
+                        <label class="block text-sm font-bold text-slate-700 mb-2">
+                            🎯 Servicio <span class="text-red-500">*</span>
+                        </label>
+                        <select name="servicio_id" class="w-full px-4 py-3 border-2 border-red-200 rounded-xl text-slate-400" disabled>
+                            <option value="">❌ Error al cargar</option>
+                        </select>
+                        <p class="text-xs text-red-600 mt-2">Error: ${error.message}</p>
+                    `;
+                });
+        });
+    }
+}
+
+// ========================================
+// EVENTOS DE SERVICIO
+// ========================================
+function agregarEventoServicio() {
+    const servicioSelect = document.getElementById('servicio-select');
+    
+    if (servicioSelect && !servicioSelect.disabled && !servicioSelect.dataset.listenerAdded) {
+        servicioSelect.dataset.listenerAdded = 'true';
+        
+        servicioSelect.addEventListener('change', function() {
+            const servicioId = this.value;
+            const sucursalId = document.getElementById('sucursal-select').value;
+            
+            if (!servicioId) {
+                resetearProfesionales();
+                return;
+            }
+            
+            // 🆕 AUTOCOMPLETAR COSTO MENSUAL desde el servicio
+            const selectedOption = this.options[this.selectedIndex];
+            const precioMensual = selectedOption.dataset.precioMensual || '0';
+            
+            const costoMensualInput = document.getElementById('costo-mensual');
+            if (costoMensualInput) {
+                // Siempre autocompletar, incluso si es 0
+                costoMensualInput.value = parseFloat(precioMensual).toFixed(2);
+                
+                // Efecto visual
+                costoMensualInput.classList.add('scale-105', 'bg-purple-100');
+                setTimeout(() => {
+                    costoMensualInput.classList.remove('scale-105', 'bg-purple-100');
+                }, 400);
+            }
+            
+            const profesionalesContainer = document.getElementById('profesionales-container');
+            profesionalesContainer.innerHTML = `
+                <label class="block text-sm font-bold text-slate-700 mb-2">
+                    👨‍⚕️ Profesional <span class="text-red-500">*</span>
+                </label>
+                <select name="profesional_id" id="profesional-select" 
+                        class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
+                        disabled>
+                    <option value="">⏳ Cargando profesionales...</option>
+                </select>
+            `;
+            
+            if (!sucursalId) return;
+            
+            const params = new URLSearchParams({
+                servicio: servicioId,
+                sucursal: sucursalId
+            });
+            
+            fetch(`{% url 'agenda:profesionales_servicio' %}?${params}`)
+                .then(response => response.text())
+                .then(html => {
+                    console.log('✅ Profesionales cargados');
+                    profesionalesContainer.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando profesionales:', error);
+                    resetearProfesionales();
+                });
+        });
+    }
+}
+
+// ========================================
+// OBSERVERS
+// ========================================
+const observerPaciente = new MutationObserver(agregarEventoPaciente);
+observerPaciente.observe(document.getElementById('pacientes-container'), {
+    childList: true,
+    subtree: true
+});
+
+const observerServicios = new MutationObserver(agregarEventoServicio);
+observerServicios.observe(document.getElementById('servicios-container'), {
+    childList: true,
+    subtree: true
+});
+
+// ========================================
+// GENERAR AÑOS
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const anioSelect = document.getElementById('anio-select');
+    const currentYear = new Date().getFullYear();
+    
+    for (let i = 0; i < 3; i++) {
+        const year = currentYear + i;
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        if (i === 0) option.selected = true;
+        anioSelect.appendChild(option);
+    }
+});
+</script>
+{% endblock %}

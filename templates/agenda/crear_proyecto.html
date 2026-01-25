@@ -38,6 +38,7 @@
     <form method="post" class="space-y-4">
         {% csrf_token %}
 
+        <!-- ✅ INFORMACIÓN PRINCIPAL -->
         <div class="bg-white border border-blue-100 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-2 border-b border-blue-200">
                 <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
@@ -61,8 +62,10 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-blue-900 mb-1">Sucursal *</label>
-                    <select name="sucursal_id" required class="w-full px-2 py-1.5 border-2 border-blue-100 rounded-lg focus:border-blue-500 text-sm">
-                        <option value="">Seleccione...</option>
+                    <select name="sucursal_id" id="sucursal-select" required 
+                            class="w-full px-2 py-1.5 border-2 border-blue-100 rounded-lg focus:border-blue-500 text-sm"
+                            onchange="cargarPacientesDeSucursal(this.value)">
+                        <option value="">Seleccione sucursal...</option>
                         {% for sucursal in sucursales %}
                         <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
                         {% endfor %}
@@ -72,6 +75,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- ✅ PARTICIPANTES CON CARGA DINÁMICA -->
             <div class="bg-white border border-emerald-100 rounded-xl shadow-sm overflow-hidden">
                 <div class="bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2 border-b border-emerald-200">
                     <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
@@ -79,54 +83,86 @@
                     </h2>
                 </div>
                 <div class="p-3 space-y-3 bg-emerald-50/30">
-                    <div>
-                        <label class="block text-xs font-bold text-emerald-900 mb-1">Paciente *</label>
-                        <select name="paciente_id" required class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-sm">
-                            <option value="">Seleccione...</option>
-                            {% for paciente in pacientes %}
-                            <option value="{{ paciente.id }}">{{ paciente.nombre_completo }}</option>
-                            {% endfor %}
+                    <!-- ✅ PACIENTE (carga dinámica vía HTMX) -->
+                    <div id="pacientes-container">
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            👤 Paciente * <span class="text-gray-500 font-normal">(Paso 1)</span>
+                        </label>
+                        <select name="paciente_id" id="paciente-select" 
+                                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                disabled required>
+                            <option value="">⏳ Esperando sucursal...</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-emerald-900 mb-1">Responsable *</label>
-                        <select name="profesional_id" required class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-sm">
-                            <option value="">Seleccione...</option>
-                            {% for profesional in profesionales %}
-                            <option value="{{ profesional.id }}">{{ profesional.nombre }} {{ profesional.apellido }}</option>
-                            {% endfor %}
+
+                    <!-- ✅ SERVICIO (se carga después de seleccionar paciente) -->
+                    <div id="servicios-container">
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+                        </label>
+                        <select name="servicio_id" id="servicio-select" 
+                                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                disabled required>
+                            <option value="">⏳ Esperando paciente...</option>
+                        </select>
+                    </div>
+
+                    <!-- ✅ RESPONSABLE (se carga después de seleccionar servicio) -->
+                    <div id="profesionales-container">
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+                        </label>
+                        <select name="profesional_id" id="profesional-select" 
+                                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                                disabled required>
+                            <option value="">⏳ Esperando servicio...</option>
                         </select>
                     </div>
                 </div>
             </div>
 
+            <!-- ✅ COSTO -->
             <div class="bg-white border border-purple-100 rounded-xl shadow-sm overflow-hidden">
                 <div class="bg-gradient-to-r from-purple-600 to-purple-500 px-4 py-2 border-b border-purple-200">
                     <h2 class="font-bold text-white flex items-center gap-2 uppercase tracking-wider text-xs">
-                        <span class="text-base">💰</span> Servicio y Costo
+                        <span class="text-base">💰</span> Costo del Proyecto
                     </h2>
                 </div>
                 <div class="p-3 space-y-3 bg-purple-50/30">
-                    <div>
-                        <label class="block text-xs font-bold text-purple-900 mb-1">Servicio Base *</label>
-                        <select name="servicio_id" required class="w-full px-2 py-1.5 border-2 border-purple-100 rounded-lg text-sm">
-                            <option value="">Seleccione...</option>
-                            {% for servicio in servicios %}
-                            <option value="{{ servicio.id }}" data-costo="{{ servicio.costo_base }}">
-                                {{ servicio.nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                    <!-- Info del servicio seleccionado -->
+                    <div id="info-servicio-seleccionado" class="hidden bg-white border-2 border-purple-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-purple-900">Servicio seleccionado:</span>
+                            <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                                Bs. <span id="costo-servicio-base">0</span>
+                            </span>
+                        </div>
+                        <p id="nombre-servicio-seleccionado" class="text-xs text-gray-600 font-semibold"></p>
                     </div>
+
                     <div>
-                        <label class="block text-xs font-bold text-purple-900 mb-1">Costo Total (Bs.) *</label>
-                        <input type="number" name="costo_total" required step="0.01"
-                               class="w-full px-2 py-1.5 border-2 border-purple-200 rounded-lg font-black text-purple-700 text-base bg-white focus:ring-2 focus:ring-purple-500">
+                        <label class="block text-xs font-bold text-purple-900 mb-1">
+                            Costo Total del Proyecto (Bs.) *
+                        </label>
+                        <input type="number" name="costo_total" id="costo-total-input" required step="0.01" min="0"
+                               class="w-full px-3 py-2 border-2 border-purple-200 rounded-lg font-black text-purple-700 text-lg bg-white focus:ring-2 focus:ring-purple-500 transition-all">
+                        <p class="text-[10px] text-purple-600 mt-1 flex items-center gap-1">
+                            💡 <span>Se autocompleta con el costo del servicio, pero puedes modificarlo</span>
+                        </p>
+                    </div>
+
+                    <!-- Indicador visual del costo -->
+                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-2 text-center">
+                        <p class="text-[10px] text-purple-600 font-bold uppercase mb-1">Monto a cobrar</p>
+                        <p class="text-2xl font-black text-purple-700">
+                            Bs. <span id="display-costo-total">0.00</span>
+                        </p>
                     </div>
                 </div>
             </div>
         </div>
 
+        <!-- ✅ CRONOGRAMA -->
         <div class="bg-white border border-amber-100 rounded-xl shadow-sm overflow-hidden">
             <div class="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2 border-b border-amber-200">
                 <h2 class="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-2">
@@ -135,14 +171,16 @@
             </div>
             <div class="p-3 grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-amber-50/30">
                 <div>
-                    <label class="block text-xs font-bold text-amber-900 mb-1">Fecha Inicio</label>
-                    <input type="date" name="fecha_inicio" required value="{{ fecha_hoy|date:'Y-m-d' }}"
-                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm">
+                    <label class="block text-xs font-bold text-amber-900 mb-1">Fecha Inicio *</label>
+                    <input type="date" name="fecha_inicio" id="fecha-inicio" required value="{{ fecha_hoy|date:'Y-m-d' }}"
+                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm focus:border-amber-500"
+                           onchange="calcularDuracion()">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-amber-900 mb-1">Fin Estimado</label>
-                    <input type="date" name="fecha_fin_estimada" 
-                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm">
+                    <input type="date" name="fecha_fin_estimada" id="fecha-fin-estimada"
+                           class="w-full px-2 py-1.5 border-2 border-amber-100 rounded-lg text-sm focus:border-amber-500"
+                           onchange="calcularDuracion()">
                 </div>
                 <div class="md:col-span-2 flex items-center justify-center bg-white border-2 border-amber-200 rounded-xl p-2 shadow-inner">
                     <div class="text-center">
@@ -156,6 +194,7 @@
             </div>
         </div>
 
+        <!-- ✅ DESCRIPCIÓN -->
         <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
             <div class="p-3 bg-slate-50">
                 <label class="block text-xs font-bold text-slate-700 mb-2 uppercase flex items-center gap-2">
@@ -163,10 +202,11 @@
                 </label>
                 <textarea name="descripcion" rows="2" 
                           class="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:border-slate-500 focus:ring-0"
-                          placeholder="Escribe aquí los detalles importantes..."></textarea>
+                          placeholder="Escribe aquí los detalles importantes del proyecto..."></textarea>
             </div>
         </div>
 
+        <!-- ✅ BOTONES -->
         <div class="flex flex-col md:flex-row gap-3 pt-2">
             <button type="submit" 
                     class="flex-[2] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black py-3 px-6 rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 text-base uppercase">
@@ -181,31 +221,351 @@
 </div>
 
 <script>
-// Funcionalidad original optimizada
-document.querySelector('select[name="servicio_id"]')?.addEventListener('change', function() {
-    const cost = this.options[this.selectedIndex]?.getAttribute('data-costo');
-    if (cost) {
-        const inputCosto = document.querySelector('input[name="costo_total"]');
-        inputCosto.value = cost;
-        inputCosto.classList.add('bg-purple-100');
-        setTimeout(() => inputCosto.classList.remove('bg-purple-100'), 300);
+// ========================================
+// CARGAR PACIENTES DE SUCURSAL
+// ========================================
+function cargarPacientesDeSucursal(sucursalId) {
+    console.log('🏢 Cargando pacientes de sucursal:', sucursalId);
+    
+    if (!sucursalId) {
+        resetearCascadaCompleta();
+        return;
+    }
+    
+    // Mostrar estado de carga
+    const pacientesContainer = document.getElementById('pacientes-container');
+    pacientesContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👤 Paciente * <span class="text-gray-500 font-normal">(Paso 1)</span>
+        </label>
+        <select name="paciente_id" id="paciente-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                disabled>
+            <option value="">⏳ Cargando pacientes...</option>
+        </select>
+    `;
+    
+    // Resetear servicios y profesionales
+    resetearServicios();
+    resetearProfesionales();
+    resetearInfoCosto();
+    
+    // Hacer petición para cargar pacientes
+    fetch(`{% url 'agenda:pacientes_sucursal' %}?sucursal=${sucursalId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Error en la petición');
+            return response.text();
+        })
+        .then(html => {
+            console.log('✅ Pacientes cargados');
+            pacientesContainer.innerHTML = html;
+            
+            // Agregar evento al nuevo select de pacientes
+            agregarEventoPaciente();
+        })
+        .catch(error => {
+            console.error('❌ Error cargando pacientes:', error);
+            pacientesContainer.innerHTML = `
+                <label class="block text-xs font-bold text-emerald-900 mb-1">
+                    👤 Paciente *
+                </label>
+                <select name="paciente_id" class="w-full px-2 py-1.5 border-2 border-red-200 rounded-lg text-xs" disabled>
+                    <option value="">❌ Error al cargar</option>
+                </select>
+                <p class="text-xs text-red-600 mt-1">Error: ${error.message}</p>
+            `;
+        });
+}
+
+// ========================================
+// RESETEAR CASCADA COMPLETA AL CAMBIAR SUCURSAL
+// ========================================
+function resetearCascadaCompleta() {
+    // Resetear paciente (se cargará automáticamente por HTMX)
+    const pacienteContainer = document.getElementById('pacientes-container');
+    pacienteContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👤 Paciente * <span class="text-gray-500 font-normal">(Paso 1)</span>
+        </label>
+        <select name="paciente_id" id="paciente-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Cargando pacientes...</option>
+        </select>
+    `;
+    
+    // Resetear servicio
+    resetearServicios();
+    
+    // Resetear profesional
+    resetearProfesionales();
+    
+    // Resetear info de costo
+    resetearInfoCosto();
+}
+
+function resetearServicios() {
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando paciente...</option>
+        </select>
+    `;
+}
+
+function resetearProfesionales() {
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    profesionalesContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400" 
+                disabled required>
+            <option value="">⏳ Esperando servicio...</option>
+        </select>
+    `;
+}
+
+function resetearInfoCosto() {
+    document.getElementById('info-servicio-seleccionado').classList.add('hidden');
+    document.getElementById('costo-total-input').value = '';
+    document.getElementById('display-costo-total').textContent = '0.00';
+}
+
+// ========================================
+// CARGAR SERVICIOS Y PROFESIONALES
+// ========================================
+function cargarServiciosDelPaciente() {
+    const servicioSelect = document.getElementById('servicio-select');
+    const serviciosContainer = document.getElementById('servicios-container');
+    
+    serviciosContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                disabled>
+            <option value="">⏳ Cargando servicios...</option>
+        </select>
+    `;
+}
+
+function cargarProfesionalesDelServicio() {
+    const profesionalesContainer = document.getElementById('profesionales-container');
+    
+    profesionalesContainer.innerHTML = `
+        <label class="block text-xs font-bold text-emerald-900 mb-1">
+            👨‍⚕️ Responsable * <span class="text-gray-500 font-normal">(Paso 3)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" 
+                class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                disabled>
+            <option value="">⏳ Cargando profesionales...</option>
+        </select>
+    `;
+}
+
+function mostrarInfoServicio(nombre, costo) {
+    document.getElementById('nombre-servicio-seleccionado').textContent = nombre;
+    document.getElementById('costo-servicio-base').textContent = parseFloat(costo).toFixed(2);
+    document.getElementById('info-servicio-seleccionado').classList.remove('hidden');
+    
+    // Autocompletar costo total
+    const inputCosto = document.getElementById('costo-total-input');
+    inputCosto.value = parseFloat(costo).toFixed(2);
+    
+    // Actualizar display
+    actualizarDisplayCosto();
+    
+    // Efecto visual
+    inputCosto.classList.add('scale-105', 'bg-purple-100');
+    setTimeout(() => {
+        inputCosto.classList.remove('scale-105', 'bg-purple-100');
+    }, 400);
+}
+
+// ========================================
+// ACTUALIZAR DISPLAY DE COSTO
+// ========================================
+function actualizarDisplayCosto() {
+    const inputCosto = document.getElementById('costo-total-input');
+    const displayCosto = document.getElementById('display-costo-total');
+    const valor = parseFloat(inputCosto.value) || 0;
+    displayCosto.textContent = valor.toFixed(2);
+}
+
+// Listener para actualizar display cuando cambia el input
+document.addEventListener('DOMContentLoaded', function() {
+    const inputCosto = document.getElementById('costo-total-input');
+    if (inputCosto) {
+        inputCosto.addEventListener('input', actualizarDisplayCosto);
     }
 });
 
+// ========================================
+// CALCULAR DURACIÓN
+// ========================================
 function calcularDuracion() {
-    const f1 = document.querySelector('input[name="fecha_inicio"]').value;
-    const f2 = document.querySelector('input[name="fecha_fin_estimada"]').value;
+    const fechaInicio = document.getElementById('fecha-inicio').value;
+    const fechaFin = document.getElementById('fecha-fin-estimada').value;
     const display = document.getElementById('duracion-estimada');
     
-    if (f1 && f2) {
-        const diff = Math.ceil((new Date(f2) - new Date(f1)) / (1000 * 60 * 60 * 24)) + 1;
+    if (fechaInicio && fechaFin) {
+        const diff = Math.ceil((new Date(fechaFin) - new Date(fechaInicio)) / (1000 * 60 * 60 * 24)) + 1;
         display.textContent = diff > 0 ? diff : '-';
+        
+        if (diff > 0) {
+            display.classList.add('scale-110');
+            setTimeout(() => display.classList.remove('scale-110'), 300);
+        }
     } else {
         display.textContent = '-';
     }
 }
 
-document.querySelector('input[name="fecha_inicio"]')?.addEventListener('change', calcularDuracion);
-document.querySelector('input[name="fecha_fin_estimada"]')?.addEventListener('change', calcularDuracion);
+// ========================================
+// OBSERVERS PARA DETECTAR CAMBIOS DINÁMICOS
+// ========================================
+
+// Agregar evento al select de pacientes cuando se carga
+function agregarEventoPaciente() {
+    const pacienteSelect = document.getElementById('paciente-select');
+    
+    if (pacienteSelect && !pacienteSelect.disabled && !pacienteSelect.dataset.listenerAdded) {
+        pacienteSelect.dataset.listenerAdded = 'true';
+        
+        console.log('🎯 Evento agregado al select de pacientes');
+        
+        pacienteSelect.addEventListener('change', function() {
+            const pacienteId = this.value;
+            
+            console.log('👤 Paciente seleccionado:', pacienteId);
+            
+            if (!pacienteId) {
+                resetearServicios();
+                resetearProfesionales();
+                resetearInfoCosto();
+                return;
+            }
+            
+            // Mostrar estado de carga
+            const serviciosContainer = document.getElementById('servicios-container');
+            serviciosContainer.innerHTML = `
+                <label class="block text-xs font-bold text-emerald-900 mb-1">
+                    🏥 Servicio Base * <span class="text-gray-500 font-normal">(Paso 2)</span>
+                </label>
+                <select name="servicio_id" id="servicio-select" 
+                        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs" 
+                        disabled>
+                    <option value="">⏳ Cargando servicios...</option>
+                </select>
+            `;
+            
+            resetearProfesionales();
+            resetearInfoCosto();
+            
+            // Hacer fetch de servicios
+            fetch(`{% url 'agenda:servicios_paciente' %}?paciente=${pacienteId}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error en la petición');
+                    return response.text();
+                })
+                .then(html => {
+                    console.log('✅ Servicios cargados');
+                    serviciosContainer.innerHTML = html;
+                    
+                    // Agregar evento al nuevo select de servicios
+                    agregarEventoServicio();
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando servicios:', error);
+                    serviciosContainer.innerHTML = `
+                        <label class="block text-xs font-bold text-emerald-900 mb-1">
+                            🏥 Servicio Base *
+                        </label>
+                        <select name="servicio_id" class="w-full px-2 py-1.5 border-2 border-red-200 rounded-lg text-xs" disabled>
+                            <option value="">❌ Error al cargar</option>
+                        </select>
+                        <p class="text-xs text-red-600 mt-1">Error: ${error.message}</p>
+                    `;
+                });
+        });
+    }
+}
+
+// Observer para cuando se carga el select de pacientes (backup)
+// Observer para cuando se carga el select de pacientes (backup)
+const observerPaciente = new MutationObserver(function(mutations) {
+    agregarEventoPaciente();
+});
+
+// Observer para cuando se carga el select de servicios
+function agregarEventoServicio() {
+    const servicioSelect = document.getElementById('servicio-select');
+    
+    if (servicioSelect && !servicioSelect.disabled && !servicioSelect.dataset.listenerAdded) {
+        servicioSelect.dataset.listenerAdded = 'true';
+        
+        servicioSelect.addEventListener('change', function() {
+            const servicioId = this.value;
+            const sucursalId = document.getElementById('sucursal-select').value;
+            
+            if (!servicioId) {
+                resetearProfesionales();
+                resetearInfoCosto();
+                return;
+            }
+            
+            // Obtener info del servicio seleccionado
+            const selectedOption = this.options[this.selectedIndex];
+            const nombreServicio = selectedOption.dataset.nombre || selectedOption.textContent;
+            const precioProyecto = selectedOption.dataset.precioProyecto || '0';
+            
+            // Mostrar info y autocompletar costo
+            mostrarInfoServicio(nombreServicio, precioProyecto);
+            
+            // Cargar profesionales
+            cargarProfesionalesDelServicio();
+            
+            if (!sucursalId) return;
+            
+            const params = new URLSearchParams({
+                servicio: servicioId,
+                sucursal: sucursalId
+            });
+            
+            fetch(`{% url 'agenda:profesionales_servicio' %}?${params}`)
+                .then(response => response.text())
+                .then(html => {
+                    const profesionalesContainer = document.getElementById('profesionales-container');
+                    profesionalesContainer.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error cargando profesionales:', error);
+                    resetearProfesionales();
+                });
+        });
+    }
+}
+
+// Iniciar observers
+observerPaciente.observe(document.getElementById('pacientes-container'), {
+    childList: true,
+    subtree: true
+});
+
+// Observer para servicios (se activa cuando cambia el HTML)
+const observerServicios = new MutationObserver(agregarEventoServicio);
+observerServicios.observe(document.getElementById('servicios-container'), {
+    childList: true,
+    subtree: true
+});
 </script>
 {% endblock %}

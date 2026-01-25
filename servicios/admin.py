@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django import forms
-from django.utils.safestring import mark_safe  # ← AGREGAR ESTE IMPORT
+from django.utils.safestring import mark_safe
 from .models import TipoServicio, Sucursal
 
 
@@ -27,7 +27,7 @@ class TipoServicioAdminForm(forms.ModelForm):
 class TipoServicioAdmin(admin.ModelAdmin):
     form = TipoServicioAdminForm  # ← Usar el formulario personalizado
     
-    list_display = ['nombre', 'duracion_minutos', 'costo_base', 'color_preview', 'activo']
+    list_display = ['nombre', 'duracion_minutos', 'costo_base', 'precio_mensual', 'precio_proyecto', 'color_preview', 'activo']
     list_filter = ['activo']
     search_fields = ['nombre']
     
@@ -36,7 +36,7 @@ class TipoServicioAdmin(admin.ModelAdmin):
             'fields': ('nombre', 'descripcion', 'activo')
         }),
         ('Configuración', {
-            'fields': ('duracion_minutos', 'costo_base', 'color')
+            'fields': ('duracion_minutos', 'costo_base', 'precio_mensual', 'precio_proyecto', 'color')
         }),
     )
     

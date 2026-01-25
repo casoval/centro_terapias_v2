@@ -1,39 +1,55 @@
-<label class="block text-sm font-medium text-gray-700 mb-2">
-    🏥 Servicio * <span class="text-xs text-gray-500">(Paso 3)</span>
+<label class="block text-xs font-bold text-emerald-900 mb-1">
+    🏥 Servicio * <span class="text-gray-500 font-normal">(Paso 2)</span>
 </label>
-<select name="servicio" 
-        id="servicio-select"
-        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        hx-get="{% url 'agenda:profesionales_servicio' %}"
-        hx-target="#profesionales-container"
-        hx-swap="innerHTML"
-        hx-trigger="change"
-        hx-include="#sucursal-select"
-        onchange="resetearProfesional(); actualizarVistaPrevia();"
-        required
-        {% if not servicios %}disabled{% endif %}>
-    <option value="">{{ servicios|length|yesno:"Seleccione un servicio,No hay servicios disponibles" }}</option>
+
+{% if servicios %}
+<select name="servicio_id" id="servicio-select" required
+        class="w-full px-2 py-1.5 border-2 border-emerald-100 rounded-lg text-xs focus:border-emerald-500">
+    <option value="">Seleccione servicio...</option>
     {% for ps in servicios %}
-    <option value="{{ ps.servicio.id }}" data-duracion="{{ ps.servicio.duracion_minutos }}">
-        {{ ps.servicio.nombre }} ({{ ps.servicio.duracion_minutos }} min - Bs. {{ ps.costo_sesion }})
+    <option value="{{ ps.servicio.id }}" 
+            data-costo="{{ ps.costo_sesion }}"
+            data-precio-mensual="{{ ps.servicio.precio_mensual|default:'' }}"
+            data-precio-proyecto="{{ ps.servicio.precio_proyecto|default:'' }}"
+            data-duracion="{{ ps.servicio.duracion_minutos }}"
+            data-nombre="{{ ps.servicio.nombre }}">
+        {% if tipo_precio == 'mensualidad' %}
+            {# Mostrar precio mensual #}
+            {% if ps.servicio.precio_mensual %}
+                {{ ps.servicio.nombre }} (Bs. {{ ps.servicio.precio_mensual }})
+            {% else %}
+                {{ ps.servicio.nombre }} (Sin precio mensual)
+            {% endif %}
+        {% elif tipo_precio == 'proyecto' %}
+            {# Mostrar precio de proyecto #}
+            {% if ps.servicio.precio_proyecto %}
+                {{ ps.servicio.nombre }} (Bs. {{ ps.servicio.precio_proyecto }})
+            {% else %}
+                {{ ps.servicio.nombre }} (Sin precio proyecto)
+            {% endif %}
+        {% elif tipo_precio == 'recurrente' %}
+            {# NO mostrar precio para sesiones recurrentes #}
+            {{ ps.servicio.nombre }}
+        {% else %}
+            {# Default: mostrar costo por sesión #}
+            {{ ps.servicio.nombre }} (Bs. {{ ps.costo_sesion }})
+        {% endif %}
     </option>
     {% endfor %}
 </select>
-{% if error %}
-<p class="text-xs text-red-500 mt-1">❌ {{ error }}</p>
+<p class="text-xs text-green-600 mt-1">✅ {{ servicios|length }} servicio(s) contratado(s)</p>
+{% elif error %}
+<div class="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+    ⚠️ {{ error }}
+</div>
+<select name="servicio_id" id="servicio-select" disabled
+        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400">
+    <option value="">No hay servicios disponibles</option>
+</select>
+{% else %}
+<select name="servicio_id" id="servicio-select" disabled
+        class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400">
+    <option value="">Sin servicios contratados</option>
+</select>
+<p class="text-xs text-orange-600 mt-1">⚠️ Este paciente no tiene servicios activos</p>
 {% endif %}
-
-<script>
-// Resetear profesional cuando cambia el servicio
-function resetearProfesional() {
-    const profesionalesContainer = document.getElementById('profesionales-container');
-    profesionalesContainer.innerHTML = `
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-            👨‍⚕️ Profesional * <span class="text-xs text-gray-500">(Paso 4)</span>
-        </label>
-        <select name="profesional" id="profesional-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100" disabled required>
-            <option value="">Cargando profesionales...</option>
-        </select>
-    `;
-}
-</script>

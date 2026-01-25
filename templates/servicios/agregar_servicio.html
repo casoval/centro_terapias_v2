@@ -16,7 +16,6 @@
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     .color-preview:hover { transform: scale(1.05); }
-    /* Input Styling similar to Search bar in List */
     .form-input {
         width: 100%;
         border-radius: 0.75rem;
@@ -104,24 +103,16 @@
                     <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-xl">⚙️</div>
                     <div>
                         <h2 class="text-lg font-bold text-gray-800">Configuración</h2>
-                        <p class="text-xs text-gray-500 font-medium">Duración, precio y disponibilidad</p>
+                        <p class="text-xs text-gray-500 font-medium">Duración, precios y disponibilidad</p>
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                     <div class="campo-requerido">
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{{ form.duracion_minutos.label }}</label>
                         {{ form.duracion_minutos }}
                         {% if form.duracion_minutos.errors %}
                         <p class="text-red-500 text-xs font-bold mt-1">{{ form.duracion_minutos.errors.0 }}</p>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="campo-requerido">
-                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{{ form.costo_base.label }}</label>
-                        {{ form.costo_base }}
-                        {% if form.costo_base.errors %}
-                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.costo_base.errors.0 }}</p>
                         {% endif %}
                     </div>
                     
@@ -134,6 +125,42 @@
                         {% if form.activo.errors %}
                         <p class="text-red-500 text-xs font-bold mt-1">{{ form.activo.errors.0 }}</p>
                         {% endif %}
+                    </div>
+                </div>
+
+                <!-- 🆕 PRECIOS -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-5 pt-5 border-t border-gray-100">
+                    <div class="campo-requerido">
+                        <label class="block text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 flex items-center gap-2">
+                            💵 {{ form.costo_base.label }}
+                        </label>
+                        {{ form.costo_base }}
+                        {% if form.costo_base.errors %}
+                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.costo_base.errors.0 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-400 mt-1">Por sesión individual</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-emerald-600 uppercase tracking-wide mb-2 flex items-center gap-2">
+                            💳 {{ form.precio_mensual.label }}
+                        </label>
+                        {{ form.precio_mensual }}
+                        {% if form.precio_mensual.errors %}
+                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.precio_mensual.errors.0 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-400 mt-1">Sugerido para mensualidades</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-amber-600 uppercase tracking-wide mb-2 flex items-center gap-2">
+                            📦 {{ form.precio_proyecto.label }}
+                        </label>
+                        {{ form.precio_proyecto }}
+                        {% if form.precio_proyecto.errors %}
+                        <p class="text-red-500 text-xs font-bold mt-1">{{ form.precio_proyecto.errors.0 }}</p>
+                        {% endif %}
+                        <p class="text-xs text-gray-400 mt-1">Para proyectos/evaluación</p>
                     </div>
                 </div>
             </div>
@@ -201,9 +228,17 @@
 
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600 flex-shrink-0 text-sm">💰</div>
-                            <div>
+                            <div class="flex-1">
                                 <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Costo Base</p>
                                 <p id="preview-costo" class="text-xs font-bold text-gray-700">Bs. 0.00</p>
+                            </div>
+                        </div>
+
+                        <div id="preview-mensual-container" class="flex items-center gap-3 hidden">
+                            <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 flex-shrink-0 text-sm">💳</div>
+                            <div class="flex-1">
+                                <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Mensual</p>
+                                <p id="preview-mensual" class="text-xs font-bold text-gray-700">Bs. 0.00</p>
                             </div>
                         </div>
                     </div>
@@ -231,6 +266,7 @@
         const descripcionInput = document.getElementById('id_descripcion');
         const duracionInput = document.getElementById('id_duracion_minutos');
         const costoInput = document.getElementById('id_costo_base');
+        const precioMensualInput = document.getElementById('id_precio_mensual');
         const colorInput = document.getElementById('id_color');
         const activoInput = document.getElementById('id_activo');
         
@@ -239,6 +275,8 @@
         const previewDescripcion = document.getElementById('preview-descripcion');
         const previewDuracion = document.getElementById('preview-duracion');
         const previewCosto = document.getElementById('preview-costo');
+        const previewMensual = document.getElementById('preview-mensual');
+        const previewMensualContainer = document.getElementById('preview-mensual-container');
         const previewHeader = document.getElementById('preview-header');
         const previewEstado = document.getElementById('preview-estado');
         const colorPreview = document.getElementById('color-preview');
@@ -271,6 +309,19 @@
             costoInput.addEventListener('input', function() {
                 const valor = parseFloat(this.value) || 0;
                 previewCosto.textContent = 'Bs. ' + valor.toFixed(2);
+            });
+        }
+        
+        // 🆕 Actualizar preview de precio mensual
+        if (precioMensualInput) {
+            precioMensualInput.addEventListener('input', function() {
+                const valor = parseFloat(this.value) || 0;
+                if (valor > 0) {
+                    previewMensual.textContent = 'Bs. ' + valor.toFixed(2);
+                    previewMensualContainer.classList.remove('hidden');
+                } else {
+                    previewMensualContainer.classList.add('hidden');
+                }
             });
         }
         

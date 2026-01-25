@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}💳 Mensualidades{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-5 text-[13px]">
+    
+    <!-- Header -->
+    <div class="flex flex-wrap justify-between items-center mb-6 p-5 bg-gradient-to-r from-indigo-800 via-purple-900 to-indigo-900 rounded-2xl shadow-xl gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-white flex items-center gap-3">
+                <span class="bg-white/20 p-2 rounded-xl text-2xl">💳</span> Gestión de Mensualidades
+            </h1>
+            <p class="text-[11px] text-purple-200 uppercase tracking-[0.2em] font-bold mt-1">Tratamientos mensuales regulares</p>
+        </div>
+        <!-- ✅ CORREGIDO: Cambiado de agendar_recurrente a crear_mensualidad -->
+        <a href="{% url 'agenda:crear_mensualidad' %}" 
+        class="bg-white hover:bg-purple-50 text-purple-900 px-6 py-3 rounded-xl font-black flex items-center gap-2 shadow-lg transition-all transform hover:scale-105 active:scale-95 text-[12px] uppercase">
+            ➕ Nueva Mensualidad
+        </a>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border-b-4 border-blue-500 rounded-xl p-4 shadow-sm">
+            <p class="text-[10px] text-blue-600 font-black uppercase tracking-wider mb-1">Total</p>
+            <p class="text-3xl font-black text-slate-800">{{ estadisticas.total }}</p>
+        </div>
+        <div class="bg-white border-b-4 border-emerald-500 rounded-xl p-4 shadow-sm">
+            <p class="text-[10px] text-emerald-600 font-black uppercase tracking-wider mb-1">Activas</p>
+            <p class="text-3xl font-black text-slate-800">{{ estadisticas.activas }}</p>
+        </div>
+        <div class="bg-white border-b-4 border-amber-500 rounded-xl p-4 shadow-sm">
+            <p class="text-[10px] text-amber-600 font-black uppercase tracking-wider mb-1">Pausadas</p>
+            <p class="text-3xl font-black text-slate-800">{{ estadisticas.pausadas }}</p>
+        </div>
+        <div class="bg-white border-b-4 border-purple-500 rounded-xl p-4 shadow-sm">
+            <p class="text-[10px] text-purple-600 font-black uppercase tracking-wider mb-1">Completadas</p>
+            <p class="text-3xl font-black text-slate-800">{{ estadisticas.completadas }}</p>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-slate-100 border border-slate-200 rounded-2xl p-3 mb-6 shadow-inner">
+        <form method="get" class="flex flex-wrap md:flex-nowrap gap-3">
+            <div class="flex-[2] relative">
+                <input type="text" name="q" value="{{ buscar }}" placeholder="Buscar por paciente o código..." 
+                       class="w-full pl-4 pr-4 py-3 border-2 border-white rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 text-[13px] shadow-sm outline-none transition-all">
+            </div>
+            
+            <select name="estado" class="flex-1 px-3 py-3 border-2 border-white rounded-xl text-[12px] font-bold shadow-sm outline-none focus:ring-2 focus:ring-purple-400">
+                <option value="">Todos los estados</option>
+                {% for estado_val, estado_nombre in estados %}
+                <option value="{{ estado_val }}" {% if estado_filtro == estado_val %}selected{% endif %}>{{ estado_nombre }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="sucursal" class="flex-1 px-3 py-3 border-2 border-white rounded-xl text-[12px] font-bold shadow-sm outline-none focus:ring-2 focus:ring-purple-400">
+                <option value="">Sucursales</option>
+                {% for sucursal in sucursales %}
+                <option value="{{ sucursal.id }}" {% if sucursal_filtro == sucursal.id|stringformat:"s" %}selected{% endif %}>{{ sucursal.nombre }}</option>
+                {% endfor %}
+            </select>
+            
+            <button type="submit" class="bg-purple-600 text-white px-6 py-3 rounded-xl font-black hover:bg-purple-700 transition shadow-md">🔍</button>
+            <a href="{% url 'agenda:lista_mensualidades' %}" class="bg-white text-slate-400 px-4 py-3 rounded-xl border border-slate-200 flex items-center justify-center hover:text-purple-600 transition shadow-sm">🔄</a>
+        </form>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-slate-900 text-slate-400 uppercase tracking-widest text-[10px]">
+                    <tr>
+                        <th class="px-5 py-4 text-left">Paciente</th>
+                        <th class="px-5 py-4 text-center">Período</th>
+                        <th class="px-5 py-4 text-left">Servicio</th>
+                        <th class="px-5 py-4 text-center">Días/Hora</th>
+                        <th class="px-5 py-4 text-center">Sesiones</th>
+                        <th class="px-5 py-4 text-center">Estado</th>
+                        <th class="px-5 py-4 text-right">Costo/Pagado</th>
+                        <th class="px-5 py-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for mensualidad in page_obj %}
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-5 py-4">
+                            <p class="text-slate-800 font-black uppercase text-[13px]">{{ mensualidad.paciente.nombre_completo }}</p>
+                            <p class="text-[10px] text-slate-400 font-mono">{{ mensualidad.codigo }}</p>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
+                            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-bold text-[11px]">
+                                📅 {{ mensualidad.periodo_display }}
+                            </span>
+                        </td>
+                        
+                        <td class="px-5 py-4">
+                            <p class="font-bold text-slate-700">{{ mensualidad.servicio.nombre }}</p>
+                            <p class="text-[11px] text-purple-400">👨‍⚕️ {{ mensualidad.profesional.nombre }}</p>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
+                            <p class="text-[10px] text-amber-700 font-bold">{{ mensualidad.dias_display }}</p>
+                            <p class="text-[11px] text-slate-600 font-mono">{{ mensualidad.hora_inicio|time:"H:i" }}</p>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
+                            <span class="text-blue-600 font-black">{{ mensualidad.num_sesiones_realizadas }}</span>
+                            <span class="text-slate-400">/</span>
+                            <span class="text-slate-700 font-bold">{{ mensualidad.num_sesiones }}</span>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
+                            <span class="px-3 py-1.5 rounded-full font-black text-[10px] uppercase border shadow-sm
+                                {% if mensualidad.estado == 'activa' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                                {% elif mensualidad.estado == 'pausada' %}bg-amber-50 text-amber-700 border-amber-200
+                                {% elif mensualidad.estado == 'completada' %}bg-purple-50 text-purple-700 border-purple-200
+                                {% else %}bg-slate-50 text-slate-700 border-slate-200{% endif %}">
+                                {{ mensualidad.get_estado_display }}
+                            </span>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-right">
+                            <p class="font-black text-slate-900 text-[14px]">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</p>
+                            {% if mensualidad.pagado_completo %}
+                            <p class="text-[10px] text-emerald-600 font-black">✓ Pagado</p>
+                            {% else %}
+                            <p class="text-[10px] text-red-500 font-black">Pend: Bs. {{ mensualidad.saldo_pendiente|floatformat:0 }}</p>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
+                            <a href="{% url 'agenda:detalle_mensualidad' mensualidad.id %}" 
+                               class="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-2 rounded-xl font-black text-[11px] shadow-md hover:shadow-purple-200 transition-all inline-block uppercase">
+                                Ver Detalle
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="px-5 py-12 text-center text-slate-400 font-bold italic text-lg">No se encontraron mensualidades</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginación -->
+    {% if page_obj.has_other_pages %}
+    <div class="mt-8 flex justify-center">
+        <nav class="flex gap-2 items-center">
+            {% if page_obj.has_previous %}
+                <a href="?page=1" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">INICIO</a>
+            {% endif %}
+            
+            <div class="flex items-center bg-purple-600 text-white rounded-xl px-5 py-2 shadow-lg">
+                <span class="font-black text-[12px]">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </div>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">SIGUIENTE</a>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

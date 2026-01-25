@@ -12,7 +12,22 @@ class TipoServicio(models.Model):
     costo_base = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        help_text="Costo base en Bs."
+        help_text="Costo base por sesión en Bs."
+    )
+    # 🆕 NUEVO CAMPO
+    precio_mensual = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Precio mensual sugerido en Bs. (opcional)"
+    )
+    precio_proyecto = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Precio para proyecto/evaluación en Bs. (opcional)"
     )
     color = models.CharField(
         max_length=7,
@@ -37,7 +52,7 @@ class Sucursal(models.Model):
     nombre = models.CharField(max_length=100)
     direccion = models.TextField()
     telefono = models.CharField(max_length=20, blank=True)
-    email = models.EmailField(blank=True)  # ✅ CAMPO AGREGADO
+    email = models.EmailField(blank=True)
     activa = models.BooleanField(default=True)
     
     class Meta:

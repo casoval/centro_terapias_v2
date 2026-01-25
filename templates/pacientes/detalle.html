@@ -34,10 +34,21 @@
                     </span>
                 </h1>
             </div>
-            <a href="{% url 'pacientes:lista' %}" 
-               class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-5 py-2 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-2">
-                <span>←</span> Volver a Lista
-            </a>
+            
+            <!-- ✅ BOTONES ACTUALIZADOS -->
+            <div class="flex flex-wrap gap-2">
+                <!-- ⭐ BOTÓN PRINCIPAL: Ver Todas las Sesiones -->
+                <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
+                   class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2 rounded-full font-bold text-xs transition-all shadow-lg hover:shadow-xl flex items-center gap-2 transform hover:-translate-y-0.5">
+                    <span class="text-base">📊</span> Ver Todas las Sesiones
+                </a>
+                
+                <!-- Botón Volver -->
+                <a href="{% url 'pacientes:lista' %}" 
+                   class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-5 py-2 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-2">
+                    <span>←</span> Volver a Lista
+                </a>
+            </div>
         </div>
     </div>
 </div>
@@ -270,12 +281,26 @@
         </div>
         
         <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-            <div class="p-6 border-b border-gray-100 flex flex-wrap gap-4 justify-between items-center bg-gray-50/30">
-                <h3 class="text-lg font-black text-gray-800">Historial de Sesiones</h3>
-                <a href="{% url 'agenda:agendar_recurrente' %}?paciente={{ paciente.id }}" 
-                   class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
-                    <span>➕</span> Agendar Nueva
-                </a>
+            <div class="p-6 border-b border-gray-100 flex flex-wrap gap-4 justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50">
+                <div>
+                    <h3 class="text-lg font-black text-gray-800">Historial de Sesiones</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Últimas 10 sesiones registradas</p>
+                </div>
+                
+                <!-- ✅ BOTONES MEJORADOS -->
+                <div class="flex flex-wrap gap-2">
+                    <!-- ⭐ BOTÓN PRINCIPAL: VER TODAS -->
+                    <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
+                    class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
+                        <span>📊</span> Ver Todas las Sesiones
+                    </a>
+                    
+                    <!-- Botón Agendar Nueva (Secundario) -->
+                    <a href="{% url 'agenda:agendar_recurrente' %}?paciente={{ paciente.id }}" 
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
+                        <span>➕</span> Agendar Nueva
+                    </a>
+                </div>
             </div>
             
             <div class="p-6 sm:p-8 bg-white">
@@ -324,11 +349,25 @@
                                     </div>
                                 </div>
 
-                                <div class="mb-3">
+                                <div class="mb-3 flex flex-wrap items-center gap-2">
                                     <span class="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border" 
                                           style="background-color: {{ sesion.servicio.color }}10; color: {{ sesion.servicio.color }}; border-color: {{ sesion.servicio.color }}30;">
                                         {{ sesion.servicio.nombre }}
                                     </span>
+                                    
+                                    {% if sesion.proyecto %}
+                                    <span class="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-violet-50 text-violet-700 border border-violet-200">
+                                        📦 Proyecto: {{ sesion.proyecto.codigo }}
+                                    </span>
+                                    {% elif sesion.mensualidad %}
+                                    <span class="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                        📅 Mensualidad: {{ sesion.mensualidad.periodo_display }}
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        💰 Sesión Normal
+                                    </span>
+                                    {% endif %}
                                 </div>
 
                                 <div class="flex flex-wrap gap-4 pt-3 border-t border-gray-50">
@@ -354,11 +393,28 @@
                             <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 text-gray-300">
                                 📅
                             </div>
-                            <p class="text-gray-500 text-sm font-medium">No hay historial de sesiones registrado.</p>
+                            <p class="text-gray-500 text-sm font-medium mb-4">No hay historial de sesiones registrado.</p>
+                            
+                            <!-- ✅ BOTÓN CUANDO NO HAY SESIONES -->
+                            <a href="{% url 'agenda:agendar_recurrente' %}?paciente={{ paciente.id %}" 
+                            class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                                <span>➕</span> Agendar Primera Sesión
+                            </a>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
+                
+                <!-- ✅ FOOTER CON ENLACE A VER TODAS -->
+                {% if sesiones %}
+                <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                    <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
+                    class="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-bold text-sm transition-colors bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg">
+                        Ver todas las sesiones (Normales, Proyectos y Mensualidades)
+                        <span class="text-xl">→</span>
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

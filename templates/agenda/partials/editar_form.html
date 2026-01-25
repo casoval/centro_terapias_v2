@@ -1,397 +1,530 @@
-<form class="p-3 sm:p-4 bg-white relative" id="form-editar-{{ sesion.id }}">
+<form class="bg-white relative rounded-xl shadow-lg" id="form-editar-{{ sesion.id }}">
     {% csrf_token %}
     
-    
-    <!-- 🆕 HEADER CON INDICADOR DE PERMISOS -->
-    <div class="flex items-start justify-between mb-3 border-b pb-2">
+
+    <!-- ✅ BADGE FLOTANTE - TIPO DE SESIÓN -->
+    {% if sesion.proyecto %}
+        <!-- PROYECTO/EVALUACIÓN - Banda Morada -->
+        <div class="bg-gradient-to-r from-purple-600 via-purple-500 to-purple-600 text-white px-6 py-3 rounded-t-xl border-b-4 border-purple-700 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                        <span class="text-2xl">📦</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider opacity-90">Tipo de Sesión</p>
+                        <p class="text-lg font-black leading-tight">PROYECTO / EVALUACIÓN</p>
+                    </div>
+                </div>
+                <div class="text-right bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                    <p class="text-xs font-bold opacity-90">Código</p>
+                    <p class="text-sm font-black">{{ sesion.proyecto.codigo }}</p>
+                </div>
+            </div>
+            <div class="mt-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
+                <p class="text-xs font-semibold">{{ sesion.proyecto.nombre }}</p>
+            </div>
+        </div>
+
+    {% elif sesion.mensualidad %}
+        <!-- MENSUALIDAD - Banda Verde -->
+        <div class="bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 text-white px-6 py-3 rounded-t-xl border-b-4 border-emerald-700 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                        <span class="text-2xl">💳</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider opacity-90">Tipo de Sesión</p>
+                        <p class="text-lg font-black leading-tight">MENSUALIDAD</p>
+                    </div>
+                </div>
+                <div class="text-right bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                    <p class="text-xs font-bold opacity-90">Código</p>
+                    <p class="text-sm font-black">{{ sesion.mensualidad.codigo }}</p>
+                </div>
+            </div>
+            <div class="mt-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
+                <p class="text-xs font-semibold">Período: {{ sesion.mensualidad.periodo_display }}</p>
+            </div>
+        </div>
+
+    {% else %}
+        <!-- SESIÓN NORMAL - Banda Azul -->
+        <div class="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 text-white px-6 py-3 rounded-t-xl border-b-4 border-blue-700 shadow-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                        <span class="text-2xl">📅</span>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider opacity-90">Tipo de Sesión</p>
+                        <p class="text-lg font-black leading-tight">SESIÓN NORMAL</p>
+                    </div>
+                </div>
+                <div class="text-right bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                    <p class="text-xs font-bold opacity-90">Monto</p>
+                    <p class="text-sm font-black">Bs. {{ sesion.monto_cobrado }}</p>
+                </div>
+            </div>
+            <div class="mt-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-white/20">
+                <p class="text-xs font-semibold">Cobro individual por sesión</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/80 rounded-t-xl">
         <div class="flex-1">
             {% if not puede_editar %}
-                <!-- 🔒 BLOQUEADO -->
-                <h3 class="text-lg font-bold text-gray-600 leading-tight flex items-center gap-2">
-                    <span class="text-xl">🔒</span>
-                    <span>{{ mensaje_bloqueo }}</span>
-                </h3>
+                <div class="flex items-center gap-2 text-gray-500">
+                    <span class="text-2xl">🔒</span>
+                    <div>
+                        <h3 class="text-lg font-bold leading-tight">{{ mensaje_bloqueo }}</h3>
+                        <p class="text-xs font-mono opacity-75 mt-0.5">Modo Lectura</p>
+                    </div>
+                </div>
             {% elif es_profesional %}
-                <!-- 📋 PROFESIONAL PUEDE EDITAR -->
-                <h3 class="text-lg font-bold text-blue-700 leading-tight flex items-center gap-2">
-                    <span class="text-xl">📋</span>
-                    <span>Registrar Sesión</span>
-                </h3>
+                <div class="flex items-center gap-2 text-blue-700">
+                    <div class="p-1.5 bg-blue-100 rounded-lg"><span class="text-xl">📋</span></div>
+                    <div>
+                        <h3 class="text-lg font-bold leading-tight">Registrar Sesión</h3>
+                        <p class="text-xs text-blue-600/80 font-medium">Panel Profesional</p>
+                    </div>
+                </div>
             {% elif es_admin %}
-                <!-- ⚙️ ADMIN -->
-                <h3 class="text-lg font-bold text-purple-700 leading-tight flex items-center gap-2">
-                    <span class="text-xl">⚙️</span>
-                    <span>Editar Sesión (Admin)</span>
-                </h3>
+                <div class="flex items-center gap-2 text-purple-700">
+                    <div class="p-1.5 bg-purple-100 rounded-lg"><span class="text-xl">⚙️</span></div>
+                    <div>
+                        <h3 class="text-lg font-bold leading-tight">Editar Sesión</h3>
+                        <p class="text-xs text-purple-600/80 font-medium">Administrador</p>
+                    </div>
+                </div>
             {% else %}
-                <!-- ✏️ RECEPCIONISTA -->
-                <h3 class="text-lg font-bold text-green-700 leading-tight flex items-center gap-2">
-                    <span class="text-xl">✏️</span>
-                    <span>Editar Sesión</span>
-                </h3>
+                <div class="flex items-center gap-2 text-emerald-700">
+                    <div class="p-1.5 bg-emerald-100 rounded-lg"><span class="text-xl">✏️</span></div>
+                    <div>
+                        <h3 class="text-lg font-bold leading-tight">Editar Sesión</h3>
+                        <p class="text-xs text-emerald-600/80 font-medium">Recepción</p>
+                    </div>
+                </div>
             {% endif %}
-            <p class="text-xs text-gray-500 mt-0.5 font-mono">
-                {{ sesion.fecha|date:"d/m/Y" }} • {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
-            </p>
-        </div>
-        <button type="button" onclick="cerrarModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none px-2 -mt-1">×</button>
-    </div>
-
-    <!-- INFORMACIÓN DE LA SESIÓN -->
-    <div class="mb-3 p-2.5 bg-blue-50/80 rounded border border-blue-100">
-        <div class="grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
-            <div>
-                <label class="block text-blue-600 font-bold uppercase tracking-wide text-[10px]">Paciente</label>
-                <p class="text-gray-900 font-semibold truncate">{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</p>
-            </div>
-            <div>
-                <label class="block text-blue-600 font-bold uppercase tracking-wide text-[10px]">Servicio</label>
-                <p class="text-gray-900 font-semibold truncate">{{ sesion.servicio.nombre }}</p>
-            </div>
-            <div>
-                <label class="block text-blue-600 font-bold uppercase tracking-wide text-[10px]">Profesional</label>
-                <p class="text-gray-900 truncate">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</p>
-            </div>
-            <div>
-                <label class="block text-blue-600 font-bold uppercase tracking-wide text-[10px]">Sucursal</label>
-                <p class="text-gray-900 truncate">{{ sesion.sucursal.nombre }}</p>
-            </div>
-        </div>
-    </div>
-
-    {% if not puede_editar %}
-        <!-- 🔒 MODO SOLO LECTURA -->
-        <div class="mb-3 p-3 bg-gray-100 border border-gray-300 rounded text-center">
-            <p class="text-sm text-gray-700 font-medium">Esta sesión no puede ser editada</p>
-            <p class="text-xs text-gray-500 mt-1">{{ mensaje_bloqueo }}</p>
         </div>
         
-        <!-- ✅ NUEVO: Permitir registrar pago incluso si está bloqueada (SOLO RECEPCIONISTAS) -->
-        {% if es_recepcionista and puede_editar_pago and sesion.requiere_pago and not sesion.pagado %}
-        <!-- Sección de pagos EDITABLE -->
-        <div class="mb-3 p-2.5 rounded border bg-yellow-50 border-yellow-200">
-            <h4 class="font-bold text-gray-800 text-xs mb-2 flex items-center gap-1">
-                <span>💰</span> Estado de Pago (Editable)
-            </h4>
-            
-            <div class="bg-white/80 rounded p-2 border border-yellow-200">
-                <div class="flex justify-between text-center mb-2 text-xs">
-                    <div><span class="block text-[10px] text-gray-500">Total</span><span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span></div>
-                    <div><span class="block text-[10px] text-gray-500">Pagado</span><span class="font-bold text-green-700">Bs.{{ sesion.total_pagado }}</span></div>
-                    <div><span class="block text-[10px] text-gray-500">Saldo</span><span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span></div>
-                </div>
-                
-                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
-                   class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold text-xs py-1.5 px-2 rounded shadow-sm transition">
-                    💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})
-                </a>
-                
-                {% if sesion.total_pagado > 0 %}
-                <div class="mt-2 pt-1 border-t border-yellow-100">
-                    {% for pago in sesion.pagos.all %}
-                    {% if not pago.anulado %}
-                    <div class="flex justify-between text-[10px] text-gray-600">
-                        <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
-                        <span class="font-bold text-green-700">Bs. {{ pago.monto }}</span>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            
-            <p class="text-[10px] text-yellow-700 mt-2 text-center">
-                💡 Puedes registrar pagos aunque la sesión esté bloqueada
+        <div class="text-right mr-4 hidden sm:block">
+            <p class="text-sm font-bold text-gray-800">{{ sesion.fecha|date:"d \d\e F, Y" }}</p>
+            <p class="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-1">
+                {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
             </p>
         </div>
         
-        <!-- Observaciones editables solo para registrar notas de pago -->
-        <div class="mb-3">
-            <label class="block text-xs font-bold text-gray-700 mb-1">📝 Observaciones (Solo notas de pago)</label>
-            <textarea name="observaciones" rows="2"
-                      class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                      placeholder="Ej: Cliente pagará el próximo lunes...">{{ sesion.observaciones }}</textarea>
-        </div>
-        
-        <!-- Botón para guardar solo observaciones -->
-        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
-            <button type="button" onclick="cerrarModal()"
-                    class="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition">
-                Cancelar
-            </button>
-            <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
-                    class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm flex justify-center items-center gap-2">
-                💾 Guardar Nota
-            </button>
-        </div>
-        
-        {% else %}
-        <!-- Mostrar info actual en modo lectura completo -->
-        <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
-            <label class="block text-xs font-bold text-gray-600 mb-1">Estado</label>
-            <span class="px-2 py-1 rounded text-sm font-medium inline-block
-                {% if sesion.estado == 'realizada' %}bg-green-100 text-green-800
-                {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-800
-                {% elif sesion.estado == 'falta' %}bg-red-100 text-red-800
-                {% elif sesion.estado == 'permiso' %}bg-blue-100 text-blue-800
-                {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800
-                {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800
-                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                {{ sesion.get_estado_display }}
-            </span>
-        </div>
-        
-        {% if sesion.notas_sesion %}
-        <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
-            <label class="block text-xs font-bold text-gray-600 mb-1">Notas de Sesión</label>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ sesion.notas_sesion }}</p>
-        </div>
-        {% endif %}
-        
-        {% if sesion.observaciones %}
-        <div class="mb-3 p-2 bg-gray-50 border border-gray-200 rounded">
-            <label class="block text-xs font-bold text-gray-600 mb-1">Observaciones</label>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ sesion.observaciones }}</p>
-        </div>
-        {% endif %}
-        {% endif %}
-        
-    {% else %}
-        <!-- ✅ MODO EDICIÓN -->
-        
-        {% if es_profesional %}
-            <!-- ========================================
-                 FORMULARIO PARA PROFESIONALES
-                 - NO muestra información de pagos
-                 - Puede cambiar estado y agregar notas
-            ========================================= -->
-            
-            <div class="mb-3">
-                <div class="flex items-center justify-between mb-1">
-                    <label class="text-xs font-bold text-gray-700">📊 Estado *</label>
-                    <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 rounded" id="estadistica-{{ sesion.id }}"></span>
-                </div>
-                <select name="estado" id="estado-{{ sesion.id }}"
-                        class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-white"
-                        onchange="cambiarEstado{{ sesion.id }}()" required>
-                    <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
-                    <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
-                    <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
-                    <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
-                    <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
-                    <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
-                    <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
-                </select>
+        <button type="button" onclick="cerrarModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+
+    <div class="p-6">
+
+        <div class="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+            <div class="block sm:hidden mb-3 pb-3 border-b border-slate-200">
+                <p class="text-sm font-bold text-gray-800">{{ sesion.fecha|date:"d/m/Y" }}</p>
+                <p class="text-xs text-gray-500 font-mono">{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</p>
             </div>
 
-            <!-- Campos para retraso -->
-            <div id="campos-retraso-{{ sesion.id }}" class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded hidden">
-                <label class="block text-xs font-bold text-yellow-900 mb-1">⏰ Hora Real Inicio</label>
-                <div class="flex items-center gap-2">
-                    <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
-                           class="flex-1 text-sm px-2 py-1 border border-gray-300 rounded">
-                    <span class="text-xs text-gray-600">Programada: {{ sesion.hora_inicio|time:'H:i' }}</span>
-                </div>
-            </div>
-
-            <!-- Campos para reprogramación -->
-            <div id="campos-reprogramacion-{{ sesion.id }}" class="mb-3 p-2 bg-orange-50 border border-orange-200 rounded hidden">
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                        <label class="block text-xs font-bold text-orange-900 mb-1">📅 Nueva Fecha</label>
-                        <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
-                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-orange-900 mb-1">⏰ Nueva Hora</label>
-                        <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
-                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+            <div class="grid grid-cols-2 gap-x-4 gap-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Paciente</label>
+                    <div class="flex items-center gap-1.5">
+                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                        <p class="text-sm font-bold text-gray-900 truncate">{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</p>
                     </div>
                 </div>
-                <label class="block text-xs font-bold text-orange-900 mb-1">Motivo</label>
-                <textarea name="motivo_reprogramacion" rows="2"
-                          class="w-full text-xs px-2 py-1 border border-gray-300 rounded"
-                          placeholder="...">{{ sesion.motivo_reprogramacion }}</textarea>
-                <label class="flex items-center gap-1.5 text-xs mt-1.5 cursor-pointer">
-                    <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
-                           class="w-3 h-3 rounded border-gray-300">
-                    <span class="text-gray-700">Ya creé la nueva sesión</span>
-                </label>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Servicio</label>
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ sesion.servicio.nombre }}</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Profesional</label>
+                    <p class="text-sm text-gray-700 truncate">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Sucursal</label>
+                    <p class="text-sm text-gray-700 truncate">{{ sesion.sucursal.nombre }}</p>
+                </div>
             </div>
+        </div>
 
-            <!-- 🆕 Notas de evolución (ÚNICO CAMPO PARA PROFESIONALES) -->
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente</label>
-                <textarea name="notas_sesion" rows="8"
-                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                          placeholder="Registre aquí la evolución del paciente durante la sesión, observaciones clínicas, progreso, dificultades, recomendaciones, etc...">{{ sesion.notas_sesion }}</textarea>
-                <p class="text-[10px] text-gray-500 mt-1">💡 Este campo es privado y solo visible para profesionales</p>
-            </div>
-
-        {% else %}
-            <!-- ========================================
-                 FORMULARIO PARA NO PROFESIONALES
-                 - Muestra información de pagos
-                 - Acceso completo a edición
-            ========================================= -->
-            
-            <!-- Sección de pagos -->
-            <div class="mb-3 p-2.5 rounded border {% if sesion.pagado %}bg-green-50 border-green-200{% elif sesion.requiere_pago %}bg-yellow-50 border-yellow-200{% else %}bg-gray-50 border-gray-200{% endif %}">
-                <h4 class="font-bold text-gray-800 text-xs mb-2 flex items-center gap-1">
-                    <span>💰</span> Estado de Pago
-                </h4>
-                
-                {% if not sesion.requiere_pago %}
-                    <div class="bg-white/80 rounded p-2 text-center border border-gray-100">
-                        <p class="text-sm font-bold text-gray-700">🎁 No requiere pago</p>
-                        <p class="text-[10px] text-gray-500 truncate">
-                            {% if sesion.proyecto %}Py: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
-                        </p>
+        {% if not puede_editar %}
+            {% if es_recepcionista and puede_editar_pago and sesion.requiere_pago and not sesion.pagado %}
+                <div class="mb-5 bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-2 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
+                        <h4 class="font-bold text-amber-900 text-xs flex items-center gap-1.5">
+                            <span>💰</span> Estado de Pago (Editable)
+                        </h4>
+                        <span class="text-[10px] font-medium bg-white text-amber-600 px-2 py-0.5 rounded-full border border-amber-100 shadow-sm">
+                            Permiso Especial
+                        </span>
                     </div>
-                
-                {% elif sesion.pagado %}
-                    <div class="bg-white/80 rounded p-2 border border-green-200 flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg">✅</span>
-                            <div>
-                                <p class="text-sm font-black text-green-700">Bs. {{ sesion.total_pagado }}</p>
-                                <p class="text-[10px] text-gray-500 leading-none">Pagado</p>
+                    
+                    <div class="p-4">
+                        <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                            <div class="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                <span class="block text-[10px] text-gray-500 uppercase font-semibold">Total</span>
+                                <span class="block font-bold text-blue-700 text-sm">Bs.{{ sesion.monto_cobrado }}</span>
                             </div>
-                        </div>
-                        <div class="text-right">
-                            {% for pago in sesion.pagos.all %}
-                            {% if not pago.anulado %}
-                            <div class="text-[10px] text-gray-600 font-mono">{{ pago.fecha_pago|date:"d/m" }} • Bs.{{ pago.monto }}</div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                
-                {% else %}
-                    <div class="bg-white/80 rounded p-2 border border-yellow-200">
-                        <div class="flex justify-between text-center mb-2 text-xs">
-                            <div><span class="block text-[10px] text-gray-500">Total</span><span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span></div>
-                            <div><span class="block text-[10px] text-gray-500">Pagado</span><span class="font-bold text-green-700">Bs.{{ sesion.total_pagado }}</span></div>
-                            <div><span class="block text-[10px] text-gray-500">Saldo</span><span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span></div>
+                            <div class="p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                <span class="block text-[10px] text-gray-500 uppercase font-semibold">Pagado</span>
+                                <span class="block font-bold text-emerald-600 text-sm">Bs.{{ sesion.total_pagado }}</span>
+                            </div>
+                            <div class="p-2 bg-red-50 rounded-lg border border-red-100 ring-1 ring-red-100">
+                                <span class="block text-[10px] text-red-500 uppercase font-semibold">Pendiente</span>
+                                <span class="block font-bold text-red-600 text-sm">Bs.{{ sesion.saldo_pendiente }}</span>
+                            </div>
                         </div>
                         
                         <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
-                           class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold text-xs py-1.5 px-2 rounded shadow-sm transition">
-                            💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})
+                           class="flex items-center justify-center w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-2.5 px-4 rounded-lg shadow-sm hover:shadow transition-all group">
+                            <span>💵 Pagar Saldo (Bs. {{ sesion.saldo_pendiente }})</span>
+                            <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                         </a>
                         
                         {% if sesion.total_pagado > 0 %}
-                        <div class="mt-2 pt-1 border-t border-yellow-100">
-                            {% for pago in sesion.pagos.all %}
-                            {% if not pago.anulado %}
-                            <div class="flex justify-between text-[10px] text-gray-600">
-                                <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
-                                <span class="font-bold text-green-700">Bs. {{ pago.monto }}</span>
+                        <div class="mt-4 pt-3 border-t border-dashed border-gray-200">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Historial de pagos</p>
+                            <div class="space-y-1.5">
+                                {% for pago in sesion.pagos.all %}
+                                {% if not pago.anulado %}
+                                <div class="flex justify-between items-center text-xs p-1.5 bg-gray-50 rounded text-gray-600">
+                                    <span class="flex items-center gap-1.5">
+                                        <span class="w-1.5 h-1.5 bg-green-400 rounded-full"></span>
+                                        {{ pago.fecha_pago|date:"d/m" }} - {{ pago.metodo_pago.nombre|slice:":10" }}
+                                    </span>
+                                    <span class="font-bold text-gray-800">Bs. {{ pago.monto }}</span>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
                             </div>
-                            {% endif %}
-                            {% endfor %}
                         </div>
                         {% endif %}
                     </div>
-                {% endif %}
-            </div>
-
-            <!-- Selector de estado -->
-            <div class="mb-3">
-                <div class="flex items-center justify-between mb-1">
-                    <label class="text-xs font-bold text-gray-700">📊 Estado *</label>
-                    <span class="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 rounded" id="estadistica-{{ sesion.id }}"></span>
                 </div>
-                <select name="estado" id="estado-{{ sesion.id }}"
-                        class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 bg-white"
-                        onchange="cambiarEstado{{ sesion.id }}()" required>
-                    <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
-                    <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
-                    <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
-                    <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
-                    <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
-                    <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
-                    <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
-                </select>
-            </div>
-
-            <!-- Campos para retraso -->
-            <div id="campos-retraso-{{ sesion.id }}" class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded hidden">
-                <label class="block text-xs font-bold text-yellow-900 mb-1">⏰ Hora Real Inicio</label>
-                <div class="flex items-center gap-2">
-                    <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
-                           class="flex-1 text-sm px-2 py-1 border border-gray-300 rounded">
-                    <span class="text-xs text-gray-600">Programada: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-700 mb-1.5">📝 Observaciones de Pago</label>
+                    <textarea name="observaciones" rows="2"
+                              class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none transition-shadow"
+                              placeholder="Ej: Cliente pagará el próximo lunes...">{{ sesion.observaciones }}</textarea>
                 </div>
-            </div>
-
-            <!-- Campos para reprogramación -->
-            <div id="campos-reprogramacion-{{ sesion.id }}" class="mb-3 p-2 bg-orange-50 border border-orange-200 rounded hidden">
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <div>
-                        <label class="block text-xs font-bold text-orange-900 mb-1">📅 Nueva Fecha</label>
-                        <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
-                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+                    <button type="button" onclick="cerrarModal()"
+                            class="px-5 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
+                            class="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-sm hover:shadow flex items-center gap-2">
+                        <span>💾</span> Guardar Nota
+                    </button>
+                </div>
+            
+            {% else %}
+                <div class="space-y-4">
+                    <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <span class="text-xs font-bold text-gray-500 uppercase">Estado Actual</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold
+                            {% if sesion.estado == 'realizada' %}bg-green-100 text-green-700 border border-green-200
+                            {% elif sesion.estado == 'programada' %}bg-blue-100 text-blue-700 border border-blue-200
+                            {% elif sesion.estado == 'falta' %}bg-red-100 text-red-700 border border-red-200
+                            {% elif sesion.estado == 'permiso' %}bg-indigo-100 text-indigo-700 border border-indigo-200
+                            {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-600 border border-gray-200
+                            {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-700 border border-orange-200
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ sesion.get_estado_display }}
+                        </span>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-orange-900 mb-1">⏰ Nueva Hora</label>
-                        <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
-                               class="w-full text-xs px-2 py-1 border border-gray-300 rounded">
+                    
+                    {% if sesion.notas_sesion %}
+                    <div class="p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-2">Notas de Sesión</label>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ sesion.notas_sesion }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if sesion.observaciones %}
+                    <div class="p-4 bg-yellow-50/50 border border-yellow-100 rounded-xl">
+                        <label class="block text-[10px] font-bold text-yellow-600 uppercase mb-2">Observaciones</label>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ sesion.observaciones }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if not puede_editar %}
+                        <div class="mt-6 p-3 bg-gray-100 border border-gray-200 rounded-lg text-center">
+                            <p class="text-sm text-gray-700 font-medium flex items-center justify-center gap-2">
+                                <span class="text-gray-400">🔒</span> Edición bloqueada
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">{{ mensaje_bloqueo }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mt-6 pt-4 border-t border-gray-100 text-right">
+                    <button type="button" onclick="cerrarModal()"
+                            class="px-5 py-2.5 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors w-full sm:w-auto">
+                        Cerrar
+                    </button>
+                </div>
+            {% endif %}
+            
+        {% else %}
+            {% if es_profesional %}
+                <div class="space-y-5">
+                    
+                    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-bold text-gray-700 uppercase tracking-wide">📊 Estado de la Sesión</label>
+                            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full" id="estadistica-{{ sesion.id }}"></span>
+                        </div>
+                        <select name="estado" id="estado-{{ sesion.id }}"
+                                class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-transparent bg-transparent cursor-pointer"
+                                onchange="cambiarEstado{{ sesion.id }}()" required>
+                            <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
+                            <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
+                            <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
+                            <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
+                            <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
+                            <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
+                            <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
+                        </select>
+                    </div>
+
+                    <div id="campos-retraso-{{ sesion.id }}" class="p-4 bg-amber-50 border border-amber-200 rounded-xl hidden animate-fade-in-down">
+                        <label class="block text-xs font-bold text-amber-900 uppercase mb-2">⏰ Hora Real de Inicio</label>
+                        <div class="flex items-center gap-3">
+                            <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
+                                   class="flex-1 text-sm px-3 py-2 border border-amber-300 rounded-lg bg-white focus:ring-2 focus:ring-amber-200 focus:border-amber-400">
+                            <span class="text-xs font-medium text-amber-700/70 bg-amber-100/50 px-2 py-1 rounded">Prog: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                        </div>
+                    </div>
+
+                    <div id="campos-reprogramacion-{{ sesion.id }}" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hidden animate-fade-in-down">
+                        <h5 class="text-xs font-bold text-orange-800 uppercase mb-3 border-b border-orange-200 pb-2">Detalles Reprogramación</h5>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-orange-700 mb-1">Nueva Fecha</label>
+                                <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
+                                       class="w-full text-xs px-2 py-2 border border-orange-300 rounded-lg focus:ring-1 focus:ring-orange-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-orange-700 mb-1">Nueva Hora</label>
+                                <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
+                                       class="w-full text-xs px-2 py-2 border border-orange-300 rounded-lg focus:ring-1 focus:ring-orange-400">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-[10px] font-bold text-orange-700 mb-1">Motivo</label>
+                            <textarea name="motivo_reprogramacion" rows="2"
+                                      class="w-full text-xs px-3 py-2 border border-orange-300 rounded-lg focus:ring-1 focus:ring-orange-400 bg-white"
+                                      placeholder="Especifique el motivo...">{{ sesion.motivo_reprogramacion }}</textarea>
+                        </div>
+                        <label class="flex items-center gap-2 p-2 bg-white/50 rounded-lg border border-orange-100 cursor-pointer hover:bg-white transition">
+                            <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
+                                   class="w-4 h-4 rounded text-orange-500 focus:ring-orange-400 border-gray-300">
+                            <span class="text-xs font-medium text-orange-800">Confirmar creación de nueva sesión</span>
+                        </label>
+                    </div>
+
+                    <div class="relative">
+                        <label class="block text-xs font-bold text-gray-700 mb-2 flex justify-between">
+                            <span>📋 Evolución / Notas Clínicas</span>
+                            <span class="text-[10px] font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Privado</span>
+                        </label>
+                        <textarea name="notas_sesion" rows="8"
+                                  class="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none shadow-sm transition-all placeholder-gray-400"
+                                  placeholder="Registre aquí la evolución del paciente, observaciones clínicas, progreso... ">{{ sesion.notas_sesion }}</textarea>
                     </div>
                 </div>
-                <label class="block text-xs font-bold text-orange-900 mb-1">Motivo</label>
-                <textarea name="motivo_reprogramacion" rows="2"
-                          class="w-full text-xs px-2 py-1 border border-gray-300 rounded"
-                          placeholder="...">{{ sesion.motivo_reprogramacion }}</textarea>
-                <label class="flex items-center gap-1.5 text-xs mt-1.5 cursor-pointer">
-                    <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
-                           class="w-3 h-3 rounded border-gray-300">
-                    <span class="text-gray-700">Ya creé la nueva sesión</span>
-                </label>
-            </div>
 
-            <!-- Observaciones -->
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-700 mb-1" id="label-observaciones-{{ sesion.id }}">📝 Observaciones</label>
-                <textarea name="observaciones" rows="2"
-                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                          placeholder="...">{{ sesion.observaciones }}</textarea>
-            </div>
+            {% else %}
+                <div class="space-y-6">
+                    <div class="rounded-xl border overflow-hidden {% if sesion.pagado %}border-emerald-200 bg-emerald-50/30{% elif sesion.requiere_pago %}border-amber-200 bg-amber-50/30{% else %}border-gray-200 bg-gray-50/50{% endif %}">
+                        <div class="px-4 py-2 border-b flex justify-between items-center {% if sesion.pagado %}border-emerald-100 bg-emerald-100/50{% elif sesion.requiere_pago %}border-amber-100 bg-amber-100/50{% else %}border-gray-200 bg-gray-100/50{% endif %}">
+                            <h4 class="font-bold text-gray-800 text-xs flex items-center gap-2">
+                                <span class="text-base">💰</span> Información de Pago
+                            </h4>
+                            {% if sesion.pagado %}
+                                <span class="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">COMPLETADO</span>
+                            {% elif sesion.requiere_pago %}
+                                <span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">PENDIENTE</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="p-4">
+                            {% if not sesion.requiere_pago %}
+                                <div class="text-center py-2">
+                                    <p class="text-sm font-bold text-gray-700 flex items-center justify-center gap-2">🎁 Exento de Pago</p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {% if sesion.proyecto %}Proyecto: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
+                                    </p>
+                                </div>
+                            
+                            {% elif sesion.pagado %}
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-emerald-100 p-2 rounded-full text-emerald-600">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        </div>
+                                        <div>
+                                            <p class="text-lg font-black text-emerald-700">Bs. {{ sesion.total_pagado }}</p>
+                                            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Total Cubierto</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        {% for pago in sesion.pagos.all %}
+                                        {% if not pago.anulado %}
+                                        <div class="text-[10px] font-mono text-gray-600 bg-white px-2 py-1 rounded border border-emerald-100 mb-1 last:mb-0 shadow-sm">
+                                            {{ pago.fecha_pago|date:"d/m" }} • <b>Bs.{{ pago.monto }}</b>
+                                        </div>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            
+                            {% else %}
+                                <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+                                    <div class="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[10px] text-gray-400 font-bold uppercase">Total</span>
+                                        <span class="font-bold text-blue-700">Bs.{{ sesion.monto_cobrado }}</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[10px] text-gray-400 font-bold uppercase">Pagado</span>
+                                        <span class="font-bold text-emerald-600">Bs.{{ sesion.total_pagado }}</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded border border-red-100 ring-1 ring-red-50 shadow-sm">
+                                        <span class="block text-[10px] text-red-400 font-bold uppercase">Saldo</span>
+                                        <span class="font-bold text-red-600">Bs.{{ sesion.saldo_pendiente }}</span>
+                                    </div>
+                                </div>
+                                
+                                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}" 
+                                   class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold text-sm py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                                    💵 Registrar Pago (Bs. {{ sesion.saldo_pendiente }})
+                                </a>
+                                
+                                {% if sesion.total_pagado > 0 %}
+                                <div class="mt-3 pt-2 border-t border-dashed border-amber-200">
+                                    <p class="text-[10px] font-bold text-amber-700/60 mb-1">Abonos realizados:</p>
+                                    {% for pago in sesion.pagos.all %}
+                                    {% if not pago.anulado %}
+                                    <div class="flex justify-between text-xs text-gray-600 px-2 py-0.5">
+                                        <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
+                                        <span class="font-bold text-emerald-700">Bs. {{ pago.monto }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
 
-            <!-- ✅ OCULTAR Notas de sesión privadas para recepcionistas -->
-            {% if user.is_superuser or user.perfil.es_gerente %}
-            <div class="mb-3">
-                <label class="block text-xs font-bold text-gray-700 mb-1">📋 Evolución / Notas del Paciente (Privado)</label>
-                <textarea name="notas_sesion" rows="3"
-                          class="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 resize-none"
-                          placeholder="Evolución...">{{ sesion.notas_sesion }}</textarea>
-                <p class="text-[10px] text-gray-500 mt-1">💡 Este campo es privado y solo visible para profesionales y administradores</p>
-            </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-bold text-gray-700 uppercase tracking-wide">📊 Estado</label>
+                            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full" id="estadistica-{{ sesion.id }}"></span>
+                        </div>
+                        <select name="estado" id="estado-{{ sesion.id }}"
+                                class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-transparent bg-transparent cursor-pointer"
+                                onchange="cambiarEstado{{ sesion.id }}()" required>
+                            <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
+                            <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
+                            <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
+                            <option value="falta" {% if sesion.estado == 'falta' %}selected{% endif %}>❌ Falta</option>
+                            <option value="permiso" {% if sesion.estado == 'permiso' %}selected{% endif %}>📋 Permiso</option>
+                            <option value="cancelada" {% if sesion.estado == 'cancelada' %}selected{% endif %}>🚫 Cancelada</option>
+                            <option value="reprogramada" {% if sesion.estado == 'reprogramada' %}selected{% endif %}>🔄 Reprogramada</option>
+                        </select>
+                    </div>
+
+                    <div id="campos-retraso-{{ sesion.id }}" class="p-4 bg-amber-50 border border-amber-200 rounded-xl hidden">
+                        <label class="block text-xs font-bold text-amber-900 uppercase mb-2">⏰ Hora Real Inicio</label>
+                        <div class="flex items-center gap-3">
+                            <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
+                                   class="flex-1 text-sm px-3 py-2 border border-amber-300 rounded-lg bg-white">
+                            <span class="text-xs font-medium text-amber-700">Programada: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                        </div>
+                    </div>
+
+                    <div id="campos-reprogramacion-{{ sesion.id }}" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hidden">
+                        <h5 class="text-xs font-bold text-orange-800 uppercase mb-3 border-b border-orange-200 pb-2">Reprogramación</h5>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-orange-700 mb-1">Nueva Fecha</label>
+                                <input type="date" name="fecha_reprogramada" value="{{ sesion.fecha_reprogramada|date:'Y-m-d' }}"
+                                       class="w-full text-xs px-2 py-2 border border-orange-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-orange-700 mb-1">Nueva Hora</label>
+                                <input type="time" name="hora_reprogramada" value="{{ sesion.hora_reprogramada|time:'H:i' }}"
+                                       class="w-full text-xs px-2 py-2 border border-orange-300 rounded-lg">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="block text-[10px] font-bold text-orange-700 mb-1">Motivo</label>
+                            <textarea name="motivo_reprogramacion" rows="2"
+                                      class="w-full text-xs px-3 py-2 border border-orange-300 rounded-lg bg-white"
+                                      placeholder="...">{{ sesion.motivo_reprogramacion }}</textarea>
+                        </div>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="reprogramacion_realizada" {% if sesion.reprogramacion_realizada %}checked{% endif %}
+                                   class="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400">
+                            <span class="text-xs text-orange-900 font-medium">Ya creé la nueva sesión</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide" id="label-observaciones-{{ sesion.id }}">📝 Observaciones</label>
+                        <textarea name="observaciones" rows="2"
+                                  class="w-full text-sm px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none shadow-sm transition-all"
+                                  placeholder="Observaciones generales de la sesión...">{{ sesion.observaciones }}</textarea>
+                    </div>
+
+                    {% if user.is_superuser or user.perfil.es_gerente %}
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <label class="block text-xs font-bold text-gray-700 mb-2 flex justify-between">
+                            <span>📋 Evolución / Notas (Vista Admin)</span>
+                            <span class="text-[10px] text-gray-400 font-normal">Privado</span>
+                        </label>
+                        <textarea name="notas_sesion" rows="3"
+                                  class="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500 resize-none transition-all"
+                                  placeholder="Contenido privado...">{{ sesion.notas_sesion }}</textarea>
+                    </div>
+                    {% endif %}
+                </div>
+
             {% endif %}
 
+            <div class="flex items-center justify-end gap-3 mt-8 pt-5 border-t border-gray-100 bg-white">
+                <button type="button" onclick="cerrarModal()"
+                        class="px-5 py-2.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors">
+                    Cancelar
+                </button>
+                <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
+                        class="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2">
+                    <span class="text-sm">💾</span> Guardar Cambios
+                </button>
+            </div>
+
         {% endif %}
-
-        <!-- Botones de acción (común para todos) -->
-        <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t">
-            <button type="button" onclick="cerrarModal()"
-                    class="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition">
-                Cancelar
-            </button>
-            <button type="button" onclick="guardarSesion{{ sesion.id }}(event)"
-                    class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded transition shadow-sm flex justify-center items-center gap-2">
-                💾 Guardar
-            </button>
-        </div>
-
-    {% endif %}
+    </div>
 </form>
 
 <script>
 const STATS_{{ sesion.id }} = JSON.parse('{{ estadisticas|escapejs }}');
 const ES_PROFESIONAL = {{ es_profesional|yesno:"true,false" }};
 const PUEDE_EDITAR = {{ puede_editar|yesno:"true,false" }};
+const PUEDE_EDITAR_PAGO = {{ puede_editar_pago|yesno:"true,false" }};
 
 document.addEventListener('DOMContentLoaded', function() {
+    // ✅ Inicializar interfaz
     if (!ES_PROFESIONAL && PUEDE_EDITAR) {
         aplicarPoliticas{{ sesion.id }}();
     }
@@ -400,43 +533,65 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
 function aplicarPoliticas{{ sesion.id }}() {
-    const estado = document.getElementById('estado-{{ sesion.id }}').value;
+    const selectEstado = document.getElementById('estado-{{ sesion.id }}');
+    if (!selectEstado) return;
+    
+    const estado = selectEstado.value;
     const stats = document.getElementById('estadistica-{{ sesion.id }}');
     
+    if (!stats) return;
+    
+    // ✅ Actualizar estadísticas según estado
     switch(estado) {
-        case 'realizada': stats.textContent = `${STATS_{{ sesion.id }}.asistencias} asist.`; break;
-        case 'realizada_retraso': stats.textContent = `${STATS_{{ sesion.id }}.retrasos} retrasos`; break;
-        case 'falta': stats.textContent = `${STATS_{{ sesion.id }}.faltas} faltas`; break;
-        case 'permiso': stats.textContent = `${STATS_{{ sesion.id }}.permisos} permisos`; break;
-        case 'cancelada': stats.textContent = `${STATS_{{ sesion.id }}.canceladas} cancel.`; break;
-        case 'reprogramada': stats.textContent = `${STATS_{{ sesion.id }}.reprogramadas} reprog.`; break;
-        default: stats.textContent = `${STATS_{{ sesion.id }}.programadas} pend.`; break;
+        case 'realizada': 
+            stats.textContent = `${STATS_{{ sesion.id }}.asistencias} asist.`; 
+            break;
+        case 'realizada_retraso': 
+            stats.textContent = `${STATS_{{ sesion.id }}.retrasos} retrasos`; 
+            break;
+        case 'falta': 
+            stats.textContent = `${STATS_{{ sesion.id }}.faltas} faltas`; 
+            break;
+        case 'permiso': 
+            stats.textContent = `${STATS_{{ sesion.id }}.permisos} permisos`; 
+            break;
+        case 'cancelada': 
+            stats.textContent = `${STATS_{{ sesion.id }}.canceladas} cancel.`; 
+            break;
+        case 'reprogramada': 
+            stats.textContent = `${STATS_{{ sesion.id }}.reprogramadas} reprog.`; 
+            break;
+        default: 
+            stats.textContent = `${STATS_{{ sesion.id }}.programadas} pend.`; 
+            break;
     }
 }
 
 function cambiarEstado{{ sesion.id }}() {
     if (!PUEDE_EDITAR) return;
     
-    const estado = document.getElementById('estado-{{ sesion.id }}').value;
+    const selectEstado = document.getElementById('estado-{{ sesion.id }}');
+    if (!selectEstado) return;
+    
+    const estado = selectEstado.value;
     const camposRetraso = document.getElementById('campos-retraso-{{ sesion.id }}');
     const camposReprog = document.getElementById('campos-reprogramacion-{{ sesion.id }}');
     const labelObs = document.getElementById('label-observaciones-{{ sesion.id }}');
     
-    // Ocultar todos los campos especiales
-    camposRetraso.classList.add('hidden');
-    camposReprog.classList.add('hidden');
+    // ✅ Verificar que existan los elementos
+    if (camposRetraso) camposRetraso.classList.add('hidden');
+    if (camposReprog) camposReprog.classList.add('hidden');
     
     // Mostrar campos según estado
-    if (estado === 'realizada_retraso') {
+    if (estado === 'realizada_retraso' && camposRetraso) {
         camposRetraso.classList.remove('hidden');
-        labelObs.textContent = '📝 Motivo del Retraso';
-    } else if (estado === 'reprogramada') {
+        if (labelObs) labelObs.textContent = '📝 Motivo del Retraso';
+    } else if (estado === 'reprogramada' && camposReprog) {
         camposReprog.classList.remove('hidden');
-        labelObs.textContent = '📝 Observaciones';
+        if (labelObs) labelObs.textContent = '📝 Observaciones';
     } else {
-        labelObs.textContent = '📝 Observaciones';
+        if (labelObs) labelObs.textContent = '📝 Observaciones';
     }
     
     // Actualizar estadísticas si no es profesional
@@ -448,15 +603,25 @@ function cambiarEstado{{ sesion.id }}() {
 function guardarSesion{{ sesion.id }}(event) {
     event.preventDefault();
     
-    // ✅ MODIFICADO: Permitir guardar si tiene permiso de edición O permiso de pago
-    const PUEDE_EDITAR_PAGO = {{ puede_editar_pago|yesno:"true,false" }};
-    
+    // ✅ CORREGIDO: Verificar permisos correctamente
     if (!PUEDE_EDITAR && !PUEDE_EDITAR_PAGO) {
         Swal.fire({
             title: '❌ Sin permisos',
             text: 'No tienes permisos para editar esta sesión',
             icon: 'error',
             confirmButtonColor: '#dc2626',
+        });
+        return;
+    }
+    
+    // ✅ Validar que el select de estado exista y tenga valor
+    const selectEstado = document.getElementById('estado-{{ sesion.id }}');
+    if (PUEDE_EDITAR && selectEstado && !selectEstado.value) {
+        Swal.fire({
+            title: '⚠️ Campo requerido',
+            text: 'Debes seleccionar un estado',
+            icon: 'warning',
+            confirmButtonColor: '#f59e0b',
         });
         return;
     }
@@ -473,6 +638,16 @@ function guardarSesion{{ sesion.id }}(event) {
     });
     
     const form = document.getElementById('form-editar-{{ sesion.id }}');
+    if (!form) {
+        Swal.fire({
+            title: '❌ Error',
+            text: 'No se encontró el formulario',
+            icon: 'error',
+            confirmButtonColor: '#dc2626'
+        });
+        return;
+    }
+    
     const formData = new FormData(form);
     
     fetch('{% url "agenda:editar_sesion" sesion.id %}', {
@@ -483,13 +658,18 @@ function guardarSesion{{ sesion.id }}(event) {
         },
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('La respuesta del servidor no es JSON');
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            // ✅ Éxito
             Swal.fire({
                 title: '✅ ¡Guardado!',
-                text: 'La sesión se actualizó correctamente',
+                text: data.mensaje || 'La sesión se actualizó correctamente',
                 icon: 'success',
                 timer: 2000,
                 showConfirmButton: false
@@ -498,16 +678,14 @@ function guardarSesion{{ sesion.id }}(event) {
                 location.reload();
             });
         } else if (data.error) {
-            // ❌ Error
             Swal.fire({
                 title: '❌ Error',
-                text: data.mensaje || 'No se pudo guardar la sesión',
+                html: data.mensaje || 'No se pudo guardar la sesión',
                 icon: 'error',
                 confirmButtonText: 'OK',
                 confirmButtonColor: '#dc2626'
             });
         } else if (data.requiere_confirmacion) {
-            // ⚠️ Requiere confirmación (cambio de estado con pagos)
             Swal.fire({
                 title: '⚠️ Confirmación requerida',
                 html: `
@@ -521,38 +699,38 @@ function guardarSesion{{ sesion.id }}(event) {
                                 Total: Bs. ${data.total_pagado}
                             </p>
                         </div>
+                        <p class="mt-3 text-sm text-gray-600">
+                            Debes ir a la lista de proyectos para gestionar los pagos
+                        </p>
                     </div>
                 `,
                 icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: '✅ Sí, continuar',
-                cancelButtonText: '❌ Cancelar',
-                reverseButtons: true,
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Aquí iría la lógica de confirmación
-                    // Por ahora mostrar que falta implementar
-                    Swal.fire({
-                        title: 'ℹ️ Pendiente',
-                        text: 'Funcionalidad de confirmación de cambio de estado con pagos pendiente de implementar',
-                        icon: 'info',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                }
+                confirmButtonText: '✅ Entendido',
+                confirmButtonColor: '#3b82f6',
             });
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('Error completo:', error);
         Swal.fire({
             title: '❌ Error de conexión',
-            text: 'No se pudo conectar con el servidor. Verifica tu conexión a internet.',
+            html: `
+                <p>No se pudo conectar con el servidor.</p>
+                <p class="text-sm text-gray-600 mt-2">Detalles: ${error.message}</p>
+            `,
             icon: 'error',
             confirmButtonText: 'OK',
             confirmButtonColor: '#dc2626'
         });
     });
+}
+
+function cerrarModal() {
+    const modal = document.getElementById('modal-editar');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        document.getElementById('modal-content').innerHTML = '';
+    }
 }
 </script>

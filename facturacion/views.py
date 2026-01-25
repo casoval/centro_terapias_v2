@@ -604,12 +604,12 @@ def detalle_cuenta_corriente(request, paciente_id):
     }
     
     return render(request, 'facturacion/detalle_cuenta.html', context)
-     
+
 @login_required
 def registrar_pago(request):
     """
     Registrar pago usando PaymentService.
-    Soporta: Sesión, Proyecto, Adelantado (Credito/Efectivo/Mixto).
+    Soporta: Sesión, Proyecto, Mensualidad, Adelantado (Credito/Efectivo/Mixto).
     """
     from django.core.exceptions import ValidationError
     from .services import PaymentService
@@ -651,6 +651,25 @@ def registrar_pago(request):
                 if not referencia_id: raise ValidationError('Proyecto no seleccionado')
                 proyecto = Proyecto.objects.get(id=referencia_id)
                 paciente = proyecto.paciente
+            
+            # ✅ NUEVO: Soporte para mensualidades
+            elif tipo_pago == 'mensualidad':
+                referencia_id = request.POST.get('mensualidad_id')  # ← AGREGAR ESTA LÍNEA
+                if not referencia_id:
+                    raise ValidationError("ID de mensualidad requerido.")
+                from agenda.models import Mensualidad
+                mensualidad = Mensualidad.objects.get(id=referencia_id)
+                paciente = mensualidad.paciente
+                
+                if es_pago_completo:
+                    pagado_previo = mensualidad.pagos.filter(anulado=False).exclude(
+                        metodo_pago__nombre="Uso de Crédito"
+                    ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                    
+                    nuevo_costo = pagado_previo + monto_total_aportado
+                    if mensualidad.costo_mensual != nuevo_costo:
+                        mensualidad.costo_mensual = nuevo_costo
+                        mensualidad.save()
                 
             elif tipo_pago == 'adelantado':
                 paciente_id = request.POST.get('paciente_adelantado')
@@ -659,7 +678,7 @@ def registrar_pago(request):
             else:
                 raise ValidationError('Tipo de pago no válido')
 
-            # Procesar Pago con Servicio
+            # Procesar Pago con Servicio (actualizado para mensualidad)
             resultado = PaymentService.process_payment(
                 user=request.user,
                 paciente=paciente,
@@ -675,7 +694,6 @@ def registrar_pago(request):
             )
             
             # Preparar datos para session (Confirmación)
-            # Recreamos la info para el modal de confirmación
             tipo_pago_display = "Efectivo"
             if usar_credito and monto_efectivo > 0: tipo_pago_display = "Mixto"
             elif usar_credito: tipo_pago_display = "100% Crédito"
@@ -718,10 +736,12 @@ def registrar_pago(request):
     sesion_id = request.GET.get('sesion')
     paciente_id = request.GET.get('paciente')
     proyecto_id = request.GET.get('proyecto')
+    mensualidad_id = request.GET.get('mensualidad')  # ✅ NUEVO
     
     sesion = None
     paciente = None
     proyecto = None
+    mensualidad = None  # ✅ NUEVO
     modo = None
     credito_disponible = Decimal('0.00')
     monto_sugerido = Decimal('0.00')
@@ -740,7 +760,22 @@ def registrar_pago(request):
         cuenta.actualizar_saldo()
         credito_disponible = cuenta.saldo if cuenta.saldo > 0 else Decimal('0.00')
     
-    # CASO 2: Sesión
+    # ✅ CASO 2: Mensualidad
+    elif mensualidad_id:
+        from agenda.models import Mensualidad
+        mensualidad = get_object_or_404(
+            Mensualidad.objects.select_related('paciente', 'servicio', 'profesional', 'sucursal'),
+            id=mensualidad_id
+        )
+        paciente = mensualidad.paciente
+        modo = 'mensualidad'
+        monto_sugerido = mensualidad.saldo_pendiente
+        
+        cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
+        cuenta.actualizar_saldo()
+        credito_disponible = cuenta.saldo if cuenta.saldo > 0 else Decimal('0.00')
+    
+    # CASO 3: Sesión
     elif sesion_id:
         sesion = get_object_or_404(
             Sesion.objects.select_related('paciente', 'servicio', 'profesional'),
@@ -754,7 +789,7 @@ def registrar_pago(request):
         cuenta.actualizar_saldo()
         credito_disponible = cuenta.saldo if cuenta.saldo > 0 else Decimal('0.00')
     
-    # CASO 3: Adelantado
+    # CASO 4: Adelantado
     elif paciente_id:
         paciente = get_object_or_404(Paciente, id=paciente_id)
         modo = 'adelantado'
@@ -763,7 +798,7 @@ def registrar_pago(request):
         cuenta.actualizar_saldo()
         credito_disponible = cuenta.saldo if cuenta.saldo > 0 else Decimal('0.00')
     
-    # CASO 4: Selector
+    # CASO 5: Selector
     else:
         modo = 'selector'
     
@@ -772,6 +807,7 @@ def registrar_pago(request):
         'sesion': sesion,
         'paciente': paciente,
         'proyecto': proyecto,
+        'mensualidad': mensualidad,  # ✅ NUEVO
         'modo': modo,
         'credito_disponible': credito_disponible,
         'monto_sugerido': monto_sugerido,
@@ -779,7 +815,7 @@ def registrar_pago(request):
         'pacientes_lista': pacientes_lista,
     }
     
-    return render(request, 'facturacion/registrar_pago.html', context)
+    return render(request, 'facturacion/registrar_pago.html', context)     
 
 @login_required
 def confirmacion_pago(request):
@@ -3671,3 +3707,59 @@ def limpiar_pagos_anulados(request):
     }
     
     return render(request, 'facturacion/limpiar_pagos_anulados.html', context)
+
+
+@login_required
+def api_mensualidades_paciente(request, paciente_id):
+    """
+    API: Obtener mensualidades con saldo pendiente de un paciente
+    ✅ CORREGIDO: Usa los campos correctos del modelo Mensualidad
+    """
+    try:
+        from agenda.models import Mensualidad
+        
+        # ✅ Query optimizada
+        mensualidades = Mensualidad.objects.filter(
+            paciente_id=paciente_id,
+            estado__in=['activa', 'pausada']
+        ).select_related('servicio', 'profesional', 'sucursal').order_by('-anio', '-mes')
+        
+        # ✅ Filtrar y construir respuesta
+        mensualidades_pendientes = []
+        
+        for m in mensualidades:
+            # ✅ Solo incluir las que tienen saldo pendiente
+            if m.saldo_pendiente > 0:
+                mensualidades_pendientes.append({
+                    'id': m.id,
+                    'codigo': m.codigo,
+                    'nombre': f"{m.periodo_display} - {m.servicio.nombre}",
+                    'costo_mensual': float(m.costo_mensual),
+                    'total_pagado': float(m.total_pagado),
+                    'saldo_pendiente': float(m.saldo_pendiente),
+                    'periodo': m.periodo_display,
+                    'mes': m.mes,
+                    'anio': m.anio,
+                    'servicio': m.servicio.nombre,
+                    'profesional': f"{m.profesional.nombre} {m.profesional.apellido}",
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'mensualidades': mensualidades_pendientes,
+            'total': len(mensualidades_pendientes)
+        })
+        
+    except Exception as e:
+        # ✅ Log detallado para debugging
+        import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error en api_mensualidades_paciente: {str(e)}")
+        logger.error(traceback.format_exc())
+        
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'detail': 'Error al cargar mensualidades. Ver logs del servidor.'
+        }, status=400)

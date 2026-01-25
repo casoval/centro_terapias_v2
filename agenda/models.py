@@ -208,6 +208,15 @@ class Sesion(models.Model):
         related_name='sesiones',
         help_text="Si pertenece a un proyecto (evaluación, tratamiento especial)"
     )
+
+    mensualidad = models.ForeignKey(
+        'Mensualidad',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sesiones',
+        help_text="Si pertenece a una mensualidad"
+    )
     
     # Fecha y hora
     fecha = models.DateField()
@@ -359,6 +368,9 @@ class Sesion(models.Model):
         # Si es parte de un proyecto, el pago es del proyecto
         if self.proyecto:
             return False
+        # 💳 Si es parte de una mensualidad, el pago es de la mensualidad
+        if self.mensualidad:
+            return False
         # Si el monto es 0 (sesión gratuita)
         if self.monto_cobrado == 0:
             return False
@@ -477,15 +489,27 @@ class Sesion(models.Model):
         return (inicio1 < fin2 and fin1 > inicio2) or (inicio2 < fin1 and fin2 > inicio1)
     
     def save(self, *args, **kwargs):
-        # Validar antes de guardar
-        self.full_clean()
+        """Docstring..."""
+        update_fields = kwargs.get('update_fields')
         
-        # 🆕 NUEVA LÓGICA: Ajustar monto según estado
-        if self.estado in ['permiso', 'cancelada', 'reprogramada']:
-            self.monto_cobrado = Decimal('0.00')
+        if update_fields is None:
+            self.full_clean()
+            if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+                self.monto_cobrado = Decimal('0.00')
+        else:
+            if 'estado' in update_fields:
+                if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+                    self.monto_cobrado = Decimal('0.00')
+                    if 'monto_cobrado' not in update_fields:
+                        update_fields = list(update_fields) + ['monto_cobrado']
+                        kwargs['update_fields'] = update_fields
         
         super().save(*args, **kwargs)
-            
+        
+        # ✅ IMPORTANTE: Esta línea debe estar AQUÍ (dentro del método)
+        if update_fields is None or (update_fields and 'monto_cobrado' in update_fields):
+            self._actualizar_cuenta_corriente()
+               
     def _actualizar_cuenta_corriente(self):
         """Actualizar la cuenta corriente del paciente"""
         try:
@@ -537,3 +561,179 @@ class Sesion(models.Model):
                 return False, f"⚠️ Profesional ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
         
         return True, "✅ Horario disponible"
+
+class Mensualidad(models.Model):
+    """
+    Modelo para gestionar mensualidades de pacientes
+    Representa un pago mensual recurrente por sesiones regulares
+    """
+    
+    ESTADO_CHOICES = [
+        ('activa', 'Activa'),
+        ('pausada', 'Pausada'),
+        ('completada', 'Completada'),
+        ('cancelada', 'Cancelada'),
+    ]
+    
+    # Identificación
+    codigo = models.CharField(
+        max_length=30,  # 🔄 AUMENTADO de 20 a 30 para acomodar códigos más largos
+        unique=True,
+        help_text="Código único de la mensualidad (ej: PSICO-JUA-MEN-2026-03-001)"
+    )
+    
+    # Relaciones
+    paciente = models.ForeignKey(
+        Paciente,
+        on_delete=models.PROTECT,
+        related_name='mensualidades'
+    )
+    servicio = models.ForeignKey(
+        TipoServicio,
+        on_delete=models.PROTECT,
+        related_name='mensualidades',
+        help_text="Servicio base de la mensualidad"
+    )
+    profesional = models.ForeignKey(
+        Profesional,
+        on_delete=models.PROTECT,
+        related_name='mensualidades'
+    )
+    sucursal = models.ForeignKey(
+        Sucursal,
+        on_delete=models.PROTECT,
+        related_name='mensualidades'
+    )
+    
+    # Período
+    mes = models.PositiveSmallIntegerField(
+        choices=[(i, i) for i in range(1, 13)],
+        help_text="Mes (1-12)"
+    )
+    anio = models.PositiveIntegerField(
+        help_text="Año"
+    )
+    
+    # Costos
+    costo_mensual = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Costo TOTAL del mes (no por sesión)"
+    )
+    
+    # Estado
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='activa'
+    )
+    
+    # Observaciones
+    observaciones = models.TextField(blank=True)
+    
+    # Control
+    creada_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='mensualidades_creadas'
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    modificada_por = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='mensualidades_modificadas',
+        null=True,
+        blank=True
+    )
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Mensualidad"
+        verbose_name_plural = "Mensualidades"
+        ordering = ['-anio', '-mes', '-fecha_creacion']
+        indexes = [
+            models.Index(fields=['paciente', '-anio', '-mes']),
+            models.Index(fields=['estado']),
+            models.Index(fields=['codigo']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['paciente', 'servicio', 'mes', 'anio'],
+                name='unique_mensualidad_paciente_servicio_periodo'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.paciente} ({self.periodo_display})"
+    
+    @property
+    def periodo_display(self):
+        """Retorna el período en formato legible"""
+        meses = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ]
+        return f"{meses[self.mes - 1]} {self.anio}"
+    
+    @property
+    def total_pagado(self):
+        """Total de pagos recibidos para esta mensualidad"""
+        from facturacion.models import Pago
+        return Pago.objects.filter(
+            mensualidad=self,
+            anulado=False
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    @property
+    def saldo_pendiente(self):
+        """Monto que aún falta por pagar"""
+        return self.costo_mensual - self.total_pagado
+    
+    @property
+    def pagado_completo(self):
+        """Verifica si la mensualidad está pagada completamente"""
+        return self.total_pagado >= self.costo_mensual
+    
+    @property
+    def num_sesiones(self):
+        """Cantidad total de sesiones asociadas"""
+        return self.sesiones.count()
+    
+    @property
+    def num_sesiones_realizadas(self):
+        """Cantidad de sesiones realizadas"""
+        return self.sesiones.filter(
+            estado__in=['realizada', 'realizada_retraso']
+        ).count()
+    
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            # 🆕 GENERAR CÓDIGO: PSICO-JUA-MEN-2026-03-001
+            
+            # 1️⃣ Obtener iniciales del SERVICIO (primeras 5 letras en mayúsculas)
+            nombre_servicio = self.servicio.nombre.upper().replace(' ', '')
+            iniciales_servicio = nombre_servicio[:5]
+            
+            # 2️⃣ Obtener iniciales del PACIENTE (primeras 3 letras del nombre en mayúsculas)
+            nombre_paciente = self.paciente.nombre.upper().replace(' ', '')
+            iniciales_paciente = nombre_paciente[:3]
+            
+            # 3️⃣ Calcular número secuencial por SERVICIO + PACIENTE (nunca reinicia)
+            mensualidades_previas = Mensualidad.objects.filter(
+                paciente=self.paciente,
+                servicio=self.servicio
+            ).count()
+            
+            numero_secuencial = mensualidades_previas + 1
+            
+            # 4️⃣ Construir código completo
+            self.codigo = (
+                f"{iniciales_servicio}-"
+                f"{iniciales_paciente}-"
+                f"MEN-"
+                f"{self.anio}-"
+                f"{self.mes:02d}-"
+                f"{numero_secuencial:03d}"
+            )
+        
+        super().save(*args, **kwargs)

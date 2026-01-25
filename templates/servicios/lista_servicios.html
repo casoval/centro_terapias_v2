@@ -117,10 +117,34 @@
                     💰
                 </div>
                 <div>
-                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Costo Base</p>
+                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Costo Sesión</p>
                     <p class="text-xs font-bold text-gray-700">Bs. {{ servicio.costo_base }}</p>
                 </div>
             </div>
+
+            {% if servicio.precio_mensual %}
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-600 flex-shrink-0 text-sm">
+                    📅
+                </div>
+                <div>
+                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Costo Mensual</p>
+                    <p class="text-xs font-bold text-gray-700">Bs. {{ servicio.precio_mensual }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if servicio.precio_proyecto %}
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600 flex-shrink-0 text-sm">
+                    📦
+                </div>
+                <div>
+                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Costo Proyecto</p>
+                    <p class="text-xs font-bold text-gray-700">Bs. {{ servicio.precio_proyecto }}</p>
+                </div>
+            </div>
+            {% endif %}
         </div>
         
         <div class="p-3 bg-gray-50 rounded-b-3xl border-t border-gray-100 grid {% if request.user.is_superuser or not request.user.perfil.es_recepcionista %}grid-cols-4{% else %}grid-cols-1{% endif %} gap-1.5">
@@ -155,7 +179,9 @@
                         <th class="p-4 font-bold text-sm w-16 text-center">Color</th>
                         <th class="p-4 font-bold text-sm">Nombre del Servicio</th>
                         <th class="p-4 font-bold text-sm">Duración</th>
-                        <th class="p-4 font-bold text-sm">Costo</th>
+                        <th class="p-4 font-bold text-sm">Costo Sesión</th>
+                        <th class="p-4 font-bold text-sm">Costo Mensual</th>
+                        <th class="p-4 font-bold text-sm">Costo Proyecto</th>
                         <th class="p-4 font-bold text-sm text-center">Acciones</th>
                     </tr>
                 </thead>
@@ -183,6 +209,26 @@
                             </div>
                         </td>
                         <td class="p-4">
+                            {% if servicio.precio_mensual %}
+                            <div class="flex items-center gap-2">
+                                <span class="bg-cyan-50 text-cyan-600 p-1 rounded text-xs">📅</span>
+                                <span class="text-sm font-bold text-gray-700">Bs. {{ servicio.precio_mensual }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-gray-400 italic">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
+                            {% if servicio.precio_proyecto %}
+                            <div class="flex items-center gap-2">
+                                <span class="bg-violet-50 text-violet-600 p-1 rounded text-xs">📦</span>
+                                <span class="text-sm font-bold text-gray-700">Bs. {{ servicio.precio_proyecto }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-gray-400 italic">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{% url 'servicios:detalle_servicio' servicio.id %}" class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors" title="Ver">
                                     👁️
@@ -200,7 +246,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="p-8 text-center text-gray-500">
+                        <td colspan="8" class="p-8 text-center text-gray-500">
                             No se encontraron servicios
                         </td>
                     </tr>
