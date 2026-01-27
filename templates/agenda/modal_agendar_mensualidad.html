@@ -1,0 +1,501 @@
+<!-- ========================================
+     MODAL AGENDAMIENTO RÁPIDO DESDE MENSUALIDAD
+     Opción C: Días específicos + Patrón recurrente
+     ======================================== -->
+
+<!-- Modal Header -->
+<div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+    <div class="flex items-center gap-3">
+        <span class="text-3xl">📅</span>
+        <div>
+            <h2 class="text-lg font-black text-white">Agendar Sesiones: {{ servicio_profesional.servicio.nombre }}</h2>
+            <p class="text-purple-100 text-xs mt-1">
+                {{ mensualidad.periodo_display }} | 
+                {{ servicio_profesional.profesional.nombre }} {{ servicio_profesional.profesional.apellido }}
+            </p>
+        </div>
+    </div>
+    <button onclick="cerrarModalAgendarRapido()"
+            class="text-white hover:bg-white/20 w-8 h-8 rounded-lg transition-colors flex items-center justify-center font-bold text-xl">
+        ×
+    </button>
+</div>
+
+<!-- Modal Body -->
+<form method="post" action="{% url 'agenda:procesar_agendar_mensualidad' servicio_profesional.id %}" 
+      id="formAgendarMensualidad" class="p-6">
+    {% csrf_token %}
+    
+    <!-- ========================================
+         INPUTS OCULTOS (Datos Pre-cargados)
+         ======================================== -->
+    <input type="hidden" name="mensualidad_id" value="{{ mensualidad.id }}">
+    <input type="hidden" name="paciente_id" value="{{ mensualidad.paciente.id }}">
+    <input type="hidden" name="sucursal_id" value="{{ mensualidad.sucursal.id }}">
+    <input type="hidden" name="servicio_id" value="{{ servicio_profesional.servicio.id }}">
+    <input type="hidden" name="profesional_id" value="{{ servicio_profesional.profesional.id }}">
+    <input type="hidden" name="modo_seleccion" id="modo_seleccion" value="recurrente">
+    
+    <!-- ========================================
+         RESUMEN VISUAL (Read-only)
+         ======================================== -->
+    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 mb-6 border-2 border-purple-200">
+        <h3 class="text-sm font-black text-purple-900 mb-3 flex items-center gap-2">
+            <span>📋</span> Información de la Sesión
+        </h3>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div class="bg-white rounded-lg p-2 border border-purple-100">
+                <p class="text-purple-600 font-semibold mb-1">👤 Paciente</p>
+                <p class="font-bold text-slate-800 truncate">{{ mensualidad.paciente.nombre_completo }}</p>
+            </div>
+            <div class="bg-white rounded-lg p-2 border border-purple-100">
+                <p class="text-purple-600 font-semibold mb-1">🏢 Sucursal</p>
+                <p class="font-bold text-slate-800 truncate">{{ mensualidad.sucursal.nombre }}</p>
+            </div>
+            <div class="bg-white rounded-lg p-2 border border-purple-100">
+                <p class="text-purple-600 font-semibold mb-1">📅 Período</p>
+                <p class="font-bold text-slate-800">{{ mensualidad.periodo_display }}</p>
+            </div>
+            <div class="bg-white rounded-lg p-2 border border-purple-100">
+                <p class="text-purple-600 font-semibold mb-1">👨‍⚕️ Profesional</p>
+                <p class="font-bold text-slate-800 truncate">{{ servicio_profesional.profesional.nombre }} {{ servicio_profesional.profesional.apellido|first }}.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         CONFIGURACIÓN BÁSICA (Hora y Duración)
+         ======================================== -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                <span>⏰</span> Hora de Inicio
+            </label>
+            <input type="time" 
+                   name="hora_inicio" 
+                   id="hora-inicio-modal"
+                   required
+                   class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none font-mono">
+        </div>
+        
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                <span>⏱️</span> Duración
+            </label>
+            <select name="duracion_minutos" 
+                    id="duracion-minutos-modal"
+                    required
+                    class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none">
+                <option value="">-- Seleccionar --</option>
+                <option value="30">30 minutos</option>
+                <option value="45" selected>45 minutos</option>
+                <option value="60">60 minutos (1 hora)</option>
+                <option value="90">90 minutos (1.5 horas)</option>
+                <option value="120">120 minutos (2 horas)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- ========================================
+         OPCIÓN C: SELECTOR DE MODO
+         ======================================== -->
+    <div class="mb-6">
+        <label class="block text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
+            <span>📆</span> ¿Cómo quieres seleccionar los días?
+        </label>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- OPCIÓN 1: Patrón Recurrente -->
+            <label class="flex items-center p-4 bg-white border-2 border-purple-300 rounded-xl cursor-pointer hover:bg-purple-50 transition-all has-[:checked]:bg-purple-100 has-[:checked]:border-purple-500 has-[:checked]:shadow-md">
+                <input type="radio" 
+                       name="tipo_seleccion" 
+                       value="recurrente" 
+                       checked
+                       onchange="cambiarModoSeleccion('recurrente')"
+                       class="w-4 h-4 text-purple-600 focus:ring-purple-500">
+                <div class="ml-3 flex-1">
+                    <p class="text-sm font-black text-purple-900">🔄 Patrón Recurrente</p>
+                    <p class="text-xs text-purple-700 mt-1">Ej: Todos los Lunes, Miércoles y Viernes</p>
+                </div>
+            </label>
+            
+            <!-- OPCIÓN 2: Días Específicos -->
+            <label class="flex items-center p-4 bg-white border-2 border-blue-300 rounded-xl cursor-pointer hover:bg-blue-50 transition-all has-[:checked]:bg-blue-100 has-[:checked]:border-blue-500 has-[:checked]:shadow-md">
+                <input type="radio" 
+                       name="tipo_seleccion" 
+                       value="especificos"
+                       onchange="cambiarModoSeleccion('especificos')"
+                       class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                <div class="ml-3 flex-1">
+                    <p class="text-sm font-black text-blue-900">📅 Días Específicos</p>
+                    <p class="text-xs text-blue-700 mt-1">Ej: Días 5, 12, 19 y 26 del mes</p>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <!-- ========================================
+         PANEL PATRÓN RECURRENTE
+         ======================================== -->
+    <div id="panel-recurrente" class="mb-6">
+        <div class="bg-purple-50 rounded-xl p-4 border-2 border-purple-200">
+            <h3 class="text-xs font-black text-purple-900 mb-3 flex items-center gap-2">
+                <span>🔄</span> Selecciona los días de la semana
+            </h3>
+            <div class="grid grid-cols-3 sm:grid-cols-7 gap-2">
+                {% for dia_valor, dia_nombre in dias_semana %}
+                <label class="flex flex-col items-center justify-center p-3 bg-white border-2 border-purple-200 rounded-lg cursor-pointer hover:border-purple-400 transition-all has-[:checked]:bg-purple-600 has-[:checked]:border-purple-700 has-[:checked]:text-white group">
+                    <input type="checkbox" 
+                           name="dias_semana_recurrente" 
+                           value="{{ dia_valor }}"
+                           class="sr-only peer">
+                    <span class="text-xs font-black text-purple-700 group-has-[:checked]:text-white">
+                        {{ dia_nombre }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-purple-700 mt-3 italic">
+                💡 Las sesiones se crearán en TODOS estos días dentro del período {{ mensualidad.periodo_display }}
+            </p>
+        </div>
+    </div>
+
+    <!-- ========================================
+         PANEL DÍAS ESPECÍFICOS
+         ======================================== -->
+    <div id="panel-especificos" class="mb-6 hidden">
+        <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+            <h3 class="text-xs font-black text-blue-900 mb-3 flex items-center gap-2">
+                <span>📅</span> Selecciona días específicos del mes
+            </h3>
+            
+            <!-- Calendario de días del mes -->
+            <div class="grid grid-cols-7 gap-2 mb-3">
+                <!-- Headers de días -->
+                {% for _, dia_nombre in dias_semana %}
+                <div class="text-center text-xs font-bold text-slate-500 py-1">
+                    {{ dia_nombre }}
+                </div>
+                {% endfor %}
+                
+                <!-- Días del mes -->
+                {% for dia in dias_mes %}
+                <label class="flex items-center justify-center aspect-square bg-white border-2 border-blue-200 rounded-lg cursor-pointer hover:border-blue-400 transition-all has-[:checked]:bg-blue-600 has-[:checked]:border-blue-700 has-[:checked]:text-white text-sm font-bold text-slate-700 group
+                    {% if dia.es_otro_mes %}opacity-30 cursor-not-allowed{% endif %}">
+                    <input type="checkbox" 
+                           name="dias_especificos" 
+                           value="{{ dia.fecha }}"
+                           {% if dia.es_otro_mes %}disabled{% endif %}
+                           class="sr-only peer">
+                    <span class="group-has-[:checked]:text-white">{{ dia.numero }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            
+            <p class="text-xs text-blue-700 italic">
+                💡 Selecciona los días exactos en los que quieres crear sesiones
+            </p>
+        </div>
+    </div>
+
+    <!-- ========================================
+         OBSERVACIONES
+         ======================================== -->
+    <div class="mb-6">
+        <label class="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+            <span>📝</span> Observaciones (opcional)
+        </label>
+        <textarea name="observaciones" 
+                  rows="3"
+                  class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none resize-none"
+                  placeholder="Notas adicionales sobre estas sesiones..."></textarea>
+    </div>
+
+    <!-- ========================================
+         VISTA PREVIA
+         ======================================== -->
+    <div id="vista-previa-container" class="mb-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border-2 border-slate-200 hidden">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-black text-slate-800 flex items-center gap-2">
+                <span>👁️</span> Vista Previa de Sesiones
+            </h3>
+            <button type="button" 
+                    onclick="ocultarVistaPrevia()"
+                    class="text-slate-400 hover:text-slate-600 text-xs font-bold">
+                ✕ Cerrar
+            </button>
+        </div>
+        
+        <div id="vista-previa-contenido" class="space-y-2 max-h-80 overflow-y-auto mb-4 pr-2">
+            <!-- Se llenará dinámicamente -->
+        </div>
+        
+        <div class="bg-white rounded-lg p-3 border-2 border-purple-300">
+            <p id="total-sesiones-preview" class="text-sm font-black text-purple-700 text-center"></p>
+        </div>
+    </div>
+
+    <!-- ========================================
+         BOTONES DE ACCIÓN
+         ======================================== -->
+    <div class="flex flex-wrap gap-3 pt-6 border-t-2 border-slate-200">
+        <button type="button" 
+                onclick="generarVistaPrevia()"
+                class="flex-1 min-w-[140px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+            <span>👁️</span> Vista Previa
+        </button>
+        
+        <button type="button" 
+                onclick="cerrarModalAgendarRapido()"
+                class="bg-slate-300 hover:bg-slate-400 text-slate-700 font-black py-3 px-6 rounded-xl transition-all">
+            Cancelar
+        </button>
+        
+        <button type="submit" 
+                class="flex-1 min-w-[140px] bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+            <span>✅</span> Confirmar y Agendar
+        </button>
+    </div>
+</form>
+
+<!-- ========================================
+     JAVASCRIPT DEL MODAL
+     ======================================== -->
+<script>
+console.log('🚀 Inicializando modal de agendamiento...');
+
+// ========================================
+// VARIABLES GLOBALES
+// ========================================
+const FECHA_INICIO_PERIODO = '{{ fecha_inicio }}';
+const FECHA_FIN_PERIODO = '{{ fecha_fin }}';
+const NOMBRE_MES = '{{ mensualidad.periodo_display }}';
+
+console.log('Fechas del período:', FECHA_INICIO_PERIODO, 'a', FECHA_FIN_PERIODO);
+
+// ========================================
+// CAMBIAR MODO DE SELECCIÓN
+// ========================================
+function cambiarModoSeleccion(modo) {
+    console.log('🔄 Cambiando modo a:', modo);
+    const panelRecurrente = document.getElementById('panel-recurrente');
+    const panelEspecificos = document.getElementById('panel-especificos');
+    const inputModo = document.getElementById('modo_seleccion');
+    
+    if (modo === 'recurrente') {
+        panelRecurrente.classList.remove('hidden');
+        panelEspecificos.classList.add('hidden');
+        inputModo.value = 'recurrente';
+        
+        // Limpiar días específicos
+        document.querySelectorAll('input[name="dias_especificos"]').forEach(cb => {
+            cb.checked = false;
+        });
+    } else {
+        panelRecurrente.classList.add('hidden');
+        panelEspecificos.classList.remove('hidden');
+        inputModo.value = 'especificos';
+        
+        // Limpiar días recurrentes
+        document.querySelectorAll('input[name="dias_semana_recurrente"]').forEach(cb => {
+            cb.checked = false;
+        });
+    }
+    
+    // Ocultar vista previa al cambiar modo
+    ocultarVistaPrevia();
+}
+
+// ========================================
+// GENERAR FECHAS RECURRENTES
+// ========================================
+function generarFechasRecurrentes(fechaInicio, fechaFin, diasSemana) {
+    console.log('🔄 Generando fechas recurrentes...');
+    console.log('Inicio:', fechaInicio, 'Fin:', fechaFin);
+    console.log('Días de semana:', diasSemana);
+    
+    const fechas = [];
+    const inicio = new Date(fechaInicio + 'T00:00:00');
+    const fin = new Date(fechaFin + 'T00:00:00');
+    
+    let fechaActual = new Date(inicio);
+    let iteraciones = 0;
+    const maxIteraciones = 50;
+    
+    while (fechaActual <= fin && iteraciones < maxIteraciones) {
+        const diaSemana = fechaActual.getDay();
+        
+        if (diasSemana.includes(diaSemana)) {
+            const year = fechaActual.getFullYear();
+            const month = String(fechaActual.getMonth() + 1).padStart(2, '0');
+            const day = String(fechaActual.getDate()).padStart(2, '0');
+            const fechaStr = `${year}-${month}-${day}`;
+            fechas.push(fechaStr);
+        }
+        
+        fechaActual.setDate(fechaActual.getDate() + 1);
+        iteraciones++;
+    }
+    
+    console.log(`Total fechas generadas: ${fechas.length}`);
+    return fechas;
+}
+
+// ========================================
+// RENDERIZAR VISTA PREVIA
+// ========================================
+function renderizarVistaPrevia(fechas, horaInicio, horaFin, duracion) {
+    console.log('📋 Renderizando vista previa...');
+    
+    const container = document.getElementById('vista-previa-container');
+    const contenido = document.getElementById('vista-previa-contenido');
+    const total = document.getElementById('total-sesiones-preview');
+    
+    if (!container || !contenido || !total) {
+        console.error('❌ No se encontraron elementos del DOM');
+        return;
+    }
+    
+    let html = '';
+    
+    fechas.forEach((fecha, index) => {
+        const fechaObj = new Date(fecha + 'T00:00:00');
+        const nombreDia = fechaObj.toLocaleDateString('es-ES', { weekday: 'long' });
+        const fechaFormateada = fechaObj.toLocaleDateString('es-ES', { 
+            day: '2-digit', 
+            month: 'long', 
+            year: 'numeric' 
+        });
+        
+        html += `
+            <div class="flex items-center justify-between bg-white p-3 rounded-lg border-2 border-slate-200 hover:border-purple-300 transition-all text-xs">
+                <div class="flex items-center gap-3">
+                    <span class="bg-purple-600 text-white font-black px-2.5 py-1 rounded-lg min-w-[40px] text-center">
+                        #${index + 1}
+                    </span>
+                    <div>
+                        <p class="font-black text-slate-800 capitalize">${nombreDia}</p>
+                        <p class="text-slate-500">${fechaFormateada}</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="font-mono font-black text-purple-700 text-sm">${horaInicio} - ${horaFin}</p>
+                    <p class="text-slate-500">${duracion} minutos</p>
+                </div>
+            </div>
+        `;
+    });
+    
+    contenido.innerHTML = html;
+    total.innerHTML = `
+        <span class="text-lg">📊</span> 
+        Total: <span class="text-xl">${fechas.length}</span> sesión(es) a crear en ${NOMBRE_MES}
+    `;
+    
+    container.classList.remove('hidden');
+    
+    setTimeout(() => {
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+}
+
+// ========================================
+// GENERAR VISTA PREVIA
+// ========================================
+function generarVistaPrevia() {
+    console.log('🔍 Generando vista previa...');
+    
+    const horaInicio = document.getElementById('hora-inicio-modal').value;
+    const duracion = document.getElementById('duracion-minutos-modal').value;
+    const modo = document.getElementById('modo_seleccion').value;
+    
+    console.log('Hora:', horaInicio, 'Duración:', duracion, 'Modo:', modo);
+    
+    if (!horaInicio || !duracion) {
+        alert('❌ Por favor completa la hora de inicio y la duración');
+        return;
+    }
+    
+    let fechas = [];
+    
+    if (modo === 'recurrente') {
+        const checkboxes = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked');
+        console.log('Checkboxes encontrados:', checkboxes.length);
+        
+        const diasSeleccionados = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        console.log('Días seleccionados:', diasSeleccionados);
+        
+        if (diasSeleccionados.length === 0) {
+            alert('❌ Selecciona al menos un día de la semana');
+            return;
+        }
+        
+        fechas = generarFechasRecurrentes(FECHA_INICIO_PERIODO, FECHA_FIN_PERIODO, diasSeleccionados);
+        
+    } else {
+        const checkboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
+        console.log('Checkboxes específicos encontrados:', checkboxes.length);
+        
+        fechas = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (fechas.length === 0) {
+            alert('❌ Selecciona al menos un día del mes');
+            return;
+        }
+        
+        fechas.sort();
+    }
+    
+    if (fechas.length === 0) {
+        alert('⚠️ No se generaron fechas con la configuración actual');
+        return;
+    }
+    
+    // Calcular hora fin
+    const [horas, minutos] = horaInicio.split(':').map(Number);
+    const minutosInicio = horas * 60 + minutos;
+    const minutosFin = minutosInicio + parseInt(duracion);
+    const horasFin = Math.floor(minutosFin / 60);
+    const minutosFin2 = minutosFin % 60;
+    const horaFin = `${String(horasFin).padStart(2, '0')}:${String(minutosFin2).padStart(2, '0')}`;
+    
+    renderizarVistaPrevia(fechas, horaInicio, horaFin, duracion);
+}
+
+// ========================================
+// OCULTAR VISTA PREVIA
+// ========================================
+function ocultarVistaPrevia() {
+    const container = document.getElementById('vista-previa-container');
+    if (container) {
+        container.classList.add('hidden');
+    }
+}
+
+// ========================================
+// VALIDACIÓN ANTES DE ENVIAR
+// ========================================
+const form = document.getElementById('formAgendarMensualidad');
+if (form) {
+    form.addEventListener('submit', function(e) {
+        const modo = document.getElementById('modo_seleccion').value;
+        let haySeleccion = false;
+        
+        if (modo === 'recurrente') {
+            haySeleccion = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked').length > 0;
+        } else {
+            haySeleccion = document.querySelectorAll('input[name="dias_especificos"]:checked').length > 0;
+        }
+        
+        if (!haySeleccion) {
+            e.preventDefault();
+            alert('❌ Por favor selecciona al menos un día');
+            return false;
+        }
+    });
+}
+
+console.log('✅ Modal inicializado correctamente');
+console.log('✅ Función generarVistaPrevia disponible:', typeof generarVistaPrevia);
+</script>

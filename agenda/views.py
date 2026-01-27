@@ -6,10 +6,10 @@ from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, V
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
-from calendar import monthrange
+from calendar import monthrange, Calendar
 from decimal import Decimal
 
-from agenda.models import Sesion, Proyecto, Mensualidad
+from agenda.models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad
 from pacientes.models import Paciente, PacienteServicio
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
@@ -286,7 +286,10 @@ def actualizar_estado_proyecto(request, proyecto_id):
 @login_required
 @solo_sus_sucursales
 def crear_mensualidad(request):
-    """Crear nueva mensualidad"""
+    """
+    Crear nueva mensualidad
+    ✅ MODIFICADO: Cada servicio tiene su propio profesional asignado
+    """
     
     if request.method == 'POST':
         try:
@@ -294,8 +297,8 @@ def crear_mensualidad(request):
             
             # Obtener datos del formulario
             paciente_id = request.POST.get('paciente_id')
-            servicio_id = request.POST.get('servicio_id')
-            profesional_id = request.POST.get('profesional_id')
+            servicio_ids = request.POST.getlist('servicio_ids[]')  # ✅ Array de servicios
+            profesional_ids = request.POST.getlist('profesional_ids[]')  # ✅ Array de profesionales
             sucursal_id = request.POST.get('sucursal_id')
             mes = int(request.POST.get('mes'))
             anio = int(request.POST.get('anio'))
@@ -303,13 +306,21 @@ def crear_mensualidad(request):
             observaciones = request.POST.get('observaciones', '')
             
             # Validaciones básicas
-            if not all([paciente_id, servicio_id, profesional_id, sucursal_id, mes, anio, costo_mensual]):
+            if not all([paciente_id, servicio_ids, profesional_ids, sucursal_id, mes, anio, costo_mensual]):
                 messages.error(request, '❌ Faltan datos obligatorios')
                 return redirect('agenda:crear_mensualidad')
             
+            # ✅ VALIDAR que hay la misma cantidad de servicios y profesionales
+            if len(servicio_ids) != len(profesional_ids):
+                messages.error(request, '❌ Error: No coinciden servicios con profesionales')
+                return redirect('agenda:crear_mensualidad')
+            
+            # ✅ VALIDAR que se seleccionó al menos un servicio
+            if not servicio_ids:
+                messages.error(request, '❌ Debes agregar al menos un servicio')
+                return redirect('agenda:crear_mensualidad')
+            
             paciente = Paciente.objects.get(id=paciente_id)
-            servicio = TipoServicio.objects.get(id=servicio_id)
-            profesional = Profesional.objects.get(id=profesional_id)
             sucursal = Sucursal.objects.get(id=sucursal_id)
             
             # Verificar permisos
@@ -319,10 +330,9 @@ def crear_mensualidad(request):
                     messages.error(request, '❌ No tienes permiso para crear mensualidades en esta sucursal')
                     return redirect('agenda:crear_mensualidad')
             
-            # Verificar si ya existe mensualidad para ese paciente/servicio/período
+            # ✅ Verificar si ya existe mensualidad para ese paciente/período
             mensualidad_existente = Mensualidad.objects.filter(
                 paciente=paciente,
-                servicio=servicio,
                 mes=mes,
                 anio=anio
             ).first()
@@ -330,16 +340,15 @@ def crear_mensualidad(request):
             if mensualidad_existente:
                 messages.error(
                     request, 
-                    f'❌ Ya existe una mensualidad para {paciente} - {servicio} en {mensualidad_existente.periodo_display}'
+                    f'❌ Ya existe una mensualidad para {paciente} en {mensualidad_existente.periodo_display}'
                 )
                 return redirect('agenda:crear_mensualidad')
             
-            # ✅ Crear mensualidad (sin configuración de sesiones)
+            # ✅ Crear mensualidad con transacción
             with transaction.atomic():
-                mensualidad = Mensualidad.objects.create(
+                # 1. Crear mensualidad
+                mensualidad = Mensualidad(
                     paciente=paciente,
-                    servicio=servicio,
-                    profesional=profesional,
                     sucursal=sucursal,
                     mes=mes,
                     anio=anio,
@@ -347,12 +356,34 @@ def crear_mensualidad(request):
                     observaciones=observaciones,
                     creada_por=request.user
                 )
+                mensualidad.save()
+                
+                # 2. Crear relaciones servicio-profesional
+                from agenda.models import ServicioProfesionalMensualidad
+                
+                servicios_nombres = []
+                for servicio_id, profesional_id in zip(servicio_ids, profesional_ids):
+                    servicio = TipoServicio.objects.get(id=servicio_id)
+                    profesional = Profesional.objects.get(id=profesional_id)
+                    
+                    # Crear relación intermedia
+                    ServicioProfesionalMensualidad.objects.create(
+                        mensualidad=mensualidad,
+                        servicio=servicio,
+                        profesional=profesional
+                    )
+                    
+                    servicios_nombres.append(f"{servicio.nombre} ({profesional.nombre})")
             
             messages.success(request, f'✅ Mensualidad {mensualidad.codigo} creada correctamente')
+            messages.info(request, f'📋 Servicios: {", ".join(servicios_nombres)}')
             messages.info(request, '📌 Ahora puedes agregar las sesiones desde "Agendar Sesión Recurrente"')
             
             return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
             
+        except (TipoServicio.DoesNotExist, Profesional.DoesNotExist):
+            messages.error(request, '❌ Uno o más servicios/profesionales no existen')
+            return redirect('agenda:crear_mensualidad')
         except Exception as e:
             messages.error(request, f'❌ Error: {str(e)}')
             import traceback
@@ -377,17 +408,21 @@ def crear_mensualidad(request):
 @login_required
 @solo_sus_sucursales
 def lista_mensualidades(request):
-    """Lista de mensualidades con filtros"""
+    """Lista de mensualidades con filtros - ✅ CORREGIDO: ManyToMany"""
     
     # Filtros
     buscar = request.GET.get('q', '').strip()
     estado_filtro = request.GET.get('estado', '')
     sucursal_id = request.GET.get('sucursal', '')
     
-    # Query base - ✅ SIN ANOTACIONES
+    # Query base - ✅ CORREGIDO: prefetch_related para ManyToMany
     mensualidades = Mensualidad.objects.select_related(
-        'paciente', 'servicio', 'profesional', 'sucursal'
-    ).prefetch_related('sesiones')  # ✅ Optimiza las queries de las propiedades
+        'paciente', 'sucursal'
+    ).prefetch_related(
+        'servicios_profesionales__servicio',  # ✅ Prefetch servicios a través del modelo intermedio
+        'servicios_profesionales__profesional',  # ✅ Prefetch profesionales
+        'sesiones'
+    )
     
     # Filtrar por sucursales del usuario
     sucursales_usuario = request.sucursales_usuario
@@ -444,14 +479,18 @@ def lista_mensualidades(request):
     
     return render(request, 'agenda/lista_mensualidades.html', context)
 
+
 @login_required
 @solo_sus_sucursales
 def detalle_mensualidad(request, mensualidad_id):
-    """Detalle completo de una mensualidad"""
+    """Detalle completo de una mensualidad - ✅ CORREGIDO"""
     
     mensualidad = get_object_or_404(
         Mensualidad.objects.select_related(
-            'paciente', 'servicio', 'profesional', 'sucursal'
+            'paciente', 'sucursal'
+        ).prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional'
         ),
         id=mensualidad_id
     )
@@ -494,7 +533,6 @@ def detalle_mensualidad(request, mensualidad_id):
     }
     
     return render(request, 'agenda/detalle_mensualidad.html', context)
-
 
 @login_required
 def actualizar_estado_mensualidad(request, mensualidad_id):
@@ -964,6 +1002,20 @@ def agendar_recurrente(request):
                 monto = Decimal('0.00')
                 print(f"💰 Sesiones de proyecto: monto = Bs. 0.00")
             elif mensualidad:
+                # ✅ VALIDAR: Verificar que el servicio+profesional existan en la mensualidad
+                sp_existe = mensualidad.servicios_profesionales.filter(
+                    servicio=servicio,
+                    profesional=profesional
+                ).exists()
+                
+                if not sp_existe:
+                    messages.error(
+                        request, 
+                        f'❌ La combinación de {servicio.nombre} con {profesional.nombre} '
+                        f'no existe en la mensualidad {mensualidad.codigo}'
+                    )
+                    return redirect('agenda:agendar_recurrente')
+                
                 monto = Decimal('0.00')
                 print(f"💳 Sesiones de mensualidad: monto = Bs. 0.00")
             else:
@@ -2101,7 +2153,7 @@ def obtener_proyectos_paciente(request, paciente_id):
 def obtener_mensualidades_paciente(request):
     """
     🆕 API JSON: Obtener mensualidades del paciente según sucursal, servicio y profesional
-    Usado en agendar_recurrente.html para cargar mensualidades dinámicamente
+    ✅ MODIFICADO: Soporta mensualidades multi-servicio
     """
     try:
         # Obtener parámetros
@@ -2123,24 +2175,48 @@ def obtener_mensualidades_paciente(request):
         profesional = get_object_or_404(Profesional, id=profesional_id)
         sucursal = get_object_or_404(Sucursal, id=sucursal_id)
         
-        # Buscar mensualidades con los 4 parámetros
-        mensualidades = Mensualidad.objects.filter(
-            paciente=paciente,
+        # ✅ CORREGIDO v2: Buscar mensualidades que contengan el servicio+profesional
+        # Una mensualidad puede tener MÚLTIPLES servicios, solo necesitamos verificar
+        # que EXISTA AL MENOS UNO que coincida con servicio+profesional seleccionados
+        
+        # Primero obtener IDs de mensualidades que tienen esta combinación
+        mensualidades_ids = ServicioProfesionalMensualidad.objects.filter(
             servicio=servicio,
-            profesional=profesional,
+            profesional=profesional
+        ).values_list('mensualidad_id', flat=True)
+        
+        # Luego filtrar mensualidades por esos IDs
+        mensualidades = Mensualidad.objects.filter(
+            id__in=mensualidades_ids,
+            paciente=paciente,
             sucursal=sucursal,
-            estado__in=['activa', 'pausada']  # Solo activas y pausadas
+            estado__in=['activa', 'pausada']
+        ).prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional'
         ).order_by('-anio', '-mes')
         
         # Construir respuesta JSON
         mensualidades_data = []
         for mensualidad in mensualidades:
+            # ✅ Incluir todos los servicios con sus profesionales
+            servicios_list = []
+            for sp in mensualidad.servicios_profesionales.all():
+                servicios_list.append({
+                    'id': sp.servicio.id,
+                    'nombre': sp.servicio.nombre,
+                    'profesional_id': sp.profesional.id,
+                    'profesional_nombre': f"{sp.profesional.nombre} {sp.profesional.apellido}"
+                })
+            
             mensualidades_data.append({
                 'id': mensualidad.id,
                 'codigo': mensualidad.codigo,
                 'periodo': mensualidad.periodo_display,  # "Enero 2024"
                 'mes': mensualidad.mes,
                 'anio': mensualidad.anio,
+                'servicios': servicios_list,  # ✅ Array de servicios
+                'servicios_display': mensualidad.servicios_display,  # ✅ String legible
                 'costo_mensual': float(mensualidad.costo_mensual),
                 'total_pagado': float(mensualidad.total_pagado),
                 'saldo_pendiente': float(mensualidad.saldo_pendiente),
@@ -2236,3 +2312,301 @@ def eliminar_sesion(request, sesion_id):
             'error': True,
             'mensaje': f'Error: {str(e)}'
         }, status=500)
+
+@login_required
+@solo_sus_sucursales
+def modal_agendar_mensualidad(request, servicio_profesional_id):
+    """
+    Retorna el HTML del modal para agendar sesiones desde mensualidad
+    OPCIÓN C: Días específicos + Patrón recurrente
+    """
+    
+    # Obtener el servicio-profesional
+    servicio_profesional = get_object_or_404(
+        ServicioProfesionalMensualidad.objects.select_related(
+            'mensualidad__paciente',
+            'mensualidad__sucursal',
+            'servicio',
+            'profesional'
+        ),
+        id=servicio_profesional_id
+    )
+    
+    mensualidad = servicio_profesional.mensualidad
+    
+    # Verificar permisos de sucursal
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if not sucursales_usuario.filter(id=mensualidad.sucursal.id).exists():
+            return JsonResponse({
+                'error': 'No tienes permiso para agendar en esta sucursal'
+            }, status=403)
+    
+    # Calcular fechas del período
+    anio = mensualidad.anio
+    mes = mensualidad.mes
+    
+    # Primer y último día del mes
+    fecha_inicio = date(anio, mes, 1)
+    ultimo_dia = monthrange(anio, mes)[1]
+    fecha_fin = date(anio, mes, ultimo_dia)
+    
+    # ========================================
+    # OPCIÓN 1: Días de la semana para patrón recurrente
+    # ========================================
+    dias_semana = [
+        (1, 'Lun'),
+        (2, 'Mar'),
+        (3, 'Mié'),
+        (4, 'Jue'),
+        (5, 'Vie'),
+        (6, 'Sáb'),
+        (0, 'Dom'),
+    ]
+    
+    # ========================================
+    # OPCIÓN 2: Generar calendario de días del mes
+    # ========================================
+    dias_mes = generar_calendario_mes(anio, mes)
+    
+    context = {
+        'servicio_profesional': servicio_profesional,
+        'mensualidad': mensualidad,
+        'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+        'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+        'dias_semana': dias_semana,
+        'dias_mes': dias_mes,  # Calendario completo con días del mes
+    }
+    
+    return render(request, 'agenda/modal_agendar_mensualidad.html', context)
+
+
+def generar_calendario_mes(anio, mes):
+    """
+    Genera un calendario del mes con días del mes anterior/siguiente
+    para completar semanas completas (como un calendario real)
+    
+    Retorna lista de diccionarios:
+    [
+        {
+            'fecha': '2026-03-01',
+            'numero': 1,
+            'es_otro_mes': False
+        },
+        ...
+    ]
+    """
+    # Primer día del mes
+    primer_dia = date(anio, mes, 1)
+    
+    # Último día del mes
+    ultimo_dia_num = monthrange(anio, mes)[1]
+    ultimo_dia = date(anio, mes, ultimo_dia_num)
+    
+    # Calendario Python (0=Lunes, 6=Domingo)
+    cal = Calendar(firstweekday=0)  # Empieza en Lunes
+    
+    dias = []
+    
+    # Obtener todas las semanas del mes (pueden incluir días del mes anterior/siguiente)
+    for semana in cal.monthdatescalendar(anio, mes):
+        for dia_fecha in semana:
+            es_otro_mes = dia_fecha.month != mes
+            
+            dias.append({
+                'fecha': dia_fecha.strftime('%Y-%m-%d'),
+                'numero': dia_fecha.day,
+                'es_otro_mes': es_otro_mes,
+                'dia_semana': dia_fecha.weekday(),  # 0=Lunes, 6=Domingo
+            })
+    
+    return dias
+
+
+@login_required
+@solo_sus_sucursales
+def procesar_agendar_mensualidad(request, servicio_profesional_id):
+    """
+    Procesa el formulario de agendamiento desde mensualidad
+    OPCIÓN C: Soporta días específicos Y patrón recurrente
+    """
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        # Obtener servicio-profesional
+        servicio_profesional = get_object_or_404(
+            ServicioProfesionalMensualidad.objects.select_related(
+                'mensualidad__paciente',
+                'mensualidad__sucursal',
+                'servicio',
+                'profesional'
+            ),
+            id=servicio_profesional_id
+        )
+        
+        mensualidad = servicio_profesional.mensualidad
+        
+        # Verificar permisos
+        sucursales_usuario = request.sucursales_usuario
+        if sucursales_usuario is not None:
+            if not sucursales_usuario.filter(id=mensualidad.sucursal.id).exists():
+                messages.error(request, '❌ No tienes permiso para agendar en esta sucursal')
+                return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+        
+        # ========================================
+        # OBTENER DATOS DEL FORMULARIO
+        # ========================================
+        hora_inicio_str = request.POST.get('hora_inicio')
+        duracion_minutos = int(request.POST.get('duracion_minutos'))
+        modo_seleccion = request.POST.get('modo_seleccion', 'recurrente')
+        observaciones = request.POST.get('observaciones', '')
+        
+        # Validaciones básicas
+        if not all([hora_inicio_str, duracion_minutos]):
+            messages.error(request, '❌ Faltan datos obligatorios (hora y duración)')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+        
+        # Convertir hora
+        hora_inicio = datetime.strptime(hora_inicio_str, '%H:%M').time()
+        
+        # Calcular hora fin
+        hora_inicio_dt = datetime.combine(date.today(), hora_inicio)
+        hora_fin_dt = hora_inicio_dt + timedelta(minutes=duracion_minutos)
+        hora_fin = hora_fin_dt.time()
+        
+        # ========================================
+        # GENERAR FECHAS SEGÚN MODO
+        # ========================================
+        fechas_generadas = []
+        
+        if modo_seleccion == 'recurrente':
+            # MODO 1: Patrón recurrente (días de la semana)
+            dias_semana = request.POST.getlist('dias_semana_recurrente')
+            
+            if not dias_semana:
+                messages.error(request, '❌ Selecciona al menos un día de la semana')
+                return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+            
+            # Convertir a enteros
+            dias_semana = [int(d) for d in dias_semana]
+            
+            # Generar fechas
+            fecha_inicio = date(mensualidad.anio, mensualidad.mes, 1)
+            ultimo_dia_num = monthrange(mensualidad.anio, mensualidad.mes)[1]
+            fecha_fin = date(mensualidad.anio, mensualidad.mes, ultimo_dia_num)
+            
+            fecha_actual = fecha_inicio
+            while fecha_actual <= fecha_fin:
+                dia_semana = fecha_actual.weekday()  # 0=Lunes, 6=Domingo
+                
+                # Convertir: Python (0=Lunes) → JS (0=Domingo)
+                dia_js = (dia_semana + 1) % 7
+                
+                if dia_js in dias_semana:
+                    fechas_generadas.append(fecha_actual)
+                
+                fecha_actual += timedelta(days=1)
+        
+        else:
+            # MODO 2: Días específicos del mes
+            dias_especificos = request.POST.getlist('dias_especificos')
+            
+            if not dias_especificos:
+                messages.error(request, '❌ Selecciona al menos un día del mes')
+                return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+            
+            # Convertir strings de fecha a objetos date
+            for fecha_str in dias_especificos:
+                try:
+                    fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                    fechas_generadas.append(fecha_obj)
+                except ValueError:
+                    continue
+            
+            # Ordenar fechas
+            fechas_generadas.sort()
+        
+        # ========================================
+        # VALIDAR QUE SE GENERARON FECHAS
+        # ========================================
+        if not fechas_generadas:
+            messages.warning(request, '⚠️ No se generaron fechas con la configuración seleccionada')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+        
+        # ========================================
+        # CREAR SESIONES
+        # ========================================
+        sesiones_creadas = 0
+        sesiones_con_conflicto = 0
+        fechas_con_conflicto = []
+        
+        for fecha in fechas_generadas:
+            try:
+                # Crear sesión (el modelo Sesion.clean() validará conflictos automáticamente)
+                Sesion.objects.create(
+                    paciente=mensualidad.paciente,
+                    servicio=servicio_profesional.servicio,
+                    profesional=servicio_profesional.profesional,
+                    sucursal=mensualidad.sucursal,
+                    mensualidad=mensualidad,
+                    fecha=fecha,
+                    hora_inicio=hora_inicio,
+                    hora_fin=hora_fin,
+                    duracion_minutos=duracion_minutos,
+                    estado='programada',
+                    observaciones=observaciones,
+                    creada_por=request.user,
+                    modificada_por=request.user
+                )
+                sesiones_creadas += 1
+                
+            except ValidationError as e:
+                # El modelo detectó un conflicto en clean()
+                sesiones_con_conflicto += 1
+                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                
+                # Log del error para debugging
+                import traceback
+                print(f"ValidationError en fecha {fecha}: {e}")
+                continue
+                
+            except Exception as e:
+                # Otros errores inesperados
+                sesiones_con_conflicto += 1
+                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                print(f"Error inesperado en fecha {fecha}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        # ========================================
+        # MENSAJES DE RESULTADO
+        # ========================================
+        if sesiones_creadas > 0:
+            messages.success(
+                request, 
+                f'✅ {sesiones_creadas} sesión(es) creada(s) exitosamente para {mensualidad.periodo_display}'
+            )
+        
+        if sesiones_con_conflicto > 0:
+            conflictos_str = ', '.join(fechas_con_conflicto[:5])
+            if len(fechas_con_conflicto) > 5:
+                conflictos_str += f' (+{len(fechas_con_conflicto) - 5} más)'
+            
+            messages.warning(
+                request,
+                f'⚠️ {sesiones_con_conflicto} sesión(es) omitida(s) por conflictos de horario en: {conflictos_str}'
+            )
+        
+        if sesiones_creadas == 0 and sesiones_con_conflicto == 0:
+            messages.error(request, '❌ No se pudo crear ninguna sesión')
+        
+        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+        
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())  # Para debugging
+        messages.error(request, f'❌ Error al crear sesiones: {str(e)}')
+        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)

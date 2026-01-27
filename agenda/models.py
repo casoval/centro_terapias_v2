@@ -562,10 +562,50 @@ class Sesion(models.Model):
         
         return True, "✅ Horario disponible"
 
+class ServicioProfesionalMensualidad(models.Model):
+    """
+    🆕 Modelo intermedio para relacionar servicios con profesionales en mensualidades
+    Permite que cada servicio tenga su propio profesional asignado
+    """
+    mensualidad = models.ForeignKey(
+        'Mensualidad',
+        on_delete=models.CASCADE,
+        related_name='servicios_profesionales'
+    )
+    servicio = models.ForeignKey(
+        TipoServicio,
+        on_delete=models.PROTECT
+    )
+    profesional = models.ForeignKey(
+        Profesional,
+        on_delete=models.PROTECT
+    )
+    
+    class Meta:
+        verbose_name = "Servicio-Profesional"
+        verbose_name_plural = "Servicios-Profesionales"
+        unique_together = [['mensualidad', 'servicio']]  # Un servicio solo una vez por mensualidad
+    
+    def __str__(self):
+        return f"{self.servicio.nombre} - {self.profesional.nombre}"
+
+from django.db import models
+from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.db.models import Q, Sum
+from django.utils.functional import cached_property
+from pacientes.models import Paciente
+from servicios.models import TipoServicio, Sucursal
+from profesionales.models import Profesional
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+
 class Mensualidad(models.Model):
     """
     Modelo para gestionar mensualidades de pacientes
     Representa un pago mensual recurrente por sesiones regulares
+    ✅ MODIFICADO: Múltiples servicios con profesionales específicos
     """
     
     ESTADO_CHOICES = [
@@ -577,9 +617,9 @@ class Mensualidad(models.Model):
     
     # Identificación
     codigo = models.CharField(
-        max_length=30,  # 🔄 AUMENTADO de 20 a 30 para acomodar códigos más largos
+        max_length=30,
         unique=True,
-        help_text="Código único de la mensualidad (ej: PSICO-JUA-MEN-2026-03-001)"
+        help_text="Código único de la mensualidad (ej: MULTI-JUA-MEN-2026-03-001)"
     )
     
     # Relaciones
@@ -588,17 +628,14 @@ class Mensualidad(models.Model):
         on_delete=models.PROTECT,
         related_name='mensualidades'
     )
-    servicio = models.ForeignKey(
+    
+    # ✅ NUEVO: Relación ManyToMany a través de modelo intermedio
+    servicios = models.ManyToManyField(
         TipoServicio,
-        on_delete=models.PROTECT,
-        related_name='mensualidades',
-        help_text="Servicio base de la mensualidad"
-    )
-    profesional = models.ForeignKey(
-        Profesional,
-        on_delete=models.PROTECT,
+        through='ServicioProfesionalMensualidad',
         related_name='mensualidades'
     )
+    
     sucursal = models.ForeignKey(
         Sucursal,
         on_delete=models.PROTECT,
@@ -656,10 +693,11 @@ class Mensualidad(models.Model):
             models.Index(fields=['estado']),
             models.Index(fields=['codigo']),
         ]
+        # ✅ CRÍTICO: Constraint para evitar duplicados
         constraints = [
             models.UniqueConstraint(
-                fields=['paciente', 'servicio', 'mes', 'anio'],
-                name='unique_mensualidad_paciente_servicio_periodo'
+                fields=['paciente', 'anio', 'mes'],
+                name='unique_paciente_periodo'
             )
         ]
     
@@ -674,6 +712,19 @@ class Mensualidad(models.Model):
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
         ]
         return f"{meses[self.mes - 1]} {self.anio}"
+    
+    @property
+    def servicios_display(self):
+        """Retorna los servicios con sus profesionales"""
+        items = []
+        for sp in self.servicios_profesionales.select_related('servicio', 'profesional'):
+            items.append(f"{sp.servicio.nombre} ({sp.profesional.nombre})")
+        return ", ".join(items) if items else "-"
+    
+    @property
+    def servicios_simple(self):
+        """Retorna solo los nombres de los servicios"""
+        return ", ".join([sp.servicio.nombre for sp in self.servicios_profesionales.select_related('servicio')])
     
     @property
     def total_pagado(self):
@@ -706,34 +757,67 @@ class Mensualidad(models.Model):
             estado__in=['realizada', 'realizada_retraso']
         ).count()
     
+    def clean(self):
+        """
+        ✅ NUEVO: Validación antes de guardar
+        """
+        super().clean()
+        
+        # Validar que no exista otra mensualidad para el mismo paciente/período
+        existe = Mensualidad.objects.filter(
+            paciente=self.paciente,
+            mes=self.mes,
+            anio=self.anio
+        ).exclude(pk=self.pk).exists()
+        
+        if existe:
+            raise ValidationError({
+                'mes': f'Ya existe una mensualidad para {self.paciente} en {self.periodo_display}'
+            })
+    
     def save(self, *args, **kwargs):
+        """
+        ✅ CORREGIDO: Generación de código único con formato compacto
+        Formato: MEN-{MM}{YY}-{INI}-{NUM}
+        Ejemplo: MEN-0126-JU-001 (15 caracteres) ✅
+        Con timestamp: MEN-0126-JU-001-52847 (22 caracteres) ✅ Cabe en 30
+        """
         if not self.codigo:
-            # 🆕 GENERAR CÓDIGO: PSICO-JUA-MEN-2026-03-001
-            
-            # 1️⃣ Obtener iniciales del SERVICIO (primeras 5 letras en mayúsculas)
-            nombre_servicio = self.servicio.nombre.upper().replace(' ', '')
-            iniciales_servicio = nombre_servicio[:5]
-            
-            # 2️⃣ Obtener iniciales del PACIENTE (primeras 3 letras del nombre en mayúsculas)
+            # Iniciales del paciente (2 letras para ahorrar espacio)
             nombre_paciente = self.paciente.nombre.upper().replace(' ', '')
-            iniciales_paciente = nombre_paciente[:3]
+            iniciales = nombre_paciente[:2] if len(nombre_paciente) >= 2 else nombre_paciente.ljust(2, 'X')
             
-            # 3️⃣ Calcular número secuencial por SERVICIO + PACIENTE (nunca reinicia)
-            mensualidades_previas = Mensualidad.objects.filter(
+            # ✅ CRÍTICO: Contar mensualidades del MISMO paciente en el MISMO período
+            # Esto evita duplicados y genera un número secuencial correcto
+            mensualidades_periodo = Mensualidad.objects.filter(
                 paciente=self.paciente,
-                servicio=self.servicio
+                anio=self.anio,
+                mes=self.mes
             ).count()
             
-            numero_secuencial = mensualidades_previas + 1
+            # Si ya existe una mensualidad en este período, el número será 2, 3, etc.
+            # (esto solo debería pasar si se intenta crear manualmente un duplicado)
+            numero_secuencial = mensualidades_periodo + 1
             
-            # 4️⃣ Construir código completo
-            self.codigo = (
-                f"{iniciales_servicio}-"
-                f"{iniciales_paciente}-"
-                f"MEN-"
-                f"{self.anio}-"
-                f"{self.mes:02d}-"
-                f"{numero_secuencial:03d}"
-            )
+            # Formato compacto: MEN-{MM}{YY}-{INI}-{NUM}
+            # MM = mes con 2 dígitos (01-12)
+            # YY = últimos 2 dígitos del año (26 para 2026)
+            # INI = iniciales de 2 letras
+            # NUM = secuencial de 3 dígitos
+            self.codigo = f"MEN-{self.mes:02d}{self.anio % 100:02d}-{iniciales}-{numero_secuencial:03d}"
+            
+            # ✅ PROTECCIÓN EXTRA: Si el código ya existe (condición de carrera),
+            # agregar timestamp para garantizar unicidad
+            max_intentos = 5
+            intento = 0
+            
+            while Mensualidad.objects.filter(codigo=self.codigo).exists() and intento < max_intentos:
+                intento += 1
+                # Timestamp compacto: segundos transcurridos en el día (0-86400)
+                segundos_dia = int(datetime.now().timestamp() % 86400)
+                self.codigo = f"MEN-{self.mes:02d}{self.anio % 100:02d}-{iniciales}-{numero_secuencial:03d}-{segundos_dia}"
+        
+        # ✅ VALIDAR antes de guardar
+        self.full_clean()
         
         super().save(*args, **kwargs)

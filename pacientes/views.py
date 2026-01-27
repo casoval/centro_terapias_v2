@@ -780,7 +780,14 @@ def detalle_sesiones_completo(request, pk):
         from agenda.models import Mensualidad
         mensualidades = Mensualidad.objects.filter(
             paciente=paciente
-        ).select_related('servicio', 'profesional', 'sucursal').order_by('-anio', '-mes')
+        ).select_related(
+            'paciente',
+            'sucursal'
+        ).prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional',
+            'sesiones'
+        ).order_by('-anio', '-mes')
         
         for mensualidad in mensualidades:
             sesiones_mens = sesiones_mensualidades.filter(mensualidad=mensualidad)

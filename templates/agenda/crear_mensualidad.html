@@ -15,7 +15,7 @@
                     Nueva Mensualidad
                 </h1>
                 <p class="text-sm text-slate-500 mt-2">
-                    Paso 1: Crear la mensualidad base. Luego podrás agregar las sesiones.
+                    Selecciona servicios y asigna el profesional para cada uno
                 </p>
             </div>
             <a href="{% url 'agenda:lista_mensualidades' %}" 
@@ -26,7 +26,7 @@
     </div>
 
     <!-- Formulario -->
-    <form method="post" class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+    <form method="post" id="form-mensualidad" class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
         {% csrf_token %}
         
         <!-- Header del formulario -->
@@ -63,26 +63,23 @@
                 </div>
             </div>
 
-            <!-- Servicio y Profesional -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- ✅ SERVICIOS CON PROFESIONALES -->
+            <div class="bg-blue-50/50 rounded-xl p-5 border border-blue-200">
+                <h3 class="text-sm font-black text-blue-800 mb-4 uppercase tracking-wide flex items-center gap-2">
+                    🎯 Servicios y Profesionales
+                    <span class="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full">Asignar por servicio</span>
+                </h3>
+                
                 <div id="servicios-container">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">
-                        🎯 Servicio <span class="text-red-500">*</span>
-                    </label>
-                    <select name="servicio_id" id="servicio-select" disabled required
-                            class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400">
-                        <option value="">⏳ Esperando paciente...</option>
-                    </select>
+                    <div class="text-sm text-slate-500 bg-white rounded-lg p-4 border border-slate-200">
+                        ⏳ Selecciona un paciente para ver sus servicios disponibles
+                    </div>
                 </div>
-
-                <div id="profesionales-container">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">
-                        👨‍⚕️ Profesional <span class="text-red-500">*</span>
-                    </label>
-                    <select name="profesional_id" id="profesional-select" disabled required
-                            class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400">
-                        <option value="">⏳ Esperando servicio...</option>
-                    </select>
+                
+                <!-- Contenedor de servicios seleccionados -->
+                <div id="servicios-seleccionados" class="mt-4 space-y-3 hidden">
+                    <p class="text-xs font-bold text-purple-700 uppercase">Servicios seleccionados:</p>
+                    <div id="lista-servicios-seleccionados" class="space-y-2"></div>
                 </div>
             </div>
 
@@ -126,17 +123,14 @@
             <!-- Costo Mensual -->
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2">
-                    💰 Costo Mensual (Bs.) <span class="text-red-500">*</span>
+                    💰 Costo Mensual Total (Bs.) <span class="text-red-500">*</span>
                 </label>
                 <input type="number" name="costo_mensual" id="costo-mensual" 
                        min="0" step="0.01" required
                        placeholder="Ej: 500.00"
                        class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none text-lg font-bold">
                 <p class="text-xs text-slate-500 mt-2">
-                    💡 Se autocompleta con el precio mensual del servicio, pero puedes modificarlo
-                </p>
-                <p class="text-xs text-slate-500 mt-1">
-                    ℹ️ Este es el costo total del mes, no por sesión individual
+                    💡 Costo único para todos los servicios incluidos
                 </p>
             </div>
 
@@ -176,12 +170,13 @@
 </div>
 
 <script>
+// Servicios seleccionados con sus profesionales
+let serviciosConProfesionales = {};
+
 // ========================================
 // CARGAR PACIENTES DE SUCURSAL
 // ========================================
 function cargarPacientesDeSucursal(sucursalId) {
-    console.log('🏢 Cargando pacientes de sucursal:', sucursalId);
-    
     if (!sucursalId) {
         resetearCascadaCompleta();
         return;
@@ -200,34 +195,236 @@ function cargarPacientesDeSucursal(sucursalId) {
     `;
     
     resetearServicios();
-    resetearProfesionales();
+    serviciosConProfesionales = {};
     
     fetch(`{% url 'agenda:pacientes_sucursal' %}?sucursal=${sucursalId}`)
-        .then(response => {
-            if (!response.ok) throw new Error('Error en la petición');
-            return response.text();
-        })
+        .then(response => response.text())
         .then(html => {
-            console.log('✅ Pacientes cargados');
             pacientesContainer.innerHTML = html;
             agregarEventoPaciente();
         })
         .catch(error => {
-            console.error('❌ Error cargando pacientes:', error);
-            pacientesContainer.innerHTML = `
-                <label class="block text-sm font-bold text-slate-700 mb-2">
-                    👶 Paciente <span class="text-red-500">*</span>
-                </label>
-                <select name="paciente_id" class="w-full px-4 py-3 border-2 border-red-200 rounded-xl text-slate-400" disabled>
-                    <option value="">❌ Error al cargar</option>
-                </select>
-                <p class="text-xs text-red-600 mt-2">Error: ${error.message}</p>
-            `;
+            console.error('Error:', error);
         });
 }
 
 // ========================================
-// RESETEAR CASCADA
+// EVENTOS DE PACIENTE
+// ========================================
+function agregarEventoPaciente() {
+    const pacienteSelect = document.getElementById('paciente-select');
+    
+    if (pacienteSelect && !pacienteSelect.disabled && !pacienteSelect.dataset.listenerAdded) {
+        pacienteSelect.dataset.listenerAdded = 'true';
+        
+        pacienteSelect.addEventListener('change', function() {
+            const pacienteId = this.value;
+            const sucursalId = document.getElementById('sucursal-select').value;
+            
+            if (!pacienteId) {
+                resetearServicios();
+                return;
+            }
+            
+            cargarServiciosDelPaciente(pacienteId, sucursalId);
+        });
+    }
+}
+
+// ========================================
+// CARGAR SERVICIOS
+// ========================================
+function cargarServiciosDelPaciente(pacienteId, sucursalId) {
+    const serviciosContainer = document.getElementById('servicios-container');
+    serviciosContainer.innerHTML = `
+        <div class="text-sm text-slate-500 bg-white rounded-lg p-4 border border-slate-200 animate-pulse">
+            ⏳ Cargando servicios...
+        </div>
+    `;
+    
+    serviciosConProfesionales = {};
+    actualizarListaSeleccionados();
+    
+    fetch(`{% url 'agenda:servicios_paciente' %}?paciente=${pacienteId}&tipo_precio=mensualidad`)
+        .then(response => response.text())
+        .then(html => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            const selectElement = tempDiv.querySelector('select');
+            if (!selectElement) {
+                serviciosContainer.innerHTML = `
+                    <div class="text-sm text-orange-600 bg-orange-50 rounded-lg p-4 border border-orange-200">
+                        ⚠️ Este paciente no tiene servicios activos
+                    </div>
+                `;
+                return;
+            }
+            
+            const options = Array.from(selectElement.querySelectorAll('option')).filter(opt => opt.value);
+            
+            if (options.length === 0) {
+                serviciosContainer.innerHTML = `
+                    <div class="text-sm text-orange-600 bg-orange-50 rounded-lg p-4 border border-orange-200">
+                        ⚠️ Este paciente no tiene servicios contratados
+                    </div>
+                `;
+                return;
+            }
+            
+            // Construir lista de botones para agregar servicios
+            let botonesHTML = '<div class="space-y-2">';
+            
+            options.forEach(option => {
+                const servicioId = option.value;
+                const servicioNombre = option.textContent.trim();
+                const precioMensual = option.dataset.precioMensual || '0';
+                
+                botonesHTML += `
+                    <button type="button" 
+                            onclick="agregarServicio('${servicioId}', '${servicioNombre}', '${precioMensual}', '${sucursalId}')"
+                            class="w-full flex items-center justify-between p-3 bg-white rounded-lg border-2 border-slate-200 hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer group text-left">
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 group-hover:text-purple-700">${servicioNombre}</p>
+                            <p class="text-xs text-slate-500">Precio mensual: Bs. ${parseFloat(precioMensual).toFixed(2)}</p>
+                        </div>
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </button>
+                `;
+            });
+            
+            botonesHTML += '</div>';
+            serviciosContainer.innerHTML = botonesHTML;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+// ========================================
+// AGREGAR SERVICIO
+// ========================================
+function agregarServicio(servicioId, servicioNombre, precioMensual, sucursalId) {
+    // No agregar duplicados
+    if (serviciosConProfesionales[servicioId]) {
+        alert('Este servicio ya está agregado');
+        return;
+    }
+    
+    // Cargar profesionales para este servicio
+    fetch(`{% url 'agenda:profesionales_servicio' %}?servicio=${servicioId}&sucursal=${sucursalId}`)
+        .then(response => response.text())
+        .then(html => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            const selectElement = tempDiv.querySelector('select');
+            if (!selectElement) {
+                alert('No hay profesionales disponibles para este servicio');
+                return;
+            }
+            
+            const options = Array.from(selectElement.querySelectorAll('option')).filter(opt => opt.value);
+            
+            if (options.length === 0) {
+                alert('No hay profesionales disponibles para este servicio en esta sucursal');
+                return;
+            }
+            
+            // Agregar servicio con el primer profesional por defecto
+            serviciosConProfesionales[servicioId] = {
+                nombre: servicioNombre,
+                precio: precioMensual,
+                profesional_id: options[0].value,
+                profesional_nombre: options[0].textContent.trim(),
+                profesionales_disponibles: options.map(opt => ({
+                    id: opt.value,
+                    nombre: opt.textContent.trim()
+                }))
+            };
+            
+            actualizarListaSeleccionados();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cargar profesionales');
+        });
+}
+
+// ========================================
+// ACTUALIZAR LISTA DE SELECCIONADOS
+// ========================================
+function actualizarListaSeleccionados() {
+    const container = document.getElementById('servicios-seleccionados');
+    const lista = document.getElementById('lista-servicios-seleccionados');
+    
+    if (Object.keys(serviciosConProfesionales).length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+    lista.innerHTML = '';
+    
+    for (const [servicioId, data] of Object.entries(serviciosConProfesionales)) {
+        const card = document.createElement('div');
+        card.className = 'bg-purple-50 border-2 border-purple-200 rounded-lg p-3';
+        card.innerHTML = `
+            <div class="flex items-start gap-3">
+                <div class="flex-1">
+                    <p class="font-bold text-slate-800 text-sm mb-2">${data.nombre}</p>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-bold text-purple-700">Profesional:</label>
+                        <select onchange="cambiarProfesional('${servicioId}', this.value)"
+                                class="text-xs px-2 py-1 border-2 border-purple-300 rounded-lg bg-white font-bold">
+                            ${data.profesionales_disponibles.map(p => `
+                                <option value="${p.id}" ${p.id === data.profesional_id ? 'selected' : ''}>
+                                    ${p.nombre}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <input type="hidden" name="servicio_ids[]" value="${servicioId}">
+                    <input type="hidden" name="profesional_ids[]" value="${data.profesional_id}" id="prof-${servicioId}">
+                </div>
+                <button type="button" onclick="eliminarServicio('${servicioId}')"
+                        class="text-red-600 hover:text-red-800 p-1">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        lista.appendChild(card);
+    }
+}
+
+// ========================================
+// CAMBIAR PROFESIONAL
+// ========================================
+function cambiarProfesional(servicioId, profesionalId) {
+    const data = serviciosConProfesionales[servicioId];
+    const profesional = data.profesionales_disponibles.find(p => p.id === profesionalId);
+    
+    serviciosConProfesionales[servicioId].profesional_id = profesionalId;
+    serviciosConProfesionales[servicioId].profesional_nombre = profesional.nombre;
+    
+    // Actualizar input hidden
+    document.getElementById(`prof-${servicioId}`).value = profesionalId;
+}
+
+// ========================================
+// ELIMINAR SERVICIO
+// ========================================
+function eliminarServicio(servicioId) {
+    delete serviciosConProfesionales[servicioId];
+    actualizarListaSeleccionados();
+}
+
+// ========================================
+// RESETEAR
 // ========================================
 function resetearCascadaCompleta() {
     const pacienteContainer = document.getElementById('pacientes-container');
@@ -242,164 +439,17 @@ function resetearCascadaCompleta() {
         </select>
     `;
     resetearServicios();
-    resetearProfesionales();
 }
 
 function resetearServicios() {
     const serviciosContainer = document.getElementById('servicios-container');
     serviciosContainer.innerHTML = `
-        <label class="block text-sm font-bold text-slate-700 mb-2">
-            🎯 Servicio <span class="text-red-500">*</span>
-        </label>
-        <select name="servicio_id" id="servicio-select" 
-                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
-                disabled required>
-            <option value="">⏳ Esperando paciente...</option>
-        </select>
+        <div class="text-sm text-slate-500 bg-white rounded-lg p-4 border border-slate-200">
+            ⏳ Selecciona un paciente para ver sus servicios disponibles
+        </div>
     `;
-}
-
-function resetearProfesionales() {
-    const profesionalesContainer = document.getElementById('profesionales-container');
-    profesionalesContainer.innerHTML = `
-        <label class="block text-sm font-bold text-slate-700 mb-2">
-            👨‍⚕️ Profesional <span class="text-red-500">*</span>
-        </label>
-        <select name="profesional_id" id="profesional-select" 
-                class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
-                disabled required>
-            <option value="">⏳ Esperando servicio...</option>
-        </select>
-    `;
-}
-
-// ========================================
-// EVENTOS DE PACIENTE
-// ========================================
-function agregarEventoPaciente() {
-    const pacienteSelect = document.getElementById('paciente-select');
-    
-    if (pacienteSelect && !pacienteSelect.disabled && !pacienteSelect.dataset.listenerAdded) {
-        pacienteSelect.dataset.listenerAdded = 'true';
-        
-        console.log('🎯 Evento agregado al select de pacientes');
-        
-        pacienteSelect.addEventListener('change', function() {
-            const pacienteId = this.value;
-            
-            console.log('👤 Paciente seleccionado:', pacienteId);
-            
-            if (!pacienteId) {
-                resetearServicios();
-                resetearProfesionales();
-                return;
-            }
-            
-            const serviciosContainer = document.getElementById('servicios-container');
-            serviciosContainer.innerHTML = `
-                <label class="block text-sm font-bold text-slate-700 mb-2">
-                    🎯 Servicio <span class="text-red-500">*</span>
-                </label>
-                <select name="servicio_id" id="servicio-select" 
-                        class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
-                        disabled>
-                    <option value="">⏳ Cargando servicios...</option>
-                </select>
-            `;
-            
-            resetearProfesionales();
-            
-            fetch(`{% url 'agenda:servicios_paciente' %}?paciente=${pacienteId}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Error en la petición');
-                    return response.text();
-                })
-                .then(html => {
-                    console.log('✅ Servicios cargados');
-                    serviciosContainer.innerHTML = html;
-                    agregarEventoServicio();
-                })
-                .catch(error => {
-                    console.error('❌ Error cargando servicios:', error);
-                    serviciosContainer.innerHTML = `
-                        <label class="block text-sm font-bold text-slate-700 mb-2">
-                            🎯 Servicio <span class="text-red-500">*</span>
-                        </label>
-                        <select name="servicio_id" class="w-full px-4 py-3 border-2 border-red-200 rounded-xl text-slate-400" disabled>
-                            <option value="">❌ Error al cargar</option>
-                        </select>
-                        <p class="text-xs text-red-600 mt-2">Error: ${error.message}</p>
-                    `;
-                });
-        });
-    }
-}
-
-// ========================================
-// EVENTOS DE SERVICIO
-// ========================================
-function agregarEventoServicio() {
-    const servicioSelect = document.getElementById('servicio-select');
-    
-    if (servicioSelect && !servicioSelect.disabled && !servicioSelect.dataset.listenerAdded) {
-        servicioSelect.dataset.listenerAdded = 'true';
-        
-        servicioSelect.addEventListener('change', function() {
-            const servicioId = this.value;
-            const sucursalId = document.getElementById('sucursal-select').value;
-            
-            if (!servicioId) {
-                resetearProfesionales();
-                return;
-            }
-            
-            // 🆕 AUTOCOMPLETAR COSTO MENSUAL desde el servicio
-            const selectedOption = this.options[this.selectedIndex];
-            const precioMensual = selectedOption.dataset.precioMensual || '0';
-            
-            const costoMensualInput = document.getElementById('costo-mensual');
-            if (costoMensualInput) {
-                // Siempre autocompletar, incluso si es 0
-                costoMensualInput.value = parseFloat(precioMensual).toFixed(2);
-                
-                // Efecto visual
-                costoMensualInput.classList.add('scale-105', 'bg-purple-100');
-                setTimeout(() => {
-                    costoMensualInput.classList.remove('scale-105', 'bg-purple-100');
-                }, 400);
-            }
-            
-            const profesionalesContainer = document.getElementById('profesionales-container');
-            profesionalesContainer.innerHTML = `
-                <label class="block text-sm font-bold text-slate-700 mb-2">
-                    👨‍⚕️ Profesional <span class="text-red-500">*</span>
-                </label>
-                <select name="profesional_id" id="profesional-select" 
-                        class="w-full px-4 py-3 border-2 border-slate-200 bg-slate-50 rounded-xl text-slate-400" 
-                        disabled>
-                    <option value="">⏳ Cargando profesionales...</option>
-                </select>
-            `;
-            
-            if (!sucursalId) return;
-            
-            const params = new URLSearchParams({
-                servicio: servicioId,
-                sucursal: sucursalId
-            });
-            
-            fetch(`{% url 'agenda:profesionales_servicio' %}?${params}`)
-                .then(response => response.text())
-                .then(html => {
-                    console.log('✅ Profesionales cargados');
-                    profesionalesContainer.innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('❌ Error cargando profesionales:', error);
-                    resetearProfesionales();
-                });
-        });
-    }
+    serviciosConProfesionales = {};
+    actualizarListaSeleccionados();
 }
 
 // ========================================
@@ -407,12 +457,6 @@ function agregarEventoServicio() {
 // ========================================
 const observerPaciente = new MutationObserver(agregarEventoPaciente);
 observerPaciente.observe(document.getElementById('pacientes-container'), {
-    childList: true,
-    subtree: true
-});
-
-const observerServicios = new MutationObserver(agregarEventoServicio);
-observerServicios.observe(document.getElementById('servicios-container'), {
     childList: true,
     subtree: true
 });
@@ -431,6 +475,17 @@ document.addEventListener('DOMContentLoaded', function() {
         option.textContent = year;
         if (i === 0) option.selected = true;
         anioSelect.appendChild(option);
+    }
+});
+
+// ========================================
+// VALIDAR ANTES DE ENVIAR
+// ========================================
+document.getElementById('form-mensualidad').addEventListener('submit', function(e) {
+    if (Object.keys(serviciosConProfesionales).length === 0) {
+        e.preventDefault();
+        alert('⚠️ Debes agregar al menos un servicio');
+        return false;
     }
 });
 </script>

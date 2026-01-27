@@ -764,7 +764,10 @@ def registrar_pago(request):
     elif mensualidad_id:
         from agenda.models import Mensualidad
         mensualidad = get_object_or_404(
-            Mensualidad.objects.select_related('paciente', 'servicio', 'profesional', 'sucursal'),
+            Mensualidad.objects.select_related('paciente', 'sucursal').prefetch_related(
+                'servicios_profesionales__servicio',
+                'servicios_profesionales__profesional'
+            ),
             id=mensualidad_id
         )
         paciente = mensualidad.paciente
@@ -3713,16 +3716,19 @@ def limpiar_pagos_anulados(request):
 def api_mensualidades_paciente(request, paciente_id):
     """
     API: Obtener mensualidades con saldo pendiente de un paciente
-    ✅ CORREGIDO: Usa los campos correctos del modelo Mensualidad
+    ✅ CORREGIDO: Compatible con el nuevo modelo Mensualidad (many-to-many servicios-profesionales)
     """
     try:
         from agenda.models import Mensualidad
         
-        # ✅ Query optimizada
+        # ✅ Query optimizada con prefetch de servicios-profesionales
         mensualidades = Mensualidad.objects.filter(
             paciente_id=paciente_id,
             estado__in=['activa', 'pausada']
-        ).select_related('servicio', 'profesional', 'sucursal').order_by('-anio', '-mes')
+        ).prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional'
+        ).select_related('sucursal').order_by('-anio', '-mes')
         
         # ✅ Filtrar y construir respuesta
         mensualidades_pendientes = []
@@ -3730,18 +3736,37 @@ def api_mensualidades_paciente(request, paciente_id):
         for m in mensualidades:
             # ✅ Solo incluir las que tienen saldo pendiente
             if m.saldo_pendiente > 0:
+                # ✅ Obtener servicios y profesionales
+                servicios_profesionales = m.servicios_profesionales.all()
+                
+                # Construir nombre descriptivo
+                if servicios_profesionales.exists():
+                    primer_sp = servicios_profesionales.first()
+                    
+                    # Si hay múltiples servicios, mostrar el primero + cantidad
+                    if servicios_profesionales.count() > 1:
+                        nombre_servicios = f"{primer_sp.servicio.nombre} (+{servicios_profesionales.count()-1} más)"
+                    else:
+                        nombre_servicios = primer_sp.servicio.nombre
+                    
+                    nombre_profesional = f"{primer_sp.profesional.nombre} {primer_sp.profesional.apellido}"
+                else:
+                    # Fallback si no hay servicios asignados
+                    nombre_servicios = "Sin servicios"
+                    nombre_profesional = "Sin asignar"
+                
                 mensualidades_pendientes.append({
                     'id': m.id,
                     'codigo': m.codigo,
-                    'nombre': f"{m.periodo_display} - {m.servicio.nombre}",
+                    'nombre': f"{m.periodo_display} - {nombre_servicios}",
                     'costo_mensual': float(m.costo_mensual),
                     'total_pagado': float(m.total_pagado),
                     'saldo_pendiente': float(m.saldo_pendiente),
                     'periodo': m.periodo_display,
                     'mes': m.mes,
                     'anio': m.anio,
-                    'servicio': m.servicio.nombre,
-                    'profesional': f"{m.profesional.nombre} {m.profesional.apellido}",
+                    'servicio': nombre_servicios,
+                    'profesional': nombre_profesional,
                 })
         
         return JsonResponse({

@@ -1,5 +1,15 @@
 from django.contrib import admin
-from .models import Sesion, Proyecto, Mensualidad 
+from .models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad
+
+
+# ✅ NUEVO: Inline para gestionar servicios-profesionales
+class ServicioProfesionalInline(admin.TabularInline):
+    model = ServicioProfesionalMensualidad
+    extra = 1
+    autocomplete_fields = ['servicio', 'profesional']
+    verbose_name = "Servicio con Profesional"
+    verbose_name_plural = "Servicios con sus Profesionales"
+
 
 @admin.register(Mensualidad)
 class MensualidadAdmin(admin.ModelAdmin):
@@ -7,8 +17,7 @@ class MensualidadAdmin(admin.ModelAdmin):
         'codigo',
         'paciente',
         'periodo_display',
-        'servicio',
-        'profesional',
+        'servicios_count',  # ✅ MODIFICADO
         'estado',
         'costo_mensual',
         'total_pagado',
@@ -21,8 +30,8 @@ class MensualidadAdmin(admin.ModelAdmin):
         'anio',
         'mes',
         'sucursal',
-        'profesional',
-        'servicio'
+        # ✅ ELIMINADO: 'profesional' (ya no existe)
+        # ✅ ELIMINADO: 'servicios' (usa modelo intermedio)
     ]
     search_fields = [
         'codigo',
@@ -36,8 +45,7 @@ class MensualidadAdmin(admin.ModelAdmin):
             'fields': (
                 'codigo',
                 'paciente',
-                'servicio',
-                'profesional',
+                # ✅ ELIMINADO: 'servicios' (se maneja con inline)
                 'sucursal'
             )
         }),
@@ -73,18 +81,39 @@ class MensualidadAdmin(admin.ModelAdmin):
         }),
     )
     
+    # ✅ NUEVO: Inline para servicios-profesionales
+    inlines = [ServicioProfesionalInline]
+    
+    # ✅ ELIMINADO: filter_horizontal (ya no aplica con modelo intermedio)
+    
     readonly_fields = [
         'codigo',
         'fecha_creacion',
         'fecha_modificacion'
     ]
     
+    # ✅ NUEVO: Método para mostrar cantidad de servicios
+    def servicios_count(self, obj):
+        """Mostrar cantidad de servicios"""
+        count = obj.servicios_profesionales.count()
+        if count == 0:
+            return '-'
+        elif count == 1:
+            sp = obj.servicios_profesionales.first()
+            return f"{sp.servicio.nombre} ({sp.profesional.nombre})"
+        else:
+            primer_sp = obj.servicios_profesionales.first()
+            return f"{primer_sp.servicio.nombre} (+{count-1} más)"
+    
+    servicios_count.short_description = 'Servicios'
+    
     def save_model(self, request, obj, form, change):
         if not change:
             obj.creada_por = request.user
         obj.modificada_por = request.user
         super().save_model(request, obj, form, change)
-        
+
+
 @admin.register(Proyecto)
 class ProyectoAdmin(admin.ModelAdmin):
     list_display = [

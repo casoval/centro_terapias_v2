@@ -55,11 +55,12 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-10">
-    
-    <div class="lg:col-span-8">
-        <form method="post" enctype="multipart/form-data" class="space-y-6">
-            {% csrf_token %}
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-10">
+        
+        <div class="lg:col-span-8 space-y-6">
             
             {% if form.non_field_errors %}
             <div class="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm">
@@ -210,86 +211,84 @@
                     Cancelar
                 </a>
             </div>
-        </form>
-    </div>
-
-    <div class="lg:col-span-4 space-y-6">
-        
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-600 shadow-sm">⚙️</div>
-                <div>
-                    <h2 class="text-base font-bold text-gray-800">Sistema</h2>
-                    <p class="text-[10px] text-gray-500 font-medium">Configuración de cuenta</p>
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                    <label class="flex items-center gap-3 cursor-pointer">
-                        {{ form.activo }}
-                        <div>
-                            <span class="block text-xs font-bold text-emerald-800">Profesional Activo</span>
-                            <span class="block text-[10px] text-emerald-600">Visible en el sistema</span>
-                        </div>
-                    </label>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.user.label }}</label>
-                    <div class="flex gap-2 mb-2">
-                        <div class="flex-1">
-                            {{ form.user }}
-                        </div>
-                        <a href="{% url 'core:agregar_usuario' %}?from=profesional" 
-                           class="px-3 py-2 bg-violet-600 text-white rounded-xl font-bold text-xs hover:bg-violet-700 transition-colors flex items-center justify-center shadow-md">
-                            ➕
-                        </a>
-                    </div>
-                    {% if form.user.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>{% endif %}
-                    <p class="text-[10px] text-gray-400">👤 Vincula un usuario para que pueda acceder.</p>
-                </div>
-            </div>
         </div>
 
-        <div class="sticky top-6">
-            <div class="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-lg border border-gray-200 p-6">
-                <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 text-center">Vista Previa</h3>
-                
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative group">
-                    <div class="h-20 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                    <div class="px-4 pb-4 -mt-10 flex flex-col items-center">
-                        <div id="preview-foto-container" class="relative">
-                            <img id="preview-foto" src="" class="hidden w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
-                            <div id="preview-foto-placeholder" class="w-20 h-20 rounded-full bg-emerald-100 border-4 border-white shadow-md flex items-center justify-center text-3xl">
-                                👨‍⚕️
-                            </div>
-                            <span id="preview-estado-badge" class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></span>
-                        </div>
-                        
-                        <div class="text-center mt-3 w-full">
-                            <h4 id="preview-nombre" class="font-bold text-gray-800 text-sm truncate">Nombre Profesional</h4>
-                            <p id="preview-especialidad" class="text-xs text-emerald-600 font-bold">Especialidad</p>
-                        </div>
+        <div class="lg:col-span-4 space-y-6">
+            
+            <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-600 shadow-sm">⚙️</div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-800">Sistema</h2>
+                        <p class="text-[10px] text-gray-500 font-medium">Configuración de cuenta</p>
+                    </div>
+                </div>
 
-                        <div class="w-full mt-4 space-y-2">
-                            <div class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                                <span>📞</span> <span id="preview-telefono" class="font-medium truncate">Teléfono</span>
+                <div class="space-y-4">
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            {{ form.activo }}
+                            <div>
+                                <span class="block text-xs font-bold text-emerald-800">Profesional Activo</span>
+                                <span class="block text-[10px] text-emerald-600">Visible en el sistema</span>
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                                <span>📧</span> <span id="preview-email" class="font-medium truncate">Email</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.user.label }}</label>
+                        <div class="flex gap-2 mb-2">
+                            <div class="flex-1">
+                                {{ form.user }}
+                            </div>
+                            <a href="{% url 'core:agregar_usuario' %}?from=profesional" 
+                               class="px-3 py-2 bg-violet-600 text-white rounded-xl font-bold text-xs hover:bg-violet-700 transition-colors flex items-center justify-center shadow-md">
+                                ➕
+                            </a>
+                        </div>
+                        {% if form.user.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>{% endif %}
+                        <p class="text-[10px] text-gray-400">👤 Vincula un usuario para que pueda acceder.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sticky top-6">
+                <div class="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-lg border border-gray-200 p-6">
+                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-wider mb-4 text-center">Vista Previa</h3>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative group">
+                        <div class="h-20 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+                        <div class="px-4 pb-4 -mt-10 flex flex-col items-center">
+                            <div id="preview-foto-container" class="relative">
+                                <img id="preview-foto" src="" class="hidden w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
+                                <div id="preview-foto-placeholder" class="w-20 h-20 rounded-full bg-emerald-100 border-4 border-white shadow-md flex items-center justify-center text-3xl">
+                                    👨‍⚕️
+                                </div>
+                                <span id="preview-estado-badge" class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></span>
+                            </div>
+                            
+                            <div class="text-center mt-3 w-full">
+                                <h4 id="preview-nombre" class="font-bold text-gray-800 text-sm truncate">Nombre Profesional</h4>
+                                <p id="preview-especialidad" class="text-xs text-emerald-600 font-bold">Especialidad</p>
+                            </div>
+
+                            <div class="w-full mt-4 space-y-2">
+                                <div class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
+                                    <span>📞</span> <span id="preview-telefono" class="font-medium truncate">Teléfono</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
+                                    <span>📧</span> <span id="preview-email" class="font-medium truncate">Email</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <p class="text-[10px] text-gray-400 text-center mt-3">Así aparecerá en las tarjetas.</p>
                 </div>
-                <p class="text-[10px] text-gray-400 text-center mt-3">Así aparecerá en las tarjetas.</p>
             </div>
+
         </div>
-
     </div>
-</div>
-
-<script>
+</form> <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Elementos
         const nombreInput = document.getElementById('id_nombre');
