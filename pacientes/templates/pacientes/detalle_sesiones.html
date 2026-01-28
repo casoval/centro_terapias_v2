@@ -14,7 +14,7 @@
         display: table-row;
     }
     
-    /* Badges de estado */
+    /* Badges de estado - más compactos */
     .badge-realizada { background: #d1fae5; color: #065f46; }
     .badge-retraso { background: #fef3c7; color: #92400e; }
     .badge-programada { background: #dbeafe; color: #1e40af; }
@@ -51,26 +51,26 @@
 </style>
 
 <!-- ==================== HEADER ==================== -->
-<div class="mb-8">
-    <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full bg-white opacity-10 blur-3xl"></div>
+<div class="mb-6">
+    <div class="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 rounded-2xl p-4 shadow-lg relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-3xl"></div>
 
-        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
-                <div class="flex items-center gap-3 text-purple-100 text-xs font-bold uppercase tracking-wider mb-1">
+                <div class="flex items-center gap-2 text-purple-100 text-[11px] font-bold uppercase tracking-wider mb-1">
                     <span>📊 Análisis Completo de Sesiones</span>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black text-white">
+                <h1 class="text-xl sm:text-2xl font-black text-white">
                     {{ paciente.nombre_completo }}
                 </h1>
-                <p class="text-purple-100 text-sm mt-1">
+                <p class="text-purple-100 text-xs mt-0.5">
                     Total: {{ stats.total_sesiones }} sesiones registradas
                 </p>
             </div>
             
             <div class="flex flex-wrap gap-2">
                 <a href="{% url 'pacientes:detalle' paciente.id %}" 
-                   class="bg-white/10 hover:bg-white hover:text-purple-600 text-white px-5 py-2 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-2">
+                   class="bg-white/10 hover:bg-white hover:text-purple-600 text-white px-4 py-1.5 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-1.5">
                     <span>←</span> Volver al Perfil
                 </a>
             </div>
@@ -79,32 +79,32 @@
 </div>
 
 <!-- ==================== ESTADÍSTICAS GENERALES ==================== -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-2xl p-4 shadow-md border border-blue-100">
-        <p class="text-xs text-blue-600 font-bold uppercase">Normales</p>
-        <p class="text-3xl font-black text-blue-900">{{ stats.total_normales }}</p>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white rounded-xl p-3 shadow-md border border-blue-100">
+        <p class="text-[10px] text-blue-600 font-bold uppercase">Normales</p>
+        <p class="text-2xl font-black text-blue-900">{{ stats.total_normales }}</p>
     </div>
-    <div class="bg-white rounded-2xl p-4 shadow-md border border-purple-100">
-        <p class="text-xs text-purple-600 font-bold uppercase">Mensualidades</p>
-        <p class="text-3xl font-black text-purple-900">{{ stats.total_mensualidades }}</p>
+    <div class="bg-white rounded-xl p-3 shadow-md border border-purple-100">
+        <p class="text-[10px] text-purple-600 font-bold uppercase">Mensualidades</p>
+        <p class="text-2xl font-black text-purple-900">{{ stats.total_mensualidades }}</p>
     </div>
-    <div class="bg-white rounded-2xl p-4 shadow-md border border-pink-100">
-        <p class="text-xs text-pink-600 font-bold uppercase">Proyectos</p>
-        <p class="text-3xl font-black text-pink-900">{{ stats.total_proyectos }}</p>
+    <div class="bg-white rounded-xl p-3 shadow-md border border-pink-100">
+        <p class="text-[10px] text-pink-600 font-bold uppercase">Proyectos</p>
+        <p class="text-2xl font-black text-pink-900">{{ stats.total_proyectos }}</p>
     </div>
-    <div class="bg-white rounded-2xl p-4 shadow-md border border-green-100">
-        <p class="text-xs text-green-600 font-bold uppercase">Asistencia</p>
-        <p class="text-3xl font-black text-green-900">{{ stats.tasa_asistencia|floatformat:0 }}%</p>
+    <div class="bg-white rounded-xl p-3 shadow-md border border-green-100">
+        <p class="text-[10px] text-green-600 font-bold uppercase">Asistencia</p>
+        <p class="text-2xl font-black text-green-900">{{ stats.tasa_asistencia|floatformat:0 }}%</p>
     </div>
 </div>
 
 <!-- ==================== TABS ==================== -->
-<div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
     <!-- Tabs Header -->
     <div class="border-b border-gray-200">
-        <nav class="flex flex-wrap gap-2 p-4" role="tablist">
+        <nav class="flex flex-wrap gap-2 p-3" role="tablist">
             <a href="?tab=normales{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
-               class="px-6 py-3 rounded-xl font-bold text-sm transition-all
+               class="px-4 py-2 rounded-lg font-bold text-xs transition-all
                       {% if tab_activo == 'normales' %}
                           bg-blue-600 text-white shadow-md
                       {% else %}
@@ -114,7 +114,7 @@
             </a>
             
             <a href="?tab=mensualidades{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
-               class="px-6 py-3 rounded-xl font-bold text-sm transition-all
+               class="px-4 py-2 rounded-lg font-bold text-xs transition-all
                       {% if tab_activo == 'mensualidades' %}
                           bg-purple-600 text-white shadow-md
                       {% else %}
@@ -124,7 +124,7 @@
             </a>
             
             <a href="?tab=proyectos{% for key, value in filtros.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
-               class="px-6 py-3 rounded-xl font-bold text-sm transition-all
+               class="px-4 py-2 rounded-lg font-bold text-xs transition-all
                       {% if tab_activo == 'proyectos' %}
                           bg-pink-600 text-white shadow-md
                       {% else %}
@@ -137,18 +137,18 @@
     
     <!-- Filtros (solo para normales y mensualidades) -->
     {% if tab_activo == 'normales' or tab_activo == 'mensualidades' %}
-    <div class="bg-gray-50 p-4 border-b border-gray-200">
-        <form method="get" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div class="bg-gray-50 p-3 border-b border-gray-200">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-2">
             <input type="hidden" name="tab" value="{{ tab_activo }}">
             
-            <select name="estado" class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold">
-                <option value="">🔄 Todos los estados</option>
+            <select name="estado" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold">
+                <option value="">📄 Todos los estados</option>
                 {% for value, label in estados_sesion %}
                 <option value="{{ value }}" {% if filtros.estado == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
             
-            <select name="pago" class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold">
+            <select name="pago" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold">
                 <option value="">💰 Estado de pago</option>
                 <option value="pagado" {% if filtros.pago == 'pagado' %}selected{% endif %}>Pagado</option>
                 <option value="parcial" {% if filtros.pago == 'parcial' %}selected{% endif %}>Parcial</option>
@@ -156,7 +156,7 @@
                 <option value="no_aplica" {% if filtros.pago == 'no_aplica' %}selected{% endif %}>No aplica</option>
             </select>
             
-            <select name="profesional" class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold">
+            <select name="profesional" class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold">
                 <option value="">👨‍⚕️ Profesional</option>
                 {% for prof in profesionales %}
                 <option value="{{ prof.id }}" {% if filtros.profesional|stringformat:"s" == prof.id|stringformat:"s" %}selected{% endif %}>
@@ -166,20 +166,20 @@
             </select>
             
             <input type="date" name="desde" value="{{ filtros.desde }}" 
-                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold"
+                   class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold"
                    placeholder="Desde">
             
             <input type="date" name="hasta" value="{{ filtros.hasta }}" 
-                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold"
+                   class="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold"
                    placeholder="Hasta">
             
             <button type="submit" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all shadow-md">
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs transition-all shadow-md">
                 🔍 Filtrar
             </button>
             
             <a href="?tab={{ tab_activo }}" 
-               class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm transition-all text-center">
+               class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1.5 rounded-lg font-bold text-xs transition-all text-center">
                 🔄 Limpiar
             </a>
         </form>
@@ -187,7 +187,7 @@
     {% endif %}
     
     <!-- Contenido de los Tabs -->
-    <div class="p-6">
+    <div class="p-4">
         {% if tab_activo == 'normales' %}
             {% include 'pacientes/partials/sesiones_normales.html' %}
         {% elif tab_activo == 'mensualidades' %}

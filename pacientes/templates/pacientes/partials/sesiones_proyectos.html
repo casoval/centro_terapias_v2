@@ -2,18 +2,18 @@
 
 {% if proyectos_agrupados %}
     <!-- ✅ GRID DE 3 COLUMNAS EN PANTALLAS GRANDES -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {% for item in proyectos_agrupados %}
-        <div class="border-2 border-purple-200 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+        <div class="border-2 border-purple-200 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
             <!-- Header Proyecto -->
-            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-5">
-                <h3 class="text-xl font-black">📦 {{ item.proyecto.codigo }}</h3>
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3">
+                <h3 class="text-base font-black">📦 {{ item.proyecto.codigo }}</h3>
                 <p class="text-purple-100 mt-1 text-sm">{{ item.proyecto.nombre }}</p>
             </div>
             
             <!-- Info Proyecto -->
-            <div class="p-5 bg-white">
-                <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="p-3 bg-white">
+                <div class="grid grid-cols-2 gap-2 mb-3">
                     <div>
                         <p class="text-xs text-gray-600 font-bold">Tipo</p>
                         <p class="text-sm font-black">{{ item.proyecto.get_tipo_display }}</p>
@@ -43,49 +43,49 @@
                 </div>
                 
                 <!-- Financiero -->
-                <div class="grid grid-cols-3 gap-2 mb-4">
-                    <div class="bg-blue-50 rounded-lg p-2 text-center">
+                <div class="grid grid-cols-3 gap-1.5 mb-3">
+                    <div class="bg-blue-50 rounded-lg p-1.5 text-center">
                         <p class="text-xs text-blue-600 font-bold">Costo</p>
-                        <p class="text-lg font-black text-blue-900">Bs. {{ item.proyecto.costo_total }}</p>
+                        <p class="text-base font-black text-blue-900">Bs. {{ item.proyecto.costo_total }}</p>
                     </div>
                     <div class="bg-green-50 rounded-lg p-2 text-center">
                         <p class="text-xs text-green-600 font-bold">Pagado</p>
-                        <p class="text-lg font-black text-green-900">Bs. {{ item.proyecto.total_pagado }}</p>
+                        <p class="text-base font-black text-green-900">Bs. {{ item.proyecto.total_pagado }}</p>
                     </div>
                     <div class="{% if item.proyecto.saldo_pendiente > 0 %}bg-red-50{% else %}bg-gray-50{% endif %} rounded-lg p-2 text-center">
                         <p class="text-xs {% if item.proyecto.saldo_pendiente > 0 %}text-red-600{% else %}text-gray-600{% endif %} font-bold">Saldo</p>
-                        <p class="text-lg font-black {% if item.proyecto.saldo_pendiente > 0 %}text-red-900{% else %}text-gray-900{% endif %}">
+                        <p class="text-base font-black {% if item.proyecto.saldo_pendiente > 0 %}text-red-900{% else %}text-gray-900{% endif %}">
                             Bs. {{ item.proyecto.saldo_pendiente }}
                         </p>
                     </div>
                 </div>
                 
                 <!-- Sesiones MEJORADAS -->
-                <h4 class="text-sm font-black text-gray-800 mb-2 flex items-center justify-between">
+                <h4 class="text-xs font-black text-gray-800 mb-1.5 flex items-center justify-between">
                     <span>📅 Sesiones del Proyecto:</span>
                     <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
                         {{ item.sesiones_realizadas }}/{{ item.total_sesiones }}
                     </span>
                 </h4>
                 
-                <div class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                <div class="space-y-1.5 max-h-96 overflow-y-auto pr-2">
                     {% for sesion in item.sesiones %}
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-purple-300 hover:shadow-sm transition-all">
+                    <div class="bg-gray-50 rounded-lg p-2.5 border border-gray-200 hover:border-purple-300 hover:shadow-sm transition-all">
                         <!-- Header de sesión -->
-                        <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center justify-between mb-1.5">
                             <div class="flex items-center gap-2">
                                 {% if sesion.estado == 'realizada' %}
-                                    <span class="text-xl" title="Realizada">✅</span>
+                                    <span class="text-lg" title="Realizada">✅</span>
                                 {% elif sesion.estado == 'realizada_retraso' %}
-                                    <span class="text-xl" title="Con Retraso">⏰</span>
+                                    <span class="text-lg" title="Con Retraso">⏰</span>
                                 {% elif sesion.estado == 'programada' %}
-                                    <span class="text-xl" title="Programada">🟢</span>
+                                    <span class="text-lg" title="Programada">🟢</span>
                                 {% elif sesion.estado == 'falta' %}
-                                    <span class="text-xl" title="Falta">❌</span>
+                                    <span class="text-lg" title="Falta">❌</span>
                                 {% elif sesion.estado == 'permiso' %}
-                                    <span class="text-xl" title="Permiso">📋</span>
+                                    <span class="text-lg" title="Permiso">📋</span>
                                 {% elif sesion.estado == 'cancelada' %}
-                                    <span class="text-xl" title="Cancelada">🚫</span>
+                                    <span class="text-lg" title="Cancelada">🚫</span>
                                 {% endif %}
                                 
                                 <div>
@@ -111,7 +111,7 @@
                         </div>
                         
                         <!-- Info de servicio y profesional -->
-                        <div class="space-y-1 mb-2">
+                        <div class="space-y-1 mb-1.5">
                             <p class="text-xs text-gray-700">
                                 <span class="font-bold">Servicio:</span> {{ sesion.servicio.nombre }}
                             </p>
@@ -123,7 +123,7 @@
                         
                         <!-- ✅ OBSERVACIONES -->
                         {% if sesion.observaciones %}
-                        <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded-r mb-2">
+                        <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded-r mb-1.5">
                             <p class="text-xs font-bold text-yellow-800 mb-1">📝 Observaciones:</p>
                             <p class="text-xs text-gray-700 whitespace-pre-line">{{ sesion.observaciones }}</p>
                         </div>
@@ -147,7 +147,7 @@
     </div>
 {% else %}
     <div class="text-center py-12 text-gray-500">
-        <div class="text-6xl mb-4">📦</div>
+        <div class="text-5xl mb-3">📦</div>
         <p class="text-lg font-bold">No hay proyectos registrados</p>
     </div>
 {% endif %}
