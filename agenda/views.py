@@ -593,7 +593,7 @@ def calendario(request):
     from .services import CalendarService
     
     # Obtener parámetros de filtro
-    vista = request.GET.get('vista', 'semanal')
+    vista = request.GET.get('vista', 'diaria')
     fecha_str = request.GET.get('fecha', '')
     
     # Filtros
@@ -1781,12 +1781,36 @@ def vista_previa_mensualidad(request):
             
             dias_semana = [int(d) for d in dias_semana]
             
+            # ✨ NUEVO: Parámetro para incluir sesiones pasadas
+            incluir_pasadas = request.GET.get('incluir_pasadas', 'false').lower() == 'true'
+            
             # Generar fechas
             fecha_inicio = date(mensualidad.anio, mensualidad.mes, 1)
             ultimo_dia_num = monthrange(mensualidad.anio, mensualidad.mes)[1]
             fecha_fin = date(mensualidad.anio, mensualidad.mes, ultimo_dia_num)
             
-            fecha_actual = fecha_inicio
+            # ✨ NUEVO: Si no se incluyen sesiones pasadas, ajustar fecha_inicio
+            hoy = date.today()
+            fecha_inicio_efectiva = fecha_inicio
+            
+            if not incluir_pasadas and fecha_inicio < hoy:
+                # Calcular fecha mínima (mañana)
+                fecha_minima = hoy + timedelta(days=1)
+                
+                # Si toda la mensualidad es pasada, no mostrar sesiones
+                if fecha_fin < fecha_minima:
+                    return HttpResponse('''
+                        <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 text-center">
+                            <div class="text-3xl mb-2">⚠️</div>
+                            <p class="text-sm text-yellow-800 font-bold mb-1">Todas las fechas son pasadas</p>
+                            <p class="text-xs text-yellow-700">Marca "📅 Programar sesiones pasadas" para incluirlas</p>
+                        </div>
+                    ''')
+                
+                # Ajustar fecha_inicio para mostrar solo desde mañana
+                fecha_inicio_efectiva = max(fecha_inicio, fecha_minima)
+            
+            fecha_actual = fecha_inicio_efectiva
             while fecha_actual <= fecha_fin:
                 dia_semana = fecha_actual.weekday()
                 dia_js = (dia_semana + 1) % 7  # Convertir Python → JS
@@ -2930,14 +2954,51 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
                 continue
         
         # ========================================
-        # MENSAJES DE RESULTADO
+        # PREPARAR DATOS PARA CONFIRMACIÓN
         # ========================================
         if sesiones_creadas > 0:
-            messages.success(
-                request, 
-                f'✅ {sesiones_creadas} sesión(es) creada(s) exitosamente para {mensualidad.periodo_display}'
-            )
+            # Obtener nombres de días seleccionados
+            dias_nombres = {
+                0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles',
+                4: 'Jueves', 5: 'Viernes', 6: 'Sábado'
+            }
+            
+            # Construir lista de días basada en el modo de selección
+            if modo_seleccion == 'recurrente':
+                dias_semana_valores = request.POST.getlist('dias_semana_recurrente')
+                dias_seleccionados_nombres = [dias_nombres[int(d)] for d in dias_semana_valores]
+            else:
+                # Para días específicos, mostrar las fechas
+                dias_seleccionados_nombres = [f.strftime('%d/%m') for f in fechas_generadas[:5]]
+                if len(fechas_generadas) > 5:
+                    dias_seleccionados_nombres.append(f'+{len(fechas_generadas)-5} más')
+            
+            # Construir período
+            fecha_min = min(fechas_generadas)
+            fecha_max = max(fechas_generadas)
+            periodo = f"{fecha_min.strftime('%d/%m/%Y')} al {fecha_max.strftime('%d/%m/%Y')}"
+            
+            # Construir horario
+            horario = f"{hora_inicio.strftime('%H:%M')} - {hora_fin.strftime('%H:%M')} ({duracion_minutos} min)"
+            
+            # 🆕 Almacenar en session
+            request.session['sesiones_creadas'] = {
+                'mensaje': f'Se crearon exitosamente {sesiones_creadas} sesión(es) para {mensualidad.periodo_display}',
+                'total_creadas': sesiones_creadas,
+                'paciente': mensualidad.paciente.nombre_completo,
+                'profesional': f"{servicio_profesional.profesional.nombre} {servicio_profesional.profesional.apellido}",
+                'servicio': servicio_profesional.servicio.nombre,
+                'periodo': periodo,
+                'horario': horario,
+                'dias': ', '.join(dias_seleccionados_nombres),
+                'proyecto': None,  # Las mensualidades no usan proyectos
+                'mensualidad': f"{mensualidad.codigo} - {mensualidad.periodo_display}",
+                'errores': sesiones_con_conflicto,
+            }
+            
+            return redirect('agenda:confirmacion_sesiones')
         
+        # Si no se creó ninguna sesión, mostrar mensaje de error
         if sesiones_con_conflicto > 0:
             conflictos_str = ', '.join(fechas_con_conflicto[:5])
             if len(fechas_con_conflicto) > 5:
@@ -2947,8 +3008,7 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
                 request,
                 f'⚠️ {sesiones_con_conflicto} sesión(es) omitida(s) por conflictos de horario en: {conflictos_str}'
             )
-        
-        if sesiones_creadas == 0 and sesiones_con_conflicto == 0:
+        else:
             messages.error(request, '❌ No se pudo crear ninguna sesión')
         
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
