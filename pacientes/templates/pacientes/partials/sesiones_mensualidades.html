@@ -49,101 +49,77 @@
                         </div>
                     </div>
                     
-                    <!-- Lista de Sesiones MEJORADA -->
+                    <!-- Lista de Sesiones COMPACTA -->
                     <h4 class="text-xs font-black text-gray-800 mb-2 flex items-center gap-2">
                         📋 Sesiones del Mes:
                     </h4>
-                    <div class="space-y-2">
+                    <div class="space-y-1.5">
                         {% for sesion in item.sesiones %}
-                        <div class="bg-gray-50 rounded-lg p-3 border-2 border-gray-200 hover:border-blue-300 hover:shadow-md transition-all">
-                            <!-- Header de la sesión -->
-                            <div class="flex items-center justify-between mb-2">
-                                <div class="flex items-center gap-3">
-                                    <!-- Icono de estado -->
+                        <div class="bg-gray-50 rounded-lg p-2.5 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
+                            <!-- Fila principal compacta -->
+                            <div class="flex items-center justify-between gap-2">
+                                <!-- Icono + Info básica -->
+                                <div class="flex items-center gap-2 flex-1 min-w-0">
                                     {% if sesion.estado == 'realizada' %}
-                                        <span class="text-2xl" title="Realizada">✅</span>
+                                        <span class="text-lg flex-shrink-0" title="Realizada">✅</span>
                                     {% elif sesion.estado == 'realizada_retraso' %}
-                                        <span class="text-2xl" title="Con Retraso">⏰</span>
+                                        <span class="text-lg flex-shrink-0" title="Con Retraso">⏰</span>
                                     {% elif sesion.estado == 'programada' %}
-                                        <span class="text-2xl" title="Programada">🟢</span>
+                                        <span class="text-lg flex-shrink-0" title="Programada">🟢</span>
                                     {% elif sesion.estado == 'falta' %}
-                                        <span class="text-2xl" title="Falta">❌</span>
+                                        <span class="text-lg flex-shrink-0" title="Falta">❌</span>
                                     {% elif sesion.estado == 'permiso' %}
-                                        <span class="text-2xl" title="Permiso">📋</span>
+                                        <span class="text-lg flex-shrink-0" title="Permiso">📋</span>
                                     {% elif sesion.estado == 'cancelada' %}
-                                        <span class="text-2xl" title="Cancelada">🚫</span>
+                                        <span class="text-lg flex-shrink-0" title="Cancelada">🚫</span>
                                     {% endif %}
                                     
-                                    <div>
-                                        <p class="text-sm font-black text-gray-900">
-                                            {{ sesion.fecha|date:"d/m/Y" }} - {{ sesion.hora_inicio|time:"H:i" }}
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs font-bold text-gray-900 truncate">
+                                            {{ sesion.fecha|date:"d/m/Y" }} {{ sesion.hora_inicio|time:"H:i" }} • {{ sesion.servicio.nombre }}
                                         </p>
-                                        <p class="text-xs text-gray-600">
-                                            {{ sesion.servicio.nombre }}
+                                        <p class="text-xs text-gray-600 truncate">
+                                            👨‍⚕️ {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }} • 🏢 {{ sesion.sucursal.nombre }}
                                         </p>
                                     </div>
                                 </div>
                                 
-                                <!-- Badge de estado -->
-                                <div class="text-right">
+                                <!-- Badge estado compacto -->
+                                <div class="flex-shrink-0">
                                     {% if sesion.estado == 'realizada' %}
-                                        <span class="badge-realizada px-3 py-1 rounded-full text-xs font-bold">✅ Realizada</span>
+                                        <span class="badge-realizada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Realizada</span>
                                     {% elif sesion.estado == 'realizada_retraso' %}
-                                        <span class="badge-retraso px-3 py-1 rounded-full text-xs font-bold">⏰ Con Retraso</span>
+                                        <span class="badge-retraso px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Retraso</span>
                                     {% elif sesion.estado == 'programada' %}
-                                        <span class="badge-programada px-3 py-1 rounded-full text-xs font-bold">🟢 Programada</span>
+                                        <span class="badge-programada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Programada</span>
                                     {% elif sesion.estado == 'falta' %}
-                                        <span class="badge-falta px-3 py-1 rounded-full text-xs font-bold">❌ Falta</span>
+                                        <span class="badge-falta px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Falta</span>
                                     {% elif sesion.estado == 'permiso' %}
-                                        <span class="badge-permiso px-3 py-1 rounded-full text-xs font-bold">📋 Permiso</span>
+                                        <span class="badge-permiso px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Permiso</span>
                                     {% elif sesion.estado == 'cancelada' %}
-                                        <span class="badge-cancelada px-3 py-1 rounded-full text-xs font-bold">🚫 Cancelada</span>
+                                        <span class="badge-cancelada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Cancelada</span>
                                     {% endif %}
                                 </div>
                             </div>
                             
-                            <!-- Info adicional -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
-                                <div class="flex items-center gap-2 text-sm">
-                                    <span class="text-lg">👨‍⚕️</span>
-                                    <span class="text-gray-700">
-                                        <span class="font-bold">Profesional:</span> {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
-                                    </span>
+                            <!-- Observaciones y notas (si existen) -->
+                            {% if sesion.observaciones or sesion.notas_sesion %}
+                            <div class="mt-2 space-y-1.5">
+                                {% if sesion.observaciones %}
+                                <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded-r text-xs">
+                                    <span class="font-bold text-yellow-800">📝</span>
+                                    <span class="text-gray-700">{{ sesion.observaciones }}</span>
                                 </div>
-                                <div class="flex items-center gap-2 text-sm">
-                                    <span class="text-lg">🏢</span>
-                                    <span class="text-gray-700">
-                                        <span class="font-bold">Sucursal:</span> {{ sesion.sucursal.nombre }}
-                                    </span>
+                                {% endif %}
+                                
+                                {% if sesion.notas_sesion %}
+                                <div class="bg-blue-50 border-l-2 border-blue-400 p-2 rounded-r text-xs">
+                                    <span class="font-bold text-blue-800">🩺</span>
+                                    <span class="text-gray-700">{{ sesion.notas_sesion }}</span>
                                 </div>
-                            </div>
-                            
-                            <!-- ✅ OBSERVACIONES -->
-                            {% if sesion.observaciones %}
-                            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-lg mb-2">
-                                <p class="text-xs font-bold text-yellow-800 mb-1 flex items-center gap-1">
-                                    📝 Observaciones:
-                                </p>
-                                <p class="text-xs text-gray-700 whitespace-pre-line">{{ sesion.observaciones }}</p>
+                                {% endif %}
                             </div>
                             {% endif %}
-                            
-                            <!-- ✅ NOTAS DE SESIÓN / EVOLUCIÓN -->
-                            {% if sesion.notas_sesion %}
-                            <div class="bg-blue-50 border-l-4 border-blue-400 p-3 rounded-r-lg">
-                                <p class="text-xs font-bold text-blue-800 mb-1 flex items-center gap-1">
-                                    🩺 Evolución / Notas del Profesional:
-                                </p>
-                                <p class="text-xs text-gray-700 whitespace-pre-line">{{ sesion.notas_sesion }}</p>
-                            </div>
-                            {% endif %}
-                            
-                            <!-- Badge de pago -->
-                            <div class="mt-2 pt-3 border-t border-gray-200">
-                                <span class="text-xs px-3 py-1 bg-gray-200 text-gray-700 rounded-full font-bold">
-                                    🎁 No cobra (incluido en mensualidad)
-                                </span>
-                            </div>
                         </div>
                         {% empty %}
                         <p class="text-center text-gray-500 text-sm py-4">No hay sesiones registradas</p>
