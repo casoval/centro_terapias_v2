@@ -75,24 +75,40 @@
                    name="hora_inicio" 
                    id="hora-inicio-modal"
                    required
+                   onchange="validarAutomaticamente()"
                    class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none font-mono">
         </div>
         
-        <div>
-            <label class="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
-                <span>⏱️</span> Duración
-            </label>
-            <select name="duracion_minutos" 
-                    id="duracion-minutos-modal"
-                    required
-                    class="w-full px-3 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none">
-                <option value="">-- Seleccionar --</option>
-                <option value="30">30 minutos</option>
-                <option value="45" selected>45 minutos</option>
-                <option value="60">60 minutos (1 hora)</option>
-                <option value="90">90 minutos (1.5 horas)</option>
-                <option value="120">120 minutos (2 horas)</option>
-            </select>
+        <div class="bg-blue-50/50 rounded-lg p-3 border border-blue-200">
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-blue-800 font-bold text-xs flex items-center gap-1">
+                    <span>⏱️</span> Duración
+                </label>
+                <span id="duracion-servicio-info-modal" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
+                    {{ servicio_profesional.servicio.duracion_minutos }} min
+                </span>
+            </div>
+            <div class="flex items-center gap-2 mb-2">
+                <input type="checkbox" 
+                       id="usar-duracion-estandar-modal" 
+                       checked 
+                       onchange="toggleDuracionPersonalizadaModal()" 
+                       class="rounded text-blue-600 focus:ring-blue-400 border-gray-300">
+                <span class="text-slate-600 text-xs">Usar duración estándar del servicio</span>
+            </div>
+            <div id="duracion-personalizada-container-modal" class="hidden">
+                <input type="number" 
+                       name="duracion_personalizada" 
+                       id="duracion-personalizada-modal" 
+                       min="15" 
+                       max="240" 
+                       step="5"
+                       class="w-full px-3 py-2 bg-white border-2 border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 outline-none"
+                       onchange="validarAutomaticamente()" 
+                       placeholder="Ingresa minutos personalizados (ej: 75)">
+            </div>
+            <!-- Input oculto que contendrá el valor final -->
+            <input type="hidden" name="duracion_minutos" id="duracion-minutos-modal" value="{{ servicio_profesional.servicio.duracion_minutos }}">
         </div>
     </div>
 
@@ -135,6 +151,70 @@
     </div>
 
     <!-- ========================================
+         PANEL DÍAS ESPECÍFICOS (CARACTERÍSTICAS EN CASILLAS)
+         ======================================== -->
+    <div id="panel-especificos" class="mb-6 hidden">
+        <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+            <h3 class="text-xs font-black text-blue-900 mb-3 flex items-center gap-2">
+                <span>📅</span> Selecciona días y verifica disponibilidad
+            </h3>
+            
+            <p class="text-xs text-blue-700 italic mb-3 text-center">
+                💡 Selecciona los días - sus características aparecerán en cada casilla
+            </p>
+            
+            <!-- Calendario con espacio para características -->
+            <div class="grid grid-cols-7 gap-2">
+                {% for _, dia_nombre in dias_semana %}
+                <div class="text-center text-xs font-bold text-slate-500 py-1">
+                    {{ dia_nombre }}
+                </div>
+                {% endfor %}
+                
+                {% for dia in dias_mes %}
+                <div class="{% if dia.es_otro_mes %}opacity-30{% endif %}">
+                    <label class="block relative cursor-pointer group {% if dia.es_otro_mes %}cursor-not-allowed{% endif %}">
+                        <input type="checkbox" 
+                            name="dias_especificos" 
+                            value="{{ dia.fecha }}"
+                            {% if dia.es_otro_mes %}disabled{% endif %}
+                            onchange="toggleDiaEspecifico('{{ dia.fecha }}')"
+                            id="dia-{{ dia.fecha }}"
+                            class="sr-only peer">
+                        
+                        <div class="bg-white border-2 border-blue-200 rounded-lg transition-all
+                                    peer-checked:bg-blue-600 peer-checked:border-blue-700
+                                    hover:border-blue-400 peer-checked:shadow-md
+                                    min-h-[3.5rem] flex flex-col items-center justify-center p-1 relative"
+                                    id="casilla-{{ dia.fecha }}">
+                            
+                            <span class="text-sm font-bold text-slate-700 peer-checked:text-white">
+                                {{ dia.numero }}
+                            </span>
+                            
+                            <div id="indicadores-{{ dia.fecha }}" class="hidden mt-0.5 text-[10px] leading-none"></div>
+                            
+                            <div id="info-{{ dia.fecha }}" class="hidden peer-checked:block w-full mt-1 pt-1 border-t border-white/30 text-center">
+                                <div class="text-[9px] text-white">
+                                    <span class="loading-info">...</span>
+                                </div>
+                            </div>
+
+                            <div id="tooltip-{{ dia.fecha }}" 
+                                class="hidden group-hover:block absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 
+                                        bg-white border-2 border-slate-200 rounded-lg shadow-xl text-left pointer-events-none p-0 overflow-hidden">
+                                </div>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            
+            <!-- ✅ NUEVO: Contenedor para resumen de validación DENTRO del mismo recuadro -->
+            <div id="validacion-especificos-container" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+    <!-- ========================================
          PANEL PATRÓN RECURRENTE
          ======================================== -->
     <div id="panel-recurrente" class="mb-6">
@@ -148,6 +228,7 @@
                     <input type="checkbox" 
                            name="dias_semana_recurrente" 
                            value="{{ dia_valor }}"
+                           onchange="validarAutomaticamente()"
                            class="sr-only peer">
                     <span class="text-xs font-black text-purple-700 group-has-[:checked]:text-white">
                         {{ dia_nombre }}
@@ -158,46 +239,12 @@
             <p class="text-xs text-purple-700 mt-3 italic">
                 💡 Las sesiones se crearán en TODOS estos días dentro del período {{ mensualidad.periodo_display }}
             </p>
+            
+            <!-- ✅ NUEVO: Contenedor para validación DENTRO del mismo recuadro -->
+            <div id="validacion-recurrente-container" class="mt-4"></div>
         </div>
     </div>
 
-    <!-- ========================================
-         PANEL DÍAS ESPECÍFICOS
-         ======================================== -->
-    <div id="panel-especificos" class="mb-6 hidden">
-        <div class="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-            <h3 class="text-xs font-black text-blue-900 mb-3 flex items-center gap-2">
-                <span>📅</span> Selecciona días específicos del mes
-            </h3>
-            
-            <!-- Calendario de días del mes -->
-            <div class="grid grid-cols-7 gap-2 mb-3">
-                <!-- Headers de días -->
-                {% for _, dia_nombre in dias_semana %}
-                <div class="text-center text-xs font-bold text-slate-500 py-1">
-                    {{ dia_nombre }}
-                </div>
-                {% endfor %}
-                
-                <!-- Días del mes -->
-                {% for dia in dias_mes %}
-                <label class="flex items-center justify-center aspect-square bg-white border-2 border-blue-200 rounded-lg cursor-pointer hover:border-blue-400 transition-all has-[:checked]:bg-blue-600 has-[:checked]:border-blue-700 has-[:checked]:text-white text-sm font-bold text-slate-700 group
-                    {% if dia.es_otro_mes %}opacity-30 cursor-not-allowed{% endif %}">
-                    <input type="checkbox" 
-                           name="dias_especificos" 
-                           value="{{ dia.fecha }}"
-                           {% if dia.es_otro_mes %}disabled{% endif %}
-                           class="sr-only peer">
-                    <span class="group-has-[:checked]:text-white">{{ dia.numero }}</span>
-                </label>
-                {% endfor %}
-            </div>
-            
-            <p class="text-xs text-blue-700 italic">
-                💡 Selecciona los días exactos en los que quieres crear sesiones
-            </p>
-        </div>
-    </div>
 
     <!-- ========================================
          OBSERVACIONES
@@ -213,38 +260,9 @@
     </div>
 
     <!-- ========================================
-         VISTA PREVIA
-         ======================================== -->
-    <div id="vista-previa-container" class="mb-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border-2 border-slate-200 hidden">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-black text-slate-800 flex items-center gap-2">
-                <span>👁️</span> Vista Previa de Sesiones
-            </h3>
-            <button type="button" 
-                    onclick="ocultarVistaPrevia()"
-                    class="text-slate-400 hover:text-slate-600 text-xs font-bold">
-                ✕ Cerrar
-            </button>
-        </div>
-        
-        <div id="vista-previa-contenido" class="space-y-2 max-h-80 overflow-y-auto mb-4 pr-2">
-            <!-- Se llenará dinámicamente -->
-        </div>
-        
-        <div class="bg-white rounded-lg p-3 border-2 border-purple-300">
-            <p id="total-sesiones-preview" class="text-sm font-black text-purple-700 text-center"></p>
-        </div>
-    </div>
-
-    <!-- ========================================
          BOTONES DE ACCIÓN
          ======================================== -->
     <div class="flex flex-wrap gap-3 pt-6 border-t-2 border-slate-200">
-        <button type="button" 
-                onclick="generarVistaPrevia()"
-                class="flex-1 min-w-[140px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-            <span>👁️</span> Vista Previa
-        </button>
         
         <button type="button" 
                 onclick="cerrarModalAgendarRapido()"
@@ -267,17 +285,18 @@ console.log('🚀 Inicializando modal de agendamiento...');
 
 // ========================================
 // VARIABLES GLOBALES
+// ✅ CAMBIO: Usamos var o window para evitar errores al reabrir el modal
 // ========================================
-const FECHA_INICIO_PERIODO = '{{ fecha_inicio }}';
-const FECHA_FIN_PERIODO = '{{ fecha_fin }}';
-const NOMBRE_MES = '{{ mensualidad.periodo_display }}';
+var FECHA_INICIO_PERIODO = '{{ fecha_inicio }}';
+var FECHA_FIN_PERIODO = '{{ fecha_fin }}';
+var NOMBRE_MES = '{{ mensualidad.periodo_display }}';
 
 console.log('Fechas del período:', FECHA_INICIO_PERIODO, 'a', FECHA_FIN_PERIODO);
 
 // ========================================
 // CAMBIAR MODO DE SELECCIÓN
 // ========================================
-function cambiarModoSeleccion(modo) {
+window.cambiarModoSeleccion = function(modo) {
     console.log('🔄 Cambiando modo a:', modo);
     const panelRecurrente = document.getElementById('panel-recurrente');
     const panelEspecificos = document.getElementById('panel-especificos');
@@ -303,28 +322,28 @@ function cambiarModoSeleccion(modo) {
         });
     }
     
-    // Ocultar vista previa al cambiar modo
-    ocultarVistaPrevia();
+    // Revalidar automáticamente al cambiar modo
+    validarAutomaticamente();
 }
 
 // ========================================
 // GENERAR FECHAS RECURRENTES
 // ========================================
-function generarFechasRecurrentes(fechaInicio, fechaFin, diasSemana) {
+window.generarFechasRecurrentes = function(fechaInicio, fechaFin, diasSemana) {
     console.log('🔄 Generando fechas recurrentes...');
-    console.log('Inicio:', fechaInicio, 'Fin:', fechaFin);
-    console.log('Días de semana:', diasSemana);
     
     const fechas = [];
+    // ✅ FIX: Usar '/' reemplaza '-' para evitar problemas de zona horaria en algunos navegadores
+    // O simplemente añadir T00:00:00 como estabas haciendo
     const inicio = new Date(fechaInicio + 'T00:00:00');
     const fin = new Date(fechaFin + 'T00:00:00');
     
     let fechaActual = new Date(inicio);
     let iteraciones = 0;
-    const maxIteraciones = 50;
+    const maxIteraciones = 100; // Aumentado un poco por si acaso
     
     while (fechaActual <= fin && iteraciones < maxIteraciones) {
-        const diaSemana = fechaActual.getDay();
+        const diaSemana = fechaActual.getDay(); // 0=Domingo, 1=Lunes...
         
         if (diasSemana.includes(diaSemana)) {
             const year = fechaActual.getFullYear();
@@ -345,157 +364,484 @@ function generarFechasRecurrentes(fechaInicio, fechaFin, diasSemana) {
 // ========================================
 // RENDERIZAR VISTA PREVIA
 // ========================================
-function renderizarVistaPrevia(fechas, horaInicio, horaFin, duracion) {
-    console.log('📋 Renderizando vista previa...');
+
+// ========================================
+// CERRAR MODAL
+// ========================================
+// Asegurar que la función global existe (aunque esté en detalle_mensualidad)
+if (!window.cerrarModalAgendarRapido) {
+    window.cerrarModalAgendarRapido = function() {
+        document.getElementById('modalAgendarRapido').classList.add('hidden');
+    }
+}
+
+// ========================================
+// VARIABLE GLOBAL PARA DEBOUNCE
+// ========================================
+let timeoutValidacion = null;
+
+// ========================================
+// TOGGLE DÍA ESPECÍFICO (NUEVA FUNCIÓN)
+// ========================================
+window.toggleDiaEspecifico = function(fecha) {
+    const checkbox = document.getElementById('dia-' + fecha);
+    const infoContainer = document.getElementById('info-' + fecha);
     
-    const container = document.getElementById('vista-previa-container');
-    const contenido = document.getElementById('vista-previa-contenido');
-    const total = document.getElementById('total-sesiones-preview');
+    if (!checkbox || !infoContainer) return;
     
-    if (!container || !contenido || !total) {
-        console.error('❌ No se encontraron elementos del DOM');
+    // Si el checkbox está marcado, cargar información
+    if (checkbox.checked) {
+        cargarInfoDia(fecha, infoContainer);
+    } else {
+        // Si se desmarca, limpiar
+        infoContainer.innerHTML = '<div class="loading-info">⏳</div>';
+    }
+}
+
+// ========================================
+// CARGAR INFORMACIÓN DE UN DÍA ESPECÍFICO
+// ========================================
+// ========================================
+// CARGAR INFORMACIÓN DE UN DÍA ESPECÍFICO (CORREGIDO)
+// ========================================
+function cargarInfoDia(fecha, container) {
+    const horaInicio = document.getElementById('hora-inicio-modal');
+    const duracion = document.getElementById('duracion-minutos-modal');
+    
+    // Elementos del DOM
+    const indicadoresDiv = document.getElementById('indicadores-' + fecha);
+    const tooltipDiv = document.getElementById('tooltip-' + fecha);
+    const casillaDiv = document.getElementById('casilla-' + fecha);
+    const checkbox = document.getElementById('dia-' + fecha);
+    
+    if (!horaInicio || !duracion || !horaInicio.value || !duracion.value) {
+        if (container) container.innerHTML = '<span class="text-[8px] text-white/50">Falta hora</span>';
+        return;
+    }
+
+    const horaInicioValue = horaInicio.value;
+    const duracionValue = duracion.value;
+
+    // Mostrar loading
+    if (container) container.innerHTML = '<span class="animate-pulse">⏳</span>';
+
+    // Construir parámetros
+    const params = new URLSearchParams();
+    params.append('servicio_profesional_id', SERVICIO_PROFESIONAL_ID);
+    params.append('hora', horaInicioValue);
+    params.append('duracion', duracionValue);
+    params.append('modo_seleccion', 'especificos');
+    params.append('dias_especificos', fecha);
+    params.append('solo_dia', 'true'); // Flag importante para tu backend
+
+    // Petición AJAX
+    const url = '{% url "agenda:vista_previa_mensualidad" %}?' + params.toString();
+
+    fetch(url, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 1. MANEJO DE CONFLICTOS
+        if (data.tiene_conflicto) {
+            
+            // A) Actualizar Casilla (Color Rojo)
+            if (checkbox && checkbox.checked && casillaDiv) {
+                casillaDiv.classList.remove('peer-checked:bg-blue-600', 'peer-checked:border-blue-700');
+                casillaDiv.classList.add('!bg-red-100', '!border-red-300');
+            }
+            
+            // B) Texto interno (Info)
+            if (container) {
+                container.innerHTML = '<span class="font-bold text-red-200">🚫 Ocupado</span>';
+            }
+
+            // C) Indicadores (Iconos bajo el número)
+            if (indicadoresDiv) {
+                let iconos = '<span class="text-red-500 font-bold text-xs">●</span>'; 
+                if (data.tiene_conflicto_paciente) iconos += '👤';
+                if (data.tiene_conflicto_profesional) iconos += '👨‍⚕️';
+                indicadoresDiv.innerHTML = iconos;
+                indicadoresDiv.classList.remove('hidden');
+            }
+
+            // D) CONSTRUIR EL TOOLTIP (HTML RICO)
+            if (tooltipDiv) {
+                let html = `
+                    <div class="bg-red-50 border-b border-red-100 p-2">
+                        <p class="text-xs font-black text-red-800 flex items-center gap-1">
+                            🚫 CONFLICTO DETECTADO
+                        </p>
+                    </div>
+                    <div class="p-2 space-y-2">
+                `;
+
+                // Conflictos Paciente
+                if (data.conflictos_paciente && data.conflictos_paciente.length > 0) {
+                    html += `
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">👤 Paciente Ocupado:</p>
+                            ${data.conflictos_paciente.map(c => `
+                                <div class="bg-white border border-red-200 rounded p-1.5 shadow-sm text-[10px] mb-1">
+                                    <p class="font-bold text-red-700 truncate">${c.servicio}</p>
+                                    <p class="text-slate-500">${c.hora_inicio} - ${c.hora_fin}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                // Conflictos Profesional
+                if (data.conflictos_profesional && data.conflictos_profesional.length > 0) {
+                    html += `
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">👨‍⚕️ Prof. Ocupado:</p>
+                            ${data.conflictos_profesional.map(c => `
+                                <div class="bg-white border border-orange-200 rounded p-1.5 shadow-sm text-[10px] mb-1">
+                                    <p class="font-bold text-orange-700 truncate">${c.paciente}</p>
+                                    <p class="text-slate-500">${c.hora_inicio} - ${c.hora_fin}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+                
+                html += '</div>'; // Cerrar p-2
+                // Triangulito del tooltip
+                html += '<div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-slate-200"></div>';
+                
+                tooltipDiv.innerHTML = html;
+            }
+
+        } else {
+            // 2. DISPONIBLE (SIN CONFLICTOS)
+            
+            // Restaurar colores azules
+            if (casillaDiv) {
+                casillaDiv.classList.remove('!bg-red-100', '!border-red-300');
+                casillaDiv.classList.add('peer-checked:bg-blue-600', 'peer-checked:border-blue-700');
+            }
+
+            if (container) {
+                container.innerHTML = '<span class="font-bold text-green-600">✅ Libre</span>';
+            }
+
+            if (indicadoresDiv) {
+                indicadoresDiv.innerHTML = '<span class="text-green-500 text-xs">✔</span>';
+                indicadoresDiv.classList.remove('hidden');
+            }
+
+            // Tooltip simple de disponible
+            if (tooltipDiv) {
+                tooltipDiv.innerHTML = `
+                    <div class="bg-green-50 p-2 text-center border-green-100">
+                        <p class="text-xs font-bold text-green-700">✅ Horario Disponible</p>
+                        <p class="text-[10px] text-green-600">${horaInicioValue} - ${calculaHoraFin(horaInicioValue, duracionValue)}</p>
+                    </div>
+                     <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-green-200"></div>
+                `;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error al validar día:', error);
+        if (container) container.innerHTML = '❌';
+    });
+}
+
+// Función auxiliar simple para calcular hora fin visualmente
+function calculaHoraFin(inicio, duracionMin) {
+    if(!inicio) return '';
+    let [h, m] = inicio.split(':').map(Number);
+    let date = new Date();
+    date.setHours(h, m + parseInt(duracionMin));
+    return date.toTimeString().slice(0,5);
+}
+// ========================================
+// VALIDACIÓN AUTOMÁTICA (con debounce)
+// ========================================
+window.validarAutomaticamente = function() {
+    // Cancelar timeout anterior si existe
+    if (timeoutValidacion) {
+        clearTimeout(timeoutValidacion);
+    }
+    
+    // Esperar 500ms antes de validar (evita validar en cada tecla/click)
+    timeoutValidacion = setTimeout(() => {
+        const modo = document.getElementById('modo_seleccion');
+        
+        if (modo && modo.value === 'especificos') {
+            // En modo específico, validar TODOS los días del mes para mostrar indicadores
+            validarTodosDiasMes();
+        } else {
+            // En modo recurrente, usar la vista previa tradicional
+            generarVistaPreviaModal();
+        }
+    }, 500);
+}
+
+// ========================================
+// ACTUALIZAR DÍAS ESPECÍFICOS SELECCIONADOS
+// ========================================
+function actualizarDiasEspecificos() {
+    const checkboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
+    
+    checkboxes.forEach(checkbox => {
+        const fecha = checkbox.value;
+        const infoContainer = document.getElementById('info-' + fecha);
+        if (infoContainer) {
+            cargarInfoDia(fecha, infoContainer);
+        }
+    });
+}
+
+// ========================================
+// VALIDAR TODOS LOS DÍAS DEL MES (para mostrar indicadores)
+// ========================================
+function validarTodosDiasMes() {
+    const horaInicio = document.getElementById('hora-inicio-modal');
+    if (!horaInicio || !horaInicio.value) return;
+    
+    // OPCIÓN A (Recomendada): Validar SOLO los seleccionados para no bloquear el navegador
+    const checkedCheckboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
+    checkedCheckboxes.forEach(checkbox => {
+        cargarInfoDia(checkbox.value, document.getElementById('info-' + checkbox.value));
+    });
+
+    // OPCIÓN B: Si realmente quieres validar TODOS (incluso no seleccionados),
+    // hazlo con un pequeño retraso entre cada uno para no saturar.
+    /*
+    const allCheckboxes = document.querySelectorAll('input[name="dias_especificos"]:not([disabled])');
+    allCheckboxes.forEach((checkbox, index) => {
+        setTimeout(() => {
+             cargarInfoDia(checkbox.value, document.getElementById('info-' + checkbox.value));
+        }, index * 50); // 50ms de diferencia entre cada petición
+    });
+    */
+}
+
+// ========================================
+// GENERAR VISTA PREVIA (llamada por validarAutomaticamente)
+// ========================================
+window.generarVistaPreviaModal = function() {
+    console.log('🔍 Validando disponibilidad automáticamente...');
+    
+    const horaInicio = document.getElementById('hora-inicio-modal');
+    const modo = document.getElementById('modo_seleccion');
+    
+    if (!horaInicio || !modo) {
+        return; // Salir silenciosamente si faltan elementos
+    }
+    
+    const horaInicioValue = horaInicio.value;
+    
+    // ✅ Obtener duración efectiva (estándar o personalizada)
+    const duracionValue = obtenerDuracionEfectivaModal();
+    const modoValue = modo.value;
+    
+    // Determinar el contenedor correcto según el modo
+    const containerRecurrente = document.getElementById('validacion-recurrente-container');
+    const containerEspecificos = document.getElementById('validacion-especificos-container');
+    
+    // Limpiar TODOS los contenedores primero
+    if (containerRecurrente) containerRecurrente.innerHTML = '';
+    if (containerEspecificos) containerEspecificos.innerHTML = '';
+    
+    // Seleccionar el contenedor apropiado
+    const container = modoValue === 'recurrente' ? containerRecurrente : containerEspecificos;
+    
+    if (!container) return;
+    
+    // Si no hay hora o duración, limpiar vista previa
+    if (!horaInicioValue || !duracionValue || duracionValue < 15) {
+        container.innerHTML = '';
         return;
     }
     
-    let html = '';
+    // Validar que hay días seleccionados
+    let hasDiasSeleccionados = false;
     
-    fechas.forEach((fecha, index) => {
-        const fechaObj = new Date(fecha + 'T00:00:00');
-        const nombreDia = fechaObj.toLocaleDateString('es-ES', { weekday: 'long' });
-        const fechaFormateada = fechaObj.toLocaleDateString('es-ES', { 
-            day: '2-digit', 
-            month: 'long', 
-            year: 'numeric' 
-        });
-        
-        html += `
-            <div class="flex items-center justify-between bg-white p-3 rounded-lg border-2 border-slate-200 hover:border-purple-300 transition-all text-xs">
-                <div class="flex items-center gap-3">
-                    <span class="bg-purple-600 text-white font-black px-2.5 py-1 rounded-lg min-w-[40px] text-center">
-                        #${index + 1}
-                    </span>
-                    <div>
-                        <p class="font-black text-slate-800 capitalize">${nombreDia}</p>
-                        <p class="text-slate-500">${fechaFormateada}</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="font-mono font-black text-purple-700 text-sm">${horaInicio} - ${horaFin}</p>
-                    <p class="text-slate-500">${duracion} minutos</p>
-                </div>
+    if (modoValue === 'recurrente') {
+        const checkboxes = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked');
+        hasDiasSeleccionados = checkboxes.length > 0;
+    } else {
+        const checkboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
+        hasDiasSeleccionados = checkboxes.length > 0;
+    }
+    
+    // Si no hay días seleccionados, mostrar mensaje informativo
+    if (!hasDiasSeleccionados) {
+        container.innerHTML = `
+            <div class="bg-white border-2 border-dashed ${modoValue === 'recurrente' ? 'border-purple-300' : 'border-blue-300'} rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">📅</div>
+                <p class="${modoValue === 'recurrente' ? 'text-purple-700' : 'text-blue-700'} font-bold text-xs">Selecciona días para ver disponibilidad</p>
+                <p class="${modoValue === 'recurrente' ? 'text-purple-600' : 'text-blue-600'} text-[10px] mt-1">Los conflictos se mostrarán en rojo 🚫</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Construir parámetros para la petición
+    const params = new URLSearchParams();
+    params.append('servicio_profesional_id', SERVICIO_PROFESIONAL_ID);
+    params.append('hora', horaInicioValue);
+    params.append('duracion', duracionValue);
+    params.append('modo_seleccion', modoValue);
+    
+    if (modoValue === 'recurrente') {
+        const checkboxes = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked');
+        checkboxes.forEach(cb => params.append('dias_semana', cb.value));
+    } else {
+        const checkboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
+        checkboxes.forEach(cb => params.append('dias_especificos', cb.value));
+    }
+    
+    // Mostrar indicador de carga (más compacto)
+    container.innerHTML = `
+        <div class="bg-white border-2 ${modoValue === 'recurrente' ? 'border-purple-300' : 'border-blue-300'} rounded-lg p-3 text-center">
+            <div class="animate-pulse flex items-center justify-center gap-2">
+                <span class="text-xl">⏳</span>
+                <span class="${modoValue === 'recurrente' ? 'text-purple-700' : 'text-blue-700'} font-bold text-xs">Validando...</span>
+            </div>
+        </div>
+    `;
+    
+    // Hacer la petición AJAX
+    const url = '{% url "agenda:vista_previa_mensualidad" %}?' + params.toString();
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Error en la respuesta');
+        return response.text();
+    })
+    .then(html => {
+        container.innerHTML = html;
+        // Actualizar contador de sesiones seleccionadas
+        setTimeout(() => {
+            if (typeof actualizarContadorMensualidad === 'function') {
+                actualizarContadorMensualidad();
+            }
+        }, 100);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        container.innerHTML = `
+            <div class="bg-red-50 border-2 border-red-300 rounded-lg p-3 text-center">
+                <p class="text-red-700 font-bold text-xs">❌ Error al validar</p>
+                <p class="text-red-600 text-[10px] mt-1">Intenta nuevamente</p>
             </div>
         `;
     });
-    
-    contenido.innerHTML = html;
-    total.innerHTML = `
-        <span class="text-lg">📊</span> 
-        Total: <span class="text-xl">${fechas.length}</span> sesión(es) a crear en ${NOMBRE_MES}
-    `;
-    
-    container.classList.remove('hidden');
-    
-    setTimeout(() => {
-        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
 }
 
 // ========================================
-// GENERAR VISTA PREVIA
+// FUNCIÓN PARA TOGGLE DE CONFLICTOS
 // ========================================
-function generarVistaPrevia() {
-    console.log('🔍 Generando vista previa...');
-    
-    const horaInicio = document.getElementById('hora-inicio-modal').value;
-    const duracion = document.getElementById('duracion-minutos-modal').value;
-    const modo = document.getElementById('modo_seleccion').value;
-    
-    console.log('Hora:', horaInicio, 'Duración:', duracion, 'Modo:', modo);
-    
-    if (!horaInicio || !duracion) {
-        alert('❌ Por favor completa la hora de inicio y la duración');
-        return;
-    }
-    
-    let fechas = [];
-    
-    if (modo === 'recurrente') {
-        const checkboxes = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked');
-        console.log('Checkboxes encontrados:', checkboxes.length);
-        
-        const diasSeleccionados = Array.from(checkboxes).map(cb => parseInt(cb.value));
-        console.log('Días seleccionados:', diasSeleccionados);
-        
-        if (diasSeleccionados.length === 0) {
-            alert('❌ Selecciona al menos un día de la semana');
-            return;
-        }
-        
-        fechas = generarFechasRecurrentes(FECHA_INICIO_PERIODO, FECHA_FIN_PERIODO, diasSeleccionados);
-        
-    } else {
-        const checkboxes = document.querySelectorAll('input[name="dias_especificos"]:checked');
-        console.log('Checkboxes específicos encontrados:', checkboxes.length);
-        
-        fechas = Array.from(checkboxes).map(cb => cb.value);
-        
-        if (fechas.length === 0) {
-            alert('❌ Selecciona al menos un día del mes');
-            return;
-        }
-        
-        fechas.sort();
-    }
-    
-    if (fechas.length === 0) {
-        alert('⚠️ No se generaron fechas con la configuración actual');
-        return;
-    }
-    
-    // Calcular hora fin
-    const [horas, minutos] = horaInicio.split(':').map(Number);
-    const minutosInicio = horas * 60 + minutos;
-    const minutosFin = minutosInicio + parseInt(duracion);
-    const horasFin = Math.floor(minutosFin / 60);
-    const minutosFin2 = minutosFin % 60;
-    const horaFin = `${String(horasFin).padStart(2, '0')}:${String(minutosFin2).padStart(2, '0')}`;
-    
-    renderizarVistaPrevia(fechas, horaInicio, horaFin, duracion);
-}
-
-// ========================================
-// OCULTAR VISTA PREVIA
-// ========================================
-function ocultarVistaPrevia() {
-    const container = document.getElementById('vista-previa-container');
-    if (container) {
-        container.classList.add('hidden');
-    }
-}
-
-// ========================================
-// VALIDACIÓN ANTES DE ENVIAR
-// ========================================
-const form = document.getElementById('formAgendarMensualidad');
-if (form) {
-    form.addEventListener('submit', function(e) {
-        const modo = document.getElementById('modo_seleccion').value;
-        let haySeleccion = false;
-        
-        if (modo === 'recurrente') {
-            haySeleccion = document.querySelectorAll('input[name="dias_semana_recurrente"]:checked').length > 0;
+window.toggleConflictoModal = function(panelId, btn) {
+    const panel = document.getElementById(panelId);
+    if (panel) {
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+            btn.innerHTML = '▲ Ocultar';
         } else {
-            haySeleccion = document.querySelectorAll('input[name="dias_especificos"]:checked').length > 0;
+            panel.style.display = 'none';
+            btn.innerHTML = '▼ Detalle';
         }
-        
-        if (!haySeleccion) {
-            e.preventDefault();
-            alert('❌ Por favor selecciona al menos un día');
-            return false;
-        }
-    });
-}
+    }
+};
 
-console.log('✅ Modal inicializado correctamente');
-console.log('✅ Función generarVistaPrevia disponible:', typeof generarVistaPrevia);
+// ========================================
+// ACTUALIZAR CONTADOR DE SESIONES SELECCIONADAS
+// ========================================
+window.actualizarContadorMensualidad = function() {
+    const checkboxes = document.querySelectorAll('.sesion-checkbox-mensualidad:checked');
+    const contadorElement = document.getElementById('contador-seleccionadas-mensualidad');
+    if (contadorElement) {
+        contadorElement.textContent = checkboxes.length;
+    }
+};
+
+// ========================================
+// TOGGLE DURACIÓN PERSONALIZADA
+// ========================================
+window.toggleDuracionPersonalizadaModal = function() {
+    const checkbox = document.getElementById('usar-duracion-estandar-modal');
+    const container = document.getElementById('duracion-personalizada-container-modal');
+    const inputPersonalizado = document.getElementById('duracion-personalizada-modal');
+    const inputHidden = document.getElementById('duracion-minutos-modal');
+    
+    if (checkbox.checked) {
+        // Usar duración estándar del servicio
+        container.classList.add('hidden');
+        inputPersonalizado.value = '';
+        // Obtener la duración estándar del span
+        const duracionEstandar = document.getElementById('duracion-servicio-info-modal').textContent.trim().replace(' min', '');
+        inputHidden.value = duracionEstandar;
+    } else {
+        // Usar duración personalizada
+        container.classList.remove('hidden');
+        // Pre-llenar con la duración estándar como punto de partida
+        const duracionEstandar = document.getElementById('duracion-servicio-info-modal').textContent.trim().replace(' min', '');
+        if (!inputPersonalizado.value) {
+            inputPersonalizado.value = duracionEstandar;
+        }
+        inputHidden.value = inputPersonalizado.value;
+        inputPersonalizado.focus();
+    }
+    
+    validarAutomaticamente();
+};
+
+// ========================================
+// OBTENER DURACIÓN EFECTIVA
+// ========================================
+window.obtenerDuracionEfectivaModal = function() {
+    const usarEstandar = document.getElementById('usar-duracion-estandar-modal').checked;
+    
+    if (usarEstandar) {
+        const duracionEstandar = document.getElementById('duracion-servicio-info-modal').textContent.trim().replace(' min', '');
+        return parseInt(duracionEstandar) || 45;
+    } else {
+        const duracionPersonalizada = document.getElementById('duracion-personalizada-modal').value;
+        return parseInt(duracionPersonalizada) || 45;
+    }
+};
+
+// ========================================
+// ACTUALIZAR INPUT HIDDEN DE DURACIÓN AL CAMBIAR PERSONALIZADA
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    const inputPersonalizado = document.getElementById('duracion-personalizada-modal');
+    const inputHidden = document.getElementById('duracion-minutos-modal');
+    
+    if (inputPersonalizado) {
+        inputPersonalizado.addEventListener('input', function() {
+            inputHidden.value = this.value;
+        });
+    }
+});
+
+// ========================================
+// DEFINIR CONSTANTE GLOBAL
+// ========================================
+const SERVICIO_PROFESIONAL_ID = {{ servicio_profesional.id }};
+
+// ========================================
+// EJECUTAR VALIDACIÓN AL CARGAR (si ya hay datos)
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Esperar un momento para que el DOM esté completamente listo
+    setTimeout(() => {
+        validarAutomaticamente();
+    }, 100);
+});
+
+console.log('✅ Funciones de modal cargadas (validación automática activada)');
 </script>

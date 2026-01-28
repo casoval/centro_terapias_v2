@@ -50,6 +50,9 @@ urlpatterns = [
     path('mensualidades/agendar/procesar/<int:servicio_profesional_id>/', 
          views.procesar_agendar_mensualidad, 
          name='procesar_agendar_mensualidad'),
+    path('api/vista-previa-mensualidad/', 
+         views.vista_previa_mensualidad, 
+         name='vista_previa_mensualidad'),
     
     # Procesar cambio de estado con confirmación
     path('sesion/<int:sesion_id>/procesar-cambio-estado/', 

@@ -1,6 +1,6 @@
 """
 Django settings for config project.
-✅ OPTIMIZADO: Supabase Transaction Pooler + Cache + Performance
+✅ OPTIMIZADO: Incluye cache, conexión persistente y mejoras de performance
 """
 
 from pathlib import Path
@@ -91,49 +91,39 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # --------------------------------------------------
-# DATABASE - ✅ OPTIMIZADO PARA SUPABASE
+# DATABASE
 # --------------------------------------------------
 
 if IS_PRODUCTION:
-    # ✅ Parsear DATABASE_URL de Supabase
     DATABASES = {
         'default': dj_database_url.parse(
             os.environ.get('DATABASE_URL'),
-            conn_max_age=0,  # ✅ CRÍTICO: 0 para Transaction Pooler
-            conn_health_checks=True,
-            ssl_require=True,
+            conn_max_age=600,  # ✅ Conexión persistente (10 min)
         )
     }
-    
-    # ✅ Configuración específica para Transaction Pooler (pgBouncer)
-    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
-    
-    # ✅ Opciones adicionales de PostgreSQL
-    DATABASES['default']['OPTIONS'] = {
-        'sslmode': 'require',
-        'connect_timeout': 10,
-        'options': '-c statement_timeout=30000',  # 30 segundos timeout
-    }
-    
 else:
-    # ✅ Desarrollo: SQLite local
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            # ✅ SQLite optimizations
             'OPTIONS': {
                 'timeout': 20,
                 'init_command': 'PRAGMA journal_mode=WAL;',
             }
         }
     }
-    # Conexiones persistentes en desarrollo (1 minuto)
-    DATABASES['default']['CONN_MAX_AGE'] = 60
+
+# ✅ OPTIMIZACIÓN: Conexiones persistentes en desarrollo también
+if not IS_PRODUCTION:
+    DATABASES['default']['CONN_MAX_AGE'] = 60  # 1 minuto en dev
 
 # --------------------------------------------------
 # CACHE CONFIGURATION (✅ OPTIMIZADO - Local Memory Cache)
 # --------------------------------------------------
 
+# ✅ Usar Local Memory Cache en todos los entornos
+# Funciona perfecto para apps con un solo worker
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -226,7 +216,7 @@ LOGOUT_REDIRECT_URL = 'core:login'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --------------------------------------------------
-# PERFORMANCE OPTIMIZATIONS (✅ MEJORADO)
+# PERFORMANCE OPTIMIZATIONS (✅ NUEVO)
 # --------------------------------------------------
 
 # ✅ Logging configurado para performance
@@ -256,11 +246,6 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'WARNING',  # ✅ Solo warnings de DB para no llenar logs
-            'propagate': False,
         },
         'facturacion': {
             'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
@@ -293,9 +278,6 @@ if IS_PRODUCTION:
     SECURE_HSTS_SECONDS = 31536000  # 1 año
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    
-    # ✅ Configuración adicional de seguridad
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     
 else:
     print("\n" + "="*60)
@@ -343,6 +325,9 @@ else:
     }
 
 # ==================== DEBUG TOOLBAR (OPCIONAL - SOLO DESARROLLO) ====================
+
+# ✅ Descomentar para habilitar Django Debug Toolbar
+# pip install django-debug-toolbar
 
 if DEBUG and not IS_PRODUCTION:
     try:

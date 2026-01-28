@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
+from django.core.exceptions import ValidationError
 from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
@@ -1603,11 +1604,15 @@ def vista_previa_recurrente(request):
 def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio, hora_fin):
     """
     Valida disponibilidad y retorna detalles COMPLETOS de los conflictos
+    ✅ ACTUALIZADO: Incluye información detallada para tooltips
     """
     resultado = {
         'disponible': True,
         'conflictos_paciente': [],
-        'conflictos_profesional': []
+        'conflictos_profesional': [],
+        'tiene_conflicto_paciente': False,
+        'tiene_conflicto_profesional': False,
+        'num_conflictos': 0
     }
     
     if not paciente or not profesional:
@@ -1629,12 +1634,14 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
         
         if (inicio < s_fin and fin > s_inicio):
             resultado['disponible'] = False
+            resultado['tiene_conflicto_paciente'] = True
             resultado['conflictos_paciente'].append({
                 'servicio': sesion.servicio.nombre,
                 'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
                 'hora_fin': sesion.hora_fin.strftime('%H:%M'),
                 'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
-                'sucursal': sesion.sucursal.nombre
+                'sucursal': sesion.sucursal.nombre,
+                'duracion': sesion.duracion_minutos
             })
     
     # Verificar conflictos del PROFESIONAL
@@ -1650,15 +1657,343 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
         
         if (inicio < s_fin and fin > s_inicio):
             resultado['disponible'] = False
+            resultado['tiene_conflicto_profesional'] = True
             resultado['conflictos_profesional'].append({
                 'paciente': f"{sesion.paciente.nombre} {sesion.paciente.apellido}",
                 'servicio': sesion.servicio.nombre,
                 'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
                 'hora_fin': sesion.hora_fin.strftime('%H:%M'),
-                'sucursal': sesion.sucursal.nombre
+                'sucursal': sesion.sucursal.nombre,
+                'duracion': sesion.duracion_minutos
             })
     
+    # Contar total de conflictos
+    resultado['num_conflictos'] = len(resultado['conflictos_paciente']) + len(resultado['conflictos_profesional'])
+    
     return resultado
+
+
+
+@login_required
+@solo_sus_sucursales
+def vista_previa_mensualidad(request):
+    """
+    Vista previa para modal de agendamiento de mensualidad
+    Valida choques de horarios similar a vista_previa_recurrente
+    """
+    
+    # Obtener parámetros
+    servicio_profesional_id = request.GET.get('servicio_profesional_id')
+    hora_str = request.GET.get('hora')
+    duracion_str = request.GET.get('duracion', '45')
+    modo_seleccion = request.GET.get('modo_seleccion', 'recurrente')
+    
+    # Detectar si es una petición para validar UN solo día (casilla)
+    solo_dia = request.GET.get('solo_dia') == 'true'
+
+    # Validar parámetros básicos
+    if not all([servicio_profesional_id, hora_str]):
+        return HttpResponse('''
+            <div class="bg-gray-50 border border-gray-200 rounded p-4 text-center">
+                <div class="text-2xl mb-2">📅</div>
+                <p class="text-xs text-gray-600">Selecciona hora y días</p>
+            </div>
+        ''')
+    
+    try:
+        # Obtener servicio-profesional
+        servicio_profesional = get_object_or_404(
+            ServicioProfesionalMensualidad.objects.select_related(
+                'mensualidad__paciente',
+                'mensualidad__sucursal',
+                'servicio',
+                'profesional'
+            ),
+            id=servicio_profesional_id
+        )
+        
+        mensualidad = servicio_profesional.mensualidad
+        
+        # Verificar permisos
+        sucursales_usuario = request.sucursales_usuario
+        if sucursales_usuario is not None:
+            if not sucursales_usuario.filter(id=mensualidad.sucursal.id).exists():
+                return HttpResponse('''
+                    <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                        <p class="text-xs text-red-700">❌ Sin permisos</p>
+                    </div>
+                ''')
+        
+        # Convertir hora y duración
+        hora = datetime.strptime(hora_str, '%H:%M').time()
+        duracion_minutos = int(duracion_str)
+        
+        # Calcular hora_fin
+        inicio_dt = datetime.combine(date.today(), hora)
+        fin_dt = inicio_dt + timedelta(minutes=duracion_minutos)
+        hora_fin = fin_dt.time()
+
+        # Lógica para devolver JSON cuando se consulta una casilla individual
+        if solo_dia:
+            fecha_str = request.GET.get('dias_especificos') # En este modo, llega una sola fecha
+            if not fecha_str:
+                return JsonResponse({'error': 'Falta fecha'}, status=400)
+            
+            try:
+                fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'error': 'Fecha inválida'}, status=400)
+
+            # Usar tu función auxiliar existente para validar
+            sesion_info = _validar_disponibilidad_detallada(
+                mensualidad.paciente,
+                servicio_profesional.profesional,
+                fecha,
+                hora,
+                hora_fin
+            )
+
+            # Retornar JSON completo con detalles de conflictos
+            return JsonResponse({
+                'disponible': sesion_info['disponible'],
+                'tiene_conflicto': not sesion_info['disponible'],
+                'tiene_conflicto_paciente': sesion_info['tiene_conflicto_paciente'],
+                'tiene_conflicto_profesional': sesion_info['tiene_conflicto_profesional'],
+                'conflictos_paciente': sesion_info['conflictos_paciente'],
+                'conflictos_profesional': sesion_info['conflictos_profesional'],
+                'num_conflictos': sesion_info['num_conflictos'],
+                'mensaje': 'Libre' if sesion_info['disponible'] else 'Conflicto'
+            })
+        
+        # Obtener fechas según modo de selección
+        fechas_generadas = []
+        
+        if modo_seleccion == 'recurrente':
+            # Modo patrón recurrente
+            dias_semana = request.GET.getlist('dias_semana')
+            
+            if not dias_semana:
+                return HttpResponse('''
+                    <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                        <p class="text-xs text-yellow-700">⚠️ Selecciona al menos un día de la semana</p>
+                    </div>
+                ''')
+            
+            dias_semana = [int(d) for d in dias_semana]
+            
+            # Generar fechas
+            fecha_inicio = date(mensualidad.anio, mensualidad.mes, 1)
+            ultimo_dia_num = monthrange(mensualidad.anio, mensualidad.mes)[1]
+            fecha_fin = date(mensualidad.anio, mensualidad.mes, ultimo_dia_num)
+            
+            fecha_actual = fecha_inicio
+            while fecha_actual <= fecha_fin:
+                dia_semana = fecha_actual.weekday()
+                dia_js = (dia_semana + 1) % 7  # Convertir Python → JS
+                
+                if dia_js in dias_semana:
+                    fechas_generadas.append(fecha_actual)
+                
+                fecha_actual += timedelta(days=1)
+        
+        else:
+            # Modo días específicos
+            dias_especificos = request.GET.getlist('dias_especificos')
+            
+            if not dias_especificos:
+                return HttpResponse('''
+                    <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                        <p class="text-xs text-yellow-700">⚠️ Selecciona al menos un día del mes</p>
+                    </div>
+                ''')
+            
+            for fecha_str in dias_especificos:
+                try:
+                    fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                    fechas_generadas.append(fecha_obj)
+                except ValueError:
+                    continue
+            
+            fechas_generadas.sort()
+        
+        if not fechas_generadas:
+            return HttpResponse('''
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-center">
+                    <p class="text-xs text-yellow-700">⚠️ No se generarán sesiones</p>
+                </div>
+            ''')
+        
+        # Validar disponibilidad para cada fecha
+        sesiones_data = []
+        for fecha in fechas_generadas:
+            sesion_info = _validar_disponibilidad_detallada(
+                mensualidad.paciente,
+                servicio_profesional.profesional,
+                fecha,
+                hora,
+                hora_fin
+            )
+            
+            sesiones_data.append({
+                'fecha': fecha,
+                'disponible': sesion_info['disponible'],
+                'conflictos_paciente': sesion_info['conflictos_paciente'],
+                'conflictos_profesional': sesion_info['conflictos_profesional'],
+            })
+        
+        # Estadísticas
+        total = len(sesiones_data)
+        disponibles = sum(1 for s in sesiones_data if s['disponible'])
+        conflictos = total - disponibles
+        
+        # Nombres de días
+        dias_nombres = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        
+        # Info del header
+        hora_formato = hora.strftime('%H:%M')
+        servicio_nombre = servicio_profesional.servicio.nombre
+        
+        # Color del header
+        if disponibles == total:
+            header_icon = "✅"
+        elif disponibles > 0:
+            header_icon = "⚠️"
+        else:
+            header_icon = "❌"
+        
+        # HTML compacto en grid
+        html = f'''
+            <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-3 mb-3">
+                <div class="flex items-center justify-between text-xs mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">{header_icon}</span>
+                        <span class="font-black text-purple-900 uppercase">Vista Previa</span>
+                        <span class="text-purple-600">{servicio_nombre} · {hora_formato} ({duracion_minutos}min)</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="bg-white rounded-lg px-2.5 py-1 border-2 border-green-400 shadow-sm">
+                            <span class="text-green-700 font-black text-sm">{disponibles}</span>
+                            <span class="text-gray-500 text-[10px]"> OK</span>
+                        </div>
+                        {f'<div class="bg-white rounded-lg px-2.5 py-1 border-2 border-red-400 shadow-sm"><span class="text-red-700 font-black text-sm">{conflictos}</span><span class="text-gray-500 text-[10px]"> ⚠️</span></div>' if conflictos > 0 else ''}
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2">
+        '''
+        
+        for i, sesion in enumerate(sesiones_data):
+            fecha = sesion['fecha']
+            fecha_formato = fecha.strftime('%d/%m')
+            fecha_iso = fecha.strftime('%Y-%m-%d')
+            dia_nombre = dias_nombres[fecha.weekday()]
+            disponible = sesion['disponible']
+            conflictos_p = sesion['conflictos_paciente']
+            conflictos_prof = sesion['conflictos_profesional']
+            
+            if disponible:
+                card_bg = "border-green-400 bg-green-50"
+                icon_color = "text-green-600"
+                icon = "✅"
+                checked = "checked"
+                disabled = ""
+            else:
+                card_bg = "border-red-400 bg-red-50 opacity-75"
+                icon_color = "text-red-600"
+                icon = "🚫"
+                checked = ""
+                disabled = "disabled"
+            
+            html += f'''
+                <label class="relative cursor-pointer group">
+                    <input type="checkbox" 
+                           name="sesiones_seleccionadas" 
+                           value="{fecha_iso}"
+                           class="sesion-checkbox-mensualidad peer absolute top-1 right-1 w-4 h-4 rounded border-2 border-green-400 checked:bg-blue-500"
+                           {checked}
+                           {disabled}
+                           onchange="actualizarContadorMensualidad()">
+                    
+                    <div class="border-2 {card_bg} rounded-lg p-2 transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:shadow-md">
+                        <div class="{icon_color} text-lg text-center mb-1">{icon}</div>
+                        <div class="text-[10px] font-bold text-gray-700 text-center mb-1">{dia_nombre}</div>
+                        <div class="text-center">
+                            <div class="text-sm font-black text-gray-800">{fecha_formato}</div>
+                        </div>
+            '''
+            
+            # Mostrar conflictos de forma desplegable
+            if not disponible and (conflictos_p or conflictos_prof):
+                html += f'''
+                        <button type="button" 
+                                onclick="toggleConflictoModal('panel-mensualidad-{i}', this)"
+                                class="mt-2 w-full text-[9px] bg-red-500 hover:bg-red-600 text-white px-1 py-1 rounded font-bold">
+                            ▼ Detalle
+                        </button>
+                    </div>
+                    
+                    <div id="panel-mensualidad-{i}" style="display: none;" class="absolute z-20 mt-1 w-56 bg-white border-2 border-red-400 rounded-lg p-2 shadow-xl text-left">
+                '''
+                
+                if conflictos_p:
+                    html += '<div class="mb-2"><p class="text-[10px] font-black text-red-700 mb-1 flex items-center gap-1">👤 Paciente ocupado:</p>'
+                    for c in conflictos_p[:2]:
+                        html += f'''
+                            <div class="text-[9px] bg-red-50 rounded p-1.5 mb-1 border border-red-200">
+                                <p class="font-bold text-red-900">{c["servicio"][:20]}</p>
+                                <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
+                            </div>
+                        '''
+                    if len(conflictos_p) > 2:
+                        html += f'<p class="text-[8px] text-gray-500 italic">+{len(conflictos_p)-2} más</p>'
+                    html += '</div>'
+                
+                if conflictos_prof:
+                    html += '<div><p class="text-[10px] font-black text-orange-700 mb-1 flex items-center gap-1">👨‍⚕️ Prof. ocupado:</p>'
+                    for c in conflictos_prof[:2]:
+                        html += f'''
+                            <div class="text-[9px] bg-orange-50 rounded p-1.5 mb-1 border border-orange-200">
+                                <p class="font-bold text-orange-900">{c["paciente"][:20]}</p>
+                                <p class="text-gray-600">{c["hora_inicio"]}-{c["hora_fin"]}</p>
+                            </div>
+                        '''
+                    if len(conflictos_prof) > 2:
+                        html += f'<p class="text-[8px] text-gray-500 italic">+{len(conflictos_prof)-2} más</p>'
+                    html += '</div>'
+                
+                html += '</div>'
+            else:
+                html += '</div>'
+            
+            html += '</label>'
+        
+        html += f'''
+                </div>
+            </div>
+            
+            {f'<div class="bg-orange-50 border-2 border-orange-300 rounded-lg p-3 mb-3"><div class="flex items-start gap-2 text-xs"><span class="text-orange-600 text-lg flex-shrink-0">⚠️</span><p class="text-orange-900"><strong>{conflictos}</strong> sesión(es) con conflicto de horario. Solo se crearán las <strong class="text-green-700">{disponibles}</strong> disponibles.</p></div></div>' if conflictos > 0 else ''}
+            
+            <div class="bg-blue-50 border border-blue-300 rounded-lg p-2 text-[11px] text-blue-800 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">ℹ️</span>
+                    <span>Solo se crearán las sesiones que selecciones</span>
+                </div>
+                <div class="bg-white px-3 py-1 rounded-lg border border-blue-300 shadow-sm">
+                    <span class="text-blue-900 font-bold">Seleccionadas: <span id="contador-seleccionadas-mensualidad" class="text-purple-600">0</span> / {total}</span>
+                </div>
+            </div>
+        '''
+        
+        return HttpResponse(html)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'''
+            <div class="bg-red-50 border border-red-200 rounded p-3 text-center">
+                <p class="text-xs text-red-700">❌ Error: {str(e)}</p>
+            </div>
+        ''')
 
 @login_required
 def editar_sesion(request, sesion_id):
@@ -2492,7 +2827,19 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
             # Convertir a enteros
             dias_semana = [int(d) for d in dias_semana]
             
-            # Generar fechas
+            # ✅ OBTENER SESIONES SELECCIONADAS POR EL USUARIO
+            sesiones_seleccionadas = request.POST.getlist('sesiones_seleccionadas')
+            
+            if not sesiones_seleccionadas:
+                messages.error(request, '⚠️ Debes seleccionar al menos una sesión para agendar.')
+                return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+            
+            # Convertir a conjunto de fechas seleccionadas
+            fechas_seleccionadas = set([
+                datetime.strptime(f, '%Y-%m-%d').date() for f in sesiones_seleccionadas
+            ])
+            
+            # Generar fechas según patrón
             fecha_inicio = date(mensualidad.anio, mensualidad.mes, 1)
             ultimo_dia_num = monthrange(mensualidad.anio, mensualidad.mes)[1]
             fecha_fin = date(mensualidad.anio, mensualidad.mes, ultimo_dia_num)
@@ -2504,7 +2851,8 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
                 # Convertir: Python (0=Lunes) → JS (0=Domingo)
                 dia_js = (dia_semana + 1) % 7
                 
-                if dia_js in dias_semana:
+                # ✅ SOLO AGREGAR SI ESTÁ EN EL PATRÓN Y FUE SELECCIONADA
+                if dia_js in dias_semana and fecha_actual in fechas_seleccionadas:
                     fechas_generadas.append(fecha_actual)
                 
                 fecha_actual += timedelta(days=1)

@@ -284,12 +284,9 @@ document.querySelector('#estadoForm')?.addEventListener('submit', function(e) {
     .catch(error => { console.error('Error:', error); });
 });
 
-// ========================================
-// ✅ NUEVO: FUNCIONES PARA MODAL DE AGENDAMIENTO RÁPIDO
-// ========================================
-
 /**
  * Abre el modal y carga el formulario de agendamiento
+ * ✅ CORREGIDO: Ejecuta los scripts incluidos en el HTML cargado
  */
 function abrirModalAgendarRapido(servicioProfesionalId, nombreServicio, nombreProfesional) {
     const modal = document.getElementById('modalAgendarRapido');
@@ -304,7 +301,25 @@ function abrirModalAgendarRapido(servicioProfesionalId, nombreServicio, nombrePr
         .then(html => {
             contenido.innerHTML = html;
             
-            // Inicializar funciones del formulario recurrente si existen
+            // ✅ SOLUCIÓN CRÍTICA: Ejecutar scripts manualmente
+            // El navegador no ejecuta scripts insertados con innerHTML automáticamente
+            const scripts = contenido.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                
+                // Copiar atributos (si tiene src, type, etc)
+                Array.from(oldScript.attributes).forEach(attr => {
+                    newScript.setAttribute(attr.name, attr.value);
+                });
+                
+                // Copiar el contenido del script
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                
+                // Reemplazar el script viejo por el nuevo (esto fuerza la ejecución)
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+
+            // Inicializar funciones adicionales si es necesario
             if (typeof inicializarFormularioRecurrente === 'function') {
                 inicializarFormularioRecurrente();
             }
@@ -318,6 +333,7 @@ function abrirModalAgendarRapido(servicioProfesionalId, nombreServicio, nombrePr
                             class="bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700">
                         Cerrar
                     </button>
+                    <p class="text-xs text-gray-400 mt-2">${error}</p>
                 </div>
             `;
         });
