@@ -730,7 +730,7 @@ def registrar_pago(request):
         nombre__in=["Crédito/Saldo a favor", "Uso de Crédito"]
     )
     
-    pacientes_lista = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
+    pacientes_lista = Paciente.objects.filter(estado='activo').order_by('nombre', 'apellido')
     
     # Detectar parámetros
     sesion_id = request.GET.get('sesion')

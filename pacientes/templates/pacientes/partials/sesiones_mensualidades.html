@@ -7,19 +7,33 @@
             <!-- Header Mensualidad -->
             <div class="bg-blue-50 p-3 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors" 
                  onclick="toggleAccordion('{{ item.mensualidad.id }}')">
-                <div>
+                <div class="flex-1">
                     <h3 class="text-base font-black text-blue-900">
                         💳 {{ item.mensualidad.codigo }} - {{ item.mensualidad.periodo_display }}
                     </h3>
                     <p class="text-sm text-blue-700 mt-1">
-                        {{ item.mensualidad.servicio.nombre }} | {{ item.mensualidad.profesional.nombre }} {{ item.mensualidad.profesional.apellido }}
+                        {% with servicios=item.mensualidad.servicios_profesionales.all %}
+                            {% if servicios|length <= 3 %}
+                                {% for sp in servicios %}
+                                    {{ sp.servicio.nombre }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                {{ servicios.0.servicio.nombre }} (+{{ servicios|length|add:"-1" }} más)
+                            {% endif %}
+                        {% endwith %}
                     </p>
                 </div>
-                <div class="text-right flex items-center gap-4">
-                    <div class="text-sm">
+                <div class="flex items-center gap-3">
+                    <div class="text-sm text-right">
                         <span class="text-blue-600 font-bold">{{ item.sesiones_realizadas }}/{{ item.total_sesiones }}</span>
-                        <span class="text-blue-500 text-xs">sesiones</span>
+                        <span class="text-blue-500 text-xs block">sesiones</span>
                     </div>
+                    <a href="{% url 'agenda:detalle_mensualidad' item.mensualidad.id %}" 
+                       onclick="event.stopPropagation();"
+                       class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
+                       title="Ver detalles completos">
+                        👁️ Ver detalles
+                    </a>
                     <p class="text-lg font-black text-blue-900" id="accordion-icon-{{ item.mensualidad.id }}">+</p>
                 </div>
             </div>
@@ -49,17 +63,17 @@
                         </div>
                     </div>
                     
-                    <!-- Lista de Sesiones COMPACTA -->
+                    <!-- Lista de Sesiones COMPACTA CON GRID RESPONSIVE -->
                     <h4 class="text-xs font-black text-gray-800 mb-2 flex items-center gap-2">
                         📋 Sesiones del Mes:
                     </h4>
-                    <div class="space-y-1.5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                         {% for sesion in item.sesiones %}
-                        <div class="bg-gray-50 rounded-lg p-2.5 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
+                        <div class="bg-gray-50 rounded-lg p-2 border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all flex flex-col">
                             <!-- Fila principal compacta -->
-                            <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-start justify-between gap-2 mb-1">
                                 <!-- Icono + Info básica -->
-                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <div class="flex items-start gap-2 flex-1 min-w-0">
                                     {% if sesion.estado == 'realizada' %}
                                         <span class="text-lg flex-shrink-0" title="Realizada">✅</span>
                                     {% elif sesion.estado == 'realizada_retraso' %}
@@ -85,35 +99,35 @@
                                 </div>
                                 
                                 <!-- Badge estado compacto -->
-                                <div class="flex-shrink-0">
+                                <div class="flex-shrink-0 self-start">
                                     {% if sesion.estado == 'realizada' %}
-                                        <span class="badge-realizada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Realizada</span>
+                                        <span class="badge-realizada px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Realizada</span>
                                     {% elif sesion.estado == 'realizada_retraso' %}
-                                        <span class="badge-retraso px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Retraso</span>
+                                        <span class="badge-retraso px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Retraso</span>
                                     {% elif sesion.estado == 'programada' %}
-                                        <span class="badge-programada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Programada</span>
+                                        <span class="badge-programada px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Programada</span>
                                     {% elif sesion.estado == 'falta' %}
-                                        <span class="badge-falta px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Falta</span>
+                                        <span class="badge-falta px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Falta</span>
                                     {% elif sesion.estado == 'permiso' %}
-                                        <span class="badge-permiso px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Permiso</span>
+                                        <span class="badge-permiso px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Permiso</span>
                                     {% elif sesion.estado == 'cancelada' %}
-                                        <span class="badge-cancelada px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">Cancelada</span>
+                                        <span class="badge-cancelada px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">Cancelada</span>
                                     {% endif %}
                                 </div>
                             </div>
                             
                             <!-- Observaciones y notas (si existen) -->
                             {% if sesion.observaciones or sesion.notas_sesion %}
-                            <div class="mt-2 space-y-1.5">
+                            <div class="mt-1.5 space-y-1">
                                 {% if sesion.observaciones %}
-                                <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded-r text-xs">
+                                <div class="bg-yellow-50 border-l-2 border-yellow-400 p-1.5 rounded-r text-[10px]">
                                     <span class="font-bold text-yellow-800">📝</span>
                                     <span class="text-gray-700">{{ sesion.observaciones }}</span>
                                 </div>
                                 {% endif %}
                                 
                                 {% if sesion.notas_sesion %}
-                                <div class="bg-blue-50 border-l-2 border-blue-400 p-2 rounded-r text-xs">
+                                <div class="bg-blue-50 border-l-2 border-blue-400 p-1.5 rounded-r text-[10px]">
                                     <span class="font-bold text-blue-800">🩺</span>
                                     <span class="text-gray-700">{{ sesion.notas_sesion }}</span>
                                 </div>
@@ -122,7 +136,7 @@
                             {% endif %}
                         </div>
                         {% empty %}
-                        <p class="text-center text-gray-500 text-sm py-4">No hay sesiones registradas</p>
+                        <div class="col-span-full text-center text-gray-500 text-sm py-4">No hay sesiones registradas</div>
                         {% endfor %}
                     </div>
                 </div>

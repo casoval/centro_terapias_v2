@@ -186,6 +186,7 @@
                             <th class="px-5 py-3 text-left">Recibo</th>
                             <th class="px-5 py-3 text-left">Concepto</th>
                             <th class="px-5 py-3 text-right">Monto</th>
+                            <th class="px-5 py-3 text-center">PDF</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-emerald-50">
@@ -200,6 +201,20 @@
                                 <span class="text-[10px] font-black text-blue-600 uppercase">{{ pago.metodo_pago.nombre }}</span>
                             </td>
                             <td class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
+                            <td class="px-5 py-3.5 text-center">
+                                {% if pago.metodo_pago.nombre != "Uso de Crédito" %}
+                                <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+                                   target="_blank"
+                                   class="inline-flex items-center justify-center bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white w-8 h-8 rounded-lg transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
+                                   title="Ver recibo en PDF">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                </a>
+                                {% else %}
+                                <span class="text-slate-300 text-[10px] italic">N/A</span>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
