@@ -1128,6 +1128,36 @@ def agendar_recurrente(request):
     # ✅ GET - Mostrar formulario
     sucursales_usuario = request.sucursales_usuario
     
+    # ✅ NUEVO: Obtener parámetros GET para pre-seleccionar campos
+    sucursal_preseleccionada_id = request.GET.get('sucursal')
+    paciente_preseleccionado_id = request.GET.get('paciente')
+    proyecto_preseleccionado_id = request.GET.get('proyecto')
+    
+    sucursal_preseleccionada = None
+    paciente_preseleccionado = None
+    proyecto_preseleccionado = None
+    
+    # Validar y obtener objetos si fueron proporcionados
+    if sucursal_preseleccionada_id:
+        try:
+            sucursal_preseleccionada = Sucursal.objects.get(id=sucursal_preseleccionada_id)
+        except Sucursal.DoesNotExist:
+            pass
+    
+    if paciente_preseleccionado_id:
+        try:
+            paciente_preseleccionado = Paciente.objects.get(id=paciente_preseleccionado_id)
+        except Paciente.DoesNotExist:
+            pass
+    
+    if proyecto_preseleccionado_id:
+        try:
+            proyecto_preseleccionado = Proyecto.objects.select_related(
+                'paciente', 'sucursal', 'servicio_base', 'profesional_responsable'
+            ).get(id=proyecto_preseleccionado_id)
+        except Proyecto.DoesNotExist:
+            pass
+    
     if sucursales_usuario is not None and sucursales_usuario.exists():
         sucursales = sucursales_usuario
         pacientes = Paciente.objects.filter(
@@ -1149,6 +1179,10 @@ def agendar_recurrente(request):
         'profesionales': profesionales,
         'sucursales': sucursales,
         'sucursales_usuario': sucursales_usuario,
+        # ✅ NUEVO: Pasar objetos pre-seleccionados al template
+        'sucursal_preseleccionada': sucursal_preseleccionada,
+        'paciente_preseleccionado': paciente_preseleccionado,
+        'proyecto_preseleccionado': proyecto_preseleccionado,
     }
     
     return render(request, 'agenda/agendar_recurrente.html', context)
@@ -2455,21 +2489,25 @@ def validar_horario(request):
 @login_required
 def obtener_proyectos_paciente(request, paciente_id):
     """
-    🆕 API JSON: Obtener proyectos activos de un paciente
-    Usado en agendar_recurrente.html para cargar proyectos dinámicamente
+    🆕 API JSON: Obtener proyectos de un paciente
+    ✅ MODIFICADO: Incluye finalizados y muestra código
     """
     try:
         # Validar que el paciente existe
         paciente = get_object_or_404(Paciente, id=paciente_id)
         
-        # Obtener proyectos activos (no finalizados ni cancelados)
+        # ✅ CORRECCIÓN: Incluir 'finalizado' por si se quiere agendar algo extra
+        # Excluir solo los 'cancelado'
         proyectos = Proyecto.objects.filter(
-            paciente=paciente,
-            estado__in=['planificado', 'en_progreso']
+            paciente=paciente
+        ).exclude(
+            estado='cancelado'
         ).select_related('servicio_base', 'sucursal').order_by('-fecha_inicio')
         
         # Verificar permisos de sucursal del usuario
-        sucursales_usuario = request.sucursales_usuario
+        # (Usamos getattr por si el decorador no inyectó la variable)
+        sucursales_usuario = getattr(request, 'sucursales_usuario', None)
+        
         if sucursales_usuario is not None and sucursales_usuario.exists():
             proyectos = proyectos.filter(sucursal__in=sucursales_usuario)
         
@@ -2488,6 +2526,7 @@ def obtener_proyectos_paciente(request, paciente_id):
                     estado__in=['realizada', 'realizada_retraso']
                 ).count(),
                 'estado': proyecto.get_estado_display(),
+                'estado_raw': proyecto.estado, # Para lógica frontend si se necesita
             })
         
         return JsonResponse({
@@ -2506,7 +2545,6 @@ def obtener_proyectos_paciente(request, paciente_id):
             'success': False,
             'error': str(e)
         }, status=500)
-
 
 @login_required
 def obtener_mensualidades_paciente(request):

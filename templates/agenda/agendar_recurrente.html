@@ -22,8 +22,10 @@
             </a>
         </div>
 
-        <form method="post" class="space-y-6">
+        <form method="post" class="space-y-6" id="form-recurrente">
             {% csrf_token %}
+
+            <div id="hidden-inputs-container"></div>
 
             <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative mb-6">
                 <div class="absolute top-0 right-0 w-64 h-64 bg-purple-50 rounded-full blur-3xl opacity-50 -mr-16 -mt-16 pointer-events-none"></div>
@@ -39,9 +41,9 @@
 
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div class="group relative">
-                             <input type="checkbox" id="asignar_proyecto" name="asignar_proyecto" class="peer sr-only" onchange="toggleProyectoSelect()">
+                             <input type="checkbox" id="asignar_proyecto" name="asignar_proyecto" class="peer sr-only" onchange="toggleProyectoSelect()" {% if proyecto_preseleccionado %}checked{% endif %}>
                             
-                            <label for="asignar_proyecto" class="block cursor-pointer bg-slate-50 border-2 border-transparent rounded-xl p-4 hover:bg-purple-50 hover:border-purple-200 peer-checked:bg-purple-50 peer-checked:border-purple-400 peer-checked:shadow-md transition-all duration-300">
+                            <label for="asignar_proyecto" id="label-asignar-proyecto" class="block cursor-pointer bg-slate-50 border-2 border-transparent rounded-xl p-4 hover:bg-purple-50 hover:border-purple-200 peer-checked:bg-purple-50 peer-checked:border-purple-400 peer-checked:shadow-md transition-all duration-300">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-xl peer-checked:bg-purple-600 peer-checked:text-white transition-colors">
                                         📦
@@ -54,27 +56,33 @@
                                 </div>
                             </label>
 
-                            <div id="proyecto-select-container" class="hidden mt-3 pl-1 pr-1 animate-fade-in">
+                            <div id="proyecto-select-container" class="{% if not proyecto_preseleccionado %}hidden{% endif %} mt-3 pl-1 pr-1 animate-fade-in">
                                 <div class="bg-white p-4 rounded-xl border border-purple-100 shadow-sm">
                                     <label class="block text-xs font-bold text-purple-800 mb-2">Seleccionar Proyecto</label>
+                                    
                                     <select name="proyecto_id" id="proyecto_id" 
                                             class="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-lg text-xs focus:ring-2 focus:ring-purple-200 focus:border-purple-400 outline-none mb-3 transition-all" 
                                             onchange="mostrarInfoProyecto()">
                                         <option value="">-- Seleccionar Proyecto --</option>
+                                        {% if proyecto_preseleccionado %}
+                                            <option value="{{ proyecto_preseleccionado.id }}" selected>
+                                                {{ proyecto_preseleccionado.codigo }} - {{ proyecto_preseleccionado.nombre }}
+                                            </option>
+                                        {% endif %}
                                     </select>
                                     
                                     <div id="sin-proyectos" class="hidden text-xs bg-amber-50 text-amber-800 p-3 rounded-lg border border-amber-200 flex items-center gap-2">
                                         ⚠️ <span>Sin proyectos activos.</span> <a href="{% url 'agenda:crear_proyecto' %}" class="underline font-bold hover:text-amber-900">Crear uno</a>
                                     </div>
                                     
-                                    <div id="proyecto-info" class="hidden bg-purple-50 p-3 rounded-lg border border-purple-100">
+                                    <div id="proyecto-info" class="{% if not proyecto_preseleccionado %}hidden{% endif %} bg-purple-50 p-3 rounded-lg border border-purple-100">
                                         <div class="flex justify-between text-xs mb-1">
                                             <span class="text-purple-600 font-medium">Tipo:</span>
-                                            <span id="proyecto-tipo" class="font-bold text-purple-900">-</span>
+                                            <span id="proyecto-tipo" class="font-bold text-purple-900">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.get_tipo_display }}{% else %}-{% endif %}</span>
                                         </div>
                                         <div class="flex justify-between text-xs">
                                             <span class="text-purple-600 font-medium">Saldo:</span>
-                                            <span class="font-bold text-emerald-600">Bs. <span id="proyecto-costo">0</span></span>
+                                            <span class="font-bold text-emerald-600">Bs. <span id="proyecto-costo">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.saldo_pendiente|floatformat:2 }}{% else %}0{% endif %}</span></span>
                                         </div>
                                     </div>
                                 </div>
@@ -84,7 +92,7 @@
                         <div class="group relative">
                             <input type="checkbox" id="asignar_mensualidad" name="asignar_mensualidad" class="peer sr-only" onchange="toggleMensualidadSelect()">
                             
-                            <label for="asignar_mensualidad" class="block cursor-pointer bg-slate-50 border-2 border-transparent rounded-xl p-4 hover:bg-indigo-50 hover:border-indigo-200 peer-checked:bg-indigo-50 peer-checked:border-indigo-400 peer-checked:shadow-md transition-all duration-300">
+                            <label for="asignar_mensualidad" id="label-asignar-mensualidad" class="block cursor-pointer bg-slate-50 border-2 border-transparent rounded-xl p-4 hover:bg-indigo-50 hover:border-indigo-200 peer-checked:bg-indigo-50 peer-checked:border-indigo-400 peer-checked:shadow-md transition-all duration-300">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center text-xl peer-checked:bg-indigo-600 peer-checked:text-white transition-colors">
                                         💳
@@ -107,7 +115,6 @@
                                         <option value="">-- Seleccione Mensualidad --</option>
                                     </select>
 
-
                                     <div id="sin-mensualidades" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
                                         <p class="text-xs text-amber-800 mb-2">⚠️ No hay mensualidades activas.</p>
                                         <a href="{% url 'agenda:crear_mensualidad' %}" class="text-xs text-indigo-600 hover:underline font-bold">+ Crear nueva</a>
@@ -123,22 +130,10 @@
                                                 <span class="text-indigo-500 block text-[10px] uppercase font-bold">Costo</span>
                                                 <p class="font-bold text-indigo-900">Bs. <span id="mensualidad-costo">0.00</span></p>
                                             </div>
-                                            <div class="bg-white/50 p-1.5 rounded">
-                                                <span class="text-emerald-600 block text-[10px] uppercase font-bold">Pagado</span>
-                                                <p class="font-bold text-emerald-700">Bs. <span id="mensualidad-pagado">0.00</span></p>
-                                            </div>
-                                            <div class="bg-white/50 p-1.5 rounded">
-                                                <span class="text-orange-500 block text-[10px] uppercase font-bold">Saldo</span>
-                                                <p class="font-bold text-orange-700">Bs. <span id="mensualidad-saldo">0.00</span></p>
-                                            </div>
                                             <div class="col-span-2 bg-indigo-100 p-2 rounded flex justify-between items-center">
                                                 <span class="text-indigo-600 font-bold">📊 Sesiones:</span>
                                                 <p class="font-extrabold text-indigo-900" id="mensualidad-sesiones">0 / 0</p>
                                             </div>
-                                        </div>
-                                        
-                                        <div class="mt-2 text-[10px] text-indigo-600/80 bg-white/40 p-2 rounded border border-indigo-100">
-                                            ℹ️ Las sesiones tendrán monto = Bs. 0.00.
                                         </div>
                                     </div>
                                 </div>
@@ -172,7 +167,7 @@
                                     required>
                                 <option value="">Seleccione sucursal...</option>
                                 {% for sucursal in sucursales %}
-                                <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                                <option value="{{ sucursal.id }}" {% if sucursal_preseleccionada and sucursal.id == sucursal_preseleccionada.id %}selected{% endif %}>{{ sucursal.nombre }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -438,6 +433,10 @@ function agregarEventoPaciente() {
                     
                     // Agregar evento al nuevo select de servicios
                     agregarEventoServicio();
+                    
+                    // Si hay proyecto seleccionado, actualizar info de proyecto
+                    // Esto es útil si se cambia de paciente para que se limpie/recargue
+                    // cargarProyectosDelPaciente();
                 })
                 .catch(error => {
                     console.error('❌ Error cargando servicios:', error);
@@ -661,7 +660,7 @@ function actualizarVistaPrevia() {
     const servicioId = document.getElementById('servicio-select')?.value || '';
     const duracionEfectiva = obtenerDuracionEfectiva();
     
-    // ✨ NUEVO: Verificar si se deben incluir sesiones pasadas
+    // Verificar si se deben incluir sesiones pasadas
     const incluirPasadas = document.getElementById('incluir_sesiones_pasadas')?.checked || false;
     
     const params = new URLSearchParams({
@@ -672,7 +671,7 @@ function actualizarVistaPrevia() {
         profesional: profesionalId,
         servicio: servicioId,
         duracion: duracionEfectiva,
-        incluir_pasadas: incluirPasadas ? 'true' : 'false'  // ✨ NUEVO
+        incluir_pasadas: incluirPasadas ? 'true' : 'false'
     });
     
     diasSeleccionados.forEach(dia => {
@@ -768,57 +767,88 @@ function toggleProyectoSelect() {
 }
 
 // ========================================
-// CARGAR PROYECTOS DEL PACIENTE
+// ✅ CORREGIDO: CARGAR PROYECTOS (Muestra Código + Nombre)
 // ========================================
-function cargarProyectosDelPaciente() {
+function cargarProyectosDelPaciente(idPreseleccionado = null) {
     const pacienteSelect = document.getElementById('paciente-select');
     const pacienteId = pacienteSelect?.value;
     
     if (!pacienteId) {
-        alert('⚠️ Primero selecciona un paciente');
-        document.getElementById('asignar_proyecto').checked = false;
-        document.getElementById('proyecto-select-container').classList.add('hidden');
+        if (!idPreseleccionado) {
+            // Solo avisar si es interacción manual, no precarga
+            console.log('⚠️ Esperando selección de paciente para cargar proyectos...');
+            document.getElementById('asignar_proyecto').checked = false;
+            document.getElementById('proyecto-select-container').classList.add('hidden');
+        }
         return;
     }
     
     const select = document.getElementById('proyecto_id');
     const sinProyectos = document.getElementById('sin-proyectos');
     
-    select.innerHTML = '<option value="">Cargando...</option>';
-    select.disabled = true;
+    // Feedback de carga
+    select.innerHTML = '<option value="">⏳ Buscando proyectos...</option>';
     
-    fetch(`/facturacion/api/proyectos-paciente/${pacienteId}/`)
+    // AJAX
+    fetch(`/agenda/api/proyectos-paciente/${pacienteId}/`) // Asegúrate que la URL coincida con tu urls.py
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(data => {
+            // Resetear select
             select.innerHTML = '<option value="">-- Seleccione Proyecto --</option>';
             select.disabled = false;
             
             if (data.success && data.proyectos && data.proyectos.length > 0) {
+                
                 data.proyectos.forEach(proyecto => {
                     const option = document.createElement('option');
                     option.value = proyecto.id;
-                    option.textContent = `${proyecto.nombre} (Saldo: ${proyecto.saldo_pendiente.toFixed(2)})`;
+                    
+                    // ✅ AQUI EL CAMBIO: Mostrar Código + Nombre
+                    let texto = `[${proyecto.codigo}] ${proyecto.nombre}`;
+                    
+                    // Opcional: Indicar si está finalizado para que el usuario sepa
+                    if (proyecto.estado_raw === 'finalizado') {
+                        texto += ' (Finalizado)';
+                        option.classList.add('text-gray-500', 'bg-gray-50'); // Estilo visual
+                    }
+                    
+                    texto += ` - Saldo: Bs. ${proyecto.saldo_pendiente.toFixed(2)}`;
+                    
+                    option.textContent = texto;
+                    
+                    // Guardar datos en dataset para el panel de info
                     option.dataset.tipo = proyecto.tipo;
                     option.dataset.costo = proyecto.costo_total;
                     option.dataset.pagado = proyecto.total_pagado;
                     option.dataset.sesiones = proyecto.sesiones_completadas || 0;
-                    option.dataset.estado = data.proyectos[0].tipo; 
+                    
+                    // Preselección automática si venimos de detalle_proyecto
+                    if (idPreseleccionado && String(proyecto.id) === String(idPreseleccionado)) {
+                        option.selected = true;
+                    }
+                    
                     select.appendChild(option);
                 });
-                sinProyectos.classList.add('hidden');
+                
+                if (sinProyectos) sinProyectos.classList.add('hidden');
+                
+                // Si se preseleccionó, actualizar el panel de info inmediatamente
+                if (idPreseleccionado) {
+                    mostrarInfoProyecto();
+                }
+                
             } else {
-                sinProyectos.classList.remove('hidden');
+                if (sinProyectos) sinProyectos.classList.remove('hidden');
+                select.innerHTML = '<option value="">⚠️ Sin proyectos disponibles</option>';
             }
         })
         .catch(error => {
             console.error('Error cargando proyectos:', error);
-            select.innerHTML = '<option value="">Error</option>';
-            select.disabled = false;
+            select.innerHTML = '<option value="">❌ Error al cargar</option>';
+            if (sinProyectos) sinProyectos.classList.remove('hidden');
         });
 }
 
@@ -874,37 +904,28 @@ function toggleMensualidadSelect() {
     const checkbox = document.getElementById('asignar_mensualidad');
     const container = document.getElementById('mensualidad-select-container');
     const checkboxProyecto = document.getElementById('asignar_proyecto');
+    const labelProyecto = document.getElementById('label-asignar-proyecto');
     const fechaInicio = document.getElementById('fecha-inicio');
     const fechaFin = document.getElementById('fecha-fin');
     
-    console.log('Checkbox:', checkbox?.checked);
-    console.log('Container:', container);
-    
     if (checkbox && checkbox.checked) {
-        console.log('✅ Activando mensualidad...');
-        
         // ✅ Mostrar contenedor de mensualidades
-        if (container) {
-            container.classList.remove('hidden');
-            console.log('✅ Contenedor mostrado');
-        }
+        if (container) container.classList.remove('hidden');
         
         // ✅ Desactivar "Asignar a Proyecto" (exclusividad)
         if (checkboxProyecto) {
             checkboxProyecto.checked = false;
             checkboxProyecto.disabled = true;
+            if(labelProyecto) labelProyecto.classList.add('opacity-50', 'cursor-not-allowed');
+            
             const proyectoContainer = document.getElementById('proyecto-select-container');
-            if (proyectoContainer) {
-                proyectoContainer.classList.add('hidden');
-            }
+            if (proyectoContainer) proyectoContainer.classList.add('hidden');
+            
             const proyectoSelect = document.getElementById('proyecto_id');
-            if (proyectoSelect) {
-                proyectoSelect.value = '';
-            }
+            if (proyectoSelect) proyectoSelect.value = '';
+            
             const proyectoInfo = document.getElementById('proyecto-info');
-            if (proyectoInfo) {
-                proyectoInfo.classList.add('hidden');
-            }
+            if (proyectoInfo) proyectoInfo.classList.add('hidden');
         }
         
         // ✅ Ocultar campos de fecha
@@ -921,17 +942,14 @@ function toggleMensualidadSelect() {
         cargarMensualidadesDelPaciente();
         
     } else {
-        console.log('❌ Desactivando mensualidad...');
-        
         // ❌ Ocultar contenedor
-        if (container) {
-            container.classList.add('hidden');
-            console.log('✅ Contenedor ocultado');
-        }
+        if (container) container.classList.add('hidden');
         
-        // ❌ Reactivar "Asignar a Proyecto"
-        if (checkboxProyecto) {
+        // ❌ Reactivar "Asignar a Proyecto" (Solo si no está bloqueado por venir de detalle_proyecto)
+        const proyectoBloqueado = document.getElementById('input-hidden-proyecto');
+        if (checkboxProyecto && !proyectoBloqueado) {
             checkboxProyecto.disabled = false;
+            if(labelProyecto) labelProyecto.classList.remove('opacity-50', 'cursor-not-allowed');
         }
         
         // ❌ Mostrar campos de fecha
@@ -946,13 +964,10 @@ function toggleMensualidadSelect() {
         
         // ❌ Limpiar select
         const select = document.getElementById('mensualidad_id');
-        if (select) {
-            select.value = '';
-        }
+        if (select) select.value = '';
+        
         const info = document.getElementById('mensualidad-info');
-        if (info) {
-            info.classList.add('hidden');
-        }
+        if (info) info.classList.add('hidden');
     }
 }
 
@@ -972,53 +987,37 @@ function cargarMensualidadesDelPaciente() {
     const profesionalId = profesionalSelect?.value;
     const sucursalId = sucursalSelect?.value;
     
-    console.log('Filtros:', { pacienteId, servicioId, profesionalId, sucursalId });
-    
     // Validar parámetros
     if (!pacienteId || !servicioId || !profesionalId || !sucursalId) {
         alert('⚠️ Primero selecciona: Sucursal, Paciente, Servicio y Profesional');
         const checkbox = document.getElementById('asignar_mensualidad');
-        if (checkbox) {
-            checkbox.checked = false;
-        }
+        if (checkbox) checkbox.checked = false;
+        
         const container = document.getElementById('mensualidad-select-container');
-        if (container) {
-            container.classList.add('hidden');
-        }
+        if (container) container.classList.add('hidden');
         return;
     }
     
     const select = document.getElementById('mensualidad_id');
     const sinMensualidades = document.getElementById('sin-mensualidades');
     
-    if (!select) {
-        console.error('❌ No se encontró el select de mensualidades');
-        return;
-    }
+    if (!select) return;
     
     select.innerHTML = '<option value="">⏳ Cargando...</option>';
     select.disabled = true;
     
     const url = `/agenda/api/mensualidades-paciente/?paciente=${pacienteId}&servicio=${servicioId}&profesional=${profesionalId}&sucursal=${sucursalId}`;
-    console.log('📡 Llamando a:', url);
     
     fetch(url)
         .then(response => {
-            console.log('📥 Respuesta recibida:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log('📊 Datos recibidos:', data);
-            
             select.innerHTML = '<option value="">-- Seleccione Mensualidad --</option>';
             select.disabled = false;
             
             if (data.success && data.mensualidades && data.mensualidades.length > 0) {
-                console.log(`✅ ${data.mensualidades.length} mensualidades encontradas`);
-                
                 data.mensualidades.forEach(mensualidad => {
                     const option = document.createElement('option');
                     option.value = mensualidad.id;
@@ -1038,21 +1037,16 @@ function cargarMensualidadesDelPaciente() {
                     select.appendChild(option);
                 });
                 
-                if (sinMensualidades) {
-                    sinMensualidades.classList.add('hidden');
-                }
+                if (sinMensualidades) sinMensualidades.classList.add('hidden');
             } else {
-                console.log('📭 No hay mensualidades');
-                if (sinMensualidades) {
-                    sinMensualidades.classList.remove('hidden');
-                }
+                if (sinMensualidades) sinMensualidades.classList.remove('hidden');
             }
         })
         .catch(error => {
             console.error('❌ Error:', error);
             select.innerHTML = '<option value="">⚠️ Error al cargar</option>';
             select.disabled = false;
-            alert('Error al cargar mensualidades. Por favor, intenta nuevamente.');
+            alert('Error al cargar mensualidades.');
         });
 }
 
@@ -1060,17 +1054,13 @@ function cargarMensualidadesDelPaciente() {
  * Mostrar información de la mensualidad seleccionada
  */
 function mostrarInfoMensualidad() {
-    console.log('📊 Mostrando info de mensualidad...');
-    
     const select = document.getElementById('mensualidad_id');
     const info = document.getElementById('mensualidad-info');
     const fechaInicio = document.getElementById('fecha-inicio');
     const fechaFin = document.getElementById('fecha-fin');
     
     if (!select || !select.value) {
-        if (info) {
-            info.classList.add('hidden');
-        }
+        if (info) info.classList.add('hidden');
         return;
     }
     
@@ -1085,8 +1075,6 @@ function mostrarInfoMensualidad() {
     const sesiones = parseInt(selectedOption.dataset.sesiones || '0');
     const realizadas = parseInt(selectedOption.dataset.realizadas || '0');
     const periodo = selectedOption.dataset.periodo || '';
-    
-    console.log('Datos de mensualidad:', { mes, anio, costo, pagado, saldo, sesiones, realizadas });
     
     // Actualizar información
     const periodoElement = document.getElementById('mensualidad-periodo');
@@ -1108,15 +1096,11 @@ function mostrarInfoMensualidad() {
     const fechaInicioCalculada = calcularPrimerDiaMes(anio, mes);
     const fechaFinCalculada = calcularUltimoDiaMes(anio, mes);
     
-    console.log('Fechas calculadas:', { fechaInicioCalculada, fechaFinCalculada });
-    
     if (fechaInicio) fechaInicio.value = fechaInicioCalculada;
     if (fechaFin) fechaFin.value = fechaFinCalculada;
     
     // Mostrar panel
-    if (info) {
-        info.classList.remove('hidden');
-    }
+    if (info) info.classList.remove('hidden');
     
     // Actualizar vista previa
     if (typeof actualizarVistaPrevia === 'function') {
@@ -1159,8 +1143,10 @@ function resetearMensualidad() {
     }
     if (info) info.classList.add('hidden');
     
+    // Reactivar proyecto solo si no está bloqueado
+    const proyectoBloqueado = document.getElementById('input-hidden-proyecto');
     const checkboxProyecto = document.getElementById('asignar_proyecto');
-    if (checkboxProyecto) checkboxProyecto.disabled = false;
+    if (checkboxProyecto && !proyectoBloqueado) checkboxProyecto.disabled = false;
     
     const fechaInicio = document.getElementById('fecha-inicio');
     const fechaFin = document.getElementById('fecha-fin');
@@ -1175,41 +1161,171 @@ function resetearMensualidad() {
 }
 
 // ========================================
-// INICIALIZACIÓN
+// ✅ CORREGIDO: INICIALIZACIÓN Y BLOQUEO DE CAMPOS
+// ========================================
+// ========================================
+// ✅ INICIALIZACIÓN Y BLOQUEO DE CAMPOS (CORREGIDO)
 // ========================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando funciones de mensualidad...');
+    console.log('🚀 Inicializando funciones...');
     
-    // Event listener para checkbox
+    // Event listeners básicos
     const checkboxMensualidad = document.getElementById('asignar_mensualidad');
     if (checkboxMensualidad) {
-        // Remover el onchange inline si existe
         checkboxMensualidad.removeAttribute('onchange');
         checkboxMensualidad.addEventListener('change', toggleMensualidadSelect);
-        console.log('✅ Event listener agregado al checkbox');
-    } else {
-        console.warn('⚠️ No se encontró checkbox asignar_mensualidad');
     }
     
-    // Event listener para select
     const selectMensualidad = document.getElementById('mensualidad_id');
     if (selectMensualidad) {
         selectMensualidad.removeAttribute('onchange');
         selectMensualidad.addEventListener('change', mostrarInfoMensualidad);
-        console.log('✅ Event listener agregado al select');
-    } else {
-        console.warn('⚠️ No se encontró select mensualidad_id');
     }
     
-    // Event listeners para resetear
+    // Listeners para resetear si cambian los padres (solo si no están bloqueados)
     ['paciente-select', 'servicio-select', 'profesional-select'].forEach(id => {
         const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener('change', resetearMensualidad);
-        }
+        if (element) element.addEventListener('change', resetearMensualidad);
     });
     
-    console.log('✅ Funciones de mensualidad listas');
+    // ✅ LÓGICA DE PRECARGA Y BLOQUEO DE PROYECTO/PACIENTE
+    {% if proyecto_preseleccionado and paciente_preseleccionado and sucursal_preseleccionada %}
+    console.log('📦 MODO PROYECTO: Precargando y bloqueando datos...');
+    
+    const inputsContainer = document.getElementById('hidden-inputs-container');
+    const sucursalSelect = document.getElementById('sucursal-select');
+    const pacientesContainer = document.getElementById('pacientes-container');
+    
+    if (inputsContainer) {
+        // ---------------------------------------------------------
+        // 1. BLOQUEAR SUCURSAL
+        // ---------------------------------------------------------
+        if (sucursalSelect) {
+            sucursalSelect.value = '{{ sucursal_preseleccionada.id }}';
+            sucursalSelect.classList.add('bg-gray-100', 'pointer-events-none', 'opacity-70');
+            
+            // Input hidden para sucursal
+            const hiddenSucursal = document.createElement('input');
+            hiddenSucursal.type = 'hidden';
+            hiddenSucursal.name = 'sucursal';
+            hiddenSucursal.value = '{{ sucursal_preseleccionada.id }}';
+            inputsContainer.appendChild(hiddenSucursal);
+        }
+
+        // ---------------------------------------------------------
+        // 2. FORZAR Y BLOQUEAR PACIENTE (Sin esperar AJAX)
+        // ---------------------------------------------------------
+        if (pacientesContainer) {
+            // Reemplazamos el HTML del contenedor directamente. 
+            // No necesitamos cargar la lista de todos los pacientes, solo mostrar el correcto.
+            pacientesContainer.innerHTML = `
+                <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+                    Paciente * <span class="text-slate-400 font-normal">🔒 (Asignado al proyecto)</span>
+                </label>
+                <select id="paciente-select" 
+                        class="w-full px-3 py-2 border border-slate-200 bg-gray-100 rounded-xl text-xs text-slate-600 pointer-events-none" 
+                        disabled>
+                    <option value="{{ paciente_preseleccionado.id }}" selected>
+                        {{ paciente_preseleccionado.nombre }} {{ paciente_preseleccionado.apellido }}
+                    </option>
+                </select>
+            `;
+
+            // Input hidden para paciente (necesario porque el select está disabled)
+            const hiddenPaciente = document.createElement('input');
+            hiddenPaciente.type = 'hidden';
+            hiddenPaciente.name = 'paciente_id';
+            hiddenPaciente.value = '{{ paciente_preseleccionado.id }}';
+            inputsContainer.appendChild(hiddenPaciente);
+            
+            console.log('🔒 Paciente fijado y bloqueado: {{ paciente_preseleccionado.nombre }}');
+
+            // ---------------------------------------------------------
+            // 3. CARGAR SERVICIOS AUTOMÁTICAMENTE
+            // ---------------------------------------------------------
+            // Simulamos el evento de cambio para disparar la carga de servicios
+            // Pero como reemplazamos el elemento, llamamos a la lógica manualmente
+            const serviciosContainer = document.getElementById('servicios-container');
+            if (serviciosContainer) {
+                serviciosContainer.innerHTML = `
+                    <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+                        🏥 Servicio Base * <span class="text-slate-400 font-normal">(Paso 2)</span>
+                    </label>
+                    <select name="servicio_id" id="servicio-select" 
+                            class="w-full px-2 py-1.5 border-2 border-slate-200 bg-slate-50 rounded-xl text-xs">
+                        <option value="">⏳ Cargando servicios...</option>
+                    </select>
+                `;
+                
+                // Llamada AJAX para servicios
+                fetch(`{% url 'agenda:servicios_paciente' %}?paciente={{ paciente_preseleccionado.id }}&tipo_precio=proyecto`)
+                    .then(r => r.text())
+                    .then(html => {
+                        serviciosContainer.innerHTML = html;
+                        agregarEventoServicio(); // Reactivar listeners para el siguiente paso
+                        
+                        // Opcional: Si el proyecto tiene un servicio base, preseleccionarlo también
+                        {% if proyecto_preseleccionado.servicio_base %}
+                        const selectServ = document.getElementById('servicio-select');
+                        if(selectServ) {
+                            selectServ.value = '{{ proyecto_preseleccionado.servicio_base.id }}';
+                            // Disparar carga de profesionales
+                            selectServ.dispatchEvent(new Event('change'));
+                        }
+                        {% endif %}
+                    });
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 4. BLOQUEAR PROYECTO
+        // ---------------------------------------------------------
+        setTimeout(() => {
+            // Cargar la lista de proyectos filtrada para este paciente
+            cargarProyectosDelPaciente('{{ proyecto_preseleccionado.id }}');
+            
+            const checkProyecto = document.getElementById('asignar_proyecto');
+            const labelProyecto = document.getElementById('label-asignar-proyecto');
+            const selectProyecto = document.getElementById('proyecto_id');
+            const checkMensualidad = document.getElementById('asignar_mensualidad');
+            const labelMensualidad = document.getElementById('label-asignar-mensualidad');
+
+            // Activar checkbox visualmente
+            if (checkProyecto) {
+                checkProyecto.checked = true;
+                checkProyecto.addEventListener('click', e => e.preventDefault()); // Prevenir desmarcar
+                if(labelProyecto) labelProyecto.classList.add('cursor-not-allowed');
+            }
+
+            // Bloquear select visualmente
+            if (selectProyecto) {
+                selectProyecto.classList.add('bg-gray-100', 'pointer-events-none', 'opacity-70');
+            }
+
+            // Inputs hidden obligatorios
+            const hiddenProyecto = document.createElement('input');
+            hiddenProyecto.type = 'hidden';
+            hiddenProyecto.name = 'proyecto_id';
+            hiddenProyecto.value = '{{ proyecto_preseleccionado.id }}';
+            hiddenProyecto.id = 'input-hidden-proyecto'; 
+            inputsContainer.appendChild(hiddenProyecto);
+
+            const hiddenCheck = document.createElement('input');
+            hiddenCheck.type = 'hidden';
+            hiddenCheck.name = 'asignar_proyecto';
+            hiddenCheck.value = 'on';
+            inputsContainer.appendChild(hiddenCheck);
+
+            // Deshabilitar opción mensualidad
+            if (checkMensualidad) {
+                checkMensualidad.disabled = true;
+                if(labelMensualidad) labelMensualidad.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            
+            console.log('🔒 Proyecto fijado y bloqueado');
+        }, 300);
+    }
+    {% endif %}
 });
 
 // Exponer funciones globalmente
@@ -1217,5 +1333,7 @@ window.toggleMensualidadSelect = toggleMensualidadSelect;
 window.cargarMensualidadesDelPaciente = cargarMensualidadesDelPaciente;
 window.mostrarInfoMensualidad = mostrarInfoMensualidad;
 window.resetearMensualidad = resetearMensualidad;
+window.cargarProyectosDelPaciente = cargarProyectosDelPaciente;
+window.toggleProyectoSelect = toggleProyectoSelect;
 </script>
 {% endblock %}

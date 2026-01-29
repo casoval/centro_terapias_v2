@@ -223,16 +223,24 @@
         </div>
     </div>
 
-    <!-- Botón de Pago -->
-    {% if proyecto.saldo_pendiente > 0 %}
-    <div class="mt-6 flex justify-center">
+    <!-- Botones de Acción -->
+    <div class="mt-6 flex justify-center gap-4 flex-wrap">
+        <!-- Botón Agendar Sesiones -->
+        <a href="{% url 'agenda:agendar_recurrente' %}?sucursal={{ proyecto.sucursal.id }}&paciente={{ proyecto.paciente.id }}&proyecto={{ proyecto.id }}" 
+           class="group bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black py-2.5 px-6 rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2 text-sm">
+            <span class="text-lg group-hover:scale-110 transition-transform">📅</span>
+            <span>Agendar Sesiones del Proyecto</span>
+        </a>
+        
+        <!-- Botón de Pago -->
+        {% if proyecto.saldo_pendiente > 0 %}
         <a href="{% url 'facturacion:registrar_pago' %}?proyecto_id={{ proyecto.id }}" 
            class="group bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-2.5 px-6 rounded-xl shadow-lg shadow-emerald-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2 text-sm">
             <span class="text-lg group-hover:scale-110 transition-transform">💵</span>
             <span>Registrar Pago del Proyecto</span>
         </a>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 
 <script>
