@@ -2,6 +2,17 @@
 
 {% if sesiones_page %}
     
+    <!-- ✅ NUEVO: Botón para agendar sesión -->
+    <div class="mb-4 flex justify-end">
+        <a href="{% url 'agenda:agendar_recurrente' %}?sucursal={{ paciente.sucursales.first.id }}&paciente={{ paciente.id }}" 
+           class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-lg hover:shadow-xl">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Agendar Sesión
+        </a>
+    </div>
+    
     <!-- Vista Desktop: Tabla Expandible -->
     <div class="desktop-table overflow-x-auto">
         <table class="min-w-full">
@@ -128,90 +139,51 @@
                                 </div>
                             </div>
                             
-                            <!-- Información de Pago -->
+                            <!-- Información Financiera -->
                             <div class="bg-white rounded-lg p-3 border-2 border-purple-200">
-                                <h4 class="text-sm font-black text-purple-800 mb-2">💰 Información de Pago</h4>
-                                
-                                {% if sesion.requiere_pago %}
-                                    <div class="space-y-1.5 text-sm">
+                                <h4 class="text-sm font-black text-purple-800 mb-2">💰 Información Financiera</h4>
+                                <div class="space-y-1.5 text-sm">
+                                    {% if sesion.proyecto %}
                                         <div class="flex justify-between">
-                                            <span class="text-gray-600">Monto a cobrar:</span>
-                                            <span class="font-bold">Bs. {{ sesion.monto_cobrado }}</span>
+                                            <span class="text-purple-600">Proyecto:</span>
+                                            <span class="font-bold text-purple-900">{{ sesion.proyecto.codigo }}</span>
                                         </div>
+                                        <div class="bg-purple-50 p-2 rounded">
+                                            <p class="text-xs text-purple-700">📦 Incluida en proyecto</p>
+                                        </div>
+                                    {% elif sesion.mensualidad %}
                                         <div class="flex justify-between">
-                                            <span class="text-gray-600">Total pagado:</span>
-                                            <span class="font-bold {% if sesion.pagado %}text-green-600{% else %}text-red-600{% endif %}">
-                                                Bs. {{ sesion.total_pagado }}
-                                            </span>
+                                            <span class="text-indigo-600">Mensualidad:</span>
+                                            <span class="font-bold text-indigo-900">{{ sesion.mensualidad.codigo }}</span>
                                         </div>
+                                        <div class="bg-indigo-50 p-2 rounded">
+                                            <p class="text-xs text-indigo-700">💳 Incluida en mensualidad</p>
+                                        </div>
+                                    {% else %}
                                         <div class="flex justify-between">
-                                            <span class="text-gray-600">Saldo pendiente:</span>
-                                            <span class="font-bold {% if sesion.saldo_pendiente > 0 %}text-red-600{% else %}text-green-600{% endif %}">
-                                                Bs. {{ sesion.saldo_pendiente }}
-                                            </span>
+                                            <span class="text-gray-600">Monto:</span>
+                                            <span class="font-bold text-lg">Bs. {{ sesion.monto_cobrado }}</span>
                                         </div>
-                                        
-                                        {% if sesion.pagado %}
-                                        <div class="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                                            <p class="text-green-700 text-xs font-bold">✅ Pagado Completo</p>
-                                            {% if sesion.fecha_pago %}
-                                            <p class="text-xs text-green-600 mt-1">
-                                                Fecha: {{ sesion.fecha_pago|date:"d/m/Y" }}
-                                            </p>
-                                            {% endif %}
-                                        </div>
-                                        {% elif sesion.total_pagado > 0 %}
-                                        <div class="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
-                                            <p class="text-yellow-700 text-xs font-bold">⚠️ Pago Parcial</p>
-                                            <p class="text-xs text-yellow-600 mt-1">
-                                                Faltan: Bs. {{ sesion.saldo_pendiente }}
-                                            </p>
-                                        </div>
-                                        {% else %}
-                                        <div class="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                                            <p class="text-red-700 text-xs font-bold">❌ Sin Pagar</p>
-                                            <p class="text-xs text-red-600 mt-1">
-                                                Debe: Bs. {{ sesion.monto_cobrado }}
-                                            </p>
-                                        </div>
-                                        {% endif %}
-                                        
-                                        <!-- Lista de pagos -->
-                                        {% if sesion.pagos.all %}
-                                        <div class="mt-2">
-                                            <p class="text-xs font-bold text-gray-700 mb-1">Pagos registrados:</p>
-                                            <div class="space-y-1">
-                                                {% for pago in sesion.pagos.all %}
-                                                {% if not pago.anulado %}
-                                                <div class="text-xs bg-gray-50 p-2 rounded">
-                                                    <div class="flex justify-between">
-                                                        <span class="text-gray-600">{{ pago.metodo_pago.nombre }}</span>
-                                                        <span class="font-bold">Bs. {{ pago.monto }}</span>
-                                                    </div>
-                                                    <div class="text-gray-500 text-xs">
-                                                        {{ pago.fecha_pago|date:"d/m/Y" }} - {{ pago.numero_recibo }}
-                                                    </div>
-                                                </div>
-                                                {% endif %}
-                                                {% endfor %}
+                                        {% if sesion.requiere_pago %}
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Pagado:</span>
+                                                <span class="font-bold {% if sesion.pagado %}text-green-600{% else %}text-red-600{% endif %}">
+                                                    Bs. {{ sesion.total_pagado }}
+                                                </span>
                                             </div>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                {% else %}
-                                    <div class="bg-gray-50 rounded-lg p-4 text-center">
-                                        <p class="text-gray-600 text-sm">🎁 Esta sesión no requiere pago</p>
-                                        <p class="text-gray-500 text-xs mt-1">
-                                            {% if sesion.proyecto %}
-                                            (Parte de proyecto)
-                                            {% elif sesion.mensualidad %}
-                                            (Parte de mensualidad)
-                                            {% else %}
-                                            (Sesión gratuita)
+                                            {% if not sesion.pagado %}
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-600">Pendiente:</span>
+                                                <span class="font-bold text-red-600">Bs. {{ sesion.monto_pendiente }}</span>
+                                            </div>
                                             {% endif %}
-                                        </p>
-                                    </div>
-                                {% endif %}
+                                        {% else %}
+                                            <div class="bg-green-50 p-2 rounded">
+                                                <p class="text-xs text-green-700 font-bold">🎁 Sesión sin costo</p>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
                             </div>
                             
                             <!-- Observaciones y Notas -->

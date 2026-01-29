@@ -78,13 +78,15 @@
                             </p>
                         </div>
                         
-                        <!-- ✅ NUEVO: Botón para agendar sesiones rápidamente -->
+                        <!-- Botón para agendar sesiones (oculto si está completada o finalizada) -->
+                        {% if mensualidad.estado != 'completada' and mensualidad.estado != 'finalizada' %}
                         <button 
                             onclick="abrirModalAgendarRapido({{ sp.id }}, '{{ sp.servicio.nombre }}', '{{ sp.profesional.nombre }} {{ sp.profesional.apellido }}')"
                             class="flex-shrink-0 bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
                             title="Agendar sesiones de {{ sp.servicio.nombre }}">
                             +
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 {% empty %}
