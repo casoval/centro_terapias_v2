@@ -50,7 +50,7 @@
                     </td>
                     <td class="px-3 py-2">
                         <div class="text-sm font-bold text-gray-900">{{ sesion.fecha|date:"d/m/Y" }}</div>
-                        <div class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</div>
+                        <div class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"g:i A" }} - {{ sesion.hora_fin|time:"g:i A" }}</div>
                     </td>
                     <td class="px-3 py-2">
                         <span class="px-2 py-1 rounded text-xs font-bold text-white" 
@@ -114,7 +114,7 @@
                                         </div>
                                         {% if sesion.hora_real_inicio %}
                                         <div class="text-xs text-yellow-600 mt-1">
-                                            Inicio real: {{ sesion.hora_real_inicio|time:"H:i" }}
+                                            Inicio real: {{ sesion.hora_real_inicio|time:"g:i A" }}
                                         </div>
                                         {% endif %}
                                     </div>
@@ -126,12 +126,12 @@
                                         {% if sesion.fecha_reprogramada %}
                                         <p class="text-xs text-orange-600 mt-1">
                                             Nueva fecha: {{ sesion.fecha_reprogramada|date:"d/m/Y" }}
-                                            {% if sesion.hora_reprogramada %}{{ sesion.hora_reprogramada|time:"H:i" }}{% endif %}
+                                            {% if sesion.hora_reprogramada %}{{ sesion.hora_reprogramada|time:"g:i A" }}{% endif %}
                                         </p>
                                         {% endif %}
                                         {% if sesion.motivo_reprogramacion %}
                                         <p class="text-xs text-orange-600 mt-1">
-                                            Motivo: {{ sesion.motivo_reprogramacion|truncatewords:10 }}
+                                            Motivo: {{ sesion.motivo_reprogramacion }}
                                         </p>
                                         {% endif %}
                                     </div>
@@ -140,50 +140,62 @@
                             </div>
                             
                             <!-- Información Financiera -->
-                            <div class="bg-white rounded-lg p-3 border-2 border-purple-200">
-                                <h4 class="text-sm font-black text-purple-800 mb-2">💰 Información Financiera</h4>
-                                <div class="space-y-1.5 text-sm">
-                                    {% if sesion.proyecto %}
-                                        <div class="flex justify-between">
-                                            <span class="text-purple-600">Proyecto:</span>
-                                            <span class="font-bold text-purple-900">{{ sesion.proyecto.codigo }}</span>
+                            <div class="bg-white rounded-lg p-3 border-2 border-yellow-200">
+                                <h4 class="text-sm font-black text-yellow-800 mb-2">💰 Estado de Pago</h4>
+                                
+                                {% if not sesion.requiere_pago %}
+                                    <div class="text-center py-4">
+                                        <p class="text-3xl mb-2">🎁</p>
+                                        <p class="text-sm font-bold text-gray-700">Esta sesión no requiere pago</p>
+                                    </div>
+                                {% else %}
+                                    <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-600">Monto a cobrar:</span>
+                                            <span class="font-black text-gray-900">Bs. {{ sesion.monto_cobrado }}</span>
                                         </div>
-                                        <div class="bg-purple-50 p-2 rounded">
-                                            <p class="text-xs text-purple-700">📦 Incluida en proyecto</p>
-                                        </div>
-                                    {% elif sesion.mensualidad %}
-                                        <div class="flex justify-between">
-                                            <span class="text-indigo-600">Mensualidad:</span>
-                                            <span class="font-bold text-indigo-900">{{ sesion.mensualidad.codigo }}</span>
-                                        </div>
-                                        <div class="bg-indigo-50 p-2 rounded">
-                                            <p class="text-xs text-indigo-700">💳 Incluida en mensualidad</p>
-                                        </div>
-                                    {% else %}
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">Monto:</span>
-                                            <span class="font-bold text-lg">Bs. {{ sesion.monto_cobrado }}</span>
-                                        </div>
-                                        {% if sesion.requiere_pago %}
-                                            <div class="flex justify-between">
+                                        
+                                        {% if sesion.pagado %}
+                                            <div class="p-2 bg-green-100 rounded border border-green-300 text-center">
+                                                <p class="text-green-800 font-bold">✅ Pagado Completamente</p>
+                                            </div>
+                                        {% elif sesion.total_pagado > 0 %}
+                                            <div class="flex justify-between items-center">
                                                 <span class="text-gray-600">Pagado:</span>
-                                                <span class="font-bold {% if sesion.pagado %}text-green-600{% else %}text-red-600{% endif %}">
-                                                    Bs. {{ sesion.total_pagado }}
-                                                </span>
+                                                <span class="font-bold text-green-700">Bs. {{ sesion.total_pagado }}</span>
                                             </div>
-                                            {% if not sesion.pagado %}
-                                            <div class="flex justify-between">
+                                            <div class="flex justify-between items-center">
                                                 <span class="text-gray-600">Pendiente:</span>
-                                                <span class="font-bold text-red-600">Bs. {{ sesion.monto_pendiente }}</span>
+                                                <span class="font-bold text-red-700">Bs. {{ sesion.saldo_pendiente }}</span>
                                             </div>
-                                            {% endif %}
+                                            <div class="p-2 bg-yellow-100 rounded border border-yellow-300 text-center">
+                                                <p class="text-yellow-800 font-bold">⚠️ Pago Parcial</p>
+                                            </div>
                                         {% else %}
-                                            <div class="bg-green-50 p-2 rounded">
-                                                <p class="text-xs text-green-700 font-bold">🎁 Sesión sin costo</p>
+                                            <div class="p-2 bg-red-100 rounded border border-red-300 text-center">
+                                                <p class="text-red-800 font-bold">❌ Pago Pendiente</p>
+                                                <p class="text-xs text-red-700 mt-1">Debe: Bs. {{ sesion.monto_cobrado }}</p>
                                             </div>
                                         {% endif %}
-                                    {% endif %}
-                                </div>
+                                        
+                                        {% if sesion.pagos.exists %}
+                                        <div class="mt-3">
+                                            <p class="text-xs font-bold text-gray-700 mb-1">Historial de pagos:</p>
+                                            <div class="space-y-1">
+                                                {% for pago in sesion.pagos.all %}
+                                                <div class="bg-gray-50 rounded p-2 text-xs">
+                                                    <div class="flex justify-between">
+                                                        <span>{{ pago.fecha|date:"d/m/Y" }}</span>
+                                                        <span class="font-bold">Bs. {{ pago.monto }}</span>
+                                                    </div>
+                                                    <div class="text-gray-600">{{ pago.metodo_pago }}</div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
                             </div>
                             
                             <!-- Observaciones y Notas -->
@@ -246,7 +258,7 @@
                 </div>
                 <div class="text-right">
                     <p class="text-sm font-black text-gray-900">{{ sesion.fecha|date:"d/m/Y" }}</p>
-                    <p class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"H:i" }}</p>
+                    <p class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"g:i A" }}</p>
                 </div>
             </div>
             

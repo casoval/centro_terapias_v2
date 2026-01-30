@@ -826,11 +826,23 @@ def detalle_sesiones_completo(request, pk):
                 })
     
     # ==================== ESTADÍSTICAS GENERALES ====================
+    # ✅ CONTAR CANTIDAD DE MENSUALIDADES Y PROYECTOS (no sus sesiones)
+    from agenda.models import Mensualidad, Proyecto
+    
+    total_mensualidades_count = Mensualidad.objects.filter(paciente=paciente).count()
+    total_proyectos_count = Proyecto.objects.filter(paciente=paciente).count()
+    
     stats = {
         'total_sesiones': sesiones.count(),
         'total_normales': sesiones_normales.count(),
-        'total_mensualidades': sesiones_mensualidades.count(),
-        'total_proyectos': sesiones_proyectos.count(),
+        
+        # ✅ Mensualidades: cantidad de mensualidades + sesiones dentro
+        'total_mensualidades': total_mensualidades_count,  # Cantidad de mensualidades
+        'total_sesiones_mensualidades': sesiones_mensualidades.count(),  # Sesiones en mensualidades
+        
+        # ✅ Proyectos: cantidad de proyectos + sesiones dentro
+        'total_proyectos': total_proyectos_count,  # Cantidad de proyectos
+        'total_sesiones_proyectos': sesiones_proyectos.count(),  # Sesiones en proyectos
         
         # Por estado
         'realizadas': sesiones.filter(estado='realizada').count(),

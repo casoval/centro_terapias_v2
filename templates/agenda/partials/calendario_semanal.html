@@ -1,34 +1,43 @@
 {% load fecha_tags %}
 <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 flex flex-col">
     
-    <div class="p-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden flex flex-wrap items-center justify-between gap-2">
-        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg pointer-events-none"></div>
-
-        <div class="relative z-10 flex items-center gap-2">
-            <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+    <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg"></div>
+        
+        <div class="relative z-10 flex items-center justify-between gap-4">
+            <!-- Icono y título -->
+            <div class="flex items-center gap-3">
+                <div class="text-4xl font-black tracking-tight leading-none opacity-95">
+                    📅
+                </div>
+                <div class="h-10 w-px bg-white/30"></div>
             </div>
-            <div>
-                <h3 class="text-base font-black tracking-tight text-white leading-none">Vista Semanal</h3>
-                <p class="text-[10px] text-blue-100 font-medium opacity-90">Gestión de agenda</p>
+            
+            <!-- Información de vista -->
+            <div class="flex-1">
+                <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
+                    Vista Semanal
+                </div>
+                <div class="text-xs font-medium uppercase tracking-wider opacity-75">
+                    Gestión de Agenda
+                </div>
             </div>
-        </div>
+            
+            <!-- Controles -->
+            <div class="flex items-center gap-2">
+                <button id="btn-restaurar" onclick="toggleZoomDia(-1)" class="hidden px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm border border-white/30 shadow-sm hover:bg-white/30 transition-all">
+                    ↺ Ver Todo
+                </button>
 
-        <div class="flex items-center gap-2">
-            <button id="btn-restaurar" onclick="toggleZoomDia(-1)" class="hidden relative z-10 px-2 py-1 bg-white/20 text-white text-[10px] font-bold rounded-full hover:bg-white/30 transition-all border border-white/30 animate-fade-in">
-                ↺ Ver Todo
-            </button>
-
-            <label class="relative z-10 flex items-center gap-1.5 cursor-pointer bg-white/10 px-2 py-1 rounded-full border border-white/20 hover:bg-white/20 transition-all">
-                <input type="checkbox" 
-                       id="toggle-domingo" 
-                       class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
-                       onchange="toggleDomingo(this.checked)">
-                <span class="text-[10px] text-white font-bold tracking-wide">Domingo</span>
-            </label>
+                <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-full border border-white/20 hover:bg-white/20 transition-all">
+                    <input type="checkbox" 
+                           id="toggle-domingo" 
+                           class="w-4 h-4 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
+                           onchange="toggleDomingo(this.checked)">
+                    <span class="text-xs text-white font-bold tracking-wide">Mostrar Domingos</span>
+                </label>
+            </div>
         </div>
     </div>
 
@@ -105,10 +114,10 @@
                                             {% elif sesion.estado == 'cancelada' %}text-gray-600
                                             {% elif sesion.estado == 'reprogramada' %}text-orange-700
                                             {% endif %}">
-                                            {{ sesion.hora_inicio|time:"H:i" }}
+                                            {{ sesion.hora_inicio|time:"g:i A" }}
                                         </span>
                                         <span class="text-[8px] text-gray-500 font-medium whitespace-nowrap">
-                                            -{{ sesion.hora_fin|time:"H:i" }}
+                                            -{{ sesion.hora_fin|time:"g:i A" }}
                                         </span>
                                     </div>
 
@@ -184,17 +193,14 @@
                             </div>
                             
                             {% if sesion.es_ultima_sesion_paciente_servicio %}
-                            <div class="absolute top-0 right-0">
-                                <span class="flex h-2 w-2 relative">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                </span>
+                            <div class="absolute bottom-0.5 right-0.5">
+                                <span class="text-[10px]" title="Última sesión">⚠️</span>
                             </div>
                             {% endif %}
 
                             {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                                 {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
-                                <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                                <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
                                         class="absolute bottom-1 left-1 p-0.5 bg-rose-500 text-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20 hover:scale-110"
                                         title="Eliminar sesión">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -242,6 +248,9 @@
                 <span class="text-[8px]">💰</span>
                 <span>Pago Pend/Realiz</span>
             </div>
+            <span class="px-2 py-0.5 bg-white rounded border border-amber-200 text-amber-700 font-bold shadow-sm">
+                ⚠️ Última Sesión
+            </span>
         </div>
     </div>
 </div>
@@ -250,18 +259,24 @@
 document.addEventListener('DOMContentLoaded', function() {
     const toggle = document.getElementById('toggle-domingo');
     
-    // Verificar si hay sesiones en domingo
-    const columnaDomingo = document.querySelectorAll('[data-dia="6"]');
+    // Verificar si hay sesiones en algún domingo
+    const columnasDomingo = document.querySelectorAll('.columna-domingo');
     let tieneSesiones = false;
-    columnaDomingo.forEach(col => {
-        if (col.querySelector('.group')) tieneSesiones = true;
+    
+    columnasDomingo.forEach(col => {
+        if (col.getAttribute('data-dia') === '6') {
+            const sesiones = col.querySelectorAll('.group');
+            if (sesiones.length > 0) {
+                tieneSesiones = true;
+            }
+        }
     });
     
     if (!tieneSesiones) {
         ocultarDomingo();
-        toggle.checked = false;
+        if (toggle) toggle.checked = false;
     } else {
-        toggle.checked = true;
+        if (toggle) toggle.checked = true;
     }
 });
 
@@ -308,14 +323,14 @@ function toggleZoomDia(index) {
     if (diaZoomed === index || index === -1) {
         // Restaurar estado original
         headers.forEach(h => {
-            h.classList.remove('flex-[4]', 'w-12', 'flex-none');
+            h.classList.remove('flex-[2.5]', 'w-32', 'flex-none');
             h.classList.add('flex-1');
             h.querySelector('.header-content').style.opacity = '1';
             h.querySelector('.header-content').style.transform = 'scale(1)';
         });
         
         columns.forEach(c => {
-            c.classList.remove('flex-[4]', 'w-12', 'flex-none', 'bg-gray-100');
+            c.classList.remove('flex-[2.5]', 'w-32', 'flex-none', 'bg-gray-100');
             c.classList.add('flex-1', 'bg-white');
             c.querySelector('.content-wrapper').style.opacity = '1';
             c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
@@ -332,14 +347,14 @@ function toggleZoomDia(index) {
             
             if (i === index) {
                 // Día Activo
-                h.classList.add('flex-[4]'); // Ocupa mucho espacio
-                h.classList.remove('w-12', 'flex-none');
+                h.classList.add('flex-[2.5]'); // Ensanche moderado
+                h.classList.remove('w-32', 'flex-none');
                 h.querySelector('.header-content').style.opacity = '1';
                 h.querySelector('.header-content').style.transform = 'scale(1.1)';
             } else {
                 // Días Inactivos
-                h.classList.add('w-12', 'flex-none'); // Ancho fijo pequeño
-                h.classList.remove('flex-[4]');
+                h.classList.add('w-32', 'flex-none'); // Ancho amplio
+                h.classList.remove('flex-[2.5]');
                 h.querySelector('.header-content').style.opacity = '0.5';
                 h.querySelector('.header-content').style.transform = 'scale(0.9)';
             }
@@ -350,14 +365,14 @@ function toggleZoomDia(index) {
             
             if (i === index) {
                 // Columna Activa
-                c.classList.add('flex-[4]', 'bg-white');
-                c.classList.remove('w-12', 'flex-none', 'bg-gray-100');
+                c.classList.add('flex-[2.5]', 'bg-white');
+                c.classList.remove('w-32', 'flex-none', 'bg-gray-100');
                 c.querySelector('.content-wrapper').style.opacity = '1';
                 c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
             } else {
                 // Columna Inactiva
-                c.classList.add('w-12', 'flex-none', 'bg-gray-100');
-                c.classList.remove('flex-[4]', 'bg-white');
+                c.classList.add('w-32', 'flex-none', 'bg-gray-100');
+                c.classList.remove('flex-[2.5]', 'bg-white');
                 // Ocultar contenido visualmente para evitar desorden
                 c.querySelector('.content-wrapper').style.opacity = '0'; 
                 c.querySelector('.content-wrapper').style.pointerEvents = 'none';

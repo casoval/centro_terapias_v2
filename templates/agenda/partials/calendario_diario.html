@@ -143,7 +143,7 @@
                         <div class="col-span-1 md:col-span-2 lg:col-span-3 py-4 flex items-center justify-center">
                             <div class="h-1 bg-gradient-to-r from-transparent via-orange-300 to-transparent w-full rounded-full opacity-90 relative flex items-center justify-center shadow-sm">
                                 <span class="absolute px-5 py-1.5 text-xs font-black text-orange-800 bg-gradient-to-r from-orange-100 to-amber-100 rounded-full border-2 border-orange-300 shadow-md z-10">
-                                    ☀️ Tarde (Inicio 13:00)
+                                    ☀️ Tarde (Inicio 1:00 PM)
                                 </span>
                             </div>
                         </div>
@@ -186,9 +186,9 @@
                                     {% elif sesion.estado == 'cancelada' %}text-gray-600
                                     {% elif sesion.estado == 'reprogramada' %}text-orange-700
                                     {% endif %}">
-                                    {{ sesion.hora_inicio|time:"H:i" }}
+                                    {{ sesion.hora_inicio|time:"g:i A" }}
                                 </span>
-                                <span class="text-[9px] text-gray-500 font-medium mt-0.5 mb-0.5">{{ sesion.hora_fin|time:"H:i" }}</span>
+                                <span class="text-[9px] text-gray-500 font-medium mt-0.5 mb-0.5">{{ sesion.hora_fin|time:"g:i A" }}</span>
                                 <span class="inline-flex items-center gap-0.5 text-[8px] font-bold text-gray-600 bg-gray-100 px-1 rounded border border-gray-200">
                                     ⏱️ {{ sesion.duracion_minutos }}m
                                 </span>
@@ -270,7 +270,7 @@
 
                         {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                             {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
-                            <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                            <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
                                     class="absolute top-0 right-0 p-1.5 bg-rose-500 text-white rounded-bl-xl shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-rose-600 hover:scale-110 z-20"
                                     title="Eliminar sesión">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -85,7 +85,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-[10px] sm:text-xs text-gray-500 font-semibold uppercase">Horario</p>
-                        <p class="text-xs sm:text-sm font-bold text-blue-700">{{ datos_sesiones.horario }}</p>
+                        <p class="text-xs sm:text-sm font-bold text-blue-700" id="horario-sesiones">{{ datos_sesiones.horario }}</p>
                     </div>
                 </div>
                 
@@ -216,4 +216,43 @@
     .xs\:hidden { display: none; }
 }
 </style>
+
+<script>
+// Función para convertir hora de 24 a 12 horas
+function convertirA12Horas(hora24) {
+    if (!hora24) return '';
+    const [horas, minutos] = hora24.split(':');
+    let h = parseInt(horas);
+    const periodo = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${minutos} ${periodo}`;
+}
+
+// Convertir el horario al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    const horarioElement = document.getElementById('horario-sesiones');
+    if (horarioElement) {
+        const texto = horarioElement.textContent.trim();
+        
+        // Detectar y convertir rangos de hora (HH:MM - HH:MM)
+        const rangoRegex = /(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/;
+        if (rangoRegex.test(texto)) {
+            const nuevoTexto = texto.replace(rangoRegex, (match, h1, m1, h2, m2) => {
+                return `${convertirA12Horas(h1.padStart(2, '0') + ':' + m1)} - ${convertirA12Horas(h2.padStart(2, '0') + ':' + m2)}`;
+            });
+            horarioElement.textContent = nuevoTexto;
+        } else {
+            // Detectar y convertir hora individual (HH:MM)
+            const horaRegex = /(\d{1,2}):(\d{2})/;
+            if (horaRegex.test(texto)) {
+                const nuevoTexto = texto.replace(horaRegex, (match, h, m) => {
+                    return convertirA12Horas(h.padStart(2, '0') + ':' + m);
+                });
+                horarioElement.textContent = nuevoTexto;
+            }
+        }
+    }
+});
+</script>
+
 {% endblock %}
