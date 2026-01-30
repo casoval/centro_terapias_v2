@@ -695,6 +695,21 @@ def calendario(request):
     sesiones_lista = []
     for sesion in sesiones:
         sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
+        
+        # ✅ DETECTAR SESIONES EN CURSO (EN VIVO)
+        from django.utils import timezone
+        
+        # CORRECCIÓN: Convertir a hora local (reloj real) antes de comparar
+        ahora = timezone.localtime(timezone.now()) 
+        
+        # Verificar si la sesión está ocurriendo AHORA
+        sesion.es_sesion_en_curso = (
+            sesion.estado == 'programada' and
+            sesion.fecha == ahora.date() and
+            # Comparamos hora local con hora de la sesión
+            sesion.hora_inicio <= ahora.time() <= sesion.hora_fin
+        )
+        
         sesiones_lista.append(sesion)
     
     # ✅ NUEVO: Paginación para vista lista
