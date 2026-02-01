@@ -1,20 +1,36 @@
 <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
-    <!-- ✅ Header con filtros de periodo y selector de cantidad -->
-    <div class="p-3 bg-gray-100 border-b">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold text-gray-900">
-                📋 Lista de Sesiones
-            </h3>
-            <div class="text-xs text-gray-600">
-                {% if page_obj %}
-                    Mostrando <span class="font-bold text-gray-900">{{ page_obj.start_index }}</span> 
-                    a <span class="font-bold text-gray-900">{{ page_obj.end_index }}</span> 
-                    de <span class="font-bold text-gray-900">{{ page_obj.paginator.count }}</span> sesiones
-                {% else %}
-                    Total: <span class="font-bold text-gray-900">{{ sesiones|length }}</span> sesiones
-                {% endif %}
+    <!-- Header con estilo uniforme -->
+    <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg"></div>
+        
+        <div class="relative z-10 flex items-center justify-between gap-4">
+            <!-- Icono y título -->
+            <div class="flex items-center gap-3">
+                <div class="text-4xl font-black tracking-tight leading-none opacity-95">
+                    📋
+                </div>
+                <div class="h-10 w-px bg-white/30"></div>
+            </div>
+            
+            <!-- Información de vista -->
+            <div class="flex-1">
+                <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
+                    Lista de Sesiones
+                </div>
+                <div class="text-xs font-medium uppercase tracking-wider opacity-75">
+                    {% if page_obj %}
+                        Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} sesiones
+                    {% else %}
+                        Total: {{ sesiones|length }} sesiones
+                    {% endif %}
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Filtros de periodo y cantidad -->
+    <div class="p-3 bg-gray-100 border-b">
 
         <!-- ✅ FILTROS DE PERIODO Y CANTIDAD -->
         <form method="get" class="flex flex-wrap gap-2 items-end">
@@ -126,7 +142,7 @@
                         {{ sesion.fecha|date:"d/m/Y" }}
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap text-[10px] text-gray-900 font-semibold">
-                        {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
+                        {{ sesion.hora_inicio|time:"g:i A" }} - {{ sesion.hora_fin|time:"g:i A" }}
                         <div class="text-[8px] text-gray-500">{{ sesion.duracion_minutos }}m</div>
                     </td>
                     <td class="px-3 py-2 text-[10px] text-gray-900 whitespace-nowrap">
@@ -220,10 +236,12 @@
                             <!-- ✅ Botón eliminar (solo programadas sin pago, SOLO GERENTES Y SUPERADMIN) -->
                             {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                                 {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
-                                <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
-                                        class="text-red-600 hover:text-red-900 font-bold transition"
+                                <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
+                                        class="text-red-600 hover:text-red-900 transition"
                                         title="Eliminar sesión">
-                                    🗑️
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                 </button>
                                 {% endif %}
                             {% endif %}

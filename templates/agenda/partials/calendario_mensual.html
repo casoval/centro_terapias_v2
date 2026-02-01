@@ -1,29 +1,38 @@
 {% load fecha_tags %}
 <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 font-sans">
     
-    <div class="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden flex flex-wrap items-center justify-between gap-4">
-        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg pointer-events-none"></div>
-
-        <div class="relative z-10 flex items-center gap-3">
-            <div class="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+    <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+        <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg"></div>
+        
+        <div class="relative z-10 flex items-center justify-between gap-4">
+            <!-- Icono y título -->
+            <div class="flex items-center gap-3">
+                <div class="text-4xl font-black tracking-tight leading-none opacity-95">
+                    📆
+                </div>
+                <div class="h-10 w-px bg-white/30"></div>
             </div>
-            <div>
-                <h3 class="text-lg font-black tracking-tight text-white leading-none">Vista Mensual</h3>
-                <p class="text-xs text-blue-100 font-medium opacity-90">Gestión global</p>
+            
+            <!-- Información de vista -->
+            <div class="flex-1">
+                <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
+                    Vista Mensual
+                </div>
+                <div class="text-xs font-medium uppercase tracking-wider opacity-75">
+                    Gestión Global
+                </div>
             </div>
+            
+            <!-- Controles -->
+            <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-full border border-white/20 hover:bg-white/20 transition-all">
+                <input type="checkbox" 
+                       id="toggle-domingos-mensual" 
+                       class="w-4 h-4 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
+                       onchange="toggleDomingosMensual(this.checked)">
+                <span class="text-xs text-white font-bold tracking-wide">Mostrar Domingos</span>
+            </label>
         </div>
-
-        <label class="relative z-10 flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-full border border-white/20 hover:bg-white/20 transition-all">
-            <input type="checkbox" 
-                   id="toggle-domingos-mensual" 
-                   class="w-4 h-4 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
-                   onchange="toggleDomingosMensual(this.checked)">
-            <span class="text-xs text-white font-bold tracking-wide">Mostrar Domingos</span>
-        </label>
     </div>
 
     <div id="header-dias-mensual" class="grid grid-cols-7 gap-0 border-b bg-gray-50 divide-x divide-gray-200 text-gray-500">
@@ -52,15 +61,15 @@
                 {% if dia.fecha %}
                     <div class="flex justify-end mb-1 dia-numero-header">
                         {% if dia.es_hoy %}
-                            <span class="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full font-bold text-[10px] shadow-sm shadow-blue-200 scale-110">
+                            <span class="inline-flex items-center justify-center w-7 h-7 bg-blue-600 text-white rounded-full font-black text-sm shadow-sm shadow-blue-200 scale-110">
                                 {{ dia.dia_numero }}
                             </span>
                         {% elif dia.es_otro_mes %}
-                            <span class="inline-flex items-center justify-center w-6 h-6 text-gray-300 font-medium text-[10px]">
+                            <span class="inline-flex items-center justify-center w-7 h-7 text-gray-300 font-semibold text-xs">
                                 {{ dia.dia_numero }}
                             </span>
                         {% else %}
-                            <span class="inline-flex items-center justify-center w-6 h-6 text-gray-700 font-bold text-[10px] hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+                            <span class="inline-flex items-center justify-center w-7 h-7 bg-gray-200 text-gray-800 rounded-full font-bold text-sm shadow-sm hover:bg-gray-300 rounded-full transition-colors cursor-pointer">
                                 {{ dia.dia_numero }}
                             </span>
                         {% endif %}
@@ -89,15 +98,15 @@
                                      hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
                                      hx-target="#modal-content"
                                      hx-swap="innerHTML"
-                                     data-sesion-info='{"hora_inicio":"{{ sesion.hora_inicio|time:"H:i" }}","hora_fin":"{{ sesion.hora_fin|time:"H:i" }}","paciente":"{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}","servicio":"{{ sesion.servicio.nombre }}","profesional":"{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}","sucursal":"{{ sesion.sucursal.nombre }}","estado":"{{ sesion.get_estado_display }}","monto":"{{ sesion.monto_cobrado }}"{% if sesion.proyecto %},"proyecto":"{{ sesion.proyecto.codigo }}"{% endif %}{% if sesion.mensualidad %},"mensualidad":"{{ sesion.mensualidad.codigo }}"{% endif %}}'>
+                                     data-sesion-info='{"hora_inicio":"{{ sesion.hora_inicio|time:"g:i A" }}","hora_fin":"{{ sesion.hora_fin|time:"g:i A" }}","paciente":"{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}","servicio":"{{ sesion.servicio.nombre }}","profesional":"{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}","sucursal":"{{ sesion.sucursal.nombre }}","estado":"{{ sesion.get_estado_display }}","monto":"{{ sesion.monto_cobrado }}"{% if sesion.proyecto %},"proyecto":"{{ sesion.proyecto.codigo }}"{% endif %}{% if sesion.mensualidad %},"mensualidad":"{{ sesion.mensualidad.codigo }}"{% endif %}}'>
                                     
                                     <div class="flex items-center justify-between leading-none mb-1 pb-1 border-b border-black/5">
                                         <div class="flex items-center gap-1">
                                             <span class="text-[10px] font-bold text-gray-800">
-                                                {{ sesion.hora_inicio|time:"H:i" }}
+                                                {{ sesion.hora_inicio|time:"g:i A" }}
                                             </span>
                                             <span class="text-[8px] text-gray-500">
-                                                -{{ sesion.hora_fin|time:"H:i" }}
+                                                -{{ sesion.hora_fin|time:"g:i A" }}
                                             </span>
                                         </div>
                                         
@@ -146,11 +155,11 @@
 
                                     {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
                                         {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
-                                        <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"H:i" }}')"
+                                        <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
                                                 class="absolute bottom-1 right-1 p-0.5 bg-rose-500 text-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20 hover:scale-110"
                                                 title="Eliminar sesión">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                             </svg>
                                         </button>
                                         {% endif %}
@@ -188,9 +197,17 @@
                 <span class="text-indigo-600">💳</span>
                 <span class="text-indigo-700 font-bold">Mensualidad</span>
             </div>
-             <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-rose-200 shadow-sm">
+            <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-emerald-200 shadow-sm">
+                <span class="text-emerald-600">✅</span>
+                <span class="text-emerald-700 font-bold">Pagado</span>
+            </div>
+            <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-rose-200 shadow-sm">
                 <span class="text-rose-600 font-bold">💰</span>
                 <span class="text-rose-700 font-bold">Pendiente</span>
+            </div>
+            <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200 shadow-sm">
+                <span class="text-amber-600">⚠️</span>
+                <span class="text-amber-700 font-bold">Última Sesión</span>
             </div>
         </div>
     </div>
@@ -232,280 +249,309 @@
                 <span class="text-[10px] text-gray-300" id="tooltip-sucursal"></span>
             </div>
             
-            <div class="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-1.5"></div>
-            
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] text-gray-400 font-medium">Estado:</span>
-                    <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30" id="tooltip-estado"></span>
+            <div id="tooltip-extra-info" class="hidden">
+                <div class="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-1.5"></div>
+                
+                <div class="flex items-start gap-2">
+                    <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Estado:</span>
+                    <span class="text-[10px] font-semibold" id="tooltip-estado"></span>
                 </div>
-                <div class="flex items-center gap-1">
-                    <span class="text-[10px] text-gray-400 font-medium">Monto:</span>
-                    <span class="text-xs font-bold text-emerald-400" id="tooltip-monto"></span>
+                
+                <div class="flex items-start gap-2">
+                    <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Monto:</span>
+                    <span class="text-[10px] text-emerald-300" id="tooltip-monto"></span>
+                </div>
+                
+                <div id="tooltip-proyecto-container" class="hidden flex items-start gap-2">
+                    <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Proyecto:</span>
+                    <span class="text-[10px] text-purple-300" id="tooltip-proyecto"></span>
+                </div>
+                
+                <div id="tooltip-mensualidad-container" class="hidden flex items-start gap-2">
+                    <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Mens.:</span>
+                    <span class="text-[10px] text-indigo-300" id="tooltip-mensualidad"></span>
                 </div>
             </div>
-            
-            <div id="tooltip-extras" class="space-y-1 pt-1.5 border-t border-gray-700/50"></div>
         </div>
         
-        <div class="mt-2 pt-1.5 border-t border-gray-700/50 flex items-center justify-center gap-1 text-[9px] text-gray-500">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-            </svg>
-            <span>Clic para editar sesión</span>
+        <div class="mt-2 pt-2 border-t border-gray-700">
+            <div class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                </svg>
+                <span class="text-[9px] text-gray-500 italic">Click para editar</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación de eliminación -->
+<div id="modal-eliminar-sesion" class="fixed inset-0 bg-black bg-opacity-50 z-[9998] hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 scale-95 opacity-0">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-black text-gray-900">Confirmar Eliminación</h3>
+        </div>
+        
+        <div class="mb-6 space-y-2">
+            <p class="text-sm text-gray-600">¿Estás seguro de eliminar esta sesión?</p>
+            <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-1">
+                <p class="text-xs text-gray-700"><span class="font-bold">Paciente:</span> <span id="eliminar-paciente"></span></p>
+                <p class="text-xs text-gray-700"><span class="font-bold">Servicio:</span> <span id="eliminar-servicio"></span></p>
+                <p class="text-xs text-gray-700"><span class="font-bold">Fecha:</span> <span id="eliminar-fecha"></span></p>
+                <p class="text-xs text-gray-700"><span class="font-bold">Hora:</span> <span id="eliminar-hora"></span></p>
+            </div>
+            <p class="text-xs text-rose-600 font-bold">⚠️ Esta acción no se puede deshacer</p>
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="cerrarModalEliminar()" 
+                    class="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">
+                Cancelar
+            </button>
+            <button id="confirmar-eliminar-btn" 
+                    class="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-lg font-bold text-sm hover:bg-rose-700 transition-colors">
+                Eliminar
+            </button>
         </div>
     </div>
 </div>
 
 <script>
-// Sistema de tooltip flotante mejorado
-document.addEventListener('DOMContentLoaded', function() {
-    const tooltip = document.getElementById('sesion-tooltip');
-    const tooltipContent = tooltip.querySelector('div');
-    let currentElement = null;
-    let hideTimeout = null;
+// Tooltip flotante avanzado
+let tooltipTimeout;
+const tooltip = document.getElementById('sesion-tooltip');
 
-    // Encontrar todas las sesiones
-    document.querySelectorAll('[data-sesion-info]').forEach(sesion => {
+document.addEventListener('DOMContentLoaded', function() {
+    const sesiones = document.querySelectorAll('.group');
+    
+    sesiones.forEach(sesion => {
         sesion.addEventListener('mouseenter', function(e) {
-            clearTimeout(hideTimeout);
-            currentElement = this;
+            clearTimeout(tooltipTimeout);
             
-            try {
-                const info = JSON.parse(this.getAttribute('data-sesion-info'));
+            tooltipTimeout = setTimeout(() => {
+                const sesionInfo = JSON.parse(this.getAttribute('data-sesion-info'));
                 
-                // Actualizar contenido
-                document.getElementById('tooltip-horario').textContent = `${info.hora_inicio} - ${info.hora_fin}`;
-                document.getElementById('tooltip-paciente').textContent = info.paciente;
-                document.getElementById('tooltip-servicio').textContent = info.servicio;
-                document.getElementById('tooltip-profesional').textContent = info.profesional;
-                document.getElementById('tooltip-sucursal').textContent = info.sucursal;
-                document.getElementById('tooltip-estado').textContent = info.estado;
-                document.getElementById('tooltip-monto').textContent = `Bs. ${info.monto}`;
+                document.getElementById('tooltip-horario').textContent = 
+                    `${sesionInfo.hora_inicio} - ${sesionInfo.hora_fin}`;
+                document.getElementById('tooltip-paciente').textContent = sesionInfo.paciente;
+                document.getElementById('tooltip-servicio').textContent = sesionInfo.servicio;
+                document.getElementById('tooltip-profesional').textContent = sesionInfo.profesional;
+                document.getElementById('tooltip-sucursal').textContent = sesionInfo.sucursal;
+                document.getElementById('tooltip-estado').textContent = sesionInfo.estado;
+                document.getElementById('tooltip-monto').textContent = `Bs. ${sesionInfo.monto}`;
                 
-                // Extras (proyecto y mensualidad)
-                const extrasDiv = document.getElementById('tooltip-extras');
-                extrasDiv.innerHTML = '';
+                const extraInfo = document.getElementById('tooltip-extra-info');
+                extraInfo.classList.remove('hidden');
                 
-                if (info.proyecto) {
-                    extrasDiv.innerHTML += `
-                        <div class="flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 rounded-lg px-2 py-1.5">
-                            <span class="text-purple-400">📦</span>
-                            <span class="text-xs text-purple-300 font-medium">Proyecto: ${info.proyecto}</span>
-                        </div>
-                    `;
+                const proyectoContainer = document.getElementById('tooltip-proyecto-container');
+                if (sesionInfo.proyecto) {
+                    proyectoContainer.classList.remove('hidden');
+                    document.getElementById('tooltip-proyecto').textContent = sesionInfo.proyecto;
+                } else {
+                    proyectoContainer.classList.add('hidden');
                 }
                 
-                if (info.mensualidad) {
-                    extrasDiv.innerHTML += `
-                        <div class="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg px-2 py-1.5">
-                            <span class="text-indigo-400">💳</span>
-                            <span class="text-xs text-indigo-300 font-medium">Mensualidad: ${info.mensualidad}</span>
-                        </div>
-                    `;
+                const mensualidadContainer = document.getElementById('tooltip-mensualidad-container');
+                if (sesionInfo.mensualidad) {
+                    mensualidadContainer.classList.remove('hidden');
+                    document.getElementById('tooltip-mensualidad').textContent = sesionInfo.mensualidad;
+                } else {
+                    mensualidadContainer.classList.add('hidden');
                 }
                 
-                // Mostrar tooltip
                 tooltip.classList.remove('hidden');
-                posicionarTooltip(this);
                 
-                // Animar entrada
-                setTimeout(() => {
+                const tooltipContent = tooltip.firstElementChild;
+                requestAnimationFrame(() => {
                     tooltipContent.classList.remove('scale-95', 'opacity-0');
                     tooltipContent.classList.add('scale-100', 'opacity-100');
-                }, 10);
+                });
                 
-            } catch (error) {
-                console.error('Error al mostrar tooltip:', error);
-            }
+                posicionarTooltip(e);
+            }, 400);
         });
+        
+        sesion.addEventListener('mousemove', posicionarTooltip);
         
         sesion.addEventListener('mouseleave', function() {
-            hideTimeout = setTimeout(() => {
-                tooltipContent.classList.remove('scale-100', 'opacity-100');
-                tooltipContent.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => {
-                    tooltip.classList.add('hidden');
-                }, 200);
-            }, 100);
+            clearTimeout(tooltipTimeout);
+            ocultarTooltip();
         });
-    });
-    
-    // Permitir hover sobre el tooltip
-    tooltip.addEventListener('mouseenter', function() {
-        clearTimeout(hideTimeout);
-    });
-    
-    tooltip.addEventListener('mouseleave', function() {
-        tooltipContent.classList.remove('scale-100', 'opacity-100');
-        tooltipContent.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => {
-            tooltip.classList.add('hidden');
-        }, 200);
-    });
-    
-    // Función para posicionar el tooltip inteligentemente
-    function posicionarTooltip(element) {
-        const rect = element.getBoundingClientRect();
-        const tooltipRect = tooltipContent.getBoundingClientRect();
-        
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        
-        let top = rect.top;
-        let left = rect.right + 12; // Por defecto a la derecha
-        
-        // Si no cabe a la derecha, intentar a la izquierda
-        if (left + tooltipRect.width > viewportWidth - 20) {
-            left = rect.left - tooltipRect.width - 12;
-        }
-        
-        // Si no cabe a la izquierda tampoco, centrar arriba o abajo
-        if (left < 20) {
-            left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-            
-            // Intentar arriba primero
-            if (rect.top - tooltipRect.height - 12 > 20) {
-                top = rect.top - tooltipRect.height - 12;
-            } else {
-                // Si no, abajo
-                top = rect.bottom + 12;
-            }
-        }
-        
-        // Ajustes finales para mantener en viewport
-        if (left < 20) left = 20;
-        if (left + tooltipRect.width > viewportWidth - 20) {
-            left = viewportWidth - tooltipRect.width - 20;
-        }
-        
-        if (top < 20) top = 20;
-        if (top + tooltipRect.height > viewportHeight - 20) {
-            top = viewportHeight - tooltipRect.height - 20;
-        }
-        
-        tooltip.style.top = `${top}px`;
-        tooltip.style.left = `${left}px`;
-    }
-    
-    // Reposicionar al hacer scroll o resize
-    let scrollTimeout;
-    window.addEventListener('scroll', function() {
-        if (currentElement && !tooltip.classList.contains('hidden')) {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                posicionarTooltip(currentElement);
-            }, 10);
-        }
-    }, true);
-    
-    window.addEventListener('resize', function() {
-        if (currentElement && !tooltip.classList.contains('hidden')) {
-            posicionarTooltip(currentElement);
-        }
     });
 });
 
-// Sistema de Modal del Día (Optimizado para pantallas pequeñas)
-function abrirModalDia(diaElement, event) {
-    // Evitar que el clic se propague a las sesiones
-    if (event.target.closest('[data-sesion-info]')) {
-        return;
+function posicionarTooltip(e) {
+    const tooltipContent = tooltip.firstElementChild;
+    const tooltipRect = tooltipContent.getBoundingClientRect();
+    const offset = 15;
+    
+    let left = e.clientX + offset;
+    let top = e.clientY + offset;
+    
+    if (left + tooltipRect.width > window.innerWidth) {
+        left = e.clientX - tooltipRect.width - offset;
     }
     
-    // Si no tiene sesiones, no hacer nada
-    if (diaElement.getAttribute('data-tiene-sesiones') !== 'true') {
-        return;
+    if (top + tooltipRect.height > window.innerHeight) {
+        top = e.clientY - tooltipRect.height - offset;
     }
     
-    // Obtener información del día
-    const diaNombre = diaElement.getAttribute('data-dia-nombre');
-    const sesionesContainer = diaElement.querySelector('.sesiones-container');
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+}
+
+function ocultarTooltip() {
+    const tooltipContent = tooltip.firstElementChild;
+    tooltipContent.classList.remove('scale-100', 'opacity-100');
+    tooltipContent.classList.add('scale-95', 'opacity-0');
     
-    if (!sesionesContainer) return;
+    setTimeout(() => {
+        tooltip.classList.add('hidden');
+    }, 200);
+}
+</script>
+
+<script>
+// Modal de eliminación
+function confirmarEliminar(event, sesionId, paciente, servicio, fecha, hora) {
+    event.stopPropagation();
     
-    // Clonar las sesiones
-    const sesionesClonadas = sesionesContainer.cloneNode(true);
+    document.getElementById('eliminar-paciente').textContent = paciente;
+    document.getElementById('eliminar-servicio').textContent = servicio;
+    document.getElementById('eliminar-fecha').textContent = fecha;
+    document.getElementById('eliminar-hora').textContent = hora;
     
-    // Contar sesiones por estado
-    const todasLasSesiones = sesionesClonadas.querySelectorAll('[data-sesion-info]');
-    let estadisticas = {
-        total: todasLasSesiones.length,
-        programadas: 0,
-        realizadas: 0,
-        faltas: 0,
-        canceladas: 0,
-        pagadas: 0,
-        pendientes: 0
-    };
+    const modal = document.getElementById('modal-eliminar-sesion');
+    const modalContent = modal.querySelector('div');
     
-    todasLasSesiones.forEach(sesion => {
-        const info = JSON.parse(sesion.getAttribute('data-sesion-info'));
-        
-        if (sesion.classList.contains('bg-blue-50')) estadisticas.programadas++;
-        if (sesion.classList.contains('bg-emerald-50')) estadisticas.realizadas++;
-        if (sesion.classList.contains('bg-rose-50')) estadisticas.faltas++;
-        if (sesion.classList.contains('bg-gray-50')) estadisticas.canceladas++;
-        
-        // Verificar si tiene icono de pagado o pendiente
-        if (sesion.innerHTML.includes('✅')) estadisticas.pagadas++;
-        if (sesion.innerHTML.includes('💰')) estadisticas.pendientes++;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    requestAnimationFrame(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
     });
     
-    // Crear overlay
+    const btnConfirmar = document.getElementById('confirmar-eliminar-btn');
+    btnConfirmar.onclick = function() {
+        eliminarSesion(sesionId);
+    };
+}
+
+function cerrarModalEliminar() {
+    const modal = document.getElementById('modal-eliminar-sesion');
+    const modalContent = modal.querySelector('div');
+    
+    modalContent.classList.remove('scale-100', 'opacity-100');
+    modalContent.classList.add('scale-95', 'opacity-0');
+    
+    setTimeout(() => {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }, 300);
+}
+
+function eliminarSesion(sesionId) {
+    fetch(`/agenda/eliminar-sesion/${sesionId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cerrarModalEliminar();
+            location.reload();
+        } else {
+            alert('Error al eliminar la sesión: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al eliminar la sesión');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<script>
+function abrirModalDia(elemento, event) {
+    if (event.target.closest('.group')) {
+        return;
+    }
+    
+    const fecha = elemento.getAttribute('data-fecha');
+    const diaNombre = elemento.getAttribute('data-dia-nombre');
+    const tieneSesiones = elemento.getAttribute('data-tiene-sesiones') === 'true';
+    
+    if (!tieneSesiones) {
+        return;
+    }
+    
+    const sesiones = elemento.querySelectorAll('.group');
+    
+    if (sesiones.length === 0) {
+        return;
+    }
+    
     const overlay = document.createElement('div');
     overlay.id = 'modal-dia-overlay';
-    overlay.className = 'fixed inset-0 bg-black/70 backdrop-blur-sm z-[9998] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300';
+    overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300';
     overlay.onclick = function(e) {
-        if (e.target === overlay) cerrarModalDia();
+        if (e.target === overlay) {
+            cerrarModalDia();
+        }
     };
     
-    // Crear modal
     const modal = document.createElement('div');
     modal.id = 'modal-dia-content';
-    modal.className = 'bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden transform scale-95 opacity-0 transition-all duration-300';
-    modal.onclick = function(e) {
-        e.stopPropagation();
-    };
+    modal.className = 'bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden scale-95 opacity-0 transition-all duration-300';
     
-    // Contenido del modal
     modal.innerHTML = `
-        <!-- Header del Modal -->
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 relative overflow-hidden">
-            <div class="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
-            
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
             <div class="relative z-10 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="text-base font-bold tracking-tight">${diaNombre}</h2>
-                        <p class="text-blue-100 text-[10px] font-medium">${estadisticas.total} sesión${estadisticas.total !== 1 ? 'es' : ''}</p>
-                    </div>
+                <div>
+                    <h2 class="text-2xl font-black mb-1">${diaNombre}</h2>
+                    <p class="text-sm text-blue-100 font-medium">${sesiones.length} sesión${sesiones.length !== 1 ? 'es' : ''} programada${sesiones.length !== 1 ? 's' : ''}</p>
                 </div>
-                <button onclick="cerrarModalDia()" class="w-7 h-7 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all hover:scale-110 backdrop-blur-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button onclick="cerrarModalDia()" class="p-2 hover:bg-white/20 rounded-full transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
         </div>
         
-        <!-- Sesiones -->
-        <div class="p-3 overflow-y-auto" style="max-height: calc(80vh - 65px);">
-            <div id="modal-sesiones-list" class="space-y-1.5">
-                <!-- Las sesiones se insertarán aquí -->
-            </div>
+        <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <div id="modal-sesiones-list" class="space-y-3"></div>
         </div>
     `;
     
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     
-    // Animar entrada
     requestAnimationFrame(() => {
         overlay.classList.remove('opacity-0');
         overlay.classList.add('opacity-100');
@@ -513,29 +559,28 @@ function abrirModalDia(diaElement, event) {
         modal.classList.add('scale-100', 'opacity-100');
     });
     
-    // Insertar sesiones en el modal con estilo mejorado
     const modalSesionesList = document.getElementById('modal-sesiones-list');
-    todasLasSesiones.forEach(sesion => {
+    
+    sesiones.forEach(sesion => {
         const sesionClonada = sesion.cloneNode(true);
-        sesionClonada.classList.remove('p-1.5', 'text-[9px]', 'text-[8px]', 'text-[7px]', 'text-[10px]');
-        sesionClonada.classList.add('p-2.5', 'text-xs', 'hover:scale-[1.005]', 'cursor-pointer');
+        sesionClonada.classList.remove('group');
+        sesionClonada.classList.add('hover:shadow-lg');
         
-        // Aumentar tamaños de fuente de manera más compacta
         sesionClonada.querySelectorAll('.text-\\[10px\\]').forEach(el => {
             el.classList.remove('text-[10px]');
-            el.classList.add('text-[11px]');
+            el.classList.add('text-sm');
         });
         sesionClonada.querySelectorAll('.text-\\[9px\\]').forEach(el => {
             el.classList.remove('text-[9px]');
-            el.classList.add('text-[10px]');
+            el.classList.add('text-xs');
         });
         sesionClonada.querySelectorAll('.text-\\[8px\\]').forEach(el => {
             el.classList.remove('text-[8px]');
-            el.classList.add('text-[9px]');
+            el.classList.add('text-[11px]');
         });
         sesionClonada.querySelectorAll('.text-\\[7px\\]').forEach(el => {
             el.classList.remove('text-[7px]');
-            el.classList.add('text-[8px]');
+            el.classList.add('text-[10px]');
         });
         
         modalSesionesList.appendChild(sesionClonada);

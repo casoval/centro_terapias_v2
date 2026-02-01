@@ -71,13 +71,69 @@
             <label class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
                 <span>⏰</span> Hora de Inicio
             </label>
-            <input type="time" 
-                   name="hora_inicio" 
-                   id="hora-inicio-modal"
-                   required
-                   onchange="validarAutomaticamente()"
-                   class="w-full px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none font-mono">
+            <div class="flex gap-2">
+                <select name="hora_hora_inicio" id="hora-hora-modal"
+                       class="flex-1 px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none"
+                       onchange="actualizarHoraInicioModal(); validarAutomaticamente()" required>
+                    <option value="">Hora</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                </select>
+                <select name="hora_minuto_inicio" id="hora-minuto-modal"
+                       class="flex-1 px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none"
+                       onchange="actualizarHoraInicioModal(); validarAutomaticamente()" required>
+                    <option value="">Min</option>
+                    <option value="00">00</option>
+                    <option value="05">05</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                    <option value="25">25</option>
+                    <option value="30">30</option>
+                    <option value="35">35</option>
+                    <option value="40">40</option>
+                    <option value="45">45</option>
+                    <option value="50">50</option>
+                    <option value="55">55</option>
+                </select>
+                <select name="hora_periodo_inicio" id="hora-periodo-modal"
+                       class="px-3 py-2 border-2 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none"
+                       onchange="actualizarHoraInicioModal(); validarAutomaticamente()" required>
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                </select>
+            </div>
+            <input type="hidden" name="hora_inicio" id="hora-inicio-modal">
         </div>
+
+        <script>
+        function actualizarHoraInicioModal() {
+            const hora = document.getElementById('hora-hora-modal').value;
+            const minuto = document.getElementById('hora-minuto-modal').value;
+            const periodo = document.getElementById('hora-periodo-modal').value;
+            
+            if (hora && minuto && periodo) {
+                let hora24 = parseInt(hora);
+                if (periodo === 'PM' && hora24 !== 12) {
+                    hora24 += 12;
+                } else if (periodo === 'AM' && hora24 === 12) {
+                    hora24 = 0;
+                }
+                const horaFormateada = String(hora24).padStart(2, '0') + ':' + minuto;
+                document.getElementById('hora-inicio-modal').value = horaFormateada;
+            }
+        }
+        </script>
         
         <div class="bg-blue-50/50 rounded-lg p-2.5 border border-blue-200">
             <div class="flex justify-between items-center mb-1.5">
@@ -310,6 +366,78 @@ var NOMBRE_MES = '{{ mensualidad.periodo_display }}';
 console.log('Fechas del período:', FECHA_INICIO_PERIODO, 'a', FECHA_FIN_PERIODO);
 
 // ========================================
+// FUNCIÓN PARA CONVERTIR HORA DE 24 A 12 HORAS
+// ========================================
+window.convertirA12Horas = function(hora24) {
+    if (!hora24) return '';
+    const [horas, minutos] = hora24.split(':');
+    let h = parseInt(horas);
+    const periodo = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12; // Convertir 0 a 12
+    return `${h}:${minutos} ${periodo}`;
+}
+
+// ========================================
+// CONVERTIR TODAS LAS HORAS EN LA VISTA PREVIA DEL MODAL
+// ========================================
+window.convertirHorasEnVistaPreviaModal = function() {
+    // Buscar todos los elementos que muestran horas en formato 24h
+    const contenedores = ['validacion-recurrente-container', 'validacion-especificos-container'];
+    
+    contenedores.forEach(containerId => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Buscar elementos con atributos data-hora
+        const elementosHora = container.querySelectorAll('[data-hora-inicio], [data-hora-fin]');
+        
+        elementosHora.forEach(elemento => {
+            const horaInicio = elemento.getAttribute('data-hora-inicio');
+            const horaFin = elemento.getAttribute('data-hora-fin');
+            
+            if (horaInicio && horaFin) {
+                const texto = `${convertirA12Horas(horaInicio)} - ${convertirA12Horas(horaFin)}`;
+                elemento.textContent = texto;
+            }
+        });
+        
+        // También convertir elementos con texto que contenga formato de horas
+        const todosElementos = container.querySelectorAll('*');
+        todosElementos.forEach(elemento => {
+            // Solo procesar nodos de texto
+            Array.from(elemento.childNodes).forEach(nodo => {
+                if (nodo.nodeType === 3) { // Nodo de texto
+                    let texto = nodo.textContent;
+                    let textoModificado = false;
+                    
+                    // Regex para detectar formato HH:MM - HH:MM (rangos)
+                    if (/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(texto)) {
+                        texto = texto.replace(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/g, (match, h1, m1, h2, m2) => {
+                            return `${convertirA12Horas(h1.padStart(2, '0') + ':' + m1)} - ${convertirA12Horas(h2.padStart(2, '0') + ':' + m2)}`;
+                        });
+                        textoModificado = true;
+                    }
+                    
+                    // Regex para detectar horas individuales HH:MM (no seguidas de guión)
+                    // Usa lookahead negativo para evitar duplicar conversión de rangos
+                    if (/\d{1,2}:\d{2}(?!\s*-|\s*AM|\s*PM)/.test(texto)) {
+                        texto = texto.replace(/(\d{1,2}):(\d{2})(?!\s*-|\s*AM|\s*PM)/g, (match, h, m) => {
+                            return convertirA12Horas(h.padStart(2, '0') + ':' + m);
+                        });
+                        textoModificado = true;
+                    }
+                    
+                    if (textoModificado) {
+                        nodo.textContent = texto;
+                    }
+                }
+            });
+        });
+    });
+}
+
+
+// ========================================
 // CAMBIAR MODO DE SELECCIÓN
 // ========================================
 window.cambiarModoSeleccion = function(modo) {
@@ -501,7 +629,7 @@ function cargarInfoDia(fecha, container) {
                             ${data.conflictos_paciente.map(c => `
                                 <div class="bg-white border border-red-200 rounded p-1.5 shadow-sm text-[10px] mb-1">
                                     <p class="font-bold text-red-700 truncate">${c.servicio}</p>
-                                    <p class="text-slate-500">${c.hora_inicio} - ${c.hora_fin}</p>
+                                    <p class="text-slate-500">${convertirA12Horas(c.hora_inicio)} - ${convertirA12Horas(c.hora_fin)}</p>
                                 </div>
                             `).join('')}
                         </div>
@@ -516,7 +644,7 @@ function cargarInfoDia(fecha, container) {
                             ${data.conflictos_profesional.map(c => `
                                 <div class="bg-white border border-orange-200 rounded p-1.5 shadow-sm text-[10px] mb-1">
                                     <p class="font-bold text-orange-700 truncate">${c.paciente}</p>
-                                    <p class="text-slate-500">${c.hora_inicio} - ${c.hora_fin}</p>
+                                    <p class="text-slate-500">${convertirA12Horas(c.hora_inicio)} - ${convertirA12Horas(c.hora_fin)}</p>
                                 </div>
                             `).join('')}
                         </div>
@@ -553,7 +681,7 @@ function cargarInfoDia(fecha, container) {
                 tooltipDiv.innerHTML = `
                     <div class="bg-green-50 p-2 text-center border-green-100">
                         <p class="text-xs font-bold text-green-700">✅ Horario Disponible</p>
-                        <p class="text-[10px] text-green-600">${horaInicioValue} - ${calculaHoraFin(horaInicioValue, duracionValue)}</p>
+                        <p class="text-[10px] text-green-600">${convertirA12Horas(horaInicioValue)} - ${convertirA12Horas(calculaHoraFin(horaInicioValue, duracionValue))}</p>
                     </div>
                      <div class="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent border-t-green-200"></div>
                 `;
@@ -743,6 +871,7 @@ window.generarVistaPreviaModal = function() {
     })
     .then(html => {
         container.innerHTML = html;
+        convertirHorasEnVistaPreviaModal(); // Convertir horas a formato 12h
         // Actualizar contador de sesiones seleccionadas
         setTimeout(() => {
             if (typeof actualizarContadorMensualidad === 'function') {

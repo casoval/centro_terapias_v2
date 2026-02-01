@@ -16,6 +16,114 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
 
+        /* Degradado elegante para la barra de navegación */
+        .navbar-gradient {
+            background: linear-gradient(135deg, #fef3c7 0%, #bfdbfe 25%, #a5f3fc 50%, #c7d2fe 75%, #ddd6fe 100%);
+            background-size: 200% 200%;
+            animation: gradientMove 15s ease infinite;
+            backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 2px solid transparent;
+            border-image: linear-gradient(90deg, #fbbf24, #60a5fa, #22d3ee, #a78bfa, #c084fc) 1;
+            border-image-slice: 1;
+            position: relative;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Animación de movimiento del degradado */
+        @keyframes gradientMove {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Borde animado inferior */
+        .navbar-gradient::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #fbbf24, #60a5fa, #22d3ee, #a78bfa, #c084fc, #fbbf24);
+            background-size: 200% 100%;
+            animation: borderMove 8s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes borderMove {
+            0% {
+                background-position: 0% 0%;
+            }
+            100% {
+                background-position: 200% 0%;
+            }
+        }
+
+        /* Mejora de legibilidad de textos en la barra */
+        .navbar-gradient h1,
+        .navbar-gradient .text-slate-800 {
+            color: #1e293b !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8), 0 0 8px rgba(255, 255, 255, 0.4);
+            font-weight: 700;
+        }
+
+        .navbar-gradient .text-blue-600 {
+            color: #1d4ed8 !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9), 0 0 10px rgba(255, 255, 255, 0.5);
+            font-weight: 800;
+        }
+
+        .navbar-gradient .text-slate-600,
+        .navbar-gradient .text-slate-500,
+        .navbar-gradient .text-slate-700 {
+            color: #334155 !important;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
+            font-weight: 600;
+        }
+
+        .navbar-gradient a,
+        .navbar-gradient button {
+            color: #1e293b !important;
+            font-weight: 600;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+        }
+
+        .navbar-gradient a:hover,
+        .navbar-gradient button:hover {
+            color: #1d4ed8 !important;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        /* Excepción: mantener botón Cerrar Sesión con texto blanco */
+        .navbar-gradient a.bg-red-600,
+        .navbar-gradient a.bg-red-600:hover {
+            color: #ffffff !important;
+            text-shadow: none !important;
+        }
+
+        /* Títulos adaptativos responsive */
+        .title-mobile { display: inline; }
+        .title-tablet { display: none; }
+        .title-desktop { display: none; }
+
+        @media (min-width: 640px) {
+            .title-mobile { display: none; }
+            .title-tablet { display: inline; }
+            .title-desktop { display: none; }
+        }
+
+        @media (min-width: 1024px) {
+            .title-mobile { display: none; }
+            .title-tablet { display: none; }
+            .title-desktop { display: inline; }
+        }
+
         /* Estilos mejorados para el dropdown desktop */
         .dropdown {
             position: relative;
@@ -28,7 +136,7 @@
             z-index: 1000;
             min-width: 14rem;
             padding: 0.5rem;
-            margin-top: 0.5rem;
+            margin-top: 0.05rem;
             background-color: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 1rem;
@@ -50,15 +158,34 @@
             padding: 0.6rem 1rem;
             color: #475569;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 500;
             font-size: 0.875rem;
             border-radius: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .dropdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        .dropdown-item:hover::before {
+            left: 100%;
         }
         .dropdown-item:hover {
-            background-color: #f8fafc;
-            color: #2563eb;
-            transform: translateX(2px);
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e40af;
+            transform: translateX(4px) scale(1.02);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        }
+        .dropdown-item:active {
+            transform: translateX(4px) scale(0.98);
         }
         
         /* Menú móvil oculto por defecto */
@@ -79,13 +206,18 @@
     {% if user.is_authenticated %}
     
     {% if not user.perfil.es_paciente %}
-    <nav class="bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200 shadow-sm transition-all duration-300">
+    <nav class="navbar-gradient sticky top-0 z-50 shadow-sm transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    {% load static %}
+                    <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-12 w-auto object-contain -ml-2">
+                    
                     <div class="flex-shrink-0">
                         <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
-                            Centro de Neurodesarrollo Infantil <span class="text-blue-600">Misael</span>
+                            <span class="title-mobile">Centro <span class="text-blue-600">Misael</span></span>
+                            <span class="title-tablet">Centro Neurodesarrollo <span class="text-blue-600">Misael</span></span>
+                            <span class="title-desktop">Centro de Neurodesarrollo Infantil <span class="text-blue-600">Misael</span></span>
                         </h1>
 
                         <div class="text-xs text-slate-500 font-medium">
@@ -360,10 +492,13 @@
     {% endif %}
     
     {% if user.perfil.es_paciente %}
-    <nav class="bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <nav class="navbar-gradient shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    {% load static %}
+                    <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-12 w-auto object-contain -ml-2">
+                    
                     <div class="flex-shrink-0">
                         <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
                             Centro <span class="text-blue-600">Misael</span>

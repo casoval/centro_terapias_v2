@@ -99,7 +99,7 @@
         <div class="text-right mr-3 hidden sm:block">
             <p class="text-xs font-bold text-gray-800">{{ sesion.fecha|date:"d M, Y" }}</p>
             <p class="text-[10px] text-gray-500 font-mono bg-white border border-gray-200 px-1.5 rounded inline-block">
-                {{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}
+                {{ sesion.hora_inicio|time:"g:i A" }} - {{ sesion.hora_fin|time:"g:i A" }}
             </p>
         </div>
         
@@ -113,7 +113,7 @@
         <div class="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
             <div class="block sm:hidden mb-2 pb-2 border-b border-slate-200 flex justify-between">
                 <span class="text-xs font-bold text-gray-800">{{ sesion.fecha|date:"d/m/Y" }}</span>
-                <span class="text-[10px] text-gray-500 font-mono">{{ sesion.hora_inicio|time:"H:i" }} - {{ sesion.hora_fin|time:"H:i" }}</span>
+                <span class="text-[10px] text-gray-500 font-mono">{{ sesion.hora_inicio|time:"g:i A" }} - {{ sesion.hora_fin|time:"g:i A" }}</span>
             </div>
 
             <div class="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -284,12 +284,47 @@
 
                     <div id="campos-retraso-{{ sesion.id }}" class="p-3 bg-amber-50 border border-amber-200 rounded-lg hidden animate-fade-in-down">
                         <label class="block text-[10px] font-bold text-amber-900 uppercase mb-1">⏰ Hora Real de Inicio</label>
+                        <div class="flex items-center gap-2 mb-2">
+                            <select name="hora_hora_real" id="hora-hora-real-{{ sesion.id }}" class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-400" onchange="actualizarHoraReal{{ sesion.id }}()">
+                                <option value="">Hora</option>
+                                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                            </select>
+                            <select name="hora_minuto_real" id="hora-minuto-real-{{ sesion.id }}" class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-400" onchange="actualizarHoraReal{{ sesion.id }}()">
+                                <option value="">Min</option>
+                                <option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                            </select>
+                            <select name="hora_periodo_real" id="hora-periodo-real-{{ sesion.id }}" class="text-xs px-2 py-1.5 border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-400" onchange="actualizarHoraReal{{ sesion.id }}()">
+                                <option value="AM">AM</option><option value="PM">PM</option>
+                            </select>
+                        </div>
+                        <input type="hidden" name="hora_real_inicio" id="hora-real-inicio-{{ sesion.id }}" value="{{ sesion.hora_real_inicio|time:'H:i' }}">
                         <div class="flex items-center gap-2">
-                            <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
-                                   class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white focus:ring-1 focus:ring-amber-400">
-                            <span class="text-[10px] font-medium text-amber-700/70 bg-amber-100/50 px-1.5 py-1 rounded">Prog: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                            <span class="text-[10px] font-medium text-amber-700/70 bg-amber-100/50 px-1.5 py-1 rounded">Prog: {{ sesion.hora_inicio|time:'g:i A' }}</span>
                         </div>
                     </div>
+                    <script>
+                    function actualizarHoraReal{{ sesion.id }}() {
+                        const hora = document.getElementById('hora-hora-real-{{ sesion.id }}').value;
+                        const minuto = document.getElementById('hora-minuto-real-{{ sesion.id }}').value;
+                        const periodo = document.getElementById('hora-periodo-real-{{ sesion.id }}').value;
+                        if (hora && minuto && periodo) {
+                            let hora24 = parseInt(hora);
+                            if (periodo === 'PM' && hora24 !== 12) { hora24 += 12; }
+                            else if (periodo === 'AM' && hora24 === 12) { hora24 = 0; }
+                            document.getElementById('hora-real-inicio-{{ sesion.id }}').value = String(hora24).padStart(2, '0') + ':' + minuto;
+                        }
+                    }
+                    (function() {
+                        const horaActual = '{{ sesion.hora_real_inicio|time:"H:i"|default:"" }}';
+                        if (horaActual) {
+                            const [h, m] = horaActual.split(':');
+                            let hora12 = parseInt(h) % 12 || 12;
+                            document.getElementById('hora-hora-real-{{ sesion.id }}').value = hora12;
+                            document.getElementById('hora-minuto-real-{{ sesion.id }}').value = m;
+                            document.getElementById('hora-periodo-real-{{ sesion.id }}').value = parseInt(h) >= 12 ? 'PM' : 'AM';
+                        }
+                    })();
+                    </script>
 
                     <div id="campos-reprogramacion-{{ sesion.id }}" class="p-3 bg-orange-50 border border-orange-200 rounded-lg hidden animate-fade-in-down">
                         <h5 class="text-[10px] font-bold text-orange-800 uppercase mb-2 border-b border-orange-200 pb-1">Reprogramación</h5>
@@ -432,11 +467,69 @@
 
                     <div id="campos-retraso-{{ sesion.id }}" class="p-3 bg-amber-50 border border-amber-200 rounded-lg hidden">
                         <label class="block text-[10px] font-bold text-amber-900 uppercase mb-1">⏰ Hora Real Inicio</label>
-                        <div class="flex items-center gap-2">
-                            <input type="time" name="hora_real_inicio" value="{{ sesion.hora_real_inicio|time:'H:i' }}"
-                                   class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white">
-                            <span class="text-[10px] font-medium text-amber-700">Prog: {{ sesion.hora_inicio|time:'H:i' }}</span>
+                        <div class="flex items-center gap-2 mb-2">
+                            <select name="hora_hora_real_movil" id="hora-hora-real-movil-{{ sesion.id }}" class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white" onchange="actualizarHoraRealMovil{{ sesion.id }}()">
+                                <option value="">Hora</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                            </select>
+                            <select name="hora_minuto_real_movil" id="hora-minuto-real-movil-{{ sesion.id }}" class="flex-1 text-xs px-2 py-1.5 border border-amber-300 rounded bg-white" onchange="actualizarHoraRealMovil{{ sesion.id }}()">
+                                <option value="">Min</option>
+                                <option value="00">00</option>
+                                <option value="05">05</option>
+                                <option value="10">10</option>
+                                <option value="15">15</option>
+                                <option value="20">20</option>
+                                <option value="25">25</option>
+                                <option value="30">30</option>
+                                <option value="35">35</option>
+                                <option value="40">40</option>
+                                <option value="45">45</option>
+                                <option value="50">50</option>
+                                <option value="55">55</option>
+                            </select>
+                            <select name="hora_periodo_real_movil" id="hora-periodo-real-movil-{{ sesion.id }}" class="text-xs px-2 py-1.5 border border-amber-300 rounded bg-white" onchange="actualizarHoraRealMovil{{ sesion.id }}()">
+                                <option value="AM">AM</option><option value="PM">PM</option>
+                            </select>
                         </div>
+                        <input type="hidden" name="hora_real_inicio" id="hora-real-inicio-movil-{{ sesion.id }}" value="{{ sesion.hora_real_inicio|time:'H:i' }}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-medium text-amber-700">Prog: {{ sesion.hora_inicio|time:'g:i A' }}</span>
+                        </div>
+                    </div>
+                    <script>
+                    function actualizarHoraRealMovil{{ sesion.id }}() {
+                        const hora = document.getElementById('hora-hora-real-movil-{{ sesion.id }}').value;
+                        const minuto = document.getElementById('hora-minuto-real-movil-{{ sesion.id }}').value;
+                        const periodo = document.getElementById('hora-periodo-real-movil-{{ sesion.id }}').value;
+                        if (hora && minuto && periodo) {
+                            let hora24 = parseInt(hora);
+                            if (periodo === 'PM' && hora24 !== 12) { hora24 += 12; }
+                            else if (periodo === 'AM' && hora24 === 12) { hora24 = 0; }
+                            document.getElementById('hora-real-inicio-movil-{{ sesion.id }}').value = String(hora24).padStart(2, '0') + ':' + minuto;
+                        }
+                    }
+                    (function() {
+                        const horaActual = '{{ sesion.hora_real_inicio|time:"H:i"|default:"" }}';
+                        if (horaActual) {
+                            const [h, m] = horaActual.split(':');
+                            let hora12 = parseInt(h) % 12 || 12;
+                            document.getElementById('hora-hora-real-movil-{{ sesion.id }}').value = hora12;
+                            document.getElementById('hora-minuto-real-movil-{{ sesion.id }}').value = m;
+                            document.getElementById('hora-periodo-real-movil-{{ sesion.id }}').value = parseInt(h) >= 12 ? 'PM' : 'AM';
+                        }
+                    })();
+                    </script>
                     </div>
 
                     <div id="campos-reprogramacion-{{ sesion.id }}" class="p-3 bg-orange-50 border border-orange-200 rounded-lg hidden">

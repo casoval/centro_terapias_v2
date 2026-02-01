@@ -237,10 +237,69 @@
 
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 mb-1 ml-1">🕐 Hora Inicio</label>
-                            <input type="time" name="hora" id="hora"
-                                   class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
-                                   onchange="actualizarVistaPrevia()" required>
+                            <div class="flex gap-2">
+                                <select name="hora_hora" id="hora_hora"
+                                       class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                       onchange="actualizarHoraCompleta(); actualizarVistaPrevia()" required>
+                                    <option value="">Hora</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                </select>
+                                <select name="hora_minuto" id="hora_minuto"
+                                       class="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                       onchange="actualizarHoraCompleta(); actualizarVistaPrevia()" required>
+                                    <option value="">Min</option>
+                                    <option value="00">00</option>
+                                    <option value="05">05</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                    <option value="25">25</option>
+                                    <option value="30">30</option>
+                                    <option value="35">35</option>
+                                    <option value="40">40</option>
+                                    <option value="45">45</option>
+                                    <option value="50">50</option>
+                                    <option value="55">55</option>
+                                </select>
+                                <select name="hora_periodo" id="hora_periodo"
+                                       class="px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
+                                       onchange="actualizarHoraCompleta(); actualizarVistaPrevia()" required>
+                                    <option value="AM">AM</option>
+                                    <option value="PM">PM</option>
+                                </select>
+                            </div>
+                            <input type="hidden" name="hora" id="hora">
                         </div>
+
+                        <script>
+                        function actualizarHoraCompleta() {
+                            const hora = document.getElementById('hora_hora').value;
+                            const minuto = document.getElementById('hora_minuto').value;
+                            const periodo = document.getElementById('hora_periodo').value;
+                            
+                            if (hora && minuto && periodo) {
+                                let hora24 = parseInt(hora);
+                                if (periodo === 'PM' && hora24 !== 12) {
+                                    hora24 += 12;
+                                } else if (periodo === 'AM' && hora24 === 12) {
+                                    hora24 = 0;
+                                }
+                                const horaFormateada = String(hora24).padStart(2, '0') + ':' + minuto;
+                                document.getElementById('hora').value = horaFormateada;
+                            }
+                        }
+                        </script>
 
                         <div class="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
                             <div class="flex justify-between items-center mb-2">
@@ -637,6 +696,72 @@ function obtenerDuracionEfectiva() {
 // ========================================
 // ACTUALIZAR VISTA PREVIA
 // ========================================
+// ========================================
+// FUNCIÓN PARA CONVERTIR HORA DE 24 A 12 HORAS
+// ========================================
+function convertirA12Horas(hora24) {
+    if (!hora24) return '';
+    const [horas, minutos] = hora24.split(':');
+    let h = parseInt(horas);
+    const periodo = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12; // Convertir 0 a 12
+    return `${h}:${minutos} ${periodo}`;
+}
+
+// ========================================
+// CONVERTIR TODAS LAS HORAS EN LA VISTA PREVIA
+// ========================================
+function convertirHorasEnVistaPrevia() {
+    // Buscar todos los elementos que muestran horas en formato 24h
+    const elementosHora = document.querySelectorAll('#vista-previa [data-hora-inicio], #vista-previa [data-hora-fin]');
+    
+    elementosHora.forEach(elemento => {
+        const horaInicio = elemento.getAttribute('data-hora-inicio');
+        const horaFin = elemento.getAttribute('data-hora-fin');
+        
+        if (horaInicio && horaFin) {
+            const texto = `${convertirA12Horas(horaInicio)} - ${convertirA12Horas(horaFin)}`;
+            elemento.textContent = texto;
+        }
+    });
+    
+    // También convertir elementos con texto que contenga formato de horas
+    const todosElementos = document.querySelectorAll('#vista-previa *');
+    todosElementos.forEach(elemento => {
+        // Solo procesar nodos de texto
+        Array.from(elemento.childNodes).forEach(nodo => {
+            if (nodo.nodeType === 3) { // Nodo de texto
+                let texto = nodo.textContent;
+                let textoModificado = false;
+                
+                // Regex para detectar formato HH:MM - HH:MM (rangos)
+                if (/\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}/.test(texto)) {
+                    texto = texto.replace(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/g, (match, h1, m1, h2, m2) => {
+                        return `${convertirA12Horas(h1.padStart(2, '0') + ':' + m1)} - ${convertirA12Horas(h2.padStart(2, '0') + ':' + m2)}`;
+                    });
+                    textoModificado = true;
+                }
+                
+                // Regex para detectar horas individuales HH:MM (no seguidas de guión)
+                // Usa lookahead negativo para evitar duplicar conversión de rangos
+                if (/\d{1,2}:\d{2}(?!\s*-|\s*AM|\s*PM)/.test(texto)) {
+                    texto = texto.replace(/(\d{1,2}):(\d{2})(?!\s*-|\s*AM|\s*PM)/g, (match, h, m) => {
+                        return convertirA12Horas(h.padStart(2, '0') + ':' + m);
+                    });
+                    textoModificado = true;
+                }
+                
+                if (textoModificado) {
+                    nodo.textContent = texto;
+                }
+            }
+        });
+    });
+}
+
+// ========================================
+// ACTUALIZAR VISTA PREVIA
+// ========================================
 function actualizarVistaPrevia() {
     const fechaInicio = document.getElementById('fecha-inicio').value;
     const fechaFin = document.getElementById('fecha-fin').value;
@@ -705,6 +830,7 @@ function actualizarVistaPrevia() {
         if (container) {
             container.innerHTML = html;
             actualizarContador();
+            convertirHorasEnVistaPrevia(); // Convertir horas a formato 12h
             agregarEventListenersCheckboxes();
         }
     })
