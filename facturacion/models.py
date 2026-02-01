@@ -25,13 +25,22 @@ class MetodoPago(models.Model):
 
 class Pago(models.Model):
     """
-    Registro detallado de pagos
+    Registro detallado de pagos y devoluciones
     
     🆕 NUEVO: Soporta 3 tipos de pago:
     1. Pago de sesión específica (sesion != None, proyecto = None)
     2. Pago de proyecto (proyecto != None, sesion = None)
     3. Pago adelantado/a cuenta (sesion = None, proyecto = None)
+    
+    ✅ DEVOLUCIONES: Soporta 2 tipos de devoluciones:
+    - Devolución de crédito disponible (tipo_operacion='devolucion', sin referencias)
+    - Devolución parcial de proyecto/mensualidad (tipo_operacion='devolucion', con referencia)
     """
+    
+    TIPO_OPERACION_CHOICES = [
+        ('pago', 'Pago'),
+        ('devolucion', 'Devolución'),
+    ]
     
     # Relaciones
     paciente = models.ForeignKey(
@@ -65,6 +74,14 @@ class Pago(models.Model):
         blank=True,
         related_name='pagos',
         help_text="Mensualidad asociada (tratamientos mensuales regulares)"
+    )
+
+    # ✅ NUEVO: Tipo de operación (pago o devolución)
+    tipo_operacion = models.CharField(
+        max_length=20,
+        choices=TIPO_OPERACION_CHOICES,
+        default='pago',
+        help_text="Tipo de operación: Pago normal o Devolución"
     )
 
     # Datos del pago
@@ -157,7 +174,11 @@ class Pago(models.Model):
             models.Index(
                 fields=['mensualidad', 'anulado'],
                 name='pago_mensualidad_anulado_idx'
-            ), 
+            ),
+            models.Index(
+                fields=['tipo_operacion', 'anulado'],
+                name='pago_tipo_op_anulado_idx'
+            ),
         ]
         
         constraints = [

@@ -19,8 +19,9 @@ from django.contrib.admin.views.decorators import staff_member_required
 
 
 from .models import CuentaCorriente, Pago, MetodoPago
+from .services import PaymentService, AccountService
 from pacientes.models import Paciente
-from agenda.models import Sesion, Proyecto
+from agenda.models import Sesion, Proyecto, Mensualidad
 
 @login_required
 def lista_cuentas_corrientes(request):
@@ -846,33 +847,58 @@ def confirmacion_pago(request):
 @login_required
 def api_proyectos_paciente(request, paciente_id):
     """
-    API: Obtener proyectos con saldo pendiente de un paciente
+    API: Obtener proyectos de un paciente
+    - Para pagos: Devuelve proyectos con saldo pendiente
+    - Para devoluciones: Devuelve proyectos PLANIFICADOS/EN_PROGRESO que tienen pagos realizados
     """
     try:
         from agenda.models import Proyecto
         
+        # Detectar si es para devoluciones
+        es_devolucion = request.GET.get('tipo') == 'devolucion'
+        
+        # Para devoluciones: solo planificados o en progreso (no completados ni cancelados)
+        # Para pagos: solo planificados o en progreso
+        estados_permitidos = ['planificado', 'en_progreso']
+        
         proyectos = Proyecto.objects.filter(
             paciente_id=paciente_id,
-            estado__in=['planificado', 'en_progreso']
+            estado__in=estados_permitidos
         ).select_related('servicio_base')
         
-        # Filtrar solo los que tienen saldo pendiente
-        proyectos_pendientes = [
-            {
-                'id': p.id,
-                'codigo': p.codigo,
-                'nombre': p.nombre,
-                'costo_total': float(p.costo_total),
-                'total_pagado': float(p.total_pagado),
-                'saldo_pendiente': float(p.saldo_pendiente),
-                'tipo': p.get_tipo_display(),
-            }
-            for p in proyectos if p.saldo_pendiente > 0
-        ]
+        proyectos_lista = []
+        
+        for p in proyectos:
+            if es_devolucion:
+                # Para devoluciones: incluir solo los que tienen pagos realizados
+                if p.total_pagado > 0:
+                    proyectos_lista.append({
+                        'id': p.id,
+                        'codigo': p.codigo,
+                        'nombre': p.nombre,
+                        'costo_total': float(p.costo_total),
+                        'total_pagado': float(p.total_pagado),
+                        'saldo_pendiente': float(p.saldo_pendiente),
+                        'tipo': p.get_tipo_display(),
+                        'estado': p.get_estado_display(),
+                    })
+            else:
+                # Para pagos: incluir solo los que tienen saldo pendiente
+                if p.saldo_pendiente > 0:
+                    proyectos_lista.append({
+                        'id': p.id,
+                        'codigo': p.codigo,
+                        'nombre': p.nombre,
+                        'costo_total': float(p.costo_total),
+                        'total_pagado': float(p.total_pagado),
+                        'saldo_pendiente': float(p.saldo_pendiente),
+                        'tipo': p.get_tipo_display(),
+                        'estado': p.get_estado_display(),
+                    })
         
         return JsonResponse({
             'success': True,
-            'proyectos': proyectos_pendientes
+            'proyectos': proyectos_lista
         })
         
     except Exception as e:
@@ -3715,27 +3741,44 @@ def limpiar_pagos_anulados(request):
 @login_required
 def api_mensualidades_paciente(request, paciente_id):
     """
-    API: Obtener mensualidades con saldo pendiente de un paciente
+    API: Obtener mensualidades de un paciente
+    - Para pagos: Devuelve mensualidades con saldo pendiente
+    - Para devoluciones: Devuelve mensualidades ACTIVAS/PAUSADAS que tienen pagos realizados
     ✅ CORREGIDO: Compatible con el nuevo modelo Mensualidad (many-to-many servicios-profesionales)
     """
     try:
         from agenda.models import Mensualidad
         
+        # Detectar si es para devoluciones
+        es_devolucion = request.GET.get('tipo') == 'devolucion'
+        
         # ✅ Query optimizada con prefetch de servicios-profesionales
+        # Para devoluciones: solo activas o pausadas (no completadas ni canceladas)
+        if es_devolucion:
+            estados_permitidos = ['activa', 'pausada']
+        else:
+            estados_permitidos = ['activa', 'pausada']
+        
         mensualidades = Mensualidad.objects.filter(
             paciente_id=paciente_id,
-            estado__in=['activa', 'pausada']
+            estado__in=estados_permitidos
         ).prefetch_related(
             'servicios_profesionales__servicio',
             'servicios_profesionales__profesional'
         ).select_related('sucursal').order_by('-anio', '-mes')
         
         # ✅ Filtrar y construir respuesta
-        mensualidades_pendientes = []
+        mensualidades_lista = []
         
         for m in mensualidades:
-            # ✅ Solo incluir las que tienen saldo pendiente
-            if m.saldo_pendiente > 0:
+            # Para devoluciones: incluir las que tienen pagos realizados
+            # Para pagos: incluir solo las que tienen saldo pendiente
+            if es_devolucion:
+                condicion = m.total_pagado > 0
+            else:
+                condicion = m.saldo_pendiente > 0
+            
+            if condicion:
                 # ✅ Obtener servicios y profesionales
                 servicios_profesionales = m.servicios_profesionales.all()
                 
@@ -3755,7 +3798,7 @@ def api_mensualidades_paciente(request, paciente_id):
                     nombre_servicios = "Sin servicios"
                     nombre_profesional = "Sin asignar"
                 
-                mensualidades_pendientes.append({
+                mensualidades_lista.append({
                     'id': m.id,
                     'codigo': m.codigo,
                     'nombre': f"{m.periodo_display} - {nombre_servicios}",
@@ -3767,12 +3810,13 @@ def api_mensualidades_paciente(request, paciente_id):
                     'anio': m.anio,
                     'servicio': nombre_servicios,
                     'profesional': nombre_profesional,
+                    'estado': m.get_estado_display(),
                 })
         
         return JsonResponse({
             'success': True,
-            'mensualidades': mensualidades_pendientes,
-            'total': len(mensualidades_pendientes)
+            'mensualidades': mensualidades_lista,
+            'total': len(mensualidades_lista)
         })
         
     except Exception as e:
@@ -3787,4 +3831,259 @@ def api_mensualidades_paciente(request, paciente_id):
             'success': False,
             'error': str(e),
             'detail': 'Error al cargar mensualidades. Ver logs del servidor.'
+        }, status=400)
+
+@login_required
+def registrar_devolucion(request):
+    """
+    Vista unificada para registrar devoluciones.
+    
+    Detecta automáticamente el tipo de devolución según los parámetros:
+    - Sin referencia: Devolución de crédito disponible (CASO 2)
+    - Con proyecto_id: Devolución parcial de proyecto (CASO 3a)
+    - Con mensualidad_id: Devolución parcial de mensualidad (CASO 3b)
+    """
+    
+    if request.method == 'GET':
+        # Cargar datos para el formulario
+        context = {
+            'pacientes': Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre'),
+            'metodos_pago': MetodoPago.objects.filter(activo=True).exclude(nombre="Uso de Crédito"),
+            'fecha_hoy': date.today(),
+        }
+        
+        # Pre-cargar paciente si viene en parámetros
+        paciente_id = request.GET.get('paciente_id')
+        if paciente_id:
+            try:
+                paciente = Paciente.objects.get(id=paciente_id)
+                context['paciente_seleccionado'] = paciente
+                
+                # Calcular crédito disponible
+                credito_disponible = AccountService.update_balance(paciente)
+                context['credito_disponible'] = credito_disponible
+                
+            except Paciente.DoesNotExist:
+                messages.warning(request, 'Paciente no encontrado')
+        
+        # Pre-cargar proyecto si viene en parámetros
+        proyecto_id = request.GET.get('proyecto_id')
+        if proyecto_id:
+            try:
+                proyecto = Proyecto.objects.get(id=proyecto_id)
+                context['proyecto_seleccionado'] = proyecto
+                context['tipo_devolucion'] = 'proyecto'
+                
+                # Calcular disponible para devolver
+                total_pagado = proyecto.pagos.filter(
+                    anulado=False, tipo_operacion='pago'
+                ).exclude(
+                    metodo_pago__nombre="Uso de Crédito"
+                ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                
+                devoluciones_previas = proyecto.pagos.filter(
+                    anulado=False, tipo_operacion='devolucion'
+                ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                
+                context['disponible_devolver'] = total_pagado - devoluciones_previas
+                
+            except Proyecto.DoesNotExist:
+                messages.warning(request, 'Proyecto no encontrado')
+        
+        # Pre-cargar mensualidad si viene en parámetros
+        mensualidad_id = request.GET.get('mensualidad_id')
+        if mensualidad_id:
+            try:
+                mensualidad = Mensualidad.objects.get(id=mensualidad_id)
+                context['mensualidad_seleccionada'] = mensualidad
+                context['tipo_devolucion'] = 'mensualidad'
+                
+                # Calcular disponible para devolver
+                total_pagado = mensualidad.pagos.filter(
+                    anulado=False, tipo_operacion='pago'
+                ).exclude(
+                    metodo_pago__nombre="Uso de Crédito"
+                ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                
+                devoluciones_previas = mensualidad.pagos.filter(
+                    anulado=False, tipo_operacion='devolucion'
+                ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                
+                context['disponible_devolver'] = total_pagado - devoluciones_previas
+                
+            except Mensualidad.DoesNotExist:
+                messages.warning(request, 'Mensualidad no encontrada')
+        
+        return render(request, 'facturacion/registrar_devolucion.html', context)
+    
+    elif request.method == 'POST':
+        # Procesar la devolución
+        try:
+            # Obtener datos del formulario
+            paciente_id = request.POST.get('paciente_id')
+            monto_devolucion = Decimal(request.POST.get('monto', '0'))
+            metodo_pago_id = request.POST.get('metodo_pago')
+            fecha_devolucion_str = request.POST.get('fecha_devolucion')
+            tipo_devolucion = request.POST.get('tipo_devolucion')
+            motivo = request.POST.get('motivo', '').strip()
+            observaciones = request.POST.get('observaciones', '').strip()
+            
+            # Validaciones básicas
+            if not paciente_id:
+                messages.error(request, 'Debe seleccionar un paciente')
+                return redirect('facturacion:registrar_devolucion')
+            
+            paciente = get_object_or_404(Paciente, id=paciente_id)
+            
+            # Parsear fecha
+            if fecha_devolucion_str:
+                fecha_devolucion = date.fromisoformat(fecha_devolucion_str)
+            else:
+                fecha_devolucion = date.today()
+            
+            # Obtener referencia según tipo
+            referencia_id = None
+            if tipo_devolucion == 'proyecto':
+                referencia_id = request.POST.get('proyecto_id')
+            elif tipo_devolucion == 'mensualidad':
+                referencia_id = request.POST.get('mensualidad_id')
+            
+            # Procesar devolución
+            resultado = PaymentService.process_refund(
+                user=request.user,
+                paciente=paciente,
+                monto_devolucion=monto_devolucion,
+                metodo_pago_id=metodo_pago_id,
+                fecha_devolucion=fecha_devolucion,
+                tipo_devolucion=tipo_devolucion,
+                referencia_id=referencia_id,
+                motivo=motivo,
+                observaciones=observaciones
+            )
+            
+            if resultado['success']:
+                messages.success(
+                    request, 
+                    f"✅ {resultado['mensaje']}. Recibo: {resultado['numero_recibo']}"
+                )
+                
+                # Redirigir a confirmación con el recibo
+                return redirect('facturacion:confirmacion_devolucion', 
+                              devolucion_id=resultado['devolucion'].id)
+            else:
+                messages.error(request, f"Error: {resultado.get('mensaje', 'Error desconocido')}")
+                return redirect('facturacion:registrar_devolucion')
+                
+        except Exception as e:
+            messages.error(request, f'Error al procesar devolución: {str(e)}')
+            return redirect('facturacion:registrar_devolucion')
+
+
+@login_required
+def confirmacion_devolucion(request, devolucion_id):
+    """Vista de confirmación mostrando el recibo de devolución"""
+    devolucion = get_object_or_404(Pago, id=devolucion_id, tipo_operacion='devolucion')
+    
+    context = {
+        'devolucion': devolucion,
+        'paciente': devolucion.paciente,
+    }
+    
+    return render(request, 'facturacion/confirmacion_devolucion.html', context)
+
+
+# ============================================================================
+# AJAX: Cargar información de crédito disponible
+# ============================================================================
+
+@login_required
+def api_credito_disponible(request, paciente_id):
+    """
+    Retorna el crédito disponible de un paciente para devolución.
+    """
+    try:
+        paciente = get_object_or_404(Paciente, id=paciente_id)
+        credito = AccountService.update_balance(paciente)
+        
+        return JsonResponse({
+            'success': True,
+            'credito_disponible': float(credito),
+            'credito_formatted': f"Bs. {credito:,.2f}"
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def api_disponible_devolver_proyecto(request, proyecto_id):
+    """
+    Retorna el monto disponible para devolver de un proyecto.
+    """
+    try:
+        proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+        
+        total_pagado = proyecto.pagos.filter(
+            anulado=False, tipo_operacion='pago'
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        devoluciones_previas = proyecto.pagos.filter(
+            anulado=False, tipo_operacion='devolucion'
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        disponible = total_pagado - devoluciones_previas
+        
+        return JsonResponse({
+            'success': True,
+            'disponible_devolver': float(disponible),
+            'disponible_formatted': f"Bs. {disponible:,.2f}",
+            'total_pagado': float(total_pagado),
+            'devoluciones_previas': float(devoluciones_previas),
+            'proyecto_codigo': proyecto.codigo,
+            'proyecto_nombre': proyecto.nombre
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+
+@login_required
+def api_disponible_devolver_mensualidad(request, mensualidad_id):
+    """
+    Retorna el monto disponible para devolver de una mensualidad.
+    """
+    try:
+        mensualidad = get_object_or_404(Mensualidad, id=mensualidad_id)
+        
+        total_pagado = mensualidad.pagos.filter(
+            anulado=False, tipo_operacion='pago'
+        ).exclude(
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        devoluciones_previas = mensualidad.pagos.filter(
+            anulado=False, tipo_operacion='devolucion'
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        disponible = total_pagado - devoluciones_previas
+        
+        return JsonResponse({
+            'success': True,
+            'disponible_devolver': float(disponible),
+            'disponible_formatted': f"Bs. {disponible:,.2f}",
+            'total_pagado': float(total_pagado),
+            'devoluciones_previas': float(devoluciones_previas),
+            'mensualidad_codigo': mensualidad.codigo,
+            'mensualidad_periodo': mensualidad.periodo_display
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
         }, status=400)

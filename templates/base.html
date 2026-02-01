@@ -18,42 +18,56 @@
 
         /* Degradado elegante para la barra de navegación */
         .navbar-gradient {
-            background: linear-gradient(135deg, #fef3c7 0%, #bfdbfe 25%, #a5f3fc 50%, #c7d2fe 75%, #ddd6fe 100%);
-            background-size: 200% 200%;
-            animation: gradientMove 15s ease infinite;
+            background: linear-gradient(135deg, 
+                #ffffff 0%,
+                #eff6ff 12%,
+                #dbeafe 20%,
+                #fef3c7 30%,
+                #fde68a 40%,
+                #dbeafe 50%,
+                #bfdbfe 60%,
+                #dbeafe 70%,
+                #bfdbfe 80%,
+                #eff6ff 90%,
+                #ffffff 100%);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease-in-out infinite;
             backdrop-filter: blur(16px) saturate(180%);
-            border-bottom: 2px solid transparent;
-            border-image: linear-gradient(90deg, #fbbf24, #60a5fa, #22d3ee, #a78bfa, #c084fc) 1;
+            border-bottom: 3px solid transparent;
+            border-image: linear-gradient(90deg, #93c5fd, #fde68a, #93c5fd, #a5b4fc, #93c5fd) 1;
             border-image-slice: 1;
             position: relative;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
         }
 
-        /* Animación de movimiento del degradado */
+        /* Efecto hover en la barra completa */
+        .navbar-gradient:hover {
+            background-size: 450% 450%;
+            border-bottom: 3px solid rgba(30, 64, 175, 0.3);
+        }
+
+        /* Animación de movimiento del degradado - más lenta y suave */
         @keyframes gradientMove {
             0% {
                 background-position: 0% 50%;
             }
+            25% {
+                background-position: 50% 100%;
+            }
             50% {
                 background-position: 100% 50%;
+            }
+            75% {
+                background-position: 50% 0%;
             }
             100% {
                 background-position: 0% 50%;
             }
         }
 
-        /* Borde animado inferior */
+        /* Borde animado inferior - DESACTIVADO */
         .navbar-gradient::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, #fbbf24, #60a5fa, #22d3ee, #a78bfa, #c084fc, #fbbf24);
-            background-size: 200% 100%;
-            animation: borderMove 8s linear infinite;
-            opacity: 0.6;
+            display: none;
         }
 
         @keyframes borderMove {
@@ -61,7 +75,7 @@
                 background-position: 0% 0%;
             }
             100% {
-                background-position: 200% 0%;
+                background-position: 300% 0%;
             }
         }
 
@@ -92,12 +106,20 @@
             color: #1e293b !important;
             font-weight: 600;
             text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+            transition: all 0.3s ease;
+            position: relative;
         }
 
         .navbar-gradient a:hover,
         .navbar-gradient button:hover {
-            color: #1d4ed8 !important;
-            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+            color: #1e40af !important;
+            text-shadow: 
+                0 0 10px rgba(30, 64, 175, 0.8),
+                0 0 20px rgba(165, 180, 252, 0.6),
+                0 0 30px rgba(191, 219, 254, 0.4),
+                0 2px 4px rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px) scale(1.05);
+            filter: brightness(1.2);
         }
 
         /* Excepción: mantener botón Cerrar Sesión con texto blanco */
@@ -137,11 +159,10 @@
             min-width: 14rem;
             padding: 0.5rem;
             margin-top: 0.05rem;
-            background-color: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background-color: #ffffff;
             border-radius: 1rem;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            border: 1px solid #f1f5f9;
+            box-shadow: 0 10px 25px -5px rgba(30, 64, 175, 0.12), 0 8px 10px -6px rgba(147, 197, 253, 0.1), 0 0 40px rgba(165, 180, 252, 0.08);
+            border: 1px solid #dbeafe;
             animation: fadeIn 0.15s ease-out;
         }
         @keyframes fadeIn {
@@ -158,34 +179,22 @@
             padding: 0.6rem 1rem;
             color: #475569;
             text-decoration: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
             font-weight: 500;
             font-size: 0.875rem;
             border-radius: 0.5rem;
             position: relative;
-            overflow: hidden;
-        }
-        .dropdown-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.1), transparent);
-            transition: left 0.5s;
-        }
-        .dropdown-item:hover::before {
-            left: 100%;
         }
         .dropdown-item:hover {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            background-color: #f8fafc;
             color: #1e40af;
-            transform: translateX(4px) scale(1.02);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+            transform: translateX(3px);
+            border-left: 3px solid #1e40af;
+            padding-left: calc(1rem - 3px);
         }
         .dropdown-item:active {
-            transform: translateX(4px) scale(0.98);
+            transform: translateX(2px);
+            background-color: #f1f5f9;
         }
         
         /* Menú móvil oculto por defecto */
@@ -215,8 +224,8 @@
                     
                     <div class="flex-shrink-0">
                         <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
-                            <span class="title-mobile">Centro <span class="text-blue-600">Misael</span></span>
-                            <span class="title-tablet">Centro Neurodesarrollo <span class="text-blue-600">Misael</span></span>
+                            <span class="title-mobile">Centro Neurodesarrollo <span class="text-blue-600">Misael</span></span>
+                            <span class="title-tablet">Centro de Neurodesarrollo <span class="text-blue-600">Misael</span></span>
                             <span class="title-desktop">Centro de Neurodesarrollo Infantil <span class="text-blue-600">Misael</span></span>
                         </h1>
 
@@ -327,7 +336,10 @@
                                 <a href="{% url 'facturacion:registrar_pago' %}" class="dropdown-item">
                                     <span class="mr-2">➕</span> Registrar Pago
                                 </a>
-                                
+                                <a href="{% url 'facturacion:registrar_devolucion' %}" class="dropdown-item text-red-600 hover:bg-red-50">
+                                    <span class="mr-2">🔙</span> Registrar Devolución
+                                </a>
+
                                 {% if user.is_superuser or user.perfil.es_gerente %}
                                 <div class="h-px bg-slate-100 my-1 mx-2"></div>
                                 <a href="{% url 'facturacion:dashboard_reportes' %}" class="dropdown-item">
@@ -455,7 +467,10 @@
                         <a href="{% url 'facturacion:registrar_pago' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             ➕ Registrar Pago
                         </a>
-                        
+                        <a href="{% url 'facturacion:registrar_devolucion' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50">
+                            🔙 Registrar Devolución
+                        </a>
+                                                
                         {% if user.is_superuser or user.perfil.es_gerente %}
                         <a href="{% url 'facturacion:dashboard_reportes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
                             📊 Reportes

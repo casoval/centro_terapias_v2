@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Devolución Registrada - Sistema de Facturación{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recibo-devolucion {
+        max-width: 800px;
+        margin: 0 auto;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .header-recibo {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .numero-recibo {
+        font-size: 1.8rem;
+        font-weight: bold;
+        border: 3px dashed white;
+        padding: 10px 20px;
+        display: inline-block;
+        border-radius: 8px;
+    }
+    
+    .detalle-linea {
+        border-bottom: 1px solid #dee2e6;
+        padding: 12px 0;
+    }
+    
+    .monto-devuelto {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #dc3545;
+    }
+    
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+        
+        .recibo-devolucion {
+            border: none;
+            box-shadow: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-5">
+    <div class="recibo-devolucion">
+        <!-- Header del Recibo -->
+        <div class="header-recibo text-center">
+            <h2 class="mb-3">
+                <i class="fas fa-undo-alt me-2"></i>
+                RECIBO DE DEVOLUCIÓN
+            </h2>
+            <div class="numero-recibo">
+                {{ devolucion.numero_recibo }}
+            </div>
+            <p class="mt-3 mb-0">{{ devolucion.fecha_pago|date:"d/m/Y" }}</p>
+        </div>
+        
+        <!-- Cuerpo del Recibo -->
+        <div class="p-4">
+            <!-- Información del Paciente -->
+            <div class="mb-4">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-user me-2"></i>Información del Paciente
+                </h5>
+                <div class="detalle-linea">
+                    <strong>Nombre:</strong> {{ paciente.nombre_completo }}
+                </div>
+                <div class="detalle-linea">
+                    <strong>CI/Pasaporte:</strong> {{ paciente.cedula }}
+                </div>
+                {% if paciente.telefono %}
+                <div class="detalle-linea">
+                    <strong>Teléfono:</strong> {{ paciente.telefono }}
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Detalles de la Devolución -->
+            <div class="mb-4">
+                <h5 class="text-primary mb-3">
+                    <i class="fas fa-info-circle me-2"></i>Detalles de la Devolución
+                </h5>
+                <div class="detalle-linea">
+                    <strong>Tipo:</strong> 
+                    {% if devolucion.proyecto %}
+                        <span class="badge bg-warning">Devolución de Proyecto</span>
+                        <br><small class="text-muted">Proyecto: {{ devolucion.proyecto.codigo }} - {{ devolucion.proyecto.nombre }}</small>
+                    {% elif devolucion.mensualidad %}
+                        <span class="badge bg-info">Devolución de Mensualidad</span>
+                        <br><small class="text-muted">Mensualidad: {{ devolucion.mensualidad.codigo }} - {{ devolucion.mensualidad.periodo_display }}</small>
+                    {% else %}
+                        <span class="badge bg-success">Devolución de Crédito Disponible</span>
+                    {% endif %}
+                </div>
+                <div class="detalle-linea">
+                    <strong>Concepto:</strong> {{ devolucion.concepto }}
+                </div>
+                <div class="detalle-linea">
+                    <strong>Método de Devolución:</strong> {{ devolucion.metodo_pago.nombre }}
+                </div>
+                {% if devolucion.observaciones %}
+                <div class="detalle-linea">
+                    <strong>Observaciones:</strong><br>
+                    <small>{{ devolucion.observaciones|linebreaks }}</small>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Monto Devuelto -->
+            <div class="text-center py-4 bg-light rounded">
+                <p class="text-muted mb-2">MONTO DEVUELTO</p>
+                <div class="monto-devuelto">
+                    Bs. {{ devolucion.monto|floatformat:2 }}
+                </div>
+            </div>
+            
+            <!-- Información de Registro -->
+            <div class="mt-4 pt-3 border-top">
+                <small class="text-muted">
+                    <strong>Registrado por:</strong> {{ devolucion.registrado_por.get_full_name|default:devolucion.registrado_por.username }}<br>
+                    <strong>Fecha de registro:</strong> {{ devolucion.fecha_registro|date:"d/m/Y H:i" }}
+                </small>
+            </div>
+            
+            <!-- Botones de Acción -->
+            <div class="mt-4 pt-3 border-top no-print">
+                <div class="row">
+                    <div class="col-md-4">
+                        <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-user me-2"></i>Ver Cuenta del Paciente
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <button onclick="window.print()" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-print me-2"></i>Imprimir Recibo
+                        </button>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'facturacion:registrar_devolucion' %}" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-2"></i>Nueva Devolución
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mensaje de Éxito -->
+    <div class="alert alert-success text-center mt-4 no-print" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <strong>Devolución registrada exitosamente</strong>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-imprimir si viene de un registro nuevo
+    {% if request.GET.auto_print %}
+    window.onload = function() {
+        setTimeout(function() {
+            window.print();
+        }, 500);
+    };
+    {% endif %}
+</script>
+{% endblock %}

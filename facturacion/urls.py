@@ -45,6 +45,15 @@ urlpatterns = [
     path('reportes/asistencia/', views.reporte_asistencia, name='reporte_asistencia'),
     path('reportes/exportar/', views.exportar_excel, name='exportar_excel'),
 
+    # ==================== DEVOLUCIONES ====================
+    path('devoluciones/registrar/', views.registrar_devolucion, name='registrar_devolucion'),
+    path('devoluciones/confirmacion/<int:devolucion_id>/', views.confirmacion_devolucion, name='confirmacion_devolucion'),
+
+    # APIs para cargar información de devoluciones
+    path('api/credito-disponible/<int:paciente_id>/', views.api_credito_disponible, name='api_credito_disponible'),
+    path('api/disponible-devolver-proyecto/<int:proyecto_id>/', views.api_disponible_devolver_proyecto, name='api_disponible_devolver_proyecto'),
+    path('api/disponible-devolver-mensualidad/<int:mensualidad_id>/', views.api_disponible_devolver_mensualidad, name='api_disponible_devolver_mensualidad'),
+
     # ==================== ADMINISTRACIÓN ====================
     # Limpiar pagos anulados (solo admin)
     path('limpiar-pagos-anulados/', views.limpiar_pagos_anulados, name='limpiar_pagos_anulados'),

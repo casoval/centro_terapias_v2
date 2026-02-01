@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Registrar Devolución{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+    
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <span class="text-3xl">🔙</span>
+                    Registrar Devolución
+                </h1>
+                <p class="text-sm text-gray-600 mt-1">Complete el formulario para registrar una devolución de dinero</p>
+            </div>
+            <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+               class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">
+                ← Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario Principal -->
+    <form method="post" id="formDevolucion">
+        {% csrf_token %}
+        
+        <!-- Card Principal -->
+        <div class="bg-white rounded-lg shadow-md border border-gray-200">
+            
+            <!-- Paso 1: Datos Básicos -->
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                    Datos Básicos
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Seleccionar Paciente -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Paciente <span class="text-red-500">*</span>
+                        </label>
+                        <select name="paciente_id" id="selectPaciente" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                                required>
+                            <option value="">-- Seleccione un paciente --</option>
+                            {% for paciente in pacientes %}
+                                <option value="{{ paciente.id }}" 
+                                        {% if paciente_seleccionado and paciente.id == paciente_seleccionado.id %}selected{% endif %}>
+                                    {{ paciente.nombre_completo }} - {{ paciente.cedula }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Fecha de Devolución -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Fecha de Devolución <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" name="fecha_devolucion" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                               value="{{ fecha_hoy|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                
+                <!-- Información de Crédito Disponible -->
+                <div id="infoCreditoDisponible" 
+                     class="mt-4 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-blue-900">💰 Crédito Disponible</p>
+                            <p class="text-xs text-blue-700 mt-1">Este es el saldo a favor del paciente</p>
+                        </div>
+                        <div class="text-right">
+                            <span id="creditoDisponibleMonto" class="text-2xl font-bold text-blue-700">Bs. 0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Paso 2: Tipo de Devolución -->
+            <div class="p-6 border-b border-gray-200 bg-gray-50">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                    Tipo de Devolución
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Devolución de Crédito -->
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="tipo_devolucion" value="credito" 
+                               id="radioCredito" class="peer sr-only"
+                               {% if tipo_devolucion == 'credito' or not tipo_devolucion %}checked{% endif %}>
+                        <div class="border-2 border-gray-300 rounded-lg p-4 text-center transition-all
+                                    peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:shadow-md
+                                    hover:border-green-400 hover:bg-green-50">
+                            <div class="text-4xl mb-2">💰</div>
+                            <h3 class="font-bold text-gray-900 mb-1">Crédito Disponible</h3>
+                            <p class="text-xs text-gray-600">Devolver del saldo a favor</p>
+                        </div>
+                    </label>
+                    
+                    <!-- Devolución de Proyecto -->
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="tipo_devolucion" value="proyecto" 
+                               id="radioProyecto" class="peer sr-only"
+                               {% if tipo_devolucion == 'proyecto' %}checked{% endif %}>
+                        <div class="border-2 border-gray-300 rounded-lg p-4 text-center transition-all
+                                    peer-checked:border-yellow-500 peer-checked:bg-yellow-50 peer-checked:shadow-md
+                                    hover:border-yellow-400 hover:bg-yellow-50">
+                            <div class="text-4xl mb-2">📋</div>
+                            <h3 class="font-bold text-gray-900 mb-1">Proyecto</h3>
+                            <p class="text-xs text-gray-600">Devolver pago de proyecto</p>
+                        </div>
+                    </label>
+                    
+                    <!-- Devolución de Mensualidad -->
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="tipo_devolucion" value="mensualidad" 
+                               id="radioMensualidad" class="peer sr-only"
+                               {% if tipo_devolucion == 'mensualidad' %}checked{% endif %}>
+                        <div class="border-2 border-gray-300 rounded-lg p-4 text-center transition-all
+                                    peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:shadow-md
+                                    hover:border-blue-400 hover:bg-blue-50">
+                            <div class="text-4xl mb-2">📅</div>
+                            <h3 class="font-bold text-gray-900 mb-1">Mensualidad</h3>
+                            <p class="text-xs text-gray-600">Devolver pago de mensualidad</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Paso 3: Seleccionar Proyecto (si aplica) -->
+            <div id="seccionProyecto" class="p-6 border-b border-gray-200 hidden">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                    Seleccionar Proyecto
+                </h2>
+                
+                <select name="proyecto_id" id="selectProyecto" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm">
+                    <option value="">-- Cargando proyectos... --</option>
+                </select>
+                
+                <div id="infoProyecto" class="mt-4 hidden rounded-lg p-4"></div>
+            </div>
+            
+            <!-- Paso 3: Seleccionar Mensualidad (si aplica) -->
+            <div id="seccionMensualidad" class="p-6 border-b border-gray-200 hidden">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                    Seleccionar Mensualidad
+                </h2>
+                
+                <select name="mensualidad_id" id="selectMensualidad" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm">
+                    <option value="">-- Cargando mensualidades... --</option>
+                </select>
+                
+                <div id="infoMensualidad" class="mt-4 hidden rounded-lg p-4"></div>
+            </div>
+            
+            <!-- Paso 4: Monto y Detalles -->
+            <div class="p-6">
+                <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span class="bg-red-100 text-red-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">4</span>
+                    Monto y Detalles
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <!-- Monto a Devolver -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Monto a Devolver (Bs.) <span class="text-red-500">*</span>
+                        </label>
+                        <input type="number" name="monto" id="inputMonto" step="0.01" min="0.01"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                               placeholder="0.00" required>
+                        <p class="text-xs text-gray-600 mt-1">
+                            Máximo disponible: <span id="maxDisponible" class="font-semibold text-red-600">-</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Método de Devolución -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Método de Devolución <span class="text-red-500">*</span>
+                        </label>
+                        <select name="metodo_pago" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                                required>
+                            <option value="">-- Seleccione método --</option>
+                            {% for metodo in metodos_pago %}
+                                <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-600 mt-1">Cómo se devolverá el dinero</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- Motivo -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Motivo de la Devolución <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="motivo" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                               placeholder="Ej: Cancelación de servicio, error en cobro, etc." required>
+                    </div>
+                    
+                    <!-- Observaciones -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            Observaciones (Opcional)
+                        </label>
+                        <textarea name="observaciones" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                                  placeholder="Detalles adicionales sobre la devolución..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botones de Acción -->
+            <div class="p-6 bg-gray-50 rounded-b-lg border-t border-gray-200">
+                <div class="flex gap-3 justify-end">
+                    <a href="{% url 'facturacion:cuentas_corrientes' %}" 
+                       class="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium text-sm transition">
+                        Cancelar
+                    </a>
+                    <button type="submit" 
+                            class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition shadow-md hover:shadow-lg flex items-center gap-2">
+                        <span>✓</span>
+                        Registrar Devolución
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+    
+    <!-- Información de Ayuda -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 class="font-bold text-blue-900 text-sm mb-2">ℹ️ Información Importante</h3>
+        <ul class="text-xs text-blue-800 space-y-1 ml-4 list-disc">
+            <li><strong>Crédito Disponible:</strong> Devuelve dinero del saldo a favor del paciente</li>
+            <li><strong>Proyecto:</strong> Devuelve pagos realizados para un proyecto específico</li>
+            <li><strong>Mensualidad:</strong> Devuelve pagos de mensualidades ya canceladas</li>
+            <li>Las devoluciones no pueden exceder el monto disponible</li>
+            <li>El recibo de devolución se genera automáticamente</li>
+        </ul>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Al cambiar paciente
+    $('#selectPaciente').change(function() {
+        const pacienteId = $(this).val();
+        if (pacienteId) {
+            cargarCreditoDisponible(pacienteId);
+            actualizarSeccionesPorTipo();
+        } else {
+            $('#infoCreditoDisponible').addClass('hidden');
+        }
+    });
+    
+    // Al cambiar tipo de devolución
+    $('input[name="tipo_devolucion"]').change(function() {
+        actualizarSeccionesPorTipo();
+    });
+    
+    // Al seleccionar proyecto
+    $('#selectProyecto').change(function() {
+        const proyectoId = $(this).val();
+        if (proyectoId) {
+            cargarInfoProyecto(proyectoId);
+        }
+    });
+    
+    // Al seleccionar mensualidad
+    $('#selectMensualidad').change(function() {
+        const mensualidadId = $(this).val();
+        if (mensualidadId) {
+            cargarInfoMensualidad(mensualidadId);
+        }
+    });
+    
+    function actualizarSeccionesPorTipo() {
+        const tipo = $('input[name="tipo_devolucion"]:checked').val();
+        const pacienteId = $('#selectPaciente').val();
+        
+        // Ocultar todas las secciones
+        $('#seccionProyecto, #seccionMensualidad').addClass('hidden');
+        $('#infoProyecto, #infoMensualidad').addClass('hidden');
+        
+        if (!pacienteId) {
+            $('#maxDisponible').text('-');
+            return;
+        }
+        
+        if (tipo === 'credito') {
+            $('#infoCreditoDisponible').removeClass('hidden');
+            // Actualizar el máximo disponible desde el crédito mostrado
+            const creditoText = $('#creditoDisponibleMonto').text();
+            $('#maxDisponible').text(creditoText);
+            
+            // Configurar el input de monto
+            const creditoValue = parseFloat(creditoText.replace('Bs. ', '').replace(',', ''));
+            if (!isNaN(creditoValue)) {
+                $('#inputMonto').attr('max', creditoValue);
+            }
+        } else if (tipo === 'proyecto') {
+            $('#infoCreditoDisponible').addClass('hidden');
+            $('#seccionProyecto').removeClass('hidden');
+            $('#maxDisponible').text('-');
+            cargarProyectosPaciente(pacienteId);
+        } else if (tipo === 'mensualidad') {
+            $('#infoCreditoDisponible').addClass('hidden');
+            $('#seccionMensualidad').removeClass('hidden');
+            $('#maxDisponible').text('-');
+            cargarMensualidadesPaciente(pacienteId);
+        }
+    }
+    
+    function cargarCreditoDisponible(pacienteId) {
+        $.ajax({
+            url: `/facturacion/api/credito-disponible/${pacienteId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    $('#creditoDisponibleMonto').text(data.credito_formatted);
+                    $('#infoCreditoDisponible').removeClass('hidden');
+                    
+                    // Si el tipo seleccionado es crédito, actualizar el máximo inmediatamente
+                    const tipoSeleccionado = $('input[name="tipo_devolucion"]:checked').val();
+                    if (tipoSeleccionado === 'credito') {
+                        $('#maxDisponible').text(data.credito_formatted);
+                        $('#inputMonto').attr('max', data.credito_disponible);
+                    }
+                }
+            },
+            error: function() {
+                console.error('Error al cargar crédito disponible');
+            }
+        });
+    }
+    
+    function cargarProyectosPaciente(pacienteId) {
+        $.ajax({
+            url: `/facturacion/api/proyectos-paciente/${pacienteId}/?tipo=devolucion`,
+            method: 'GET',
+            success: function(data) {
+                let options = '<option value="">-- Seleccione un proyecto --</option>';
+                if (data.proyectos && data.proyectos.length > 0) {
+                    data.proyectos.forEach(proyecto => {
+                        options += `<option value="${proyecto.id}">${proyecto.codigo} - ${proyecto.nombre} (${proyecto.estado})</option>`;
+                    });
+                } else {
+                    options = '<option value="">No hay proyectos con pagos realizados</option>';
+                }
+                $('#selectProyecto').html(options);
+            },
+            error: function() {
+                $('#selectProyecto').html('<option value="">Error al cargar proyectos</option>');
+            }
+        });
+    }
+    
+    function cargarMensualidadesPaciente(pacienteId) {
+        $.ajax({
+            url: `/facturacion/api/mensualidades-paciente/${pacienteId}/?tipo=devolucion`,
+            method: 'GET',
+            success: function(data) {
+                let options = '<option value="">-- Seleccione una mensualidad --</option>';
+                if (data.mensualidades && data.mensualidades.length > 0) {
+                    data.mensualidades.forEach(mens => {
+                        options += `<option value="${mens.id}">${mens.codigo} - ${mens.periodo} (${mens.estado})</option>`;
+                    });
+                } else {
+                    options = '<option value="">No hay mensualidades con pagos realizados</option>';
+                }
+                $('#selectMensualidad').html(options);
+            },
+            error: function() {
+                $('#selectMensualidad').html('<option value="">Error al cargar mensualidades</option>');
+            }
+        });
+    }
+    
+    function cargarInfoProyecto(proyectoId) {
+        $.ajax({
+            url: `/facturacion/api/disponible-devolver-proyecto/${proyectoId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    const disponible = data.disponible_devolver;
+                    $('#maxDisponible').text(data.disponible_formatted);
+                    $('#inputMonto').attr('max', disponible);
+                    
+                    let bgClass = disponible > 0 ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500';
+                    let textClass = disponible > 0 ? 'text-green-900' : 'text-red-900';
+                    
+                    $('#infoProyecto')
+                        .removeClass('bg-green-50 bg-red-50 border-green-500 border-red-500 text-green-900 text-red-900 hidden')
+                        .addClass(`${bgClass} ${textClass} border-l-4`)
+                        .html(`
+                            <p class="font-semibold text-sm mb-2">📋 Información del Proyecto</p>
+                            <div class="text-xs space-y-1">
+                                <p>Total Pagado: <span class="font-semibold">Bs. ${data.total_pagado.toFixed(2)}</span></p>
+                                <p>Devoluciones Previas: <span class="font-semibold">Bs. ${data.devoluciones_previas.toFixed(2)}</span></p>
+                                <p class="pt-2 border-t border-gray-300">Disponible para Devolver: <span class="font-bold text-base">${data.disponible_formatted}</span></p>
+                            </div>
+                        `);
+                }
+            },
+            error: function() {
+                $('#infoProyecto').addClass('hidden');
+            }
+        });
+    }
+    
+    function cargarInfoMensualidad(mensualidadId) {
+        $.ajax({
+            url: `/facturacion/api/disponible-devolver-mensualidad/${mensualidadId}/`,
+            method: 'GET',
+            success: function(data) {
+                if (data.success) {
+                    const disponible = data.disponible_devolver;
+                    $('#maxDisponible').text(data.disponible_formatted);
+                    $('#inputMonto').attr('max', disponible);
+                    
+                    let bgClass = disponible > 0 ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500';
+                    let textClass = disponible > 0 ? 'text-green-900' : 'text-red-900';
+                    
+                    $('#infoMensualidad')
+                        .removeClass('bg-green-50 bg-red-50 border-green-500 border-red-500 text-green-900 text-red-900 hidden')
+                        .addClass(`${bgClass} ${textClass} border-l-4`)
+                        .html(`
+                            <p class="font-semibold text-sm mb-2">📅 Información de la Mensualidad</p>
+                            <div class="text-xs space-y-1">
+                                <p>Total Pagado: <span class="font-semibold">Bs. ${data.total_pagado.toFixed(2)}</span></p>
+                                <p>Devoluciones Previas: <span class="font-semibold">Bs. ${data.devoluciones_previas.toFixed(2)}</span></p>
+                                <p class="pt-2 border-t border-gray-300">Disponible para Devolver: <span class="font-bold text-base">${data.disponible_formatted}</span></p>
+                            </div>
+                        `);
+                }
+            },
+            error: function() {
+                $('#infoMensualidad').addClass('hidden');
+            }
+        });
+    }
+    
+    // Validación del formulario
+    $('#formDevolucion').submit(function(e) {
+        const monto = parseFloat($('#inputMonto').val());
+        const maxDisponibleText = $('#maxDisponible').text().replace('Bs. ', '').replace(',', '');
+        const maxDisponible = parseFloat(maxDisponibleText);
+        
+        if (monto > maxDisponible) {
+            e.preventDefault();
+            alert(`❌ El monto no puede ser mayor al disponible (${$('#maxDisponible').text()})`);
+            return false;
+        }
+    });
+    
+    // Inicializar al cargar la página
+    const pacienteInicial = $('#selectPaciente').val();
+    if (pacienteInicial) {
+        // Cargar el crédito disponible
+        cargarCreditoDisponible(pacienteInicial);
+        // Esperar un poco para que se cargue el crédito antes de actualizar secciones
+        setTimeout(function() {
+            actualizarSeccionesPorTipo();
+        }, 300);
+    } else {
+        actualizarSeccionesPorTipo();
+    }
+});
+</script>
+{% endblock %}
