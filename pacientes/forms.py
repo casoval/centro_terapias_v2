@@ -9,6 +9,7 @@ class PacienteForm(forms.ModelForm):
     """
     Formulario personalizado para crear/editar pacientes
     ✅ CON FILTRADO DE SUCURSALES SEGÚN ROL DEL USUARIO
+    ✅ SIN procesamiento de servicios (se hace en la vista)
     """
     
     def __init__(self, *args, **kwargs):
@@ -246,41 +247,6 @@ class PacienteForm(forms.ModelForm):
         
         return cleaned_data
     
-    def save(self, commit=True):
-        """Guardar paciente y servicios seleccionados con precios/observaciones"""
-        paciente = super().save(commit=commit)
-        
-        if commit:
-            # Procesar servicios desde POST data
-            servicios = TipoServicio.objects.filter(activo=True)
-            
-            for servicio in servicios:
-                # Verificar si el servicio fue seleccionado (checkbox marcado)
-                servicio_key = f'servicio_{servicio.id}'
-                if servicio_key in self.data:
-                    # Obtener precio personalizado
-                    precio_key = f'precio_{servicio.id}'
-                    precio_custom = self.data.get(precio_key, '').strip()
-                    
-                    # Si está vacío o es 0, usar precio base
-                    if not precio_custom or float(precio_custom or 0) == 0:
-                        precio_custom = servicio.costo_base
-                    else:
-                        precio_custom = float(precio_custom)
-                    
-                    # Obtener observaciones
-                    obs_key = f'obs_{servicio.id}'
-                    observaciones = self.data.get(obs_key, '').strip()
-                    
-                    # Crear relación PacienteServicio
-                    PacienteServicio.objects.get_or_create(
-                        paciente=paciente,
-                        servicio=servicio,
-                        defaults={
-                            'costo_sesion': precio_custom,
-                            'observaciones': observaciones,
-                            'activo': True
-                        }
-                    )
-        
-        return paciente
+    # ✅ REMOVIDO: El método save() ya no procesa servicios
+    # Los servicios se manejan directamente en las vistas (agregar_paciente y editar_paciente)
+    # Esto evita duplicación y conflictos

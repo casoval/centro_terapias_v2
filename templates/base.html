@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-50">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +15,94 @@
     
     <style>
         body { font-family: 'Inter', sans-serif; }
+
+        /* ===== FONDO DEGRADADO ATARDECER CÁLIDO ===== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #FFFF99 0%, #FFD700 20%, #FF8C00 50%, #FF4500 75%, #8B4513 100%);
+            z-index: -2;
+        }
+
+        /* Formas geométricas de fondo */
+        .background-shapes {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .polygon {
+            position: absolute;
+            opacity: 0.15;
+            animation: rotate-float 20s infinite ease-in-out;
+        }
+
+        .polygon-1 {
+            width: 0;
+            height: 0;
+            border-left: 150px solid transparent;
+            border-right: 150px solid transparent;
+            border-bottom: 260px solid #FF1493;
+            top: 10%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .polygon-2 {
+            width: 200px;
+            height: 200px;
+            background: #00CED1;
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+            top: 15%;
+            right: 15%;
+            animation-delay: 3s;
+        }
+
+        .polygon-3 {
+            width: 180px;
+            height: 180px;
+            background: #9370DB;
+            clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 6s;
+        }
+
+        .polygon-4 {
+            width: 220px;
+            height: 220px;
+            background: #32CD32;
+            clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
+            bottom: 15%;
+            right: 25%;
+            animation-delay: 9s;
+        }
+
+        @keyframes rotate-float {
+            0%, 100% {
+                transform: rotate(0deg) translateY(0) scale(1);
+            }
+            25% {
+                transform: rotate(90deg) translateY(-20px) scale(1.1);
+            }
+            50% {
+                transform: rotate(180deg) translateY(-40px) scale(0.9);
+            }
+            75% {
+                transform: rotate(270deg) translateY(-20px) scale(1.05);
+            }
+        }
+        /* ===== FIN FONDO ATARDECER CÁLIDO ===== */
+
 
         /* Degradado elegante para la barra de navegación */
         .navbar-gradient {
@@ -208,9 +296,187 @@
         
         /* Animación para el ícono de flecha en móvil */
         .rotate-180 { transform: rotate(180deg); }
+        
+        /* ===== DISEÑO ULTRA COMPACTO ===== */
+        #quick-menu-trigger {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 80px;
+            z-index: 9998;
+            cursor: pointer;
+            background: linear-gradient(180deg, 
+                transparent,
+                rgba(59, 130, 246, 0.5), 
+                rgba(59, 130, 246, 0.9),
+                rgba(59, 130, 246, 0.5),
+                transparent);
+            border-radius: 0 0.25rem 0.25rem 0;
+            transition: all 0.2s ease;
+            animation: edgePulse 2s ease-in-out infinite;
+        }
+
+        #quick-menu-trigger:hover {
+            width: 6px;
+            background: linear-gradient(180deg, 
+                transparent,
+                rgba(59, 130, 246, 0.7), 
+                rgba(59, 130, 246, 1),
+                rgba(59, 130, 246, 0.7),
+                transparent);
+        }
+
+        @keyframes edgePulse {
+            0%, 100% { opacity: 0.6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.3); }
+            50% { opacity: 1; box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        }
+
+        #quick-access-menu {
+            position: fixed;
+            left: -130px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 120px;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 0 0.75rem 0.75rem 0;
+            box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.1);
+            padding: 0.5rem;
+            z-index: 9999;
+            transition: all 0.25s ease;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            backdrop-filter: blur(8px);
+        }
+
+        #quick-access-menu.show {
+            left: 0;
+            box-shadow: 0 15px 30px -8px rgba(0, 0, 0, 0.15);
+        }
+
+        #quick-access-menu h3 {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 0.4rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .quick-menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.15rem;
+            padding: 0.35rem 0.25rem;
+            margin-bottom: 0.3rem;
+            background: white;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            color: #334155;
+            font-weight: 600;
+            font-size: 0.6rem;
+            transition: all 0.15s ease;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .quick-menu-item:hover {
+            transform: translateX(3px);
+            background: #eff6ff;
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+        }
+
+        .quick-menu-icon {
+            font-size: 1.25rem;
+            transition: all 0.15s ease;
+        }
+
+        .quick-menu-item:hover .quick-menu-icon {
+            transform: scale(1.15);
+        }
+
+        .quick-menu-title {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1;
+        }
+
+        /* Animación de entrada de items */
+        #quick-access-menu.show .quick-menu-item {
+            animation: fadeInUp 0.25s ease-out backwards;
+        }
+
+        #quick-access-menu.show .quick-menu-item:nth-child(2) { animation-delay: 0.02s; }
+        #quick-access-menu.show .quick-menu-item:nth-child(3) { animation-delay: 0.04s; }
+        #quick-access-menu.show .quick-menu-item:nth-child(4) { animation-delay: 0.06s; }
+        #quick-access-menu.show .quick-menu-item:nth-child(5) { animation-delay: 0.08s; }
+        #quick-access-menu.show .quick-menu-item:nth-child(6) { animation-delay: 0.1s; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive: ocultar en móviles */
+        @media (max-width: 768px) {
+            #quick-menu-trigger,
+            #quick-access-menu {
+                display: none;
+            }
+        }
     </style>
 </head>
-<body class="bg-slate-50 flex flex-col min-h-screen">
+<body class="flex flex-col min-h-screen">
+    
+    
+    <!-- ===== FORMAS GEOMÉTRICAS DEL FONDO ATARDECER CÁLIDO ===== -->
+    <div class="background-shapes">
+        <div class="polygon polygon-1"></div>
+        <div class="polygon polygon-2"></div>
+        <div class="polygon polygon-3"></div>
+        <div class="polygon polygon-4"></div>
+    </div>
+    <!-- ===== FIN FORMAS GEOMÉTRICAS ===== -->
+
+    <!-- ✨ DISEÑO 1: MENÚ MINIMALISTA MODERNO ✨ -->
+    {% if user.is_authenticated and not user.perfil.es_paciente %}
+    <div id="quick-menu-trigger"></div>
+    
+    <div id="quick-access-menu">
+        <h3>Accesos</h3>
+        
+        <a href="{% url 'pacientes:agregar' %}" class="quick-menu-item">
+            <div class="quick-menu-icon">👶</div>
+            <div class="quick-menu-title">Crear Paciente</div>
+        </a>
+        
+        <a href="{% url 'agenda:crear_proyecto' %}" class="quick-menu-item">
+            <div class="quick-menu-icon">📦</div>
+            <div class="quick-menu-title">Crear Proyecto</div>
+        </a>
+        
+        <a href="{% url 'agenda:crear_mensualidad' %}" class="quick-menu-item">
+            <div class="quick-menu-icon">💳</div>
+            <div class="quick-menu-title">Crear Mensualidad</div>
+        </a>
+        
+        <a href="{% url 'agenda:agendar_recurrente' %}" class="quick-menu-item">
+            <div class="quick-menu-icon">📅</div>
+            <div class="quick-menu-title">Nueva Sesión</div>
+        </a>
+        
+        <a href="{% url 'facturacion:registrar_pago' %}" class="quick-menu-item">
+            <div class="quick-menu-icon">💰</div>
+            <div class="quick-menu-title">Nuevo Pago</div>
+        </a>
+    </div>
+    {% endif %}
     
     {% if user.is_authenticated %}
     
@@ -658,8 +924,511 @@
                 facturacionIcon.classList.toggle('rotate-180');
             });
         }
+        
+        // ===== MENÚ LATERAL DE ACCESO RÁPIDO =====
+        const quickMenu = document.getElementById('quick-access-menu');
+        const quickMenuTrigger = document.getElementById('quick-menu-trigger');
+        let menuTimeout;
+        
+        if (quickMenu && quickMenuTrigger) {
+            // Mostrar menú al pasar por el trigger o el menú mismo
+            quickMenuTrigger.addEventListener('mouseenter', function() {
+                clearTimeout(menuTimeout);
+                quickMenu.classList.add('show');
+            });
+            
+            quickMenu.addEventListener('mouseenter', function() {
+                clearTimeout(menuTimeout);
+                quickMenu.classList.add('show');
+            });
+            
+            // Ocultar menú con delay
+            quickMenuTrigger.addEventListener('mouseleave', function() {
+                menuTimeout = setTimeout(() => {
+                    quickMenu.classList.remove('show');
+                }, 300);
+            });
+            
+            quickMenu.addEventListener('mouseleave', function() {
+                menuTimeout = setTimeout(() => {
+                    quickMenu.classList.remove('show');
+                }, 300);
+            });
+        }
     </script>
     
+<!-- ===== ESTILOS ULTRA COMPACTOS PARA SELECTOR DE PACIENTES ===== -->
+<style>
+/* Botón flotante - más pequeño */
+#paciente-selector-float {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 9999;
+}
+
+.float-trigger {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.float-trigger:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+}
+
+.float-icon {
+    font-size: 1.3rem;
+    animation: floatPulse 2s ease-in-out infinite;
+}
+
+@keyframes floatPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Menú desplegable - ULTRA COMPACTO */
+.paciente-menu {
+    position: absolute;
+    bottom: 58px;
+    left: 0;
+    width: 240px;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(15px) scale(0.95);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 2px solid #e2e8f0;
+    max-height: 420px;
+    display: flex;
+    flex-direction: column;
+}
+
+.paciente-menu.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+/* Header - más compacto */
+.menu-header {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 2px solid #f1f5f9;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 1rem 1rem 0 0;
+    color: white;
+}
+
+.menu-header h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Buscador - más compacto */
+.search-box {
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafbfc;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.4rem;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* Lista de pacientes - más compacta */
+.pacientes-list {
+    overflow-y: auto;
+    max-height: 320px;
+    padding: 0.4rem;
+}
+
+.pacientes-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.pacientes-list::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 10px;
+}
+
+.pacientes-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.pacientes-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Item de paciente - ULTRA COMPACTO - ✅ CLICKEABLE */
+.paciente-item {
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.6rem;
+    margin-bottom: 0.3rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    position: relative;
+}
+
+.paciente-item:hover {
+    background: #eff6ff;
+    border-color: #667eea;
+    transform: translateX(2px);
+}
+
+/* Header del item - nombre + foto - ✅ CLICKEABLE */
+.paciente-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+}
+
+.paciente-header:hover .paciente-nombre {
+    color: #667eea;
+}
+
+/* Foto del paciente - MUESTRA LA FOTO REAL SI EXISTE */
+.paciente-foto {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid #e2e8f0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.paciente-header:hover .paciente-foto {
+    border-color: #667eea;
+    transform: scale(1.05);
+}
+
+.paciente-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.paciente-foto-placeholder {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Nombre - más pequeño */
+.paciente-nombre {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+    line-height: 1.2;
+    transition: color 0.2s ease;
+}
+
+/* Acciones - aparecen al hover */
+.paciente-acciones {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: all 0.2s ease;
+}
+
+.paciente-item:hover .paciente-acciones {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Botones de acción - más pequeños */
+.accion-btn {
+    flex: 1;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    position: relative;
+    z-index: 2;
+}
+
+.accion-sesiones {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.accion-sesiones:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+.accion-cuenta {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.accion-cuenta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(245, 87, 108, 0.3);
+}
+
+/* Mensaje sin resultados */
+.no-results {
+    text-align: center;
+    padding: 1.5rem 0.8rem;
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+/* Badge contador - más pequeño */
+.count-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.8rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+/* Animación de entrada */
+.paciente-item {
+    animation: slideInUp 0.25s ease-out backwards;
+}
+
+.paciente-item:nth-child(1) { animation-delay: 0.03s; }
+.paciente-item:nth-child(2) { animation-delay: 0.06s; }
+.paciente-item:nth-child(3) { animation-delay: 0.09s; }
+.paciente-item:nth-child(4) { animation-delay: 0.12s; }
+.paciente-item:nth-child(5) { animation-delay: 0.15s; }
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #paciente-selector-float {
+        bottom: 15px;
+        left: 15px;
+    }
+    
+    .paciente-menu {
+        width: 220px;
+        max-height: 380px;
+    }
+    
+    .float-trigger {
+        width: 44px;
+        height: 44px;
+    }
+}
+</style>
+
+<!-- ===== HTML DEL SELECTOR ===== -->
+{% if user.is_authenticated and not user.perfil.es_paciente %}
+<div id="paciente-selector-float">
+    <!-- Botón flotante -->
+    <div class="float-trigger" onclick="togglePacienteMenu()">
+        <span class="float-icon">👶</span>
+    </div>
+    
+    <!-- Menú desplegable -->
+    <div class="paciente-menu" id="paciente-menu">
+        <div class="menu-header">
+            <h3>
+                <span>🔍</span>
+                Pacientes
+                <span class="count-badge ml-auto" id="pacientes-count">0</span>
+            </h3>
+        </div>
+        
+        <div class="search-box">
+            <input type="text" 
+                   id="search-paciente" 
+                   class="search-input" 
+                   placeholder="Buscar..."
+                   onkeyup="filterPacientes()">
+        </div>
+        
+        <div class="pacientes-list" id="pacientes-list">
+            <div class="text-center py-4">
+                <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <p class="text-xs text-slate-500 mt-2">Cargando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+// Variable global para almacenar pacientes
+let pacientesData = [];
+let pacientesLoaded = false;
+
+// Toggle menú de pacientes y cargar datos si es necesario
+function togglePacienteMenu() {
+    const menu = document.getElementById('paciente-menu');
+    menu.classList.toggle('active');
+    
+    // Cargar pacientes solo la primera vez que se abre el menú
+    if (menu.classList.contains('active') && !pacientesLoaded) {
+        cargarPacientes();
+    }
+}
+
+// Cargar pacientes vía AJAX
+function cargarPacientes() {
+    const listaContainer = document.getElementById('pacientes-list');
+    
+    fetch('{% url "pacientes:api_lista_pacientes" %}')
+        .then(response => response.json())
+        .then(data => {
+            pacientesData = data.pacientes;
+            pacientesLoaded = true;
+            renderizarPacientes(pacientesData);
+            
+            // Actualizar contador
+            document.getElementById('pacientes-count').textContent = pacientesData.length;
+        })
+        .catch(error => {
+            console.error('Error al cargar pacientes:', error);
+            listaContainer.innerHTML = '<div class="no-results">❌ Error al cargar</div>';
+        });
+}
+
+// ✅ Ir al perfil del paciente
+function irAPerfil(pacienteId) {
+    window.location.href = `/pacientes/${pacienteId}/`;
+}
+
+// Renderizar lista de pacientes
+function renderizarPacientes(pacientes) {
+    const listaContainer = document.getElementById('pacientes-list');
+    
+    if (pacientes.length === 0) {
+        listaContainer.innerHTML = '<div class="no-results">Sin pacientes</div>';
+        return;
+    }
+    
+    listaContainer.innerHTML = pacientes.map((paciente, index) => `
+        <div class="paciente-item" data-nombre="${paciente.nombre_completo.toLowerCase()}" style="animation-delay: ${index * 0.03}s">
+            <!-- ✅ Header clickeable que va al perfil -->
+            <div class="paciente-header" onclick="irAPerfil(${paciente.id})">
+                <div class="paciente-foto">
+                    ${paciente.foto_url ? 
+                        `<img src="${paciente.foto_url}" alt="${paciente.nombre_completo}">` :
+                        `<div class="paciente-foto-placeholder">${paciente.inicial}</div>`
+                    }
+                </div>
+                <div class="paciente-nombre">
+                    ${paciente.nombre_completo}
+                </div>
+            </div>
+            <!-- ✅ Botones con onclick que previenen la propagación -->
+            <div class="paciente-acciones">
+                <a href="/pacientes/${paciente.id}/sesiones/" 
+                   class="accion-btn accion-sesiones"
+                   onclick="event.stopPropagation()">
+                    📅 Sesiones
+                </a>
+                <a href="/facturacion/cuenta/${paciente.id}/" 
+                   class="accion-btn accion-cuenta"
+                   onclick="event.stopPropagation()">
+                    💰 Cuenta
+                </a>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Cerrar al hacer click fuera
+document.addEventListener('click', function(event) {
+    const selector = document.getElementById('paciente-selector-float');
+    const menu = document.getElementById('paciente-menu');
+    
+    if (selector && menu && !selector.contains(event.target)) {
+        menu.classList.remove('active');
+    }
+});
+
+// Filtrar pacientes
+function filterPacientes() {
+    const input = document.getElementById('search-paciente');
+    const filter = input.value.toLowerCase();
+    const list = document.getElementById('pacientes-list');
+    const items = list.getElementsByClassName('paciente-item');
+    
+    let visibleCount = 0;
+    
+    for (let i = 0; i < items.length; i++) {
+        const nombre = items[i].getAttribute('data-nombre');
+        if (nombre.indexOf(filter) > -1) {
+            items[i].style.display = '';
+            visibleCount++;
+        } else {
+            items[i].style.display = 'none';
+        }
+    }
+    
+    // Mostrar mensaje si no hay resultados
+    if (visibleCount === 0 && pacientesLoaded) {
+        list.innerHTML = '<div class="no-results">😕 Sin resultados</div>';
+    } else if (visibleCount === 0 && !pacientesLoaded) {
+        // Si aún no se han cargado, esperar
+    } else if (filter === '' && visibleCount === 0 && pacientesLoaded) {
+        // Si borró todo el filtro y no hay resultados, recargar
+        renderizarPacientes(pacientesData);
+    }
+}
+</script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

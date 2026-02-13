@@ -89,6 +89,14 @@
                         {% endif %}
                         
                         {% for sesion in grupo.sesiones %}
+                        {% if sesion.es_grupal %}
+                        <div class="relative pl-1.5 border-l-2 border-teal-400 bg-teal-50/40 rounded-r-md mb-1.5">
+                            <div class="absolute -left-3 top-1 z-10">
+                                <span class="inline-flex items-center gap-0.5 bg-teal-500 text-white text-[6px] font-black px-1 py-0.5 rounded-full shadow leading-none">
+                                    👥{{ sesion.num_grupo }}
+                                </span>
+                            </div>
+                        {% endif %}
                         <div class="group relative cursor-pointer rounded-md border-l-[3px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden bg-opacity-90 mb-1.5
                             {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
                             {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
@@ -210,6 +218,7 @@
                                 {% endif %}
                             {% endif %}
                         </div>
+                        {% if sesion.es_grupal %}</div>{% endif %}
                         {% endfor %}
                     {% endfor %}
                 {% else %}
@@ -250,6 +259,9 @@
             </div>
             <span class="px-2 py-0.5 bg-white rounded border border-amber-200 text-amber-700 font-bold shadow-sm">
                 ⚠️ Última Sesión
+            </span>
+            <span class="px-2 py-0.5 bg-white rounded border border-teal-300 text-teal-700 font-bold shadow-sm">
+                👥 Grupal
             </span>
         </div>
     </div>

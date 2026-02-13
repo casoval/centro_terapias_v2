@@ -138,10 +138,35 @@
             padding: 0.15cm 0;
             margin-bottom: 0.25cm;
             border-bottom: 3px solid transparent;
+            {% if es_devolucion %}
+            background: linear-gradient(white, white) padding-box,
+                        linear-gradient(to right, #dc2626, #dc2626, #dc2626) border-box;
+            {% else %}
             background: linear-gradient(white, white) padding-box,
                         linear-gradient(to right, #dc2626, #fbbf24, #2563eb) border-box;
+            {% endif %}
             border-image-slice: 1;
+            position: relative;
         }
+        
+        /* ✅ NUEVO: Franja distintiva para devoluciones */
+        {% if es_devolucion %}
+        .header::after {
+            content: '🔴 DEVOLUCIÓN';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+            padding: 3px 0;
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        {% endif %}
         
         .logo {
             {% if pagos_relacionados|length > 15 %}
@@ -401,7 +426,7 @@
             
             <div class="header">
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo" alt="Logo">{% endif %}
-                <h1>Recibo de Pago</h1>
+                <h1>{% if es_devolucion %}Comprobante de Devolución{% else %}Recibo de Pago{% endif %}</h1>
                 <p><strong>Centro de Neurodesarrollo Infantil Misael</strong></p>
                 <p>Calle Japón #28 • Tel: 76175352 • Potosí, Bolivia</p>
             </div>
@@ -507,20 +532,20 @@
             </div>{% endif %}
             
             <div class="monto-total">
-                <div class="label">💰 Monto Total Pagado</div>
+                <div class="label">{% if es_devolucion %}💸 Monto Total Devuelto{% else %}💰 Monto Total Pagado{% endif %}</div>
                 <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
             </div>
             
             <div class="firmas-container">
                 <div class="firma-bloque">
-                    <div class="firma-titulo">Recibí Conforme</div>
+                    <div class="firma-titulo">{% if es_devolucion %}Entregué Conforme{% else %}Recibí Conforme{% endif %}</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Responsable del Centro</div>
                     </div>
                 </div>
                 
                 <div class="firma-bloque">
-                    <div class="firma-titulo">Pagué Conforme</div>
+                    <div class="firma-titulo">{% if es_devolucion %}Recibí Conforme{% else %}Pagué Conforme{% endif %}</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Tutor/Responsable</div>
                     </div>
@@ -541,7 +566,7 @@
             
             <div class="header">
                 {% if logo_base64 %}<img src="data:image/png;base64,{{ logo_base64 }}" class="logo" alt="Logo">{% endif %}
-                <h1>Recibo de Pago</h1>
+                <h1>{% if es_devolucion %}Comprobante de Devolución{% else %}Recibo de Pago{% endif %}</h1>
                 <p><strong>Centro de Neurodesarrollo Infantil Misael</strong></p>
                 <p>Calle Japón #28 • Tel: 76175352 • Potosí, Bolivia</p>
             </div>
@@ -647,20 +672,20 @@
             </div>{% endif %}
             
             <div class="monto-total">
-                <div class="label">💰 Monto Total Pagado</div>
+                <div class="label">{% if es_devolucion %}💸 Monto Total Devuelto{% else %}💰 Monto Total Pagado{% endif %}</div>
                 <div class="valor">Bs. {{ total_recibo|floatformat:2 }}</div>
             </div>
             
             <div class="firmas-container">
                 <div class="firma-bloque">
-                    <div class="firma-titulo">Recibí Conforme</div>
+                    <div class="firma-titulo">{% if es_devolucion %}Entregué Conforme{% else %}Recibí Conforme{% endif %}</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Responsable del Centro</div>
                     </div>
                 </div>
                 
                 <div class="firma-bloque">
-                    <div class="firma-titulo">Pagué Conforme</div>
+                    <div class="firma-titulo">{% if es_devolucion %}Recibí Conforme{% else %}Pagué Conforme{% endif %}</div>
                     <div class="firma-linea">
                         <div class="firma-cargo">Tutor/Responsable</div>
                     </div>

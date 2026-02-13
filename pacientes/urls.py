@@ -15,4 +15,6 @@ urlpatterns = [
 
     path('mis-sesiones/', views.mis_sesiones, name='mis_sesiones'),
     path('mis-profesionales/', views.mis_profesionales, name='mis_profesionales'),
+
+    path('api/lista/', views.api_lista_pacientes, name='api_lista_pacientes'),
 ]

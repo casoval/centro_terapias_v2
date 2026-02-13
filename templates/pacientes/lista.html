@@ -18,301 +18,306 @@
     .btn-view-inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; }
 </style>
 
-<div class="mb-8">
-    <div class="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
-        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-pink-400 opacity-20 blur-2xl"></div>
-        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-cyan-400 opacity-20 blur-xl"></div>
-        
-        <div class="relative flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 flex-wrap">
-                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">👶</span> 
-                    Pacientes
-                    <span class="ml-2 px-3 py-1 bg-white/20 text-white text-sm sm:text-base font-medium rounded-full border border-white/30 backdrop-blur-md shadow-sm">
-                        {{ pacientes|length }} encontrados
-                    </span>
-                </h1>
-                <p class="text-indigo-100 text-sm mt-2 font-medium">Gestión integral de niños y tutores del centro</p>
+<div class="max-w-7xl mx-auto px-2 py-2">
+
+    <div class="mb-3">
+        <div class="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-xl p-3 shadow-lg overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-pink-400 opacity-20 blur-xl"></div>
+            <div class="absolute bottom-0 left-0 -ml-4 -mb-4 w-12 h-12 rounded-full bg-cyan-400 opacity-20 blur-lg"></div>
+            
+            <div class="relative flex flex-row justify-between items-center gap-2">
+                <div>
+                    <h1 class="text-lg font-black text-white flex items-center gap-2 flex-wrap">
+                        <span class="bg-white/20 p-1 rounded-lg backdrop-blur-sm shadow-inner text-base">👶</span> 
+                        Pacientes
+                        <span class="ml-1 px-2 py-0.5 bg-white/20 text-white text-[10px] font-bold rounded-full border border-white/30 backdrop-blur-md shadow-sm uppercase tracking-wide">
+                            {{ pacientes|length }} encontrados
+                        </span>
+                    </h1>
+                    <p class="text-indigo-100 text-[10px] mt-0.5 font-bold uppercase tracking-wide opacity-80">Gestión integral de niños y tutores</p>
+                </div>
+                <a href="{% url 'pacientes:agregar' %}" 
+                   class="group bg-white text-indigo-600 px-3 py-1.5 rounded-lg font-black text-[10px] shadow-md hover:shadow-lg hover:bg-indigo-50 transition-all flex items-center gap-1.5 ring-1 ring-white/50 uppercase tracking-wider transform hover:scale-105">
+                    <span class="text-indigo-500 group-hover:scale-110 transition-transform text-xs">➕</span> Nuevo
+                </a>
             </div>
-            <a href="{% url 'pacientes:agregar' %}" 
-               class="group bg-white text-indigo-600 px-6 py-2.5 rounded-full font-bold text-sm shadow-lg hover:shadow-xl hover:bg-indigo-50 transition-all flex items-center gap-2 ring-2 ring-white/50">
-                <span class="text-indigo-500 group-hover:scale-110 transition-transform">➕</span> Nuevo Paciente
-            </a>
         </div>
     </div>
-</div>
 
-<div class="mb-8">
-    <form method="get" class="relative mx-auto flex flex-col lg:flex-row gap-4">
-        
-        <div class="flex-1 flex flex-col sm:flex-row gap-4">
-            <div class="relative group flex-1">
-                <div class="absolute -inset-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-200"></div>
-                <div class="relative flex bg-white rounded-xl shadow-sm h-full">
-                    <div class="flex-1 relative flex items-center">
-                        <span class="absolute left-4 text-indigo-400">🔍</span>
-                        <input type="text" name="q" value="{{ buscar }}" placeholder="Buscar por nombre..."
-                               class="w-full py-3 pl-11 pr-4 bg-transparent border-none rounded-l-xl focus:ring-0 text-gray-700 placeholder-indigo-300 font-medium">
-                    </div>
-                </div>
-            </div>
-
-            <div class="relative group sm:w-64">
-                <div class="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-2xl blur opacity-30 group-hover:opacity-60 transition duration-200"></div>
-                <div class="relative bg-white rounded-xl shadow-sm h-full flex items-center">
-                    <span class="absolute left-4 text-cyan-500">🏢</span>
-                    <select name="sucursal" onchange="this.form.submit()" 
-                            class="w-full py-3 pl-11 pr-8 bg-transparent border-none rounded-xl focus:ring-0 text-gray-700 font-medium cursor-pointer">
-                        <option value="">Todas las Sucursales</option>
-                        {% for sucursal in sucursales %}
-                            <option value="{{ sucursal.id }}" 
-                                {% if request.GET.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
-                                {{ sucursal.nombre }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <button type="submit" class="bg-indigo-600 text-white px-6 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-md h-[48px] sm:h-auto">
-                Filtrar
-            </button>
-        </div>
-
-        <div class="flex items-center gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100 self-end lg:self-auto">
-            <button type="button" id="btn-grid" onclick="switchView('grid')" 
-                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-active">
-                <span>📲</span> Tarjetas
-            </button>
-            <button type="button" id="btn-list" onclick="switchView('list')" 
-                    class="p-2.5 rounded-lg border transition-all shadow-sm flex items-center gap-2 text-xs font-bold btn-view-inactive">
-                <span>📋</span> Lista
-            </button>
-        </div>
-    </form>
-</div>
-
-<div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pb-10">
-    {% for paciente in pacientes %}
-    <div class="paciente-card bg-white rounded-3xl shadow-md border border-gray-100 flex flex-col h-full relative group overflow-visible">
-        
-        <div class="absolute top-3 right-3 z-10">
-            <span class="px-2 py-0.5 text-[9px] font-bold tracking-wider rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm">
-                ACTIVO
-            </span>
-        </div>
-
-        <div class="h-20 bg-gradient-to-br from-sky-200 via-blue-100 to-indigo-200 rounded-t-3xl border-b border-indigo-50"></div>
-        
-        <div class="px-4 -mt-10 mb-2 flex flex-col items-center text-center">
-            <div class="relative group-hover:scale-105 transition-transform duration-300">
-                {% if paciente.tiene_foto %}
-                    <img src="{{ paciente.get_foto_thumbnail }}" 
-                         alt="{{ paciente.nombre_completo }}"
-                         class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg bg-white">
-                {% else %}
-                    <div class="w-20 h-20 rounded-full bg-indigo-50 border-4 border-white shadow-lg flex items-center justify-center text-2xl text-indigo-300">
-                        👤
-                    </div>
-                {% endif %}
-                <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                    {{ paciente.edad }} años
-                </div>
-            </div>
+    <div class="mb-4">
+        <form method="get" class="relative mx-auto flex flex-col md:flex-row gap-2 items-center">
             
-            <h3 class="text-base font-bold text-gray-800 mt-2 leading-tight px-1 group-hover:text-indigo-600 transition-colors line-clamp-2 h-10 flex items-center justify-center">
-                {{ paciente.nombre_completo }}
-            </h3>
-            
-            <div class="flex flex-wrap justify-center gap-1 mt-1">
-                {% for sucursal in paciente.sucursales.all %}
-                    <span class="px-1.5 py-0.5 text-[9px] font-semibold bg-teal-50 text-teal-700 rounded border border-teal-100 truncate max-w-[100px]">
-                        {{ sucursal.nombre }}
-                    </span>
-                {% empty %}
-                    <span class="px-1.5 py-0.5 text-[9px] text-rose-400">Sin sucursal</span>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <div class="p-4 pt-1 flex-1 space-y-3">
-            <hr class="border-indigo-50 mb-2">
-            
-            <div class="flex items-center gap-2 group/item">
-                <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0 text-sm">
-                    👨‍👩‍👦
-                </div>
-                <div class="min-w-0 overflow-hidden">
-                    <p class="text-[9px] uppercase text-gray-400 font-bold">Tutor</p>
-                    <p class="text-sm font-semibold text-gray-700 truncate" title="{{ paciente.nombre_tutor }}">{{ paciente.nombre_tutor }}</p>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-2 group/item">
-                <div class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0 text-sm">
-                    📱
-                </div>
-                <div class="min-w-0">
-                    <p class="text-[9px] uppercase text-gray-400 font-bold">Contacto</p>
-                    <p class="text-xs font-semibold text-gray-700">{{ paciente.telefono_tutor }}</p>
-                </div>
-            </div>
-
-            <div class="flex items-center gap-2 group/item">
-                <div class="w-7 h-7 rounded-lg {% if paciente.user %}bg-violet-100 text-violet-600{% else %}bg-gray-100 text-gray-400{% endif %} flex items-center justify-center flex-shrink-0 text-sm group-hover/item:bg-violet-200 transition-colors">
-                    🔐
-                </div>
-                <div class="min-w-0 flex-1">
-                    <p class="text-[9px] uppercase tracking-wide text-gray-400 font-bold">Usuario</p>
-                    {% if paciente.user %}
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="text-xs font-semibold text-gray-700 truncate max-w-[80px]" title="{{ paciente.user.username }}">{{ paciente.user.username }}</span>
-                            {% if paciente.user.perfil %}
-                                <span class="px-1.5 py-0 text-[8px] font-bold bg-violet-100 text-violet-700 rounded border border-violet-200 uppercase truncate">
-                                    {{ paciente.user.perfil.get_rol_display }}
-                                </span>
-                            {% endif %}
+            <div class="flex-1 flex flex-col sm:flex-row gap-2 w-full">
+                <div class="relative group flex-1">
+                    <div class="absolute -inset-0.5 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-200"></div>
+                    <div class="relative flex bg-white rounded-lg shadow-sm h-full items-center border border-slate-200">
+                        <div class="flex-1 relative flex items-center h-8">
+                            <span class="absolute left-2 text-indigo-400 text-xs">🔍</span>
+                            <input type="text" name="q" value="{{ buscar }}" placeholder="Buscar por nombre..."
+                                   class="w-full py-1 pl-7 pr-2 bg-transparent border-none rounded-lg focus:ring-0 text-slate-700 placeholder-indigo-300 font-bold text-xs h-full">
                         </div>
+                    </div>
+                </div>
+
+                <div class="relative group sm:w-56">
+                    <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-200"></div>
+                    <div class="relative bg-white rounded-lg shadow-sm h-full flex items-center border border-slate-200 h-8">
+                        <span class="absolute left-2 text-cyan-500 text-xs">🏢</span>
+                        <select name="sucursal" onchange="this.form.submit()" 
+                                class="w-full py-1 pl-7 pr-6 bg-transparent border-none rounded-lg focus:ring-0 text-slate-700 font-bold text-xs cursor-pointer h-full">
+                            <option value="">Todas las Sucursales</option>
+                            {% for sucursal in sucursales %}
+                                <option value="{{ sucursal.id }}" 
+                                    {% if request.GET.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ sucursal.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="bg-indigo-600 text-white px-4 rounded-lg font-black text-[10px] hover:bg-indigo-700 transition-colors shadow-sm h-8 uppercase tracking-wider">
+                    Filtrar
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1 bg-white p-1 rounded-lg shadow-sm border border-slate-200 self-end md:self-auto">
+                <button type="button" id="btn-grid" onclick="switchView('grid')" 
+                        class="p-1.5 px-2 rounded-md border transition-all shadow-sm flex items-center gap-1 text-[10px] font-bold btn-view-active h-7">
+                    <span>📲</span> Tarjetas
+                </button>
+                <button type="button" id="btn-list" onclick="switchView('list')" 
+                        class="p-1.5 px-2 rounded-md border transition-all shadow-sm flex items-center gap-1 text-[10px] font-bold btn-view-inactive h-7">
+                    <span>📋</span> Lista
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-10">
+        {% for paciente in pacientes %}
+        <div class="paciente-card bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative group overflow-visible">
+            
+            <div class="absolute top-2 right-2 z-10">
+                <span class="px-1.5 py-0.5 text-[8px] font-black tracking-wider rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase">
+                    ACTIVO
+                </span>
+            </div>
+
+            <div class="h-14 bg-gradient-to-br from-sky-200 via-blue-100 to-indigo-200 rounded-t-2xl border-b border-indigo-50"></div>
+            
+            <div class="px-3 -mt-8 mb-1 flex flex-col items-center text-center">
+                <div class="relative group-hover:scale-105 transition-transform duration-300">
+                    {% if paciente.tiene_foto %}
+                        <img src="{{ paciente.get_foto_thumbnail }}" 
+                             alt="{{ paciente.nombre_completo }}"
+                             class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md bg-white">
                     {% else %}
-                        <span class="text-[10px] text-gray-400 italic">No registrado</span>
+                        <div class="w-16 h-16 rounded-full bg-indigo-50 border-4 border-white shadow-md flex items-center justify-center text-xl text-indigo-300">
+                            👤
+                        </div>
                     {% endif %}
+                    <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                        {{ paciente.edad }} AÑOS
+                    </div>
+                </div>
+                
+                <h3 class="text-sm font-black text-slate-800 mt-1 leading-tight px-1 group-hover:text-indigo-600 transition-colors line-clamp-2 h-8 flex items-center justify-center uppercase">
+                    {{ paciente.nombre_completo }}
+                </h3>
+                
+                <div class="flex flex-wrap justify-center gap-1 mt-1">
+                    {% for sucursal in paciente.sucursales.all %}
+                        <span class="px-1.5 py-0.5 text-[8px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100 truncate max-w-[90px]">
+                            {{ sucursal.nombre }}
+                        </span>
+                    {% empty %}
+                        <span class="px-1.5 py-0.5 text-[8px] text-rose-400 font-bold">SIN SUCURSAL</span>
+                    {% endfor %}
                 </div>
             </div>
-        </div>
-        
-        <div class="p-3 bg-gray-50/80 rounded-b-3xl border-t border-gray-100 grid {% if user.is_superuser or user.perfil.es_gerente %}grid-cols-4{% else %}grid-cols-3{% endif %} gap-1.5">
-            <a href="{% url 'pacientes:detalle' paciente.id %}" 
-               class="col-span-2 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all">
-                <span>👁️</span> Perfil
-            </a>
-            <a href="{% url 'pacientes:editar' paciente.id %}" 
-               class="col-span-1 flex items-center justify-center bg-white border border-gray-200 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors text-sm"
-               title="Editar">
-                ✏️
-            </a>
-            {% if user.is_superuser or user.perfil.es_gerente %}
-            <a href="{% url 'pacientes:eliminar' paciente.id %}" 
-               class="col-span-1 flex items-center justify-center bg-white border border-gray-200 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors text-sm"
-               title="Eliminar">
-                🗑️
-            </a>
-            {% endif %}
-        </div>
-    </div>
-    {% empty %}
-    <div class="col-span-full py-16 px-4">
-        <div class="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-indigo-50 text-center p-8 relative overflow-hidden">
-            <div class="w-24 h-24 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-full flex items-center justify-center text-5xl mx-auto mb-4 border-4 border-white shadow-sm">
-                😊
-            </div>
-            <h3 class="text-xl font-bold text-gray-800 mb-2">No se encontraron pacientes</h3>
-            <p class="text-gray-500 text-sm mb-6">No hay registros que coincidan con tu búsqueda.</p>
-        </div>
-    </div>
-    {% endfor %}
-</div>
+            
+            <div class="p-3 pt-0 flex-1 space-y-2">
+                <hr class="border-indigo-50 mb-1">
+                
+                <div class="flex items-center gap-2 group/item">
+                    <div class="w-6 h-6 rounded-md bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0 text-xs border border-orange-100">
+                        👨‍👩‍👦
+                    </div>
+                    <div class="min-w-0 overflow-hidden">
+                        <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Tutor</p>
+                        <p class="text-xs font-bold text-slate-700 truncate" title="{{ paciente.nombre_tutor }}">{{ paciente.nombre_tutor }}</p>
+                    </div>
+                </div>
 
-<div id="view-list" class="view-hidden pb-10">
-    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 text-indigo-800">
-                        <th class="p-4 font-bold text-sm text-center w-16">#</th>
-                        <th class="p-4 font-bold text-sm w-20">Foto</th>
-                        <th class="p-4 font-bold text-sm">Nombre del Paciente</th>
-                        <th class="p-4 font-bold text-sm">Tutor</th>
-                        <th class="p-4 font-bold text-sm">Usuario</th>
-                        <th class="p-4 font-bold text-sm">Sucursales</th>
-                        <th class="p-4 font-bold text-sm text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    {% for paciente in pacientes %}
-                    <tr class="hover:bg-indigo-50/50 transition-colors group">
-                        <td class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
-                        <td class="p-4">
-                            {% if paciente.tiene_foto %}
-                                <img src="{{ paciente.get_foto_thumbnail }}" 
-                                     class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
-                            {% else %}
-                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-lg">👤</div>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            <div class="font-bold text-gray-800">{{ paciente.nombre }}</div>
-                            <div class="text-xs text-gray-500 uppercase font-semibold">{{ paciente.apellido }}</div>
-                            <div class="text-[10px] text-blue-600 mt-1 bg-blue-50 inline-block px-1.5 rounded">{{ paciente.edad }} años</div>
-                        </td>
-                        <td class="p-4">
-                            <div class="text-sm font-semibold text-gray-700">{{ paciente.nombre_tutor }}</div>
-                            <div class="text-xs text-gray-500">📞 {{ paciente.telefono_tutor }}</div>
-                        </td>
-                        <td class="p-4">
-                            {% if paciente.user %}
-                                <div class="flex items-center gap-1.5">
-                                    <span class="text-xs">🔐</span>
-                                    <span class="text-sm font-semibold text-gray-700">{{ paciente.user.username }}</span>
-                                </div>
+                <div class="flex items-center gap-2 group/item">
+                    <div class="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0 text-xs border border-blue-100">
+                        📱
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Contacto</p>
+                        <p class="text-[11px] font-bold text-slate-700">{{ paciente.telefono_tutor }}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 group/item">
+                    <div class="w-6 h-6 rounded-md {% if paciente.user %}bg-violet-50 text-violet-500 border border-violet-100{% else %}bg-slate-50 text-slate-400 border border-slate-100{% endif %} flex items-center justify-center flex-shrink-0 text-xs group-hover/item:bg-violet-100 transition-colors">
+                        🔐
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[8px] uppercase tracking-wide text-slate-400 font-black">Usuario</p>
+                        {% if paciente.user %}
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="text-[11px] font-bold text-slate-700 truncate max-w-[70px]" title="{{ paciente.user.username }}">{{ paciente.user.username }}</span>
                                 {% if paciente.user.perfil %}
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-violet-50 text-violet-700 rounded border border-violet-100 uppercase inline-block mt-1">
+                                    <span class="px-1 py-0 text-[7px] font-black bg-violet-100 text-violet-700 rounded border border-violet-200 uppercase truncate">
                                         {{ paciente.user.perfil.get_rol_display }}
                                     </span>
                                 {% endif %}
-                            {% else %}
-                                <span class="text-xs text-gray-400 italic">No asignado</span>
-                            {% endif %}
-                        </td>
-                        <td class="p-4">
-                            <div class="flex flex-wrap gap-1">
-                                {% for sucursal in paciente.sucursales.all %}
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-teal-50 text-teal-700 rounded border border-teal-100">
-                                        {{ sucursal.nombre }}
-                                    </span>
-                                {% empty %}
-                                    <span class="text-xs text-red-400 italic">Sin asignar</span>
-                                {% endfor %}
                             </div>
-                        </td>
-                        <td class="p-4">
-                            <div class="flex items-center justify-center gap-2">
-                                <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors" title="Ver">
-                                    👁️
-                                </a>
-                                <a href="{% url 'pacientes:editar' paciente.id %}" class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors" title="Editar">
-                                    ✏️
-                                </a>
-                                {% if user.is_superuser or user.perfil.es_gerente %}
-                                <a href="{% url 'pacientes:eliminar' paciente.id %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors" title="Eliminar">
-                                    🗑️
-                                </a>
+                        {% else %}
+                            <span class="text-[9px] text-slate-400 italic font-medium">No registrado</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-2 bg-slate-50/80 rounded-b-2xl border-t border-slate-100 grid {% if user.is_superuser or user.perfil.es_gerente %}grid-cols-4{% else %}grid-cols-3{% endif %} gap-1">
+                <a href="{% url 'pacientes:detalle' paciente.id %}" 
+                   class="col-span-2 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-md font-black text-[10px] shadow-sm transition-all uppercase tracking-wide">
+                    <span>👁️</span> Perfil
+                </a>
+                <a href="{% url 'pacientes:editar' paciente.id %}" 
+                   class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-amber-500 hover:bg-amber-50 rounded-md transition-colors text-xs"
+                   title="Editar">
+                    ✏️
+                </a>
+                {% if user.is_superuser or user.perfil.es_gerente %}
+                <a href="{% url 'pacientes:eliminar' paciente.id %}" 
+                   class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-rose-400 hover:bg-rose-50 rounded-md transition-colors text-xs"
+                   title="Eliminar">
+                    🗑️
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-10 px-4">
+            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 text-center p-6 relative overflow-hidden">
+                <div class="w-16 h-16 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 border-4 border-white shadow-sm">
+                    😊
+                </div>
+                <h3 class="text-base font-black text-slate-800 mb-1">No se encontraron pacientes</h3>
+                <p class="text-slate-500 text-xs font-medium mb-4">No hay registros que coincidan con tu búsqueda.</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="view-list" class="view-hidden pb-10">
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-wider">
+                            <th class="p-3 font-black text-center w-12">#</th>
+                            <th class="p-3 font-black w-16">Foto</th>
+                            <th class="p-3 font-black">Paciente</th>
+                            <th class="p-3 font-black">Tutor</th>
+                            <th class="p-3 font-black">Usuario</th>
+                            <th class="p-3 font-black">Sucursales</th>
+                            <th class="p-3 font-black text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for paciente in pacientes %}
+                        <tr class="hover:bg-indigo-50/50 transition-colors group">
+                            <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
+                            <td class="p-3">
+                                {% if paciente.tiene_foto %}
+                                    <img src="{{ paciente.get_foto_thumbnail }}" 
+                                         class="w-8 h-8 rounded-full object-cover border border-white shadow-sm">
+                                {% else %}
+                                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm">👤</div>
                                 {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="p-8 text-center text-gray-500">
-                            No se encontraron resultados
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+                            <td class="p-3">
+                                <div class="font-black text-slate-800 text-xs uppercase">{{ paciente.nombre }}</div>
+                                <div class="text-[10px] text-slate-500 font-bold uppercase">{{ paciente.apellido }}</div>
+                                <div class="text-[9px] text-blue-600 mt-0.5 bg-blue-50 inline-block px-1 rounded font-bold">{{ paciente.edad }} años</div>
+                            </td>
+                            <td class="p-3">
+                                <div class="text-xs font-bold text-slate-700">{{ paciente.nombre_tutor }}</div>
+                                <div class="text-[10px] text-slate-500">📞 {{ paciente.telefono_tutor }}</div>
+                            </td>
+                            <td class="p-3">
+                                {% if paciente.user %}
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-[10px]">🔐</span>
+                                        <span class="text-xs font-bold text-slate-700">{{ paciente.user.username }}</span>
+                                    </div>
+                                    {% if paciente.user.perfil %}
+                                        <span class="px-1.5 py-0 text-[8px] font-black bg-violet-50 text-violet-700 rounded border border-violet-100 uppercase inline-block mt-0.5">
+                                            {{ paciente.user.perfil.get_rol_display }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-[10px] text-slate-400 italic">No asignado</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3">
+                                <div class="flex flex-wrap gap-1">
+                                    {% for sucursal in paciente.sucursales.all %}
+                                        <span class="px-1.5 py-0.5 text-[9px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100">
+                                            {{ sucursal.nombre }}
+                                        </span>
+                                    {% empty %}
+                                        <span class="text-[9px] text-red-400 italic">Sin asignar</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="p-3">
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors text-xs" title="Ver">
+                                        👁️
+                                    </a>
+                                    <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar">
+                                        ✏️
+                                    </a>
+                                    {% if user.is_superuser or user.perfil.es_gerente %}
+                                    <a href="{% url 'pacientes:eliminar' paciente.id %}" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors text-xs" title="Eliminar">
+                                        🗑️
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="p-6 text-center text-slate-500 text-xs font-bold">
+                                No se encontraron resultados
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // --- 1. Lógica de Vistas (Grid/List) ---
         const gridView = document.getElementById('view-grid');
         const listView = document.getElementById('view-list');
         const btnGrid = document.getElementById('btn-grid');
         const btnList = document.getElementById('btn-list');
-        
         const currentView = localStorage.getItem('pacientesViewMode') || 'grid';
+        
         applyView(currentView);
-
         window.switchView = function(mode) {
             localStorage.setItem('pacientesViewMode', mode);
             applyView(mode);
@@ -322,19 +327,31 @@
             if (mode === 'list') {
                 gridView.classList.add('view-hidden');
                 listView.classList.remove('view-hidden');
-                btnList.classList.remove('btn-view-inactive');
                 btnList.classList.add('btn-view-active');
-                btnGrid.classList.remove('btn-view-active');
                 btnGrid.classList.add('btn-view-inactive');
             } else {
                 listView.classList.add('view-hidden');
                 gridView.classList.remove('view-hidden');
-                btnGrid.classList.remove('btn-view-inactive');
                 btnGrid.classList.add('btn-view-active');
-                btnList.classList.remove('btn-view-active');
                 btnList.classList.add('btn-view-inactive');
             }
         }
+
+        // --- 2. Mensajes en la esquina superior derecha (Toast) ---
+        {% if messages %}
+            {% for message in messages %}
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: '{{ message.tags }}' === 'error' ? 'error' : 'success',
+                    title: '{{ message.tags }}' === 'error' ? 'Atención' : '¡Listo!',
+                    text: '{{ message|safe }}',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+            {% endfor %}
+        {% endif %}
     });
 </script>
 {% endblock %}

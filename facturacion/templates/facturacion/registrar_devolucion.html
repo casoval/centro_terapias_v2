@@ -470,6 +470,14 @@ $(document).ready(function() {
     });
     
     // Inicializar al cargar la página
+    // Ocultar opción de Crédito/Saldo a favor y Sin cobro en el select de método de devolución
+    $('select[name="metodo_pago"] option').each(function() {
+        const text = $(this).text().toLowerCase();
+        if (text.includes('crédito') || text.includes('credito') || text.includes('saldo') || text.includes('sin cobro')) {
+            $(this).remove();
+        }
+    });
+
     const pacienteInicial = $('#selectPaciente').val();
     if (pacienteInicial) {
         // Cargar el crédito disponible

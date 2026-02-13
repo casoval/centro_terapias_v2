@@ -1,6 +1,7 @@
 """
 Django settings for config project.
 ✅ OPTIMIZADO: Incluye cache, conexión persistente y mejoras de performance
+✅ CORREGIDO: Cache desactivado en desarrollo para evitar problemas
 """
 
 from pathlib import Path
@@ -119,26 +120,33 @@ if not IS_PRODUCTION:
     DATABASES['default']['CONN_MAX_AGE'] = 60  # 1 minuto en dev
 
 # --------------------------------------------------
-# CACHE CONFIGURATION (✅ OPTIMIZADO - Local Memory Cache)
+# CACHE CONFIGURATION (✅ CORREGIDO - Sin caché en desarrollo)
 # --------------------------------------------------
 
-# ✅ Usar Local Memory Cache en todos los entornos
-# Funciona perfecto para apps con un solo worker
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'facturacion-cache',
-        'TIMEOUT': 300,  # 5 minutos
-        'OPTIONS': {
-            'MAX_ENTRIES': 1000,
+if IS_PRODUCTION:
+    # ✅ PRODUCCIÓN: Usar Local Memory Cache
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'facturacion-cache',
+            'TIMEOUT': 300,  # 5 minutos
+            'OPTIONS': {
+                'MAX_ENTRIES': 1000,
+            }
         }
     }
-}
-
-# ✅ Cache para sesiones (mejora performance)
-if IS_PRODUCTION:
+    
+    # ✅ Cache para sesiones (mejora performance)
     SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
     SESSION_CACHE_ALIAS = 'default'
+else:
+    # ✅ DESARROLLO: DESACTIVAR caché completamente
+    # Esto evita problemas donde los cambios no se ven
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
 
 # --------------------------------------------------
 # PASSWORD VALIDATION
@@ -285,8 +293,8 @@ else:
     print("="*60)
     print(f"   DEBUG = {DEBUG}")
     print(f"   Base de datos: SQLite local")
-    print(f"   Cache: Local Memory (LocMem)")
-    print(f"   Timeout Cache: 300s (5 min)")
+    print(f"   Cache: DESACTIVADO (DummyCache)")
+    print(f"   Templates: Sin caché (recarga automática)")
     print("="*60 + "\n")
 
 # ==================== CONFIGURACIÓN DE CLOUDINARY ====================

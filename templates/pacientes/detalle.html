@@ -13,41 +13,45 @@
     }
 </style>
 
-<div class="mb-8">
-    <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full bg-white opacity-10 blur-3xl"></div>
-        <div class="absolute bottom-0 left-10 w-20 h-20 rounded-full bg-purple-400 opacity-20 blur-xl"></div>
+<div class="max-w-7xl mx-auto px-2 py-2">
+    <div class="mb-3">
+        <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-xl p-3 shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-white opacity-10 blur-xl"></div>
+            <div class="absolute bottom-0 left-10 w-12 h-12 rounded-full bg-purple-400 opacity-20 blur-lg"></div>
 
-        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <div class="flex items-center gap-3 text-indigo-100 text-xs font-bold uppercase tracking-wider mb-1">
-                    <span>ID: #{{ paciente.id }}</span>
-                    <span>•</span>
-                    <span>Perfil de Paciente</span>
+            <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                <div>
+                    <div class="flex items-center gap-2 text-indigo-100 text-[9px] font-bold uppercase tracking-wider mb-0.5">
+                        <span>ID: #{{ paciente.id }}</span>
+                        <span>•</span>
+                        <span>Perfil de Paciente</span>
+                    </div>
+                    <h1 class="text-lg font-black text-white flex items-center gap-2 flex-wrap">
+                        {{ paciente.nombre_completo }}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm
+                            {% if paciente.estado == 'activo' %} bg-emerald-500/20 text-emerald-100
+                            {% else %} bg-gray-500/20 text-gray-200 {% endif %}">
+                            {{ paciente.get_estado_display }}
+                        </span>
+                    </h1>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-3 flex-wrap">
-                    {{ paciente.nombre_completo }}
-                    <span class="px-3 py-1 text-xs font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm
-                        {% if paciente.estado == 'activo' %} bg-emerald-500/20 text-emerald-100
-                        {% else %} bg-gray-500/20 text-gray-200 {% endif %}">
-                        {{ paciente.get_estado_display }}
-                    </span>
-                </h1>
-            </div>
-            
-            <!-- ✅ BOTONES ACTUALIZADOS -->
-            <div class="flex flex-wrap gap-2">
-                <!-- ⭐ BOTÓN PRINCIPAL: Ver Todas las Sesiones -->
-                <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
-                   class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-5 py-2 rounded-full font-bold text-xs transition-all shadow-lg hover:shadow-xl flex items-center gap-2 transform hover:-translate-y-0.5">
-                    <span class="text-base">📊</span> Ver Todas las Sesiones
-                </a>
                 
-                <!-- Botón Volver -->
-                <a href="{% url 'pacientes:lista' %}" 
-                   class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-5 py-2 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-2">
-                    <span>←</span> Volver a Lista
-                </a>
+                <div class="flex flex-wrap gap-1.5">
+                    <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
+                       class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all shadow-md hover:shadow-lg flex items-center gap-1.5 transform hover:scale-105 uppercase tracking-wider">
+                        <span class="text-xs">📊</span> Sesiones
+                    </a>
+                    
+                    <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                       class="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all shadow-md hover:shadow-lg flex items-center gap-1.5 transform hover:scale-105 uppercase tracking-wider">
+                        <span class="text-xs">💰</span> Cuenta
+                    </a>
+                    
+                    <a href="{% url 'pacientes:lista' %}" 
+                       class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all border border-white/20 backdrop-blur-md flex items-center gap-1.5 uppercase tracking-wider transform hover:scale-105">
+                        <span class="text-xs">←</span> Volver
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -287,20 +291,11 @@
                     <p class="text-xs text-gray-500 mt-0.5">Últimas 10 sesiones registradas</p>
                 </div>
                 
-                <!-- ✅ BOTONES MEJORADOS -->
-                <div class="flex flex-wrap gap-2">
-                    <!-- ⭐ BOTÓN PRINCIPAL: VER TODAS -->
-                    <a href="{% url 'pacientes:detalle_sesiones' paciente.id %}" 
-                    class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
-                        <span>📊</span> Ver Todas las Sesiones
-                    </a>
-                    
-                    <!-- Botón Agendar Nueva (Secundario) -->
-                    <a href="{% url 'agenda:agendar_recurrente' %}?paciente={{ paciente.id }}" 
-                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
-                        <span>➕</span> Agendar Nueva
-                    </a>
-                </div>
+                <!-- Botón Agendar Nueva -->
+                <a href="{% url 'agenda:agendar_recurrente' %}?paciente={{ paciente.id }}" 
+                   class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 transform hover:-translate-y-0.5">
+                    <span>➕</span> Agendar Nueva
+                </a>
             </div>
             
             <div class="p-6 sm:p-8 bg-white">
@@ -419,4 +414,55 @@
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración del Toast (Notificación elegante en la esquina)
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            },
+            customClass: {
+                popup: 'colored-toast' // Clase opcional para personalizar más
+            }
+        });
+
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'success' %}
+                    // Mensaje de Éxito (Toast verde bonito)
+                    Toast.fire({
+                        icon: 'success',
+                        title: '¡Operación Exitosa!',
+                        text: '{{ message }}'
+                    });
+                {% elif message.tags == 'error' %}
+                    // Mensaje de Error (Alerta central para llamar la atención)
+                    Swal.fire({
+                        title: 'Atención',
+                        text: '{{ message }}',
+                        icon: 'error',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#4f46e5', // Color Indigo para combinar con tu tema
+                        backdrop: `rgba(0,0,123,0.1)`
+                    });
+                {% else %}
+                    // Otros mensajes (Info/Warning)
+                    Toast.fire({
+                        icon: 'info',
+                        title: 'Notificación',
+                        text: '{{ message }}'
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    });
+</script>
 {% endblock %}

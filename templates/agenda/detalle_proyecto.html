@@ -80,20 +80,42 @@
                 <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">💰 Estado Financiero</h2>
             </div>
             <div class="p-5 space-y-4">
+                <!-- Presupuesto Original -->
                 <div class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-emerald-100 shadow-sm">
                     <span class="text-[11px] font-bold uppercase text-slate-400">Presupuesto</span>
                     <span class="text-xl font-black text-slate-800">Bs. {{ proyecto.costo_total|floatformat:2 }}</span>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                
+                <!-- Grid con 3 columnas: Pagado, Devoluciones, Saldo -->
+                <div class="grid grid-cols-3 gap-3">
+                    <!-- Pagado -->
                     <div class="text-center py-3 px-2 rounded-xl bg-white border border-emerald-100">
                         <p class="text-[10px] uppercase font-bold text-emerald-500 mb-1">Pagado</p>
                         <p class="text-sm font-black text-emerald-700">Bs. {{ proyecto.total_pagado|floatformat:0 }}</p>
                     </div>
+                    
+                    <!-- ✅ NUEVO: Devoluciones -->
+                    <div class="text-center py-3 px-2 rounded-xl bg-white border border-orange-100">
+                        <p class="text-[10px] uppercase font-bold text-orange-500 mb-1">Devolucion</p>
+                        <p class="text-sm font-black text-orange-700">Bs. {{ proyecto.total_devoluciones|floatformat:0 }}</p>
+                    </div>
+                    
+                    <!-- Saldo Real -->
                     <div class="text-center py-3 px-2 rounded-xl bg-white border border-red-100">
                         <p class="text-[10px] uppercase font-bold text-red-500 mb-1">Saldo</p>
-                        <p class="text-sm font-black text-red-600">Bs. {{ proyecto.saldo_pendiente|floatformat:0 }}</p>
+                        <p class="text-sm font-black text-red-600">Bs. {{ proyecto.saldo_real|floatformat:0 }}</p>
                     </div>
                 </div>
+                
+                <!-- ✅ NUEVO: Alerta si tiene sesiones programadas -->
+                {% if stats.sesiones_programadas > 0 %}
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-lg">
+                    <p class="text-[11px] text-amber-700 font-bold">
+                        ⚠️ {{ stats.sesiones_programadas }} sesión(es) programada(s). 
+                        No se puede finalizar hasta completarlas o cancelarlas.
+                    </p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -122,15 +144,36 @@
         </div>
 
         <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-4 shadow-md flex items-center">
-            <form method="post" action="{% url 'agenda:actualizar_estado_proyecto' proyecto.id %}" class="flex w-full gap-2" id="estadoForm">
-                {% csrf_token %}
-                <select name="estado" class="flex-grow bg-slate-700 border-none rounded-lg text-[12px] font-bold text-white py-2 focus:ring-2 focus:ring-blue-500">
-                    {% for ev, en in proyecto.ESTADO_CHOICES %}
-                    <option value="{{ ev }}" {% if proyecto.estado == ev %}selected{% endif %}>{{ en }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[11px] hover:bg-blue-500 transition-all uppercase shadow-lg">OK</button>
-            </form>
+            {% if proyecto.estado == 'finalizado' or proyecto.estado == 'cancelado' %}
+                <!-- Estado bloqueado -->
+                <div class="flex-grow flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-[11px] uppercase font-black text-slate-400 tracking-wider">Estado:</span>
+                        <span class="px-4 py-2 rounded-lg text-[12px] font-bold 
+                            {% if proyecto.estado == 'finalizado' %}bg-purple-600 text-white
+                            {% else %}bg-red-600 text-white{% endif %}">
+                            {{ proyecto.get_estado_display }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-amber-400">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-[10px] font-bold uppercase">Bloqueado</span>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Estado editable -->
+                <form method="post" action="{% url 'agenda:actualizar_estado_proyecto' proyecto.id %}" class="flex w-full gap-2" id="estadoForm">
+                    {% csrf_token %}
+                    <select name="estado" class="flex-grow bg-slate-700 border-none rounded-lg text-[12px] font-bold text-white py-2 focus:ring-2 focus:ring-blue-500">
+                        {% for ev, en in proyecto.ESTADO_CHOICES %}
+                        <option value="{{ ev }}" {% if proyecto.estado == ev %}selected{% endif %}>{{ en }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[11px] hover:bg-blue-500 transition-all uppercase shadow-lg">OK</button>
+                </form>
+            {% endif %}
         </div>
     </div>
 
@@ -185,6 +228,7 @@
                         <tr>
                             <th class="px-5 py-3 text-left">Recibo</th>
                             <th class="px-5 py-3 text-left">Concepto</th>
+                            <th class="px-5 py-3 text-center">Tipo</th>
                             <th class="px-5 py-3 text-right">Monto</th>
                             <th class="px-5 py-3 text-center">PDF</th>
                         </tr>
@@ -199,6 +243,20 @@
                             <td class="px-5 py-3.5 text-slate-600">
                                 <p class="font-bold text-slate-700">{{ pago.concepto|truncatechars:35 }}</p>
                                 <span class="text-[10px] font-black text-blue-600 uppercase">{{ pago.metodo_pago.nombre }}</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-center">
+                                {% if pago.es_pago_masivo %}
+                                <div class="inline-flex flex-col items-center gap-1">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 text-[9px] font-black uppercase rounded-md border border-purple-300 shadow-sm whitespace-nowrap">
+                                        📦 Pago Masivo
+                                    </span>
+                                    <span class="text-[10px] text-purple-600 font-mono font-bold">#{{ pago.numero_recibo }}</span>
+                                </div>
+                                {% else %}
+                                <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[9px] font-black uppercase rounded-md border border-slate-300 whitespace-nowrap">
+                                    Individual
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
                             <td class="px-5 py-3.5 text-center">
@@ -220,6 +278,49 @@
                     </tbody>
                 </table>
             </div>
+            <!-- ✅ NUEVO: Tabla de Devoluciones -->
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+                <div class="bg-gradient-to-r from-orange-700 to-orange-500 px-5 py-3 flex justify-between items-center">
+                    <h3 class="text-[12px] font-black uppercase text-white tracking-widest">🔄 Devoluciones Realizadas</h3>
+                    <span class="bg-white/20 text-white px-3 py-1 rounded-lg text-[11px] font-black">Bs. {{ proyecto.total_devoluciones|floatformat:0 }}</span>
+                </div>
+                <div class="max-h-[400px] overflow-y-auto">
+                    {% if devoluciones %}
+                    <table class="w-full text-[12px]">
+                        <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
+                            <tr>
+                                <th class="px-5 py-3 text-left">Número</th>
+                                <th class="px-5 py-3 text-left">Motivo</th>
+                                <th class="px-5 py-3 text-right">Monto</th>
+                                <th class="px-5 py-3 text-left">Método</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-orange-50">
+                            {% for devolucion in devoluciones %}
+                            <tr class="hover:bg-orange-50/40 transition-colors">
+                                <td class="px-5 py-3.5 font-black text-slate-800">
+                                    {{ devolucion.numero_devolucion }}
+                                    <p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ devolucion.fecha_devolucion|date:"d/m/Y" }}</p>
+                                </td>
+                                <td class="px-5 py-3.5 text-slate-600">
+                                    <p class="font-bold text-slate-700">{{ devolucion.motivo|truncatechars:40 }}</p>
+                                    <span class="text-[10px] text-slate-500 italic">Por: {{ devolucion.registrado_por.get_full_name|default:devolucion.registrado_por.username }}</span>
+                                </td>
+                                <td class="px-5 py-3.5 text-right font-black text-orange-700 text-[14px]">Bs. {{ devolucion.monto|floatformat:2 }}</td>
+                                <td class="px-5 py-3.5">
+                                    <span class="text-[10px] font-black text-orange-600 uppercase">{{ devolucion.metodo_devolucion.nombre }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="p-8 text-center text-slate-400 italic">
+                        No hay devoluciones registradas para este proyecto
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -236,30 +337,383 @@
         
         <!-- Botón de Pago -->
         {% if proyecto.saldo_pendiente > 0 %}
-        <a href="{% url 'facturacion:registrar_pago' %}?proyecto_id={{ proyecto.id }}" 
+        <a href="{% url 'facturacion:registrar_pago' %}?proyecto={{ proyecto.id }}" 
            class="group bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-2.5 px-6 rounded-xl shadow-lg shadow-emerald-200 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2 text-sm">
             <span class="text-lg group-hover:scale-110 transition-transform">💵</span>
             <span>Registrar Pago del Proyecto</span>
         </a>
         {% endif %}
     </div>
+    </div>
+</div>
+
+<!-- ✅ MODAL DE CONFIRMACIÓN (estilo SweetAlert) -->
+<div id="modalConfirmacion" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full transform transition-all scale-95 hover:scale-100">
+        <!-- Contenedor del modal -->
+        <div id="contenidoModal" class="p-8 text-center"></div>
+    </div>
 </div>
 
 <script>
-document.querySelector('#estadoForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(this.action, {
+/**
+ * Muestra un modal de confirmación de cancelación con opción de ajuste
+ */
+function mostrarModalCancelacion(datos, onAceptar) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    // Determinar si hay diferencia
+    const hayDiferencia = Math.abs(datos.diferencia) > 0.01;
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br from-red-400 to-orange-500 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg">
+                <span class="text-4xl">🚫</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">¿Cancelar ${datos.tipo === 'proyecto' ? 'Proyecto' : 'Mensualidad'}?</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Esta acción marcará el registro como cancelado.</p>
+            
+            ${hayDiferencia ? `
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 mb-4">
+                <p class="text-xs font-black text-amber-800 uppercase mb-3 flex items-center gap-2">
+                    <span class="text-lg">💰</span> Información de Costos
+                </p>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Costo actual:</span>
+                        <span class="font-black text-slate-800">Bs. ${datos.costo_actual.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Total pagado:</span>
+                        <span class="font-black text-emerald-600">Bs. ${datos.total_pagado.toFixed(2)}</span>
+                    </div>
+                    ${datos.total_devoluciones > 0 ? `
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Devoluciones:</span>
+                        <span class="font-black text-orange-600">- Bs. ${datos.total_devoluciones.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="flex justify-between pt-2 border-t border-amber-300">
+                        <span class="text-amber-700 font-bold">Pagado neto:</span>
+                        <span class="font-black text-amber-700">Bs. ${datos.pagado_neto.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t-2 border-amber-400 bg-amber-100 -mx-4 px-4 py-2 rounded-lg">
+                        <span class="text-amber-800 font-black">Diferencia:</span>
+                        <span class="font-black ${datos.diferencia > 0 ? 'text-red-600' : 'text-emerald-600'}">
+                            ${datos.diferencia > 0 ? '+' : ''}Bs. ${datos.diferencia.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-4">
+                <label class="flex items-start gap-3 cursor-pointer group">
+                    <input type="checkbox" id="chkAjustarCosto" 
+                           class="mt-1 w-5 h-5 text-purple-600 bg-white border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer">
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-purple-800 group-hover:text-purple-600 transition-colors">
+                            ✅ Ajustar el costo al monto pagado neto
+                        </p>
+                        <p class="text-xs text-purple-600 mt-1">
+                            El costo se ajustará de <strong>Bs. ${datos.costo_actual.toFixed(2)}</strong> a <strong>Bs. ${datos.pagado_neto.toFixed(2)}</strong>
+                        </p>
+                    </div>
+                </label>
+            </div>
+            ` : `
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 mb-4">
+                <p class="text-xs text-blue-700">
+                    ℹ️ El costo actual (Bs. ${datos.costo_actual.toFixed(2)}) coincide con el pagado neto. No se requiere ajuste.
+                </p>
+            </div>
+            `}
+        </div>
+        
+        <div class="flex gap-3 justify-center">
+            <button id="btnCancelar" 
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-8 py-3 rounded-xl transition-all shadow-sm hover:shadow-md">
+                No, Volver
+            </button>
+            <button id="btnAceptar" 
+                    class="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl">
+                Sí, Cancelar
+            </button>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnAceptar').onclick = () => {
+        const ajustarCosto = hayDiferencia && document.getElementById('chkAjustarCosto')?.checked;
+        modal.classList.add('hidden');
+        if (onAceptar) onAceptar(ajustarCosto);
+    };
+    
+    document.getElementById('btnCancelar').onclick = () => {
+        modal.classList.add('hidden');
+    };
+}
+
+/**
+ * Muestra un modal de confirmación personalizado
+ */
+function mostrarModalConfirmacion(titulo, mensaje, onAceptar, onCancelar) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg">
+                <span class="text-4xl">⚠️</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">${titulo}</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">${mensaje}</p>
+        </div>
+        
+        <div class="flex gap-3 justify-center">
+            <button id="btnCancelar" 
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-8 py-3 rounded-xl transition-all shadow-sm hover:shadow-md">
+                Cancelar
+            </button>
+            <button id="btnAceptar" 
+                    class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl">
+                Aceptar
+            </button>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnAceptar').onclick = () => {
+        modal.classList.add('hidden');
+        if (onAceptar) onAceptar();
+    };
+    
+    document.getElementById('btnCancelar').onclick = () => {
+        modal.classList.add('hidden');
+        if (onCancelar) onCancelar();
+    };
+}
+
+/**
+ * Muestra un modal de resultado (éxito o error)
+ */
+function mostrarModalResultado(tipo, titulo, mensaje, detalles = null) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    const esExito = tipo === 'exito';
+    const emoji = esExito ? '✅' : '❌';
+    const colorFondo = esExito 
+        ? 'from-emerald-400 to-green-500' 
+        : 'from-red-400 to-red-500';
+    
+    let htmlDetalles = '';
+    if (detalles && esExito) {
+        htmlDetalles = `
+            <div class="mt-4 bg-slate-50 rounded-xl p-4 text-left space-y-2 text-xs">
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Costo anterior:</span>
+                    <span class="font-black text-slate-700">Bs. ${detalles.costo_anterior}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Pagado:</span>
+                    <span class="font-black text-emerald-600">+ Bs. ${detalles.total_pagado}</span>
+                </div>
+                ${detalles.total_devoluciones > 0 ? `
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Devoluciones:</span>
+                    <span class="font-black text-orange-600">- Bs. ${detalles.total_devoluciones}</span>
+                </div>
+                ` : ''}
+                <div class="flex justify-between pt-2 bg-purple-100 -mx-4 px-4 py-2 rounded-lg mt-3">
+                    <span class="text-purple-700 font-black uppercase text-sm">Costo Final:</span>
+                    <span class="font-black text-purple-700 text-lg">Bs. ${detalles.costo_nuevo}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br ${colorFondo} rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg animate-bounce-once">
+                <span class="text-4xl">${emoji}</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">${titulo}</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">${mensaje}</p>
+            ${htmlDetalles}
+        </div>
+        
+        <button id="btnCerrar" 
+                class="bg-gradient-to-r ${esExito ? 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800' : 'from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800'} text-white font-bold px-10 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl w-full">
+            Entendido
+        </button>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnCerrar').onclick = () => {
+        modal.classList.add('hidden');
+        if (esExito) location.reload();
+    };
+}
+
+// ========================================
+// MANEJO DEL FORMULARIO DE CAMBIO DE ESTADO
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+const estadoForm = document.getElementById('estadoForm'); // ✅ Coincide con el ID del <form>
+    
+    // Verificar si el estado actual está bloqueado
+    const estadoActual = '{{ proyecto.estado }}';
+    const estadosBloqueados = ['finalizado', 'cancelado'];
+    
+    if (estadosBloqueados.includes(estadoActual)) {
+        console.warn('⚠️ Estado bloqueado. No se puede modificar.');
+        return; // Salir si el estado está bloqueado
+    }
+    
+    if (estadoForm) {
+        estadoForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Doble verificación: si alguien manipula el DOM
+            if (estadosBloqueados.includes(estadoActual)) {
+                mostrarModalResultado(
+                    'error',
+                    'Estado Bloqueado',
+                    'No se puede modificar el estado de un proyecto finalizado o cancelado.'
+                );
+                return;
+            }
+            
+            const formData = new FormData(estadoForm);
+            const nuevoEstado = formData.get('estado');
+            
+            // ✅ Confirmación especial si se marca como finalizado
+            if (nuevoEstado === 'finalizado') {
+                const sesionesProgr = {{ stats.sesiones_programadas }};
+                
+                if (sesionesProgr > 0) {
+                    mostrarModalResultado(
+                        'error',
+                        'No se puede finalizar',
+                        `El proyecto tiene ${sesionesProgr} sesión(es) programada(s). Por favor, cancela o realiza las sesiones primero.`
+                    );
+                    return;
+                }
+                
+                mostrarModalConfirmacion(
+                    '¿Completar el proyecto?',
+                    'El costo se ajustará automáticamente según los pagos realizados menos las devoluciones.',
+                    () => {
+                        // Usuario aceptó, enviar formulario
+                        enviarCambioEstado(formData, false);
+                    }
+                );
+            }
+            // ✅ NUEVO: Confirmación especial si se marca como cancelado
+            else if (nuevoEstado === 'cancelado') {
+                const sesionesProgr = {{ stats.sesiones_programadas }};
+                
+                if (sesionesProgr > 0) {
+                    mostrarModalResultado(
+                        'error',
+                        'No se puede cancelar',
+                        `El proyecto tiene ${sesionesProgr} sesión(es) programada(s). Por favor, cancela las sesiones primero.`
+                    );
+                    return;
+                }
+                
+                // Obtener datos para el modal de confirmación
+                fetch("{% url 'agenda:api_datos_confirmacion_cancelacion' %}?tipo=proyecto&id={{ proyecto.id }}&estado=cancelado")
+                    .then(response => response.json())
+                    .then(datos => {
+                        mostrarModalCancelacion(datos, (ajustarCosto) => {
+                            // Usuario aceptó, enviar formulario con opción de ajuste
+                            enviarCambioEstado(formData, ajustarCosto);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        mostrarModalResultado('error', 'Error', 'No se pudo obtener la información del proyecto');
+                    });
+            }
+            else {
+                // Otros estados: enviar directamente
+                enviarCambioEstado(formData, false);
+            }
+        });
+    }
+});
+
+/**
+ * Envía la petición para cambiar el estado
+ */
+function enviarCambioEstado(formData, ajustarCosto = false) {
+    // ✅ Agregar el parámetro de ajuste al formData
+    formData.set('ajustar_costo', ajustarCosto ? 'true' : 'false');
+    
+    fetch("{% url 'agenda:actualizar_estado_proyecto' proyecto.id %}", {
         method: 'POST',
         body: formData,
-        headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) { window.location.reload(); }
-        else { alert('Error al actualizar'); }
+        if (data.success) {
+            // ✅ Mostrar mensaje de ajuste si ocurrió
+            if (data.ajuste_realizado) {
+                mostrarModalResultado(
+                    'exito',
+                    data.mensaje.includes('Finalizado') ? '¡Proyecto Finalizado!' : '¡Proyecto Cancelado!',
+                    data.mensaje,
+                    {
+                        costo_anterior: parseFloat(data.costo_anterior).toFixed(2),
+                        costo_nuevo: parseFloat(data.costo_nuevo).toFixed(2),
+                        total_pagado: parseFloat(data.total_pagado).toFixed(2),
+                        total_devoluciones: parseFloat(data.total_devoluciones || 0).toFixed(2)
+                    }
+                );
+            } else {
+                mostrarModalResultado('exito', '¡Éxito!', data.mensaje);
+            }
+        } else {
+            mostrarModalResultado('error', 'Error', data.mensaje || data.error || 'Error desconocido');
+        }
     })
-    .catch(error => { console.error('Error:', error); });
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarModalResultado('error', 'Error', 'Error al actualizar el estado del proyecto');
+    });
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('modalConfirmacion')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.add('hidden');
+    }
+});
+
+// Cerrar modal con tecla ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.getElementById('modalConfirmacion')?.classList.add('hidden');
+    }
 });
 </script>
+
+<style>
+@keyframes bounce-once {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.animate-bounce-once {
+    animation: bounce-once 0.5s ease-in-out;
+}
+</style>
 {% endblock %}

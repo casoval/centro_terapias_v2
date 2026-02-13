@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}✅ Proyecto Finalizado{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center p-4">
+    <div class="max-w-2xl w-full">
+        
+        <!-- Tarjeta de Confirmación -->
+        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border-2 border-purple-100">
+            
+            <!-- Encabezado con animación -->
+            <div class="bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 px-8 py-10 text-center relative overflow-hidden">
+                <div class="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                <div class="relative z-10">
+                    <div class="inline-block bg-white/20 p-4 rounded-full mb-4 animate-bounce">
+                        <span class="text-6xl">✅</span>
+                    </div>
+                    <h1 class="text-3xl font-black text-white uppercase tracking-tight mb-2">
+                        ¡Proyecto Finalizado!
+                    </h1>
+                    <p class="text-purple-100 text-sm font-bold uppercase tracking-widest">
+                        {{ datos_proyecto.codigo }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Información del Proyecto -->
+            <div class="p-8 space-y-6">
+                
+                <!-- Nombre del Proyecto -->
+                <div class="text-center border-b border-slate-200 pb-6">
+                    <p class="text-xs text-slate-400 uppercase font-bold tracking-wider mb-2">Proyecto</p>
+                    <h2 class="text-2xl font-black text-slate-800 uppercase">{{ datos_proyecto.nombre }}</h2>
+                    <p class="text-sm text-slate-600 font-bold mt-2">👤 {{ datos_proyecto.paciente }}</p>
+                </div>
+
+                <!-- Ajuste de Costo -->
+                <div class="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl p-6">
+                    <h3 class="text-xs font-black text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span class="text-lg">💰</span> Ajuste de Costo Realizado
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center py-2 border-b border-amber-200/50">
+                            <span class="text-sm font-bold text-slate-600">Costo Original:</span>
+                            <span class="text-lg font-black text-slate-400">Bs. {{ datos_proyecto.costo_anterior|floatformat:2 }}</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center py-2 border-b border-amber-200/50">
+                            <span class="text-sm font-bold text-slate-600">Total Pagado:</span>
+                            <span class="text-lg font-black text-emerald-600">+ Bs. {{ datos_proyecto.total_pagado|floatformat:2 }}</span>
+                        </div>
+                        
+                        {% if datos_proyecto.total_devoluciones > 0 %}
+                        <div class="flex justify-between items-center py-2 border-b border-amber-200/50">
+                            <span class="text-sm font-bold text-slate-600">Devoluciones:</span>
+                            <span class="text-lg font-black text-red-600">- Bs. {{ datos_proyecto.total_devoluciones|floatformat:2 }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="flex justify-between items-center py-3 bg-purple-100 -mx-6 px-6 mt-4 rounded-xl">
+                            <span class="text-sm font-black text-purple-700 uppercase tracking-wider">Costo Final:</span>
+                            <span class="text-2xl font-black text-purple-700">Bs. {{ datos_proyecto.costo_nuevo|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    
+                    <p class="text-xs text-amber-700 mt-4 italic text-center">
+                        {{ datos_proyecto.mensaje_ajuste }}
+                    </p>
+                </div>
+
+                <!-- Información adicional -->
+                <div class="bg-slate-50 rounded-xl p-4 text-center">
+                    <p class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Fecha de Finalización</p>
+                    <p class="text-sm font-black text-slate-700">📅 {{ datos_proyecto.fecha_finalizacion }}</p>
+                </div>
+
+            </div>
+
+            <!-- Acciones -->
+            <div class="bg-slate-50 px-8 py-6 flex flex-wrap gap-3 justify-center border-t border-slate-200">
+                <a href="{% url 'agenda:lista_proyectos' %}" 
+                   class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-black text-sm uppercase tracking-wide shadow-lg transition-all transform hover:scale-105">
+                    📦 Ver Todos los Proyectos
+                </a>
+            </div>
+
+        </div>
+
+        <!-- Nota informativa -->
+        <div class="mt-6 text-center">
+            <p class="text-xs text-slate-400 italic">
+                El costo fue ajustado automáticamente según los pagos registrados.
+            </p>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

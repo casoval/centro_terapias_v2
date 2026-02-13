@@ -1,0 +1,159 @@
+<!-- ============================================== -->
+<!-- SNIPPET: Botón de Recálculo Rápido           -->
+<!-- ============================================== -->
+<!-- Agregar este código en el template de detalle_cuenta_corriente.html -->
+<!-- Ubicación sugerida: Junto a otros botones de acción -->
+
+<!-- OPCIÓN 1: Botón Simple (Con Recarga de Página) -->
+<div class="action-buttons">
+    {% if user.is_staff %}
+    <a href="{% url 'facturacion:recalcular_cuenta_individual' paciente.id %}" 
+       class="btn btn-warning"
+       title="Recalcular todos los valores de esta cuenta">
+        <i class="fas fa-sync-alt"></i> Recalcular Cuenta
+    </a>
+    {% endif %}
+</div>
+
+
+<!-- OPCIÓN 2: Botón con AJAX (Sin Recargar Página) - RECOMENDADO -->
+<div class="action-buttons">
+    {% if user.is_staff %}
+    <button onclick="recalcularCuenta({{ paciente.id }})" 
+            class="btn btn-warning"
+            id="btn-recalcular"
+            title="Recalcular todos los valores de esta cuenta">
+        <i class="fas fa-sync-alt"></i> Recalcular Cuenta
+    </button>
+    {% endif %}
+</div>
+
+<!-- JavaScript para OPCIÓN 2 (agregar al final del template) -->
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function recalcularCuenta(pacienteId) {
+    const btn = document.getElementById('btn-recalcular');
+    
+    // Confirmar acción
+    if (!confirm('¿Estás seguro de que deseas recalcular esta cuenta?')) {
+        return;
+    }
+    
+    // Deshabilitar botón y mostrar loading
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recalculando...';
+    
+    try {
+        const response = await fetch(`/facturacion/api/recalcular-cuenta/${pacienteId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Actualizar valores en la página
+            document.getElementById('consumido-real').textContent = 'Bs. ' + data.data.consumido_real.toFixed(2);
+            document.getElementById('consumido-actual').textContent = 'Bs. ' + data.data.consumido_actual.toFixed(2);
+            document.getElementById('total-pagado').textContent = 'Bs. ' + data.data.total_pagado.toFixed(2);
+            document.getElementById('saldo-real').textContent = 'Bs. ' + data.data.saldo_real.toFixed(2);
+            document.getElementById('saldo-actual').textContent = 'Bs. ' + data.data.saldo_actual.toFixed(2);
+            
+            // Mostrar mensaje de éxito
+            alert('✅ ' + data.mensaje);
+            
+            // Opcional: Recargar la página para actualizar todo
+            // location.reload();
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('❌ Error al recalcular: ' + error.message);
+    } finally {
+        // Restaurar botón
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Recalcular Cuenta';
+    }
+}
+</script>
+
+<!-- ============================================== -->
+<!-- IMPORTANTE: IDs Requeridos en el HTML         -->
+<!-- ============================================== -->
+<!-- Para que el AJAX funcione, asegúrate de que tus elementos tengan estos IDs: -->
+
+<!-- Ejemplo: -->
+<div class="cuenta-info">
+    <div class="info-item">
+        <span class="label">Consumido Real:</span>
+        <span id="consumido-real" class="value">Bs. {{ cuenta.total_consumido_real }}</span>
+    </div>
+    
+    <div class="info-item">
+        <span class="label">Consumido Actual:</span>
+        <span id="consumido-actual" class="value">Bs. {{ cuenta.total_consumido_actual }}</span>
+    </div>
+    
+    <div class="info-item">
+        <span class="label">Total Pagado:</span>
+        <span id="total-pagado" class="value">Bs. {{ cuenta.total_pagado }}</span>
+    </div>
+    
+    <div class="info-item">
+        <span class="label">Saldo Real:</span>
+        <span id="saldo-real" class="value">Bs. {{ cuenta.saldo_real }}</span>
+    </div>
+    
+    <div class="info-item">
+        <span class="label">Saldo Actual:</span>
+        <span id="saldo-actual" class="value">Bs. {{ cuenta.saldo_actual }}</span>
+    </div>
+</div>
+
+
+<!-- ============================================== -->
+<!-- ESTILOS OPCIONALES                             -->
+<!-- ============================================== -->
+<style>
+.btn-warning {
+    background-color: #f59e0b;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+}
+
+.btn-warning:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.action-buttons {
+    margin: 1rem 0;
+    display: flex;
+    gap: 0.5rem;
+}
+</style>

@@ -78,8 +78,8 @@
                             </p>
                         </div>
                         
-                        <!-- Botón para agendar sesiones (oculto si está completada o finalizada) -->
-                        {% if mensualidad.estado != 'completada' and mensualidad.estado != 'finalizada' %}
+                        <!-- Botón para agendar sesiones (oculto si está completada, cancelada o finalizada) -->
+                        {% if mensualidad.estado != 'completada' and mensualidad.estado != 'cancelada' and mensualidad.estado != 'finalizada' %}
                         <button 
                             onclick="abrirModalAgendarRapido({{ sp.id }}, '{{ sp.servicio.nombre }}', '{{ sp.profesional.nombre }} {{ sp.profesional.apellido }}')"
                             class="flex-shrink-0 bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
@@ -102,26 +102,48 @@
             </div>
         </div>
 
-        <!-- Estado Financiero -->
+        <!-- Estado Financiero - ✅ ACTUALIZADO -->
         <div class="bg-emerald-50/60 rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
             <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 px-5 py-2.5 border-b border-emerald-200">
                 <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">💰 Estado Financiero</h2>
             </div>
             <div class="p-5 space-y-4">
+                <!-- Presupuesto -->
                 <div class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-emerald-100 shadow-sm">
                     <span class="text-[11px] font-bold uppercase text-slate-400">Costo Mensual</span>
                     <span class="text-xl font-black text-slate-800">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</span>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                
+                <!-- ✅ Grid con 3 columnas: Pagado, Devoluciones, Saldo -->
+                <div class="grid grid-cols-3 gap-3">
+                    <!-- Pagado -->
                     <div class="text-center py-3 px-2 rounded-xl bg-white border border-emerald-100">
                         <p class="text-[10px] uppercase font-bold text-emerald-500 mb-1">Pagado</p>
                         <p class="text-sm font-black text-emerald-700">Bs. {{ mensualidad.total_pagado|floatformat:0 }}</p>
                     </div>
+                    
+                    <!-- ✅ NUEVO: Devoluciones -->
+                    <div class="text-center py-3 px-2 rounded-xl bg-white border border-orange-100">
+                        <p class="text-[10px] uppercase font-bold text-orange-500 mb-1">Devol.</p>
+                        <p class="text-sm font-black text-orange-700">Bs. {{ mensualidad.total_devoluciones|floatformat:0 }}</p>
+                    </div>
+                    
+                    <!-- Saldo Real -->
                     <div class="text-center py-3 px-2 rounded-xl bg-white border border-red-100">
                         <p class="text-[10px] uppercase font-bold text-red-500 mb-1">Saldo</p>
-                        <p class="text-sm font-black text-red-600">Bs. {{ mensualidad.saldo_pendiente|floatformat:0 }}</p>
+                        <p class="text-sm font-black text-red-600">Bs. {{ mensualidad.saldo_real|floatformat:0 }}</p>
                     </div>
                 </div>
+                
+                <!-- ✅ NUEVO: Alerta si tiene sesiones programadas -->
+                {% if stats.sesiones_programadas > 0 %}
+                <div class="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-lg">
+                    <p class="text-[11px] text-amber-700 font-bold">
+                        ⚠️ {{ stats.sesiones_programadas }} sesión(es) programada(s). 
+                        No se puede completar hasta finalizarlas o cancelarlas.
+                    </p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -149,15 +171,36 @@
 
         <!-- Cambiar Estado -->
         <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-4 shadow-md flex items-center">
-            <form method="post" action="{% url 'agenda:actualizar_estado_mensualidad' mensualidad.id %}" class="flex w-full gap-2" id="estadoForm">
-                {% csrf_token %}
-                <select name="estado" class="flex-grow bg-slate-700 border-none rounded-lg text-[12px] font-bold text-white py-2 focus:ring-2 focus:ring-blue-500">
-                    {% for ev, en in mensualidad.ESTADO_CHOICES %}
-                    <option value="{{ ev }}" {% if mensualidad.estado == ev %}selected{% endif %}>{{ en }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[11px] hover:bg-blue-500 transition-all uppercase shadow-lg">OK</button>
-            </form>
+            {% if mensualidad.estado == 'completada' or mensualidad.estado == 'cancelada' %}
+                <!-- Estado bloqueado -->
+                <div class="flex-grow flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="text-[11px] uppercase font-black text-slate-400 tracking-wider">Estado:</span>
+                        <span class="px-4 py-2 rounded-lg text-[12px] font-bold 
+                            {% if mensualidad.estado == 'completada' %}bg-purple-600 text-white
+                            {% else %}bg-red-600 text-white{% endif %}">
+                            {{ mensualidad.get_estado_display }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-amber-400">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-[10px] font-bold uppercase">Bloqueado</span>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Estado editable -->
+                <form method="post" action="{% url 'agenda:actualizar_estado_mensualidad' mensualidad.id %}" class="flex w-full gap-2" id="estadoForm">
+                    {% csrf_token %}
+                    <select name="estado" class="flex-grow bg-slate-700 border-none rounded-lg text-[12px] font-bold text-white py-2 focus:ring-2 focus:ring-blue-500">
+                        {% for ev, en in mensualidad.ESTADO_CHOICES %}
+                        <option value="{{ ev }}" {% if mensualidad.estado == ev %}selected{% endif %}>{{ en }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-black text-[11px] hover:bg-blue-500 transition-all uppercase shadow-lg">OK</button>
+                </form>
+            {% endif %}
         </div>
     </div>
 
@@ -217,6 +260,7 @@
                         <tr>
                             <th class="px-5 py-3 text-left">Recibo</th>
                             <th class="px-5 py-3 text-left">Método</th>
+                            <th class="px-5 py-3 text-center">Tipo</th>
                             <th class="px-5 py-3 text-right">Monto</th>
                             <th class="px-5 py-3 text-center">PDF</th>
                         </tr>
@@ -230,6 +274,20 @@
                             </td>
                             <td class="px-5 py-3.5">
                                 <span class="text-[10px] font-black text-blue-600 uppercase">{{ pago.metodo_pago.nombre }}</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-center">
+                                {% if pago.es_pago_masivo %}
+                                <div class="inline-flex flex-col items-center gap-1">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 text-[9px] font-black uppercase rounded-md border border-purple-300 shadow-sm whitespace-nowrap">
+                                        📦 Pago Masivo
+                                    </span>
+                                    <span class="text-[10px] text-purple-600 font-mono font-bold">#{{ pago.numero_recibo }}</span>
+                                </div>
+                                {% else %}
+                                <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[9px] font-black uppercase rounded-md border border-slate-300 whitespace-nowrap">
+                                    Individual
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
                             <td class="px-5 py-3.5 text-center">
@@ -248,10 +306,50 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="4" class="px-5 py-8 text-center text-slate-400 italic">No hay pagos registrados</td></tr>
+                        <tr><td colspan="5" class="px-5 py-8 text-center text-slate-400 italic">No hay pagos registrados</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+        
+        <!-- ✅ NUEVO: Tabla de Devoluciones -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+            <div class="bg-gradient-to-r from-orange-700 to-orange-500 px-5 py-3 flex justify-between items-center">
+                <h3 class="text-[12px] font-black uppercase text-white tracking-widest">🔄 Devoluciones</h3>
+                <span class="bg-white/20 text-white px-3 py-1 rounded-lg text-[11px] font-black">Bs. {{ mensualidad.total_devoluciones|floatformat:0 }}</span>
+            </div>
+            <div class="max-h-[400px] overflow-y-auto">
+                {% if devoluciones %}
+                <table class="w-full text-[12px]">
+                    <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Número</th>
+                            <th class="px-5 py-3 text-left">Motivo</th>
+                            <th class="px-5 py-3 text-right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-orange-50">
+                        {% for dev in devoluciones %}
+                        <tr class="hover:bg-orange-50/40 transition-colors">
+                            <td class="px-5 py-3.5 font-black text-slate-800">
+                                {{ dev.numero_devolucion }}
+                                <p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ dev.fecha_devolucion|date:"d/m/Y" }}</p>
+                            </td>
+                            <td class="px-5 py-3.5">
+                                <p class="font-bold text-slate-700">{{ dev.motivo|truncatechars:30 }}</p>
+                                <span class="text-[10px] text-slate-500 italic">{{ dev.metodo_devolucion.nombre }}</span>
+                            </td>
+                            <td class="px-5 py-3.5 text-right font-black text-orange-700 text-[14px]">Bs. {{ dev.monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-8 text-center text-slate-400 italic text-[11px]">
+                    No hay devoluciones registradas
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -259,7 +357,7 @@
     <!-- Botón de Pago -->
     {% if mensualidad.saldo_pendiente > 0 %}
     <div class="mt-6 flex justify-center">
-        <a href="{% url 'facturacion:registrar_pago' %}?mensualidad_id={{ mensualidad.id }}" 
+        <a href="{% url 'facturacion:registrar_pago' %}?mensualidad={{ mensualidad.id }}" 
            class="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-3 px-8 rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95">
             💵 Registrar Pago de Mensualidad
         </a>
@@ -281,28 +379,376 @@
 </div>
 
 <script>
+/**
+ * Muestra un modal de confirmación de cancelación con opción de ajuste
+ */
+function mostrarModalCancelacion(datos, onAceptar) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    // Determinar si hay diferencia
+    const hayDiferencia = Math.abs(datos.diferencia) > 0.01;
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br from-red-400 to-orange-500 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg">
+                <span class="text-4xl">🚫</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">¿Cancelar ${datos.tipo === 'proyecto' ? 'Proyecto' : 'Mensualidad'}?</h3>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Esta acción marcará el registro como cancelado.</p>
+            
+            ${hayDiferencia ? `
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 mb-4">
+                <p class="text-xs font-black text-amber-800 uppercase mb-3 flex items-center gap-2">
+                    <span class="text-lg">💰</span> Información de Costos
+                </p>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Costo actual:</span>
+                        <span class="font-black text-slate-800">Bs. ${datos.costo_actual.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Total pagado:</span>
+                        <span class="font-black text-emerald-600">Bs. ${datos.total_pagado.toFixed(2)}</span>
+                    </div>
+                    ${datos.total_devoluciones > 0 ? `
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Devoluciones:</span>
+                        <span class="font-black text-orange-600">- Bs. ${datos.total_devoluciones.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="flex justify-between pt-2 border-t border-amber-300">
+                        <span class="text-amber-700 font-bold">Pagado neto:</span>
+                        <span class="font-black text-amber-700">Bs. ${datos.pagado_neto.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t-2 border-amber-400 bg-amber-100 -mx-4 px-4 py-2 rounded-lg">
+                        <span class="text-amber-800 font-black">Diferencia:</span>
+                        <span class="font-black ${datos.diferencia > 0 ? 'text-red-600' : 'text-emerald-600'}">
+                            ${datos.diferencia > 0 ? '+' : ''}Bs. ${datos.diferencia.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-purple-50 border-2 border-purple-200 rounded-xl p-4 mb-4">
+                <label class="flex items-start gap-3 cursor-pointer group">
+                    <input type="checkbox" id="chkAjustarCosto" 
+                           class="mt-1 w-5 h-5 text-purple-600 bg-white border-2 border-purple-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer">
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-purple-800 group-hover:text-purple-600 transition-colors">
+                            ✅ Ajustar el costo al monto pagado neto
+                        </p>
+                        <p class="text-xs text-purple-600 mt-1">
+                            El costo se ajustará de <strong>Bs. ${datos.costo_actual.toFixed(2)}</strong> a <strong>Bs. ${datos.pagado_neto.toFixed(2)}</strong>
+                        </p>
+                    </div>
+                </label>
+            </div>
+            ` : `
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-3 mb-4">
+                <p class="text-xs text-blue-700">
+                    ℹ️ El costo actual (Bs. ${datos.costo_actual.toFixed(2)}) coincide con el pagado neto. No se requiere ajuste.
+                </p>
+            </div>
+            `}
+        </div>
+        
+        <div class="flex gap-3 justify-center">
+            <button id="btnCancelar" 
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-8 py-3 rounded-xl transition-all shadow-sm hover:shadow-md">
+                No, Volver
+            </button>
+            <button id="btnAceptar" 
+                    class="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl">
+                Sí, Cancelar
+            </button>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnAceptar').onclick = () => {
+        const ajustarCosto = hayDiferencia && document.getElementById('chkAjustarCosto')?.checked;
+        modal.classList.add('hidden');
+        if (onAceptar) onAceptar(ajustarCosto);
+    };
+    
+    document.getElementById('btnCancelar').onclick = () => {
+        modal.classList.add('hidden');
+    };
+}
+
+/**
+ * Muestra un modal de confirmación para acciones críticas
+ */
+function mostrarModalConfirmacion(titulo, mensaje, onAceptar, onCancelar) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg">
+                <span class="text-4xl">⚠️</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">${titulo}</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">${mensaje}</p>
+        </div>
+        
+        <div class="flex gap-3 justify-center">
+            <button id="btnCancelar" 
+                    class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-8 py-3 rounded-xl transition-all shadow-sm hover:shadow-md">
+                Cancelar
+            </button>
+            <button id="btnAceptar" 
+                    class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl">
+                Aceptar
+            </button>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnAceptar').onclick = () => {
+        modal.classList.add('hidden');
+        if (onAceptar) onAceptar();
+    };
+    
+    document.getElementById('btnCancelar').onclick = () => {
+        modal.classList.add('hidden');
+        if (onCancelar) onCancelar();
+    };
+}
+
+/**
+ * Muestra un modal de resultado (Éxito/Error) con detalles financieros
+ * Adaptado para Mensualidades (Costo Real, Asistencias, Saldo)
+ */
+function mostrarModalResultado(tipo, titulo, mensaje, detalles = null) {
+    const modal = document.getElementById('modalConfirmacion');
+    const contenido = document.getElementById('contenidoModal');
+    
+    const esExito = tipo === 'exito';
+    const emoji = esExito ? '✅' : '❌';
+    const colorFondo = esExito 
+        ? 'from-emerald-400 to-green-500' 
+        : 'from-red-400 to-red-500';
+    
+    let htmlDetalles = '';
+    
+    // Si hay detalles financieros (al finalizar mensualidad)
+    if (detalles && esExito) {
+        // Calcular saldo: costo_nuevo - total_pagado + total_devoluciones
+        const costoAnterior = parseFloat(detalles.costo_anterior) || 0;
+        const costoNuevo = parseFloat(detalles.costo_nuevo) || 0;
+        const totalPagado = parseFloat(detalles.total_pagado) || 0;
+        const totalDevoluciones = parseFloat(detalles.total_devoluciones) || 0;
+        
+        // Saldo = lo que debe pagar - lo que ya pagó + lo que se le devolvió
+        const saldoPendiente = costoNuevo - totalPagado + totalDevoluciones;
+        
+        // Lógica para determinar si es saldo a favor o deuda
+        const esSaldoFavor = saldoPendiente < 0; // Si es negativo, el paciente pagó de más
+        const colorSaldo = esSaldoFavor ? 'text-emerald-600' : 'text-red-600';
+        const textoSaldo = esSaldoFavor ? 'Saldo a Favor:' : 'Saldo Pendiente:';
+        
+        htmlDetalles = `
+            <div class="mt-4 bg-slate-50 rounded-xl p-4 text-left space-y-2 text-xs">
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Costo Planificado:</span>
+                    <span class="font-black text-slate-400 line-through">Bs. ${costoAnterior.toFixed(2)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Costo Real Ajustado:</span>
+                    <span class="font-black text-purple-700">Bs. ${costoNuevo.toFixed(2)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Total Pagado:</span>
+                    <span class="font-black text-emerald-700">Bs. ${totalPagado.toFixed(2)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-500 font-semibold">Devoluciones:</span>
+                    <span class="font-black text-orange-700">Bs. ${totalDevoluciones.toFixed(2)}</span>
+                </div>
+                
+                <div class="flex justify-between pt-2 ${esSaldoFavor ? 'bg-emerald-50' : 'bg-red-50'} -mx-4 px-4 py-2 rounded-lg mt-3">
+                    <span class="${esSaldoFavor ? 'text-emerald-700' : 'text-red-700'} font-black uppercase text-sm">${textoSaldo}</span>
+                    <span class="font-black ${colorSaldo} text-lg">Bs. ${Math.abs(saldoPendiente).toFixed(2)}</span>
+                </div>
+                <p class="text-[10px] text-slate-400 text-center mt-2 italic">
+                    El costo se ha recalculado automáticamente según la asistencia.
+                </p>
+            </div>
+        `;
+    }
+    
+    contenido.innerHTML = `
+        <div class="mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br ${colorFondo} rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg animate-bounce-once">
+                <span class="text-4xl">${emoji}</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">${titulo}</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">${mensaje}</p>
+            ${htmlDetalles}
+        </div>
+        
+        <button id="btnCerrar" 
+                class="bg-gradient-to-r ${esExito ? 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800' : 'from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800'} text-white font-bold px-10 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl w-full">
+            Entendido
+        </button>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    document.getElementById('btnCerrar').onclick = () => {
+        modal.classList.add('hidden');
+        if (esExito) location.reload();
+    };
+}
+
 // ========================================
-// FUNCIONES PARA CAMBIO DE ESTADO
+// MANEJO DEL FORMULARIO
 // ========================================
-document.querySelector('#estadoForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch(this.action, {
+document.addEventListener('DOMContentLoaded', function() {
+    const estadoForm = document.getElementById('estadoForm');
+    
+    // Verificar si el estado actual está bloqueado
+    const estadoActual = '{{ mensualidad.estado }}';
+    const estadosBloqueados = ['completada', 'cancelada'];
+    
+    if (estadosBloqueados.includes(estadoActual)) {
+        console.warn('⚠️ Estado bloqueado. No se puede modificar.');
+        return; // Salir si el estado está bloqueado
+    }
+    
+    if (estadoForm) {
+        estadoForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Doble verificación: si alguien manipula el DOM
+            if (estadosBloqueados.includes(estadoActual)) {
+                mostrarModalResultado(
+                    'error',
+                    'Estado Bloqueado',
+                    'No se puede modificar el estado de una mensualidad completada o cancelada.'
+                );
+                return;
+            }
+            
+            const formData = new FormData(estadoForm);
+            const nuevoEstado = formData.get('estado');
+            
+            // Si intenta finalizar, pedimos confirmación
+            if (nuevoEstado === 'completada') {
+                const sesionesProgr = {{ stats.sesiones_programadas|default:0 }};
+                
+                if (sesionesProgr > 0) {
+                    mostrarModalResultado(
+                        'error',
+                        'No se puede completar',
+                        `La mensualidad tiene ${sesionesProgr} sesión(es) programada(s). Por favor, cancela o realiza las sesiones primero.`
+                    );
+                    return;
+                }
+                
+                mostrarModalConfirmacion(
+                    '¿Completar Mensualidad?',
+                    'El costo se ajustará automáticamente según los pagos realizados menos las devoluciones.',
+                    () => {
+                        enviarCambioEstado(formData, false);
+                    }
+                );
+            }
+            // ✅ NUEVO: Confirmación especial si se marca como cancelada
+            else if (nuevoEstado === 'cancelada') {
+                const sesionesProgr = {{ stats.sesiones_programadas|default:0 }};
+                
+                if (sesionesProgr > 0) {
+                    mostrarModalResultado(
+                        'error',
+                        'No se puede cancelar',
+                        `La mensualidad tiene ${sesionesProgr} sesión(es) programada(s). Por favor, cancela las sesiones primero.`
+                    );
+                    return;
+                }
+                
+                // Obtener datos para el modal de confirmación
+                fetch("{% url 'agenda:api_datos_confirmacion_cancelacion' %}?tipo=mensualidad&id={{ mensualidad.id }}&estado=cancelada")
+                    .then(response => response.json())
+                    .then(datos => {
+                        mostrarModalCancelacion(datos, (ajustarCosto) => {
+                            // Usuario aceptó, enviar formulario con opción de ajuste
+                            enviarCambioEstado(formData, ajustarCosto);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        mostrarModalResultado('error', 'Error', 'No se pudo obtener la información de la mensualidad');
+                    });
+            }
+            else {
+                enviarCambioEstado(formData, false);
+            }
+        });
+    }
+});
+
+function enviarCambioEstado(formData, ajustarCosto = false) {
+    // ✅ Agregar el parámetro de ajuste al formData
+    formData.set('ajustar_costo', ajustarCosto ? 'true' : 'false');
+    
+    // Obtenemos la URL del action del formulario
+    const url = document.getElementById('estadoForm').action;
+
+    fetch(url, {
         method: 'POST',
         body: formData,
-        headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') }
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) { window.location.reload(); }
-        else { alert('Error al actualizar'); }
+        if (data.success) {
+            // ✅ Mostrar mensaje de ajuste si ocurrió
+            if (data.ajuste_realizado) {
+                mostrarModalResultado(
+                    'exito',
+                    data.mensaje.includes('Completada') ? '¡Mensualidad Completada!' : '¡Mensualidad Cancelada!',
+                    data.mensaje,
+                    {
+                        costo_anterior: parseFloat(data.costo_anterior || 0).toFixed(2),
+                        costo_nuevo: parseFloat(data.costo_nuevo || 0).toFixed(2),
+                        total_pagado: parseFloat(data.total_pagado || 0).toFixed(2),
+                        total_devoluciones: parseFloat(data.total_devoluciones || 0).toFixed(2)
+                    }
+                );
+            } else {
+                // Caso normal sin ajustes
+                mostrarModalResultado('exito', 'Estado Actualizado', data.mensaje);
+            }
+        } else {
+            mostrarModalResultado('error', 'Error', data.mensaje || 'Ocurrió un error inesperado.');
+        }
     })
-    .catch(error => { console.error('Error:', error); });
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarModalResultado('error', 'Error de Conexión', 'No se pudo contactar con el servidor.');
+    });
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('modalConfirmacion')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.add('hidden');
+    }
 });
 
+// ========================================
+// FUNCIONES PARA MODAL DE AGENDAR MENSUALIDAD
+// ========================================
+
 /**
- * Abre el modal y carga el formulario de agendamiento
- * ✅ CORREGIDO: Ejecuta los scripts incluidos en el HTML cargado
+ * Abre el modal para agendar sesiones de un servicio específico
  */
 function abrirModalAgendarRapido(servicioProfesionalId, nombreServicio, nombreProfesional) {
     const modal = document.getElementById('modalAgendarRapido');
@@ -382,8 +828,31 @@ document.getElementById('modalAgendarRapido')?.addEventListener('click', functio
 // Cerrar modal con tecla ESC
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        cerrarModalAgendarRapido();
+        const modalAgendar = document.getElementById('modalAgendarRapido');
+        if (modalAgendar && !modalAgendar.classList.contains('hidden')) {
+            cerrarModalAgendarRapido();
+        }
     }
 });
 </script>
+
+<style>
+@keyframes bounce-once {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+.animate-bounce-once {
+    animation: bounce-once 0.5s ease-in-out;
+}
+</style>
+
+<div id="modalConfirmacion" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden transform transition-all border border-slate-100">
+            <div id="contenidoModal" class="p-8 text-center">
+                </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

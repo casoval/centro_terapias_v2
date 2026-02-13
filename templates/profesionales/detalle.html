@@ -8,31 +8,33 @@
     .card-detalle:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05); }
 </style>
 
-<div class="mb-8">
-    <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full bg-white opacity-10 blur-3xl"></div>
-        <div class="absolute bottom-0 left-10 w-20 h-20 rounded-full bg-teal-300 opacity-20 blur-xl"></div>
+<div class="max-w-7xl mx-auto px-2 py-2">
+    <div class="mb-3">
+        <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-xl p-3 shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-white opacity-10 blur-xl"></div>
+            <div class="absolute bottom-0 left-10 w-12 h-12 rounded-full bg-teal-300 opacity-20 blur-lg"></div>
 
-        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <div class="flex items-center gap-3 text-emerald-100 text-xs font-bold uppercase tracking-wider mb-1">
-                    <span>ID: #{{ profesional.id }}</span>
-                    <span>•</span>
-                    <span>Perfil Profesional</span>
+            <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                <div>
+                    <div class="flex items-center gap-2 text-emerald-100 text-[9px] font-bold uppercase tracking-wider mb-0.5">
+                        <span>ID: #{{ profesional.id }}</span>
+                        <span>•</span>
+                        <span>Perfil Profesional</span>
+                    </div>
+                    <h1 class="text-lg font-black text-white flex items-center gap-2 flex-wrap">
+                        {{ profesional.nombre_completo }}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm
+                            {% if profesional.activo %} bg-green-400/30 text-green-50
+                            {% else %} bg-gray-500/20 text-gray-200 {% endif %}">
+                            {% if profesional.activo %}ACTIVO{% else %}INACTIVO{% endif %}
+                        </span>
+                    </h1>
                 </div>
-                <h1 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-3 flex-wrap">
-                    {{ profesional.nombre_completo }}
-                    <span class="px-3 py-1 text-xs font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm
-                        {% if profesional.activo %} bg-green-400/30 text-green-50
-                        {% else %} bg-gray-500/20 text-gray-200 {% endif %}">
-                        {% if profesional.activo %}ACTIVO{% else %}INACTIVO{% endif %}
-                    </span>
-                </h1>
+                <a href="{% url 'profesionales:lista' %}" 
+                   class="bg-white/10 hover:bg-white hover:text-emerald-600 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all border border-white/20 backdrop-blur-md flex items-center gap-1.5 uppercase tracking-wider transform hover:scale-105">
+                    <span class="text-xs">←</span> Volver
+                </a>
             </div>
-            <a href="{% url 'profesionales:lista' %}" 
-               class="bg-white/10 hover:bg-white hover:text-emerald-600 text-white px-5 py-2 rounded-full font-bold text-xs transition-all border border-white/20 backdrop-blur-md flex items-center gap-2">
-                <span>←</span> Volver a Lista
-            </a>
         </div>
     </div>
 </div>
@@ -281,4 +283,45 @@
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración del Toast
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'success' %}
+                    Toast.fire({
+                        icon: 'success',
+                        title: '¡Operación Exitosa!',
+                        text: '{{ message|safe }}',
+                        // Color de la barra de progreso ajustado a tu tema Emerald
+                        color: '#065f46' 
+                    });
+                {% elif message.tags == 'error' %}
+                    Swal.fire({
+                        title: 'Atención',
+                        text: '{{ message|safe }}',
+                        icon: 'error',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#059669', // Verde Emerald para combinar
+                        backdrop: `rgba(6, 95, 70, 0.1)`
+                    });
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    });
+</script>
 {% endblock %}

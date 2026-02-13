@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmar Recálculo - {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; padding: 0 1rem;">
+    <h2>Confirmar Recálculo de Cuenta</h2>
+    
+    <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 1rem;">
+        <h3>Paciente: {{ paciente.nombre_completo }}</h3>
+        
+        {% if cuenta %}
+        <div style="background: #f9fafb; padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+            <h4 style="margin-top: 0;">Valores Actuales:</h4>
+            <p><strong>Consumido Real:</strong> Bs. {{ cuenta.total_consumido_real }}</p>
+            <p><strong>Consumido Actual:</strong> Bs. {{ cuenta.total_consumido_actual }}</p>
+            <p><strong>Total Pagado:</strong> Bs. {{ cuenta.total_pagado }}</p>
+            <p><strong>Saldo Real:</strong> Bs. {{ cuenta.saldo_real }}</p>
+            <p><strong>Saldo Actual:</strong> Bs. {{ cuenta.saldo_actual }}</p>
+            <p style="margin-bottom: 0;"><strong>Última Actualización:</strong> {{ cuenta.ultima_actualizacion|date:"d/m/Y H:i" }}</p>
+        </div>
+        {% endif %}
+        
+        <div style="background: #fef3c7; padding: 1rem; border-left: 4px solid #f59e0b; margin: 1rem 0; border-radius: 4px;">
+            <p style="margin: 0;"><strong>⚠️ Esta acción recalculará todos los valores de la cuenta basándose en:</strong></p>
+            <ul style="margin: 0.5rem 0 0 0;">
+                <li>Sesiones realizadas y programadas</li>
+                <li>Proyectos activos</li>
+                <li>Mensualidades</li>
+                <li>Pagos registrados (no anulados)</li>
+                <li>Devoluciones</li>
+            </ul>
+        </div>
+        
+        <form method="post" style="margin-top: 1.5rem;">
+            {% csrf_token %}
+            
+            <button type="submit" style="background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">
+                ✅ Confirmar Recálculo
+            </button>
+            
+            <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" style="background: #6b7280; color: white; padding: 0.75rem 1.5rem; border-radius: 6px; text-decoration: none; display: inline-block; margin-left: 1rem;">
+                Cancelar
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

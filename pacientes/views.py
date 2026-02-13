@@ -87,6 +87,7 @@ def agregar_paciente(request):
     ✅ Vista para agregar nuevo paciente con formulario personalizado
     ✅ Con sincronización de usuario del sistema
     ✅ LIMITADO A SUCURSALES DEL RECEPCIONISTA
+    ✅ MANEJO DE SERVICIOS EN LA VISTA (no en el formulario)
     """
     # ✅ Verificar si viene con user_id (desde crear usuario)
     user_id = request.GET.get('user_id')
@@ -103,6 +104,7 @@ def agregar_paciente(request):
         form = PacienteForm(request.POST, request.FILES, user=request.user)
         
         if form.is_valid():
+            # ✅ Guardar paciente primero
             paciente = form.save()
             
             # ✅ VALIDACIÓN: Verificar que las sucursales sean permitidas
@@ -121,6 +123,40 @@ def agregar_paciente(request):
                         )
                         paciente.delete()
                         return redirect('pacientes:agregar')
+            
+            # ✅ PROCESAR SERVICIOS (movido desde forms.py)
+            from servicios.models import TipoServicio
+            servicios = TipoServicio.objects.filter(activo=True)
+            
+            for servicio in servicios:
+                # Verificar si el servicio fue seleccionado (checkbox marcado)
+                servicio_key = f'servicio_{servicio.id}'
+                if servicio_key in request.POST:
+                    # Obtener precio personalizado
+                    precio_key = f'precio_{servicio.id}'
+                    precio_custom = request.POST.get(precio_key, '').strip()
+                    
+                    # Si está vacío o es 0, usar precio base
+                    try:
+                        if not precio_custom or float(precio_custom or 0) == 0:
+                            precio_custom = servicio.costo_base
+                        else:
+                            precio_custom = float(precio_custom)
+                    except (ValueError, TypeError):
+                        precio_custom = servicio.costo_base
+                    
+                    # Obtener observaciones
+                    obs_key = f'obs_{servicio.id}'
+                    observaciones = request.POST.get(obs_key, '').strip()
+                    
+                    # Crear relación PacienteServicio
+                    PacienteServicio.objects.create(
+                        paciente=paciente,
+                        servicio=servicio,
+                        costo_sesion=precio_custom,
+                        observaciones=observaciones,
+                        activo=True
+                    )
             
             # ✅ SINCRONIZACIÓN: Si tiene usuario, crear/actualizar perfil
             if paciente.user:
@@ -177,6 +213,7 @@ def editar_paciente(request, pk):
     """
     ✅ Vista para editar paciente existente
     ✅ VALIDAR QUE RECEPCIONISTA SOLO EDITE PACIENTES DE SUS SUCURSALES
+    ✅ CORREGIDO: Mejor manejo de servicios y sus estados
     """
     paciente = get_object_or_404(Paciente, pk=pk)
     
@@ -195,26 +232,37 @@ def editar_paciente(request, pk):
                 return redirect('pacientes:lista')
     
     if request.method == 'POST':
+        # ✅ IMPORTANTE: commit=False para manejar servicios manualmente
         form = PacienteForm(request.POST, request.FILES, instance=paciente, user=request.user)
         
         if form.is_valid():
-            # Guardar paciente
-            paciente = form.save()
+            # Guardar paciente (sin commit aún para verificaciones)
+            paciente = form.save(commit=False)
             
             # ✅ VALIDACIÓN: Verificar que las nuevas sucursales sean permitidas
             if not request.user.is_superuser and hasattr(request.user, 'perfil'):
                 if request.user.perfil.es_recepcionista():
                     mis_sucursales = request.user.perfil.sucursales.all()
-                    sucursales_paciente = paciente.sucursales.all()
                     
-                    sucursales_no_permitidas = sucursales_paciente.exclude(id__in=mis_sucursales.values_list('id', flat=True))
+                    # Obtener las sucursales seleccionadas en el formulario
+                    sucursales_seleccionadas = form.cleaned_data.get('sucursales')
                     
-                    if sucursales_no_permitidas.exists():
-                        messages.error(
-                            request,
-                            '❌ No puedes asignar sucursales fuera de tus permisos.'
-                        )
-                        return redirect('pacientes:editar', pk=pk)
+                    # Verificar que todas estén dentro de las permitidas
+                    for sucursal in sucursales_seleccionadas:
+                        if sucursal not in mis_sucursales:
+                            messages.error(
+                                request,
+                                '❌ No puedes asignar sucursales fuera de tus permisos.'
+                            )
+                            # Re-renderizar el formulario con errores
+                            context = _preparar_contexto_edicion(paciente, form, request.user)
+                            return render(request, 'pacientes/editar.html', context)
+            
+            # Guardar el paciente
+            paciente.save()
+            
+            # ✅ IMPORTANTE: Guardar las relaciones many-to-many
+            form.save_m2m()
             
             # ✅ SINCRONIZACIÓN: Actualizar perfil si cambió el usuario
             if paciente.user:
@@ -229,32 +277,38 @@ def editar_paciente(request, pk):
                 perfil.rol = 'paciente'
                 perfil.save()
             
-            # ✅ ACTUALIZAR SERVICIOS: Primero marcar todos como inactivos
-            PacienteServicio.objects.filter(paciente=paciente).update(activo=False)
-            
-            # ✅ Luego activar/actualizar los seleccionados
+            # ✅ MANEJO DE SERVICIOS: NO marcar todo como inactivo primero
+            # Solo actualizar los que se enviaron en el formulario
             from servicios.models import TipoServicio
-            servicios = TipoServicio.objects.filter(activo=True)
+            servicios_disponibles = TipoServicio.objects.filter(activo=True)
             
-            for servicio in servicios:
+            # Obtener servicios que están marcados en el formulario
+            servicios_marcados = []
+            
+            for servicio in servicios_disponibles:
                 servicio_key = f'servicio_{servicio.id}'
                 
                 if servicio_key in request.POST:
+                    servicios_marcados.append(servicio.id)
+                    
                     # Obtener precio personalizado
                     precio_key = f'precio_{servicio.id}'
                     precio_custom = request.POST.get(precio_key, '').strip()
                     
                     # Si está vacío o es 0, usar precio base
-                    if not precio_custom or float(precio_custom or 0) == 0:
+                    try:
+                        if not precio_custom or float(precio_custom or 0) == 0:
+                            precio_custom = servicio.costo_base
+                        else:
+                            precio_custom = float(precio_custom)
+                    except (ValueError, TypeError):
                         precio_custom = servicio.costo_base
-                    else:
-                        precio_custom = float(precio_custom)
                     
                     # Obtener observaciones
                     obs_key = f'obs_{servicio.id}'
                     observaciones = request.POST.get(obs_key, '').strip()
                     
-                    # Actualizar o crear
+                    # Actualizar o crear servicio ACTIVO
                     paciente_servicio, created = PacienteServicio.objects.update_or_create(
                         paciente=paciente,
                         servicio=servicio,
@@ -265,35 +319,58 @@ def editar_paciente(request, pk):
                         }
                     )
             
+            # ✅ DESACTIVAR servicios que NO están marcados
+            # Solo desactivar los que existen pero no fueron marcados
+            PacienteServicio.objects.filter(
+                paciente=paciente
+            ).exclude(
+                servicio_id__in=servicios_marcados
+            ).update(activo=False)
+            
             messages.success(
                 request,
                 f'✅ ¡Paciente {paciente.nombre_completo} actualizado correctamente!'
             )
             return redirect('pacientes:detalle', pk=paciente.id)
         else:
+            # Si el formulario no es válido, mostrar errores
             messages.error(
                 request,
                 '❌ Por favor corrige los errores en el formulario'
             )
+            # Re-renderizar con el contexto completo
+            context = _preparar_contexto_edicion(paciente, form, request.user)
+            return render(request, 'pacientes/editar.html', context)
     else:
+        # GET request - mostrar formulario
         form = PacienteForm(instance=paciente, user=request.user)
     
-    # Obtener servicios y servicios del paciente
+    # Preparar contexto para renderizar
+    context = _preparar_contexto_edicion(paciente, form, request.user)
+    return render(request, 'pacientes/editar.html', context)
+
+
+def _preparar_contexto_edicion(paciente, form, user):
+    """
+    ✅ HELPER: Prepara el contexto para el template de edición
+    Evita duplicación de código entre GET y POST
+    """
     from servicios.models import TipoServicio
+    
+    # Obtener solo servicios activos del catálogo
     servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
     
-    # Crear diccionario de servicios del paciente
+    # Crear diccionario de servicios del paciente (activos E inactivos)
     servicios_paciente = {}
     for ps in PacienteServicio.objects.filter(paciente=paciente):
         servicios_paciente[ps.servicio.id] = ps
     
-    context = {
+    return {
         'form': form,
         'paciente': paciente,
         'servicios': servicios,
         'servicios_paciente': servicios_paciente,
     }
-    return render(request, 'pacientes/editar.html', context)
 
 
 @login_required
@@ -348,39 +425,26 @@ def eliminar_paciente(request, pk):
             
             messages.success(
                 request,
-                f'🔒 Paciente {paciente.nombre_completo} desactivado correctamente. '
-                f'Los datos se mantienen intactos y puede reactivarse cuando sea necesario.'
+                f'✅ Paciente {paciente.nombre_completo} desactivado correctamente'
             )
             return redirect('pacientes:lista')
-            
-        elif accion == 'eliminar' and not tiene_datos:
-            # ✅ ELIMINAR: Solo si NO tiene datos asociados
-            nombre_completo = paciente.nombre_completo
-            
-            # Desvincular usuario si existe
-            if paciente.user:
-                from core.models import PerfilUsuario
-                try:
-                    perfil = paciente.user.perfil
-                    perfil.paciente = None
-                    perfil.save()
-                except:
-                    pass
-            
-            # Eliminar paciente
-            paciente.delete()
-            
-            messages.success(
-                request,
-                f'🗑️ Paciente {nombre_completo} eliminado permanentemente del sistema.'
-            )
-            return redirect('pacientes:lista')
-        else:
-            messages.error(
-                request,
-                '❌ No se puede eliminar este paciente porque tiene datos asociados. '
-                'Usa la opción de DESACTIVAR.'
-            )
+        
+        elif accion == 'eliminar':
+            # ✅ ELIMINAR: Solo si no tiene datos
+            if tiene_datos:
+                messages.error(
+                    request,
+                    '❌ No se puede eliminar el paciente porque tiene datos asociados. Usa la opción de desactivar.'
+                )
+                return redirect('pacientes:eliminar', pk=pk)
+            else:
+                nombre = paciente.nombre_completo
+                paciente.delete()
+                messages.success(
+                    request,
+                    f'✅ Paciente {nombre} eliminado permanentemente'
+                )
+                return redirect('pacientes:lista')
     
     context = {
         'paciente': paciente,
@@ -388,7 +452,7 @@ def eliminar_paciente(request, pk):
         'datos_relacionados': datos_relacionados,
     }
     return render(request, 'pacientes/eliminar.html', context)
-
+    
 @login_required
 def detalle_paciente(request, pk):
     """
@@ -994,3 +1058,51 @@ def detalle_sesiones_completo(request, pk):
     }
     
     return render(request, 'pacientes/detalle_sesiones.html', context)
+
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from pacientes.models import Paciente
+
+@login_required
+def api_lista_pacientes(request):
+    """
+    API endpoint que devuelve la lista de pacientes en formato JSON
+    para el selector flotante
+    ✅ CON FILTRADO POR ROL Y PERMISOS
+    """
+    # ✅ FILTRADO SEGÚN ROL DEL USUARIO (igual que lista_pacientes)
+    if request.user.is_superuser:
+        pacientes = Paciente.objects.filter(estado='activo')
+    elif hasattr(request.user, 'perfil'):
+        if request.user.perfil.es_gerente():
+            pacientes = Paciente.objects.filter(estado='activo')
+        elif request.user.perfil.es_recepcionista():
+            mis_sucursales = request.user.perfil.sucursales.all()
+            if mis_sucursales.exists():
+                pacientes = Paciente.objects.filter(
+                    estado='activo',
+                    sucursales__in=mis_sucursales
+                ).distinct()
+            else:
+                pacientes = Paciente.objects.none()
+        else:
+            pacientes = Paciente.objects.none()
+    else:
+        pacientes = Paciente.objects.none()
+    
+    # ✅ ORDENAR POR CAMPOS REALES (no por propiedad)
+    pacientes = pacientes.order_by('nombre', 'apellido')
+    
+    data = {
+        'pacientes': [
+            {
+                'id': p.id,
+                'nombre_completo': p.nombre_completo,
+                'foto_url': p.foto.url if p.foto else None,
+                'inicial': p.nombre_completo[0].upper() if p.nombre_completo else '?'
+            }
+            for p in pacientes
+        ]
+    }
+    
+    return JsonResponse(data)

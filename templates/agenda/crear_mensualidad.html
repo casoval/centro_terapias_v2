@@ -4,132 +4,157 @@
 {% block title %}💳 Nueva Mensualidad{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-6">
+<div class="max-w-6xl mx-auto px-4 py-4">
     
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-slate-800 to-indigo-900 rounded-xl shadow-lg text-white">
         <div>
-            <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <span class="bg-indigo-600 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-sm text-sm">💳</span>
+            <h1 class="text-lg font-black flex items-center gap-3">
+                <span class="bg-white/20 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-inner text-sm backdrop-blur-sm">💳</span>
                 Nueva Mensualidad
             </h1>
-            <p class="text-xs text-slate-500 mt-1">Configura los servicios y asigna profesionales.</p>
+            <p class="text-[11px] text-indigo-200 font-bold mt-1 ml-11 uppercase tracking-wide opacity-80">Configura servicios y asigna profesionales</p>
         </div>
         <a href="{% url 'agenda:lista_mensualidades' %}" 
-           class="text-slate-500 hover:text-indigo-600 text-xs font-semibold px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-white transition-all bg-slate-50">
-            ← Cancelar
+           class="bg-white/10 hover:bg-white/20 text-white text-[11px] font-black px-4 py-2 border border-white/20 rounded-lg transition-all shadow-sm uppercase tracking-wide hover:scale-105 active:scale-95 flex items-center gap-2">
+            <span>❌ Cancelar</span>
         </a>
     </div>
 
-    <form method="post" id="form-mensualidad" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <form method="post" id="form-mensualidad">
         {% csrf_token %}
         
-        <div class="flex flex-col lg:flex-row h-full">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
             
-            <div class="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-slate-100 bg-slate-50/50 p-5 space-y-5">
+            <div class="lg:col-span-4 flex flex-col gap-4">
                 
-                <div>
-                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">1. Datos Básicos</h2>
-                    <div class="mb-3">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">🏢 Sucursal <span class="text-red-500">*</span></label>
-                        <select name="sucursal_id" id="sucursal-select" required
-                                onchange="cargarPacientesDeSucursal(this.value)"
-                                class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white transition-all">
-                            <option value="">Seleccione...</option>
-                            {% for sucursal in sucursales %}
-                            <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
-                            {% endfor %}
-                        </select>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div class="bg-blue-50 border border-blue-100 p-2 rounded-lg mb-3 flex items-center gap-2">
+                        <span class="bg-blue-200 text-blue-700 w-5 h-5 flex items-center justify-center rounded text-[10px] font-black">1</span>
+                        <h2 class="text-[11px] font-black text-blue-800 uppercase tracking-widest">
+                            Datos Básicos
+                        </h2>
                     </div>
-
-                    <div id="pacientes-container">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">👶 Paciente <span class="text-red-500">*</span></label>
-                        <select name="paciente_id" id="paciente-select" disabled required
-                                class="w-full px-3 py-2 text-sm border border-slate-200 bg-slate-100 rounded-lg text-slate-400">
-                            <option value="">⏳ Esperando sucursal...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="pt-4 border-t border-slate-200">
-                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">3. Facturación</h2>
                     
-                    <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Mes <span class="text-red-500">*</span></label>
-                            <select name="mes" id="mes-select" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:border-indigo-500 outline-none">
-                                <option value="">Mes...</option>
-                                <option value="1">Ene</option><option value="2">Feb</option><option value="3">Mar</option>
-                                <option value="4">Abr</option><option value="5">May</option><option value="6">Jun</option>
-                                <option value="7">Jul</option><option value="8">Ago</option><option value="9">Sep</option>
-                                <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dic</option>
+                            <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">🏢 Sucursal <span class="text-red-500">*</span></label>
+                            <select name="sucursal_id" id="sucursal-select" required
+                                    onchange="cargarPacientesDeSucursal(this.value)"
+                                    class="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-slate-50 transition-all">
+                                <option value="">Seleccione...</option>
+                                {% for sucursal in sucursales %}
+                                <option value="{{ sucursal.id }}">{{ sucursal.nombre }}</option>
+                                {% endfor %}
                             </select>
                         </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Año <span class="text-red-500">*</span></label>
-                            <select name="anio" id="anio-select" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:border-indigo-500 outline-none">
-                                <option value="">Año...</option>
+
+                        <div id="pacientes-container">
+                            <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">👶 Paciente <span class="text-red-500">*</span></label>
+                            <select name="paciente_id" id="paciente-select" disabled required
+                                    class="w-full px-3 py-2 text-xs font-bold border border-slate-200 bg-slate-100 rounded-lg text-slate-400">
+                                <option value="">⏳ Esperando sucursal...</option>
                             </select>
                         </div>
                     </div>
-
-                    <div class="mb-3">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">💰 Total (Bs.) <span class="text-red-500">*</span></label>
-                        <div class="relative">
-                            <input type="number" name="costo_mensual" id="costo-mensual" min="0" step="0.01" required placeholder="0.00"
-                                   class="w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-bold text-slate-700">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">📝 Nota (Opcional)</label>
-                        <textarea name="observaciones" rows="2" placeholder="..."
-                                  class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:border-indigo-500 outline-none resize-none"></textarea>
-                    </div>
                 </div>
 
-                <div class="pt-2">
-                    <button type="submit" 
-                            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm hover:shadow transition-all text-sm flex items-center justify-center gap-2">
-                        <span>💾 Guardar Mensualidad</span>
-                    </button>
-                </div>
-
-            </div>
-
-            <div class="lg:w-2/3 p-5 bg-white flex flex-col h-full min-h-[500px]">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center justify-between">
-                    <span>2. Gestión de Servicios</span>
-                    <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full normal-case">Selecciona y asigna</span>
-                </h2>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1">
+                    <div class="bg-emerald-50 border border-emerald-100 p-2 rounded-lg mb-3 flex items-center gap-2">
+                        <span class="bg-emerald-200 text-emerald-700 w-5 h-5 flex items-center justify-center rounded text-[10px] font-black">3</span>
+                        <h2 class="text-[11px] font-black text-emerald-800 uppercase tracking-widest">
+                            Facturación
+                        </h2>
+                    </div>
                     
-                    <div class="flex flex-col h-full">
-                        <div class="text-xs font-semibold text-slate-600 mb-2 pl-1">Disponibles del Paciente</div>
-                        <div id="servicios-container" class="flex-1 bg-slate-50 rounded-lg border border-slate-100 p-3 overflow-y-auto max-h-[400px]">
-                            <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs text-center p-4">
-                                <svg class="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                Selecciona un paciente<br>para ver servicios
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">Mes <span class="text-red-500">*</span></label>
+                                <select name="mes" id="mes-select" required class="w-full px-2 py-1.5 text-xs font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                                    <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                                    <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">Año <span class="text-red-500">*</span></label>
+                                <select name="anio" id="anio-select" required class="w-full px-2 py-1.5 text-xs font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50">
+                                    <option value="">Año...</option>
+                                </select>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="flex flex-col h-full">
-                        <div class="text-xs font-semibold text-indigo-600 mb-2 pl-1 flex justify-between items-center">
-                            <span>Seleccionados para Mensualidad</span>
-                            <span class="text-[10px] bg-indigo-50 px-2 rounded-full border border-indigo-100 text-indigo-400">Asignar Prof.</span>
+                        <div>
+                            <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">💰 Total (Bs.) <span class="text-red-500">*</span></label>
+                            <div class="relative">
+                                <input type="number" name="costo_mensual" id="costo-mensual" min="0" step="0.01" required placeholder="0.00"
+                                       class="w-full pl-3 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-black text-slate-800 text-sm bg-slate-50">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">📝 Nota (Opcional)</label>
+                            <textarea name="observaciones" rows="3" placeholder="Observaciones..."
+                                      class="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none resize-none bg-slate-50"></textarea>
                         </div>
                         
-                        <div id="servicios-seleccionados" class="flex-1 rounded-lg border-2 border-dashed border-indigo-100 bg-indigo-50/30 p-3 overflow-y-auto max-h-[400px]">
-                            <div id="lista-servicios-seleccionados" class="space-y-2">
+                        <div class="pt-2">
+                            <button type="submit" 
+                                    class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-black shadow-lg hover:shadow-emerald-200 transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-2 transform active:scale-[0.98]">
+                                <span class="text-lg">💾</span> <span>Guardar Mensualidad</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 h-full flex flex-col min-h-[500px]">
+                    <div class="bg-indigo-50 border border-indigo-100 p-2 rounded-lg mb-3 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-indigo-200 text-indigo-700 w-5 h-5 flex items-center justify-center rounded text-[10px] font-black">2</span>
+                            <h2 class="text-[11px] font-black text-indigo-800 uppercase tracking-widest">
+                                Gestión de Servicios
+                            </h2>
+                        </div>
+                        <span class="text-[9px] bg-white text-indigo-600 px-2 py-0.5 rounded-full font-bold border border-indigo-200 shadow-sm">
+                            Selecciona y asigna profesionales
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                        
+                        <div class="flex flex-col h-full">
+                            <div class="text-[10px] font-black text-slate-500 mb-1.5 pl-1 uppercase tracking-wide flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-slate-300"></span> Disponibles
+                            </div>
+                            <div id="servicios-container" class="flex-1 bg-slate-50 rounded-xl border-2 border-slate-100 p-2 overflow-y-auto max-h-[500px]">
+                                <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs text-center p-4">
+                                    <span class="text-3xl mb-2 opacity-20">👈</span>
+                                    <p class="font-bold text-slate-500">Selecciona un paciente</p>
+                                    <p class="text-[10px] text-slate-400">para ver sus servicios contratados</p>
                                 </div>
-                            <div id="empty-state-seleccionados" class="h-full flex flex-col items-center justify-center text-indigo-300 text-xs text-center">
-                                <svg class="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                Agrega servicios<br>desde la izquierda
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col h-full">
+                            <div class="text-[10px] font-black text-indigo-600 mb-1.5 pl-1 flex justify-between items-center uppercase tracking-wide">
+                                <div class="flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Seleccionados
+                                </div>
+                                <span class="text-[9px] bg-indigo-50 px-2 rounded-full border border-indigo-100 text-indigo-400 font-bold">Asignar Prof.</span>
+                            </div>
+                            
+                            <div id="servicios-seleccionados" class="flex-1 rounded-xl border-2 border-dashed border-indigo-100 bg-indigo-50/30 p-2 overflow-y-auto max-h-[500px]">
+                                <div id="lista-servicios-seleccionados" class="space-y-2">
+                                    </div>
+                                <div id="empty-state-seleccionados" class="h-full flex flex-col items-center justify-center text-indigo-300 text-xs text-center">
+                                    <span class="text-3xl mb-2 opacity-20">📋</span>
+                                    <p class="font-bold text-indigo-400">Lista vacía</p>
+                                    <p class="text-[10px] text-indigo-300">Agrega servicios desde la izquierda</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -141,12 +166,14 @@
 </div>
 
 <script>
+// ========================================
+// LÓGICA DE JAVASCRIPT (INTACTA)
+// ========================================
+
 // Servicios seleccionados con sus profesionales
 let serviciosConProfesionales = {};
 
-// ========================================
 // CARGAR PACIENTES DE SUCURSAL
-// ========================================
 function cargarPacientesDeSucursal(sucursalId) {
     if (!sucursalId) {
         resetearCascadaCompleta();
@@ -155,11 +182,11 @@ function cargarPacientesDeSucursal(sucursalId) {
     
     const pacientesContainer = document.getElementById('pacientes-container');
     pacientesContainer.innerHTML = `
-        <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">
             👶 Paciente <span class="text-red-500">*</span>
         </label>
         <select name="paciente_id" id="paciente-select" 
-                class="w-full px-3 py-2 text-sm border border-slate-200 bg-slate-50 rounded-lg text-slate-400" 
+                class="w-full px-3 py-2 text-xs font-bold border border-slate-200 bg-slate-50 rounded-lg text-slate-400" 
                 disabled>
             <option value="">⏳ Cargando...</option>
         </select>
@@ -172,10 +199,10 @@ function cargarPacientesDeSucursal(sucursalId) {
         .then(response => response.text())
         .then(html => {
             pacientesContainer.innerHTML = html;
-            // Re-aplicar clases visuales al select que viene del servidor si es necesario
             const select = pacientesContainer.querySelector('select');
             if(select) {
-                select.classList.add('w-full', 'px-3', 'py-2', 'text-sm', 'border', 'border-slate-300', 'rounded-lg', 'focus:ring-1', 'focus:ring-indigo-500', 'focus:border-indigo-500', 'outline-none', 'bg-white');
+                // Aplicar estilos compactos al select cargado dinámicamente
+                select.className = 'w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-all';
             }
             agregarEventoPaciente();
         })
@@ -184,9 +211,7 @@ function cargarPacientesDeSucursal(sucursalId) {
         });
 }
 
-// ========================================
 // EVENTOS DE PACIENTE
-// ========================================
 function agregarEventoPaciente() {
     const pacienteSelect = document.getElementById('paciente-select');
     
@@ -207,13 +232,11 @@ function agregarEventoPaciente() {
     }
 }
 
-// ========================================
 // CARGAR SERVICIOS
-// ========================================
 function cargarServiciosDelPaciente(pacienteId, sucursalId) {
     const serviciosContainer = document.getElementById('servicios-container');
     serviciosContainer.innerHTML = `
-        <div class="flex items-center justify-center h-20 text-xs text-slate-500">
+        <div class="flex items-center justify-center h-20 text-xs text-slate-500 font-bold">
             <span class="animate-pulse">⏳ Buscando servicios...</span>
         </div>
     `;
@@ -230,7 +253,7 @@ function cargarServiciosDelPaciente(pacienteId, sucursalId) {
             const selectElement = tempDiv.querySelector('select');
             if (!selectElement) {
                 serviciosContainer.innerHTML = `
-                    <div class="text-xs text-amber-600 bg-amber-50 rounded p-3 border border-amber-100 text-center">
+                    <div class="text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg p-3 border border-amber-100 text-center">
                         ⚠️ Sin servicios activos
                     </div>
                 `;
@@ -241,7 +264,7 @@ function cargarServiciosDelPaciente(pacienteId, sucursalId) {
             
             if (options.length === 0) {
                 serviciosContainer.innerHTML = `
-                    <div class="text-xs text-amber-600 bg-amber-50 rounded p-3 border border-amber-100 text-center">
+                    <div class="text-[10px] font-bold text-amber-600 bg-amber-50 rounded-lg p-3 border border-amber-100 text-center">
                         ⚠️ Sin servicios contratados
                     </div>
                 `;
@@ -259,15 +282,13 @@ function cargarServiciosDelPaciente(pacienteId, sucursalId) {
                 botonesHTML += `
                     <button type="button" 
                             onclick="agregarServicio('${servicioId}', '${servicioNombre}', '${precioMensual}', '${sucursalId}')"
-                            class="w-full flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 hover:border-indigo-400 hover:shadow-sm hover:bg-indigo-50 transition-all cursor-pointer group text-left">
+                            class="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50 transition-all cursor-pointer group text-left transform active:scale-[0.98]">
                         <div class="flex-1 min-w-0 pr-2">
-                            <p class="font-bold text-slate-700 text-xs truncate group-hover:text-indigo-700">${servicioNombre}</p>
-                            <p class="text-[10px] text-slate-400">Bs. ${parseFloat(precioMensual).toFixed(2)} / mes</p>
+                            <p class="font-bold text-slate-700 text-[11px] truncate group-hover:text-indigo-700">${servicioNombre}</p>
+                            <p class="text-[9px] text-slate-400 font-bold mt-0.5">Bs. ${parseFloat(precioMensual).toFixed(2)} / mes</p>
                         </div>
-                        <div class="text-indigo-600 bg-indigo-50 p-1 rounded-md group-hover:bg-white group-hover:text-indigo-700">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
+                        <div class="text-indigo-400 bg-indigo-50 w-6 h-6 flex items-center justify-center rounded-lg group-hover:bg-indigo-500 group-hover:text-white border border-indigo-100 transition-colors">
+                            <span class="text-lg leading-none font-bold">+</span>
                         </div>
                     </button>
                 `;
@@ -281,13 +302,10 @@ function cargarServiciosDelPaciente(pacienteId, sucursalId) {
         });
 }
 
-// ========================================
 // AGREGAR SERVICIO
-// ========================================
 function agregarServicio(servicioId, servicioNombre, precioMensual, sucursalId) {
     if (serviciosConProfesionales[servicioId]) {
-        // Efecto visual de "ya existe" (opcional)
-        return;
+        return; // Ya está agregado
     }
     
     // Cargar profesionales
@@ -299,7 +317,7 @@ function agregarServicio(servicioId, servicioNombre, precioMensual, sucursalId) 
             
             const selectElement = tempDiv.querySelector('select');
             if (!selectElement) {
-                alert('No hay profesionales disponibles');
+                alert('No hay profesionales disponibles para este servicio en esta sucursal');
                 return;
             }
             
@@ -325,13 +343,11 @@ function agregarServicio(servicioId, servicioNombre, precioMensual, sucursalId) 
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error al cargar datos');
+            alert('Error al cargar datos del servicio');
         });
 }
 
-// ========================================
 // ACTUALIZAR LISTA DE SELECCIONADOS
-// ========================================
 function actualizarListaSeleccionados() {
     const lista = document.getElementById('lista-servicios-seleccionados');
     const emptyState = document.getElementById('empty-state-seleccionados');
@@ -347,32 +363,36 @@ function actualizarListaSeleccionados() {
     
     for (const [servicioId, data] of Object.entries(serviciosConProfesionales)) {
         const card = document.createElement('div');
-        // Estilo tarjeta compacta moderna
-        card.className = 'bg-white border border-indigo-100 rounded-lg shadow-sm p-2.5 relative group hover:border-indigo-300 transition-all';
+        card.className = 'bg-white border border-indigo-100 rounded-xl shadow-sm p-2.5 relative group hover:border-indigo-300 transition-all';
+        
+        // Generar opciones de select
+        const optionsHtml = data.profesionales_disponibles.map(p => `
+            <option value="${p.id}" ${p.id === data.profesional_id ? 'selected' : ''}>
+                ${p.nombre}
+            </option>
+        `).join('');
+
         card.innerHTML = `
             <div class="flex justify-between items-start mb-2">
-                <p class="font-bold text-slate-800 text-xs truncate pr-5" title="${data.nombre}">${data.nombre}</p>
+                <div class="pr-6">
+                    <p class="font-black text-slate-800 text-[11px] truncate" title="${data.nombre}">${data.nombre}</p>
+                    <p class="text-[9px] text-slate-400 font-bold">Bs. ${parseFloat(data.precio).toFixed(2)}</p>
+                </div>
                 <button type="button" onclick="eliminarServicio('${servicioId}')"
-                        class="text-slate-400 hover:text-red-500 absolute top-2 right-2 transition-colors">
+                        class="text-slate-300 hover:text-red-500 absolute top-2 right-2 transition-colors p-1 rounded-md hover:bg-red-50" title="Quitar servicio">
                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                     </svg>
                 </button>
             </div>
             
-            <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded border border-slate-100">
-                <div class="text-indigo-500">
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+            <div class="flex items-center gap-2 bg-indigo-50/50 p-1.5 rounded-lg border border-indigo-100">
+                <div class="text-indigo-500 flex-shrink-0">
+                    <span class="text-[12px]">👨‍⚕️</span>
                 </div>
                 <select onchange="cambiarProfesional('${servicioId}', this.value)"
-                        class="w-full text-[11px] bg-transparent border-none p-0 focus:ring-0 text-slate-600 font-semibold cursor-pointer outline-none">
-                    ${data.profesionales_disponibles.map(p => `
-                        <option value="${p.id}" ${p.id === data.profesional_id ? 'selected' : ''}>
-                            ${p.nombre}
-                        </option>
-                    `).join('')}
+                        class="w-full text-[10px] bg-transparent border-none p-0 focus:ring-0 text-slate-700 font-bold cursor-pointer outline-none hover:text-indigo-700 transition-colors">
+                    ${optionsHtml}
                 </select>
             </div>
             <input type="hidden" name="servicio_ids[]" value="${servicioId}">
@@ -382,36 +402,32 @@ function actualizarListaSeleccionados() {
     }
 }
 
-// ========================================
 // CAMBIAR PROFESIONAL
-// ========================================
 function cambiarProfesional(servicioId, profesionalId) {
     const data = serviciosConProfesionales[servicioId];
     const profesional = data.profesionales_disponibles.find(p => p.id === profesionalId);
-    serviciosConProfesionales[servicioId].profesional_id = profesionalId;
-    serviciosConProfesionales[servicioId].profesional_nombre = profesional.nombre;
-    document.getElementById(`prof-${servicioId}`).value = profesionalId;
+    if(profesional) {
+        serviciosConProfesionales[servicioId].profesional_id = profesionalId;
+        serviciosConProfesionales[servicioId].profesional_nombre = profesional.nombre;
+        document.getElementById(`prof-${servicioId}`).value = profesionalId;
+    }
 }
 
-// ========================================
 // ELIMINAR SERVICIO
-// ========================================
 function eliminarServicio(servicioId) {
     delete serviciosConProfesionales[servicioId];
     actualizarListaSeleccionados();
 }
 
-// ========================================
 // RESETEAR
-// ========================================
 function resetearCascadaCompleta() {
     const pacienteContainer = document.getElementById('pacientes-container');
     pacienteContainer.innerHTML = `
-        <label class="block text-xs font-semibold text-slate-700 mb-1.5">
+        <label class="block text-[11px] font-black text-slate-700 mb-1 pl-1">
             👶 Paciente <span class="text-red-500">*</span>
         </label>
         <select name="paciente_id" id="paciente-select" 
-                class="w-full px-3 py-2 text-sm border border-slate-200 bg-slate-100 rounded-lg text-slate-400" 
+                class="w-full px-3 py-2 text-xs font-bold border border-slate-200 bg-slate-100 rounded-lg text-slate-400" 
                 disabled required>
             <option value="">⏳ Esperando sucursal...</option>
         </select>
@@ -423,28 +439,23 @@ function resetearServicios() {
     const serviciosContainer = document.getElementById('servicios-container');
     serviciosContainer.innerHTML = `
         <div class="flex flex-col items-center justify-center h-full text-slate-400 text-xs text-center p-4">
-            <svg class="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            Selecciona un paciente<br>para ver servicios
+            <span class="text-2xl mb-2 opacity-30">👈</span>
+            <p class="font-bold">Selecciona un paciente</p>
+            <p class="text-[10px]">para ver servicios</p>
         </div>
     `;
     serviciosConProfesionales = {};
     actualizarListaSeleccionados();
 }
 
-// ========================================
 // OBSERVERS
-// ========================================
 const observerPaciente = new MutationObserver(agregarEventoPaciente);
 observerPaciente.observe(document.getElementById('pacientes-container'), {
     childList: true,
     subtree: true
 });
 
-// ========================================
 // GENERAR AÑOS
-// ========================================
 document.addEventListener('DOMContentLoaded', function() {
     const anioSelect = document.getElementById('anio-select');
     const currentYear = new Date().getFullYear();
@@ -459,13 +470,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ========================================
 // VALIDAR ANTES DE ENVIAR
-// ========================================
 document.getElementById('form-mensualidad').addEventListener('submit', function(e) {
     if (Object.keys(serviciosConProfesionales).length === 0) {
         e.preventDefault();
-        alert('⚠️ Debes agregar al menos un servicio');
+        alert('⚠️ Debes agregar al menos un servicio para crear la mensualidad');
         return false;
     }
 });

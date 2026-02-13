@@ -147,7 +147,7 @@
                 </button>
                 
                 {% if not tiene_datos %}
-                <button type="submit" name="accion" value="eliminar" onclick="return confirmarEliminacion()"
+                <button type="button" name="accion" value="eliminar" onclick="confirmarEliminacion(event)"
                         class="btn-peligro w-full bg-white border-2 border-red-100 text-red-600 hover:bg-red-50 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 mt-2">
                     <span>🗑️</span> Sí, eliminar permanentemente
                 </button>
@@ -161,9 +161,33 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-function confirmarEliminacion() {
-    return confirm('⚠️ ¿Estás seguro de eliminar a {{ profesional.nombre_completo }}? Esta acción es irreversible.');
+function confirmarEliminacion(event) {
+    event.preventDefault(); // Detenemos el envío
+    
+    Swal.fire({
+        title: '¿Estás completamente seguro?',
+        text: "Vas a eliminar a {{ profesional.nombre_completo }}. Esta acción es irreversible y no se podrá recuperar la información.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444', // Rojo para peligro
+        cancelButtonColor: '#6b7280',   // Gris para cancelar
+        confirmButtonText: 'Sí, eliminar permanentemente',
+        cancelButtonText: 'No, cancelar',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Si el usuario acepta, enviamos el formulario manualmente
+            const form = document.getElementById('formEliminar');
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'accion';
+            hiddenInput.value = 'eliminar';
+            form.appendChild(hiddenInput);
+            form.submit();
+        }
+    });
 }
 </script>
 {% endblock %}

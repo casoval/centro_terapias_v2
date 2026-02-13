@@ -127,16 +127,41 @@ def detalle_proyecto(request, proyecto_id):
         'profesional', 'servicio'
     ).order_by('-fecha', '-hora_inicio')
     
-    # Pagos del proyecto
-    from facturacion.models import Pago
-    pagos = proyecto.pagos.filter(anulado=False).select_related(
+    # Pagos del proyecto - ✅ CORREGIDO: Incluye pagos masivos
+    from facturacion.models import Pago, Devolucion, DetallePagoMasivo
+    
+    # IDs de pagos directos
+    pagos_directos_ids = proyecto.pagos.filter(anulado=False).values_list('id', flat=True)
+    
+    # IDs de pagos masivos que contienen este proyecto
+    pagos_masivos_ids = DetallePagoMasivo.objects.filter(
+        proyecto=proyecto,
+        tipo='proyecto',
+        pago__anulado=False
+    ).values_list('pago_id', flat=True)
+    
+    # Combinar ambos conjuntos de IDs y obtener todos los pagos
+    todos_ids = set(list(pagos_directos_ids) + list(pagos_masivos_ids))
+    
+    pagos = Pago.objects.filter(
+        id__in=todos_ids,
+        anulado=False
+    ).select_related(
         'metodo_pago', 'registrado_por'
     ).order_by('-fecha_pago')
+    
+    # ✅ NUEVO: Devoluciones del proyecto
+    devoluciones = Devolucion.objects.filter(
+        proyecto=proyecto
+    ).select_related(
+        'metodo_devolucion', 'registrado_por'
+    ).order_by('-fecha_devolucion')
     
     # Estadísticas
     stats = {
         'total_sesiones': sesiones.count(),
         'sesiones_realizadas': sesiones.filter(estado='realizada').count(),
+        'sesiones_programadas': sesiones.filter(estado='programada').count(),
         'total_horas': sum(s.duracion_minutos for s in sesiones) / 60,
     }
     
@@ -144,6 +169,7 @@ def detalle_proyecto(request, proyecto_id):
         'proyecto': proyecto,
         'sesiones': sesiones,
         'pagos': pagos,
+        'devoluciones': devoluciones,  # ✅ NUEVO
         'stats': stats,
     }
     
@@ -250,30 +276,62 @@ def crear_proyecto(request):
 
 @login_required
 def actualizar_estado_proyecto(request, proyecto_id):
-    """Actualizar estado de un proyecto (AJAX)"""
+    """
+    Actualizar estado de un proyecto (AJAX)
+    ✅ MEJORADO: Incluye opción de ajuste para estado cancelado
+    """
     
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     
     try:
+        from .services import ProyectoMensualidadService
+        
         proyecto = Proyecto.objects.get(id=proyecto_id)
         nuevo_estado = request.POST.get('estado')
         
         if nuevo_estado not in dict(Proyecto.ESTADO_CHOICES):
             return JsonResponse({'error': 'Estado inválido'}, status=400)
         
+        # ✅ NUEVO: Manejo especial para estados finales
+        if nuevo_estado in ['finalizado', 'cancelado']:
+            # Validar que no tenga sesiones programadas
+            resultado = ProyectoMensualidadService.validar_cambio_estado(
+                proyecto, nuevo_estado, tipo='proyecto'
+            )
+            
+            if not resultado['success']:
+                return JsonResponse({
+                    'error': True,
+                    'mensaje': resultado['mensaje'],
+                    'tiene_sesiones_programadas': True,
+                    'num_sesiones': resultado['num_sesiones_programadas']
+                }, status=400)
+            
+            # Determinar si se debe ajustar el costo
+            # ✅ FINALIZADO: Siempre ajusta automáticamente
+            # ✅ CANCELADO: Solo si el usuario lo indica
+            if nuevo_estado == 'finalizado':
+                ajustar_costo = True
+            else:  # cancelado
+                # El parámetro viene del formulario/modal
+                ajustar_costo = request.POST.get('ajustar_costo') == 'true'
+            
+            # Aplicar cambio de estado con ajuste
+            resultado_cambio = ProyectoMensualidadService.cambiar_estado_con_ajuste(
+                proyecto, nuevo_estado, ajustar_costo, request.user, tipo='proyecto'
+            )
+            
+            return JsonResponse(resultado_cambio)
+        
+        # Cambio de estado normal (sin ajuste)
         proyecto.estado = nuevo_estado
         proyecto.modificado_por = request.user
-        
-        # Si se finaliza, establecer fecha_fin_real
-        if nuevo_estado == 'finalizado' and not proyecto.fecha_fin_real:
-            from datetime import date
-            proyecto.fecha_fin_real = date.today()
-        
         proyecto.save()
         
         return JsonResponse({
             'success': True,
+            'ajuste_realizado': False,
             'mensaje': f'Estado actualizado a: {proyecto.get_estado_display()}'
         })
         
@@ -508,14 +566,38 @@ def detalle_mensualidad(request, mensualidad_id):
         'profesional', 'servicio'
     ).order_by('fecha', 'hora_inicio')
     
-    # Pagos de la mensualidad
-    from facturacion.models import Pago
-    pagos = Pago.objects.filter(
+    # Pagos de la mensualidad - ✅ CORREGIDO: Incluye pagos masivos
+    from facturacion.models import Pago, Devolucion, DetallePagoMasivo
+    
+    # IDs de pagos directos
+    pagos_directos_ids = Pago.objects.filter(
         mensualidad=mensualidad,
+        anulado=False
+    ).values_list('id', flat=True)
+    
+    # IDs de pagos masivos que contienen esta mensualidad
+    pagos_masivos_ids = DetallePagoMasivo.objects.filter(
+        mensualidad=mensualidad,
+        tipo='mensualidad',
+        pago__anulado=False
+    ).values_list('pago_id', flat=True)
+    
+    # Combinar ambos conjuntos de IDs y obtener todos los pagos
+    todos_ids = set(list(pagos_directos_ids) + list(pagos_masivos_ids))
+    
+    pagos = Pago.objects.filter(
+        id__in=todos_ids,
         anulado=False
     ).select_related(
         'metodo_pago', 'registrado_por'
     ).order_by('-fecha_pago')
+    
+    # ✅ NUEVO: Devoluciones de la mensualidad
+    devoluciones = Devolucion.objects.filter(
+        mensualidad=mensualidad
+    ).select_related(
+        'metodo_devolucion', 'registrado_por'
+    ).order_by('-fecha_devolucion')
     
     # Estadísticas
     stats = {
@@ -523,6 +605,7 @@ def detalle_mensualidad(request, mensualidad_id):
         'sesiones_realizadas': sesiones.filter(
             estado__in=['realizada', 'realizada_retraso']
         ).count(),
+        'sesiones_programadas': sesiones.filter(estado='programada').count(),
         'total_horas': sum(s.duracion_minutos for s in sesiones) / 60,
     }
     
@@ -530,6 +613,7 @@ def detalle_mensualidad(request, mensualidad_id):
         'mensualidad': mensualidad,
         'sesiones': sesiones,
         'pagos': pagos,
+        'devoluciones': devoluciones,  # ✅ NUEVO
         'stats': stats,
     }
     
@@ -537,24 +621,62 @@ def detalle_mensualidad(request, mensualidad_id):
 
 @login_required
 def actualizar_estado_mensualidad(request, mensualidad_id):
-    """Actualizar estado de una mensualidad (AJAX)"""
+    """
+    Actualizar estado de una mensualidad (AJAX)
+    ✅ MEJORADO: Incluye opción de ajuste para estado cancelada
+    """
     
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     
     try:
+        from .services import ProyectoMensualidadService
+        
         mensualidad = Mensualidad.objects.get(id=mensualidad_id)
         nuevo_estado = request.POST.get('estado')
         
         if nuevo_estado not in dict(Mensualidad.ESTADO_CHOICES):
             return JsonResponse({'error': 'Estado inválido'}, status=400)
         
+        # ✅ NUEVO: Manejo especial para estados finales
+        if nuevo_estado in ['completada', 'cancelada']:
+            # Validar que no tenga sesiones programadas
+            resultado = ProyectoMensualidadService.validar_cambio_estado(
+                mensualidad, nuevo_estado, tipo='mensualidad'
+            )
+            
+            if not resultado['success']:
+                return JsonResponse({
+                    'error': True,
+                    'mensaje': resultado['mensaje'],
+                    'tiene_sesiones_programadas': True,
+                    'num_sesiones': resultado['num_sesiones_programadas']
+                }, status=400)
+            
+            # Determinar si se debe ajustar el costo
+            # ✅ COMPLETADA: Siempre ajusta automáticamente
+            # ✅ CANCELADA: Solo si el usuario lo indica
+            if nuevo_estado == 'completada':
+                ajustar_costo = True
+            else:  # cancelada
+                # El parámetro viene del formulario/modal
+                ajustar_costo = request.POST.get('ajustar_costo') == 'true'
+            
+            # Aplicar cambio de estado con ajuste
+            resultado_cambio = ProyectoMensualidadService.cambiar_estado_con_ajuste(
+                mensualidad, nuevo_estado, ajustar_costo, request.user, tipo='mensualidad'
+            )
+            
+            return JsonResponse(resultado_cambio)
+        
+        # Cambio de estado normal (sin ajuste)
         mensualidad.estado = nuevo_estado
         mensualidad.modificada_por = request.user
         mensualidad.save()
         
         return JsonResponse({
             'success': True,
+            'ajuste_realizado': False,
             'mensaje': f'Estado actualizado a: {mensualidad.get_estado_display()}'
         })
         
@@ -564,6 +686,7 @@ def actualizar_estado_mensualidad(request, mensualidad_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@login_required
 @login_required
 def confirmacion_mensualidad(request):
     """
@@ -575,6 +698,48 @@ def confirmacion_mensualidad(request):
     
     if not datos_mensualidad:
         messages.error(request, '❌ No hay datos de mensualidad para mostrar')
+
+
+# ✅ NUEVO: API para obtener datos de confirmación al cancelar
+@login_required
+def api_datos_confirmacion_cancelacion(request):
+    """
+    API para obtener datos necesarios para confirmar cancelación
+    Se usa tanto para proyectos como mensualidades
+    """
+    
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    
+    try:
+        from .services import ProyectoMensualidadService
+        
+        tipo = request.GET.get('tipo')  # 'proyecto' o 'mensualidad'
+        objeto_id = request.GET.get('id')
+        nuevo_estado = request.GET.get('estado')
+        
+        if not all([tipo, objeto_id, nuevo_estado]):
+            return JsonResponse({'error': 'Parámetros incompletos'}, status=400)
+        
+        # Obtener el objeto
+        if tipo == 'proyecto':
+            instancia = Proyecto.objects.get(id=objeto_id)
+        elif tipo == 'mensualidad':
+            instancia = Mensualidad.objects.get(id=objeto_id)
+        else:
+            return JsonResponse({'error': 'Tipo inválido'}, status=400)
+        
+        # Obtener datos para confirmación
+        datos = ProyectoMensualidadService.obtener_datos_para_confirmacion(
+            instancia, nuevo_estado, tipo
+        )
+        
+        return JsonResponse(datos)
+        
+    except (Proyecto.DoesNotExist, Mensualidad.DoesNotExist):
+        return JsonResponse({'error': 'Objeto no encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
         return redirect('agenda:lista_mensualidades')
     
     # Limpiar sesión después de obtener datos
@@ -962,6 +1127,10 @@ def agendar_recurrente(request):
                 datetime.strptime(f, '%Y-%m-%d').date() for f in sesiones_seleccionadas
             ])
             
+            # 🐛 DEBUG: Ver qué fechas llegaron
+            print(f"🔍 DEBUG fechas_seleccionadas: {sorted(fechas_seleccionadas)}")
+            print(f"🔍 DEBUG dias_semana: {dias_semana}")
+            print(f"🔍 DEBUG fecha_inicio: {fecha_inicio}, fecha_fin: {fecha_fin}")
             # 🆕 NUEVO: Obtener proyecto si fue seleccionado
             asignar_proyecto = request.POST.get('asignar_proyecto') == 'on'
             proyecto_id = request.POST.get('proyecto_id')
@@ -990,6 +1159,16 @@ def agendar_recurrente(request):
             
             # Obtener duración personalizada
             duracion_personalizada = request.POST.get('duracion_personalizada')
+            
+            # ✅ CORREGIDO: Leer sesiones_grupales del POST correctamente
+            # El checkbox HTML envía 'on' cuando está marcado, no 'true'
+            sesiones_grupales_raw = request.POST.get('sesiones_grupales', '')
+            permitir_sesiones_grupales = sesiones_grupales_raw in ('on', 'true', '1', 'True')
+            
+            # 🐛 DEBUG
+            print(f"🔍 DEBUG sesiones_grupales_raw: '{sesiones_grupales_raw}'")
+            print(f"🔍 DEBUG permitir_sesiones_grupales: {permitir_sesiones_grupales}")
+            print(f"🔍 DEBUG sesiones_seleccionadas count: {len(sesiones_seleccionadas)}")
             
             paciente = Paciente.objects.get(id=paciente_id)
             servicio = TipoServicio.objects.get(id=servicio_id)
@@ -1059,34 +1238,59 @@ def agendar_recurrente(request):
             while fecha_actual <= fecha_fin:
                 # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
                 if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
+                    # 🐛 DEBUG: Fecha procesada
+                    print(f"✅ Procesando {fecha_actual.strftime("%Y-%m-%d")} - weekday={fecha_actual.weekday()}, en fechas_selec={fecha_actual in fechas_seleccionadas}")
                     try:
-                        disponible, mensaje = Sesion.validar_disponibilidad(
-                            paciente, profesional, fecha_actual, hora, hora_fin
+                        # ✅ CORREGIDO: Usar validar_disponibilidad_con_grupales
+                        # para respetar el checkbox de sesiones grupales
+                        # 🐛 DEBUG
+                        disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+                            paciente, profesional, fecha_actual, hora, hora_fin,
+                            permitir_sesiones_grupales=permitir_sesiones_grupales
                         )
+                        
+                        # 🐛 DEBUG: Resultado de validación
+                        print(f"📅 Validando {fecha_actual.strftime("%Y-%m-%d")}: disponible={disponible}, mensaje={mensaje}, permitir_grupales={permitir_sesiones_grupales}")
                         
                         if disponible:
                             # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
-                            Sesion.objects.create(
+                            print(f"💾 Intentando crear sesión para {fecha_actual}")
+                            
+                            # ✅ Crear instancia SIN guardar
+                            sesion = Sesion(
                                 paciente=paciente,
                                 servicio=servicio,
                                 profesional=profesional,
                                 sucursal=sucursal,
-                                proyecto=proyecto,  # 🆕 NUEVO
-                                mensualidad=mensualidad,  # 💳 NUEVO
+                                proyecto=proyecto,
+                                mensualidad=mensualidad,
                                 fecha=fecha_actual,
                                 hora_inicio=hora,
                                 hora_fin=hora_fin,
                                 duracion_minutos=duracion_minutos,
-                                monto_cobrado=monto,  # 0 si es proyecto o mensualidad
-                                creada_por=request.user
+                                monto_cobrado=monto,
+                                creada_por=request.user,
+                                modificada_por=request.user
                             )
+                            
+                            # ✅ Si se permiten sesiones grupales, agregar flag
+                            if permitir_sesiones_grupales:
+                                sesion._permitir_sesiones_grupales = True
+                                print(f"🔓 Flag sesiones grupales establecido para {fecha_actual}")
+                            
+                            # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+                            sesion.save()
                             sesiones_creadas += 1
+                            print(f"✅ Sesión creada exitosamente para {fecha_actual}. Total creadas: {sesiones_creadas}")
                         else:
                             sesiones_error.append({
                                 'fecha': fecha_actual,
                                 'error': mensaje
                             })
                     except Exception as e:
+                        print(f"❌ EXCEPCIÓN capturada para {fecha_actual}: {e}")
+                        import traceback
+                        traceback.print_exc()
                         sesiones_error.append({
                             'fecha': fecha_actual,
                             'error': str(e)
@@ -1094,6 +1298,9 @@ def agendar_recurrente(request):
                 
                 fecha_actual += timedelta(days=1)
             
+            
+            # 🐛 DEBUG: Resumen final
+            print(f"\n📊 RESUMEN: sesiones_creadas={sesiones_creadas}, sesiones_error={len(sesiones_error)}")
             if sesiones_creadas > 0:
                 # 🆕 Preparar datos para confirmación
                 dias_nombres = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
@@ -1352,6 +1559,7 @@ def cargar_profesionales_por_servicio(request):
         })
 
 @login_required
+@solo_sus_sucursales
 def vista_previa_recurrente(request):
     """Vista previa de sesiones recurrentes ULTRA COMPACTA"""
     
@@ -1367,6 +1575,9 @@ def vista_previa_recurrente(request):
     
     # ✨ NUEVO: Parámetro para incluir sesiones pasadas
     incluir_pasadas = request.GET.get('incluir_pasadas', 'false').lower() == 'true'
+    
+    # ✅ NUEVO: Parámetro para sesiones grupales
+    permitir_sesiones_grupales = request.GET.get('sesiones_grupales', 'false').lower() == 'true'
     
     # Validar parámetros básicos
     if not all([fecha_inicio_str, fecha_fin_str, hora_str, dias_semana]):
@@ -1453,10 +1664,12 @@ def vista_previa_recurrente(request):
         sesiones_data = []
         fecha_actual = fecha_inicio_efectiva
         
+        # ✅ MODIFICADO: Pasar el parámetro permitir_sesiones_grupales
         while fecha_actual <= fecha_fin:
             if fecha_actual.weekday() in dias_semana:
                 sesion_info = _validar_disponibilidad_detallada(
-                    paciente, profesional, fecha_actual, hora, hora_fin
+                    paciente, profesional, fecha_actual, hora, hora_fin,
+                    permitir_sesiones_grupales=permitir_sesiones_grupales  # ✅ NUEVO
                 )
                 
                 sesiones_data.append({
@@ -1650,10 +1863,20 @@ def vista_previa_recurrente(request):
             </div>
         ''')
 
-def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio, hora_fin):
+
+def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio, hora_fin, permitir_sesiones_grupales=False):
     """
     Valida disponibilidad y retorna detalles COMPLETOS de los conflictos
     ✅ ACTUALIZADO: Incluye información detallada para tooltips
+    ✅ NUEVO: Soporte para sesiones grupales
+    
+    Args:
+        paciente: Paciente
+        profesional: Profesional
+        fecha: Fecha de la sesión
+        hora_inicio: Hora de inicio
+        hora_fin: Hora de fin
+        permitir_sesiones_grupales: Si True, no valida conflictos del profesional
     """
     resultado = {
         'disponible': True,
@@ -1670,7 +1893,7 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
     inicio = datetime.combine(fecha, hora_inicio)
     fin = datetime.combine(fecha, hora_fin)
     
-    # Verificar conflictos del PACIENTE
+    # ✅ Verificar conflictos del PACIENTE (siempre se valida)
     sesiones_paciente = Sesion.objects.filter(
         paciente=paciente,
         fecha=fecha,
@@ -1693,35 +1916,34 @@ def _validar_disponibilidad_detallada(paciente, profesional, fecha, hora_inicio,
                 'duracion': sesion.duracion_minutos
             })
     
-    # Verificar conflictos del PROFESIONAL
-    sesiones_profesional = Sesion.objects.filter(
-        profesional=profesional,
-        fecha=fecha,
-        estado__in=['programada', 'realizada', 'realizada_retraso']
-    ).select_related('paciente', 'servicio', 'sucursal')
-    
-    for sesion in sesiones_profesional:
-        s_inicio = datetime.combine(fecha, sesion.hora_inicio)
-        s_fin = datetime.combine(fecha, sesion.hora_fin)
+    # ✅ Verificar conflictos del PROFESIONAL (solo si NO se permiten sesiones grupales)
+    if not permitir_sesiones_grupales:
+        sesiones_profesional = Sesion.objects.filter(
+            profesional=profesional,
+            fecha=fecha,
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        ).select_related('paciente', 'servicio', 'sucursal')
         
-        if (inicio < s_fin and fin > s_inicio):
-            resultado['disponible'] = False
-            resultado['tiene_conflicto_profesional'] = True
-            resultado['conflictos_profesional'].append({
-                'paciente': f"{sesion.paciente.nombre} {sesion.paciente.apellido}",
-                'servicio': sesion.servicio.nombre,
-                'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
-                'hora_fin': sesion.hora_fin.strftime('%H:%M'),
-                'sucursal': sesion.sucursal.nombre,
-                'duracion': sesion.duracion_minutos
-            })
+        for sesion in sesiones_profesional:
+            s_inicio = datetime.combine(fecha, sesion.hora_inicio)
+            s_fin = datetime.combine(fecha, sesion.hora_fin)
+            
+            if (inicio < s_fin and fin > s_inicio):
+                resultado['disponible'] = False
+                resultado['tiene_conflicto_profesional'] = True
+                resultado['conflictos_profesional'].append({
+                    'paciente': f"{sesion.paciente.nombre} {sesion.paciente.apellido}",
+                    'servicio': sesion.servicio.nombre,
+                    'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
+                    'hora_fin': sesion.hora_fin.strftime('%H:%M'),
+                    'sucursal': sesion.sucursal.nombre,
+                    'duracion': sesion.duracion_minutos
+                })
     
     # Contar total de conflictos
     resultado['num_conflictos'] = len(resultado['conflictos_paciente']) + len(resultado['conflictos_profesional'])
     
     return resultado
-
-
 
 @login_required
 @solo_sus_sucursales
@@ -1736,6 +1958,8 @@ def vista_previa_mensualidad(request):
     hora_str = request.GET.get('hora')
     duracion_str = request.GET.get('duracion', '45')
     modo_seleccion = request.GET.get('modo_seleccion', 'recurrente')
+    
+    permitir_sesiones_grupales = request.GET.get('sesiones_grupales', 'false').lower() == 'true'
     
     # Detectar si es una petición para validar UN solo día (casilla)
     solo_dia = request.GET.get('solo_dia') == 'true'
@@ -1799,7 +2023,8 @@ def vista_previa_mensualidad(request):
                 servicio_profesional.profesional,
                 fecha,
                 hora,
-                hora_fin
+                hora_fin,
+                permitir_sesiones_grupales=permitir_sesiones_grupales
             )
 
             # Retornar JSON completo con detalles de conflictos
@@ -1904,7 +2129,8 @@ def vista_previa_mensualidad(request):
                 servicio_profesional.profesional,
                 fecha,
                 hora,
-                hora_fin
+                hora_fin,
+                permitir_sesiones_grupales=permitir_sesiones_grupales
             )
             
             sesiones_data.append({
@@ -2841,6 +3067,7 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
     """
     Procesa el formulario de agendamiento desde mensualidad
     OPCIÓN C: Soporta días específicos Y patrón recurrente
+    ✅ MODIFICADO: Ahora soporta sesiones grupales
     """
     
     if request.method != 'POST':
@@ -2874,6 +3101,10 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
         duracion_minutos = int(request.POST.get('duracion_minutos'))
         modo_seleccion = request.POST.get('modo_seleccion', 'recurrente')
         observaciones = request.POST.get('observaciones', '')
+        
+        # ✅ NUEVO: Leer sesiones_grupales del POST
+        sesiones_grupales_raw = request.POST.get('sesiones_grupales', '')
+        permitir_sesiones_grupales = sesiones_grupales_raw in ('on', 'true', '1', 'True')
         
         # Validaciones básicas
         if not all([hora_inicio_str, duracion_minutos]):
@@ -2961,7 +3192,7 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
             return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
         
         # ========================================
-        # CREAR SESIONES
+        # CREAR SESIONES (✅ MODIFICADO CON SESIONES GRUPALES)
         # ========================================
         sesiones_creadas = 0
         sesiones_con_conflicto = 0
@@ -2969,23 +3200,45 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
         
         for fecha in fechas_generadas:
             try:
-                # Crear sesión (el modelo Sesion.clean() validará conflictos automáticamente)
-                Sesion.objects.create(
-                    paciente=mensualidad.paciente,
-                    servicio=servicio_profesional.servicio,
-                    profesional=servicio_profesional.profesional,
-                    sucursal=mensualidad.sucursal,
-                    mensualidad=mensualidad,
-                    fecha=fecha,
-                    hora_inicio=hora_inicio,
-                    hora_fin=hora_fin,
-                    duracion_minutos=duracion_minutos,
-                    estado='programada',
-                    observaciones=observaciones,
-                    creada_por=request.user,
-                    modificada_por=request.user
+                # ✅ VALIDAR con sesiones grupales
+                disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+                    mensualidad.paciente,
+                    servicio_profesional.profesional,
+                    fecha,
+                    hora_inicio,
+                    hora_fin,
+                    permitir_sesiones_grupales=permitir_sesiones_grupales
                 )
-                sesiones_creadas += 1
+                
+                if disponible:
+                    # ✅ Crear instancia SIN guardar
+                    sesion = Sesion(
+                        paciente=mensualidad.paciente,
+                        servicio=servicio_profesional.servicio,
+                        profesional=servicio_profesional.profesional,
+                        sucursal=mensualidad.sucursal,
+                        mensualidad=mensualidad,
+                        fecha=fecha,
+                        hora_inicio=hora_inicio,
+                        hora_fin=hora_fin,
+                        duracion_minutos=duracion_minutos,
+                        estado='programada',
+                        observaciones=observaciones,
+                        creada_por=request.user,
+                        modificada_por=request.user
+                    )
+                    
+                    # ✅ Si se permiten sesiones grupales, agregar flag
+                    if permitir_sesiones_grupales:
+                        sesion._permitir_sesiones_grupales = True
+                    
+                    # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+                    sesion.save()
+                    sesiones_creadas += 1
+                else:
+                    # No disponible según validación
+                    sesiones_con_conflicto += 1
+                    fechas_con_conflicto.append(fecha.strftime('%d/%m'))
                 
             except ValidationError as e:
                 # El modelo detectó un conflicto en clean()

@@ -8,32 +8,107 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background: linear-gradient(135deg, #FEF3C7 0%, #FED7AA 50%, #FECACA 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 60%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
         }
+
+        /* FONDO ANIMADO CON GRADIENTE Y ESTRELLAS - Brillo reducido */
         .animated-bg {
             position: fixed;
             width: 100%;
             height: 100%;
             top: 0;
             left: 0;
-            z-index: -1;
+            z-index: 0;
+            background: linear-gradient(135deg, #5568d3 0%, #5d3a85 25%, #d67dd9 50%, #d04356 75%, #3d8fd9 100%);
+            background-size: 400% 400%;
+            animation: gradient-shift 15s ease infinite;
         }
-        .circle {
+
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ESTRELLAS PARPADEANTES - Animación más acentuada */
+        .animated-bg::before {
+            content: '';
             position: absolute;
-            border-radius: 50%;
-            opacity: 0.1;
-            animation: float 20s infinite ease-in-out;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20% 30%, white, transparent),
+                radial-gradient(2px 2px at 60% 70%, white, transparent),
+                radial-gradient(1px 1px at 50% 50%, white, transparent),
+                radial-gradient(1px 1px at 80% 10%, white, transparent),
+                radial-gradient(2px 2px at 90% 60%, white, transparent),
+                radial-gradient(1px 1px at 33% 80%, white, transparent),
+                radial-gradient(2px 2px at 15% 15%, white, transparent),
+                radial-gradient(1px 1px at 70% 40%, white, transparent),
+                radial-gradient(2px 2px at 40% 20%, white, transparent),
+                radial-gradient(1px 1px at 25% 60%, white, transparent),
+                radial-gradient(2px 2px at 85% 85%, white, transparent),
+                radial-gradient(1px 1px at 45% 90%, white, transparent),
+                radial-gradient(2px 2px at 10% 50%, white, transparent),
+                radial-gradient(1px 1px at 95% 35%, white, transparent),
+                radial-gradient(2px 2px at 55% 5%, white, transparent);
+            background-size: 100% 100%;
+            animation: stars-twinkle 3s ease-in-out infinite, stars-float 8s ease-in-out infinite;
+            pointer-events: none;
         }
-        .circle1 { width: 120px; height: 120px; background: #EF4444; top: 10%; left: 10%; animation-delay: 0s; }
-        .circle2 { width: 90px; height: 90px; background: #FBBF24; top: 60%; left: 80%; animation-delay: 5s; }
-        .circle3 { width: 60px; height: 60px; background: #3B82F6; top: 80%; left: 20%; animation-delay: 10s; }
-        .circle4 { width: 108px; height: 108px; background: #10B981; top: 30%; left: 70%; animation-delay: 15s; }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-18px) scale(1.1); }
+
+        /* SEGUNDA CAPA DE ESTRELLAS */
+        .animated-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(1px 1px at 75% 25%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(2px 2px at 35% 65%, rgba(255,255,255,0.5), transparent),
+                radial-gradient(1px 1px at 88% 48%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(2px 2px at 12% 75%, rgba(255,255,255,0.5), transparent),
+                radial-gradient(1px 1px at 65% 85%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(2px 2px at 48% 15%, rgba(255,255,255,0.5), transparent),
+                radial-gradient(1px 1px at 92% 72%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(2px 2px at 28% 42%, rgba(255,255,255,0.5), transparent);
+            background-size: 100% 100%;
+            animation: stars-twinkle 4s ease-in-out infinite reverse, stars-float 10s ease-in-out infinite reverse;
+            pointer-events: none;
+        }
+
+        @keyframes stars-twinkle {
+            0%, 100% {
+                opacity: 0.1;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.5);
+            }
+        }
+
+        @keyframes stars-float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+            }
+            25% {
+                transform: translateY(-20px) translateX(10px);
+            }
+            50% {
+                transform: translateY(-10px) translateX(-10px);
+            }
+            75% {
+                transform: translateY(-25px) translateX(8px);
+            }
         }
         
         .card-shadow {
@@ -49,18 +124,67 @@
             transform: scale(0.8);
             transform-origin: center;
         }
+
+        /* ESTILOS PARA EL TOGGLE DE CONTRASEÑA */
+        .password-toggle {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .password-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .password-toggle:active {
+            transform: scale(0.95);
+        }
+
+        /* Contenedor relativo para el input de contraseña */
+        .password-input-container {
+            position: relative;
+        }
+
+        .password-input-container input {
+            padding-right: 3.5rem;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 0.75rem 1rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .password-toggle-btn:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        .password-toggle-btn svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            color: #6b7280;
+            transition: color 0.3s ease;
+        }
+
+        .password-toggle-btn:hover svg {
+            color: #3b82f6;
+        }
     </style>
 </head>
 <body>
-    <div class="animated-bg">
-        <div class="circle circle1"></div>
-        <div class="circle circle2"></div>
-        <div class="circle circle3"></div>
-        <div class="circle circle4"></div>
-    </div>
+    <div class="animated-bg"></div>
     
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="container-80 max-w-md w-full space-y-8 bg-white p-10 rounded-3xl card-shadow border-8 border-white">
+    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="container-80 max-w-md w-full space-y-8 bg-white/95 backdrop-blur-sm p-10 rounded-3xl card-shadow border-8 border-white/50">
             <div>
                 <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-40 h-40 mx-auto flex items-center justify-center border-4 border-white shadow-lg">
                     <img class="h-32 w-auto" src="{% static 'img/logo_misael.png' %}" alt="Logo">
@@ -104,16 +228,31 @@
                                class="input-focus appearance-none block w-full px-5 py-4 border-3 border-yellow-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-yellow-400 focus:border-yellow-500 text-base font-medium transition-all duration-300" 
                                placeholder="Ingresa tu usuario">
                     </div>
+                    
                     <div>
                         <label for="id_password" class="block text-sm font-bold text-gray-700 mb-2 ml-1">
                             🔒 Contraseña
                         </label>
-                        <input id="id_password" 
-                               name="password" 
-                               type="password" 
-                               required 
-                               class="input-focus appearance-none block w-full px-5 py-4 border-3 border-blue-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-blue-500 text-base font-medium transition-all duration-300" 
-                               placeholder="Ingresa tu contraseña">
+                        <div class="password-input-container">
+                            <input id="id_password" 
+                                   name="password" 
+                                   type="password" 
+                                   required 
+                                   class="input-focus appearance-none block w-full px-5 py-4 border-3 border-blue-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-blue-500 text-base font-medium transition-all duration-300" 
+                                   placeholder="Ingresa tu contraseña">
+                            <button type="button" 
+                                    class="password-toggle-btn" 
+                                    onclick="togglePassword()"
+                                    aria-label="Mostrar/Ocultar contraseña">
+                                <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <svg id="eye-off-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -135,5 +274,23 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('id_password');
+            const eyeIcon = document.getElementById('eye-icon');
+            const eyeOffIcon = document.getElementById('eye-off-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.style.display = 'none';
+                eyeOffIcon.style.display = 'block';
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.style.display = 'block';
+                eyeOffIcon.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>

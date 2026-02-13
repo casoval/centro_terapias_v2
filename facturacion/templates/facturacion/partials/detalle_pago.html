@@ -54,8 +54,76 @@
         <p class="text-xs text-gray-700">{{ pago.concepto }}</p>
     </div>
 
-    <!-- 🆕 SESIÓN ASOCIADA -->
-    {% if pago.sesion %}
+    <!-- ✅ NUEVO: DETALLES DE PAGO MASIVO -->
+    {% if pago.es_pago_masivo %}
+    <div class="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-400 rounded-lg p-2 sm:p-3">
+        <h3 class="text-xs sm:text-sm font-bold text-purple-900 mb-2 flex items-center gap-1.5">
+            <span class="text-base sm:text-lg">💰</span>
+            Pago Masivo - {{ pago.cantidad_detalles }} Ítem{{ pago.cantidad_detalles|pluralize }}
+        </h3>
+        
+        <p class="text-[10px] text-purple-700 mb-2">
+            Este recibo agrupa el pago de múltiples servicios en una sola transacción.
+        </p>
+        
+        <div class="space-y-1.5 max-h-60 overflow-y-auto">
+            {% for detalle in pago.detalles_masivos.all %}
+            <div class="bg-white border border-purple-200 rounded-lg p-2">
+                <div class="flex justify-between items-start mb-1">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold
+                                {% if detalle.tipo == 'sesion' %}bg-purple-100 text-purple-700
+                                {% elif detalle.tipo == 'proyecto' %}bg-blue-100 text-blue-700
+                                {% elif detalle.tipo == 'mensualidad' %}bg-indigo-100 text-indigo-700
+                                {% endif %}">
+                                {% if detalle.tipo == 'sesion' %}🧘 Sesión
+                                {% elif detalle.tipo == 'proyecto' %}📦 Proyecto
+                                {% elif detalle.tipo == 'mensualidad' %}💳 Mensualidad
+                                {% endif %}
+                            </span>
+                        </div>
+                        <p class="text-xs font-bold text-gray-900">{{ detalle.concepto }}</p>
+                    </div>
+                    <p class="text-sm font-black text-purple-700 ml-2">
+                        Bs. {{ detalle.monto|floatformat:2 }}
+                    </p>
+                </div>
+                
+                <!-- Información adicional según tipo -->
+                {% if detalle.sesion %}
+                    <p class="text-[10px] text-gray-600">
+                        📅 {{ detalle.sesion.fecha|date:"d/m/Y" }} • 
+                        {{ detalle.sesion.servicio.nombre }} • 
+                        {{ detalle.sesion.profesional.nombre }}
+                    </p>
+                {% elif detalle.proyecto %}
+                    <p class="text-[10px] text-gray-600">
+                        📦 {{ detalle.proyecto.codigo }} • 
+                        {{ detalle.proyecto.nombre }}
+                    </p>
+                {% elif detalle.mensualidad %}
+                    <p class="text-[10px] text-gray-600">
+                        💳 {{ detalle.mensualidad.periodo_display }} • 
+                        {{ detalle.mensualidad.codigo }}
+                    </p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Resumen del pago masivo -->
+        <div class="bg-purple-900 rounded-lg p-2 mt-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-purple-100">Total del Pago Masivo:</span>
+                <span class="text-lg font-black text-white">Bs. {{ pago.monto|floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 🆕 SESIÓN ASOCIADA (solo si NO es pago masivo) -->
+    {% if pago.sesion and not pago.es_pago_masivo %}
     <div class="border-t pt-2 sm:pt-3">
         <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 flex items-center gap-1.5">
             <span class="text-base sm:text-lg">📅</span>
@@ -119,8 +187,8 @@
             </div>
         </div>
     </div>
-    {% elif pago.proyecto %}
-    <!-- Proyecto asociado -->
+    {% elif pago.proyecto and not pago.es_pago_masivo %}
+    <!-- Proyecto asociado (solo si NO es pago masivo) -->
     <div class="border-t pt-2 sm:pt-3">
         <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 flex items-center gap-1.5">
             <span class="text-base sm:text-lg">📦</span>
@@ -144,8 +212,8 @@
             </div>
         </div>
     </div>
-    {% else %}
-    <!-- Pago adelantado / A cuenta -->
+    {% elif not pago.es_pago_masivo %}
+    <!-- Pago adelantado / A cuenta (solo si NO es pago masivo) -->
     <div class="border-t pt-2 sm:pt-3">
         <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 text-center">
             <p class="text-xl sm:text-2xl mb-1">💰</p>

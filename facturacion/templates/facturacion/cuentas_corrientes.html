@@ -98,25 +98,78 @@
                 <p class="text-[10px] text-gray-500">{{ paciente.nombre_tutor }}</p>
             </div>
             
-            <div class="flex flex-wrap gap-1 mb-1.5">
+            <div class="flex flex-wrap gap-1 mb-2">
                 {% for sucursal in paciente.sucursales.all %}
                 <span class="inline-block bg-gray-100 text-gray-700 text-[9px] px-1 py-0.5 rounded">{{ sucursal.nombre }}</span>
                 {% endfor %}
             </div>
             
-            <!-- 🚀 SOLO SALDO - Sin propiedades pesadas -->
-            <div class="text-center mb-1.5">
-                <div class="{% if paciente.cuenta_corriente.saldo < 0 %}bg-red-50{% elif paciente.cuenta_corriente.saldo > 0 %}bg-blue-50{% else %}bg-green-50{% endif %} rounded p-2">
-                    <p class="text-[8px] {% if paciente.cuenta_corriente.saldo < 0 %}text-red-600{% elif paciente.cuenta_corriente.saldo > 0 %}text-blue-600{% else %}text-green-600{% endif %} font-bold uppercase mb-0.5">Crédito</p>
-                    <p class="font-bold text-lg {% if paciente.cuenta_corriente.saldo < 0 %}text-red-700{% elif paciente.cuenta_corriente.saldo > 0 %}text-blue-700{% else %}text-green-700{% endif %}">
-                        Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}
-                    </p>
-                    {% if paciente.cuenta_corriente.saldo < 0 %}
-                        <span class="block text-[10px] text-red-600 font-bold">DEBE</span>
-                    {% elif paciente.cuenta_corriente.saldo > 0 %}
-                        <span class="block text-[10px] text-blue-600 font-bold">A FAVOR</span>
+            <!-- ESTADO ACTUAL -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-1.5">
+                <p class="text-[8px] text-blue-600 font-bold uppercase mb-1">📊 Estado Actual</p>
+                <div class="grid grid-cols-3 gap-1 text-center text-[9px]">
+                    <div>
+                        <p class="text-gray-600">Consumido</p>
+                        <p class="font-bold text-gray-900">{{ paciente.cuenta_corriente.total_consumido_actual|floatformat:0 }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Pagado</p>
+                        <p class="font-bold text-green-600">{{ paciente.cuenta_corriente.total_pagado|floatformat:0 }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Saldo</p>
+                        {% if paciente.cuenta_corriente.saldo_actual > 0 %}
+                            <!-- Saldo positivo (pagado > consumido) = A FAVOR del paciente -->
+                            <p class="font-bold text-blue-600">{{ paciente.cuenta_corriente.saldo_actual|floatformat:0 }}</p>
+                        {% elif paciente.cuenta_corriente.saldo_actual < 0 %}
+                            <!-- Saldo negativo (pagado < consumido) = DEBE -->
+                            {% widthratio paciente.cuenta_corriente.saldo_actual 1 -1 as saldo_abs %}
+                            <p class="font-bold text-red-600">{{ saldo_abs|floatformat:0 }}</p>
+                        {% else %}
+                            <p class="font-bold text-green-600">0</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PROYECCIÓN TOTAL -->
+            <div class="bg-purple-50 border border-purple-200 rounded-lg p-2 mb-1.5">
+                <p class="text-[8px] text-purple-600 font-bold uppercase mb-1">🔮 Proyección Total</p>
+                <div class="grid grid-cols-3 gap-1 text-center text-[9px]">
+                    <div>
+                        <p class="text-gray-600">Proyectado</p>
+                        <p class="font-bold text-gray-900">{{ paciente.cuenta_corriente.total_consumido_real|floatformat:0 }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Pagado</p>
+                        <p class="font-bold text-green-600">{{ paciente.cuenta_corriente.total_pagado|floatformat:0 }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Saldo</p>
+                        {% if paciente.cuenta_corriente.saldo_real > 0 %}
+                            <!-- Saldo positivo (pagado > proyectado) = A FAVOR -->
+                            <p class="font-bold text-blue-600">{{ paciente.cuenta_corriente.saldo_real|floatformat:0 }}</p>
+                        {% elif paciente.cuenta_corriente.saldo_real < 0 %}
+                            <!-- Saldo negativo (pagado < proyectado) = DEBERÁ -->
+                            {% widthratio paciente.cuenta_corriente.saldo_real 1 -1 as saldo_real_abs %}
+                            <p class="font-bold text-red-600">{{ saldo_real_abs|floatformat:0 }}</p>
+                        {% else %}
+                            <p class="font-bold text-green-600">0</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CRÉDITO -->
+            <div class="bg-green-50 border border-green-200 rounded-lg p-2 mb-1.5">
+                <p class="text-[8px] text-green-600 font-bold uppercase mb-1">💰 Crédito Disponible</p>
+                <div class="text-center text-[9px]">
+                    {% if paciente.cuenta_corriente.pagos_adelantados > 0 %}
+                        <p class="font-bold text-green-700 text-sm">Bs. {{ paciente.cuenta_corriente.pagos_adelantados|floatformat:2 }}</p>
+                        <p class="text-[8px] text-green-600 uppercase">Disponible</p>
                     {% else %}
-                        <span class="block text-[10px] text-green-600 font-bold">AL DÍA</span>
+                        <p class="font-semibold text-gray-400">Bs. 0.00</p>
+                        <p class="text-[8px] text-gray-400 uppercase">Sin Crédito</p>
                     {% endif %}
                 </div>
             </div>
@@ -133,60 +186,124 @@
         {% endfor %}
     </div>
 
-    <!-- Vista Desktop: Tabla -->
+    <!-- Vista Desktop: Tabla con 6 columnas -->
     <div class="hidden sm:block bg-white border rounded-lg overflow-hidden shadow-sm">
-        <table class="min-w-full divide-y divide-gray-200 text-xs">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Paciente</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Sucursales</th>
-                    <th class="px-3 py-2 text-right font-bold text-gray-700 uppercase tracking-wider">Crédito</th>
-                    <th class="px-3 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for paciente in page_obj %}
-                <tr class="hover:bg-gray-50">
-                    <td class="px-3 py-2">
-                        <p class="font-bold text-gray-900">{{ paciente.nombre_completo }}</p>
-                        <p class="text-[10px] text-gray-500">{{ paciente.nombre_tutor }}</p>
-                    </td>
-                    <td class="px-3 py-2">
-                        {% for sucursal in paciente.sucursales.all %}
-                            <span class="inline-block bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0.5 rounded mr-1 mb-1">
-                                {{ sucursal.nombre }}
-                            </span>
-                        {% endfor %}
-                    </td>
-                    <td class="px-3 py-2 text-right">
-                        <!-- 🚀 SOLO SALDO - Ultra rápido -->
-                        {% if paciente.cuenta_corriente.saldo < 0 %}
-                            <span class="font-black text-red-700">Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</span>
-                            <span class="block text-[10px] text-red-600 font-bold">DEBE</span>
-                        {% elif paciente.cuenta_corriente.saldo > 0 %}
-                            <span class="font-black text-blue-700">Bs. {{ paciente.cuenta_corriente.saldo|floatformat:2 }}</span>
-                            <span class="block text-[10px] text-blue-600 font-bold">A FAVOR</span>
-                        {% else %}
-                            <span class="font-black text-green-700">Bs. 0.00</span>
-                            <span class="block text-[10px] text-green-600 font-bold">AL DÍA</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-3 py-2 text-center">
-                        <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-                           class="text-blue-600 hover:text-blue-800 font-medium">
-                            Ver Detalle →
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="px-3 py-6 text-center text-gray-500">
-                        No hay pacientes
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-xs">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th rowspan="2" class="px-2 py-2 text-left font-bold text-gray-700 uppercase tracking-wider border-r-2 border-gray-300">
+                            Paciente
+                        </th>
+                        <th colspan="3" class="px-2 py-2 text-center font-bold text-blue-700 uppercase tracking-wider bg-blue-50 border-r-2 border-gray-300">
+                            📊 Estado Actual
+                        </th>
+                        <th colspan="3" class="px-2 py-2 text-center font-bold text-purple-700 uppercase tracking-wider bg-purple-50 border-r-2 border-gray-300">
+                            🔮 Proyección Total
+                        </th>
+                        <th rowspan="2" class="px-2 py-2 text-center font-bold text-green-700 uppercase tracking-wider bg-green-50 border-r-2 border-gray-300">
+                            💰 Crédito
+                        </th>
+                        <th rowspan="2" class="px-2 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">
+                            Acciones
+                        </th>
+                    </tr>
+                    <tr>
+                        <!-- Estado Actual -->
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-blue-50">Consumido</th>
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-blue-50">Pagado</th>
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-blue-50 border-r-2 border-gray-300">Saldo</th>
+                        <!-- Proyección Total -->
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-purple-50">Proyectado</th>
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-purple-50">Pagado</th>
+                        <th class="px-2 py-1 text-center font-semibold text-gray-600 text-[10px] bg-purple-50 border-r-2 border-gray-300">Saldo</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for paciente in page_obj %}
+                    <tr class="hover:bg-gray-50">
+                        <!-- Paciente -->
+                        <td class="px-2 py-2 border-r-2 border-gray-200">
+                            <p class="font-bold text-gray-900 text-xs">{{ paciente.nombre_completo }}</p>
+                            <p class="text-[9px] text-gray-500">{{ paciente.nombre_tutor }}</p>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                {% for sucursal in paciente.sucursales.all %}
+                                <span class="inline-block bg-gray-100 text-gray-600 text-[8px] px-1 py-0.5 rounded">{{ sucursal.nombre }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        
+                        <!-- ESTADO ACTUAL -->
+                        <td class="px-2 py-2 text-center bg-blue-50/30">
+                            <span class="font-semibold text-gray-900">Bs. {{ paciente.cuenta_corriente.total_consumido_actual|floatformat:2 }}</span>
+                        </td>
+                        <td class="px-2 py-2 text-center bg-blue-50/30">
+                            <span class="font-semibold text-green-600">Bs. {{ paciente.cuenta_corriente.total_pagado|floatformat:2 }}</span>
+                        </td>
+                        <td class="px-2 py-2 text-center bg-blue-50/30 border-r-2 border-gray-200">
+                            {% if paciente.cuenta_corriente.saldo_actual > 0 %}
+                                <span class="font-black text-blue-700">Bs. {{ paciente.cuenta_corriente.saldo_actual|floatformat:2 }}</span>
+                                <span class="block text-[9px] text-blue-600 font-bold">A FAVOR</span>
+                            {% elif paciente.cuenta_corriente.saldo_actual < 0 %}
+                                {% widthratio paciente.cuenta_corriente.saldo_actual 1 -1 as saldo_actual_abs %}
+                                <span class="font-black text-red-700">Bs. {{ saldo_actual_abs|floatformat:2 }}</span>
+                                <span class="block text-[9px] text-red-600 font-bold">DEBE</span>
+                            {% else %}
+                                <span class="font-black text-green-700">Bs. 0.00</span>
+                                <span class="block text-[9px] text-green-600 font-bold">AL DÍA</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- PROYECCIÓN TOTAL -->
+                        <td class="px-2 py-2 text-center bg-purple-50/30">
+                            <span class="font-semibold text-gray-900">Bs. {{ paciente.cuenta_corriente.total_consumido_real|floatformat:2 }}</span>
+                        </td>
+                        <td class="px-2 py-2 text-center bg-purple-50/30">
+                            <span class="font-semibold text-green-600">Bs. {{ paciente.cuenta_corriente.total_pagado|floatformat:2 }}</span>
+                        </td>
+                        <td class="px-2 py-2 text-center bg-purple-50/30 border-r-2 border-gray-200">
+                            {% if paciente.cuenta_corriente.saldo_real > 0 %}
+                                <span class="font-black text-blue-700">Bs. {{ paciente.cuenta_corriente.saldo_real|floatformat:2 }}</span>
+                                <span class="block text-[9px] text-blue-600 font-bold">A FAVOR</span>
+                            {% elif paciente.cuenta_corriente.saldo_real < 0 %}
+                                {% widthratio paciente.cuenta_corriente.saldo_real 1 -1 as saldo_real_abs %}
+                                <span class="font-black text-red-700">Bs. {{ saldo_real_abs|floatformat:2 }}</span>
+                                <span class="block text-[9px] text-red-600 font-bold">DEBERÁ</span>
+                            {% else %}
+                                <span class="font-black text-green-700">Bs. 0.00</span>
+                                <span class="block text-[9px] text-green-600 font-bold">AL DÍA</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- CRÉDITO -->
+                        <td class="px-2 py-2 text-center bg-green-50/30 border-r-2 border-gray-200">
+                            {% if paciente.cuenta_corriente.pagos_adelantados > 0 %}
+                                <span class="font-black text-green-700">Bs. {{ paciente.cuenta_corriente.pagos_adelantados|floatformat:2 }}</span>
+                                <span class="block text-[9px] text-green-600 font-bold">DISPONIBLE</span>
+                            {% else %}
+                                <span class="font-semibold text-gray-400">Bs. 0.00</span>
+                                <span class="block text-[9px] text-gray-400">SIN CRÉDITO</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Acciones -->
+                        <td class="px-2 py-2 text-center">
+                            <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                               class="text-blue-600 hover:text-blue-800 font-medium text-xs">
+                                Ver Detalle →
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-3 py-6 text-center text-gray-500">
+                            No hay pacientes
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Paginación -->
@@ -230,67 +347,126 @@ function cargarEstadisticas() {
     
     // Hacer petición AJAX
     fetch('{% url "facturacion:cargar_estadisticas_ajax" %}')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Renderizar estadísticas
                 const stats = data.estadisticas;
+                const totalPacientes = {{ page_obj.paginator.count }};
+                
+                // Calcular porcentajes
+                const pctDeudores = totalPacientes > 0 ? (stats.deudores / totalPacientes * 100) : 0;
+                const pctAFavor = totalPacientes > 0 ? (stats.a_favor / totalPacientes * 100) : 0;
+                const pctAlDia = totalPacientes > 0 ? (stats.al_dia / totalPacientes * 100) : 0;
+                
                 container.innerHTML = `
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-1.5 sm:p-2">
-                            <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase">Consumido</p>
-                            <p class="text-sm sm:text-lg font-black text-purple-700 truncate">${stats.total_consumido.toFixed(2)}</p>
-                            <p class="text-[7px] sm:text-[9px] text-purple-500">S + P</p>
+                    <!-- Estadísticas principales -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2">
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-1.5 sm:p-2.5">
+                            <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase mb-0.5">💰 Consumido</p>
+                            <p class="text-sm sm:text-xl font-black text-purple-700 truncate">Bs. ${stats.total_consumido.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            <p class="text-[7px] sm:text-[9px] text-purple-500 mt-0.5">Sesiones + Proyectos</p>
                         </div>
                         
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-1.5 sm:p-2">
-                            <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase">Pagado</p>
-                            <p class="text-sm sm:text-lg font-black text-green-700 truncate">${stats.total_pagado.toFixed(2)}</p>
-                            <p class="text-[7px] sm:text-[9px] text-green-500">Recibido</p>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-1.5 sm:p-2.5">
+                            <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase mb-0.5">✅ Pagado</p>
+                            <p class="text-sm sm:text-xl font-black text-green-700 truncate">Bs. ${stats.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            <p class="text-[7px] sm:text-[9px] text-green-500 mt-0.5">Total recibido</p>
                         </div>
                         
-                        <div class="bg-red-50 border border-red-200 rounded-lg p-1.5 sm:p-2">
-                            <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase">Deudores</p>
-                            <p class="text-sm sm:text-lg font-black text-red-700">${stats.deudores}</p>
-                            <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">${stats.total_debe.toFixed(2)}</p>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-1.5 sm:p-2.5">
+                            <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase mb-0.5">⚠️ Deudores</p>
+                            <p class="text-sm sm:text-xl font-black text-red-700">${stats.deudores} <span class="text-xs font-normal">(${pctDeudores.toFixed(1)}%)</span></p>
+                            <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">Bs. ${stats.total_debe.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                         </div>
                         
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 sm:p-2">
-                            <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase">A Favor</p>
-                            <p class="text-sm sm:text-lg font-black text-blue-700">${stats.a_favor}</p>
-                            <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">${stats.total_favor.toFixed(2)}</p>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 sm:p-2.5">
+                            <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase mb-0.5">🎁 A Favor</p>
+                            <p class="text-sm sm:text-xl font-black text-blue-700">${stats.a_favor} <span class="text-xs font-normal">(${pctAFavor.toFixed(1)}%)</span></p>
+                            <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">Bs. ${stats.total_favor.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                         </div>
                     </div>
                     
-                    <div class="hidden sm:grid grid-cols-3 gap-2 mb-4">
+                    <!-- Estadísticas detalladas (solo desktop) -->
+                    <div class="hidden sm:grid grid-cols-4 gap-2 mb-3">
                         <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
-                            <p class="text-[9px] text-gray-600 font-bold uppercase">Al Día</p>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase mb-1">😊 Al Día</p>
                             <p class="text-lg font-black text-gray-700">${stats.al_dia}</p>
+                            <p class="text-xs text-gray-500">${pctAlDia.toFixed(1)}% del total</p>
                         </div>
                         
                         <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                            <p class="text-[9px] text-indigo-600 font-bold uppercase">Balance Total</p>
+                            <p class="text-[9px] text-indigo-600 font-bold uppercase mb-1">📊 Balance Total</p>
                             <p class="text-lg font-black ${stats.total_balance < 0 ? 'text-red-700' : stats.total_balance > 0 ? 'text-green-700' : 'text-gray-700'}">
-                                Bs. ${stats.total_balance.toFixed(2)}
+                                Bs. ${stats.total_balance.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </p>
+                            <p class="text-xs ${stats.total_balance < 0 ? 'text-red-500' : stats.total_balance > 0 ? 'text-green-500' : 'text-gray-500'}">
+                                ${stats.total_balance < 0 ? 'Déficit' : stats.total_balance > 0 ? 'Superávit' : 'Equilibrado'}
                             </p>
                         </div>
                         
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
-                            <p class="text-[9px] text-gray-600 font-bold uppercase">Total Pacientes</p>
-                            <p class="text-lg font-black text-gray-700">{{ page_obj.paginator.count }}</p>
+                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
+                            <p class="text-[9px] text-orange-600 font-bold uppercase mb-1">👥 Total Pacientes</p>
+                            <p class="text-lg font-black text-orange-700">${totalPacientes}</p>
+                            <p class="text-xs text-orange-500">Con cuenta corriente</p>
+                        </div>
+                        
+                        <div class="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                            <p class="text-[9px] text-teal-600 font-bold uppercase mb-1">📈 Tasa de Cobro</p>
+                            <p class="text-lg font-black text-teal-700">
+                                ${stats.total_consumido > 0 ? ((stats.total_pagado / stats.total_consumido) * 100).toFixed(1) : 0}%
+                            </p>
+                            <p class="text-xs text-teal-500">Pagado vs Consumido</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Resumen móvil adicional -->
+                    <div class="sm:hidden bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-2 mb-2">
+                        <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+                            <div>
+                                <p class="text-gray-600 mb-0.5">Al Día</p>
+                                <p class="font-bold text-gray-900">${stats.al_dia}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 mb-0.5">Balance</p>
+                                <p class="font-bold ${stats.total_balance < 0 ? 'text-red-600' : stats.total_balance > 0 ? 'text-green-600' : 'text-gray-600'}">
+                                    ${stats.total_balance.toFixed(0)}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 mb-0.5">Total</p>
+                                <p class="font-bold text-gray-900">${totalPacientes}</p>
+                            </div>
                         </div>
                     </div>
                 `;
+            } else {
+                throw new Error(data.error || 'Error desconocido');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error completo:', error);
             container.innerHTML = `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                    <p class="text-red-700 text-sm">❌ Error al cargar estadísticas</p>
-                    <button onclick="cargarEstadisticas()" class="mt-2 text-xs text-red-600 underline">
-                        Reintentar
-                    </button>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div class="text-center mb-2">
+                        <p class="text-red-700 text-sm font-bold">❌ Error al cargar estadísticas</p>
+                        <p class="text-red-600 text-xs mt-1">${error.message}</p>
+                    </div>
+                    <div class="flex gap-2 justify-center">
+                        <button onclick="cargarEstadisticas()" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-medium">
+                            🔄 Reintentar
+                        </button>
+                        <button onclick="location.reload()" 
+                                class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-xs font-medium">
+                            ♻️ Recargar página
+                        </button>
+                    </div>
                 </div>
             `;
         });

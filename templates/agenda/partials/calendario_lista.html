@@ -130,6 +130,9 @@
                     <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                         Pago
                     </th>
+                    <th class="px-3 py-1.5 text-left text-[9px] font-medium text-teal-700 uppercase tracking-wider whitespace-nowrap">
+                        Grupal
+                    </th>
                     <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
                         Acciones
                     </th>
@@ -137,7 +140,7 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 {% for sesion in sesiones %}
-                <tr id="sesion-{{ sesion.id }}" class="hover:bg-gray-50 transition">
+                <tr id="sesion-{{ sesion.id }}" class="{% if sesion.es_grupal %}bg-teal-50 hover:bg-teal-100{% else %}hover:bg-gray-50{% endif %} transition">
                     <td class="px-3 py-2 whitespace-nowrap text-[10px] text-gray-900">
                         {{ sesion.fecha|date:"d/m/Y" }}
                     </td>
@@ -146,8 +149,14 @@
                         <div class="text-[8px] text-gray-500">{{ sesion.duracion_minutos }}m</div>
                     </td>
                     <td class="px-3 py-2 text-[10px] text-gray-900 whitespace-nowrap">
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1 flex-wrap">
                             <span>{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</span>
+                            {% if sesion.es_grupal %}
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-teal-100 border border-teal-300 rounded-full text-[8px] font-black text-teal-700 whitespace-nowrap"
+                                  title="Sesión grupal: {{ sesion.num_grupo }} pacientes con mismo horario, servicio y profesional">
+                                👥 x{{ sesion.num_grupo }}
+                            </span>
+                            {% endif %}
                             {% if sesion.proyecto %}
                             <span class="inline-block px-1 py-0.5 bg-purple-100 border border-purple-300 rounded text-[8px] font-bold text-purple-700" title="Proyecto: {{ sesion.proyecto.codigo }} - {{ sesion.proyecto.nombre }}">
                                 📦
@@ -220,6 +229,16 @@
                             {% endif %}
                         {% else %}
                         <span class="text-[9px] text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {% if sesion.es_grupal %}
+                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-teal-100 border border-teal-300 rounded-full text-[8px] font-black text-teal-700"
+                              title="{{ sesion.num_grupo }} pacientes en este horario">
+                            👥 Grupal
+                        </span>
+                        {% else %}
+                        <span class="text-[9px] text-gray-400">Individual</span>
                         {% endif %}
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap text-[10px]">

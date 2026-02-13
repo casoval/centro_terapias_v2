@@ -127,22 +127,58 @@ class Proyecto(models.Model):
     
     @property
     def total_pagado(self):
-        """Total de pagos recibidos para este proyecto"""
-        from facturacion.models import Pago
-        return Pago.objects.filter(
+        """
+        ✅ CORREGIDO: Total de pagos recibidos para este proyecto
+        Incluye TANTO pagos directos COMO pagos masivos
+        """
+        from facturacion.models import Pago, DetallePagoMasivo
+        
+        # Pagos directos (FK proyecto apunta a este proyecto)
+        pagos_directos = Pago.objects.filter(
             proyecto=self,
             anulado=False
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        # Pagos masivos (DetallePagoMasivo.proyecto apunta a este proyecto)
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            proyecto=self,
+            tipo='proyecto',
+            pago__anulado=False  # Solo pagos no anulados
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
+    @property
+    def total_devoluciones(self):
+        """Total de devoluciones realizadas para este proyecto"""
+        from facturacion.models import Devolucion
+        return Devolucion.objects.filter(
+            proyecto=self
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    @property
+    def pagado_neto(self):
+        """Total pagado menos devoluciones"""
+        return self.total_pagado - self.total_devoluciones
     
     @property
     def saldo_pendiente(self):
-        """Monto que aún falta por pagar"""
-        return self.costo_total - self.total_pagado
+        """Monto que aún falta por pagar (considerando devoluciones)"""
+        return self.costo_total - self.pagado_neto
+    
+    @property
+    def saldo_real(self):
+        """Saldo considerando devoluciones: costo - pagado + devoluciones"""
+        return self.costo_total - self.pagado_neto
     
     @property
     def pagado_completo(self):
-        """Verifica si el proyecto está pagado completamente"""
-        return self.total_pagado >= self.costo_total
+        """Verifica si el proyecto está pagado completamente (considerando devoluciones)"""
+        return self.pagado_neto >= self.costo_total
+    
+    @property
+    def tiene_sesiones_programadas(self):
+        """Verifica si tiene sesiones en estado programada"""
+        return self.sesiones.filter(estado='programada').exists()
     
     @property
     def duracion_dias(self):
@@ -326,11 +362,72 @@ class Sesion(models.Model):
         return f"{self.fecha} {self.hora_inicio} - {self.paciente} - {self.servicio}"
     
     # 🆕 NUEVAS PROPIEDADES CALCULADAS
-    @cached_property  # ✅ Solo cambia esto
+    @property
     def total_pagado(self):
-        return self.pagos.filter(anulado=False).exclude(
+        '''
+        Total pagado por esta sesión (incluye TODOS los métodos de pago)
+        ✅ CORREGIDO: Incluye efectivo + crédito + pagos masivos
+        NOTA: Cambió de @cached_property a @property para que siempre calcule el valor actualizado
+        '''
+        # ✅ Pagos directos (donde sesion=self)
+        pagos_directos = self.pagos.filter(
+            anulado=False
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        # ✅ Pagos masivos (a través de DetallePagoMasivo)
+        from facturacion.models import DetallePagoMasivo
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            sesion=self,
+            pago__anulado=False  # Solo pagos no anulados
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
+
+    @property
+    def total_pagado_efectivo(self):
+        '''
+        Total pagado solo en efectivo (sin crédito)
+        ✅ Incluye pagos masivos
+        '''
+        # Pagos directos
+        pagos_directos = self.pagos.filter(
+            anulado=False
+        ).exclude(
             metodo_pago__nombre="Uso de Crédito"
         ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        # Pagos masivos (excluye crédito)
+        from facturacion.models import DetallePagoMasivo
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            sesion=self,
+            pago__anulado=False
+        ).exclude(
+            pago__metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
+
+    @property
+    def total_pagado_credito(self):
+        '''
+        Total pagado con uso de crédito
+        ✅ Incluye pagos masivos
+        '''
+        # Pagos directos con crédito
+        pagos_directos = self.pagos.filter(
+            anulado=False,
+            metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        # Pagos masivos con crédito
+        from facturacion.models import DetallePagoMasivo
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            sesion=self,
+            pago__anulado=False,
+            pago__metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
     
     @property
     def saldo_pendiente(self):
@@ -392,26 +489,49 @@ class Sesion(models.Model):
 
     @property
     def total_pagado_contado(self):
-        """Total pagado en efectivo/contado (sin crédito)"""
-        from django.db.models import Sum
-        from decimal import Decimal
-        
-        return self.pagos.filter(
+        """
+        Total pagado en efectivo/contado (sin crédito)
+        ✅ Incluye pagos masivos
+        """
+        # Pagos directos
+        pagos_directos = self.pagos.filter(
             anulado=False
         ).exclude(
             metodo_pago__nombre="Uso de Crédito"
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        # Pagos masivos
+        from facturacion.models import DetallePagoMasivo
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            sesion=self,
+            pago__anulado=False
+        ).exclude(
+            pago__metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
     
     @property
     def total_pagado_credito(self):
-        """Total pagado con crédito"""
-        from django.db.models import Sum
-        from decimal import Decimal
-        
-        return self.pagos.filter(
+        """
+        Total pagado con crédito
+        ✅ Incluye pagos masivos
+        """
+        # Pagos directos
+        pagos_directos = self.pagos.filter(
             anulado=False,
             metodo_pago__nombre="Uso de Crédito"
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        # Pagos masivos
+        from facturacion.models import DetallePagoMasivo
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            sesion=self,
+            pago__anulado=False,
+            pago__metodo_pago__nombre="Uso de Crédito"
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
     
     def clean(self):
         """Validación de choques de horarios"""
@@ -467,6 +587,10 @@ class Sesion(models.Model):
     
     def _validar_choque_profesional(self):
         """El profesional NO puede tener otra sesión al mismo tiempo"""
+        # ✅ Si se permiten sesiones grupales, saltar esta validación
+        if getattr(self, '_permitir_sesiones_grupales', False):
+            return
+        
         sesiones_existentes = Sesion.objects.filter(
             profesional=self.profesional,
             fecha=self.fecha,
@@ -559,6 +683,60 @@ class Sesion(models.Model):
             s_fin = datetime.combine(fecha, sesion.hora_fin)
             if (inicio < s_fin and fin > s_inicio):
                 return False, f"⚠️ Profesional ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
+        
+        return True, "✅ Horario disponible"
+
+    @classmethod
+    def validar_disponibilidad_con_grupales(cls, paciente, profesional, fecha, hora_inicio, hora_fin, sesion_actual=None, permitir_sesiones_grupales=False):
+        """
+        Valida disponibilidad con opción de permitir sesiones grupales del profesional
+        
+        Args:
+            paciente: Instancia del paciente
+            profesional: Instancia del profesional
+            fecha: Fecha de la sesión
+            hora_inicio: Hora de inicio
+            hora_fin: Hora de fin
+            sesion_actual: Sesión actual (para edición, opcional)
+            permitir_sesiones_grupales: Si True, permite que el profesional tenga múltiples 
+                                       sesiones en el mismo horario (sesiones grupales)
+        
+        Returns:
+            (disponible: bool, mensaje: str)
+        """
+        inicio = datetime.combine(fecha, hora_inicio)
+        fin = datetime.combine(fecha, hora_fin)
+        
+        # ✅ VALIDAR PACIENTE (siempre se valida, el paciente no puede estar en dos lugares)
+        sesiones_paciente = cls.objects.filter(
+            paciente=paciente,
+            fecha=fecha,
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        )
+        if sesion_actual:
+            sesiones_paciente = sesiones_paciente.exclude(pk=sesion_actual.pk)
+        
+        for sesion in sesiones_paciente:
+            s_inicio = datetime.combine(fecha, sesion.hora_inicio)
+            s_fin = datetime.combine(fecha, sesion.hora_fin)
+            if (inicio < s_fin and fin > s_inicio):
+                return False, f"⚠️ Paciente ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
+        
+        # ✅ VALIDAR PROFESIONAL (solo si NO se permiten sesiones grupales)
+        if not permitir_sesiones_grupales:
+            sesiones_profesional = cls.objects.filter(
+                profesional=profesional,
+                fecha=fecha,
+                estado__in=['programada', 'realizada', 'realizada_retraso']
+            )
+            if sesion_actual:
+                sesiones_profesional = sesiones_profesional.exclude(pk=sesion_actual.pk)
+            
+            for sesion in sesiones_profesional:
+                s_inicio = datetime.combine(fecha, sesion.hora_inicio)
+                s_fin = datetime.combine(fecha, sesion.hora_fin)
+                if (inicio < s_fin and fin > s_inicio):
+                    return False, f"⚠️ Profesional ocupado de {sesion.hora_inicio.strftime('%H:%M')} a {sesion.hora_fin.strftime('%H:%M')} en {sesion.sucursal}"
         
         return True, "✅ Horario disponible"
 
@@ -728,22 +906,59 @@ class Mensualidad(models.Model):
     
     @property
     def total_pagado(self):
-        """Total de pagos recibidos para esta mensualidad"""
-        from facturacion.models import Pago
-        return Pago.objects.filter(
+        """
+        ✅ CORREGIDO: Total de pagos recibidos para esta mensualidad
+        Incluye TANTO pagos directos COMO pagos masivos
+        """
+        from facturacion.models import Pago, DetallePagoMasivo
+        
+        # Pagos directos (FK mensualidad apunta a esta mensualidad)
+        pagos_directos = Pago.objects.filter(
             mensualidad=self,
             anulado=False
         ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        # Pagos masivos (DetallePagoMasivo.mensualidad apunta a esta mensualidad)
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            mensualidad=self,
+            tipo='mensualidad',
+            pago__anulado=False  # Solo pagos no anulados
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+        
+        return pagos_directos + pagos_masivos
+    
+    @property
+    def total_devoluciones(self):
+        """Total de devoluciones realizadas para esta mensualidad"""
+        from facturacion.models import Devolucion
+        return Devolucion.objects.filter(
+            mensualidad=self
+        ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    
+    @property
+    def pagado_neto(self):
+        """Total pagado menos devoluciones"""
+        return self.total_pagado - self.total_devoluciones
     
     @property
     def saldo_pendiente(self):
-        """Monto que aún falta por pagar"""
-        return self.costo_mensual - self.total_pagado
+        """Monto que aún falta por pagar (considerando devoluciones)"""
+        return self.costo_mensual - self.pagado_neto
+    
+    @property
+    def saldo_real(self):
+        """Saldo considerando devoluciones: costo - pagado + devoluciones"""
+        return self.costo_mensual - self.pagado_neto
     
     @property
     def pagado_completo(self):
-        """Verifica si la mensualidad está pagada completamente"""
-        return self.total_pagado >= self.costo_mensual
+        """Verifica si la mensualidad está pagada completamente (considerando devoluciones)"""
+        return self.pagado_neto >= self.costo_mensual
+    
+    @property
+    def tiene_sesiones_programadas(self):
+        """Verifica si tiene sesiones en estado programada"""
+        return self.sesiones.filter(estado='programada').exists()
     
     @property
     def num_sesiones(self):

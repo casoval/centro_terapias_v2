@@ -49,6 +49,9 @@ urlpatterns = [
     path('devoluciones/registrar/', views.registrar_devolucion, name='registrar_devolucion'),
     path('devoluciones/confirmacion/<int:devolucion_id>/', views.confirmacion_devolucion, name='confirmacion_devolucion'),
 
+    path('pago/<int:pago_id>/anular/', views.anular_pago, name='anular_pago'),
+    path('devolucion/<int:devolucion_id>/pdf/', views.generar_devolucion_pdf, name='generar_devolucion_pdf'),
+
     # APIs para cargar información de devoluciones
     path('api/credito-disponible/<int:paciente_id>/', views.api_credito_disponible, name='api_credito_disponible'),
     path('api/disponible-devolver-proyecto/<int:proyecto_id>/', views.api_disponible_devolver_proyecto, name='api_disponible_devolver_proyecto'),
@@ -66,4 +69,34 @@ urlpatterns = [
     path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
     path('mis-pagos/', views.mis_pagos, name='mis_pagos'),
     path('pago/<int:pago_id>/ver/', views.detalle_pago_paciente, name='detalle_pago_paciente'),
+
+    path('sesion/<int:sesion_id>/detalle-partial/', 
+         views.detalle_sesion_partial, 
+         name='detalle_sesion_partial'),
+    
+    path('pago/<int:pago_id>/detalle-partial/', 
+         views.detalle_pago_partial, 
+         name='detalle_pago_partial'),
+
+    # ==================== PANEL DE RECÁLCULO (ADMIN) ====================
+    path('admin/panel-recalculo/', 
+         views.panel_recalcular_cuentas, 
+         name='panel_recalcular_cuentas'),
+    
+    path('admin/recalcular-todas/', 
+         views.recalcular_todas_cuentas, 
+         name='recalcular_todas_cuentas'),
+    
+    path('admin/recalcular-cuenta/<int:paciente_id>/', 
+         views.recalcular_cuenta_individual, 
+         name='recalcular_cuenta_individual'),
+    
+    # API AJAX para recálculo
+    path('api/recalcular-cuenta/<int:paciente_id>/', 
+         views.api_recalcular_cuenta, 
+         name='api_recalcular_cuenta'),
+    
+    path('api/estado-recalculo/', 
+         views.api_estado_recalculo, 
+         name='api_estado_recalculo'),
 ]

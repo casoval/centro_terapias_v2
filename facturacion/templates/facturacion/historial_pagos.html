@@ -10,11 +10,11 @@
         <h1 class="text-base sm:text-xl font-bold text-gray-900">💰 Historial de Pagos</h1>
         <div class="flex gap-2">
             <a href="{% url 'facturacion:registrar_pago' %}" 
-               class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
+               class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
                 ➕ <span class="hidden xs:inline">Nuevo </span>Pago
             </a>
             <a href="{% url 'facturacion:registrar_devolucion' %}" 
-               class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
+               class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
                 🔙 <span class="hidden xs:inline">Nueva </span>Devolución
             </a>
         </div>
@@ -31,7 +31,7 @@
                 <button 
                     id="btn-cargar-estadisticas"
                     onclick="cargarEstadisticasPagos()"
-                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm hover:shadow">
+                    class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 duration-200">
                     📊 Mostrar Estadísticas de Pagos
                 </button>
                 <p class="text-xs text-gray-500 mt-1">Total cobrado, métodos de pago, desglose, etc.</p>
@@ -87,10 +87,10 @@
             
             <!-- Botones -->
             <div class="flex gap-1.5">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium">
+                <button type="submit" class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md transition-all">
                     🔍 Filtrar
                 </button>
-                <a href="{% url 'facturacion:historial_pagos' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+                <a href="{% url 'facturacion:historial_pagos' %}" class="bg-gradient-to-r from-gray-200 to-gray-300 hover:from-gray-300 hover:to-gray-400 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md transition-all">
                     🔄
                 </a>
             </div>
@@ -99,53 +99,101 @@
 
     <!-- Contador de resultados -->
     <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2 text-xs sm:text-sm text-blue-700">
-        📋 Mostrando <strong>{{ page_obj|length }}</strong> de <strong>{{ page_obj.paginator.count }}</strong> pagos
+        📋 Mostrando <strong>{{ page_obj|length }}</strong> de <strong>{{ page_obj.paginator.count }}</strong> registros (pagos y devoluciones)
     </div>
 
     <!-- Vista móvil: Tarjetas -->
     <div class="sm:hidden space-y-2 mb-3">
-        {% for pago in page_obj %}
-        <div class="bg-white border rounded-lg p-2 shadow-sm">
+        {% for item in page_obj %}
+        <div class="bg-white border rounded-lg p-2 shadow-sm {% if item.tipo == 'devolucion' %}border-red-300 bg-red-50{% endif %}">
             <div class="flex justify-between items-start mb-1.5">
                 <div class="flex-1">
-                    <p class="font-bold text-xs text-gray-900">{{ pago.paciente.nombre_completo }}</p>
-                    <p class="text-[10px] text-gray-500">{{ pago.numero_recibo }}</p>
+                    <p class="font-bold text-xs text-gray-900">{{ item.objeto.paciente.nombre_completo }}</p>
+                    <p class="text-[10px] text-gray-500">
+                        {% if item.tipo == 'devolucion' %}
+                            {{ item.objeto.numero_devolucion }}
+                        {% else %}
+                            {{ item.objeto.numero_recibo }}
+                        {% endif %}
+                    </p>
                 </div>
-                <span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                    Bs. {{ pago.monto|floatformat:2 }}
+                {% if item.tipo == 'devolucion' %}
+                <span class="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                    -Bs. {{ item.objeto.monto|floatformat:2 }}
                 </span>
+                {% else %}
+                <span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                    Bs. {{ item.objeto.monto|floatformat:2 }}
+                </span>
+                {% endif %}
             </div>
             
             <div class="grid grid-cols-2 gap-1.5 text-[10px] mb-1.5">
                 <div>
                     <span class="text-gray-500">Fecha:</span>
-                    <span class="font-medium">{{ pago.fecha_pago|date:"d/m/Y" }}</span>
+                    <span class="font-medium">
+                        {% if item.tipo == 'devolucion' %}
+                            {{ item.objeto.fecha_devolucion|date:"d/m/Y" }}
+                        {% else %}
+                            {{ item.objeto.fecha_pago|date:"d/m/Y" }}
+                        {% endif %}
+                    </span>
                 </div>
                 <div>
                     <span class="text-gray-500">Método:</span>
-                    <span class="font-medium">{{ pago.metodo_pago.nombre }}</span>
+                    <span class="font-medium">
+                        {% if item.tipo == 'devolucion' %}
+                            {{ item.objeto.metodo_devolucion.nombre }}
+                        {% else %}
+                            {{ item.objeto.metodo_pago.nombre }}
+                        {% endif %}
+                    </span>
                 </div>
             </div>
             
-            {% if pago.concepto %}
-            <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ pago.concepto }}</p>
+            {% if item.tipo == 'devolucion' %}
+            <p class="text-[10px] text-red-600 mb-1.5 font-semibold">🔙 DEVOLUCIÓN</p>
+            <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ item.objeto.motivo|truncatewords:10 }}</p>
+            {% else %}
+                {% if item.objeto.concepto %}
+                <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ item.objeto.concepto }}</p>
+                {% endif %}
             {% endif %}
             
-            <div class="flex gap-1">
-                <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+            <div class="flex gap-2">
+                {% if item.tipo == 'devolucion' %}
+                <a href="{% url 'facturacion:generar_devolucion_pdf' item.objeto.id %}" 
                    target="_blank"
-                   class="flex-1 text-center bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-[10px] py-1 rounded border border-blue-200">
+                   class="flex-1 text-center bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
                     🖨️ PDF
                 </a>
-                <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 
-                   class="flex-1 text-center bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-[10px] py-1 rounded border border-gray-200">
-                    👤 Cuenta
-                </a>
+                {% else %}
+                    {% if not item.objeto.numero_recibo|slice:":4" == "CRE-" %}
+                    <a href="{% url 'facturacion:generar_recibo_pdf' item.objeto.id %}" 
+                       target="_blank"
+                       class="flex-1 text-center bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
+                        🖨️ PDF
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'facturacion:detalle_cuenta' item.objeto.paciente.id %}" 
+                       class="flex-1 text-center bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
+                        👤 Detalle
+                    </a>
+                    
+                    {% if not item.objeto.anulado %}
+                    <button 
+                        onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
+                        class="flex-1 text-center bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
+                        ⚠️ Anular
+                    </button>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
         {% empty %}
         <div class="bg-white border rounded-lg p-4 text-center text-gray-500 text-xs">
-            No hay pagos registrados con los filtros seleccionados
+            No hay pagos o devoluciones registrados con los filtros seleccionados
         </div>
         {% endfor %}
     </div>
@@ -155,6 +203,7 @@
         <table class="min-w-full divide-y divide-gray-200 text-xs">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Tipo</th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Recibo</th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Paciente</th>
@@ -165,55 +214,215 @@
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                {% for pago in page_obj %}
-                <tr class="hover:bg-gray-50">
+                {% for item in page_obj %}
+                {% if item.tipo == 'devolucion' %}
+                <!-- FILA DE DEVOLUCIÓN -->
+                <tr class="hover:bg-red-50 transition-colors border-l-4 border-l-red-500 bg-red-50">
                     <td class="px-3 py-2 whitespace-nowrap">
-                        <span class="font-mono text-blue-600 font-bold">{{ pago.numero_recibo }}</span>
+                        <span class="px-2 py-1 text-[10px] font-bold rounded-full bg-red-100 text-red-700 border border-red-300">
+                            🔙 DEVOLUCIÓN
+                        </span>
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap">
-                        {{ pago.fecha_pago|date:"d/m/Y" }}
+                        <span class="font-mono text-red-600 font-bold">{{ item.objeto.numero_devolucion }}</span>
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {{ item.objeto.fecha_devolucion|date:"d/m/Y" }}
                     </td>
                     <td class="px-3 py-2">
-                        <div class="font-medium text-gray-900">{{ pago.paciente.nombre_completo }}</div>
+                        <div class="font-medium text-gray-900">{{ item.objeto.paciente.nombre_completo }}</div>
                     </td>
                     <td class="px-3 py-2">
-                        <div class="max-w-xs truncate">
-                            {{ pago.concepto|truncatewords:8 }}
+                        <div class="max-w-xs truncate text-red-700 font-medium">
+                            {{ item.objeto.motivo|truncatewords:8 }}
                         </div>
                     </td>
                     <td class="px-3 py-2">
-                        <span class="px-2 py-0.5 text-[10px] rounded-full
-                            {% if pago.metodo_pago.nombre == 'Efectivo' %}bg-green-100 text-green-800
-                            {% elif pago.metodo_pago.nombre == 'Transferencia' %}bg-blue-100 text-blue-800
-                            {% elif pago.metodo_pago.nombre == 'QR' %}bg-purple-100 text-purple-800
-                            {% elif pago.metodo_pago.nombre == 'Uso de Crédito' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-gray-100 text-gray-800{% endif %}">
-                            {{ pago.metodo_pago.nombre }}
+                        <span class="px-2 py-0.5 text-[10px] rounded-full bg-gray-100 text-gray-800">
+                            {{ item.objeto.metodo_devolucion.nombre }}
                         </span>
                     </td>
-                    <td class="px-3 py-2 text-right font-bold text-green-700 whitespace-nowrap">
-                        Bs. {{ pago.monto|floatformat:2 }}
+                    <td class="px-3 py-2 text-right font-bold text-red-700 whitespace-nowrap">
+                        -Bs. {{ item.objeto.monto|floatformat:2 }}
                     </td>
                     <td class="px-3 py-2">
-                        <div class="flex justify-center gap-1">
-                            <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
+                        <div class="flex justify-center gap-2">
+                            <a href="{% url 'facturacion:generar_devolucion_pdf' item.objeto.id %}" 
                                target="_blank"
-                               class="text-blue-600 hover:text-blue-800 font-medium"
-                               title="Abrir PDF en nueva pestaña">
-                                🖨️
+                               class="px-2 py-1 text-xs bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
+                               title="Descargar PDF de devolución">
+                                🖨️ PDF
                             </a>
-                            <a href="{% url 'facturacion:detalle_cuenta' pago.paciente.id %}" 
-                               class="text-gray-600 hover:text-gray-800 font-medium"
+                            <a href="{% url 'facturacion:detalle_cuenta' item.objeto.paciente.id %}" 
+                               class="px-2 py-1 text-xs bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
                                title="Ver cuenta del paciente">
-                                👤
+                                👤 Detalle
                             </a>
                         </div>
                     </td>
                 </tr>
+                {% else %}
+                <!-- FILA DE PAGO -->
+                <tr class="hover:bg-gray-50 transition-colors {% if item.objeto.es_pago_masivo %}border-l-4 border-l-blue-500 bg-blue-50{% endif %} {% if item.objeto.anulado %}opacity-50 bg-gray-100{% endif %}">
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {% if item.objeto.anulado %}
+                        <span class="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-200 text-gray-600 border border-gray-400">
+                            ❌ ANULADO
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-1 text-[10px] font-bold rounded-full bg-green-100 text-green-700 border border-green-300">
+                            💵 PAGO
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <!-- Botón expandir/contraer para pagos masivos -->
+                            {% if item.objeto.es_pago_masivo %}
+                            <button 
+                                onclick="toggleDetallePagoMasivoHistorial('detalle-masivo-hist-{{ item.objeto.id }}')"
+                                class="text-blue-600 hover:text-blue-800 transition-colors focus:outline-none"
+                                title="Ver detalles del pago masivo">
+                                <svg class="w-4 h-4 transition-transform duration-300" id="icono-detalle-masivo-hist-{{ item.objeto.id }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            {% endif %}
+                            <span class="font-mono {% if item.objeto.anulado %}text-gray-500{% else %}text-blue-600{% endif %} font-bold">{{ item.objeto.numero_recibo }}</span>
+                            {% if item.objeto.es_pago_masivo %}
+                            <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-300">
+                                📦 {{ item.objeto.cantidad_detalles }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {{ item.objeto.fecha_pago|date:"d/m/Y" }}
+                    </td>
+                    <td class="px-3 py-2">
+                        <div class="font-medium text-gray-900">{{ item.objeto.paciente.nombre_completo }}</div>
+                    </td>
+                    <td class="px-3 py-2">
+                        <div class="max-w-xs truncate">
+                            {% if item.objeto.es_pago_masivo %}
+                                <span class="text-xs text-blue-700 font-semibold">Pago masivo de {{ item.objeto.cantidad_detalles }} ítems</span>
+                            {% else %}
+                                {{ item.objeto.concepto|truncatewords:8 }}
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-3 py-2">
+                        <span class="px-2 py-0.5 text-[10px] rounded-full
+                            {% if item.objeto.metodo_pago.nombre == 'Efectivo' %}bg-green-100 text-green-800
+                            {% elif item.objeto.metodo_pago.nombre == 'Transferencia' %}bg-blue-100 text-blue-800
+                            {% elif item.objeto.metodo_pago.nombre == 'QR' %}bg-purple-100 text-purple-800
+                            {% elif item.objeto.metodo_pago.nombre == 'Uso de Crédito' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ item.objeto.metodo_pago.nombre }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 text-right font-bold {% if item.objeto.anulado %}text-gray-500{% else %}text-green-700{% endif %} whitespace-nowrap">
+                        Bs. {{ item.objeto.monto|floatformat:2 }}
+                    </td>
+                    <td class="px-3 py-2">
+                        <div class="flex justify-center gap-2">
+                            {% if not item.objeto.numero_recibo|slice:":4" == "CRE-" %}
+                            <a href="{% url 'facturacion:generar_recibo_pdf' item.objeto.id %}" 
+                               target="_blank"
+                               class="px-2 py-1 text-xs bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
+                               title="Abrir PDF en nueva pestaña">
+                                🖨️ PDF
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'facturacion:detalle_cuenta' item.objeto.paciente.id %}" 
+                               class="px-2 py-1 text-xs bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
+                               title="Ver cuenta del paciente">
+                                👤 Detalle
+                            </a>
+                            {% if not item.objeto.anulado %}
+                            <button 
+                                onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
+                                class="px-2 py-1 text-xs bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
+                                title="Anular recibo">
+                                ⚠️ Anular
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                
+                <!-- ✅ NUEVO: Fila expandible con detalles del pago masivo -->
+                {% if item.objeto.es_pago_masivo %}
+                <tr id="detalle-masivo-hist-{{ item.objeto.id }}" style="display: none; max-height: 0; overflow: hidden; opacity: 0; transition: all 0.4s ease; background: linear-gradient(to right, #eff6ff, #eef2ff); border-left: 4px solid #3b82f6;">
+                    <td colspan="8" class="px-0 py-0">
+                        <div class="px-4 py-3">
+                            <div class="bg-white rounded-lg shadow-md border-2 border-blue-300 overflow-hidden">
+                                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2">
+                                    <h4 class="text-xs font-bold text-white flex items-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                        </svg>
+                                        Desglose del Pago Masivo ({{ item.objeto.cantidad_detalles }} ítem{{ item.objeto.cantidad_detalles|pluralize }})
+                                    </h4>
+                                </div>
+                                <div class="p-2">
+                                    <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                        <thead class="bg-blue-100">
+                                            <tr>
+                                                <th class="px-2 py-1 text-left text-[10px] font-bold text-blue-900 uppercase tracking-wider">Tipo</th>
+                                                <th class="px-2 py-1 text-left text-[10px] font-bold text-blue-900 uppercase tracking-wider">Descripción</th>
+                                                <th class="px-2 py-1 text-right text-[10px] font-bold text-blue-900 uppercase tracking-wider">Monto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            {% for detalle in item.objeto.detalles_masivos.all %}
+                                            <tr class="hover:bg-blue-50 transition-colors">
+                                                <td class="px-2 py-1.5 whitespace-nowrap">
+                                                    {% if detalle.tipo == 'sesion' %}
+                                                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-purple-100 text-purple-700 border border-purple-300">
+                                                            🧘 Sesión
+                                                        </span>
+                                                    {% elif detalle.tipo == 'proyecto' %}
+                                                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700 border border-blue-300">
+                                                            📦 Proyecto
+                                                        </span>
+                                                    {% elif detalle.tipo == 'mensualidad' %}
+                                                        <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-300">
+                                                            💳 Mensualidad
+                                                        </span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="px-2 py-1.5 text-gray-900 text-[11px]">
+                                                    {{ detalle.concepto }}
+                                                </td>
+                                                <td class="px-2 py-1.5 text-right font-bold text-green-600 text-xs">
+                                                    Bs. {{ detalle.monto|floatformat:2 }}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                        <tfoot class="bg-blue-50 border-t-2 border-blue-200">
+                                            <tr>
+                                                <td colspan="2" class="px-2 py-1.5 text-right font-bold text-blue-900 text-xs">
+                                                    TOTAL PAGADO:
+                                                </td>
+                                                <td class="px-2 py-1.5 text-right font-bold text-green-700 text-sm">
+                                                    Bs. {{ item.objeto.monto|floatformat:2 }}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endif %}
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-3 py-6 text-center text-gray-500">
-                        No hay pagos registrados con los filtros seleccionados
+                    <td colspan="8" class="px-3 py-6 text-center text-gray-500">
+                        No hay pagos o devoluciones registrados con los filtros seleccionados
                     </td>
                 </tr>
                 {% endfor %}
@@ -248,8 +457,77 @@
 
 </div>
 
+<!-- Modal de confirmación para anular recibo -->
+<div id="modal-anular" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">⚠️ Anular Recibo</h3>
+            <p class="text-sm text-gray-600 mb-4">
+                Está a punto de anular el recibo <span id="numero-recibo-anular" class="font-mono font-bold text-red-600"></span>
+            </p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Motivo de anulación:</label>
+                <textarea 
+                    id="motivo-anulacion" 
+                    rows="3" 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-sm"
+                    placeholder="Ingrese el motivo..."></textarea>
+            </div>
+            <div class="flex gap-2">
+                <button 
+                    onclick="confirmarAnulacion()" 
+                    class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Confirmar Anulación
+                </button>
+                <button 
+                    onclick="cerrarModalAnular()" 
+                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 🚀 JAVASCRIPT PARA CARGA LAZY -->
 <script>
+// ==================== FUNCIÓN PARA EXPANDIR DETALLES DE PAGOS MASIVOS ====================
+function toggleDetallePagoMasivoHistorial(id) {
+    const detalle = document.getElementById(id);
+    const icono = document.getElementById('icono-' + id);
+    
+    if (!detalle || !icono) {
+        console.error('❌ Elementos no encontrados para:', id);
+        return;
+    }
+    
+    // Verificar si está abierto usando display
+    const estaAbierto = detalle.style.display === 'table-row';
+    
+    if (estaAbierto) {
+        // Cerrar con animación suave
+        detalle.style.maxHeight = '0px';
+        detalle.style.opacity = '0';
+        detalle.style.overflow = 'hidden';
+        icono.style.transform = 'rotate(0deg)';
+        
+        // Después de la animación, ocultar completamente
+        setTimeout(() => {
+            detalle.style.display = 'none';
+        }, 400); // Coincidir con transition de 0.4s
+    } else {
+        // Abrir con animación suave
+        detalle.style.display = 'table-row'; // ✅ CORREGIDO: Usar table-row para tablas
+        // Usar setTimeout para que la transición CSS funcione
+        setTimeout(() => {
+            detalle.style.maxHeight = '800px'; // Suficiente para la mayoría de detalles
+            detalle.style.opacity = '1';
+            detalle.style.overflow = 'visible';
+            icono.style.transform = 'rotate(180deg)';
+        }, 10);
+    }
+}
+
 // Función para cargar estadísticas bajo demanda
 function cargarEstadisticasPagos() {
     const container = document.getElementById('estadisticas-container');
@@ -271,50 +549,89 @@ function cargarEstadisticasPagos() {
             if (data.success) {
                 const stats = data.estadisticas;
                 
-                // Renderizar estadísticas
+                // Calcular promedio por transacción
+                const promedioTransaccion = stats.total_pagos_validos > 0 
+                    ? stats.monto_pagos_validos / stats.total_pagos_validos 
+                    : 0;
+                
+                // Renderizar estadísticas principales (COMPACTAS)
                 let html = `
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3">
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-2">
-                            <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase">Total Cobrado</p>
-                            <p class="text-lg sm:text-2xl font-black text-green-700">Bs. ${stats.monto_total.toFixed(2)}</p>
-                            <p class="text-[9px] text-green-500">${stats.total_pagos} pagos</p>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
+                        <!-- Pagos Reales -->
+                        <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-[9px] sm:text-[10px] text-green-700 font-bold uppercase tracking-wide">💰 Ingresos Reales</p>
+                                <span class="bg-green-200 text-green-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_validos}</span>
+                            </div>
+                            <p class="text-xl sm:text-2xl font-black text-green-700 mb-0.5">Bs. ${stats.monto_pagos_validos.toFixed(2)}</p>
+                            <p class="text-[8px] sm:text-[9px] text-green-600">Promedio: Bs. ${promedioTransaccion.toFixed(2)}</p>
                         </div>
                         
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                            <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase">Pagos Reales</p>
-                            <p class="text-lg sm:text-2xl font-black text-blue-700">Bs. ${stats.monto_pagos_validos.toFixed(2)}</p>
-                            <p class="text-[9px] text-blue-500">${stats.total_pagos_validos} pagos</p>
+                        <!-- Uso de Crédito -->
+                        <div class="bg-gradient-to-br from-purple-50 to-violet-50 border-2 border-purple-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-[9px] sm:text-[10px] text-purple-700 font-bold uppercase tracking-wide">🎫 Uso de Crédito</p>
+                                <span class="bg-purple-200 text-purple-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_credito}</span>
+                            </div>
+                            <p class="text-xl sm:text-2xl font-black text-purple-700 mb-0.5">Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
+                            <p class="text-[8px] sm:text-[9px] text-purple-600">${stats.total_pagos} transacciones totales</p>
                         </div>
                         
-                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-2">
-                            <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase">Uso Crédito</p>
-                            <p class="text-lg sm:text-2xl font-black text-purple-700">Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
-                            <p class="text-[9px] text-purple-500">${stats.total_pagos_credito} pagos</p>
+                        <!-- Métodos Diversos -->
+                        <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-[9px] sm:text-[10px] text-blue-700 font-bold uppercase tracking-wide">📊 Métodos Activos</p>
+                                <span class="bg-blue-200 text-blue-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_metodos || stats.desglose_metodos.length}</span>
+                            </div>
+                            <p class="text-xl sm:text-2xl font-black text-blue-700 mb-0.5">${stats.desglose_metodos.length}</p>
+                            <p class="text-[8px] sm:text-[9px] text-blue-600">Formas de pago utilizadas</p>
                         </div>
                     </div>
                 `;
                 
-                // Desglose por método (si hay datos)
+                // Desglose por método (COMPACTO)
                 if (stats.desglose_metodos && stats.desglose_metodos.length > 0) {
                     html += `
-                        <div class="bg-white border rounded-lg p-3">
-                            <h3 class="font-bold text-sm text-gray-700 mb-2">📊 Top Métodos de Pago</h3>
+                        <div class="bg-white border-2 border-gray-200 rounded-xl p-3 shadow-sm">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                                    <span class="text-base">💳</span>
+                                    Top Métodos de Pago
+                                </h3>
+                                <span class="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">${stats.desglose_metodos.length} métodos</span>
+                            </div>
                             <div class="space-y-2">
                     `;
                     
-                    stats.desglose_metodos.forEach(metodo => {
-                        const porcentaje = ((metodo.total / stats.monto_total) * 100).toFixed(1);
+                    // Colores para cada método
+                    const colores = [
+                        { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', bar: 'bg-gradient-to-r from-green-500 to-emerald-500' },
+                        { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', bar: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
+                        { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', bar: 'bg-gradient-to-r from-purple-500 to-violet-500' },
+                        { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-800', bar: 'bg-gradient-to-r from-orange-500 to-amber-500' },
+                        { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', bar: 'bg-gradient-to-r from-pink-500 to-rose-500' }
+                    ];
+                    
+                    stats.desglose_metodos.forEach((metodo, index) => {
+                        const porcentaje = ((metodo.total / stats.monto_pagos_validos) * 100).toFixed(1);
+                        const color = colores[index % colores.length];
+                        
                         html += `
-                            <div class="flex items-center justify-between text-xs">
-                                <div class="flex-1">
-                                    <span class="font-medium text-gray-700">${metodo.metodo}</span>
-                                    <span class="text-gray-500 ml-1">(${metodo.cantidad})</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-24 bg-gray-200 rounded-full h-2">
-                                        <div class="bg-green-600 h-2 rounded-full" style="width: ${porcentaje}%"></div>
+                            <div class="group ${color.bg} ${color.border} border-2 rounded-lg p-2 hover:shadow-md transition-all">
+                                <div class="flex items-center justify-between mb-1">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-bold ${color.text} text-[10px] sm:text-xs">${metodo.metodo}</span>
+                                        <span class="bg-white ${color.text} text-[8px] font-bold px-1.5 py-0.5 rounded-full">${metodo.cantidad} pagos</span>
                                     </div>
-                                    <span class="font-bold text-green-700 w-20 text-right">Bs. ${metodo.total.toFixed(2)}</span>
+                                    <span class="font-black ${color.text} text-[10px] sm:text-xs">Bs. ${metodo.total.toFixed(2)}</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="flex-1 bg-white/50 rounded-full h-2 overflow-hidden shadow-inner">
+                                        <div class="${color.bar} h-2 rounded-full transition-all duration-500 flex items-center justify-end pr-1" 
+                                             style="width: ${porcentaje}%">
+                                            <span class="text-white text-[8px] font-bold drop-shadow">${porcentaje}%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         `;
@@ -340,6 +657,58 @@ function cargarEstadisticasPagos() {
                 </div>
             `;
         });
+}
+
+// ==================== FUNCIONES PARA ANULAR RECIBO ====================
+let pagoIdAnular = null;
+
+function anularRecibo(pagoId, numeroRecibo) {
+    pagoIdAnular = pagoId;
+    document.getElementById('numero-recibo-anular').textContent = numeroRecibo;
+    document.getElementById('motivo-anulacion').value = '';
+    document.getElementById('modal-anular').classList.remove('hidden');
+}
+
+function cerrarModalAnular() {
+    document.getElementById('modal-anular').classList.add('hidden');
+    pagoIdAnular = null;
+}
+
+function confirmarAnulacion() {
+    const motivo = document.getElementById('motivo-anulacion').value.trim();
+    
+    if (!motivo) {
+        alert('⚠️ Por favor ingrese un motivo de anulación');
+        return;
+    }
+    
+    if (!pagoIdAnular) {
+        alert('❌ Error: No se seleccionó un pago para anular');
+        return;
+    }
+    
+    // Enviar solicitud de anulación
+    fetch(`{% url 'facturacion:anular_pago' 0 %}`.replace('0', pagoIdAnular), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ motivo: motivo })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Recibo anulado exitosamente');
+            location.reload();
+        } else {
+            alert('❌ Error al anular recibo: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error de conexión al anular el recibo');
+    });
 }
 </script>
 

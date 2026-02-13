@@ -87,6 +87,7 @@
                                 
                                 {% for sesion in grupo.sesiones %}
                                 <div class="group relative cursor-pointer rounded-md border-l-[3px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-1.5
+                                    {% if sesion.es_grupal %}border-t-2 border-t-teal-400{% endif %}
                                     {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
                                     {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
                                     {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
@@ -129,6 +130,12 @@
 
                                             {% if sesion.mensualidad %}
                                             <span class="text-[9px] text-indigo-600" title="Mensualidad: {{ sesion.mensualidad.codigo }}">💳</span>
+                                            {% endif %}
+
+                                            {% if sesion.es_grupal %}
+                                            <span class="inline-flex items-center gap-0.5 px-1 py-0.5 bg-teal-100 text-teal-700 rounded-full text-[7px] font-black border border-teal-300 leading-none" title="Sesión grupal: {{ sesion.num_grupo }} pacientes">
+                                                👥<span>{{ sesion.num_grupo }}</span>
+                                            </span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -208,6 +215,10 @@
             <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200 shadow-sm">
                 <span class="text-amber-600">⚠️</span>
                 <span class="text-amber-700 font-bold">Última Sesión</span>
+            </div>
+            <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-teal-300 shadow-sm">
+                <span class="text-teal-600 font-black">👥</span>
+                <span class="text-teal-700 font-bold">Grupal</span>
             </div>
         </div>
     </div>

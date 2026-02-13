@@ -3,45 +3,47 @@
 {% block title %}{{ servicio.nombre }} - Centro de Terapias{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <div class="relative rounded-3xl p-6 sm:p-10 shadow-xl overflow-hidden" 
-         style="background: linear-gradient(135deg, {{ servicio.color }}ee, {{ servicio.color }});">
-        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full bg-white opacity-10 blur-3xl"></div>
-        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10 blur-2xl"></div>
-        
-        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-white">
-            <div>
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-md shadow-inner text-2xl">🩺</span>
-                    <h1 class="text-3xl sm:text-4xl font-bold">{{ servicio.nombre }}</h1>
-                </div>
-                <div class="flex items-center gap-3 text-sm font-medium opacity-90">
-                    <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30">
-                        ID: #{{ servicio.id }}
-                    </span>
-                    {% if servicio.activo %}
-                    <span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/30 backdrop-blur-md border border-green-400/50 text-white">
-                        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Activo
-                    </span>
-                    {% else %}
-                    <span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/30 backdrop-blur-md border border-red-400/50 text-white">
-                        <span class="w-2 h-2 rounded-full bg-red-400"></span> Inactivo
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
+<div class="max-w-7xl mx-auto px-2 py-2">
+    <div class="mb-3">
+        <div class="relative rounded-xl p-3 shadow-lg overflow-hidden" 
+             style="background: linear-gradient(135deg, {{ servicio.color }}ee, {{ servicio.color }});">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-white opacity-10 blur-xl"></div>
+            <div class="absolute bottom-0 left-0 -ml-4 -mb-4 w-12 h-12 rounded-full bg-white opacity-10 blur-lg"></div>
             
-            <div class="flex gap-3">
-                {% if request.user.is_superuser or not request.user.perfil.es_recepcionista %}
-                <a href="{% url 'servicios:editar_servicio' servicio.id %}" 
-                   class="bg-white text-gray-800 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-gray-50 hover:scale-105 transition-all flex items-center gap-2">
-                    ✏️ Editar
-                </a>
-                {% endif %}
-                <a href="{% url 'servicios:lista_servicios' %}" 
-                   class="bg-black/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-black/30 transition-all backdrop-blur-sm border border-white/10">
-                    ← Volver
-                </a>
+            <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-white">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-white/20 p-1 rounded-lg backdrop-blur-md shadow-inner text-base">🩺</span>
+                        <h1 class="text-lg font-black">{{ servicio.nombre }}</h1>
+                    </div>
+                    <div class="flex items-center gap-2 text-[9px] font-bold opacity-90 mt-0.5">
+                        <span class="px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md border border-white/30 uppercase tracking-wider">
+                            ID: #{{ servicio.id }}
+                        </span>
+                        {% if servicio.activo %}
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/30 backdrop-blur-md border border-green-400/50 text-white uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span> Activo
+                        </span>
+                        {% else %}
+                        <span class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/30 backdrop-blur-md border border-red-400/50 text-white uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span> Inactivo
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="flex gap-1.5">
+                    {% if request.user.is_superuser or not request.user.perfil.es_recepcionista %}
+                    <a href="{% url 'servicios:editar_servicio' servicio.id %}" 
+                       class="bg-white text-gray-800 px-3 py-1.5 rounded-lg font-black text-[10px] shadow-md hover:bg-gray-50 hover:scale-105 transition-all flex items-center gap-1.5 uppercase tracking-wider">
+                        ✏️ Editar
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'servicios:lista_servicios' %}" 
+                       class="bg-black/20 text-white px-3 py-1.5 rounded-lg font-black text-[10px] hover:bg-black/30 transition-all backdrop-blur-sm border border-white/10 uppercase tracking-wider">
+                        ← Volver
+                    </a>
+                </div>
             </div>
         </div>
     </div>

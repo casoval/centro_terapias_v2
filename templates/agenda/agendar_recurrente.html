@@ -4,7 +4,7 @@
 {% block title %}Agendar Sesiones Recurrentes{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-slate-50 py-6 text-sm text-slate-600 font-sans">
+<div class="py-6 text-sm text-slate-600 font-sans">
     <div class="max-w-5xl mx-auto px-4">
         
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
@@ -260,17 +260,9 @@
                                        onchange="actualizarHoraCompleta(); actualizarVistaPrevia()" required>
                                     <option value="">Min</option>
                                     <option value="00">00</option>
-                                    <option value="05">05</option>
-                                    <option value="10">10</option>
                                     <option value="15">15</option>
-                                    <option value="20">20</option>
-                                    <option value="25">25</option>
                                     <option value="30">30</option>
-                                    <option value="35">35</option>
-                                    <option value="40">40</option>
                                     <option value="45">45</option>
-                                    <option value="50">50</option>
-                                    <option value="55">55</option>
                                 </select>
                                 <select name="hora_periodo" id="hora_periodo"
                                        class="px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none"
@@ -326,6 +318,19 @@
                                 <div class="flex-1">
                                     <span class="text-xs font-bold text-blue-900 group-hover:text-blue-700">📅 Programar sesiones pasadas</span>
                                     <p class="text-[10px] text-blue-600/70 mt-0.5">Habilitar fechas anteriores a hoy.</p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- ✅ NUEVO: Checkbox para Sesiones Grupales -->
+                        <div class="bg-purple-50/50 border border-purple-100 rounded-lg p-3">
+                            <label class="flex items-start gap-2 cursor-pointer select-none group">
+                                <input type="checkbox" id="sesiones_grupales" name="sesiones_grupales" 
+                                       class="mt-0.5 rounded text-purple-600 focus:ring-purple-500 border-gray-300" 
+                                       onchange="actualizarVistaPrevia()">
+                                <div class="flex-1">
+                                    <span class="text-xs font-bold text-purple-900 group-hover:text-purple-700">👥 Sesiones Grupales</span>
+                                    <p class="text-[10px] text-purple-600/70 mt-0.5">Permitir que el profesional atienda múltiples pacientes al mismo tiempo.</p>
                                 </div>
                             </label>
                         </div>
@@ -396,7 +401,7 @@
                 <button type="submit" class="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-emerald-200 transition-all transform hover:-translate-y-0.5 text-xs uppercase tracking-wide flex items-center justify-center gap-2">
                     <span>🚀</span> Generar Sesiones
                 </button>
-                <a href="{% url 'agenda:calendario' %}" class="px-6 py-3 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-100 text-xs flex items-center transition">
+                <a href="{% url 'agenda:calendario' %}" class="px-6 py-3 border border-red-200 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 hover:border-red-300 text-xs flex items-center transition">
                     Cancelar
                 </a>
             </div>
@@ -792,6 +797,9 @@ function actualizarVistaPrevia() {
     // Verificar si se deben incluir sesiones pasadas
     const incluirPasadas = document.getElementById('incluir_sesiones_pasadas')?.checked || false;
     
+    // ✅ NUEVO: Obtener valor del checkbox sesiones grupales
+    const sesionesGrupales = document.getElementById('sesiones_grupales')?.checked || false;
+    
     const params = new URLSearchParams({
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin,
@@ -800,7 +808,8 @@ function actualizarVistaPrevia() {
         profesional: profesionalId,
         servicio: servicioId,
         duracion: duracionEfectiva,
-        incluir_pasadas: incluirPasadas ? 'true' : 'false'
+        incluir_pasadas: incluirPasadas ? 'true' : 'false',
+        sesiones_grupales: sesionesGrupales ? 'true' : 'false'  // ✅ NUEVO
     });
     
     diasSeleccionados.forEach(dia => {
@@ -1052,17 +1061,48 @@ function mostrarInfoProyecto() {
 }
 
 // ========================================
-// VALIDACIÓN DE FORMULARIO
+// VALIDACIÓN Y PREPARACIÓN DEL FORMULARIO
 // ========================================
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('form');
+    const form = document.getElementById('form-recurrente');
     if (form) {
         form.addEventListener('submit', function(e) {
-            const checkboxes = document.querySelectorAll('.sesion-checkbox:checked');
-            if (checkboxes.length === 0) {
+            const checkboxesMarcados = document.querySelectorAll('.sesion-checkbox:checked');
+
+            // Validar que haya al menos una sesión seleccionada
+            if (checkboxesMarcados.length === 0) {
                 e.preventDefault();
                 alert('⚠️ Seleccione al menos una sesión');
                 return false;
+            }
+
+            // ✅ CORREGIDO: Limpiar hidden inputs previos de sesiones_seleccionadas
+            // para evitar duplicados si el usuario hace submit múltiples veces
+            document.querySelectorAll('input[name="sesiones_seleccionadas"][type="hidden"]').forEach(el => el.remove());
+
+            // ✅ CORREGIDO: Inyectar cada fecha seleccionada como hidden input
+            // Los checkboxes .sesion-checkbox tienen value = fecha (YYYY-MM-DD)
+            // Si tienen name="sesiones_seleccionadas" ya se envían solos.
+            // Si tienen otro name o ninguno, los inyectamos explícitamente:
+            const container = document.getElementById('hidden-inputs-container');
+            checkboxesMarcados.forEach(function(checkbox) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'sesiones_seleccionadas';
+                    hidden.value = checkbox.value;
+                    container.appendChild(hidden);
+            });
+
+            // ✅ CORREGIDO: Inyectar sesiones_grupales como hidden input
+            // ya que el checkbox real puede quedar fuera del flujo si está bloqueado
+            document.querySelectorAll('input[name="sesiones_grupales"][type="hidden"]').forEach(el => el.remove());
+            const checkboxGrupal = document.getElementById('sesiones_grupales');
+            if (checkboxGrupal && checkboxGrupal.checked) {
+                const hiddenGrupal = document.createElement('input');
+                hiddenGrupal.type = 'hidden';
+                hiddenGrupal.name = 'sesiones_grupales';
+                hiddenGrupal.value = 'on';
+                container.appendChild(hiddenGrupal);
             }
         });
     }

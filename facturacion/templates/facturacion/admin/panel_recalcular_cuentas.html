@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Panel de Recálculo de Cuentas{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-panel {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card h3 {
+        color: #666;
+        font-size: 0.875rem;
+        margin: 0 0 0.5rem 0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    .stat-card.primary .stat-value { color: #3b82f6; }
+    .stat-card.success .stat-value { color: #10b981; }
+    .stat-card.warning .stat-value { color: #f59e0b; }
+    
+    .action-section {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .warning-box {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 4px;
+    }
+    
+    .warning-box h4 {
+        color: #92400e;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .warning-box ul {
+        margin: 0.5rem 0 0 0;
+        padding-left: 1.5rem;
+        color: #78350f;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #2563eb;
+    }
+    
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #dc2626;
+    }
+    
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    #loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    #loading-overlay.active {
+        display: flex;
+    }
+    
+    .loading-content {
+        background: white;
+        padding: 2rem 3rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .info-section {
+        background: #f0f9ff;
+        border-left: 4px solid #3b82f6;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        border-radius: 4px;
+    }
+    
+    .info-section h4 {
+        color: #1e40af;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .info-section p {
+        margin: 0.25rem 0;
+        color: #1e3a8a;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-panel">
+    <h1>🔧 Panel de Recálculo de Cuentas</h1>
+    
+    <!-- Estadísticas -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <h3>Total de Cuentas</h3>
+            <p class="stat-value">{{ total_cuentas }}</p>
+        </div>
+        
+        <div class="stat-card success">
+            <h3>Pacientes Activos</h3>
+            <p class="stat-value">{{ total_pacientes }}</p>
+        </div>
+        
+        <div class="stat-card warning">
+            <h3>Saldos Negativos</h3>
+            <p class="stat-value">{{ cuentas_negativas }}</p>
+        </div>
+    </div>
+    
+    <!-- Sección de Acción -->
+    <div class="action-section">
+        <h2>Recalcular Todas las Cuentas</h2>
+        
+        <div class="warning-box">
+            <h4>⚠️ Advertencia</h4>
+            <p>Esta operación recalculará <strong>todas</strong> las cuentas corrientes del sistema.</p>
+            <ul>
+                <li>El proceso puede tomar varios minutos dependiendo del número de cuentas</li>
+                <li>Se recomienda hacerlo en horarios de bajo tráfico</li>
+                <li>Los usuarios podrían experimentar lentitud temporalmente</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h4>ℹ️ ¿Cuándo recalcular?</h4>
+            <p><strong>Debes recalcular cuando:</strong></p>
+            <ul>
+                <li>Detectes inconsistencias en los saldos de pacientes</li>
+                <li>Hayas corregido datos históricos manualmente</li>
+                <li>Después de una migración de datos</li>
+                <li>Si los reportes financieros no cuadran</li>
+            </ul>
+        </div>
+        
+        <form method="post" action="{% url 'facturacion:recalcular_todas_cuentas' %}" id="recalcular-form">
+            {% csrf_token %}
+            
+            <div style="margin-top: 2rem;">
+                <label style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <input type="checkbox" id="confirm-checkbox" style="margin-right: 0.5rem;" required>
+                    <span>Confirmo que entiendo las implicaciones y deseo continuar</span>
+                </label>
+                
+                <button type="submit" class="btn btn-danger" id="submit-btn" disabled>
+                    🔄 Recalcular TODAS las Cuentas
+                </button>
+                
+                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="btn btn-primary" style="margin-left: 1rem;">
+                    ← Volver a Cuentas
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <h3>Recalculando cuentas...</h3>
+        <p>Por favor espera, esto puede tomar varios minutos</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Habilitar botón solo cuando se confirme
+    const checkbox = document.getElementById('confirm-checkbox');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    checkbox.addEventListener('change', function() {
+        submitBtn.disabled = !this.checked;
+    });
+    
+    // Mostrar loading al enviar
+    const form = document.getElementById('recalcular-form');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    
+    form.addEventListener('submit', function(e) {
+        if (!checkbox.checked) {
+            e.preventDefault();
+            alert('Debes confirmar antes de continuar');
+            return;
+        }
+        
+        loadingOverlay.classList.add('active');
+        submitBtn.disabled = true;
+    });
+</script>
+{% endblock %}

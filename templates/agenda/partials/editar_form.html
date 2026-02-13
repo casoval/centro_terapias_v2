@@ -403,6 +403,9 @@
                                         {% if not pago.anulado %}
                                         <div class="text-[9px] font-mono text-gray-600 bg-white px-1.5 py-0.5 rounded border border-emerald-100 mb-1 last:mb-0 shadow-sm">
                                             {{ pago.fecha_pago|date:"d/m" }} • <b>Bs.{{ pago.monto }}</b>
+                                            <div class="text-[8px] text-blue-600 font-semibold">
+                                                {{ pago.metodo_pago.nombre }}
+                                            </div>
                                         </div>
                                         {% endif %}
                                         {% endfor %}
@@ -436,7 +439,10 @@
                                     {% for pago in sesion.pagos.all %}
                                     {% if not pago.anulado %}
                                     <div class="flex justify-between text-[10px] text-gray-600 px-1">
-                                        <span>{{ pago.fecha_pago|date:"d/m" }} ({{ pago.metodo_pago.nombre|slice:":3" }})</span>
+                                        <div>
+                                            <span>{{ pago.fecha_pago|date:"d/m" }}</span>
+                                            <div class="text-[8px] text-blue-600 font-semibold">{{ pago.metodo_pago.nombre }}</div>
+                                        </div>
                                         <span class="font-bold text-emerald-700">Bs. {{ pago.monto }}</span>
                                     </div>
                                     {% endif %}

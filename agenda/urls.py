@@ -16,13 +16,16 @@ urlpatterns = [
     # API para cargar proyectos del paciente
     path('api/proyectos-paciente/<int:paciente_id>/', views.obtener_proyectos_paciente, name='proyectos_paciente'),
     
+    # ✅ NUEVO: API para datos de confirmación al cancelar
+    path('api/datos-confirmacion-cancelacion/', views.api_datos_confirmacion_cancelacion, name='api_datos_confirmacion_cancelacion'),
+    
     # Otras APIs
     path('api/vista-previa/', views.vista_previa_recurrente, name='vista_previa'),
     path('api/editar/<int:sesion_id>/', views.editar_sesion, name='editar_sesion'),
     path('api/eliminar/<int:sesion_id>/', views.eliminar_sesion, name='eliminar_sesion'),
     path('api/validar-horario/', views.validar_horario, name='validar_horario'),
 
-    # Modal de confirmación de cambio de estado
+    # Modal de confirmaciÃ³n de cambio de estado
     path('api/modal-confirmar-estado/<int:sesion_id>/', 
          views.modal_confirmar_cambio_estado, 
          name='modal_confirmar_estado'),
@@ -43,7 +46,7 @@ urlpatterns = [
     path('confirmacion-mensualidad/', views.confirmacion_mensualidad, name='confirmacion_mensualidad'), 
     path('api/mensualidades-paciente/', views.obtener_mensualidades_paciente, name='mensualidades_paciente'),
     
-    # ✅ NUEVO: Agendamiento rápido desde mensualidad
+    # âœ… NUEVO: Agendamiento rÃ¡pido desde mensualidad
     path('mensualidades/agendar/modal/<int:servicio_profesional_id>/', 
          views.modal_agendar_mensualidad, 
          name='modal_agendar_mensualidad'),
@@ -54,7 +57,7 @@ urlpatterns = [
          views.vista_previa_mensualidad, 
          name='vista_previa_mensualidad'),
     
-    # Procesar cambio de estado con confirmación
+    # Procesar cambio de estado con confirmaciÃ³n
     path('sesion/<int:sesion_id>/procesar-cambio-estado/', 
          views.procesar_cambio_estado, 
          name='procesar_cambio_estado'),

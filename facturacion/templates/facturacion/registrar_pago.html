@@ -168,43 +168,69 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
-                {% elif proyecto %}
-                <div class="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden relative">
+                {% if proyecto %}
+                <div class="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden relative group">
                     <div class="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
-                    <div class="bg-purple-50 px-5 py-3 border-b border-purple-100">
-                        <h3 class="text-xs font-bold text-purple-900 uppercase tracking-wider">Proyecto {{ proyecto.codigo }}</h3>
+                    <div class="bg-purple-50/50 px-5 py-3 border-b border-purple-100">
+                        <h3 class="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Detalle del Proyecto
+                        </h3>
                     </div>
-                    <div class="p-5">
-                        <p class="text-lg font-bold text-gray-900 mb-4">{{ proyecto.nombre }}</p>
-                        <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-3">
-                            <span class="text-gray-500">Costo Total:</span>
-                            <span class="font-bold text-gray-800">Bs. {{ proyecto.costo_total }}</span>
+                    <div class="p-5 space-y-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-purple-900">{{ proyecto.nombre }}</h3>
+                            <p class="text-sm text-gray-600">Código: {{ proyecto.codigo }}</p>
                         </div>
-                        <div class="flex justify-between items-center text-sm mt-2">
-                            <span class="text-gray-500">Saldo Pendiente:</span>
-                            <span class="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">Bs. {{ proyecto.saldo_pendiente }}</span>
+                        
+                        <div class="grid grid-cols-3 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
+                            <div class="bg-white p-3 text-center">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold">Acordado</span>
+                                <span class="block text-base font-bold text-gray-800">{{ proyecto.costo_total }}</span>
+                            </div>
+                            <div class="bg-green-50 p-3 text-center">
+                                <span class="block text-[10px] text-green-700 uppercase font-bold">Pagado</span>
+                                <span class="block text-base font-bold text-green-700">{{ proyecto.total_pagado|default:'0.00' }}</span>
+                            </div>
+                            <div class="bg-red-50 p-3 text-center">
+                                <span class="block text-[10px] text-red-700 uppercase font-bold">Pendiente</span>
+                                <span class="block text-xl font-black text-red-600" id="pendiente-display">{{ proyecto.saldo_pendiente }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
+                {% endif %}
 
-                {% elif mensualidad %}
-                <!-- ✅ Card para mensualidad -->
-                <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden relative">
+                {% if mensualidad %}
+                <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden relative group">
                     <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                    <div class="bg-blue-50 px-5 py-3 border-b border-blue-100">
-                        <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wider">Mensualidad {{ mensualidad.codigo }}</h3>
+                    <div class="bg-blue-50/50 px-5 py-3 border-b border-blue-100">
+                        <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Detalle de Mensualidad
+                        </h3>
                     </div>
-                    <div class="p-5">
-                        <p class="text-lg font-bold text-gray-900 mb-2">{{ mensualidad.servicio.nombre|default:"Tratamiento mensual" }}</p>
-                        <p class="text-sm text-gray-600 mb-4">Periodo: {{ mensualidad.periodo_display }}</p>
-                        <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-3">
-                            <span class="text-gray-500">Monto Mensual:</span>
-                            <span class="font-bold text-gray-800">Bs. {{ mensualidad.costo_mensual }}</span>
+                    <div class="p-5 space-y-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-blue-900">{{ mensualidad.codigo }}</h3>
+                            <p class="text-sm text-gray-600">Periodo: {{ mensualidad.periodo_display }}</p>
                         </div>
-                        <div class="flex justify-between items-center text-sm mt-2">
-                            <span class="text-gray-500">Saldo Pendiente:</span>
-                            <span class="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">Bs. {{ mensualidad.saldo_pendiente }}</span>
+                        
+                        <div class="grid grid-cols-3 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
+                            <div class="bg-white p-3 text-center">
+                                <span class="block text-[10px] text-gray-500 uppercase font-bold">Acordado</span>
+                                <span class="block text-base font-bold text-gray-800">{{ mensualidad.costo_mensual }}</span>
+                            </div>
+                            <div class="bg-green-50 p-3 text-center">
+                                <span class="block text-[10px] text-green-700 uppercase font-bold">Pagado</span>
+                                <span class="block text-base font-bold text-green-700">{{ mensualidad.total_pagado|default:'0.00' }}</span>
+                            </div>
+                            <div class="bg-red-50 p-3 text-center">
+                                <span class="block text-[10px] text-red-700 uppercase font-bold">Pendiente</span>
+                                <span class="block text-xl font-black text-red-600" id="pendiente-display">{{ mensualidad.saldo_pendiente }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -262,8 +288,8 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-1">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-600 mb-2">Método de Pago *</label>
-                                    <select name="metodo_pago" id="metodo_pago" class="w-full px-4 py-2.5 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm" required>
-                                        <option value="">-- Seleccionar --</option>
+                                    <select name="metodo_pago" id="metodo_pago" class="w-full px-4 py-2.5 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm" required onchange="manejarCambioMetodoPago()">
+                                        <option value="">-- Seleccionar método --</option>
                                         {% for metodo in metodos_pago %}
                                         <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
                                         {% endfor %}
@@ -276,10 +302,21 @@
                                         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span>
                                         <input type="number" name="monto" id="monto" 
                                             step="0.01" min="0" 
-                                            value="{{ monto_sugerido|default:'0' }}" 
+                                            value="" 
                                             class="w-full pl-12 pr-4 py-2.5 text-xl font-bold text-gray-800 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors" 
                                             oninput="calcularTotal()" 
                                             placeholder="0.00">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ✅ NUEVO: Mensaje informativo dinámico -->
+                            <div id="mensaje-informativo" class="hidden mt-4 p-3 rounded-lg animate-fade-in">
+                                <div class="flex items-start gap-2">
+                                    <svg id="icono-mensaje" class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+                                    <div>
+                                        <p id="texto-mensaje" class="text-sm font-semibold"></p>
+                                        <p id="subtexto-mensaje" class="text-xs mt-1"></p>
                                     </div>
                                 </div>
                             </div>
@@ -338,6 +375,7 @@
 let pacienteSeleccionadoId = null;
 const creditoDisponible = parseFloat("{{ credito_disponible }}".replace(',','.')) || 0;
 const montoPendiente = parseFloat("{{ monto_sugerido }}".replace(',','.')) || 0;
+const modoActual = "{{ modo }}";
 
 function cargarOpcionesPaciente() {
     const select = document.getElementById('paciente_select');
@@ -400,69 +438,54 @@ async function cargarProyectosPaciente(pacienteId) {
         const response = await fetch(`/facturacion/api/proyectos-paciente/${pacienteId}/`);
         const data = await response.json();
         
-        select.innerHTML = '';
         select.disabled = false;
         
-        if (data.success && data.proyectos && data.proyectos.length > 0) {
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = '-- Seleccionar Tratamiento --';
-            select.appendChild(defaultOption);
+        if (data.proyectos && data.proyectos.length > 0) {
+            select.innerHTML = '<option value="">-- Selecciona un proyecto --</option>';
             data.proyectos.forEach(proyecto => {
                 const option = document.createElement('option');
                 option.value = proyecto.id;
-                option.textContent = `${proyecto.codigo} - ${proyecto.nombre} (Debe: Bs. ${proyecto.saldo_pendiente})`;
+                option.textContent = `${proyecto.nombre} - Pendiente: Bs. ${proyecto.saldo_pendiente}`;
                 select.appendChild(option);
             });
+            
+            console.log(`✅ ${data.proyectos.length} proyectos cargados`);
         } else {
-            select.innerHTML = '<option value="">✓ Sin deudas de proyectos</option>';
+            select.innerHTML = '<option value="">✓ Sin proyectos pendientes</option>';
+            console.log('ℹ️ No hay proyectos con saldo pendiente');
         }
     } catch (error) {
-        select.innerHTML = '<option value="">❌ Error de conexión</option>';
+        console.error('❌ Error al cargar proyectos:', error);
+        select.innerHTML = '<option value="">❌ Error al cargar proyectos</option>';
+        select.disabled = false;
+        alert(`❌ Error al cargar proyectos: ${error.message}\n\nRevisa la consola del navegador para más detalles.`);
     }
 }
 
-// ✅ MEJORADO: Función para cargar mensualidades con mejor manejo de errores
 async function cargarMensualidadesPaciente(pacienteId) {
     const select = document.getElementById('mensualidad_select');
-    if(!select) {
-        console.warn('⚠️ Select de mensualidades no encontrado');
-        return;
-    }
+    if(!select) return;
     
-    select.innerHTML = '<option value="">⏳ Cargando mensualidades...</option>';
+    select.innerHTML = '<option value="">⏳ Buscando...</option>';
     select.disabled = true;
     
     try {
-        console.log(`📡 Cargando mensualidades para paciente ${pacienteId}...`);
-        
         const response = await fetch(`/facturacion/api/mensualidades-paciente/${pacienteId}/`);
         const data = await response.json();
         
-        console.log('📥 Respuesta recibida:', data);
-        
-        select.innerHTML = '';
         select.disabled = false;
         
-        if (data.success && data.mensualidades && data.mensualidades.length > 0) {
-            // Opción por defecto
-            const defaultOption = document.createElement('option');
-            defaultOption.value = '';
-            defaultOption.textContent = `-- Seleccionar Mensualidad (${data.mensualidades.length}) --`;
-            select.appendChild(defaultOption);
-            
-            // Agregar cada mensualidad
+        if (data.mensualidades && data.mensualidades.length > 0) {
+            select.innerHTML = '<option value="">-- Selecciona una mensualidad --</option>';
             data.mensualidades.forEach(mensualidad => {
                 const option = document.createElement('option');
                 option.value = mensualidad.id;
-                option.textContent = `${mensualidad.codigo} - ${mensualidad.periodo} (Debe: Bs. ${mensualidad.saldo_pendiente.toFixed(2)})`;
-                option.setAttribute('data-monto', mensualidad.saldo_pendiente);
+                option.textContent = `${mensualidad.codigo} - ${mensualidad.periodo_display} - Pendiente: Bs. ${mensualidad.saldo_pendiente}`;
                 select.appendChild(option);
             });
             
             console.log(`✅ ${data.mensualidades.length} mensualidades cargadas`);
         } else {
-            // Sin mensualidades pendientes
             select.innerHTML = '<option value="">✓ Sin mensualidades pendientes</option>';
             console.log('ℹ️ No hay mensualidades con saldo pendiente');
         }
@@ -470,8 +493,6 @@ async function cargarMensualidadesPaciente(pacienteId) {
         console.error('❌ Error al cargar mensualidades:', error);
         select.innerHTML = '<option value="">❌ Error al cargar mensualidades</option>';
         select.disabled = false;
-        
-        // Mostrar alerta al usuario
         alert(`❌ Error al cargar mensualidades: ${error.message}\n\nRevisa la consola del navegador para más detalles.`);
     }
 }
@@ -482,7 +503,6 @@ function irAProyecto() {
     window.location.href = `/facturacion/pago/registrar/?proyecto=${proyectoId}`;
 }
 
-// ✅ NUEVO: Función para ir a mensualidad
 function irAMensualidad() {
     const mensualidadId = document.getElementById('mensualidad_select').value;
     if (!mensualidadId) { alert('⚠️ Por favor selecciona una mensualidad'); return; }
@@ -520,10 +540,218 @@ function usarSoloPendiente() {
     }
 }
 
+// ✅ FUNCIÓN NUEVA: Manejar cambios en método de pago (incluye lógica "Sin cobro")
+function manejarCambioMetodoPago() {
+    const metodoPago = document.getElementById('metodo_pago');
+    const montoInput = document.getElementById('monto');
+    const usarCreditoCheckbox = document.getElementById('usar_credito');
+    const pagoCompletoCheckbox = document.getElementById('pago_completo');
+    
+    if (!metodoPago) return;
+    
+    const metodoSeleccionado = metodoPago.options[metodoPago.selectedIndex]?.text || '';
+    const esSinCobro = metodoSeleccionado.toLowerCase().includes('sin cobro');
+    
+    // ✅ LÓGICA PARA "SIN COBRO"
+    if (esSinCobro) {
+        // 1. Bloquear campo monto y establecer en 0
+        if (montoInput) {
+            montoInput.value = '0';
+            montoInput.setAttribute('readonly', 'readonly');
+            montoInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+        }
+        
+        // 2. Bloquear checkbox "Usar Saldo a Favor" SI EXISTE (solo si hay crédito disponible)
+        if (usarCreditoCheckbox) {
+            usarCreditoCheckbox.setAttribute('disabled', 'disabled');
+            usarCreditoCheckbox.checked = false;
+            const wrapper = usarCreditoCheckbox.closest('.rounded-xl');
+            if (wrapper) wrapper.classList.add('opacity-50', 'pointer-events-none');
+        }
+        
+        // 3. Marcar y bloquear checkbox "Marcar deuda como Saldada"
+        if (pagoCompletoCheckbox) {
+            pagoCompletoCheckbox.checked = true;
+            pagoCompletoCheckbox.setAttribute('disabled', 'disabled');
+            const label = pagoCompletoCheckbox.closest('label');
+            if (label) label.classList.add('opacity-75', 'pointer-events-none');
+        }
+    } 
+    // ✅ LÓGICA PARA CUALQUIER OTRO MÉTODO
+    else {
+        // 1. Limpiar y habilitar campo monto
+        if (montoInput) {
+            montoInput.value = '';
+            montoInput.removeAttribute('readonly');
+            montoInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+        }
+        
+        // 2. Habilitar checkbox "Usar Saldo a Favor" SI EXISTE (mantiene lógica condicional)
+        if (usarCreditoCheckbox) {
+            usarCreditoCheckbox.removeAttribute('disabled');
+            usarCreditoCheckbox.checked = false;
+            const wrapper = usarCreditoCheckbox.closest('.rounded-xl');
+            if (wrapper) wrapper.classList.remove('opacity-50', 'pointer-events-none');
+        }
+        
+        // 3. Desmarcar y habilitar checkbox "Marcar deuda como Saldada"
+        if (pagoCompletoCheckbox) {
+            pagoCompletoCheckbox.checked = false;
+            pagoCompletoCheckbox.removeAttribute('disabled');
+            const label = pagoCompletoCheckbox.closest('label');
+            if (label) label.classList.remove('opacity-75', 'pointer-events-none');
+        }
+    }
+    
+    // Recalcular totales y actualizar mensajes
+    calcularTotal();
+}
+
+// ✅ NUEVA FUNCIÓN: Actualizar mensajes informativos dinámicos
+function actualizarMensajeInformativo() {
+    const contenedor = document.getElementById('mensaje-informativo');
+    const icono = document.getElementById('icono-mensaje');
+    const texto = document.getElementById('texto-mensaje');
+    const subtexto = document.getElementById('subtexto-mensaje');
+    
+    if (!contenedor || !icono || !texto || !subtexto) return;
+    
+    // Solo mostrar mensajes si hay un monto pendiente (sesión, proyecto, mensualidad)
+    if (modoActual !== 'sesion' && modoActual !== 'proyecto' && modoActual !== 'mensualidad') {
+        contenedor.classList.add('hidden');
+        return;
+    }
+    
+    const pagoCompleto = document.getElementById('pago_completo')?.checked || false;
+    const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
+    const usarCredito = document.getElementById('usar_credito')?.checked || false;
+    const montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
+    const totalPago = montoCredito + montoAdicional;
+    
+    // ✅ VALIDACIÓN: Crédito en 0 NO es válido
+    if (usarCredito && montoCredito === 0) {
+        contenedor.classList.remove('hidden');
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
+        icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+        icono.classList.add('text-red-600');
+        texto.textContent = '⚠️ Crédito con monto 0 no es válido';
+        subtexto.textContent = 'Si vas a usar crédito, debe ser mayor a 0. Para pagar 0 y saldar, usa solo efectivo.';
+        return;
+    }
+    
+    // ✅ VALIDACIÓN: Pago de 0 sin checkbox "Marcar deuda como Saldada" NO es válido
+    if (totalPago === 0 && !pagoCompleto) {
+        contenedor.classList.remove('hidden');
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
+        icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+        icono.classList.add('text-red-600');
+        texto.textContent = '⚠️ Pago de Bs. 0 no es válido';
+        subtexto.textContent = 'Debes ingresar un monto o marcar "Marcar deuda como Saldada" para condonar la deuda.';
+        return;
+    }
+    
+    // Casos cuando está marcado "Pago Completo"
+    if (pagoCompleto) {
+        if (totalPago === 0) {
+            // ✅ VALIDACIÓN: No permitir crédito en pago de 0
+            if (usarCredito) {
+                contenedor.classList.remove('hidden');
+                contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
+                icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+                icono.classList.add('text-red-600');
+                texto.textContent = '⚠️ No puedes saldar deuda en 0 usando crédito';
+                subtexto.textContent = 'Desmarca "Usar Saldo a Favor" para saldar con Bs. 0 en efectivo.';
+                return;
+            }
+            
+            // Pago de 0 CON checkbox marcado (condonación de deuda)
+            contenedor.classList.remove('hidden');
+            contenedor.className = 'mt-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 animate-fade-in';
+            icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
+            icono.classList.add('text-yellow-600');
+            texto.textContent = '⚠️ Condonación de deuda (Beca/Caso especial)';
+            subtexto.textContent = 'Se registrará un pago de Bs. 0 y la deuda quedará saldada.';
+        } else if (totalPago < montoPendiente) {
+            contenedor.classList.remove('hidden');
+            contenedor.className = 'mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 animate-fade-in';
+            icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+            icono.classList.add('text-blue-600');
+            texto.textContent = `✓ Deuda saldada con Bs. ${totalPago.toFixed(2)}`;
+            subtexto.textContent = usarCredito 
+                ? `(Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) - La deuda quedará en cero.`
+                : 'El monto total cobrado se ajustará y la deuda quedará en cero.';
+        } else if (totalPago > montoPendiente) {
+            contenedor.classList.remove('hidden');
+            contenedor.className = 'mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 animate-fade-in';
+            icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+            icono.classList.add('text-blue-600');
+            texto.textContent = `✓ Deuda saldada - Se ajustará a Bs. ${montoPendiente.toFixed(2)}`;
+            subtexto.textContent = usarCredito
+                ? `Pagas Bs. ${totalPago.toFixed(2)} (Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) pero se cobrará solo el pendiente.`
+                : `El cobro se ajustará a Bs. ${montoPendiente.toFixed(2)} y la deuda quedará en cero.`;
+        } else {
+            // Pago exacto con checkbox marcado
+            contenedor.classList.remove('hidden');
+            contenedor.className = 'mt-4 p-3 rounded-lg bg-green-50 border border-green-200 animate-fade-in';
+            icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+            icono.classList.add('text-green-600');
+            texto.textContent = '✓ Pago completo y exacto';
+            subtexto.textContent = usarCredito
+                ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} = Bs. ${totalPago.toFixed(2)} - Deuda saldada.`
+                : 'La deuda quedará totalmente saldada.';
+        }
+        return;
+    }
+    
+    // Casos normales (sin "Pago Completo" marcado)
+    if (totalPago < montoPendiente) {
+        const porcentaje = ((totalPago / montoPendiente) * 100).toFixed(0);
+        const faltante = montoPendiente - totalPago;
+        
+        contenedor.classList.remove('hidden');
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 animate-fade-in';
+        icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+        icono.classList.add('text-amber-600');
+        texto.textContent = `ℹ️ Se cobrará el ${porcentaje}% del total (Bs. ${totalPago.toFixed(2)})`;
+        subtexto.textContent = usarCredito
+            ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} - Faltarían Bs. ${faltante.toFixed(2)}`
+            : `Faltarían Bs. ${faltante.toFixed(2)} para completar el pago.`;
+    } else if (totalPago > montoPendiente) {
+        const exceso = totalPago - montoPendiente;
+        
+        contenedor.classList.remove('hidden');
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
+        icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+        icono.classList.add('text-red-600');
+        texto.textContent = `⚠️ El monto excede lo debido en Bs. ${exceso.toFixed(2)}`;
+        subtexto.textContent = usarCredito
+            ? `Total: Bs. ${totalPago.toFixed(2)} (Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) - Marca "Saldada" para ajustar.`
+            : 'No puedes pagar más de lo que se debe. Usa "Pago Adelantado" o marca "Saldada" para ajustar.';
+    } else {
+        // Pago exacto
+        contenedor.classList.remove('hidden');
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-green-50 border border-green-200 animate-fade-in';
+        icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+        icono.classList.add('text-green-600');
+        texto.textContent = '✓ Pago exacto del monto pendiente';
+        subtexto.textContent = usarCredito
+            ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} = Bs. ${totalPago.toFixed(2)} - Deuda saldada.`
+            : 'La deuda quedará totalmente saldada.';
+    }
+}
+
 function calcularTotal() {
     const usarCredito = document.getElementById('usar_credito')?.checked || false;
     const montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
     const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
+    
+    // ✅ VALIDACIÓN: Si activa el crédito, NO puede ser 0
+    if (usarCredito && montoCredito === 0) {
+        alert("⚠️ Si vas a usar crédito, debes especificar un monto mayor a 0.\n\nSi quieres pagar 0 para saldar deuda, usa solo efectivo y marca 'Marcar deuda como Saldada'.");
+        document.getElementById('usar_credito').checked = false;
+        document.getElementById('campo-credito')?.classList.add('hidden');
+        return calcularTotal();
+    }
     
     if (montoCredito > creditoDisponible) {
         alert("El monto supera el crédito disponible");
@@ -544,6 +772,9 @@ function calcularTotal() {
     } else {
         metodo.removeAttribute('required');
     }
+    
+    // ✅ NUEVO: Actualizar mensajes informativos
+    actualizarMensajeInformativo();
 }
 
 function togglePagoCompleto() {
@@ -555,32 +786,98 @@ function togglePagoCompleto() {
     } else {
         montoInput.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-800');
     }
+    
+    // ✅ NUEVO: Actualizar mensajes cuando cambia el checkbox
+    actualizarMensajeInformativo();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar cálculos sin pre-llenar el monto
     calcularTotal();
+    actualizarMensajeInformativo();
 });
 
+// ✅ VALIDACIÓN MEJORADA EN EL SUBMIT
 document.getElementById('form-pago').addEventListener('submit', function(e) {
     const pagoCompleto = document.getElementById('pago_completo')?.checked || false;
     const usarCredito = document.getElementById('usar_credito')?.checked || false;
     const montoCredito = parseFloat(document.getElementById('monto_credito')?.value) || 0;
     const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
     const totalPago = montoCredito + montoAdicional;
+    const metodoPago = document.getElementById('metodo_pago');
+    const metodoTexto = metodoPago?.options[metodoPago.selectedIndex]?.text || '';
+    const esSinCobro = metodoTexto.toLowerCase().includes('sin cobro');
     
-    if (totalPago === 0 && !pagoCompleto && !usarCredito) {
+    // ✅ VALIDACIÓN NUEVA: Métodos que NO son "Sin cobro" NO pueden tener monto 0 (excepto con crédito)
+    if (!esSinCobro && montoAdicional === 0 && !usarCredito && (modoActual === 'sesion' || modoActual === 'proyecto' || modoActual === 'mensualidad')) {
         e.preventDefault();
-        alert('⚠️ Debes especificar un monto a pagar o marcar "Pago Completo"');
+        alert('⚠️ No puedes registrar un pago de Bs. 0 en este método\n\nOpciones:\n• Ingresa el monto a cobrar\n• Usa el método "Sin cobro" si quieres saldar sin cobrar\n• Usa crédito disponible del paciente');
+        document.getElementById('monto').focus();
         return false;
     }
     
-    if (montoAdicional > 0) {
+    // ✅ VALIDACIÓN CRÍTICA: Si usa crédito, NO puede ser 0 (NUNCA, ni con "Saldada")
+    if (usarCredito && montoCredito === 0) {
+        e.preventDefault();
+        alert('⚠️ No puedes usar crédito con monto 0\n\nSi quieres pagar 0 para saldar deuda:\n• Desmarca "Usar Saldo a Favor"\n• Usa solo efectivo (Bs. 0)\n• Marca "Marcar deuda como Saldada"');
+        document.getElementById('monto_credito').focus();
+        return false;
+    }
+    
+    // ✅ VALIDACIÓN: Pago de 0 SOLO permitido con checkbox "Marcar deuda como Saldada" Y sin crédito
+    if (totalPago === 0 && (modoActual === 'sesion' || modoActual === 'proyecto' || modoActual === 'mensualidad')) {
+        if (!pagoCompleto) {
+            e.preventDefault();
+            alert('⚠️ No puedes registrar un pago de Bs. 0 sin marcar "Marcar deuda como Saldada"\n\nOpciones:\n• Marca el checkbox "Marcar deuda como Saldada" para saldar la deuda en 0\n• Ingresa el monto que vas a cobrar\n• Usa el método "Sin cobro"');
+            document.getElementById('monto').focus();
+            return false;
+        }
+        if (usarCredito) {
+            e.preventDefault();
+            alert('⚠️ No puedes saldar deuda en 0 usando crédito\n\nPara saldar deuda en 0:\n• Desmarca "Usar Saldo a Favor"\n• Deja el monto en efectivo en 0\n• Marca "Marcar deuda como Saldada"');
+            return false;
+        }
+        // Si está marcado el checkbox y NO usa crédito, confirmar la acción
+        const confirmar = confirm('⚠️ Vas a registrar un pago de Bs. 0 y saldar la deuda\n\nEsto es útil para casos de becas o situaciones especiales donde se condona la deuda.\n\n¿Deseas continuar?');
+        if (!confirmar) {
+            e.preventDefault();
+            return false;
+        }
+    }
+    
+    // Validar que haya método de pago si se cobra en efectivo
+    if (montoAdicional > 0 || (montoAdicional === 0 && !usarCredito)) {
         const metodo = document.getElementById('metodo_pago').value;
         if (!metodo) {
             e.preventDefault();
             alert('⚠️ Selecciona un método de pago');
             document.getElementById('metodo_pago').focus();
             return false;
+        }
+    }
+    
+    // ✅ VALIDACIÓN: No se puede pagar más de lo debido (a menos que esté marcado "Pago Completo")
+    if ((modoActual === 'sesion' || modoActual === 'proyecto' || modoActual === 'mensualidad') && !pagoCompleto) {
+        if (totalPago > montoPendiente) {
+            e.preventDefault();
+            const exceso = totalPago - montoPendiente;
+            alert(`⚠️ El monto total (Bs. ${totalPago.toFixed(2)}) excede lo debido (Bs. ${montoPendiente.toFixed(2)}) por Bs. ${exceso.toFixed(2)}\n\nOpciones:\n• Ajusta el monto a Bs. ${montoPendiente.toFixed(2)}\n• Usa "Pago Adelantado" para abonar crédito adicional\n• Marca "Marcar deuda como Saldada" para ajustar automáticamente`);
+            document.getElementById('monto').focus();
+            return false;
+        }
+    }
+    
+    // Confirmación para pagos parciales significativos
+    if ((modoActual === 'sesion' || modoActual === 'proyecto' || modoActual === 'mensualidad') && !pagoCompleto) {
+        if (totalPago < montoPendiente && totalPago > 0) {
+            const porcentaje = ((totalPago / montoPendiente) * 100).toFixed(0);
+            const faltante = montoPendiente - totalPago;
+            
+            const confirmar = confirm(`ℹ️ Pago parcial detectado\n\nSe cobrará: Bs. ${totalPago.toFixed(2)} (${porcentaje}%)\nFaltante: Bs. ${faltante.toFixed(2)}\n\n¿Deseas continuar?`);
+            if (!confirmar) {
+                e.preventDefault();
+                return false;
+            }
         }
     }
     
