@@ -105,7 +105,7 @@
     <!-- Vista móvil: Tarjetas -->
     <div class="sm:hidden space-y-2 mb-3">
         {% for item in page_obj %}
-        <div class="bg-white border rounded-lg p-2 shadow-sm {% if item.tipo == 'devolucion' %}border-red-300 bg-red-50{% endif %}">
+        <div class="bg-white border rounded-lg p-2 shadow-sm {% if item.tipo == 'devolucion' %}border-red-300 bg-red-50{% elif item.tipo == 'pago' and item.objeto.numero_recibo|slice:":4" == "CRE-" %}fila-credito{% endif %}">
             <div class="flex justify-between items-start mb-1.5">
                 <div class="flex-1">
                     <p class="font-bold text-xs text-gray-900">{{ item.objeto.paciente.nombre_completo }}</p>
@@ -168,7 +168,7 @@
                     🖨️ PDF
                 </a>
                 {% else %}
-                    {% if not item.objeto.numero_recibo|slice:":4" == "CRE-" %}
+                    {% if item.objeto.numero_recibo|slice:":4" != "CRE-" %}
                     <a href="{% url 'facturacion:generar_recibo_pdf' item.objeto.id %}" 
                        target="_blank"
                        class="flex-1 text-center bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
@@ -181,7 +181,7 @@
                         👤 Detalle
                     </a>
                     
-                    {% if not item.objeto.anulado %}
+                    {% if not item.objeto.anulado and item.objeto.numero_recibo|slice:":4" != "CRE-" %}
                     <button 
                         onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
                         class="flex-1 text-center bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all">
@@ -263,7 +263,7 @@
                 </tr>
                 {% else %}
                 <!-- FILA DE PAGO -->
-                <tr class="hover:bg-gray-50 transition-colors {% if item.objeto.es_pago_masivo %}border-l-4 border-l-blue-500 bg-blue-50{% endif %} {% if item.objeto.anulado %}opacity-50 bg-gray-100{% endif %}">
+                <tr class="hover:bg-gray-50 transition-colors {% if item.objeto.numero_recibo|slice:":4" == "CRE-" %}fila-credito{% elif item.objeto.es_pago_masivo %}border-l-4 border-l-blue-500 bg-blue-50{% endif %} {% if item.objeto.anulado %}opacity-50 bg-gray-100{% endif %}">
                     <td class="px-3 py-2 whitespace-nowrap">
                         {% if item.objeto.anulado %}
                         <span class="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-200 text-gray-600 border border-gray-400">
@@ -326,20 +326,20 @@
                     </td>
                     <td class="px-3 py-2">
                         <div class="flex justify-center gap-2">
-                            {% if not item.objeto.numero_recibo|slice:":4" == "CRE-" %}
-                            <a href="{% url 'facturacion:generar_recibo_pdf' item.objeto.id %}" 
-                               target="_blank"
-                               class="px-2 py-1 text-xs bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
-                               title="Abrir PDF en nueva pestaña">
-                                🖨️ PDF
-                            </a>
+                            {% if item.objeto.numero_recibo|slice:":4" != "CRE-" %}
+                                <a href="{% url 'facturacion:generar_recibo_pdf' item.objeto.id %}" 
+                                   target="_blank"
+                                   class="px-2 py-1 text-xs bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
+                                   title="Abrir PDF en nueva pestaña">
+                                    🖨️ PDF
+                                </a>
                             {% endif %}
                             <a href="{% url 'facturacion:detalle_cuenta' item.objeto.paciente.id %}" 
                                class="px-2 py-1 text-xs bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
                                title="Ver cuenta del paciente">
                                 👤 Detalle
                             </a>
-                            {% if not item.objeto.anulado %}
+                            {% if not item.objeto.anulado and item.objeto.numero_recibo|slice:":4" != "CRE-" %}
                             <button 
                                 onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
                                 class="px-2 py-1 text-xs bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 text-white rounded font-semibold shadow-sm hover:shadow-md transition-all"
@@ -715,6 +715,16 @@ function confirmarAnulacion() {
 <style>
 @media (min-width: 475px) {
     .xs\:inline { display: inline; }
+}
+
+/* ==================== ESTILO PARA FILAS DE CRÉDITO ==================== */
+.fila-credito {
+    background-color: #d1fae5 !important; /* Verde claro */
+    border-left: 4px solid #10b981 !important;
+}
+
+.fila-credito:hover {
+    background-color: #a7f3d0 !important; /* Verde claro más intenso al hover */
 }
 </style>
 {% endblock %}
