@@ -131,7 +131,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-2">
+<div class="w-full max-w-7xl mx-auto px-2 overflow-x-hidden">
     <!-- Header Compacto -->
     <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg p-2 sm:p-3 mb-2 text-white">
         <div class="flex items-center justify-between">
@@ -238,24 +238,20 @@
                                 
                                 <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
                                 <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
-                                    {% if sesion.tipo_servicio == 'mensualidad' %}
+                                    {% if sesion.mensualidad %}
                                         <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
-                                            📦 Mensualidad
+                                            💳 Mensualidad
                                         </span>
-                                        {% if sesion.mensualidad %}
                                         <span class="text-[9px] sm:text-[10px] text-purple-600 font-semibold truncate">
                                             {{ sesion.mensualidad.nombre }}
                                         </span>
-                                        {% endif %}
-                                    {% elif sesion.tipo_servicio == 'proyecto' %}
+                                    {% elif sesion.proyecto %}
                                         <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
-                                            🎯 Proyecto
+                                            📦 Proyecto/Evaluacion
                                         </span>
-                                        {% if sesion.proyecto %}
                                         <span class="text-[9px] sm:text-[10px] text-teal-600 font-semibold truncate">
                                             {{ sesion.proyecto.nombre }}
                                         </span>
-                                        {% endif %}
                                     {% endif %}
                                 </div>
                             </div>
@@ -289,8 +285,8 @@
                                     <span class="font-semibold text-green-600 truncate text-xs sm:text-sm">{{ sesion.sucursal.nombre }}</span>
                                 </div>
                                 
-                                <!-- Costo - Solo mostrar si NO es mensualidad o proyecto -->
-                                {% if sesion.tipo_servicio != 'mensualidad' and sesion.tipo_servicio != 'proyecto' %}
+                                <!-- Costo - Solo mostrar si NO es mensualidad ni proyecto -->
+                                {% if not sesion.mensualidad and not sesion.proyecto %}
                                 <div class="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
                                     <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Costo:</span>
                                     <span class="text-base sm:text-lg font-black text-emerald-600">Bs. {{ sesion.monto_cobrado }}</span>
@@ -348,11 +344,11 @@
                                 
                                 <!-- Tipo - Solo Mensualidad o Proyecto -->
                                 <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
-                                    {% if sesion.tipo_servicio == 'mensualidad' %}
+                                    {% if sesion.mensualidad %}
                                         <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             📦 Mensualidad
                                         </span>
-                                    {% elif sesion.tipo_servicio == 'proyecto' %}
+                                    {% elif sesion.proyecto %}
                                         <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             🎯 Proyecto
                                         </span>
@@ -387,8 +383,8 @@
                                 </div>
                             </div>
                             
-                            <!-- Estado de Pago - Solo mostrar si NO es mensualidad o proyecto -->
-                            {% if sesion.tipo_servicio != 'mensualidad' and sesion.tipo_servicio != 'proyecto' %}
+                            <!-- Estado de Pago - Solo mostrar si NO es mensualidad ni proyecto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
                             <div class="mt-2 sm:mt-3 p-2 sm:p-2.5 rounded-lg bg-white border-2">
                                 <div class="flex items-center justify-between mb-1.5 sm:mb-2">
                                     <span class="text-[10px] sm:text-xs font-bold text-gray-700">💰 Estado de Pago:</span>
@@ -455,11 +451,11 @@
                                 
                                 <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
                                 <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
-                                    {% if sesion.tipo_servicio == 'mensualidad' %}
+                                    {% if sesion.mensualidad %}
                                         <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             📦 Mensualidad
                                         </span>
-                                    {% elif sesion.tipo_servicio == 'proyecto' %}
+                                    {% elif sesion.proyecto %}
                                         <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             🎯 Proyecto
                                         </span>
@@ -491,8 +487,8 @@
                                 </div>
                             </div>
                             
-                            <!-- Monto - Solo mostrar si NO es mensualidad o proyecto -->
-                            {% if sesion.tipo_servicio != 'mensualidad' and sesion.tipo_servicio != 'proyecto' %}
+                            <!-- Monto - Solo mostrar si NO es mensualidad ni proyecto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
                                 {% if sesion.monto_cobrado > 0 %}
                                 <div class="mt-2 sm:mt-3 flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
                                     <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Monto:</span>
@@ -545,11 +541,11 @@
                                 
                                 <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
                                 <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
-                                    {% if sesion.tipo_servicio == 'mensualidad' %}
+                                    {% if sesion.mensualidad %}
                                         <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             📦 Mensualidad
                                         </span>
-                                    {% elif sesion.tipo_servicio == 'proyecto' %}
+                                    {% elif sesion.proyecto %}
                                         <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
                                             🎯 Proyecto
                                         </span>
@@ -581,8 +577,8 @@
                                 </div>
                             </div>
                             
-                            <!-- Monto - Solo mostrar si NO es mensualidad o proyecto -->
-                            {% if sesion.tipo_servicio != 'mensualidad' and sesion.tipo_servicio != 'proyecto' %}
+                            <!-- Monto - Solo mostrar si NO es mensualidad ni proyecto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
                             <div class="mt-2 sm:mt-3 flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
                                 <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Monto:</span>
                                 <span class="text-base sm:text-lg font-black text-yellow-600">Bs. {{ sesion.monto_cobrado }}</span>

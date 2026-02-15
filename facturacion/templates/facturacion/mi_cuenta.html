@@ -82,7 +82,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-2 sm:px-4">
+<div class="w-full max-w-7xl mx-auto px-2 sm:px-4 overflow-x-hidden">
     <!-- Header -->
     <div class="flex flex-col gap-2 mb-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -380,20 +380,18 @@
             </div>
         </div>
 
-        <!-- Tipo de Sesión - Sin mostrar Individual/Grupal -->
+        <!-- Tipo de Sesión - Solo mostrar si es Mensualidad o Proyecto -->
         <div class="mt-3 sm:mt-4 flex flex-wrap gap-2">
-            {% if proxima_sesion.tipo_servicio == 'mensualidad' %}
+            {% if proxima_sesion.mensualidad %}
                 <span class="bg-purple-500 bg-opacity-80 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                     📦 Mensualidad
                 </span>
-            {% elif proxima_sesion.tipo_servicio == 'proyecto' %}
+            {% elif proxima_sesion.proyecto %}
                 <span class="bg-teal-500 bg-opacity-80 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                     🎯 Proyecto Especial
                 </span>
-            {% endif %}
-            
-            <!-- Solo mostrar monto si NO es mensualidad o proyecto -->
-            {% if proxima_sesion.tipo_servicio != 'mensualidad' and proxima_sesion.tipo_servicio != 'proyecto' %}
+            {% else %}
+                <!-- Solo mostrar monto si NO es mensualidad ni proyecto -->
                 {% if proxima_sesion.monto_cobrado > 0 %}
                     <span class="bg-green-500 bg-opacity-80 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold">
                         💰 Bs. {{ proxima_sesion.monto_cobrado }}
