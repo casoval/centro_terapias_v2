@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mis Deudas - {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-3 sm:px-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center">
+                <span class="text-2xl mr-2">⚠️</span>
+                Total de Pagos Adeudados
+            </h1>
+            <p class="text-sm text-gray-600">{{ paciente.nombre_completo }} · Incluye Todas las Deudas</p>
+        </div>
+        <a href="{% url 'facturacion:mi_cuenta' %}" 
+           class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50">
+            ← Mi Cuenta
+        </a>
+    </div>
+
+    <!-- Resumen Total de Deudas -->
+    {% if total_deuda_general > 0 %}
+    <div class="bg-gradient-to-r from-red-500 to-orange-600 rounded-xl shadow-lg p-4 sm:p-6 mb-4 text-white">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex-1">
+                <p class="text-sm opacity-90 mb-1">💳 Total a Pagar</p>
+                <p class="text-3xl sm:text-4xl font-bold">Bs. {{ total_deuda_general }}</p>
+                <p class="text-sm opacity-80 mt-1">
+                    {{ total_items }} concepto{{ total_items|pluralize }} 
+                    {% if sesiones_programadas > 0 or proyectos_futuros > 0 %}
+                    · Incluye Todos los compromisos
+                    {% endif %}
+                </p>
+            </div>
+            <div class="text-5xl opacity-20">⚠️</div>
+        </div>
+        
+        <!-- Desglose por categoría -->
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white border-opacity-20">
+            <div class="text-center">
+                <p class="text-xs opacity-80">Sesiones</p>
+                <p class="text-lg font-bold">Bs. {{ total_deuda_sesiones }}</p>
+                {% if sesiones_programadas > 0 %}
+                <p class="text-xs opacity-70 mt-1">{{ sesiones_programadas }} programada{{ sesiones_programadas|pluralize }}</p>
+                {% endif %}
+            </div>
+            <div class="text-center">
+                <p class="text-xs opacity-80">Proyectos/Evaluaciones</p>
+                <p class="text-lg font-bold">Bs. {{ total_deuda_proyectos }}</p>
+                {% if proyectos_futuros > 0 %}
+                <p class="text-xs opacity-70 mt-1">{{ proyectos_futuros }} planificado{{ proyectos_futuros|pluralize }}</p>
+                {% endif %}
+            </div>
+            <div class="text-center">
+                <p class="text-xs opacity-80">Mensualidades</p>
+                <p class="text-lg font-bold">Bs. {{ total_deuda_mensualidades }}</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Sin deudas -->
+    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-8 mb-4 text-white text-center">
+        <div class="text-6xl mb-3">✅</div>
+        <p class="text-2xl font-bold mb-2">¡Felicidades!</p>
+        <p class="text-lg opacity-90">No tienes deudas pendientes</p>
+    </div>
+    {% endif %}
+
+    <!-- SESIONES NORMALES CON DEUDA -->
+    {% if sesiones_con_deuda %}
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3">
+                <h2 class="text-white font-bold text-lg flex items-center justify-between">
+                    <span class="flex items-center">
+                        <span class="mr-2">🏥</span>
+                        Sesiones Normales
+                    </span>
+                    <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">
+                        {{ sesiones_con_deuda|length }}
+                    </span>
+                </h2>
+            </div>
+            
+            <!-- Vista Móvil -->
+            <div class="block sm:hidden divide-y">
+                {% for item in sesiones_con_deuda %}
+                <div class="p-3 hover:bg-gray-50 {% if item.es_futura %}bg-blue-50{% endif %}">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 text-sm truncate">{{ item.descripcion }}</p>
+                            <p class="text-xs text-gray-500">{{ item.fecha|date:"d/m/Y" }} · {{ item.sucursal }}</p>
+                        </div>
+                        <span class="ml-2 px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap
+                            {% if item.estado_color == 'blue' %}bg-blue-100 text-blue-800
+                            {% elif item.estado_color == 'green' %}bg-green-100 text-green-800
+                            {% elif item.estado_color == 'orange' %}bg-orange-100 text-orange-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ item.estado_label }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="bg-blue-50 rounded p-2">
+                            <p class="text-gray-600">Costo</p>
+                            <p class="font-bold text-blue-600">Bs. {{ item.costo }}</p>
+                        </div>
+                        <div class="bg-green-50 rounded p-2">
+                            <p class="text-gray-600">Pagado</p>
+                            <p class="font-bold text-green-600">Bs. {{ item.pagado }}</p>
+                        </div>
+                        <div class="bg-red-50 rounded p-2">
+                            <p class="text-gray-600">Debe</p>
+                            <p class="font-bold text-red-600">Bs. {{ item.saldo }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Vista Desktop -->
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Fecha</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Descripción</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Estado</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Sucursal</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Costo</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Pagado</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for item in sesiones_con_deuda %}
+                        <tr class="hover:bg-gray-50 {% if item.es_futura %}bg-blue-50{% endif %}">
+                            <td class="px-4 py-3 text-sm whitespace-nowrap">{{ item.fecha|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-3 text-sm">{{ item.descripcion }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if item.estado_color == 'blue' %}bg-blue-100 text-blue-800
+                                    {% elif item.estado_color == 'green' %}bg-green-100 text-green-800
+                                    {% elif item.estado_color == 'orange' %}bg-orange-100 text-orange-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ item.estado_label }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ item.sucursal }}</td>
+                            <td class="px-4 py-3 text-sm text-right font-semibold">Bs. {{ item.costo }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-green-600 font-semibold">Bs. {{ item.pagado }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-red-600 font-bold">Bs. {{ item.saldo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50">
+                        <tr>
+                            <td colspan="6" class="px-4 py-3 text-right text-sm font-bold">Subtotal Sesiones:</td>
+                            <td class="px-4 py-3 text-right text-red-600 font-bold">Bs. {{ total_deuda_sesiones }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- PROYECTOS ESPECIALES CON DEUDA -->
+    {% if proyectos_con_deuda %}
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-3">
+                <h2 class="text-white font-bold text-lg flex items-center justify-between">
+                    <span class="flex items-center">
+                        <span class="mr-2">📋</span>
+                        Proyectos/Evaluaciones
+                    </span>
+                    <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">
+                        {{ proyectos_con_deuda|length }}
+                    </span>
+                </h2>
+            </div>
+            
+            <!-- Vista Móvil -->
+            <div class="block sm:hidden divide-y">
+                {% for item in proyectos_con_deuda %}
+                <div class="p-3 hover:bg-gray-50 {% if item.es_futuro %}bg-blue-50{% endif %}">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 text-sm">{{ item.descripcion }}</p>
+                            <p class="text-xs text-gray-500">
+                                {{ item.fecha|date:"d/m/Y" }} · {{ item.sucursal }}
+                            </p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if item.estado_color == 'gray' %}bg-gray-100 text-gray-800
+                                    {% elif item.estado_color == 'blue' %}bg-blue-100 text-blue-800
+                                    {% elif item.estado_color == 'yellow' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-green-100 text-green-800{% endif %}">
+                                    {{ item.estado_label }}
+                                </span>
+                                <p class="text-xs text-indigo-600">
+                                    {{ item.sesiones_realizadas }}/{{ item.sesiones_total }} sesiones
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="bg-indigo-50 rounded p-2">
+                            <p class="text-gray-600">Costo</p>
+                            <p class="font-bold text-indigo-600">Bs. {{ item.costo }}</p>
+                        </div>
+                        <div class="bg-green-50 rounded p-2">
+                            <p class="text-gray-600">Pagado</p>
+                            <p class="font-bold text-green-600">Bs. {{ item.pagado }}</p>
+                        </div>
+                        <div class="bg-red-50 rounded p-2">
+                            <p class="text-gray-600">Debe</p>
+                            <p class="font-bold text-red-600">Bs. {{ item.saldo }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Vista Desktop -->
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Fecha</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Proyecto</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Estado</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Sucursal</th>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-600">Progreso</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Costo</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Pagado</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for item in proyectos_con_deuda %}
+                        <tr class="hover:bg-gray-50 {% if item.es_futuro %}bg-blue-50{% endif %}">
+                            <td class="px-4 py-3 text-sm whitespace-nowrap">{{ item.fecha|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-3 text-sm">{{ item.descripcion }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if item.estado_color == 'gray' %}bg-gray-100 text-gray-800
+                                    {% elif item.estado_color == 'blue' %}bg-blue-100 text-blue-800
+                                    {% elif item.estado_color == 'yellow' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-green-100 text-green-800{% endif %}">
+                                    {{ item.estado_label }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ item.sucursal }}</td>
+                            <td class="px-4 py-3 text-sm text-center">
+                                <span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs font-semibold">
+                                    {{ item.sesiones_realizadas }}/{{ item.sesiones_total }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right font-semibold">Bs. {{ item.costo }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-green-600 font-semibold">Bs. {{ item.pagado }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-red-600 font-bold">Bs. {{ item.saldo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50">
+                        <tr>
+                            <td colspan="7" class="px-4 py-3 text-right text-sm font-bold">Subtotal Proyectos/Evaluaciones:</td>
+                            <td class="px-4 py-3 text-right text-red-600 font-bold">Bs. {{ total_deuda_proyectos }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- MENSUALIDADES CON DEUDA -->
+    {% if mensualidades_con_deuda %}
+    <div class="mb-6">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-3">
+                <h2 class="text-white font-bold text-lg flex items-center justify-between">
+                    <span class="flex items-center">
+                        <span class="mr-2">📅</span>
+                        Mensualidades
+                    </span>
+                    <span class="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm">
+                        {{ mensualidades_con_deuda|length }}
+                    </span>
+                </h2>
+            </div>
+            
+            <!-- Vista Móvil -->
+            <div class="block sm:hidden divide-y">
+                {% for item in mensualidades_con_deuda %}
+                <div class="p-3 hover:bg-gray-50">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-gray-900 text-sm">{{ item.descripcion }}</p>
+                            <p class="text-xs text-gray-500 mb-1">{{ item.servicios }}</p>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if item.estado_color == 'green' %}bg-green-100 text-green-800
+                                {% elif item.estado_color == 'red' %}bg-red-100 text-red-800
+                                {% elif item.estado_color == 'yellow' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ item.estado_label }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="bg-purple-50 rounded p-2">
+                            <p class="text-gray-600">Costo</p>
+                            <p class="font-bold text-purple-600">Bs. {{ item.costo }}</p>
+                        </div>
+                        <div class="bg-green-50 rounded p-2">
+                            <p class="text-gray-600">Pagado</p>
+                            <p class="font-bold text-green-600">Bs. {{ item.pagado }}</p>
+                        </div>
+                        <div class="bg-red-50 rounded p-2">
+                            <p class="text-gray-600">Debe</p>
+                            <p class="font-bold text-red-600">Bs. {{ item.saldo }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Vista Desktop -->
+            <div class="hidden sm:block overflow-x-auto">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Período</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Servicios</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-gray-600">Estado</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Costo</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Pagado</th>
+                            <th class="px-4 py-3 text-right text-xs font-bold text-gray-600">Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        {% for item in mensualidades_con_deuda %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium">{{ item.descripcion }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">{{ item.servicios }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                    {% if item.estado_color == 'green' %}bg-green-100 text-green-800
+                                    {% elif item.estado_color == 'red' %}bg-red-100 text-red-800
+                                    {% elif item.estado_color == 'yellow' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ item.estado_label }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right font-semibold">Bs. {{ item.costo }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-green-600 font-semibold">Bs. {{ item.pagado }}</td>
+                            <td class="px-4 py-3 text-sm text-right text-red-600 font-bold">Bs. {{ item.saldo }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-gray-50">
+                        <tr>
+                            <td colspan="5" class="px-4 py-3 text-right text-sm font-bold">Subtotal Mensualidades:</td>
+                            <td class="px-4 py-3 text-right text-red-600 font-bold">Bs. {{ total_deuda_mensualidades }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Mensaje cuando no hay deudas en ninguna categoría -->
+    {% if not sesiones_con_deuda and not proyectos_con_deuda and not mensualidades_con_deuda %}
+    <div class="bg-white rounded-lg shadow p-8 text-center">
+        <div class="text-5xl mb-3">🎉</div>
+        <h3 class="text-xl font-bold text-gray-700 mb-2">¡Excelente!</h3>
+        <p class="text-gray-500">Estás al día con todos tus pagos</p>
+        <a href="{% url 'facturacion:mi_cuenta' %}" 
+           class="inline-block mt-4 text-blue-600 hover:text-blue-800 text-sm font-semibold">
+            Ver Mi Cuenta →
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Pie de página informativo -->
+    {% if total_deuda_general > 0 %}
+    <div class="mt-6 bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700 mb-2">
+                    <strong>💡 Deuda Total:</strong> Esta vista muestra TODAS tus obligaciones de pago:
+                </p>
+                <ul class="text-sm text-blue-700 list-disc list-inside space-y-1">
+                    <li>Sesiones realizadas y programadas</li>
+                    <li>Proyectos/Evaluaciones en todos sus estados (planificados, en progreso, finalizados)</li>
+                    <li>Mensualidades activas, vencidas y completadas</li>
+                </ul>
+                <p class="text-sm text-blue-700 mt-2">
+                    <strong>📞 Para pagar:</strong> Comunícate con nuestro personal administrativo en cualquier sucursal o vía WhatsApp.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

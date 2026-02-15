@@ -4000,232 +4000,6 @@ def api_detalle_pago(request, pago_id):
 @login_required
 def mi_cuenta(request):
     """
-    Vista para que pacientes vean su cuenta corriente, pagos y deudas
-    ✅ EXCLUSIVA para pacientes
-    """
-    # ✅ Verificar que el usuario sea paciente
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
-        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
-        return redirect('core:dashboard')
-    
-    # ✅ Obtener el paciente vinculado
-    paciente = request.user.perfil.paciente
-    
-    if not paciente:
-        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
-        return redirect('core:dashboard')
-    
-    # Obtener o crear cuenta corriente
-    cuenta, created = CuentaCorriente.objects.get_or_create(paciente=paciente)
-    
-    # Actualizar saldo para tener datos frescos
-    cuenta.actualizar_saldo()
-    
-    # ==================== SESIONES ====================
-    
-    # Sesiones pendientes de pago (realizadas pero no pagadas completamente)
-    sesiones_pendientes = Sesion.objects.filter(
-        paciente=paciente,
-        estado__in=['realizada', 'realizada_retraso', 'falta'],
-        proyecto__isnull=True,
-        monto_cobrado__gt=0
-    ).select_related(
-        'servicio', 'profesional', 'sucursal'
-    ).order_by('fecha', 'hora_inicio')
-    
-    # Filtrar solo las que tienen saldo pendiente
-    sesiones_con_deuda = []
-    for sesion in sesiones_pendientes:
-        if sesion.saldo_pendiente > 0:
-            sesiones_con_deuda.append(sesion)
-    
-    # Últimas 10 sesiones realizadas
-    sesiones_realizadas = Sesion.objects.filter(
-        paciente=paciente,
-        estado__in=['realizada', 'realizada_retraso']
-    ).select_related(
-        'servicio', 'profesional', 'sucursal'
-    ).order_by('-fecha', '-hora_inicio')[:10]
-    
-    # ==================== PROYECTOS ====================
-    
-    # Proyectos activos
-    proyectos_activos = Proyecto.objects.filter(
-        paciente=paciente,
-        estado__in=['planificado', 'en_progreso']
-    ).select_related('servicio_base')
-    
-    # Proyectos finalizados recientes
-    proyectos_finalizados = Proyecto.objects.filter(
-    paciente=paciente,
-    estado='finalizado'
-    ).select_related('servicio_base').order_by('-fecha_fin_real')[:5]
-    
-    # ==================== PAGOS ====================
-    
-    # Últimos 10 pagos realizados
-    pagos_realizados = Pago.objects.filter(
-        paciente=paciente,
-        anulado=False
-    ).select_related(
-        'metodo_pago', 'sesion', 'proyecto'
-    ).order_by('-fecha_pago', '-fecha_registro')[:10]
-    
-    # ==================== RESUMEN FINANCIERO ====================
-    
-    resumen = {
-        # Sesiones normales
-        'consumo_sesiones': cuenta.consumo_sesiones,
-        'pagado_sesiones': cuenta.pagado_sesiones,
-        'deuda_sesiones': cuenta.deuda_sesiones,
-        
-        # Proyectos
-        'consumo_proyectos': cuenta.consumo_proyectos,
-        'pagado_proyectos': cuenta.pagado_proyectos,
-        'deuda_proyectos': cuenta.deuda_proyectos,
-        
-        # Totales
-        'consumo_total': cuenta.total_consumo_general,
-        'pagado_total': cuenta.total_pagado_general,
-        'deuda_total': cuenta.total_deuda_general,
-        
-        # Balance
-        'credito': cuenta.saldo_actual,
-        'balance_final': cuenta.balance_final,
-    }
-    
-    context = {
-        'paciente': paciente,
-        'cuenta': cuenta,
-        'resumen': resumen,
-        'sesiones_con_deuda': sesiones_con_deuda,
-        'sesiones_realizadas': sesiones_realizadas,
-        'proyectos_activos': proyectos_activos,
-        'proyectos_finalizados': proyectos_finalizados,
-        'pagos_realizados': pagos_realizados,
-        'total_sesiones_pendientes': len(sesiones_con_deuda),
-    }
-    
-    return render(request, 'facturacion/mi_cuenta.html', context)
-
-
-@login_required
-def mis_pagos(request):
-    """
-    Historial completo de pagos del paciente
-    ✅ EXCLUSIVA para pacientes
-    """
-    # ✅ Verificar que el usuario sea paciente
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
-        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
-        return redirect('core:dashboard')
-    
-    # ✅ Obtener el paciente vinculado
-    paciente = request.user.perfil.paciente
-    
-    if not paciente:
-        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
-        return redirect('core:dashboard')
-    
-    # Filtros
-    fecha_desde = request.GET.get('desde', '')
-    fecha_hasta = request.GET.get('hasta', '')
-    metodo = request.GET.get('metodo', '')
-    tipo = request.GET.get('tipo', '')  # 'sesion', 'proyecto', 'adelantado'
-    
-    # Query base: solo pagos NO anulados del paciente
-    pagos = Pago.objects.filter(
-        paciente=paciente,
-        anulado=False
-    ).select_related(
-        'metodo_pago', 'sesion', 'proyecto', 'registrado_por'
-    ).order_by('-fecha_pago', '-fecha_registro')
-    
-    # Aplicar filtros
-    if fecha_desde:
-        try:
-            pagos = pagos.filter(fecha_pago__gte=fecha_desde)
-        except:
-            pass
-    
-    if fecha_hasta:
-        try:
-            pagos = pagos.filter(fecha_pago__lte=fecha_hasta)
-        except:
-            pass
-    
-    if metodo:
-        pagos = pagos.filter(metodo_pago_id=metodo)
-    
-    if tipo:
-        if tipo == 'sesion':
-            pagos = pagos.filter(sesion__isnull=False)
-        elif tipo == 'proyecto':
-            pagos = pagos.filter(proyecto__isnull=False)
-        elif tipo == 'adelantado':
-            pagos = pagos.filter(sesion__isnull=True, proyecto__isnull=True)
-    
-    # Calcular total
-    total_pagado = pagos.aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
-    
-    # Métodos de pago disponibles para el filtro
-    from .models import MetodoPago
-    metodos_pago = MetodoPago.objects.filter(activo=True)
-    
-    context = {
-        'paciente': paciente,
-        'pagos': pagos,
-        'total_pagado': total_pagado,
-        'metodos_pago': metodos_pago,
-        'filtros': {
-            'fecha_desde': fecha_desde,
-            'fecha_hasta': fecha_hasta,
-            'metodo': metodo,
-            'tipo': tipo,
-        }
-    }
-    
-    return render(request, 'facturacion/mis_pagos.html', context)
-
-
-@login_required
-def detalle_pago_paciente(request, pago_id):
-    """
-    Detalle de un pago específico
-    ✅ EXCLUSIVA para pacientes - Solo pueden ver SUS propios pagos
-    """
-    # ✅ Verificar que el usuario sea paciente
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
-        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
-        return redirect('core:dashboard')
-    
-    # ✅ Obtener el paciente vinculado
-    paciente = request.user.perfil.paciente
-    
-    if not paciente:
-        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
-        return redirect('core:dashboard')
-    
-    # Obtener el pago
-    pago = get_object_or_404(
-        Pago.objects.select_related(
-            'metodo_pago', 'sesion', 'proyecto', 'registrado_por'
-        ),
-        id=pago_id,
-        paciente=paciente,  # ✅ IMPORTANTE: Solo SUS pagos
-        anulado=False
-    )
-    
-    context = {
-        'paciente': paciente,
-        'pago': pago,
-    }
-    
-    return render(request, 'facturacion/detalle_pago_paciente.html', context)
-
-@login_required
-def mi_cuenta(request):
-    """
     Resumen de cuenta corriente del paciente
     ✅ EXCLUSIVA para pacientes
     ✅ ACTUALIZADO: Solo cuenta pagos con recibo (no crédito), excluye anulados
@@ -4273,14 +4047,23 @@ def mi_cuenta(request):
         'pagado_proyectos': cuenta.pagado_proyectos,
         'deuda_proyectos': cuenta.deuda_proyectos,
         
-        # Totales
+        # Mensualidades
+        'consumo_mensualidades': cuenta.total_mensualidades,
+        'pagado_mensualidades': cuenta.pagado_mensualidades,
+        'deuda_mensualidades': cuenta.deuda_mensualidades,
+        
+        # Totales (igual que en Cuenta Corriente)
         'consumo_total': cuenta.total_consumo_general,
-        'pagado_total': total_pagado_real,  # ✅ Solo dinero real (sin crédito)
+        'pagado_total': cuenta.total_pagado,  # ✅ CORREGIDO: Campo correcto del modelo
         'deuda_total': cuenta.total_deuda_general,
         
         # Balance
         'credito': cuenta.saldo_actual,
-        'balance_final': cuenta.balance_final,
+        # ✅ CORREGIDO: balance_final debe usar PROYECTADO (pagado - consumo total)
+        # No usar cuenta.balance_final porque ese es el balance ACTUAL
+        'balance_final': cuenta.total_pagado - cuenta.total_consumo_general,
+        # ✅ NUEVO: Balance absoluto (sin signo) para mostrar en tarjetas
+        'balance_absoluto': abs(cuenta.total_pagado - cuenta.total_consumo_general),
     }
     
     # Sesiones con deuda pendiente
@@ -4310,6 +4093,104 @@ def mi_cuenta(request):
         if pago:
             ultimos_recibos.append(pago)
     
+    # ==================== PRÓXIMA SESIÓN ====================
+    # Buscar la próxima sesión programada del paciente
+    ahora = timezone.now()
+    
+    proxima_sesion = Sesion.objects.filter(
+        paciente=paciente,
+        estado='programada',  # Solo sesiones programadas
+        fecha__gte=ahora.date()  # Desde hoy en adelante
+    ).select_related(
+        'servicio',
+        'profesional',
+        'sucursal'
+    ).order_by('fecha', 'hora_inicio').first()
+    
+    # Si hay sesiones hoy, verificar que no hayan pasado
+    if proxima_sesion and proxima_sesion.fecha == ahora.date():
+        # Combinar fecha y hora para comparación precisa
+        hora_sesion = datetime.combine(
+            proxima_sesion.fecha,
+            proxima_sesion.hora_inicio
+        )
+        hora_sesion = timezone.make_aware(hora_sesion)
+        
+        # Si la sesión de hoy ya pasó, buscar la siguiente
+        if hora_sesion < ahora:
+            proxima_sesion = Sesion.objects.filter(
+                paciente=paciente,
+                estado='programada',
+                fecha__gt=ahora.date()
+            ).select_related(
+                'servicio',
+                'profesional',
+                'sucursal'
+            ).order_by('fecha', 'hora_inicio').first()
+    
+    # ==================== REGISTROS RECIENTES ====================
+    # Obtener los últimos 5 registros (sesiones, proyectos, mensualidades)
+    registros_recientes = []
+    
+    # Sesiones completadas recientes
+    sesiones_recientes = Sesion.objects.filter(
+        paciente=paciente,
+        estado__in=['realizada', 'realizada_retraso']
+    ).select_related('servicio').order_by('-fecha', '-hora_inicio')[:3]
+    
+    for sesion in sesiones_recientes:
+        pagado = _total_pagado_sesion(sesion)
+        saldo = sesion.monto_cobrado - pagado
+        registros_recientes.append({
+            'tipo': 'sesion',
+            'objeto': sesion,
+            'fecha': sesion.fecha,
+            'costo': sesion.monto_cobrado,
+            'pagado': pagado,
+            'saldo': saldo
+        })
+    
+    # Proyectos recientes (planificados, en progreso o finalizados)
+    proyectos_recientes = Proyecto.objects.filter(
+        paciente=paciente,
+        estado__in=['planificado', 'en_progreso', 'finalizado']
+    ).select_related('servicio_base').order_by('-fecha_inicio')[:2]
+    
+    for proyecto in proyectos_recientes:
+        pagado = _total_pagado_proyecto(proyecto)
+        saldo = proyecto.costo_total - pagado
+        registros_recientes.append({
+            'tipo': 'proyecto',
+            'objeto': proyecto,
+            'fecha': proyecto.fecha_inicio,
+            'costo': proyecto.costo_total,
+            'pagado': pagado,
+            'saldo': saldo
+        })
+    
+    # Mensualidades recientes
+    mensualidades_recientes = Mensualidad.objects.filter(
+        paciente=paciente,
+        estado__in=['activa', 'completada']
+    ).order_by('-anio', '-mes')[:2]
+    
+    for mensualidad in mensualidades_recientes:
+        fecha_ficticia = date(mensualidad.anio, mensualidad.mes, 1)
+        pagado = _total_pagado_mensualidad(mensualidad)
+        saldo = mensualidad.costo_mensual - pagado
+        registros_recientes.append({
+            'tipo': 'mensualidad',
+            'objeto': mensualidad,
+            'fecha': fecha_ficticia,
+            'costo': mensualidad.costo_mensual,
+            'pagado': pagado,
+            'saldo': saldo
+        })
+    
+    # Ordenar todos los registros por fecha (más recientes primero)
+    registros_recientes.sort(key=lambda x: x['fecha'], reverse=True)
+    registros_recientes = registros_recientes[:5]  # Solo los 5 más recientes
+    
     context = {
         'paciente': paciente,
         'cuenta': cuenta,
@@ -4317,6 +4198,9 @@ def mi_cuenta(request):
         'sesiones_con_deuda': sesiones_con_deuda,
         'pagos_realizados': ultimos_recibos,  # ✅ Recibos únicos
         'total_sesiones_pendientes': len(sesiones_con_deuda),
+        'proxima_sesion': proxima_sesion,  # ✅ NUEVO
+        'registros_recientes': registros_recientes,  # ✅ NUEVO
+        'pagos_recientes': ultimos_recibos,  # ✅ NUEVO (alias para el template)
     }
     
     return render(request, 'facturacion/mi_cuenta.html', context)
@@ -4329,6 +4213,7 @@ def mis_pagos(request):
     ✅ EXCLUSIVA para pacientes
     ✅ ACTUALIZADO: Agrupa pagos masivos por número de recibo
     ✅ Solo muestra pagos con recibo (no crédito), excluye anulados
+    ✅ NUEVO: Incluye devoluciones y las resta del total
     """
     # ✅ Verificar que el usuario sea paciente
     if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
@@ -4379,8 +4264,10 @@ def mis_pagos(request):
             pagos_query = pagos_query.filter(sesion__isnull=False)
         elif tipo == 'proyecto':
             pagos_query = pagos_query.filter(proyecto__isnull=False)
+        elif tipo == 'mensualidad':  # ✅ NUEVO: Filtro para mensualidades
+            pagos_query = pagos_query.filter(mensualidad__isnull=False)
         elif tipo == 'adelantado':
-            pagos_query = pagos_query.filter(sesion__isnull=True, proyecto__isnull=True)
+            pagos_query = pagos_query.filter(sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True)  # ✅ Actualizado
     
     # ✅ AGRUPAR PAGOS POR NÚMERO DE RECIBO
     # Usar diccionario para agrupar eficientemente
@@ -4398,6 +4285,7 @@ def mis_pagos(request):
                 'cantidad_items': 0,
                 'sesiones_pagadas': [],
                 'proyectos_pagados': [],
+                'mensualidades_pagadas': [],  # ✅ NUEVO: Agregar mensualidades
                 'fecha_pago': pago.fecha_pago,
                 'metodo_pago': pago.metodo_pago,
                 'concepto': pago.concepto,
@@ -4423,6 +4311,15 @@ def mis_pagos(request):
                 'proyecto__nombre': pago.proyecto.nombre,
                 'monto': pago.monto
             })
+        
+        # ✅ NUEVO: Agregar mensualidad si existe
+        if pago.mensualidad:
+            recibos_dict[numero_recibo]['mensualidades_pagadas'].append({
+                'mensualidad__id': pago.mensualidad.id,
+                'mensualidad__mes': pago.mensualidad.mes,
+                'mensualidad__anio': pago.mensualidad.anio,
+                'monto': pago.monto
+            })
     
     # Convertir diccionario a lista y marcar los múltiples
     recibos_agrupados = []
@@ -4433,8 +4330,55 @@ def mis_pagos(request):
     # Ordenar por fecha (más recientes primero)
     recibos_agrupados.sort(key=lambda x: x['fecha_pago'], reverse=True)
     
-    # Calcular total general
+    # ✅ NUEVO: Obtener devoluciones del paciente
+    devoluciones_query = Devolucion.objects.filter(
+        paciente=paciente
+    ).select_related('registrado_por', 'proyecto')
+    
+    # Aplicar los mismos filtros de fecha a las devoluciones
+    if fecha_desde:
+        try:
+            devoluciones_query = devoluciones_query.filter(fecha_devolucion__gte=fecha_desde)
+        except:
+            pass
+    
+    if fecha_hasta:
+        try:
+            devoluciones_query = devoluciones_query.filter(fecha_devolucion__lte=fecha_hasta)
+        except:
+            pass
+    
+    # Aplicar filtro de tipo a devoluciones
+    if tipo:
+        if tipo == 'sesion':
+            # Las devoluciones no tienen campo 'sesion', así que omitimos este filtro
+            # O podríamos filtrar por pagos relacionados si fuera necesario
+            pass
+        elif tipo == 'proyecto':
+            devoluciones_query = devoluciones_query.filter(proyecto__isnull=False)
+        elif tipo == 'mensualidad':
+            devoluciones_query = devoluciones_query.filter(mensualidad__isnull=False)
+        elif tipo == 'adelantado':
+            devoluciones_query = devoluciones_query.filter(proyecto__isnull=True, mensualidad__isnull=True)
+    
+    # Convertir devoluciones a lista
+    devoluciones_lista = []
+    for dev in devoluciones_query.order_by('-fecha_devolucion'):
+        devoluciones_lista.append({
+            'id': dev.id,
+            'numero_devolucion': dev.numero_devolucion,
+            'fecha_devolucion': dev.fecha_devolucion,
+            'monto': dev.monto,
+            'motivo': dev.motivo,
+            'proyecto': dev.proyecto,  # ✅ Este campo SÍ existe
+            'mensualidad': dev.mensualidad,  # ✅ Este campo SÍ existe
+            'registrado_por': dev.registrado_por,
+            })
+        
+    # Calcular totales
     total_pagado = sum(r['total_recibo'] for r in recibos_agrupados)
+    total_devoluciones = sum(d['monto'] for d in devoluciones_lista)
+    total_neto = total_pagado - total_devoluciones  # ✅ Total efectivo
     
     # Métodos de pago disponibles para el filtro
     metodos_pago = MetodoPago.objects.filter(activo=True).exclude(
@@ -4444,7 +4388,10 @@ def mis_pagos(request):
     context = {
         'paciente': paciente,
         'recibos_agrupados': recibos_agrupados,  # ✅ Recibos agrupados
-        'total_pagado': total_pagado,
+        'devoluciones_lista': devoluciones_lista,  # ✅ NUEVO: Devoluciones
+        'total_pagado': total_pagado,  # Total de pagos
+        'total_devoluciones': total_devoluciones,  # ✅ NUEVO: Total devoluciones
+        'total_neto': total_neto,  # ✅ NUEVO: Total neto (pagos - devoluciones)
         'metodos_pago': metodos_pago,
         'filtros': {
             'fecha_desde': fecha_desde,
@@ -4455,6 +4402,208 @@ def mis_pagos(request):
     }
     
     return render(request, 'facturacion/mis_pagos.html', context)
+
+@login_required
+def mis_deudas(request):
+    """
+    Vista de deudas pendientes del paciente - PROYECCIÓN TOTAL
+    ✅ EXCLUSIVA para pacientes
+    Muestra TODAS las sesiones (realizadas + programadas), proyectos (todos los estados) 
+    y mensualidades con saldo pendiente - igual que Proyección Total
+    """
+    # ✅ Verificar que el usuario sea paciente
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
+        messages.error(request, '⚠️ Esta sección es solo para pacientes.')
+        return redirect('core:dashboard')
+    
+    # ✅ Obtener el paciente vinculado
+    paciente = request.user.perfil.paciente
+    
+    if not paciente:
+        messages.error(request, '❌ No hay un paciente vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+    
+    # Obtener cuenta corriente
+    cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
+    
+    # ==================== SESIONES CON DEUDA (TODAS - PROYECCIÓN TOTAL) ====================
+    sesiones_con_deuda = []
+    # ✅ INCLUIR: realizadas, con retraso, faltas Y PROGRAMADAS
+    sesiones_todas = Sesion.objects.filter(
+        paciente=paciente,
+        estado__in=['realizada', 'realizada_retraso', 'falta', 'programada'],  # ✅ Incluye programadas
+        proyecto__isnull=True  # Solo sesiones normales (no de proyectos)
+    ).select_related(
+        'servicio', 'profesional', 'sucursal'
+    ).order_by('-fecha', '-hora_inicio')
+    
+    total_deuda_sesiones = Decimal('0.00')
+    for sesion in sesiones_todas:
+        if sesion.saldo_pendiente > 0:
+            # Determinar el estado visual
+            if sesion.estado == 'programada':
+                estado_label = 'Programada'
+                estado_color = 'blue'
+            elif sesion.estado == 'realizada':
+                estado_label = 'Realizada'
+                estado_color = 'green'
+            elif sesion.estado == 'realizada_retraso':
+                estado_label = 'Con retraso'
+                estado_color = 'orange'
+            else:  # falta
+                estado_label = 'Falta'
+                estado_color = 'red'
+            
+            sesiones_con_deuda.append({
+                'objeto': sesion,
+                'tipo': 'sesion',
+                'fecha': sesion.fecha,
+                'descripcion': f"{sesion.servicio.nombre} - {sesion.profesional.nombre_completo if sesion.profesional else 'Sin profesional'}",
+                'costo': sesion.monto_cobrado,
+                'pagado': sesion.total_pagado,
+                'saldo': sesion.saldo_pendiente,
+                'sucursal': sesion.sucursal.nombre if sesion.sucursal else 'Sin sucursal',
+                'estado_label': estado_label,
+                'estado_color': estado_color,
+                'es_futura': sesion.estado == 'programada',
+            })
+            total_deuda_sesiones += sesion.saldo_pendiente
+    
+    # ==================== PROYECTOS CON DEUDA (TODOS - PROYECCIÓN TOTAL) ====================
+    proyectos_con_deuda = []
+    # ✅ INCLUIR TODOS LOS ESTADOS (excepto cancelado)
+    proyectos = Proyecto.objects.filter(
+        paciente=paciente,
+        estado__in=['borrador', 'planificado', 'en_progreso', 'finalizado']  # ✅ Incluye todos
+    ).select_related(
+        'servicio_base', 'profesional_responsable', 'sucursal'
+    ).order_by('-fecha_inicio')
+    
+    total_deuda_proyectos = Decimal('0.00')
+    for proyecto in proyectos:
+        if proyecto.saldo_pendiente > 0:
+            # Determinar estado visual
+            if proyecto.estado == 'borrador':
+                estado_label = 'Borrador'
+                estado_color = 'gray'
+            elif proyecto.estado == 'planificado':
+                estado_label = 'Planificado'
+                estado_color = 'blue'
+            elif proyecto.estado == 'en_progreso':
+                estado_label = 'En progreso'
+                estado_color = 'yellow'
+            else:  # finalizado
+                estado_label = 'Finalizado'
+                estado_color = 'green'
+            
+            # Obtener sesiones del proyecto de forma segura
+            sesiones_proyecto = proyecto.sesiones.all() if hasattr(proyecto, 'sesiones') else []
+            total_sesiones_proyecto = len(sesiones_proyecto)
+            sesiones_realizadas_proyecto = sum(1 for s in sesiones_proyecto if s.estado in ['realizada', 'realizada_retraso'])
+            
+            proyectos_con_deuda.append({
+                'objeto': proyecto,
+                'tipo': 'proyecto',
+                'fecha': proyecto.fecha_inicio,
+                'descripcion': proyecto.nombre or proyecto.servicio_base.nombre,
+                'costo': proyecto.costo_total,
+                'pagado': proyecto.pagado_neto,
+                'saldo': proyecto.saldo_pendiente,
+                'sucursal': proyecto.sucursal.nombre if proyecto.sucursal else 'Sin sucursal',
+                'sesiones_total': total_sesiones_proyecto,
+                'sesiones_realizadas': sesiones_realizadas_proyecto,
+                'estado_label': estado_label,
+                'estado_color': estado_color,
+                'es_futuro': proyecto.estado in ['borrador', 'planificado'],
+            })
+            total_deuda_proyectos += proyecto.saldo_pendiente
+    
+    # ==================== MENSUALIDADES CON DEUDA ====================
+    # Diccionario para convertir número de mes a nombre
+    MESES = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+        5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+        9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+    }
+    
+    mensualidades_con_deuda = []
+    mensualidades = Mensualidad.objects.filter(
+        paciente=paciente,
+        estado__in=['activa', 'vencida', 'pausada', 'completada']
+    ).prefetch_related(
+        'servicios_profesionales__servicio',
+        'servicios_profesionales__profesional'
+    ).order_by('-anio', '-mes')
+    
+    total_deuda_mensualidades = Decimal('0.00')
+    for mensualidad in mensualidades:
+        if mensualidad.saldo_pendiente > 0:
+            # Obtener servicios de la mensualidad
+            servicios_str = ", ".join([
+                sp.servicio.nombre for sp in mensualidad.servicios_profesionales.all()[:2]
+            ])
+            if mensualidad.servicios_profesionales.count() > 2:
+                servicios_str += f" (+{mensualidad.servicios_profesionales.count() - 2} más)"
+            
+            # Determinar estado visual
+            if mensualidad.estado == 'activa':
+                estado_label = 'Activa'
+                estado_color = 'green'
+            elif mensualidad.estado == 'vencida':
+                estado_label = 'Vencida'
+                estado_color = 'red'
+            elif mensualidad.estado == 'pausada':
+                estado_label = 'Pausada'
+                estado_color = 'yellow'
+            else:  # completada
+                estado_label = 'Completada'
+                estado_color = 'gray'
+            
+            # Convertir mes numérico a nombre
+            mes_nombre = MESES.get(mensualidad.mes, str(mensualidad.mes))
+            
+            mensualidades_con_deuda.append({
+                'objeto': mensualidad,
+                'tipo': 'mensualidad',
+                'fecha': date(mensualidad.anio, mensualidad.mes, 1),
+                'descripcion': f"{mes_nombre} {mensualidad.anio}",  # ✅ CAMBIADO: Ahora muestra "Junio 2026"
+                'servicios': servicios_str or 'Sin servicios',
+                'costo': mensualidad.costo_mensual,
+                'pagado': mensualidad.pagado_neto,
+                'saldo': mensualidad.saldo_pendiente,
+                'estado_label': estado_label,
+                'estado_color': estado_color,
+            })
+            total_deuda_mensualidades += mensualidad.saldo_pendiente
+    
+    # ==================== TOTALES ====================
+    total_deuda_general = total_deuda_sesiones + total_deuda_proyectos + total_deuda_mensualidades
+    total_items = len(sesiones_con_deuda) + len(proyectos_con_deuda) + len(mensualidades_con_deuda)
+    
+    # Contar items futuros vs realizados
+    sesiones_programadas = sum(1 for s in sesiones_con_deuda if s['es_futura'])
+    sesiones_realizadas = len(sesiones_con_deuda) - sesiones_programadas
+    proyectos_futuros = sum(1 for p in proyectos_con_deuda if p['es_futuro'])
+    proyectos_actuales = len(proyectos_con_deuda) - proyectos_futuros
+    
+    context = {
+        'paciente': paciente,
+        'cuenta': cuenta,
+        'sesiones_con_deuda': sesiones_con_deuda,
+        'proyectos_con_deuda': proyectos_con_deuda,
+        'mensualidades_con_deuda': mensualidades_con_deuda,
+        'total_deuda_sesiones': total_deuda_sesiones,
+        'total_deuda_proyectos': total_deuda_proyectos,
+        'total_deuda_mensualidades': total_deuda_mensualidades,
+        'total_deuda_general': total_deuda_general,
+        'total_items': total_items,
+        'sesiones_programadas': sesiones_programadas,
+        'sesiones_realizadas': sesiones_realizadas,
+        'proyectos_futuros': proyectos_futuros,
+        'proyectos_actuales': proyectos_actuales,
+    }
+    
+    return render(request, 'facturacion/mis_deudas.html', context)
 
 
 @login_required

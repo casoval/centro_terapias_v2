@@ -278,6 +278,162 @@ class CuentaCorriente(models.Model):
     def __str__(self):
         return f"Cuenta de {self.paciente}"
     
+    # ============================================================
+    # PROPIEDADES COMPUTADAS (AGREGAR ESTAS)
+    # ============================================================
+    
+    @property
+    def consumo_sesiones(self):
+        """Retorna el número total de sesiones consumidas (realizadas)"""
+        from agenda.models import Sesion
+        return Sesion.objects.filter(
+            paciente=self.paciente,
+            estado__in=['realizada', 'realizada_retraso']
+        ).count()
+    
+    @property
+    def consumo_sesiones_detalle(self):
+        """Retorna un diccionario con detalles del consumo de sesiones"""
+        from agenda.models import Sesion
+        sesiones = Sesion.objects.filter(paciente=self.paciente)
+        return {
+            'total_programadas': sesiones.count(),
+            'realizadas': sesiones.filter(estado='realizada').count(),
+            'con_retraso': sesiones.filter(estado='realizada_retraso').count(),
+            'faltas': sesiones.filter(estado='falta').count(),
+            'pendientes': sesiones.filter(estado='pendiente').count(),
+            'canceladas': sesiones.filter(estado='cancelada').count(),
+            'total_consumidas': sesiones.filter(estado__in=['realizada', 'realizada_retraso']).count(),
+        }
+    
+    @property
+    def consumo_mensualidades(self):
+        """Retorna el número total de mensualidades activas/pausadas/completadas"""
+        from agenda.models import Mensualidad
+        return Mensualidad.objects.filter(
+            paciente=self.paciente,
+            estado__in=['activa', 'pausada', 'completada']
+        ).count()
+    
+    @property
+    def consumo_proyectos(self):
+        """Retorna el número total de proyectos en progreso/planificados/finalizados"""
+        from agenda.models import Proyecto
+        return Proyecto.objects.filter(
+            paciente=self.paciente,
+            estado__in=['en_progreso', 'planificado', 'finalizado']
+        ).count()
+    
+    @property
+    def pagado_sesiones(self):
+        """Alias para pagos_sesiones"""
+        return self.pagos_sesiones
+    
+    @property
+    def pagado_mensualidades(self):
+        """Alias para pagos_mensualidades"""
+        return self.pagos_mensualidades
+    
+    @property
+    def pagado_proyectos(self):
+        """Alias para pagos_proyectos"""
+        return self.pagos_proyectos
+    
+    @property
+    def pendiente_sesiones(self):
+        """Calcula el saldo pendiente de sesiones normales"""
+        return self.total_sesiones_normales_real - self.pagos_sesiones
+    
+    @property
+    def pendiente_mensualidades(self):
+        """Calcula el saldo pendiente de mensualidades"""
+        return self.total_mensualidades - self.pagos_mensualidades
+    
+    @property
+    def pendiente_proyectos(self):
+        """Calcula el saldo pendiente de proyectos"""
+        return self.total_proyectos_real - self.pagos_proyectos
+    
+    @property
+    def deuda_sesiones(self):
+        """Alias para pendiente_sesiones"""
+        return self.pendiente_sesiones
+    
+    @property
+    def deuda_mensualidades(self):
+        """Alias para pendiente_mensualidades"""
+        return self.pendiente_mensualidades
+    
+    @property
+    def deuda_proyectos(self):
+        """Alias para pendiente_proyectos"""
+        return self.pendiente_proyectos
+    
+    @property
+    def deuda_total(self):
+        """Calcula la deuda total (suma de todas las categorías)"""
+        return self.deuda_sesiones + self.deuda_mensualidades + self.deuda_proyectos
+    
+    @property
+    def total_consumo_general(self):
+        """Alias para total_consumido_real"""
+        return self.total_consumido_real
+    
+    @property
+    def total_pagos(self):
+        """Alias para total_pagado"""
+        return self.total_pagado
+    
+    @property
+    def saldo_general(self):
+        """Alias para saldo_real"""
+        return self.saldo_real
+    
+    @property
+    def total_deuda_general(self):
+        """Alias para deuda_total"""
+        return self.deuda_total
+    
+    @property
+    def balance_final(self):
+        """Alias para saldo_actual - Balance final de la cuenta"""
+        return self.saldo_actual
+    
+    @property
+    def balance_general(self):
+        """Alias alternativo para saldo_real"""
+        return self.saldo_real
+    
+    @property
+    def balance_actual(self):
+        """Alias alternativo para saldo_actual"""
+        return self.saldo_actual
+    
+    @property
+    def credito_disponible(self):
+        """Alias para pagos_adelantados"""
+        return self.pagos_adelantados
+    
+    @property
+    def saldo_favor(self):
+        """Alias para pagos_adelantados - Saldo a favor del paciente"""
+        return self.pagos_adelantados
+    
+    @property
+    def total_consumido(self):
+        """Alias para total_consumido_actual"""
+        return self.total_consumido_actual
+    
+    @property
+    def total_adeudado(self):
+        """Retorna el monto adeudado (saldo_actual cuando es negativo)"""
+        return abs(self.saldo_actual) if self.saldo_actual < 0 else 0
+    
+    @property
+    def monto_pendiente(self):
+        """Alias para deuda_total"""
+        return self.deuda_total
+    
     def actualizar_saldo(self):
         """
         Actualiza todos los campos calculados

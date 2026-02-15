@@ -21,14 +21,41 @@
     </div>
 
     <!-- Resumen Total -->
-    <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-4 sm:p-6 mb-4 text-white">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm opacity-90 mb-1">💰 Total Pagado (solo efectivo)</p>
-                <p class="text-3xl sm:text-4xl font-bold">Bs. {{ total_pagado }}</p>
-                <p class="text-sm opacity-80 mt-1">{{ recibos_agrupados|length }} recibo{{ recibos_agrupados|length|pluralize }}</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <!-- Total Pagado -->
+        <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg p-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-xs opacity-90 mb-1">💰 Total Pagado</p>
+                    <p class="text-2xl sm:text-3xl font-bold">Bs. {{ total_pagado }}</p>
+                    <p class="text-xs opacity-80 mt-1">{{ recibos_agrupados|length }} recibo{{ recibos_agrupados|length|pluralize }}</p>
+                </div>
+                <div class="text-4xl opacity-20">✅</div>
             </div>
-            <div class="text-5xl opacity-20">✅</div>
+        </div>
+
+        <!-- Total Devoluciones -->
+        <div class="bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-lg p-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-xs opacity-90 mb-1">↩️ Devoluciones</p>
+                    <p class="text-2xl sm:text-3xl font-bold">Bs. {{ total_devoluciones }}</p>
+                    <p class="text-xs opacity-80 mt-1">{{ devoluciones_lista|length }} devolución{{ devoluciones_lista|length|pluralize:"es" }}</p>
+                </div>
+                <div class="text-4xl opacity-20">❌</div>
+            </div>
+        </div>
+
+        <!-- Total Neto -->
+        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg p-4 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="text-xs opacity-90 mb-1">📊 Total Neto</p>
+                    <p class="text-2xl sm:text-3xl font-bold">Bs. {{ total_neto }}</p>
+                    <p class="text-xs opacity-80 mt-1">Pagos - Devoluciones</p>
+                </div>
+                <div class="text-4xl opacity-20">💵</div>
+            </div>
         </div>
     </div>
 
@@ -63,6 +90,7 @@
                         <option value="">Todos</option>
                         <option value="sesion" {% if filtros.tipo == 'sesion' %}selected{% endif %}>Sesiones</option>
                         <option value="proyecto" {% if filtros.tipo == 'proyecto' %}selected{% endif %}>Proyectos</option>
+                        <option value="mensualidad" {% if filtros.tipo == 'mensualidad' %}selected{% endif %}>Mensualidades</option>
                         <option value="adelantado" {% if filtros.tipo == 'adelantado' %}selected{% endif %}>Adelantados</option>
                     </select>
                 </div>
@@ -95,7 +123,9 @@
             
             <div class="flex items-center justify-between mb-2">
                 <span class="text-xs text-gray-600">{{ recibo.concepto|truncatewords:5 }}</span>
-                {% if recibo.proyectos_pagados %}
+                {% if recibo.mensualidades_pagadas %}
+                <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-semibold">Mensualidad</span>
+                {% elif recibo.proyectos_pagados %}
                 <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
                 {% elif recibo.sesiones_pagadas %}
                 <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
@@ -173,7 +203,9 @@
                             {% endif %}
                         </td>
                         <td class="px-4 py-3">
-                            {% if recibo.proyectos_pagados %}
+                            {% if recibo.mensualidades_pagadas %}
+                            <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-semibold">Mensualidad</span>
+                            {% elif recibo.proyectos_pagados %}
                             <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
                             {% elif recibo.sesiones_pagadas %}
                             <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
@@ -195,10 +227,20 @@
                     {% endfor %}
                 </tbody>
                 <tfoot class="bg-gray-50">
-                    <tr>
-                        <td colspan="6" class="px-4 py-3 text-right font-bold">TOTAL:</td>
+                    <tr class="border-t-2 border-gray-300">
+                        <td colspan="6" class="px-4 py-3 text-right font-bold">TOTAL PAGOS:</td>
                         <td colspan="2" class="px-4 py-3 font-bold text-green-600 text-lg">Bs. {{ total_pagado }}</td>
                     </tr>
+                    {% if total_devoluciones > 0 %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-2 text-right font-bold text-red-700">TOTAL DEVOLUCIONES:</td>
+                        <td colspan="2" class="px-4 py-2 font-bold text-red-600">- Bs. {{ total_devoluciones }}</td>
+                    </tr>
+                    <tr class="bg-blue-100 border-t-2 border-blue-300">
+                        <td colspan="6" class="px-4 py-3 text-right font-bold text-blue-900">TOTAL NETO:</td>
+                        <td colspan="2" class="px-4 py-3 font-bold text-blue-700 text-xl">Bs. {{ total_neto }}</td>
+                    </tr>
+                    {% endif %}
                 </tfoot>
             </table>
         </div>
@@ -206,9 +248,92 @@
     
     <!-- Total en Móvil -->
     <div class="block sm:hidden mt-3 bg-gray-50 rounded-lg p-3 text-center">
-        <p class="text-sm text-gray-600 mb-1">Total de Pagos</p>
-        <p class="text-2xl font-bold text-green-600">Bs. {{ total_pagado }}</p>
+        <p class="text-sm text-gray-600 mb-1">Total Neto</p>
+        <p class="text-2xl font-bold text-blue-600">Bs. {{ total_neto }}</p>
+        <p class="text-xs text-gray-500 mt-1">(Pagos: Bs. {{ total_pagado }} - Devoluciones: Bs. {{ total_devoluciones }})</p>
     </div>
+
+    <!-- Sección de Devoluciones -->
+    {% if devoluciones_lista %}
+    <div class="mt-6">
+        <h2 class="text-xl font-bold text-gray-900 mb-3 flex items-center">
+            <span class="mr-2">↩️</span>
+            Devoluciones Recibidas
+        </h2>
+
+        <!-- Vista Móvil (Cards) - Devoluciones -->
+        <div class="block sm:hidden space-y-3">
+            {% for devolucion in devoluciones_lista %}
+            <div class="bg-red-50 rounded-lg shadow border border-red-200 p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-sm text-red-900">{{ devolucion.numero_devolucion }}</span>
+                    <span class="text-xs text-red-600">{{ devolucion.fecha_devolucion|date:"d/m/Y" }}</span>
+                </div>
+                
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-gray-700">{{ devolucion.motivo|truncatewords:8 }}</span>
+                    {% if devolucion.proyecto %}
+                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
+                    {% elif devolucion.sesion %}
+                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
+                    {% else %}
+                    <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-semibold">Crédito</span>
+                    {% endif %}
+                </div>
+                
+                <div class="flex items-center justify-between pt-2 border-t border-red-200">
+                    <span class="text-xs text-gray-600">Por: {{ devolucion.registrado_por.get_full_name|default:devolucion.registrado_por.username }}</span>
+                    <p class="text-lg font-bold text-red-600">- Bs. {{ devolucion.monto }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Vista Desktop (Tabla) - Devoluciones -->
+        <div class="hidden sm:block bg-red-50 rounded-lg shadow overflow-hidden border-2 border-red-200">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-red-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Nº Devolución</th>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Fecha</th>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Motivo</th>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Tipo</th>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Registrado Por</th>
+                            <th class="px-4 py-3 text-left font-bold text-red-900">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-red-200 bg-white">
+                        {% for devolucion in devoluciones_lista %}
+                        <tr class="hover:bg-red-50">
+                            <td class="px-4 py-3 font-bold text-red-900">{{ devolucion.numero_devolucion }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">{{ devolucion.fecha_devolucion|date:"d/m/Y" }}</td>
+                            <td class="px-4 py-3">{{ devolucion.motivo|truncatewords:8 }}</td>
+                            <td class="px-4 py-3">
+                                {% if devolucion.proyecto %}
+                                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-semibold">Proyecto</span>
+                                {% elif devolucion.sesion %}
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold">Sesión</span>
+                                {% else %}
+                                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-semibold">Crédito</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-xs">{{ devolucion.registrado_por.get_full_name|default:devolucion.registrado_por.username }}</td>
+                            <td class="px-4 py-3 font-bold text-red-600">- Bs. {{ devolucion.monto }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-red-100">
+                        <tr>
+                            <td colspan="5" class="px-4 py-3 text-right font-bold text-red-900">TOTAL DEVOLUCIONES:</td>
+                            <td class="px-4 py-3 font-bold text-red-600 text-lg">- Bs. {{ total_devoluciones }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     {% else %}
     <div class="bg-white rounded-lg shadow p-8 text-center">

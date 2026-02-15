@@ -68,6 +68,7 @@ urlpatterns = [
     # ==================== VISTAS PARA PACIENTES ====================
     path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
     path('mis-pagos/', views.mis_pagos, name='mis_pagos'),
+    path('mis-deudas/', views.mis_deudas, name='mis_deudas'),  # ✅ NUEVA URL AGREGADA
     path('pago/<int:pago_id>/ver/', views.detalle_pago_paciente, name='detalle_pago_paciente'),
 
     path('sesion/<int:sesion_id>/detalle-partial/', 
