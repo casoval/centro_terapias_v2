@@ -5,6 +5,16 @@
 
 {% block extra_css %}
 <style>
+    /* Prevenir overflow horizontal */
+    body {
+        overflow-x: hidden;
+    }
+    
+    * {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    
     .tab-button { transition: all 0.3s ease; }
     .tab-button.active { 
         border-bottom: 3px solid #2563eb; 
@@ -123,340 +133,351 @@
     /* Optimizaciones para móvil */
     @media (max-width: 640px) {
         .tab-button {
-            font-size: 11px;
-            padding: 10px 8px;
+            font-size: 9px;
+            padding: 6px 3px;
+            white-space: nowrap;
+        }
+        
+        .sesion-card {
+            margin-bottom: 0;
+            font-size: 10px;
+        }
+        
+        /* Reducir MUCHO más el padding en móvil */
+        .sesion-card > div {
+            padding: 0.4rem !important;
+        }
+        
+        /* Hacer los iconos más pequeños en móvil */
+        .sesion-card svg {
+            width: 12px !important;
+            height: 12px !important;
+            min-width: 12px !important;
+        }
+        
+        /* Texto más compacto */
+        .sesion-card h3 {
+            font-size: 0.7rem !important;
+            line-height: 1.1 !important;
+            margin-bottom: 0.25rem !important;
+        }
+        
+        .sesion-card span {
+            font-size: 0.625rem !important;
+            line-height: 1.2 !important;
+        }
+        
+        /* Reducir gaps entre elementos */
+        .sesion-card .space-y-1,
+        .sesion-card .space-y-2 {
+            gap: 0.25rem !important;
+        }
+        
+        /* Badges más pequeños */
+        .sesion-card [class*="text-[8px]"],
+        .sesion-card [class*="text-[9px]"] {
+            font-size: 7px !important;
+            padding: 2px 4px !important;
+        }
+        
+        /* Header del card más compacto */
+        .sesion-card > div:first-child {
+            padding: 0.3rem 0.5rem !important;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="w-full max-w-7xl mx-auto px-2 overflow-x-hidden">
+<div class="w-full max-w-7xl mx-auto px-0 sm:px-4 overflow-x-hidden">
     <!-- Header Compacto -->
-    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg p-2 sm:p-3 mb-2 text-white">
-        <div class="flex items-center justify-between">
-            <div class="flex-1">
-                <h1 class="text-lg sm:text-2xl font-bold flex items-center mb-0.5 sm:mb-1">
-                    <span class="text-lg sm:text-2xl mr-2">📅</span>
-                    Mis Sesiones
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg p-1.5 mb-1.5 text-white mx-0.5 sm:mx-0">
+        <div class="flex items-center justify-between gap-1.5">
+            <div class="flex-1 min-w-0">
+                <h1 class="text-xs sm:text-2xl font-bold flex items-center mb-0.5 truncate">
+                    <span class="text-xs sm:text-2xl mr-1 sm:mr-2">📅</span>
+                    <span class="truncate">Mis Sesiones</span>
                 </h1>
-                <p class="text-blue-100 text-[10px] sm:text-sm">{{ paciente.nombre_completo }}</p>
+                <p class="text-blue-100 text-[8px] sm:text-sm truncate">{{ paciente.nombre_completo }}</p>
             </div>
-            <div class="bg-white bg-opacity-20 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-center">
-                <p class="text-[10px] sm:text-xs opacity-80">Total</p>
-                <p class="text-xl sm:text-2xl font-bold">{{ total_sesiones }}</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Info del Paciente - Compacta -->
-    <div class="bg-white rounded-lg shadow p-2 mb-2">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-            <div>
-                <p class="text-gray-500 mb-0.5">👤 Paciente</p>
-                <p class="font-semibold text-gray-900 truncate">{{ paciente.nombre_completo }}</p>
-            </div>
-            <div>
-                <p class="text-gray-500 mb-0.5">🎂 Edad</p>
-                <p class="font-semibold text-gray-900">{{ paciente.edad }} años</p>
-            </div>
-            <div>
-                <p class="text-gray-500 mb-0.5">👨‍👩‍👧 Tutor</p>
-                <p class="font-semibold text-gray-900 truncate">{{ paciente.nombre_tutor }}</p>
-            </div>
-            <div>
-                <p class="text-gray-500 mb-0.5">📞 Teléfono</p>
-                <p class="font-semibold text-gray-900">{{ paciente.telefono_tutor }}</p>
+            <div class="bg-white bg-opacity-20 rounded-lg px-1 sm:px-3 py-0.5 sm:py-2 text-center flex-shrink-0">
+                <p class="text-[8px] sm:text-sm uppercase tracking-wide font-bold">Total</p>
+                <p class="text-base sm:text-3xl font-black">{{ total_sesiones }}</p>
             </div>
         </div>
     </div>
 
-    <!-- Tabs - 4 Pestañas -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="flex border-b overflow-x-auto">
-            <button onclick="switchTab('proximas')" id="tab-proximas" 
-                    class="tab-button active flex-1 py-2 text-[10px] sm:text-sm font-medium whitespace-nowrap px-2">
-                📅 Próximas ({{ sesiones_proximas.count }})
-            </button>
-            <button onclick="switchTab('realizadas')" id="tab-realizadas" 
-                    class="tab-button flex-1 py-2 text-[10px] sm:text-sm font-medium border-l whitespace-nowrap px-2">
-                ✅ Realizadas ({{ sesiones_realizadas.count }})
-            </button>
-            <button onclick="switchTab('canceladas')" id="tab-canceladas" 
-                    class="tab-button flex-1 py-2 text-[10px] sm:text-sm font-medium border-l whitespace-nowrap px-2">
-                ❌ Canceladas ({{ sesiones_canceladas.count }})
-            </button>
-            <button onclick="switchTab('permisos')" id="tab-permisos" 
-                    class="tab-button flex-1 py-2 text-[10px] sm:text-sm font-medium border-l whitespace-nowrap px-2">
-                📋 Permisos ({{ sesiones_permisos.count }})
-            </button>
+    <!-- Contenedor Principal -->
+    <div class="bg-white rounded-lg shadow-xl overflow-hidden mx-0.5 sm:mx-0">
+        <!-- Tabs -->
+        <div class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200 overflow-x-auto">
+            <div class="flex min-w-max">
+                <button id="tab-proximas" onclick="switchTab('proximas')" class="tab-button active flex-1 px-1.5 sm:px-6 py-1.5 sm:py-3 font-semibold text-gray-700 hover:text-blue-600 transition-all duration-200 text-[9px] sm:text-base whitespace-nowrap">
+                    <span class="text-xs sm:text-lg mr-0.5 sm:mr-1">📅</span> Próximas
+                </button>
+                <button id="tab-completadas" onclick="switchTab('completadas')" class="tab-button flex-1 px-1.5 sm:px-6 py-1.5 sm:py-3 font-semibold text-gray-700 hover:text-blue-600 transition-all duration-200 text-[9px] sm:text-base whitespace-nowrap">
+                    <span class="text-xs sm:text-lg mr-0.5 sm:mr-1">✅</span> Completadas
+                </button>
+                <button id="tab-faltas" onclick="switchTab('faltas')" class="tab-button flex-1 px-1.5 sm:px-6 py-1.5 sm:py-3 font-semibold text-gray-700 hover:text-blue-600 transition-all duration-200 text-[9px] sm:text-base whitespace-nowrap">
+                    <span class="text-xs sm:text-lg mr-0.5 sm:mr-1">❌</span> Faltas
+                </button>
+                <button id="tab-canceladas" onclick="switchTab('canceladas')" class="tab-button flex-1 px-1.5 sm:px-6 py-1.5 sm:py-3 font-semibold text-gray-700 hover:text-blue-600 transition-all duration-200 text-[9px] sm:text-base whitespace-nowrap">
+                    <span class="text-xs sm:text-lg mr-0.5 sm:mr-1">🚫</span> Canceladas
+                </button>
+                <button id="tab-permisos" onclick="switchTab('permisos')" class="tab-button flex-1 px-1.5 sm:px-6 py-1.5 sm:py-3 font-semibold text-gray-700 hover:text-blue-600 transition-all duration-200 text-[9px] sm:text-base whitespace-nowrap">
+                    <span class="text-xs sm:text-lg mr-0.5 sm:mr-1">📋</span> Permisos
+                </button>
+            </div>
         </div>
 
-        <div class="p-2">
-            <!-- Próximas - 4 Columnas máximo -->
+        <!-- Contenido de Tabs -->
+        <div class="p-1.5 sm:p-6">
+            <!-- Próximas Sesiones -->
             <div id="content-proximas" class="tab-content-panel active">
                 {% if sesiones_proximas %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3">
                     {% for sesion in sesiones_proximas %}
-                    <div class="sesion-card rounded-xl shadow-lg border-l-4 overflow-hidden
-                        {% if forloop.first %}proxima-sesion{% endif %}
-                        {% if sesion.estado == 'programada' %}bg-gradient-to-br from-blue-50 to-blue-100 border-blue-600
-                        {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-gradient-to-br from-orange-50 to-orange-100 border-orange-600
-                        {% else %}bg-gradient-to-br from-gray-50 to-gray-100 border-gray-500{% endif %}">
+                    <div class="sesion-card bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg border-l-4 border-blue-600 overflow-hidden {% if forloop.first %}proxima-sesion{% endif %} min-w-0">
                         
-                        <!-- Header con fecha destacada -->
-                        <div class="text-center py-2 sm:py-3
-                            {% if sesion.estado == 'programada' %}bg-gradient-to-r from-blue-600 to-blue-700
-                            {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-gradient-to-r from-orange-500 to-orange-600
-                            {% else %}bg-gradient-to-r from-gray-500 to-gray-600{% endif %}
-                            text-white shadow-md relative">
-                            <!-- Badge de "Próxima" solo para la primera sesión -->
-                            {% if forloop.first %}
-                            <div class="absolute -top-1 -right-1">
-                                <span class="proxima-badge inline-block bg-yellow-400 text-yellow-900 text-[9px] sm:text-[10px] font-black px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-bl-lg rounded-tr-lg shadow-lg">
-                                    ⭐ PRÓXIMA
-                                </span>
-                            </div>
-                            {% endif %}
-                            <div class="text-[10px] sm:text-xs uppercase font-bold tracking-wider opacity-90">{{ sesion.fecha|date:"l" }}</div>
-                            <div class="text-3xl sm:text-4xl font-black">{{ sesion.fecha|date:"d" }}</div>
-                            <div class="text-xs sm:text-sm font-semibold">{{ sesion.fecha|date:"M Y" }}</div>
+                        {% if forloop.first %}
+                        <div class="proxima-badge absolute bottom-0 right-0 bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-tl-lg text-[8px] sm:text-[10px] font-black uppercase tracking-wide shadow-lg z-10">
+                            ⭐ PRÓXIMA
                         </div>
+                        {% endif %}
                         
-                        <div class="p-3 sm:p-4">
-                            <!-- Título del servicio y estado -->
-                            <div class="mb-2 sm:mb-3">
-                                <div class="flex items-start justify-between gap-2 mb-2">
-                                    <h3 class="font-black text-sm sm:text-base text-gray-900 leading-tight flex-1">{{ sesion.servicio.nombre }}</h3>
-                                    <span class="text-white text-[9px] sm:text-[10px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full whitespace-nowrap font-bold
-                                        {% if sesion.estado == 'programada' %}bg-blue-600
-                                        {% elif sesion.estado == 'retraso' or sesion.estado == 'con_retraso' %}bg-orange-500
-                                        {% else %}bg-gray-500{% endif %}">
-                                        OK
-                                    </span>
-                                </div>
-                                
-                                <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
-                                <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
-                                    {% if sesion.mensualidad %}
-                                        <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
-                                            💳 Mensualidad
-                                        </span>
-                                        <span class="text-[9px] sm:text-[10px] text-purple-600 font-semibold truncate">
-                                            {{ sesion.mensualidad.nombre }}
-                                        </span>
-                                    {% elif sesion.proyecto %}
-                                        <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
-                                            📦 Proyecto/Evaluacion
-                                        </span>
-                                        <span class="text-[9px] sm:text-[10px] text-teal-600 font-semibold truncate">
-                                            {{ sesion.proyecto.nombre }}
-                                        </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            <!-- Información compacta -->
-                            <div class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-800">
-                                <!-- Horario -->
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-bold text-blue-600 text-sm sm:text-base">{{ sesion.hora_inicio|time:"g:i A" }}</div>
-                                        <div class="text-[10px] sm:text-xs text-gray-500">{{ sesion.duracion_minutos }} min</div>
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-2 sm:p-3 shadow-md">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="text-4xl sm:text-5xl font-black leading-none">{{ sesion.fecha|date:"d" }}</div>
+                                    <div class="flex-1 text-left">
+                                        <div class="text-xs sm:text-sm font-bold uppercase">{{ sesion.fecha|date:"l" }}</div>
+                                        <div class="text-[10px] sm:text-xs font-semibold opacity-90">{{ sesion.fecha|date:"F Y" }}</div>
                                     </div>
                                 </div>
-                                
-                                <!-- Profesional -->
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
-                                    <span class="font-semibold text-indigo-600 truncate text-xs sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                <div class="text-center flex-shrink-0">
+                                    <div class="bg-yellow-400 text-blue-900 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="text-xl sm:text-2xl font-black leading-none">{{ sesion.hora_inicio|time:"g:i" }}</span>
+                                            <span class="text-base sm:text-lg font-black leading-none">{{ sesion.hora_inicio|time:"A" }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                
-                                <!-- Sucursal -->
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                    </svg>
-                                    <span class="font-semibold text-green-600 truncate text-xs sm:text-sm">{{ sesion.sucursal.nombre }}</span>
-                                </div>
-                                
-                                <!-- Costo - Solo mostrar si NO es mensualidad ni proyecto -->
-                                {% if not sesion.mensualidad and not sesion.proyecto %}
-                                <div class="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
-                                    <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Costo:</span>
-                                    <span class="text-base sm:text-lg font-black text-emerald-600">Bs. {{ sesion.monto_cobrado }}</span>
-                                </div>
-                                {% endif %}
                             </div>
-                            
-                            <!-- Observaciones -->
-                            {% if sesion.observaciones_profesional %}
-                            <div class="mt-2 sm:mt-3 p-2 bg-gray-50 rounded-lg text-[10px] sm:text-xs border border-gray-200">
-                                <p class="font-bold text-gray-600 mb-1">📝 Notas del Profesional:</p>
-                                <p class="text-gray-700 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:12 }}</p>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-12 sm:py-16">
-                    <div class="inline-block p-4 sm:p-6 bg-blue-50 rounded-full mb-3 sm:mb-4">
-                        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
-                    </div>
-                    <p class="text-gray-500 font-semibold text-base sm:text-lg">No tienes sesiones programadas próximamente</p>
-                    <p class="text-gray-400 text-xs sm:text-sm mt-2">Tus próximas citas aparecerán aquí</p>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Realizadas - 4 Columnas máximo -->
-            <div id="content-realizadas" class="tab-content-panel">
-                {% if sesiones_realizadas %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                    {% for sesion in sesiones_realizadas %}
-                    <div class="sesion-card bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-lg border-l-4 border-green-600 overflow-hidden">
-                        
-                        <!-- Header -->
-                        <div class="bg-gradient-to-r from-green-600 to-green-700 text-white text-center py-2 sm:py-3 shadow-md">
-                            <div class="text-[10px] sm:text-xs uppercase font-bold tracking-wider opacity-90">{{ sesion.fecha|date:"l" }}</div>
-                            <div class="text-3xl sm:text-4xl font-black">{{ sesion.fecha|date:"d" }}</div>
-                            <div class="text-xs sm:text-sm font-semibold">{{ sesion.fecha|date:"M Y" }}</div>
                         </div>
                         
-                        <div class="p-3 sm:p-4">
-                            <!-- Título -->
-                            <div class="mb-2 sm:mb-3">
-                                <div class="flex items-start justify-between gap-2 mb-2">
-                                    <h3 class="font-black text-sm sm:text-base text-gray-900 leading-tight flex-1">{{ sesion.servicio.nombre }}</h3>
-                                    <span class="bg-green-600 text-white text-[9px] sm:text-[10px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full font-bold whitespace-nowrap">
-                                        ✅ OK
-                                    </span>
-                                </div>
+                        <div class="p-1.5 sm:p-4">
+                            <div class="mb-1.5 sm:mb-3">
+                                <h3 class="font-black text-xs sm:text-base text-gray-900 mb-1 sm:mb-2 leading-tight">{{ sesion.servicio.nombre }}</h3>
                                 
-                                <!-- Tipo - Solo Mensualidad o Proyecto -->
-                                <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
+                                <!-- Tipo de sesión -->
+                                <div class="flex gap-1 flex-wrap mb-1.5 sm:mb-2">
                                     {% if sesion.mensualidad %}
-                                        <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             📦 Mensualidad
                                         </span>
                                     {% elif sesion.proyecto %}
-                                        <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             🎯 Proyecto
                                         </span>
                                     {% endif %}
-                                </div>
-                            </div>
-                            
-                            <!-- Info -->
-                            <div class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-800">
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="font-bold text-green-600 text-sm sm:text-base">{{ sesion.hora_inicio|time:"g:i A" }}</div>
-                                        <div class="text-[10px] sm:text-xs text-gray-500">{{ sesion.duracion_minutos }} min</div>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
-                                    <span class="font-semibold text-indigo-600 truncate text-xs sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
-                                </div>
-                                
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                    </svg>
-                                    <span class="font-semibold text-green-600 truncate text-xs sm:text-sm">{{ sesion.sucursal.nombre }}</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Estado de Pago - Solo mostrar si NO es mensualidad ni proyecto -->
-                            {% if not sesion.mensualidad and not sesion.proyecto %}
-                            <div class="mt-2 sm:mt-3 p-2 sm:p-2.5 rounded-lg bg-white border-2">
-                                <div class="flex items-center justify-between mb-1.5 sm:mb-2">
-                                    <span class="text-[10px] sm:text-xs font-bold text-gray-700">💰 Estado de Pago:</span>
-                                    {% if sesion.pagado %}
-                                        <span class="text-[9px] sm:text-[10px] bg-green-600 text-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-bold">PAGADO</span>
-                                    {% elif sesion.total_pagado > 0 %}
-                                        <span class="text-[9px] sm:text-[10px] bg-yellow-600 text-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-bold">PARCIAL</span>
-                                    {% else %}
-                                        <span class="text-[9px] sm:text-[10px] bg-red-600 text-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-bold">PENDIENTE</span>
+                                    
+                                    {% if sesion.estado_pago == 'pendiente' %}
+                                        <span class="text-[8px] sm:text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            ⏳ Pendiente
+                                        </span>
+                                    {% elif sesion.estado_pago == 'pagado' %}
+                                        <span class="text-[8px] sm:text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            ✓ Pagado
+                                        </span>
                                     {% endif %}
                                 </div>
-                                <div class="flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
-                                    <span class="font-bold text-gray-700 text-[10px] sm:text-sm">Monto Total:</span>
-                                    <span class="text-base sm:text-lg font-black text-emerald-600">Bs. {{ sesion.monto_cobrado }}</span>
-                                </div>
-                                <div class="text-[10px] sm:text-xs text-gray-600 mt-1">
-                                    Pagado: <span class="font-bold text-green-600">Bs. {{ sesion.total_pagado }}</span>
-                                </div>
                             </div>
-                            {% endif %}
                             
-                            <!-- Observaciones -->
-                            {% if sesion.observaciones_profesional %}
-                            <div class="mt-2 sm:mt-3 p-2 bg-gray-50 rounded-lg text-[10px] sm:text-xs border border-gray-200">
-                                <p class="font-bold text-gray-600 mb-1">📝 Notas del Profesional:</p>
-                                <p class="text-gray-700 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:12 }}</p>
+                            <!-- Información -->
+                            <div class="space-y-1 sm:space-y-2 text-[10px] sm:text-sm text-gray-800">
+                                <div class="flex items-center gap-1 sm:gap-2">
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    <span class="font-semibold text-indigo-600 truncate text-[10px] sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    <span class="font-semibold text-gray-600 truncate text-[10px] sm:text-sm">{{ sesion.sucursal.nombre }}</span>
+                                </div>
                             </div>
+                            
+                            <!-- Monto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
+                                {% if sesion.monto_cobrado > 0 %}
+                                <div class="mt-1.5 sm:mt-3 flex items-center justify-between pt-1 sm:pt-2 border-t border-gray-200">
+                                    <span class="font-bold text-gray-700 text-[9px] sm:text-sm">💰 Monto:</span>
+                                    <span class="text-sm sm:text-lg font-black text-blue-600">Bs. {{ sesion.monto_cobrado }}</span>
+                                </div>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="text-center py-12 sm:py-16">
-                    <div class="inline-block p-4 sm:p-6 bg-green-50 rounded-full mb-3 sm:mb-4">
-                        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <div class="text-center py-8 sm:py-16">
+                    <div class="inline-block p-3 sm:p-6 bg-blue-50 rounded-full mb-2 sm:mb-4">
+                        <svg class="w-10 h-10 sm:w-16 sm:h-16 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                         </svg>
                     </div>
-                    <p class="text-gray-500 font-semibold text-base sm:text-lg">Aún no tienes sesiones completadas</p>
+                    <p class="text-gray-500 font-semibold text-sm sm:text-lg">No tienes sesiones próximas</p>
+                    <p class="text-gray-400 text-xs sm:text-sm mt-2">Agenda una nueva sesión</p>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- Canceladas - 4 Columnas máximo -->
-            <div id="content-canceladas" class="tab-content-panel">
-                {% if sesiones_canceladas %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                    {% for sesion in sesiones_canceladas %}
-                    <div class="sesion-card bg-gradient-to-br from-red-50 to-red-100 rounded-xl shadow-lg border-l-4 border-red-600 overflow-hidden">
+            <!-- Completadas -->
+            <div id="content-completadas" class="tab-content-panel">
+                {% if sesiones_completadas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3">
+                    {% for sesion in sesiones_completadas %}
+                    <div class="sesion-card bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-lg border-l-4 border-green-600 overflow-hidden min-w-0">
                         
-                        <div class="bg-gradient-to-r from-red-600 to-red-700 text-white p-2 sm:p-3 shadow-md">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[10px] sm:text-xs uppercase font-bold tracking-wider">
-                                    {% if sesion.estado == 'cancelada' %}❌ CANCELADA{% else %}❌ FALTA{% endif %}
-                                </span>
-                                <span class="text-xs sm:text-sm font-bold">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-2 sm:p-3 shadow-md">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="text-4xl sm:text-5xl font-black leading-none">{{ sesion.fecha|date:"d" }}</div>
+                                    <div class="flex-1 text-left">
+                                        <div class="text-xs sm:text-sm font-bold uppercase">{{ sesion.fecha|date:"l" }}</div>
+                                        <div class="text-[10px] sm:text-xs font-semibold opacity-90">{{ sesion.fecha|date:"F Y" }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-center flex-shrink-0">
+                                    <div class="bg-white text-green-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="text-xl sm:text-2xl font-black leading-none">{{ sesion.hora_inicio|time:"g:i" }}</span>
+                                            <span class="text-base sm:text-lg font-black leading-none">{{ sesion.hora_inicio|time:"A" }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="p-3 sm:p-4">
-                            <div class="mb-2 sm:mb-3">
-                                <h3 class="font-black text-sm sm:text-base text-gray-900 mb-2">{{ sesion.servicio.nombre }}</h3>
+                        <div class="p-1.5 sm:p-4">
+                            <div class="mb-1.5 sm:mb-3">
+                                <h3 class="font-black text-xs sm:text-base text-gray-900 mb-1 sm:mb-2 leading-tight">{{ sesion.servicio.nombre }}</h3>
                                 
-                                <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
-                                <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
+                                <!-- Tipo de sesión -->
+                                <div class="flex gap-1 flex-wrap mb-1.5 sm:mb-2">
                                     {% if sesion.mensualidad %}
-                                        <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             📦 Mensualidad
                                         </span>
                                     {% elif sesion.proyecto %}
-                                        <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            🎯 Proyecto
+                                        </span>
+                                    {% endif %}
+                                    
+                                    {% if sesion.estado_pago == 'pendiente' %}
+                                        <span class="text-[8px] sm:text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            ⏳ Pendiente
+                                        </span>
+                                    {% elif sesion.estado_pago == 'pagado' %}
+                                        <span class="text-[8px] sm:text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            ✓ Pagado
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Información -->
+                            <div class="space-y-1 sm:space-y-2 text-[10px] sm:text-sm text-gray-800">
+                                <div class="flex items-center gap-1 sm:gap-2">
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    <span class="font-semibold text-indigo-600 truncate text-[10px] sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    <span class="font-semibold text-gray-600 truncate text-[10px] sm:text-sm">{{ sesion.sucursal.nombre }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Monto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
+                                {% if sesion.monto_cobrado > 0 %}
+                                <div class="mt-1.5 sm:mt-3 flex items-center justify-between pt-1 sm:pt-2 border-t border-gray-200">
+                                    <span class="font-bold text-gray-700 text-[9px] sm:text-sm">💰 Monto:</span>
+                                    <span class="text-sm sm:text-lg font-black text-green-600">Bs. {{ sesion.monto_cobrado }}</span>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 sm:py-16">
+                    <div class="inline-block p-3 sm:p-6 bg-green-50 rounded-full mb-2 sm:mb-4">
+                        <svg class="w-10 h-10 sm:w-16 sm:h-16 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-gray-500 font-semibold text-sm sm:text-lg">No tienes sesiones completadas</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Faltas -->
+            <div id="content-faltas" class="tab-content-panel">
+                {% if sesiones_faltas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3">
+                    {% for sesion in sesiones_faltas %}
+                    <div class="sesion-card bg-gradient-to-br from-orange-50 to-red-100 rounded-xl shadow-lg border-l-4 border-orange-600 overflow-hidden min-w-0">
+                        
+                        <div class="bg-gradient-to-r from-orange-600 to-red-600 text-white p-2 sm:p-3 shadow-md">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="text-4xl sm:text-5xl font-black leading-none">{{ sesion.fecha|date:"d" }}</div>
+                                    <div class="flex-1 text-left">
+                                        <div class="text-xs sm:text-sm font-bold uppercase">{{ sesion.fecha|date:"l" }}</div>
+                                        <div class="text-[10px] sm:text-xs font-semibold opacity-90">{{ sesion.fecha|date:"F Y" }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-center flex-shrink-0">
+                                    <div class="bg-yellow-300 text-orange-900 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="text-xl sm:text-2xl font-black leading-none">{{ sesion.hora_inicio|time:"g:i" }}</span>
+                                            <span class="text-base sm:text-lg font-black leading-none">{{ sesion.hora_inicio|time:"A" }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-1.5 sm:p-4">
+                            <div class="mb-1.5 sm:mb-3">
+                                <h3 class="font-black text-xs sm:text-base text-gray-900 mb-1 sm:mb-2 leading-tight">{{ sesion.servicio.nombre }}</h3>
+                                
+                                <!-- Tipo de sesión -->
+                                <div class="flex gap-1 flex-wrap mb-1.5 sm:mb-2">
+                                    {% if sesion.mensualidad %}
+                                        <span class="text-[8px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            📦 Mensualidad
+                                        </span>
+                                    {% elif sesion.proyecto %}
+                                        <span class="text-[8px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             🎯 Proyecto
                                         </span>
                                     {% endif %}
@@ -464,44 +485,40 @@
                             </div>
                             
                             <!-- Información -->
-                            <div class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-800">
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <span class="font-bold text-red-600 text-sm sm:text-base">{{ sesion.hora_inicio|time:"g:i A" }}</span>
+                            <div class="space-y-1 sm:space-y-2 text-[10px] sm:text-sm text-gray-800">
+                                <div class="flex items-center gap-1 sm:gap-2">
                                 </div>
                                 
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                     </svg>
-                                    <span class="font-semibold text-indigo-600 truncate text-xs sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                    <span class="font-semibold text-indigo-600 truncate text-[10px] sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
                                 </div>
                                 
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
-                                    <span class="font-semibold text-gray-600 truncate text-xs sm:text-sm">{{ sesion.sucursal.nombre }}</span>
+                                    <span class="font-semibold text-gray-600 truncate text-[10px] sm:text-sm">{{ sesion.sucursal.nombre }}</span>
                                 </div>
                             </div>
                             
-                            <!-- Monto - Solo mostrar si NO es mensualidad ni proyecto -->
+                            <!-- Monto -->
                             {% if not sesion.mensualidad and not sesion.proyecto %}
                                 {% if sesion.monto_cobrado > 0 %}
-                                <div class="mt-2 sm:mt-3 flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
-                                    <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Monto:</span>
-                                    <span class="text-base sm:text-lg font-black text-red-600">Bs. {{ sesion.monto_cobrado }}</span>
+                                <div class="mt-1.5 sm:mt-3 flex items-center justify-between pt-1 sm:pt-2 border-t border-gray-200">
+                                    <span class="font-bold text-gray-700 text-[9px] sm:text-sm">💰 Monto:</span>
+                                    <span class="text-sm sm:text-lg font-black text-orange-600">Bs. {{ sesion.monto_cobrado }}</span>
                                 </div>
                                 {% endif %}
                             {% endif %}
                             
                             <!-- Motivo -->
                             {% if sesion.observaciones_profesional %}
-                            <div class="mt-2 sm:mt-3 p-2 bg-red-50 rounded-lg text-[10px] sm:text-xs border border-red-200">
-                                <p class="font-bold text-red-700 mb-1">📝 Motivo de {% if sesion.estado == 'cancelada' %}Cancelación{% else %}Falta{% endif %}:</p>
-                                <p class="text-red-800 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:12 }}</p>
+                            <div class="mt-1.5 sm:mt-3 p-1.5 sm:p-2 bg-orange-50 rounded-lg text-[9px] sm:text-xs border border-orange-200">
+                                <p class="font-bold text-orange-700 mb-0.5 sm:mb-1">📝 Motivo:</p>
+                                <p class="text-orange-800 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:8 }}</p>
                             </div>
                             {% endif %}
                         </div>
@@ -509,44 +526,57 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="text-center py-12 sm:py-16">
-                    <div class="inline-block p-4 sm:p-6 bg-red-50 rounded-full mb-3 sm:mb-4">
-                        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                <div class="text-center py-8 sm:py-16">
+                    <div class="inline-block p-3 sm:p-6 bg-orange-50 rounded-full mb-2 sm:mb-4">
+                        <svg class="w-10 h-10 sm:w-16 sm:h-16 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
-                    <p class="text-gray-500 font-semibold text-base sm:text-lg">No tienes sesiones canceladas</p>
+                    <p class="text-gray-500 font-semibold text-sm sm:text-lg">No tienes faltas registradas</p>
                     <p class="text-gray-400 text-xs sm:text-sm mt-2">¡Excelente asistencia!</p>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- Permisos - 4 Columnas máximo -->
-            <div id="content-permisos" class="tab-content-panel">
-                {% if sesiones_permisos %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-                    {% for sesion in sesiones_permisos %}
-                    <div class="sesion-card bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl shadow-lg border-l-4 border-yellow-600 overflow-hidden">
+            <!-- Canceladas -->
+            <div id="content-canceladas" class="tab-content-panel">
+                {% if sesiones_canceladas %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3">
+                    {% for sesion in sesiones_canceladas %}
+                    <div class="sesion-card bg-gradient-to-br from-red-50 to-pink-100 rounded-xl shadow-lg border-l-4 border-red-600 overflow-hidden min-w-0">
                         
-                        <div class="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-2 sm:p-3 shadow-md">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[10px] sm:text-xs uppercase font-bold tracking-wider">📋 PERMISO</span>
-                                <span class="text-xs sm:text-sm font-bold">{{ sesion.fecha|date:"d/m/Y" }}</span>
+                        <div class="bg-gradient-to-r from-red-600 to-pink-600 text-white p-2 sm:p-3 shadow-md">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="text-4xl sm:text-5xl font-black leading-none">{{ sesion.fecha|date:"d" }}</div>
+                                    <div class="flex-1 text-left">
+                                        <div class="text-xs sm:text-sm font-bold uppercase">{{ sesion.fecha|date:"l" }}</div>
+                                        <div class="text-[10px] sm:text-xs font-semibold opacity-90">{{ sesion.fecha|date:"F Y" }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-center flex-shrink-0">
+                                    <div class="bg-white text-red-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="text-xl sm:text-2xl font-black leading-none">{{ sesion.hora_inicio|time:"g:i" }}</span>
+                                            <span class="text-base sm:text-lg font-black leading-none">{{ sesion.hora_inicio|time:"A" }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="p-3 sm:p-4">
-                            <div class="mb-2 sm:mb-3">
-                                <h3 class="font-black text-sm sm:text-base text-gray-900 mb-2">{{ sesion.servicio.nombre }}</h3>
+                        <div class="p-1.5 sm:p-4">
+                            <div class="mb-1.5 sm:mb-3">
+                                <h3 class="font-black text-xs sm:text-base text-gray-900 mb-1 sm:mb-2 leading-tight">{{ sesion.servicio.nombre }}</h3>
                                 
-                                <!-- Tipo de sesión - Solo Mensualidad o Proyecto -->
-                                <div class="flex gap-1.5 sm:gap-2 flex-wrap mb-2">
+                                <!-- Tipo de sesión -->
+                                <div class="flex gap-1 flex-wrap mb-1.5 sm:mb-2">
                                     {% if sesion.mensualidad %}
-                                        <span class="text-[9px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             📦 Mensualidad
                                         </span>
                                     {% elif sesion.proyecto %}
-                                        <span class="text-[9px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded font-bold">
+                                        <span class="text-[8px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
                                             🎯 Proyecto
                                         </span>
                                     {% endif %}
@@ -554,47 +584,142 @@
                             </div>
                             
                             <!-- Información -->
-                            <div class="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-800">
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    <span class="font-bold text-yellow-600 text-sm sm:text-base">{{ sesion.hora_inicio|time:"g:i A" }}</span>
+                            <div class="space-y-1 sm:space-y-2 text-[10px] sm:text-sm text-gray-800">
+                                <div class="flex items-center gap-1 sm:gap-2">
                                 </div>
                                 
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                     </svg>
-                                    <span class="font-semibold text-indigo-600 truncate text-xs sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                    <span class="font-semibold text-indigo-600 truncate text-[10px] sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
                                 </div>
                                 
-                                <div class="flex items-center gap-1.5 sm:gap-2">
-                                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
-                                    <span class="font-semibold text-gray-600 truncate text-xs sm:text-sm">{{ sesion.sucursal.nombre }}</span>
+                                    <span class="font-semibold text-gray-600 truncate text-[10px] sm:text-sm">{{ sesion.sucursal.nombre }}</span>
                                 </div>
                             </div>
                             
-                            <!-- Monto - Solo mostrar si NO es mensualidad ni proyecto -->
+                            <!-- Monto -->
                             {% if not sesion.mensualidad and not sesion.proyecto %}
-                            <div class="mt-2 sm:mt-3 flex items-center justify-between pt-1.5 sm:pt-2 border-t border-gray-200">
-                                <span class="font-bold text-gray-700 text-[10px] sm:text-sm">💰 Monto:</span>
-                                <span class="text-base sm:text-lg font-black text-yellow-600">Bs. {{ sesion.monto_cobrado }}</span>
+                                {% if sesion.monto_cobrado > 0 %}
+                                <div class="mt-1.5 sm:mt-3 flex items-center justify-between pt-1 sm:pt-2 border-t border-gray-200">
+                                    <span class="font-bold text-gray-700 text-[9px] sm:text-sm">💰 Monto:</span>
+                                    <span class="text-sm sm:text-lg font-black text-red-600">Bs. {{ sesion.monto_cobrado }}</span>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                            
+                            <!-- Motivo -->
+                            {% if sesion.observaciones_profesional %}
+                            <div class="mt-1.5 sm:mt-3 p-1.5 sm:p-2 bg-red-50 rounded-lg text-[9px] sm:text-xs border border-red-200">
+                                <p class="font-bold text-red-700 mb-0.5 sm:mb-1">📝 Motivo:</p>
+                                <p class="text-red-800 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:8 }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-8 sm:py-16">
+                    <div class="inline-block p-3 sm:p-6 bg-red-50 rounded-full mb-2 sm:mb-4">
+                        <svg class="w-10 h-10 sm:w-16 sm:h-16 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-gray-500 font-semibold text-sm sm:text-lg">No tienes sesiones canceladas</p>
+                    <p class="text-gray-400 text-xs sm:text-sm mt-2">¡Excelente asistencia!</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Permisos -->
+            <div id="content-permisos" class="tab-content-panel">
+                {% if sesiones_permisos %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3">
+                    {% for sesion in sesiones_permisos %}
+                    <div class="sesion-card bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl shadow-lg border-l-4 border-yellow-600 overflow-hidden min-w-0">
+                        
+                        <div class="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-2 sm:p-3 shadow-md">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 sm:gap-3">
+                                    <div class="text-4xl sm:text-5xl font-black leading-none">{{ sesion.fecha|date:"d" }}</div>
+                                    <div class="flex-1 text-left">
+                                        <div class="text-xs sm:text-sm font-bold uppercase">{{ sesion.fecha|date:"l" }}</div>
+                                        <div class="text-[10px] sm:text-xs font-semibold opacity-90">{{ sesion.fecha|date:"F Y" }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-center flex-shrink-0">
+                                    <div class="bg-white text-yellow-700 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="text-xl sm:text-2xl font-black leading-none">{{ sesion.hora_inicio|time:"g:i" }}</span>
+                                            <span class="text-base sm:text-lg font-black leading-none">{{ sesion.hora_inicio|time:"A" }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-1.5 sm:p-4">
+                            <div class="mb-1.5 sm:mb-3">
+                                <h3 class="font-black text-xs sm:text-base text-gray-900 mb-1 sm:mb-2 leading-tight">{{ sesion.servicio.nombre }}</h3>
+                                
+                                <!-- Tipo de sesión -->
+                                <div class="flex gap-1 flex-wrap mb-1.5 sm:mb-2">
+                                    {% if sesion.mensualidad %}
+                                        <span class="text-[8px] sm:text-[10px] bg-purple-100 text-purple-700 border border-purple-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            📦 Mensualidad
+                                        </span>
+                                    {% elif sesion.proyecto %}
+                                        <span class="text-[8px] sm:text-[10px] bg-teal-100 text-teal-700 border border-teal-300 px-1 sm:px-2 py-0.5 rounded font-bold whitespace-nowrap">
+                                            🎯 Proyecto
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Información -->
+                            <div class="space-y-1 sm:space-y-2 text-[10px] sm:text-sm text-gray-800">
+                                <div class="flex items-center gap-1 sm:gap-2">
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                    </svg>
+                                    <span class="font-semibold text-indigo-600 truncate text-[10px] sm:text-sm">{{ sesion.profesional.nombre_completo }}</span>
+                                </div>
+                                
+                                <div class="flex items-center gap-1 sm:gap-2 min-w-0">
+                                    <svg class="w-3 h-3 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    <span class="font-semibold text-gray-600 truncate text-[10px] sm:text-sm">{{ sesion.sucursal.nombre }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Monto -->
+                            {% if not sesion.mensualidad and not sesion.proyecto %}
+                            <div class="mt-1.5 sm:mt-3 flex items-center justify-between pt-1 sm:pt-2 border-t border-gray-200">
+                                <span class="font-bold text-gray-700 text-[9px] sm:text-sm">💰 Monto:</span>
+                                <span class="text-sm sm:text-lg font-black text-yellow-600">Bs. {{ sesion.monto_cobrado }}</span>
                             </div>
                             {% endif %}
                             
                             <!-- Motivo del permiso -->
                             {% if sesion.observaciones_profesional %}
-                            <div class="mt-2 sm:mt-3 p-2 bg-yellow-50 rounded-lg text-[10px] sm:text-xs border border-yellow-300">
-                                <p class="font-bold text-yellow-700 mb-1">📝 Motivo del Permiso:</p>
-                                <p class="text-yellow-800 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:12 }}</p>
+                            <div class="mt-1.5 sm:mt-3 p-1.5 sm:p-2 bg-yellow-50 rounded-lg text-[9px] sm:text-xs border border-yellow-300">
+                                <p class="font-bold text-yellow-700 mb-0.5 sm:mb-1">📝 Motivo:</p>
+                                <p class="text-yellow-800 leading-relaxed">{{ sesion.observaciones_profesional|truncatewords:8 }}</p>
                             </div>
                             {% else %}
-                            <div class="mt-2 sm:mt-3 p-2 bg-blue-50 rounded-lg text-[10px] sm:text-xs border border-blue-200">
+                            <div class="mt-1.5 sm:mt-3 p-1.5 sm:p-2 bg-blue-50 rounded-lg text-[9px] sm:text-xs border border-blue-200">
                                 <p class="text-blue-700 leading-relaxed">
-                                    ℹ️ Esta sesión fue autorizada como permiso y se puede reprogramar.
+                                    ℹ️ Sesión autorizada como permiso
                                 </p>
                             </div>
                             {% endif %}
@@ -603,13 +728,13 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="text-center py-12 sm:py-16">
-                    <div class="inline-block p-4 sm:p-6 bg-yellow-50 rounded-full mb-3 sm:mb-4">
-                        <svg class="w-12 h-12 sm:w-16 sm:h-16 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="text-center py-8 sm:py-16">
+                    <div class="inline-block p-3 sm:p-6 bg-yellow-50 rounded-full mb-2 sm:mb-4">
+                        <svg class="w-10 h-10 sm:w-16 sm:h-16 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                         </svg>
                     </div>
-                    <p class="text-gray-500 font-semibold text-base sm:text-lg">No tienes sesiones con permiso</p>
+                    <p class="text-gray-500 font-semibold text-sm sm:text-lg">No tienes sesiones con permiso</p>
                 </div>
                 {% endif %}
             </div>

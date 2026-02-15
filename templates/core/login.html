@@ -18,7 +18,7 @@
         /* --- FONDO ANIMADO --- */
         .animated-bg {
             position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 0;
-            background: linear-gradient(135deg, #1a2a6c 0%, #b21f1f 50%, #fdbb2d 100%); /* Cielo atardecer/espacio */
+            background: linear-gradient(135deg, #5568d3 0%, #5d3a85 25%, #d67dd9 50%, #d04356 75%, #3d8fd9 100%);
             background-size: 400% 400%;
             animation: gradient-shift 15s ease infinite;
         }
@@ -29,10 +29,10 @@
             background-image: radial-gradient(2px 2px at 20% 30%, white, transparent), radial-gradient(2px 2px at 60% 70%, white, transparent);
             background-size: 100% 100%; animation: stars-twinkle 3s ease-in-out infinite; pointer-events: none;
         }
-        @keyframes stars-twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+        @keyframes stars-twinkle { 0%, 100% { opacity: 0.1; } 50% { opacity: 1; } }
 
         /* --- ESTILOS TARJETA --- */
-        .card-shadow { box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25); }
+        .card-shadow { box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15); }
         .input-focus:focus { transform: scale(1.02); transition: all 0.3s ease; }
         
         .container-80 {
@@ -40,86 +40,102 @@
             transform-origin: center;
             transition: all 0.5s ease;
             position: relative;
-            z-index: 50; /* Por encima de las nubes iniciales */
+            z-index: 50; 
         }
 
-        /* --- EFECTOS DE ERROR --- */
-        @keyframes shake-horizontal {
+        /* --- ERROR Y SHAKE --- */
+        @keyframes shake {
             0%, 100% { transform: scale(0.8) translateX(0); }
             10%, 30%, 50%, 70%, 90% { transform: scale(0.8) translateX(-5px); }
             20%, 40%, 60%, 80% { transform: scale(0.8) translateX(5px); }
         }
-        .animate-shake { animation: shake-horizontal 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        .animate-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 
-        /* --- NUEVA ANIMACIÓN: DESPEGUE DEL COHETE 🚀 --- */
+        /* --- TRANSICIÓN: CRECIMIENTO VISIBLE DEL CÍRCULO 🟢 --- */
         
-        /* 1. Vibración de motor (Pre-despegue) */
-        @keyframes engine-rumble {
-            0% { transform: scale(0.8) translate(0, 0) rotate(0deg); }
-            25% { transform: scale(0.8) translate(2px, 2px) rotate(1deg); }
-            50% { transform: scale(0.8) translate(-2px, -2px) rotate(-1deg); }
-            75% { transform: scale(0.8) translate(2px, -2px) rotate(1deg); }
-            100% { transform: scale(0.8) translate(-2px, 2px) rotate(-1deg); }
+        .ripple-container {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 9000; display: none; overflow: hidden;
+            /* Blur ligero (8px) para que no sea cortante, pero se vea el borde */
+            filter: blur(8px);
         }
-        .preparing-launch {
-            animation: engine-rumble 0.3s infinite linear;
-            box-shadow: 0 0 30px rgba(255, 200, 0, 0.8); /* Resplandor amarillo */
-        }
+        .ripple-container.active { display: block; }
 
-        /* 2. El Despegue (Salida hacia arriba) */
-        .rocket-launch {
-            transition: transform 1s cubic-bezier(0.6, -0.28, 0.735, 0.045), opacity 0.5s ease 0.5s;
-            transform: translateY(-200vh) scale(0.6) !important; /* Sale de la pantalla hacia arriba */
-            opacity: 1;
-        }
-
-        /* 3. Contenedor de Humo/Nubes */
-        .smoke-container {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 40; /* Detrás de la tarjeta al principio, pero las nubes crecerán */
-            overflow: hidden;
-            display: none;
-        }
-        
-        .smoke-container.active { display: block; }
-
-        .smoke-puff {
+        .ripple-wave {
             position: absolute;
-            bottom: -100px;
-            background: white;
+            top: 50%; left: 50%;
+            width: 50px; height: 50px; /* Tamaño base inicial */
+            background: var(--color);
             border-radius: 50%;
-            opacity: 0.9;
-            animation: smoke-rise 1.5s ease-out forwards;
+            transform: translate(-50%, -50%) scale(1); /* Empieza en escala 1 (50px) */
+            opacity: 1; /* Visible desde el principio */
+            /* Sombra interna para darle volumen visual mientras crece */
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1); 
         }
 
-        /* Variaciones de color para el humo */
-        .smoke-puff.red { background: #fee2e2; }
-        .smoke-puff.yellow { background: #fef3c7; }
-        .smoke-puff.blue { background: #dbeafe; }
-
-        @keyframes smoke-rise {
-            0% { transform: translateY(0) scale(1); opacity: 0.8; }
-            50% { opacity: 1; }
-            100% { transform: translateY(-120vh) scale(6); opacity: 1; } /* Cubre la pantalla */
+        /* Animación de crecimiento progresivo */
+        .animate-ripple {
+            animation: rippleVisibleGrow 3s ease-in-out forwards;
         }
+
+        @keyframes rippleVisibleGrow {
+            0% {
+                transform: translate(-50%, -50%) scale(0); /* Nace de un punto */
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(80); /* Crece hasta cubrir todo */
+                opacity: 1;
+            }
+        }
+
+        /* Loader final */
+        .transition-loader {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            opacity: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            transition: opacity 1s ease;
+        }
+        .transition-loader.show { display: flex; opacity: 1; }
+
+        .loader-spinner {
+            width: 60px; height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ffffff;
+            animation: spin 1.5s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .card-fade-out { animation: cardFade 0.8s ease-in forwards; }
+        @keyframes cardFade {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(0.9) translateY(20px); opacity: 0; }
+        }
+
     </style>
 </head>
 <body>
     <div class="animated-bg"></div>
     
-    <div class="smoke-container" id="smokeScreen"></div>
+    <div class="ripple-container" id="rippleContainer"></div>
+
+    <div class="transition-loader" id="pageLoader">
+        <div class="loader-spinner"></div>
+        <p class="text-2xl font-bold text-white tracking-widest uppercase" style="text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Iniciando</p>
+    </div>
 
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative z-10">
         <div class="container-80 max-w-md w-full space-y-8 bg-white/95 backdrop-blur-sm p-10 rounded-3xl card-shadow border-8 border-white/50" id="loginCard">
             <div>
-                <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-40 h-40 mx-auto flex items-center justify-center border-4 border-white shadow-lg relative overflow-visible">
-                    <img class="h-32 w-auto relative z-10" src="{% static 'img/logo_misael.png' %}" alt="Logo" id="logoImg">
-                    <div class="absolute inset-0 bg-white/30 rounded-full animate-pulse"></div>
+                <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-40 h-40 mx-auto flex items-center justify-center border-4 border-white shadow-lg">
+                    <img class="h-32 w-auto" src="{% static 'img/logo_misael.png' %}" alt="Logo" id="logoImg">
                 </div>
                 
                 <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 bg-clip-text text-transparent leading-tight">
@@ -158,7 +174,7 @@
                 <div>
                     <button type="submit" id="btnSubmit"
                             class="group relative w-full flex justify-center py-4 px-6 border-4 border-red-700 text-lg font-black rounded-full text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg hover:scale-105 transition-all duration-300">
-                        <span class="mr-2 transform group-hover:-translate-y-1 transition-transform duration-300">🚀</span> Iniciar Sesión
+                        <span class="mr-2">🚀</span> Iniciar Sesión
                     </button>
                 </div>
             </form>
@@ -198,9 +214,8 @@
                 
                 const originalBtnText = submitBtn.innerHTML;
                 
-                // Feedback de carga
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="animate-spin mr-2">⚙️</span> Verificando...';
+                submitBtn.innerHTML = '<span class="animate-spin mr-2">⏳</span> Verificando...';
                 statusMsg.innerHTML = "Conectando con el servidor...";
                 statusMsg.className = "mt-3 text-center text-base text-blue-600 font-bold h-6 animate-pulse";
 
@@ -216,14 +231,13 @@
                     const isLoginSuccessful = targetUrl !== window.location.href && !targetUrl.includes('login');
 
                     if (isLoginSuccessful) {
-                        statusMsg.innerHTML = "✅ ¡Listos para despegar!";
+                        statusMsg.innerHTML = "✨ ¡Acceso Concedido!";
                         statusMsg.className = "mt-3 text-center text-base text-green-600 font-bold h-6";
-                        // Cambiar texto botón
-                        submitBtn.innerHTML = "🚀 ¡DESPEGANDO!";
-                        submitBtn.classList.remove('from-red-500', 'to-red-600');
-                        submitBtn.classList.add('from-green-500', 'to-green-600');
                         
-                        ejecutarAnimacionDespegue(targetUrl);
+                        submitBtn.innerHTML = "Iniciando...";
+                        submitBtn.className = "w-full py-4 px-6 border-4 border-green-600 text-lg font-black rounded-full text-white bg-green-500 shadow-lg transition-all duration-300";
+                        
+                        ejecutarAnimacionCrecimiento(targetUrl);
                     } else {
                         return response.text().then(html => {
                             submitBtn.disabled = false;
@@ -252,55 +266,36 @@
         });
 
         // ==========================================
-        // ANIMACIÓN DE DESPEGUE DE COHETE
+        // ANIMACIÓN: CRECIMIENTO VISIBLE Y MAJESTUOSO 🟢
         // ==========================================
-        function ejecutarAnimacionDespegue(redirectUrl) {
+        function ejecutarAnimacionCrecimiento(redirectUrl) {
             const loginCard = document.getElementById('loginCard');
-            const smokeContainer = document.getElementById('smokeScreen');
+            const container = document.getElementById('rippleContainer');
+            const loader = document.getElementById('pageLoader');
             
-            // 1. Fase de ignición (Rumble) - 500ms
-            loginCard.classList.add('preparing-launch');
-            smokeContainer.classList.add('active'); // Preparar contenedor
+            container.classList.add('active');
+            loginCard.classList.add('card-fade-out');
 
-            setTimeout(() => {
-                // 2. Fase de lanzamiento
-                loginCard.classList.remove('preparing-launch');
-                loginCard.classList.add('rocket-launch');
-                
-                // Generar nubes masivas
-                generarHumoMasivo();
-                
-                // Redirigir cuando la pantalla esté cubierta de "humo" (blanco)
+            // Colores hasta el naranja oscuro (#EA580C)
+            const waveColors = ['#3b8fd9', '#FFD700', '#FF8C00', '#EA580C'];
+            
+            // Intervalo de 600ms: Lento para apreciar cómo crece cada uno
+            waveColors.forEach((color, index) => {
                 setTimeout(() => {
-                    window.location.href = redirectUrl;
-                }, 1200);
+                    const wave = document.createElement('div');
+                    wave.className = 'ripple-wave animate-ripple';
+                    wave.style.setProperty('--color', color);
+                    wave.style.zIndex = 10000 + index; 
+                    container.appendChild(wave);
+                }, index * 600); 
+            });
 
-            }, 500);
-        }
-
-        function generarHumoMasivo() {
-            const container = document.getElementById('smokeScreen');
-            const colors = ['white', 'white', 'white', 'red', 'yellow', 'blue'];
-            
-            // Crear 50 partículas de humo
-            for(let i=0; i<50; i++) {
-                const puff = document.createElement('div');
-                const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                
-                puff.className = `smoke-puff ${randomColor === 'white' ? '' : randomColor}`;
-                
-                // Aleatoriedad para que se vea natural
-                const size = 100 + Math.random() * 200; // Tamaño entre 100px y 300px
-                const leftPos = Math.random() * 100; // Posición horizontal 0-100%
-                const delay = Math.random() * 0.5; // Retraso aleatorio
-                
-                puff.style.width = `${size}px`;
-                puff.style.height = `${size}px`;
-                puff.style.left = `${leftPos}%`;
-                puff.style.animationDelay = `${delay}s`;
-                
-                container.appendChild(puff);
-            }
+            // Redirección calculada
+            // 4 olas * 600ms = 2400ms. Damos tiempo suficiente para ver crecer la última
+            setTimeout(() => {
+                loader.classList.add('show');
+                window.location.href = redirectUrl;
+            }, 2500); 
         }
     </script>
 </body>
