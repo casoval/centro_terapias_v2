@@ -2669,16 +2669,30 @@ def estadisticas_cache_recibos(request):
 @login_required
 def anular_pago(request, pago_id):
     """
-    Vista AJAX para anular un pago
+    Vista para anular un pago
+    ✅ CORREGIDO: Maneja tanto peticiones AJAX (JSON) como formularios tradicionales (POST)
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
     
     try:
-        import json
-        data = json.loads(request.body)
-        motivo = data.get('motivo', '').strip()
+        # ✅ NUEVO: Intentar obtener datos de JSON primero, luego de POST
+        motivo = None
         
+        # Intentar parsear como JSON (peticiones AJAX)
+        if request.content_type == 'application/json':
+            try:
+                import json
+                data = json.loads(request.body)
+                motivo = data.get('motivo', '').strip()
+            except json.JSONDecodeError:
+                pass
+        
+        # Si no es JSON, obtener de POST (formularios tradicionales)
+        if not motivo:
+            motivo = request.POST.get('motivo', '').strip()
+        
+        # Validar que se proporcionó un motivo
         if not motivo:
             return JsonResponse({'success': False, 'error': 'El motivo es obligatorio'}, status=400)
         
@@ -2697,11 +2711,14 @@ def anular_pago(request, pago_id):
         })
         
     except Exception as e:
+        import traceback
+        print(f"❌ Error al anular pago: {str(e)}")
+        print(traceback.format_exc())
         return JsonResponse({
             'success': False,
             'error': str(e)
         }, status=500)
-
+        
 # ==================== FASE 3: REPORTES ====================
 
 @login_required

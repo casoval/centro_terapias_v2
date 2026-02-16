@@ -674,6 +674,10 @@ function cerrarModalAnular() {
     pagoIdAnular = null;
 }
 
+// ==================== FUNCIONES PARA NOTIFICACIONES TOAST ====================
+
+// ==================== FUNCIÓN PARA CONFIRMAR ANULACIÓN ====================
+
 function confirmarAnulacion() {
     const motivo = document.getElementById('motivo-anulacion').value.trim();
     
@@ -687,6 +691,12 @@ function confirmarAnulacion() {
         return;
     }
     
+    // Deshabilitar el botón mientras se procesa
+    const btnConfirmar = event.target;
+    const textoOriginal = btnConfirmar.textContent;
+    btnConfirmar.disabled = true;
+    btnConfirmar.textContent = 'Procesando...';
+    
     // Enviar solicitud de anulación
     fetch(`{% url 'facturacion:anular_pago' 0 %}`.replace('0', pagoIdAnular), {
         method: 'POST',
@@ -696,19 +706,80 @@ function confirmarAnulacion() {
         },
         body: JSON.stringify({ motivo: motivo })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Error desconocido');
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            alert('✅ Recibo anulado exitosamente');
-            location.reload();
+            // Cerrar el modal
+            cerrarModalAnular();
+            
+            // Mostrar mensaje de éxito simple
+            mostrarMensajeExito(data.message);
         } else {
-            alert('❌ Error al anular recibo: ' + (data.error || 'Error desconocido'));
+            alert('❌ Error: ' + (data.error || 'Error desconocido'));
+            btnConfirmar.disabled = false;
+            btnConfirmar.textContent = textoOriginal;
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('❌ Error de conexión al anular el recibo');
+        alert('❌ Error al anular el recibo: ' + error.message);
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = textoOriginal;
     });
+}
+
+// Función para mostrar mensaje de éxito SIMPLE
+function mostrarMensajeExito(mensaje) {
+    // Crear el mensaje
+    const div = document.createElement('div');
+    div.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) translateY(-10px);
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 30px 50px;
+        border-radius: 15px;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        z-index: 999999;
+        text-align: center;
+        opacity: 0;
+    `;
+    div.innerHTML = `
+        <div style="font-size: 50px; margin-bottom: 10px;">✅</div>
+        <div>${mensaje}</div>
+    `;
+    
+    // Agregar al body
+    document.body.appendChild(div);
+    
+    // Animación de entrada (fade-in down)
+    setTimeout(() => {
+        div.style.transition = 'all 0.8s ease-out';
+        div.style.opacity = '1';
+        div.style.transform = 'translate(-50%, -50%) translateY(0)';
+    }, 10);
+    
+    // Animación de salida y recarga después de 1 segundo
+    setTimeout(() => {
+        div.style.transition = 'all 0.8s ease-in';
+        div.style.opacity = '0';
+        div.style.transform = 'translate(-50%, -50%) translateY(-10px)';
+        
+        setTimeout(() => {
+            location.reload();
+        }, 300);
+    }, 1000);
 }
 </script>
 
@@ -726,5 +797,7 @@ function confirmarAnulacion() {
 .fila-credito:hover {
     background-color: #a7f3d0 !important; /* Verde claro más intenso al hover */
 }
+
 </style>
+
 {% endblock %}

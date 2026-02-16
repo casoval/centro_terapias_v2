@@ -888,6 +888,7 @@
         white-space: nowrap !important;
     }
 
+    
 </style>
 {% endblock %}
 
@@ -3379,26 +3380,26 @@
         <h3 class="text-lg font-bold text-gray-900 mb-4">⚠️ Anular Pago</h3>
         <p class="text-gray-700 mb-4">¿Estás seguro de anular el recibo <strong id="recibo-numero"></strong>?</p>
         
-        <form id="form-anular" method="post">
-            {% csrf_token %}
-            <div class="mb-4">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Motivo de anulación *</label>
-                <textarea name="motivo" 
-                          required
-                          rows="3"
-                          class="w-full px-2 py-1 border rounded-lg"
-                          placeholder="Especifica el motivo..."></textarea>
-            </div>
-            
-            <div class="flex gap-3">
-                <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">
-                    Confirmar Anulación
-                </button>
-                <button type="button" onclick="cerrarModalAnular()" class="px-4 py-2 border rounded-lg hover:bg-gray-50">
-                    Cancelar
-                </button>
-            </div>
-        </form>
+        <div class="mb-4">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Motivo de anulación *</label>
+            <textarea id="motivo-anulacion-detalle" 
+                      required
+                      rows="3"
+                      class="w-full px-2 py-1 border rounded-lg"
+                      placeholder="Especifica el motivo..."></textarea>
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="procesarAnulacion()" 
+                    class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">
+                Confirmar Anulación
+            </button>
+            <button type="button" 
+                    onclick="cerrarModalAnular()" 
+                    class="px-4 py-2 border rounded-lg hover:bg-gray-50">
+                Cancelar
+            </button>
+        </div>
     </div>
 </div>
 
@@ -3407,6 +3408,7 @@
      ======================================== -->
 
 <script>
+
 // ==================== DEBUG: VERIFICAR CARGA ==================== 
 console.log('✅ Script de detalle_cuenta.html cargado correctamente');
 
@@ -4000,17 +4002,130 @@ function limpiarFiltrosRegistros() {
 }
 
 // ==================== FUNCIONES DE MODALES ====================
+let pagoIdAnular = null;
 
+// Función para abrir el modal de anulación
 function confirmarAnulacion(pagoId, numeroRecibo) {
+    pagoIdAnular = pagoId;
     document.getElementById('recibo-numero').textContent = numeroRecibo;
-    document.getElementById('form-anular').action = '/facturacion/pago/' + pagoId + '/anular/';
+    document.getElementById('motivo-anulacion-detalle').value = '';
     document.getElementById('modal-anular').classList.remove('hidden');
     document.getElementById('modal-anular').classList.add('flex');
 }
 
+// Función para cerrar el modal
 function cerrarModalAnular() {
     document.getElementById('modal-anular').classList.add('hidden');
     document.getElementById('modal-anular').classList.remove('flex');
+    pagoIdAnular = null;
+    document.getElementById('motivo-anulacion-detalle').value = '';
+}
+
+// Función para procesar la anulación con AJAX
+
+// ==================== FUNCIÓN PARA PROCESAR LA ANULACIÓN ====================
+
+function procesarAnulacion() {
+    const motivo = document.getElementById('motivo-anulacion-detalle').value.trim();
+    
+    if (!motivo) {
+        alert('⚠️ Por favor ingrese un motivo de anulación');
+        return;
+    }
+    
+    if (!pagoIdAnular) {
+        alert('❌ Error: No se seleccionó un pago para anular');
+        return;
+    }
+    
+    // Deshabilitar el botón mientras se procesa
+    const btnConfirmar = event.target;
+    btnConfirmar.disabled = true;
+    btnConfirmar.textContent = 'Procesando...';
+    
+    // Enviar solicitud de anulación con AJAX
+    fetch(`/facturacion/pago/${pagoIdAnular}/anular/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ motivo: motivo })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Error desconocido');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Cerrar el modal
+            cerrarModalAnular();
+            
+            // Mostrar mensaje de éxito simple
+            mostrarMensajeExito(data.message);
+        } else {
+            alert('❌ Error: ' + (data.error || 'Error desconocido'));
+            btnConfirmar.disabled = false;
+            btnConfirmar.textContent = 'Confirmar Anulación';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al anular el recibo: ' + error.message);
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = 'Confirmar Anulación';
+    });
+}
+
+// Función para mostrar mensaje de éxito SIMPLE
+function mostrarMensajeExito(mensaje) {
+    // Crear el mensaje
+    const div = document.createElement('div');
+    div.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) translateY(-10px);
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 30px 50px;
+        border-radius: 15px;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        z-index: 999999;
+        text-align: center;
+        opacity: 0;
+    `;
+    div.innerHTML = `
+        <div style="font-size: 50px; margin-bottom: 10px;">✅</div>
+        <div>${mensaje}</div>
+    `;
+    
+    // Agregar al body
+    document.body.appendChild(div);
+    
+    // Animación de entrada (fade-in down)
+    setTimeout(() => {
+        div.style.transition = 'all 0.8s ease-out';
+        div.style.opacity = '1';
+        div.style.transform = 'translate(-50%, -50%) translateY(0)';
+    }, 10);
+    
+    // Animación de salida y recarga después de 1 segundo
+    setTimeout(() => {
+        div.style.transition = 'all 0.8s ease-in';
+        div.style.opacity = '0';
+        div.style.transform = 'translate(-50%, -50%) translateY(-10px)';
+        
+        setTimeout(() => {
+            location.reload();
+        }, 300);
+    }, 1000);
 }
 </script>
 
