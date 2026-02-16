@@ -10,6 +10,7 @@ Estructura:
 """
 
 from django.contrib.auth.models import User
+from django.db.models import Q
 
 
 def pueden_chatear(usuario1, usuario2):

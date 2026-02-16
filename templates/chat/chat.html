@@ -4,29 +4,21 @@
 
 {% block extra_css %}
 <style>
-    /* Ocultar los botones flotantes cuando se está en el chat */
-    #paciente-selector-float,
-    a[href*="lista_conversaciones"].fixed {
+    /* Ocultar botones flotantes en la vista de chat */
+    #paciente-selector-float {
         display: none !important;
     }
     
-    /* Asegurar que el chat use toda la altura en desktop */
-    .chat-container {
-        height: calc(100vh - 80px); /* Restar la altura del navbar */
-    }
-    
-    @media (max-width: 768px) {
-        .chat-container {
-            height: 100vh;
-            padding-top: 0;
-        }
+    /* Ocultar botón de chat flotante */
+    a.fixed.bottom-6.right-6.z-50.w-12.h-12.rounded-full {
+        display: none !important;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- Contenedor de pantalla completa SIN scroll del body -->
-<div class="chat-container fixed inset-0 z-40 bg-white flex flex-col md:top-[80px]">
+<div class="fixed inset-0 z-40 bg-white flex flex-col" style="padding-top: 80px;">
     
     <!-- Header del Chat - FIJO ARRIBA -->
     <div class="bg-white border-b-2 border-slate-200 shadow-sm p-3 sm:p-4 flex-shrink-0">
@@ -45,7 +37,7 @@
                     {{ nombre_completo|first|upper }}
                 </div>
                 
-                <div class="min-w-0 flex-1">
+                <div class="min-w-0">
                     <h2 class="font-bold text-slate-800 text-sm sm:text-lg truncate">
                         {{ nombre_completo }}
                     </h2>
