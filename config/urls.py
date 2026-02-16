@@ -13,6 +13,7 @@ urlpatterns = [
     path('servicios/', include('servicios.urls')),
     path('profesionales/', include('profesionales.urls')),
     path('facturacion/', include('facturacion.urls')),
+    path('chat/', include('chat.urls')),
 ]
 
 # ==================== DEBUG TOOLBAR ====================

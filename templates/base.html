@@ -1438,5 +1438,25 @@ function filterPacientes() {
 </script>
 
     {% block extra_js %}{% endblock %}
+
+<!-- ===== BOTÓN FLOTANTE DE CHAT ===== -->
+{% load chat_tags %}
+{% if user.is_authenticated %}
+<a href="{% url 'chat:lista_conversaciones' %}" 
+   class="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full shadow-2xl flex items-center justify-center text-white text-3xl hover:scale-110 transition-all duration-300 hover:shadow-blue-500/50 hover:rotate-12"
+   title="Mensajes">
+    💬
+    
+    <!-- Badge de notificaciones -->
+    {% contar_mensajes_no_leidos user as mensajes_count %}
+    {% if mensajes_count > 0 %}
+    <span id="chat-badge-count" class="absolute -top-2 -right-2 min-w-[24px] h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1.5 border-3 border-white shadow-lg animate-pulse">
+        {{ mensajes_count }}
+    </span>
+    {% endif %}
+</a>
+{% endif %}
+<!-- ===== FIN BOTÓN FLOTANTE DE CHAT ===== -->
+
 </body>
 </html>

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% load chat_tags %}
+
+{% block title %}Mensajes{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-4 px-2 sm:py-6 sm:px-4">
+    <div class="max-w-4xl mx-auto">
+        
+        <!-- Header - Más compacto -->
+        <div class="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-xl sm:text-2xl shadow-lg">
+                        💬
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            Mensajes
+                        </h1>
+                        <p class="text-slate-500 text-xs sm:text-sm">
+                            {{ total_conversaciones }} conversación{{ total_conversaciones|pluralize:"es" }}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Botón Nuevo Mensaje - Compacto en móvil -->
+                <a href="{% url 'chat:seleccionar_destinatario' %}" 
+                   class="px-3 py-2 sm:px-5 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-2 text-sm sm:text-base">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span class="hidden sm:inline">Nuevo</span>
+                    <span class="sm:hidden">+</span>
+                </a>
+            </div>
+        </div>
+        
+        {% if conversaciones_data %}
+        <!-- Lista de Conversaciones - Más compacta -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div class="divide-y divide-slate-100">
+                {% for data in conversaciones_data %}
+                <a href="{% url 'chat:chat_conversacion' data.conversacion.id %}" 
+                   class="block hover:bg-blue-50 transition-all duration-200 group">
+                    <div class="p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                        
+                        <!-- Avatar - Más pequeño en móvil -->
+                        <div class="relative flex-shrink-0">
+                            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-md">
+                                {{ data.nombre_completo|first|upper }}
+                            </div>
+                            
+                            {% if data.mensajes_no_leidos > 0 %}
+                            <!-- Badge de mensajes no leídos -->
+                            <span class="absolute -top-1 -right-1 min-w-[20px] h-5 sm:min-w-[22px] sm:h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-lg border-2 border-white">
+                                {{ data.mensajes_no_leidos }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Contenido - Optimizado -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-2 mb-0.5 sm:mb-1">
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="font-semibold text-slate-800 text-sm sm:text-base group-hover:text-blue-600 transition-colors truncate">
+                                        {{ data.nombre_completo }}
+                                    </h3>
+                                    <p class="text-xs text-slate-500 truncate">
+                                        {% if data.info_adicional %}
+                                            {% if data.rol == "Profesional" %}
+                                                Profesional • {{ data.info_adicional }}
+                                            {% elif data.rol == "Paciente" %}
+                                                Paciente • {{ data.info_adicional }}
+                                            {% else %}
+                                                {{ data.rol }}
+                                                <span class="text-slate-400"> • {{ data.info_adicional }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ data.rol }}
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                
+                                {% if data.ultimo_mensaje %}
+                                <span class="text-xs text-slate-500 whitespace-nowrap flex-shrink-0">
+                                    {{ data.ultimo_mensaje.fecha_envio|date:"d/m H:i" }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if data.ultimo_mensaje %}
+                            <p class="text-xs sm:text-sm text-slate-600 truncate {% if data.mensajes_no_leidos > 0 %}font-semibold{% endif %}">
+                                {% if data.ultimo_mensaje.remitente == user %}
+                                    <span class="text-blue-600">Tú:</span>
+                                {% endif %}
+                                {{ data.ultimo_mensaje.contenido }}
+                            </p>
+                            {% else %}
+                            <p class="text-xs sm:text-sm text-slate-400 italic">
+                                Sin mensajes aún
+                            </p>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Indicador visual -->
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% else %}
+        <!-- Estado vacío - Compacto -->
+        <div class="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+            </div>
+            <h3 class="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
+                No tienes conversaciones
+            </h3>
+            <p class="text-sm sm:text-base text-slate-500 mb-4 sm:mb-6">
+                Inicia una conversación
+            </p>
+            <a href="{% url 'chat:seleccionar_destinatario' %}" 
+               class="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 text-sm sm:text-base">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Nuevo Mensaje
+            </a>
+        </div>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}

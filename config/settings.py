@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'agenda',
     'profesionales',
     'facturacion.apps.FacturacionConfig',
+    'chat',
 ]
 
 MIDDLEWARE = [

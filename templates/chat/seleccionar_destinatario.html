@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo Mensaje{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-4 px-2 sm:py-6 sm:px-4">
+    <div class="max-w-3xl mx-auto">
+        
+        <!-- Header - Compacto -->
+        <div class="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-4">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <a href="{% url 'chat:lista_conversaciones' %}" 
+                   class="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        Nuevo Mensaje
+                    </h1>
+                    <p class="text-slate-500 text-xs sm:text-sm">
+                        Selecciona un contacto
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        {% if usuarios_disponibles %}
+        
+        <!-- Contador - Compacto -->
+        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-2.5 sm:p-3 mb-3 sm:mb-4">
+            <p class="text-xs sm:text-sm text-blue-800">
+                <span class="font-semibold">{{ total_contactos }}</span> contacto{{ total_contactos|pluralize:"s" }} disponible{{ total_contactos|pluralize:"s" }}
+            </p>
+        </div>
+        
+        <!-- Lista de Usuarios - Compacta -->
+        <div class="space-y-3 sm:space-y-4">
+            
+            {% if usuarios_disponibles.admins %}
+            <!-- Administradores -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <h3 class="text-white text-sm sm:text-base font-semibold flex items-center gap-1.5 sm:gap-2">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                        </svg>
+                        Admins ({{ usuarios_disponibles.admins|length }})
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for item in usuarios_disponibles.admins %}
+                    <a href="{% url 'chat:iniciar_conversacion' item.usuario.id %}" 
+                       class="block p-2.5 sm:p-3 hover:bg-purple-50 transition-all duration-200 group">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-md flex-shrink-0">
+                                {{ item.usuario.get_full_name|first|upper|default:item.usuario.username|first|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 group-hover:text-purple-600 transition-colors text-sm sm:text-base truncate">
+                                    {{ item.usuario.get_full_name|default:item.usuario.username }}
+                                </h4>
+                                <p class="text-xs text-slate-500 truncate">
+                                    Administrador
+                                    {% if item.info_adicional %}
+                                    <span class="text-slate-400"> • {{ item.info_adicional }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if usuarios_disponibles.gerentes %}
+            <!-- Gerentes -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-orange-500 to-red-500 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <h3 class="text-white text-sm sm:text-base font-semibold flex items-center gap-1.5 sm:gap-2">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        Gerentes ({{ usuarios_disponibles.gerentes|length }})
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for item in usuarios_disponibles.gerentes %}
+                    <a href="{% url 'chat:iniciar_conversacion' item.usuario.id %}" 
+                       class="block p-2.5 sm:p-3 hover:bg-orange-50 transition-all duration-200 group">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-md flex-shrink-0">
+                                {{ item.usuario.get_full_name|first|upper|default:item.usuario.username|first|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 group-hover:text-orange-600 transition-colors text-sm sm:text-base truncate">
+                                    {{ item.usuario.get_full_name|default:item.usuario.username }}
+                                </h4>
+                                <p class="text-xs text-slate-500 truncate">
+                                    Gerente
+                                    {% if item.info_adicional %}
+                                    <span class="text-slate-400"> • {{ item.info_adicional }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-orange-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if usuarios_disponibles.recepcionistas %}
+            <!-- Recepcionistas -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-teal-500 to-cyan-500 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <h3 class="text-white text-sm sm:text-base font-semibold flex items-center gap-1.5 sm:gap-2">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        Recepcionistas ({{ usuarios_disponibles.recepcionistas|length }})
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for item in usuarios_disponibles.recepcionistas %}
+                    <a href="{% url 'chat:iniciar_conversacion' item.usuario.id %}" 
+                       class="block p-2.5 sm:p-3 hover:bg-teal-50 transition-all duration-200 group">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-teal-400 to-cyan-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-md flex-shrink-0">
+                                {{ item.usuario.get_full_name|first|upper|default:item.usuario.username|first|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 group-hover:text-teal-600 transition-colors text-sm sm:text-base truncate">
+                                    {{ item.usuario.get_full_name|default:item.usuario.username }}
+                                </h4>
+                                <p class="text-xs text-slate-500 truncate">
+                                    Recepcionista
+                                    {% if item.info_adicional %}
+                                    <span class="text-slate-400"> • {{ item.info_adicional }}</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-teal-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if usuarios_disponibles.profesionales %}
+            <!-- Profesionales -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <h3 class="text-white text-sm sm:text-base font-semibold flex items-center gap-1.5 sm:gap-2">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        Profesionales ({{ usuarios_disponibles.profesionales|length }})
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for item in usuarios_disponibles.profesionales %}
+                    <a href="{% url 'chat:iniciar_conversacion' item.usuario.id %}" 
+                       class="block p-2.5 sm:p-3 hover:bg-green-50 transition-all duration-200 group">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-md flex-shrink-0">
+                                {{ item.usuario.get_full_name|first|upper|default:item.usuario.username|first|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 group-hover:text-green-600 transition-colors text-sm sm:text-base truncate">
+                                    {{ item.usuario.get_full_name|default:item.usuario.username }}
+                                </h4>
+                                <p class="text-xs text-slate-500 truncate">
+                                    {% if item.info_adicional %}
+                                    Profesional • {{ item.info_adicional }}
+                                    {% else %}
+                                    Profesional
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if usuarios_disponibles.pacientes %}
+            <!-- Pacientes -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-500 px-3 py-2 sm:px-4 sm:py-2.5">
+                    <h3 class="text-white text-sm sm:text-base font-semibold flex items-center gap-1.5 sm:gap-2">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        Pacientes ({{ usuarios_disponibles.pacientes|length }})
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for item in usuarios_disponibles.pacientes %}
+                    <a href="{% url 'chat:iniciar_conversacion' item.usuario.id %}" 
+                       class="block p-2.5 sm:p-3 hover:bg-blue-50 transition-all duration-200 group">
+                        <div class="flex items-center gap-2 sm:gap-3">
+                            <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-md flex-shrink-0">
+                                {{ item.usuario.get_full_name|first|upper|default:item.usuario.username|first|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 group-hover:text-blue-600 transition-colors text-sm sm:text-base truncate">
+                                    {{ item.usuario.get_full_name|default:item.usuario.username }}
+                                </h4>
+                                <p class="text-xs text-slate-500 truncate">
+                                    {% if item.info_adicional %}
+                                    Paciente • {{ item.info_adicional }}
+                                    {% else %}
+                                    Paciente
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+        </div>
+        
+        {% else %}
+        <!-- Estado vacío - Compacto -->
+        <div class="bg-white rounded-xl shadow-lg p-6 sm:p-10 text-center">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
+                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+            <h3 class="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
+                No hay contactos
+            </h3>
+            <p class="text-sm sm:text-base text-slate-500 mb-4 sm:mb-6">
+                Aún no tienes usuarios disponibles
+            </p>
+            <a href="{% url 'chat:lista_conversaciones' %}" 
+               class="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 text-sm sm:text-base">
+                Volver
+            </a>
+        </div>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}
