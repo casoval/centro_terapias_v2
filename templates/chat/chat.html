@@ -3,56 +3,57 @@
 {% block title %}Chat con {{ nombre_completo }}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen py-4 px-4 flex flex-col">
-    <div class="max-w-5xl mx-auto w-full flex flex-col" style="height: calc(100vh - 120px);">
-        
-        <!-- Header del Chat - FIJO ARRIBA -->
-        <div class="bg-white rounded-t-2xl shadow-lg p-4 sticky top-0 z-20 flex-shrink-0">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <!-- Botón Volver -->
-                    <a href="{% url 'chat:lista_conversaciones' %}" 
-                       class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                        <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                    </a>
-                    
-                    <!-- Avatar y Nombre -->
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-lg font-bold shadow-md">
-                        {{ nombre_completo|first|upper }}
-                    </div>
-                    
-                    <div>
-                        <h2 class="font-bold text-slate-800 text-lg">
-                            {{ nombre_completo }}
-                        </h2>
-                        <p class="text-xs text-slate-500">
-                            {% if info_adicional %}
-                                {% if rol == "Profesional" %}
-                                    Profesional • {{ info_adicional }}
-                                {% elif rol == "Paciente" %}
-                                    Paciente • {{ info_adicional }}
-                                {% else %}
-                                    {{ rol }}
-                                    <span class="text-slate-400"> • {{ info_adicional }}</span>
-                                {% endif %}
+<!-- Contenedor de pantalla completa SIN scroll del body -->
+<div class="fixed inset-0 z-40 bg-white flex flex-col" style="padding-top: 80px;">
+    
+    <!-- Header del Chat - FIJO ARRIBA -->
+    <div class="bg-white border-b-2 border-slate-200 shadow-sm p-3 sm:p-4 flex-shrink-0">
+        <div class="max-w-5xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 sm:gap-4">
+                <!-- Botón Volver -->
+                <a href="{% url 'chat:lista_conversaciones' %}" 
+                   class="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </a>
+                
+                <!-- Avatar y Nombre -->
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-md flex-shrink-0">
+                    {{ nombre_completo|first|upper }}
+                </div>
+                
+                <div class="min-w-0">
+                    <h2 class="font-bold text-slate-800 text-sm sm:text-lg truncate">
+                        {{ nombre_completo }}
+                    </h2>
+                    <p class="text-xs text-slate-500 truncate">
+                        {% if info_adicional %}
+                            {% if rol == "Profesional" %}
+                                Profesional • {{ info_adicional }}
+                            {% elif rol == "Paciente" %}
+                                Paciente • {{ info_adicional }}
                             {% else %}
                                 {{ rol }}
+                                <span class="text-slate-400"> • {{ info_adicional }}</span>
                             {% endif %}
-                        </p>
-                    </div>
+                        {% else %}
+                            {{ rol }}
+                        {% endif %}
+                    </p>
                 </div>
             </div>
         </div>
-        
-        <!-- Área de Mensajes - CON SCROLL -->
-        <div id="chat-mensajes" class="bg-white p-6 overflow-y-auto flex-1">
+    </div>
+    
+    <!-- Área de Mensajes - CON SCROLL ÚNICO -->
+    <div id="chat-mensajes" class="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-6">
+        <div class="max-w-5xl mx-auto">
             {% for mensaje in mensajes %}
-            <div class="mensaje mb-4 flex {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}" 
+            <div class="mensaje mb-3 sm:mb-4 flex {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}" 
                  data-mensaje-id="{{ mensaje.id }}">
-                <div class="max-w-[70%]">
-                    <div class="{% if mensaje.remitente == user %}bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl{% else %}bg-slate-100 text-slate-800 rounded-r-2xl rounded-tl-2xl{% endif %} px-4 py-3 shadow-sm">
+                <div class="max-w-[85%] sm:max-w-[70%]">
+                    <div class="{% if mensaje.remitente == user %}bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl{% else %}bg-white text-slate-800 rounded-r-2xl rounded-tl-2xl border border-slate-200{% endif %} px-3 py-2 sm:px-4 sm:py-3 shadow-sm">
                         <p class="text-sm break-words whitespace-pre-wrap">{{ mensaje.contenido }}</p>
                     </div>
                     <div class="flex items-center gap-2 mt-1 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
@@ -73,15 +74,17 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                           d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
-                <p class="text-lg">No hay mensajes aún</p>
+                <p class="text-base sm:text-lg">No hay mensajes aún</p>
                 <p class="text-sm mt-1">Envía el primer mensaje para iniciar la conversación</p>
             </div>
             {% endfor %}
         </div>
-        
-        <!-- Formulario de Envío - FIJO ABAJO -->
-        <div class="bg-white rounded-b-2xl shadow-lg p-4 sticky bottom-0 z-20 flex-shrink-0">
-            <form id="form-enviar-mensaje" class="flex gap-3">
+    </div>
+    
+    <!-- Formulario de Envío - FIJO ABAJO -->
+    <div class="bg-white border-t-2 border-slate-200 shadow-lg p-3 sm:p-4 flex-shrink-0">
+        <div class="max-w-5xl mx-auto">
+            <form id="form-enviar-mensaje" class="flex gap-2 sm:gap-3">
                 {% csrf_token %}
                 <input type="text" 
                        id="input-mensaje" 
@@ -89,19 +92,19 @@
                        placeholder="Escribe un mensaje..."
                        maxlength="1000"
                        autocomplete="off"
-                       class="flex-1 px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none">
+                       class="flex-1 px-3 py-2 sm:px-4 sm:py-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none text-sm sm:text-base">
                 
                 <button type="submit" 
-                        class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-2 text-sm sm:text-base flex-shrink-0">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                     </svg>
-                    Enviar
+                    <span class="hidden sm:inline">Enviar</span>
                 </button>
             </form>
         </div>
-        
     </div>
+    
 </div>
 
 <script>
@@ -125,13 +128,15 @@ function scrollToBottom() {
 }
 
 function agregarMensaje(mensaje, esMio) {
+    const contenedorMensajes = chatMensajes.querySelector('.max-w-5xl');
+    
     const mensajeDiv = document.createElement('div');
-    mensajeDiv.className = `mensaje mb-4 flex ${esMio ? 'justify-end' : 'justify-start'}`;
+    mensajeDiv.className = `mensaje mb-3 sm:mb-4 flex ${esMio ? 'justify-end' : 'justify-start'}`;
     mensajeDiv.setAttribute('data-mensaje-id', mensaje.id);
     
     mensajeDiv.innerHTML = `
-        <div class="max-w-[70%]">
-            <div class="${esMio ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl' : 'bg-slate-100 text-slate-800 rounded-r-2xl rounded-tl-2xl'} px-4 py-3 shadow-sm">
+        <div class="max-w-[85%] sm:max-w-[70%]">
+            <div class="${esMio ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl' : 'bg-white text-slate-800 rounded-r-2xl rounded-tl-2xl border border-slate-200'} px-3 py-2 sm:px-4 sm:py-3 shadow-sm">
                 <p class="text-sm break-words whitespace-pre-wrap">${escapeHtml(mensaje.contenido)}</p>
             </div>
             <div class="flex items-center gap-2 mt-1 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
@@ -141,7 +146,7 @@ function agregarMensaje(mensaje, esMio) {
         </div>
     `;
     
-    chatMensajes.appendChild(mensajeDiv);
+    contenedorMensajes.appendChild(mensajeDiv);
     scrollToBottom();
 }
 
@@ -203,6 +208,7 @@ formEnviar.addEventListener('submit', function(e) {
 // ==================== INICIALIZACIÓN ====================
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Scroll al último mensaje
     scrollToBottom();
     
     // Iniciar polling para nuevos mensajes
