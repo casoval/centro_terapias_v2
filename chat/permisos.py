@@ -127,6 +127,7 @@ def _profesional_puede_chatear_con(profesional_user, otro_user, otro_perfil):
     """
     ✅ PROFESIONAL puede chatear con:
     - Pacientes que ha atendido (tienen sesiones)
+    - Otros profesionales de sus sucursales
     - Recepcionistas de sus sucursales
     - Gerentes de sus sucursales
     - Admin
@@ -153,6 +154,22 @@ def _profesional_puede_chatear_con(profesional_user, otro_user, otro_perfil):
         ).exists()
         
         return tiene_sesiones
+    
+    # ==================== PROFESIONAL ↔ PROFESIONAL ====================
+    if otro_perfil.es_profesional():
+        if not hasattr(otro_user, 'profesional'):
+            return False
+        
+        otro_profesional = otro_user.profesional
+        
+        # Obtener sucursales de ambos profesionales
+        sucursales_profesional = profesional.sucursales.all()
+        sucursales_otro_profesional = otro_profesional.sucursales.all()
+        
+        # Verificar si comparten al menos una sucursal
+        return sucursales_profesional.filter(
+            id__in=sucursales_otro_profesional
+        ).exists()
     
     # ==================== PROFESIONAL ↔ RECEPCIONISTA ====================
     if otro_perfil.es_recepcionista():
@@ -306,8 +323,20 @@ def get_usuarios_disponibles_para_chat(usuario_actual):
             id__in=pacientes_ids
         ).exclude(id__isnull=True)
         
-        # Staff de sus sucursales
+        # ✅ NUEVO: Otros profesionales de sus sucursales
         sucursales_profesional = profesional.sucursales.all()
+        
+        from profesionales.models import Profesional
+        otros_profesionales_ids = Profesional.objects.filter(
+            sucursales__in=sucursales_profesional,
+            user__isnull=False
+        ).exclude(
+            user_id=usuario_actual.id
+        ).values_list('user_id', flat=True).distinct()
+        
+        usuarios_disponibles['profesionales'] = User.objects.filter(id__in=otros_profesionales_ids)
+        
+        # Staff de sus sucursales
         
         # Recepcionistas
         usuarios_disponibles['recepcionistas'] = User.objects.filter(

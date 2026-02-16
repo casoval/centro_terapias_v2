@@ -51,8 +51,10 @@ def lista_conversaciones(request):
                 info_adicional = profesional.especialidad
             
             elif otro_usuario.perfil.es_paciente() and hasattr(otro_usuario, 'paciente'):
-                # Mostrar tutor principal del paciente
+                # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
                 paciente = otro_usuario.paciente
+                if not otro_usuario.get_full_name():
+                    nombre_completo = f"{paciente.nombre} {paciente.apellido}"
                 info_adicional = f"Tutor: {paciente.nombre_tutor}"
         
         conversaciones_data.append({
@@ -117,8 +119,10 @@ def chat_conversacion(request, conversacion_id):
             info_adicional = profesional.especialidad
         
         elif otro_usuario.perfil.es_paciente() and hasattr(otro_usuario, 'paciente'):
-            # Mostrar tutor principal del paciente
+            # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
             paciente = otro_usuario.paciente
+            if not otro_usuario.get_full_name():
+                nombre_completo = f"{paciente.nombre} {paciente.apellido}"
             info_adicional = f"Tutor: {paciente.nombre_tutor}"
     
     context = {
@@ -279,16 +283,22 @@ def seleccionar_destinatario(request):
             usuarios_con_info = []
             for u in usuarios:
                 info_adicional = None
+                nombre_completo = u.get_full_name() or u.username
                 
                 # Obtener info adicional según el rol
                 if hasattr(u, 'perfil'):
                     if u.perfil.es_profesional() and hasattr(u, 'profesional'):
                         info_adicional = u.profesional.especialidad
                     elif u.perfil.es_paciente() and hasattr(u, 'paciente'):
-                        info_adicional = f"Tutor: {u.paciente.nombre_tutor}"
+                        # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
+                        paciente = u.paciente
+                        if not u.get_full_name():
+                            nombre_completo = f"{paciente.nombre} {paciente.apellido}"
+                        info_adicional = f"Tutor: {paciente.nombre_tutor}"
                 
                 usuarios_con_info.append({
                     'usuario': u,
+                    'nombre_completo': nombre_completo,
                     'info_adicional': info_adicional
                 })
             
