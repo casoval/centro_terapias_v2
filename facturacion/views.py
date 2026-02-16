@@ -190,13 +190,10 @@ def lista_cuentas_corrientes(request):
     
     # ==================== ESTADÍSTICAS GLOBALES ====================
     # ✅ OPTIMIZADO: Solo queries a nivel de BD, sin loops
-    
-    # Opción A: Calcular solo si el usuario lo solicita
-    mostrar_estadisticas = request.GET.get('stats', 'false') == 'true'
+    # Las estadísticas se cargan automáticamente vía AJAX al cargar la página
     
     estadisticas = None
-    if mostrar_estadisticas:
-        estadisticas = calcular_estadisticas_globales()
+    mostrar_estadisticas = False  # Las estadísticas se cargan automáticamente con JavaScript
     
     # ==================== SUCURSALES PARA FILTRO ====================
     from servicios.models import Sucursal
@@ -215,7 +212,7 @@ def lista_cuentas_corrientes(request):
     return render(request, 'facturacion/cuentas_corrientes.html', context)
 
 
-def calcular_estadisticas_globales():
+def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None):
     """
     Calcula estadísticas globales de todas las cuentas corrientes
     
@@ -223,12 +220,19 @@ def calcular_estadisticas_globales():
     - Usa campos pre-calculados de CuentaCorriente para consistencia
     - Más eficiente (1 query en lugar de 3)
     - Consistente con cuentas individuales
+    - ✅ NUEVO: Incluye estadísticas de PROYECCIÓN TOTAL
+    - ✅ DINÁMICO: Acepta filtros de búsqueda, estado y sucursal
+    
+    Args:
+        buscar (str, optional): Término de búsqueda por nombre/apellido/tutor
+        estado (str, optional): Filtro por estado ('deudor', 'al_dia', 'a_favor')
+        sucursal_id (str, optional): ID de sucursal para filtrar
     
     Returns:
-        dict: Estadísticas globales del sistema
+        dict: Estadísticas globales del sistema (estado actual + proyección total)
     """
     from decimal import Decimal
-    from django.db.models import Sum
+    from django.db.models import Sum, Q
     from facturacion.models import CuentaCorriente
     
     try:
@@ -238,24 +242,60 @@ def calcular_estadisticas_globales():
         )
         
         # ========================================
-        # ✅ USAR CAMPOS PRE-CALCULADOS
+        # ✅ APLICAR FILTROS DINÁMICOS
         # ========================================
-        # Esto garantiza que las estadísticas globales coincidan
-        # con la suma de las cuentas individuales
         
-        estadisticas = cuentas_activas.aggregate(
+        # Filtro de búsqueda
+        if buscar:
+            cuentas_activas = cuentas_activas.filter(
+                Q(paciente__nombre__icontains=buscar) | 
+                Q(paciente__apellido__icontains=buscar) |
+                Q(paciente__nombre_tutor__icontains=buscar)
+            )
+        
+        # Filtro por sucursal
+        if sucursal_id:
+            cuentas_activas = cuentas_activas.filter(
+                paciente__sucursales__id=sucursal_id
+            )
+        
+        # Filtro por estado (aplicar DESPUÉS de obtener las cuentas)
+        if estado == 'deudor':
+            cuentas_activas = cuentas_activas.filter(saldo_actual__lt=0)
+        elif estado == 'al_dia':
+            cuentas_activas = cuentas_activas.filter(saldo_actual=0)
+        elif estado == 'a_favor':
+            cuentas_activas = cuentas_activas.filter(saldo_actual__gt=0)
+        
+        # ========================================
+        # ✅ ESTADO ACTUAL (consumido + asistidas)
+        # ========================================
+        
+        estadisticas_actual = cuentas_activas.aggregate(
             total_consumido=Sum('total_consumido_actual'),  # ⬅️ Campo pre-calculado
             total_pagado=Sum('total_pagado'),               # ⬅️ Campo pre-calculado
             total_balance=Sum('saldo_actual')               # ⬅️ Campo pre-calculado
         )
         
         # Convertir None a Decimal('0.00')
-        total_consumido = estadisticas['total_consumido'] or Decimal('0.00')
-        total_pagado = estadisticas['total_pagado'] or Decimal('0.00')
-        total_balance = estadisticas['total_balance'] or Decimal('0.00')
+        total_consumido = estadisticas_actual['total_consumido'] or Decimal('0.00')
+        total_pagado = estadisticas_actual['total_pagado'] or Decimal('0.00')
+        total_balance = estadisticas_actual['total_balance'] or Decimal('0.00')
         
         # ========================================
-        # CLASIFICACIÓN POR SALDO
+        # ✅ PROYECCIÓN TOTAL (todas las sesiones programadas)
+        # ========================================
+        
+        estadisticas_proyeccion = cuentas_activas.aggregate(
+            total_proyectado=Sum('total_consumido_real'),  # ⬅️ Incluye todas las sesiones
+            total_balance_proyeccion=Sum('saldo_real')     # ⬅️ Saldo con proyección
+        )
+        
+        total_proyectado = estadisticas_proyeccion['total_proyectado'] or Decimal('0.00')
+        total_balance_proyeccion = estadisticas_proyeccion['total_balance_proyeccion'] or Decimal('0.00')
+        
+        # ========================================
+        # CLASIFICACIÓN POR SALDO ACTUAL
         # ========================================
         
         deudores_count = cuentas_activas.filter(saldo_actual__lt=0).count()
@@ -274,7 +314,28 @@ def calcular_estadisticas_globales():
             saldo_actual__gt=0
         ).aggregate(total=Sum('saldo_actual'))['total'] or Decimal('0.00')
         
+        # ========================================
+        # ✅ CLASIFICACIÓN POR SALDO PROYECTADO
+        # ========================================
+        
+        deudores_proyeccion_count = cuentas_activas.filter(saldo_real__lt=0).count()
+        al_dia_proyeccion_count = cuentas_activas.filter(saldo_real=0).count()
+        a_favor_proyeccion_count = cuentas_activas.filter(saldo_real__gt=0).count()
+        
+        # Total que deberán (valor absoluto)
+        total_debe_proyeccion_result = cuentas_activas.filter(
+            saldo_real__lt=0
+        ).aggregate(total=Sum('saldo_real'))['total']
+        
+        total_debe_proyeccion = abs(total_debe_proyeccion_result) if total_debe_proyeccion_result else Decimal('0.00')
+        
+        # Total a favor proyectado
+        total_favor_proyeccion = cuentas_activas.filter(
+            saldo_real__gt=0
+        ).aggregate(total=Sum('saldo_real'))['total'] or Decimal('0.00')
+        
         return {
+            # Estado Actual
             'total_consumido': total_consumido,
             'total_pagado': total_pagado,
             'total_balance': total_balance,
@@ -283,6 +344,15 @@ def calcular_estadisticas_globales():
             'a_favor': a_favor_count,
             'total_debe': total_debe,
             'total_favor': total_favor,
+            
+            # ✅ Proyección Total
+            'total_proyectado': total_proyectado,
+            'total_balance_proyeccion': total_balance_proyeccion,
+            'deudores_proyeccion': deudores_proyeccion_count,
+            'al_dia_proyeccion': al_dia_proyeccion_count,
+            'a_favor_proyeccion': a_favor_proyeccion_count,
+            'total_debe_proyeccion': total_debe_proyeccion,
+            'total_favor_proyeccion': total_favor_proyeccion,
         }
         
     except Exception as e:
@@ -292,6 +362,7 @@ def calcular_estadisticas_globales():
         
         # Retornar valores por defecto en caso de error
         return {
+            # Estado Actual
             'total_consumido': Decimal('0.00'),
             'total_pagado': Decimal('0.00'),
             'total_balance': Decimal('0.00'),
@@ -300,6 +371,15 @@ def calcular_estadisticas_globales():
             'a_favor': 0,
             'total_debe': Decimal('0.00'),
             'total_favor': Decimal('0.00'),
+            
+            # Proyección Total
+            'total_proyectado': Decimal('0.00'),
+            'total_balance_proyeccion': Decimal('0.00'),
+            'deudores_proyeccion': 0,
+            'al_dia_proyeccion': 0,
+            'a_favor_proyeccion': 0,
+            'total_debe_proyeccion': Decimal('0.00'),
+            'total_favor_proyeccion': Decimal('0.00'),
         }
 
 
@@ -314,14 +394,52 @@ def cargar_estadisticas_ajax(request):
     """
     Vista AJAX para cargar estadísticas globales bajo demanda
     
-    ✅ MEJORADO: Mejor manejo de errores y logging detallado
+    ✅ MEJORADO: 
+    - Mejor manejo de errores y logging detallado
+    - ✅ NUEVO: Incluye estadísticas de proyección total
+    - ✅ DINÁMICO: Acepta y aplica filtros de búsqueda, estado y sucursal
     """
     try:
-        estadisticas = calcular_estadisticas_globales()
+        # ✅ Obtener filtros de la petición
+        buscar = request.GET.get('q', '')
+        estado = request.GET.get('estado', '')
+        sucursal_id = request.GET.get('sucursal', '')
+        
+        # Calcular estadísticas con filtros aplicados
+        estadisticas = calcular_estadisticas_globales(
+            buscar=buscar if buscar else None,
+            estado=estado if estado else None,
+            sucursal_id=sucursal_id if sucursal_id else None
+        )
+        
+        # ✅ Calcular total de pacientes con los mismos filtros
+        from django.db.models import Q
+        pacientes = Paciente.objects.filter(estado='activo')
+        
+        if buscar:
+            pacientes = pacientes.filter(
+                Q(nombre__icontains=buscar) | 
+                Q(apellido__icontains=buscar) |
+                Q(nombre_tutor__icontains=buscar)
+            )
+        
+        if sucursal_id:
+            pacientes = pacientes.filter(sucursales__id=sucursal_id)
+        
+        if estado == 'deudor':
+            pacientes = pacientes.filter(cuenta_corriente__saldo_actual__lt=0)
+        elif estado == 'al_dia':
+            pacientes = pacientes.filter(cuenta_corriente__saldo_actual=0)
+        elif estado == 'a_favor':
+            pacientes = pacientes.filter(cuenta_corriente__saldo_actual__gt=0)
+        
+        total_pacientes = pacientes.count()
         
         return JsonResponse({
             'success': True,
+            'total_pacientes': total_pacientes,  # ✅ Añadir total de pacientes
             'estadisticas': {
+                # Estado Actual
                 'total_consumido': float(estadisticas['total_consumido']),
                 'total_pagado': float(estadisticas['total_pagado']),
                 'total_balance': float(estadisticas['total_balance']),
@@ -330,6 +448,15 @@ def cargar_estadisticas_ajax(request):
                 'a_favor': estadisticas['a_favor'],
                 'total_debe': float(estadisticas['total_debe']),
                 'total_favor': float(estadisticas['total_favor']),
+                
+                # ✅ Proyección Total
+                'total_proyectado': float(estadisticas['total_proyectado']),
+                'total_balance_proyeccion': float(estadisticas['total_balance_proyeccion']),
+                'deudores_proyeccion': estadisticas['deudores_proyeccion'],
+                'al_dia_proyeccion': estadisticas['al_dia_proyeccion'],
+                'a_favor_proyeccion': estadisticas['a_favor_proyeccion'],
+                'total_debe_proyeccion': float(estadisticas['total_debe_proyeccion']),
+                'total_favor_proyeccion': float(estadisticas['total_favor_proyeccion']),
             }
         })
     except Exception as e:

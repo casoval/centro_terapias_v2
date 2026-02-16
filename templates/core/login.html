@@ -12,7 +12,9 @@
             font-size: 60%;
             margin: 0;
             padding: 0;
+            overflow-y: auto; 
             overflow-x: hidden;
+            background-color: #5568d3;
         }
 
         /* --- FONDO ANIMADO --- */
@@ -24,147 +26,152 @@
         }
         @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-        .animated-bg::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: radial-gradient(2px 2px at 20% 30%, white, transparent), radial-gradient(2px 2px at 60% 70%, white, transparent);
-            background-size: 100% 100%; animation: stars-twinkle 3s ease-in-out infinite; pointer-events: none;
+        /* --- CONTENEDOR DE ESTRELLAS FIJO --- */
+        #starContainer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1;
         }
-        @keyframes stars-twinkle { 0%, 100% { opacity: 0.1; } 50% { opacity: 1; } }
 
-        /* --- ESTILOS TARJETA --- */
+        /* Estilo de la estrella individual */
+        .star-blink {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: blinker var(--duration) ease-in-out infinite;
+            animation-delay: var(--delay);
+            box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+        }
+
+        /* Animación de brillo (Aparece y Desaparece suavemente) */
+        @keyframes blinker {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: var(--opacity); transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+
+        /* --- ESTILOS TARJETA (COMPACTA) --- */
         .card-shadow { box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15); }
         .input-focus:focus { transform: scale(1.02); transition: all 0.3s ease; }
         
         .container-80 {
-            transform: scale(0.8);
+            transform: scale(0.9);
             transform-origin: center;
             transition: all 0.5s ease;
             position: relative;
             z-index: 50; 
         }
 
-        /* --- ERROR Y SHAKE --- */
         @keyframes shake {
-            0%, 100% { transform: scale(0.8) translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: scale(0.8) translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: scale(0.8) translateX(5px); }
+            0%, 100% { transform: scale(0.9) translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: scale(0.9) translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: scale(0.9) translateX(5px); }
         }
         .animate-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 
-        /* --- TRANSICIÓN: CRECIMIENTO VISIBLE DEL CÍRCULO 🟢 --- */
-        
-        .ripple-container {
+        /* --- TRANSICIÓN LEGO --- */
+        #legoContainer {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 9000; display: none; overflow: hidden;
-            /* Blur ligero (8px) para que no sea cortante, pero se vea el borde */
-            filter: blur(8px);
+            display: none; z-index: 9000; pointer-events: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            grid-auto-rows: 60px;
+            overflow: hidden;
         }
-        .ripple-container.active { display: block; }
+        #legoContainer.active { display: grid; }
 
-        .ripple-wave {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 50px; height: 50px; /* Tamaño base inicial */
-            background: var(--color);
-            border-radius: 50%;
-            transform: translate(-50%, -50%) scale(1); /* Empieza en escala 1 (50px) */
-            opacity: 1; /* Visible desde el principio */
-            /* Sombra interna para darle volumen visual mientras crece */
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.1); 
+        .lego-brick {
+            position: relative; width: 100%; height: 100%; border-radius: 4px;
+            transform: scale(0);
+            box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2), inset 2px 2px 4px rgba(255,255,255,0.3);
+            animation-name: popBrick;
+            animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation-fill-mode: forwards;
         }
-
-        /* Animación de crecimiento progresivo */
-        .animate-ripple {
-            animation: rippleVisibleGrow 3s ease-in-out forwards;
+        .lego-brick::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 60%; height: 60%;
+            background: inherit; border-radius: 50%;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.2), inset 1px 1px 1px rgba(255,255,255,0.4);
+            border: 1px solid rgba(0,0,0,0.05);
         }
-
-        @keyframes rippleVisibleGrow {
-            0% {
-                transform: translate(-50%, -50%) scale(0); /* Nace de un punto */
-                opacity: 1;
-            }
-            100% {
-                transform: translate(-50%, -50%) scale(80); /* Crece hasta cubrir todo */
-                opacity: 1;
-            }
+        @keyframes popBrick {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Loader final */
         .transition-loader {
-            position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 9999;
-            opacity: 0;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            transition: opacity 1s ease;
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 9999; opacity: 0; display: none;
+            flex-direction: column; align-items: center; pointer-events: none;
+            transition: opacity 0.5s ease;
+            background: rgba(255, 255, 255, 0.95); padding: 30px;
+            border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 2px solid white;
         }
         .transition-loader.show { display: flex; opacity: 1; }
 
         .loader-spinner {
-            width: 60px; height: 60px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #ffffff;
-            animation: spin 1.5s linear infinite;
-            margin-bottom: 20px;
+            width: 60px; height: 60px; border: 6px solid #f3f3f3; border-radius: 50%;
+            border-top: 6px solid #3B82F6; border-right: 6px solid #EF4444;
+            border-bottom: 6px solid #F59E0B; border-left: 6px solid #10B981;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .card-fade-out { animation: cardFade 0.8s ease-in forwards; }
+        .card-fade-out { animation: cardFade 0.6s ease-in forwards; }
         @keyframes cardFade {
-            0% { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(0.9) translateY(20px); opacity: 0; }
+            0% { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(0.5); opacity: 0; }
         }
-
     </style>
 </head>
 <body>
     <div class="animated-bg"></div>
     
-    <div class="ripple-container" id="rippleContainer"></div>
+    <div id="starContainer"></div>
 
+    <div id="legoContainer"></div>
     <div class="transition-loader" id="pageLoader">
         <div class="loader-spinner"></div>
-        <p class="text-2xl font-bold text-white tracking-widest uppercase" style="text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Iniciando</p>
+        <p class="text-xl font-bold text-gray-700 tracking-wider">CONSTRUYENDO EL FUTURO...</p>
     </div>
 
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative z-10">
-        <div class="container-80 max-w-md w-full space-y-8 bg-white/95 backdrop-blur-sm p-10 rounded-3xl card-shadow border-8 border-white/50" id="loginCard">
+    <div class="min-h-screen flex items-center justify-center p-4 relative z-10 w-full">
+        
+        <div class="container-80 max-w-sm w-full space-y-4 bg-white/95 backdrop-blur-sm p-6 rounded-2xl card-shadow border-4 border-white/50" id="loginCard">
             <div>
-                <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-40 h-40 mx-auto flex items-center justify-center border-4 border-white shadow-lg">
-                    <img class="h-32 w-auto" src="{% static 'img/logo_misael.png' %}" alt="Logo" id="logoImg">
+                <div class="bg-gradient-to-br from-yellow-100 via-red-50 to-blue-50 rounded-full w-28 h-28 mx-auto flex items-center justify-center border-4 border-white shadow-lg">
+                    <img class="h-20 w-auto" src="{% static 'img/logo_misael.png' %}" alt="Logo" id="logoImg">
                 </div>
                 
-                <h2 class="mt-6 text-center text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 bg-clip-text text-transparent leading-tight">
+                <h2 class="mt-4 text-center text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-red-600 via-yellow-500 to-blue-600 bg-clip-text text-transparent leading-tight">
                     Centro de Neurodesarrollo Infantil Misael
                 </h2>
                 
-                <p id="status-message" class="mt-3 text-center text-base text-gray-600 font-medium h-6 transition-all duration-300">
-                    🌟 Bienvenido, inicia sesión para continuar 🌟
+                <p id="status-message" class="mt-2 text-center text-sm text-gray-600 font-medium h-5 transition-all duration-300">
+                    🌟 Bienvenido, inicia sesión 🌟
                 </p>
             </div>
             
-            <form class="mt-8 space-y-6" method="post" id="loginForm">
+            <form class="mt-4 space-y-4" method="post" id="loginForm">
                 {% csrf_token %}
                 
-                <div class="space-y-5">
+                <div class="space-y-3">
                     <div>
-                        <label for="id_username" class="block text-sm font-bold text-gray-700 mb-2 ml-1">👤 Usuario</label>
+                        <label for="id_username" class="block text-xs font-bold text-gray-700 mb-1 ml-1">👤 Usuario</label>
                         <input id="id_username" name="username" type="text" required 
-                               class="input-focus appearance-none block w-full px-5 py-4 border-3 border-yellow-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-yellow-400 text-base font-medium" 
-                               placeholder="Ingresa tu usuario">
+                               class="input-focus appearance-none block w-full px-4 py-3 border-2 border-yellow-300 placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 text-sm font-medium" 
+                               placeholder="Usuario">
                     </div>
                     
                     <div>
-                        <label for="id_password" class="block text-sm font-bold text-gray-700 mb-2 ml-1">🔒 Contraseña</label>
+                        <label for="id_password" class="block text-xs font-bold text-gray-700 mb-1 ml-1">🔒 Contraseña</label>
                         <div class="relative">
                             <input id="id_password" name="password" type="password" required 
-                                   class="input-focus appearance-none block w-full px-5 py-4 border-3 border-blue-300 placeholder-gray-400 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-400 text-base font-medium pr-12" 
-                                   placeholder="Ingresa tu contraseña">
-                            <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 text-2xl">
+                                   class="input-focus appearance-none block w-full px-4 py-3 border-2 border-blue-300 placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm font-medium pr-10" 
+                                   placeholder="Contraseña">
+                            <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 text-lg">
                                 👁️
                             </button>
                         </div>
@@ -173,18 +180,17 @@
                 
                 <div>
                     <button type="submit" id="btnSubmit"
-                            class="group relative w-full flex justify-center py-4 px-6 border-4 border-red-700 text-lg font-black rounded-full text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-lg hover:scale-105 transition-all duration-300">
+                            class="group relative w-full flex justify-center py-3 px-4 border-2 border-red-700 text-base font-black rounded-full text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-md hover:scale-105 transition-all duration-300">
                         <span class="mr-2">🚀</span> Iniciar Sesión
                     </button>
                 </div>
             </form>
 
-            <div class="flex justify-center space-x-3 mt-8 pb-2">
-                <div class="w-4 h-4 bg-red-500 rounded-full animate-bounce"></div>
-                <div class="w-4 h-4 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
-                <div class="w-4 h-4 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
-                <div class="w-4 h-4 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
-                <div class="w-4 h-4 bg-purple-500 rounded-full animate-bounce" style="animation-delay: 0.4s;"></div>
+            <div class="flex justify-center space-x-2 mt-4 pb-1">
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-bounce"></div>
+                <div class="w-3 h-3 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+                <div class="w-3 h-3 bg-green-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
             </div>
         </div>
     </div>
@@ -200,6 +206,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar las estrellas al cargar
+            crearEstrellasBrillantes();
+
             const form = document.getElementById('loginForm');
             const submitBtn = document.getElementById('btnSubmit');
             const statusMsg = document.getElementById('status-message');
@@ -216,8 +225,8 @@
                 
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="animate-spin mr-2">⏳</span> Verificando...';
-                statusMsg.innerHTML = "Conectando con el servidor...";
-                statusMsg.className = "mt-3 text-center text-base text-blue-600 font-bold h-6 animate-pulse";
+                statusMsg.innerHTML = "Conectando...";
+                statusMsg.className = "mt-2 text-center text-sm text-blue-600 font-bold h-5 animate-pulse";
 
                 const formData = new FormData(form);
 
@@ -232,12 +241,12 @@
 
                     if (isLoginSuccessful) {
                         statusMsg.innerHTML = "✨ ¡Acceso Concedido!";
-                        statusMsg.className = "mt-3 text-center text-base text-green-600 font-bold h-6";
+                        statusMsg.className = "mt-2 text-center text-sm text-green-600 font-bold h-5";
                         
-                        submitBtn.innerHTML = "Iniciando...";
-                        submitBtn.className = "w-full py-4 px-6 border-4 border-green-600 text-lg font-black rounded-full text-white bg-green-500 shadow-lg transition-all duration-300";
+                        submitBtn.innerHTML = "Construyendo...";
+                        submitBtn.className = "w-full py-3 px-4 border-2 border-green-600 text-base font-black rounded-full text-white bg-green-500 shadow-md transition-all duration-300";
                         
-                        ejecutarAnimacionCrecimiento(targetUrl);
+                        ejecutarConstruccionLego(targetUrl);
                     } else {
                         return response.text().then(html => {
                             submitBtn.disabled = false;
@@ -247,10 +256,11 @@
                     }
                 })
                 .catch(error => {
+                    console.error(error);
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalBtnText;
                     statusMsg.innerHTML = "⚠️ Error de conexión";
-                    statusMsg.className = "mt-3 text-center text-base text-orange-600 font-bold h-6";
+                    statusMsg.className = "mt-2 text-center text-sm text-orange-600 font-bold h-5";
                 });
             });
 
@@ -259,43 +269,77 @@
                 card.classList.remove('animate-shake');
                 void card.offsetWidth; 
                 card.classList.add('animate-shake');
-
                 statusMsg.innerHTML = "❌ Usuario o contraseña incorrectos";
-                statusMsg.className = "mt-3 text-center text-base text-red-600 font-bold h-6 transition-all duration-300";
+                statusMsg.className = "mt-2 text-center text-sm text-red-600 font-bold h-5 transition-all duration-300";
             }
         });
 
         // ==========================================
-        // ANIMACIÓN: CRECIMIENTO VISIBLE Y MAJESTUOSO 🟢
+        //  GENERADOR DE ESTRELLAS SENCILLAS ✨
         // ==========================================
-        function ejecutarAnimacionCrecimiento(redirectUrl) {
+        function crearEstrellasBrillantes() {
+            const container = document.getElementById('starContainer');
+            // Creamos 50 estrellas
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star-blink';
+                
+                // Posición aleatoria en toda la pantalla
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                
+                // Tamaño variable (pequeñitas para que sea sutil)
+                const size = Math.random() * 3 + 1 + 'px'; // entre 1px y 4px
+                star.style.width = size;
+                star.style.height = size;
+
+                // Duración de la animación (entre 2s y 5s)
+                star.style.setProperty('--duration', (Math.random() * 3 + 2) + 's');
+                
+                // Retraso para que no brillen todas juntas (entre 0s y 5s)
+                star.style.setProperty('--delay', (Math.random() * 5) + 's');
+                
+                // Brillo máximo variable (algunas brillan más fuerte)
+                star.style.setProperty('--opacity', (Math.random() * 0.5 + 0.5));
+
+                container.appendChild(star);
+            }
+        }
+
+        // ==========================================
+        //  TRANSICIÓN LEGO EXTENDIDA 🧱
+        // ==========================================
+        function ejecutarConstruccionLego(redirectUrl) {
+            const container = document.getElementById('legoContainer');
             const loginCard = document.getElementById('loginCard');
-            const container = document.getElementById('rippleContainer');
             const loader = document.getElementById('pageLoader');
-            
-            container.classList.add('active');
+
             loginCard.classList.add('card-fade-out');
+            container.classList.add('active'); 
 
-            // Colores hasta el naranja oscuro (#EA580C)
-            const waveColors = ['#3b8fd9', '#FFD700', '#FF8C00', '#EA580C'];
-            
-            // Intervalo de 600ms: Lento para apreciar cómo crece cada uno
-            waveColors.forEach((color, index) => {
-                setTimeout(() => {
-                    const wave = document.createElement('div');
-                    wave.className = 'ripple-wave animate-ripple';
-                    wave.style.setProperty('--color', color);
-                    wave.style.zIndex = 10000 + index; 
-                    container.appendChild(wave);
-                }, index * 600); 
-            });
+            const brickSize = 60; 
+            const cols = Math.ceil(window.innerWidth / brickSize);
+            const rows = Math.ceil(window.innerHeight / brickSize);
+            const totalBricks = cols * rows;
 
-            // Redirección calculada
-            // 4 olas * 600ms = 2400ms. Damos tiempo suficiente para ver crecer la última
-            setTimeout(() => {
-                loader.classList.add('show');
-                window.location.href = redirectUrl;
-            }, 2500); 
+            const colors = ['#EF4444', '#3B82F6', '#F59E0B', '#10B981', '#FCD34D', '#60A5FA', '#A78BFA'];
+
+            for (let i = 0; i < totalBricks; i++) {
+                const brick = document.createElement('div');
+                brick.className = 'lego-brick';
+                brick.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                const randomDelay = Math.random() * 2.5; 
+                brick.style.animationDelay = `${randomDelay}s`;
+
+                const randomDuration = 0.4 + Math.random() * 0.4;
+                brick.style.animationDuration = `${randomDuration}s`;
+
+                container.appendChild(brick);
+            }
+
+            setTimeout(() => { loader.classList.add('show'); }, 2200);
+            setTimeout(() => { window.location.href = redirectUrl; }, 3500);
         }
     </script>
 </body>

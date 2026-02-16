@@ -20,29 +20,15 @@
         </div>
     </div>
 
-    <!-- 🚀 ESTADÍSTICAS CON CARGA LAZY -->
+    <!-- 🚀 ESTADÍSTICAS CON CARGA AUTOMÁTICA -->
     <div id="estadisticas-container" class="mb-2 sm:mb-3">
-        {% if mostrar_estadisticas %}
-            <!-- Estadísticas ya cargadas -->
-            {% include 'facturacion/_estadisticas_globales.html' %}
-        {% else %}
-            <!-- Botón para cargar estadísticas -->
-            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3 text-center">
-                <button 
-                    id="btn-cargar-estadisticas"
-                    onclick="cargarEstadisticas()"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm hover:shadow">
-                    📊 Mostrar Estadísticas Globales
-                </button>
-                <p class="text-xs text-gray-500 mt-1">Cargar consumo total, pagos, deudores, etc.</p>
-            </div>
-            
-            <!-- Spinner de carga (oculto inicialmente) -->
-            <div id="loading-estadisticas" class="hidden bg-white border rounded-lg p-4 text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p class="text-sm text-gray-600 mt-2">Calculando estadísticas...</p>
-            </div>
-        {% endif %}
+        <!-- Estadísticas se cargan automáticamente al abrir la página -->
+        
+        <!-- Spinner de carga inicial -->
+        <div id="loading-estadisticas" class="bg-white border rounded-lg p-4 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="text-sm text-gray-600 mt-2">Cargando estadísticas...</p>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -333,20 +319,53 @@
 
 </div>
 
-<!-- 🚀 JAVASCRIPT PARA CARGA LAZY -->
+<!-- 🚀 JAVASCRIPT PARA CARGA AUTOMÁTICA -->
 <script>
-// Función para cargar estadísticas bajo demanda
+// 🎯 CARGAR ESTADÍSTICAS AUTOMÁTICAMENTE AL ABRIR LA PÁGINA
+document.addEventListener('DOMContentLoaded', function() {
+    cargarEstadisticas();
+});
+
+// ========================================
+// 🔄 FUNCIÓN PARA CARGAR ESTADÍSTICAS DINÁMICAS
+// ========================================
 function cargarEstadisticas() {
     const container = document.getElementById('estadisticas-container');
-    const btnCargar = document.getElementById('btn-cargar-estadisticas');
     const loading = document.getElementById('loading-estadisticas');
     
-    // Mostrar spinner
-    btnCargar.parentElement.classList.add('hidden');
-    loading.classList.remove('hidden');
+    // ✅ Si ya hay estadísticas cargadas, mostrar solo un pequeño indicador
+    const yaHayEstadisticas = container.querySelector('.bg-purple-50') !== null;
+    
+    if (!yaHayEstadisticas && loading) {
+        // Primera carga: mostrar spinner grande
+        loading.classList.remove('hidden');
+    } else {
+        // Actualización: agregar pequeño indicador
+        const existingContent = container.innerHTML;
+        container.innerHTML = `
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center mb-2">
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span class="text-xs text-blue-700 ml-2">Actualizando estadísticas...</span>
+            </div>
+        ` + existingContent;
+    }
+    
+    // ✅ Obtener valores actuales de los filtros
+    const buscar = document.getElementById('buscar-paciente')?.value || '';
+    const estado = document.querySelector('select[name="estado"]')?.value || '';
+    const sucursal = document.querySelector('select[name="sucursal"]')?.value || '';
+    
+    // ✅ Construir URL con parámetros de filtro
+    const params = new URLSearchParams();
+    if (buscar) params.append('q', buscar);
+    if (estado) params.append('estado', estado);
+    if (sucursal) params.append('sucursal', sucursal);
+    
+    const url = '{% url "facturacion:cargar_estadisticas_ajax" %}' + 
+                (params.toString() ? '?' + params.toString() : '');
     
     // Hacer petición AJAX
-    fetch('{% url "facturacion:cargar_estadisticas_ajax" %}')
+    fetch(url)
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -357,90 +376,191 @@ function cargarEstadisticas() {
             if (data.success) {
                 // Renderizar estadísticas
                 const stats = data.estadisticas;
-                const totalPacientes = {{ page_obj.paginator.count }};
+                const totalPacientes = data.total_pacientes;  // ✅ Usar valor dinámico del backend
                 
-                // Calcular porcentajes
+                // Calcular porcentajes ESTADO ACTUAL
                 const pctDeudores = totalPacientes > 0 ? (stats.deudores / totalPacientes * 100) : 0;
                 const pctAFavor = totalPacientes > 0 ? (stats.a_favor / totalPacientes * 100) : 0;
                 const pctAlDia = totalPacientes > 0 ? (stats.al_dia / totalPacientes * 100) : 0;
                 
+                // ✅ Calcular porcentajes PROYECCIÓN TOTAL
+                const pctDeudoresProyeccion = totalPacientes > 0 ? (stats.deudores_proyeccion / totalPacientes * 100) : 0;
+                const pctAFavorProyeccion = totalPacientes > 0 ? (stats.a_favor_proyeccion / totalPacientes * 100) : 0;
+                const pctAlDiaProyeccion = totalPacientes > 0 ? (stats.al_dia_proyeccion / totalPacientes * 100) : 0;
+                
                 container.innerHTML = `
-                    <!-- Estadísticas principales -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2">
-                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-1.5 sm:p-2.5">
-                            <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase mb-0.5">💰 Consumido</p>
-                            <p class="text-sm sm:text-xl font-black text-purple-700 truncate">Bs. ${stats.total_consumido.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                            <p class="text-[7px] sm:text-[9px] text-purple-500 mt-0.5">Sesiones + Proyectos</p>
-                        </div>
+                    <!-- ========================================
+                         📊 ESTADO ACTUAL
+                         ======================================== -->
+                    <div class="mb-3">
+                        <h2 class="text-xs sm:text-sm font-bold text-blue-700 mb-2 px-1">📊 Estado Actual (Consumido + Asistidas)</h2>
                         
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-1.5 sm:p-2.5">
-                            <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase mb-0.5">✅ Pagado</p>
-                            <p class="text-sm sm:text-xl font-black text-green-700 truncate">Bs. ${stats.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                            <p class="text-[7px] sm:text-[9px] text-green-500 mt-0.5">Total recibido</p>
-                        </div>
-                        
-                        <div class="bg-red-50 border border-red-200 rounded-lg p-1.5 sm:p-2.5">
-                            <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase mb-0.5">⚠️ Deudores</p>
-                            <p class="text-sm sm:text-xl font-black text-red-700">${stats.deudores} <span class="text-xs font-normal">(${pctDeudores.toFixed(1)}%)</span></p>
-                            <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">Bs. ${stats.total_debe.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                        </div>
-                        
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 sm:p-2.5">
-                            <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase mb-0.5">🎁 A Favor</p>
-                            <p class="text-sm sm:text-xl font-black text-blue-700">${stats.a_favor} <span class="text-xs font-normal">(${pctAFavor.toFixed(1)}%)</span></p>
-                            <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">Bs. ${stats.total_favor.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Estadísticas detalladas (solo desktop) -->
-                    <div class="hidden sm:grid grid-cols-4 gap-2 mb-3">
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
-                            <p class="text-[9px] text-gray-600 font-bold uppercase mb-1">😊 Al Día</p>
-                            <p class="text-lg font-black text-gray-700">${stats.al_dia}</p>
-                            <p class="text-xs text-gray-500">${pctAlDia.toFixed(1)}% del total</p>
-                        </div>
-                        
-                        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                            <p class="text-[9px] text-indigo-600 font-bold uppercase mb-1">📊 Balance Total</p>
-                            <p class="text-lg font-black ${stats.total_balance < 0 ? 'text-red-700' : stats.total_balance > 0 ? 'text-green-700' : 'text-gray-700'}">
-                                Bs. ${stats.total_balance.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                            </p>
-                            <p class="text-xs ${stats.total_balance < 0 ? 'text-red-500' : stats.total_balance > 0 ? 'text-green-500' : 'text-gray-500'}">
-                                ${stats.total_balance < 0 ? 'Déficit' : stats.total_balance > 0 ? 'Superávit' : 'Equilibrado'}
-                            </p>
-                        </div>
-                        
-                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                            <p class="text-[9px] text-orange-600 font-bold uppercase mb-1">👥 Total Pacientes</p>
-                            <p class="text-lg font-black text-orange-700">${totalPacientes}</p>
-                            <p class="text-xs text-orange-500">Con cuenta corriente</p>
-                        </div>
-                        
-                        <div class="bg-teal-50 border border-teal-200 rounded-lg p-2">
-                            <p class="text-[9px] text-teal-600 font-bold uppercase mb-1">📈 Tasa de Cobro</p>
-                            <p class="text-lg font-black text-teal-700">
-                                ${stats.total_consumido > 0 ? ((stats.total_pagado / stats.total_consumido) * 100).toFixed(1) : 0}%
-                            </p>
-                            <p class="text-xs text-teal-500">Pagado vs Consumido</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Resumen móvil adicional -->
-                    <div class="sm:hidden bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-2 mb-2">
-                        <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
-                            <div>
-                                <p class="text-gray-600 mb-0.5">Al Día</p>
-                                <p class="font-bold text-gray-900">${stats.al_dia}</p>
+                        <!-- Estadísticas principales -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2">
+                            <div class="bg-purple-50 border border-purple-200 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase mb-0.5">💰 Consumido</p>
+                                <p class="text-sm sm:text-xl font-black text-purple-700 truncate">Bs. ${stats.total_consumido.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p class="text-[7px] sm:text-[9px] text-purple-500 mt-0.5">Sesiones + Proyectos</p>
                             </div>
-                            <div>
-                                <p class="text-gray-600 mb-0.5">Balance</p>
-                                <p class="font-bold ${stats.total_balance < 0 ? 'text-red-600' : stats.total_balance > 0 ? 'text-green-600' : 'text-gray-600'}">
-                                    ${stats.total_balance.toFixed(0)}
+                            
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase mb-0.5">✅ Pagado</p>
+                                <p class="text-sm sm:text-xl font-black text-green-700 truncate">Bs. ${stats.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p class="text-[7px] sm:text-[9px] text-green-500 mt-0.5">Total recibido</p>
+                            </div>
+                            
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase mb-0.5">⚠️ Deudores</p>
+                                <p class="text-sm sm:text-xl font-black text-red-700">${stats.deudores} <span class="text-xs font-normal">(${pctDeudores.toFixed(1)}%)</span></p>
+                                <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">Bs. ${stats.total_debe.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase mb-0.5">🎁 A Favor</p>
+                                <p class="text-sm sm:text-xl font-black text-blue-700">${stats.a_favor} <span class="text-xs font-normal">(${pctAFavor.toFixed(1)}%)</span></p>
+                                <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">Bs. ${stats.total_favor.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Estadísticas detalladas (solo desktop) -->
+                        <div class="hidden sm:grid grid-cols-4 gap-2">
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                <p class="text-[9px] text-gray-600 font-bold uppercase mb-1">😊 Al Día</p>
+                                <p class="text-lg font-black text-gray-700">${stats.al_dia}</p>
+                                <p class="text-xs text-gray-500">${pctAlDia.toFixed(1)}% del total</p>
+                            </div>
+                            
+                            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
+                                <p class="text-[9px] text-indigo-600 font-bold uppercase mb-1">📊 Balance Total</p>
+                                <p class="text-lg font-black ${stats.total_balance < 0 ? 'text-red-700' : stats.total_balance > 0 ? 'text-green-700' : 'text-gray-700'}">
+                                    Bs. ${stats.total_balance.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                                <p class="text-xs ${stats.total_balance < 0 ? 'text-red-500' : stats.total_balance > 0 ? 'text-green-500' : 'text-gray-500'}">
+                                    ${stats.total_balance < 0 ? 'Déficit' : stats.total_balance > 0 ? 'Superávit' : 'Equilibrado'}
                                 </p>
                             </div>
-                            <div>
-                                <p class="text-gray-600 mb-0.5">Total</p>
-                                <p class="font-bold text-gray-900">${totalPacientes}</p>
+                            
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
+                                <p class="text-[9px] text-orange-600 font-bold uppercase mb-1">👥 Total Pacientes</p>
+                                <p class="text-lg font-black text-orange-700">${totalPacientes}</p>
+                                <p class="text-xs text-orange-500">Con cuenta corriente</p>
+                            </div>
+                            
+                            <div class="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                                <p class="text-[9px] text-teal-600 font-bold uppercase mb-1">📈 Tasa de Cobro</p>
+                                <p class="text-lg font-black text-teal-700">
+                                    ${stats.total_consumido > 0 ? ((stats.total_pagado / stats.total_consumido) * 100).toFixed(1) : 0}%
+                                </p>
+                                <p class="text-xs text-teal-500">Pagado vs Consumido</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Resumen móvil adicional -->
+                        <div class="sm:hidden bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-2 mt-2">
+                            <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Al Día</p>
+                                    <p class="font-bold text-gray-900">${stats.al_dia}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Balance</p>
+                                    <p class="font-bold ${stats.total_balance < 0 ? 'text-red-600' : stats.total_balance > 0 ? 'text-green-600' : 'text-gray-600'}">
+                                        ${stats.total_balance.toFixed(0)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Total</p>
+                                    <p class="font-bold text-gray-900">${totalPacientes}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ========================================
+                         🔮 PROYECCIÓN TOTAL
+                         ======================================== -->
+                    <div class="mb-2">
+                        <h2 class="text-xs sm:text-sm font-bold text-purple-700 mb-2 px-1">🔮 Proyección Total (Todas las sesiones programadas)</h2>
+                        
+                        <!-- Estadísticas principales proyección -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2">
+                            <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-purple-600 font-bold uppercase mb-0.5">🔮 Proyectado</p>
+                                <p class="text-sm sm:text-xl font-black text-purple-700 truncate">Bs. ${stats.total_proyectado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p class="text-[7px] sm:text-[9px] text-purple-500 mt-0.5">Todas las sesiones</p>
+                            </div>
+                            
+                            <div class="bg-green-50 border-2 border-green-300 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-green-600 font-bold uppercase mb-0.5">✅ Pagado</p>
+                                <p class="text-sm sm:text-xl font-black text-green-700 truncate">Bs. ${stats.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p class="text-[7px] sm:text-[9px] text-green-500 mt-0.5">Total recibido</p>
+                            </div>
+                            
+                            <div class="bg-red-50 border-2 border-red-300 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-red-600 font-bold uppercase mb-0.5">⚠️ Deberán</p>
+                                <p class="text-sm sm:text-xl font-black text-red-700">${stats.deudores_proyeccion} <span class="text-xs font-normal">(${pctDeudoresProyeccion.toFixed(1)}%)</span></p>
+                                <p class="text-[10px] sm:text-sm font-bold text-red-600 truncate">Bs. ${stats.total_debe_proyeccion.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            </div>
+                            
+                            <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-1.5 sm:p-2.5">
+                                <p class="text-[8px] sm:text-[9px] text-blue-600 font-bold uppercase mb-0.5">🎁 A Favor</p>
+                                <p class="text-sm sm:text-xl font-black text-blue-700">${stats.a_favor_proyeccion} <span class="text-xs font-normal">(${pctAFavorProyeccion.toFixed(1)}%)</span></p>
+                                <p class="text-[10px] sm:text-sm font-bold text-blue-600 truncate">Bs. ${stats.total_favor_proyeccion.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Estadísticas detalladas proyección (solo desktop) -->
+                        <div class="hidden sm:grid grid-cols-4 gap-2">
+                            <div class="bg-gray-50 border-2 border-gray-300 rounded-lg p-2">
+                                <p class="text-[9px] text-gray-600 font-bold uppercase mb-1">😊 Al Día</p>
+                                <p class="text-lg font-black text-gray-700">${stats.al_dia_proyeccion}</p>
+                                <p class="text-xs text-gray-500">${pctAlDiaProyeccion.toFixed(1)}% del total</p>
+                            </div>
+                            
+                            <div class="bg-indigo-50 border-2 border-indigo-300 rounded-lg p-2">
+                                <p class="text-[9px] text-indigo-600 font-bold uppercase mb-1">📊 Balance Proyectado</p>
+                                <p class="text-lg font-black ${stats.total_balance_proyeccion < 0 ? 'text-red-700' : stats.total_balance_proyeccion > 0 ? 'text-green-700' : 'text-gray-700'}">
+                                    Bs. ${stats.total_balance_proyeccion.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                                <p class="text-xs ${stats.total_balance_proyeccion < 0 ? 'text-red-500' : stats.total_balance_proyeccion > 0 ? 'text-green-500' : 'text-gray-500'}">
+                                    ${stats.total_balance_proyeccion < 0 ? 'Déficit proyectado' : stats.total_balance_proyeccion > 0 ? 'Superávit proyectado' : 'Equilibrado'}
+                                </p>
+                            </div>
+                            
+                            <div class="bg-amber-50 border-2 border-amber-300 rounded-lg p-2">
+                                <p class="text-[9px] text-amber-600 font-bold uppercase mb-1">📊 Pendiente</p>
+                                <p class="text-lg font-black text-amber-700">
+                                    Bs. ${(stats.total_proyectado - stats.total_consumido).toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </p>
+                                <p class="text-xs text-amber-500">Por realizar</p>
+                            </div>
+                            
+                            <div class="bg-teal-50 border-2 border-teal-300 rounded-lg p-2">
+                                <p class="text-[9px] text-teal-600 font-bold uppercase mb-1">📈 Tasa Proyectada</p>
+                                <p class="text-lg font-black text-teal-700">
+                                    ${stats.total_proyectado > 0 ? ((stats.total_pagado / stats.total_proyectado) * 100).toFixed(1) : 0}%
+                                </p>
+                                <p class="text-xs text-teal-500">Pagado vs Proyectado</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Resumen móvil proyección -->
+                        <div class="sm:hidden bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-lg p-2 mt-2">
+                            <div class="grid grid-cols-3 gap-2 text-center text-[10px]">
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Al Día</p>
+                                    <p class="font-bold text-gray-900">${stats.al_dia_proyeccion}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Balance</p>
+                                    <p class="font-bold ${stats.total_balance_proyeccion < 0 ? 'text-red-600' : stats.total_balance_proyeccion > 0 ? 'text-green-600' : 'text-gray-600'}">
+                                        ${stats.total_balance_proyeccion.toFixed(0)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 mb-0.5">Pendiente</p>
+                                    <p class="font-bold text-amber-600">${(stats.total_proyectado - stats.total_consumido).toFixed(0)}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -472,23 +592,47 @@ function cargarEstadisticas() {
         });
 }
 
-// Búsqueda de pacientes (código original)
+// ========================================
+// 🚀 INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ========================================
 document.addEventListener('DOMContentLoaded', function() {
+    // 1️⃣ Cargar estadísticas automáticamente
+    cargarEstadisticas();
+    
+    // 2️⃣ Configurar búsqueda de pacientes
     const inputBuscar = document.getElementById('buscar-paciente');
     const resultadosDiv = document.getElementById('resultados-busqueda');
+    const selectEstado = document.querySelector('select[name="estado"]');
+    const selectSucursal = document.querySelector('select[name="sucursal"]');
     let timeoutId = null;
     
+    // ✅ 3️⃣ Actualizar estadísticas cuando cambian los selects
+    selectEstado.addEventListener('change', function() {
+        cargarEstadisticas();
+    });
+    
+    selectSucursal.addEventListener('change', function() {
+        cargarEstadisticas();
+    });
+    
+    // ✅ 4️⃣ Actualizar estadísticas cuando se escribe en búsqueda (con debounce)
+    let statsTimeoutId = null;
     inputBuscar.addEventListener('input', function() {
         const query = this.value.trim();
         clearTimeout(timeoutId);
+        clearTimeout(statsTimeoutId);
         
         if (query.length < 1) {
             resultadosDiv.classList.add('hidden');
             resultadosDiv.innerHTML = '';
+            // Actualizar estadísticas cuando se limpia la búsqueda
+            cargarEstadisticas();
             return;
         }
         
         timeoutId = setTimeout(() => buscarPacientes(query), 300);
+        // Actualizar estadísticas después de 500ms de escribir
+        statsTimeoutId = setTimeout(() => cargarEstadisticas(), 500);
     });
     
     function buscarPacientes(query) {
