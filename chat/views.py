@@ -38,6 +38,7 @@ def lista_conversaciones(request):
         nombre_completo = otro_usuario.get_full_name() or otro_usuario.username
         rol = 'Usuario'
         info_adicional = None  # ✅ NUEVA: Información adicional
+        foto_url = None  # ✅ NUEVO: Foto del usuario
         
         if otro_usuario.is_superuser:
             rol = 'Administrador'
@@ -49,6 +50,9 @@ def lista_conversaciones(request):
                 # Mostrar especialidad del profesional
                 profesional = otro_usuario.profesional
                 info_adicional = profesional.especialidad
+                # ✅ NUEVO: Obtener foto del profesional
+                if profesional.foto:
+                    foto_url = profesional.foto.url
             
             elif otro_usuario.perfil.es_paciente() and hasattr(otro_usuario, 'paciente'):
                 # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
@@ -56,6 +60,9 @@ def lista_conversaciones(request):
                 if not otro_usuario.get_full_name():
                     nombre_completo = f"{paciente.nombre} {paciente.apellido}"
                 info_adicional = f"Tutor: {paciente.nombre_tutor}"
+                # ✅ NUEVO: Obtener foto del paciente
+                if paciente.foto:
+                    foto_url = paciente.foto.url
         
         conversaciones_data.append({
             'conversacion': conv,
@@ -63,6 +70,7 @@ def lista_conversaciones(request):
             'nombre_completo': nombre_completo,
             'rol': rol,
             'info_adicional': info_adicional,  # ✅ NUEVO
+            'foto_url': foto_url,  # ✅ NUEVO
             'ultimo_mensaje': ultimo_mensaje,
             'mensajes_no_leidos': mensajes_no_leidos,
         })
@@ -106,6 +114,7 @@ def chat_conversacion(request, conversacion_id):
     nombre_completo = otro_usuario.get_full_name() or otro_usuario.username
     rol = 'Usuario'
     info_adicional = None  # ✅ NUEVA: Información adicional
+    foto_url = None  # ✅ NUEVO: Foto del usuario
     
     if otro_usuario.is_superuser:
         rol = 'Administrador'
@@ -117,6 +126,9 @@ def chat_conversacion(request, conversacion_id):
             # Mostrar especialidad del profesional
             profesional = otro_usuario.profesional
             info_adicional = profesional.especialidad
+            # ✅ NUEVO: Obtener foto del profesional
+            if profesional.foto:
+                foto_url = profesional.foto.url
         
         elif otro_usuario.perfil.es_paciente() and hasattr(otro_usuario, 'paciente'):
             # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
@@ -124,6 +136,9 @@ def chat_conversacion(request, conversacion_id):
             if not otro_usuario.get_full_name():
                 nombre_completo = f"{paciente.nombre} {paciente.apellido}"
             info_adicional = f"Tutor: {paciente.nombre_tutor}"
+            # ✅ NUEVO: Obtener foto del paciente
+            if paciente.foto:
+                foto_url = paciente.foto.url
     
     context = {
         'conversacion': conversacion,
@@ -132,6 +147,7 @@ def chat_conversacion(request, conversacion_id):
         'nombre_completo': nombre_completo,
         'rol': rol,
         'info_adicional': info_adicional,  # ✅ NUEVO
+        'foto_url': foto_url,  # ✅ NUEVO
     }
     
     return render(request, 'chat/chat.html', context)
@@ -284,22 +300,30 @@ def seleccionar_destinatario(request):
             for u in usuarios:
                 info_adicional = None
                 nombre_completo = u.get_full_name() or u.username
+                foto_url = None  # ✅ NUEVO: Foto del usuario
                 
                 # Obtener info adicional según el rol
                 if hasattr(u, 'perfil'):
                     if u.perfil.es_profesional() and hasattr(u, 'profesional'):
                         info_adicional = u.profesional.especialidad
+                        # ✅ NUEVO: Obtener foto del profesional
+                        if u.profesional.foto:
+                            foto_url = u.profesional.foto.url
                     elif u.perfil.es_paciente() and hasattr(u, 'paciente'):
                         # ✅ CORREGIDO: Usar nombre del paciente si get_full_name está vacío
                         paciente = u.paciente
                         if not u.get_full_name():
                             nombre_completo = f"{paciente.nombre} {paciente.apellido}"
                         info_adicional = f"Tutor: {paciente.nombre_tutor}"
+                        # ✅ NUEVO: Obtener foto del paciente
+                        if paciente.foto:
+                            foto_url = paciente.foto.url
                 
                 usuarios_con_info.append({
                     'usuario': u,
                     'nombre_completo': nombre_completo,
-                    'info_adicional': info_adicional
+                    'info_adicional': info_adicional,
+                    'foto_url': foto_url  # ✅ NUEVO
                 })
             
             usuarios_enriquecidos[rol] = usuarios_con_info

@@ -47,9 +47,15 @@
                         
                         <!-- Avatar - Más pequeño en móvil -->
                         <div class="relative flex-shrink-0">
+                            {% if data.foto_url %}
+                            <img src="{{ data.foto_url }}" 
+                                 alt="{{ data.nombre_completo }}"
+                                 class="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover shadow-md border-2 border-white">
+                            {% else %}
                             <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-md">
                                 {{ data.nombre_completo|first|upper }}
                             </div>
+                            {% endif %}
                             
                             {% if data.mensajes_no_leidos > 0 %}
                             <!-- Badge de mensajes no leídos -->
@@ -59,35 +65,39 @@
                             {% endif %}
                         </div>
                         
-                        <!-- Contenido - Optimizado con truncate -->
+                        <!-- Contenido - Optimizado para móvil con nombres en 2 líneas -->
                         <div class="flex-1 min-w-0">
+                            <!-- Header con nombre y fecha -->
                             <div class="flex items-start justify-between gap-2 mb-0.5 sm:mb-1 min-w-0">
                                 <div class="min-w-0 flex-1">
-                                    <h3 class="font-semibold text-slate-800 text-sm sm:text-base group-hover:text-blue-600 transition-colors truncate">
+                                    <!-- Nombre: truncate en desktop, wrap en móvil -->
+                                    <h3 class="font-semibold text-slate-800 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-2 sm:truncate">
                                         {{ data.nombre_completo }}
                                     </h3>
-                                    <p class="text-xs text-slate-500 truncate">
-                                        {% if data.info_adicional %}
-                                            {% if data.rol == "Profesional" %}
-                                                Profesional • {{ data.info_adicional }}
-                                            {% elif data.rol == "Paciente" %}
-                                                Paciente • {{ data.info_adicional }}
-                                            {% else %}
-                                                {{ data.rol }}
-                                                <span class="text-slate-400"> • {{ data.info_adicional }}</span>
-                                            {% endif %}
-                                        {% else %}
-                                            {{ data.rol }}
-                                        {% endif %}
-                                    </p>
                                 </div>
                                 
                                 {% if data.ultimo_mensaje %}
-                                <span class="text-xs text-slate-500 whitespace-nowrap flex-shrink-0">
+                                <span class="text-xs text-slate-500 whitespace-nowrap flex-shrink-0 mt-0.5">
                                     {{ data.ultimo_mensaje.fecha_envio|date:"d/m H:i" }}
                                 </span>
                                 {% endif %}
                             </div>
+                            
+                            <!-- Rol/Info adicional -->
+                            <p class="text-xs text-slate-500 line-clamp-2 sm:truncate">
+                                {% if data.info_adicional %}
+                                    {% if data.rol == "Profesional" %}
+                                        Profesional • {{ data.info_adicional }}
+                                    {% elif data.rol == "Paciente" %}
+                                        Paciente • {{ data.info_adicional }}
+                                    {% else %}
+                                        {{ data.rol }}
+                                        <span class="text-slate-400"> • {{ data.info_adicional }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    {{ data.rol }}
+                                {% endif %}
+                            </p>
                             
                             {% if data.ultimo_mensaje %}
                             <p class="text-xs sm:text-sm text-slate-600 truncate {% if data.mensajes_no_leidos > 0 %}font-semibold{% endif %}">
