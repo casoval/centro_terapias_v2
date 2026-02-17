@@ -1,830 +1,1425 @@
 {% extends 'base.html' %}
-
-{% block title %}Reporte Financiero{% endblock %}
-
+{% block title %}Reporte Financiero Avanzado{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
-    
-    <a href="{% url 'facturacion:dashboard_reportes' %}" class="text-blue-600 hover:text-blue-800 text-xs mb-2 inline-block">
-        ← Volver a Reportes
-    </a>
-    
-    <h1 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">💰 Reporte Financiero</h1>
-    
-    <!-- Filtros -->
-    <div class="bg-white border rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
-        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            <select name="vista" class="px-2 py-1.5 text-xs border rounded-lg">
-                <option value="mensual" {% if vista == 'mensual' %}selected{% endif %}>Vista Mensual</option>
-                <option value="diaria" {% if vista == 'diaria' %}selected{% endif %}>Vista Diaria (Cierre Caja)</option>
-            </select>
-            
-            <select name="sucursal" class="px-2 py-1.5 text-xs border rounded-lg">
-                <option value="">Todas las sucursales</option>
-                {% for s in sucursales %}
-                <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>
-                    {{ s.nombre }}
-                </option>
-                {% endfor %}
-            </select>
-            
-            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-2 py-1.5 text-xs border rounded-lg">
-            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-2 py-1.5 text-xs border rounded-lg">
-            
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
-                🔍 Generar
-            </button>
-        </form>
-    </div>
-    
-    <!-- ✅ CIERRE DE CAJA DIARIO -->
-    {% if vista == 'diaria' and cierre_diario %}
-    <div class="bg-gradient-to-br from-blue-50 to-green-50 border-2 border-blue-300 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-            <div>
-                <h2 class="text-lg sm:text-xl font-black text-gray-900">📋 Cierre de Caja</h2>
-                <p class="text-sm sm:text-base text-gray-700 font-semibold">{{ cierre_diario.dia_semana }}, {{ cierre_diario.fecha_formato }}</p>
-            </div>
-            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold w-full sm:w-auto">
-                🖨️ Imprimir
-            </button>
-        </div>
-        
-        <!-- Resumen del Día -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <div class="bg-white rounded-lg p-2 sm:p-3 text-center shadow">
-                <p class="text-[9px] sm:text-xs text-gray-600 uppercase font-bold">Total Cobrado</p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">{{ cierre_diario.pagos_total }} pagos</p>
-            </div>
-            
-            <div class="bg-white rounded-lg p-2 sm:p-3 text-center shadow">
-                <p class="text-[9px] sm:text-xs text-gray-600 uppercase font-bold">Efectivo</p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-blue-700">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">Esperado en caja</p>
-            </div>
-            
-            <div class="bg-white rounded-lg p-2 sm:p-3 text-center shadow">
-                <p class="text-[9px] sm:text-xs text-gray-600 uppercase font-bold">Sesiones</p>
-                <p class="text-xl sm:text-2xl lg:text-3xl font-black text-purple-700">{{ cierre_diario.sesiones_realizadas }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:2 }}</p>
-            </div>
-            
-            <div class="bg-white rounded-lg p-2 sm:p-3 text-center shadow">
-                <p class="text-[9px] sm:text-xs text-gray-600 uppercase font-bold">Proyectos</p>
-                <p class="text-xl sm:text-2xl font-black text-orange-700">{{ cierre_diario.proyectos_iniciados }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">Bs. {{ cierre_diario.monto_proyectos|floatformat:2 }}</p>
-            </div>
-        </div>
-        
-        <!-- Movimiento de Créditos del Día -->
-        <div class="bg-white rounded-lg p-3 mb-3 sm:mb-4 shadow">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2">💳 Movimiento de Créditos</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                <div class="bg-green-50 border border-green-200 rounded-lg p-2">
-                    <p class="text-[9px] sm:text-xs text-green-600 font-bold">Créditos Generados</p>
-                    <p class="text-base sm:text-lg font-black text-green-700">Bs. {{ cierre_diario.creditos_generados|floatformat:2 }}</p>
-                    <p class="text-[9px] sm:text-xs text-gray-500">Pagos adelantados</p>
-                </div>
-                <div class="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                    <p class="text-[9px] sm:text-xs text-orange-600 font-bold">Créditos Utilizados</p>
-                    <p class="text-base sm:text-lg font-black text-orange-700">Bs. {{ cierre_diario.creditos_utilizados|floatformat:2 }}</p>
-                    <p class="text-[9px] sm:text-xs text-gray-500">Aplicados a pagos</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Detalle por Método de Pago -->
-        <div class="bg-white rounded-lg p-3 sm:p-4 shadow mb-3 sm:mb-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">💳 Detalle por Método de Pago</h3>
-            <div class="space-y-2">
-                {% for metodo in cierre_diario.por_metodo %}
-                <div class="flex justify-between items-center p-2 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <div>
-                        <p class="text-xs sm:text-sm font-bold text-gray-900">{{ metodo.metodo_pago__nombre }}</p>
-                        <p class="text-[9px] sm:text-xs text-gray-500">{{ metodo.cantidad }} transacción{{ metodo.cantidad|pluralize:"es" }}</p>
-                    </div>
-                    <p class="text-sm sm:text-lg font-black text-green-700">Bs. {{ metodo.monto|floatformat:2 }}</p>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3">Sin pagos registrados</p>
-                {% endfor %}
-            </div>
-            
-            <!-- Verificación de Efectivo -->
-            <div class="mt-4 pt-4 border-t-2 border-gray-300">
-                <h4 class="text-xs sm:text-sm font-bold text-gray-900 mb-2">✅ Verificación de Efectivo</h4>
-                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3">
-                    <div class="flex justify-between items-center mb-2 text-xs sm:text-sm">
-                        <p class="font-semibold text-gray-700">Efectivo esperado:</p>
-                        <p class="text-sm sm:text-base font-black text-gray-900">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</p>
-                    </div>
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <label class="text-xs sm:text-sm font-semibold text-gray-700">Efectivo contado:</label>
-                        <input type="number" step="0.01" class="px-2 py-1.5 border-2 border-gray-300 rounded-lg w-full sm:w-32 text-right text-sm font-bold" 
-                               placeholder="0.00" id="efectivo-contado" onchange="verificarEfectivo()">
-                    </div>
-                    <div id="diferencia-efectivo" class="mt-2 text-center hidden">
-                        <!-- Se llenará con JavaScript -->
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Estadísticas Adicionales del Día -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3 sm:mb-4">
-            <!-- Asistencia -->
-            <div class="bg-white rounded-lg p-3 sm:p-4 shadow">
-                <h3 class="text-xs font-bold text-gray-900 mb-2 sm:mb-3">📊 Asistencia del Día</h3>
-                <div class="space-y-1.5">
-                    <div class="flex justify-between items-center p-1.5 bg-green-50 rounded text-xs">
-                        <span class="text-gray-700">Realizadas</span>
-                        <span class="font-bold text-green-700">{{ cierre_diario.sesiones_realizadas }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-yellow-50 rounded text-xs">
-                        <span class="text-gray-700">Retrasos</span>
-                        <span class="font-bold text-yellow-700">{{ cierre_diario.estadisticas.retrasos_dia }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-red-50 rounded text-xs">
-                        <span class="text-gray-700">Faltas</span>
-                        <span class="font-bold text-red-700">{{ cierre_diario.estadisticas.faltas_dia }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-gray-50 rounded text-xs">
-                        <span class="text-gray-700">Canceladas</span>
-                        <span class="font-bold text-gray-700">{{ cierre_diario.estadisticas.canceladas_dia }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-blue-50 rounded border-t-2 border-blue-300 mt-1.5 text-xs">
-                        <span class="text-gray-700 font-bold">Programadas</span>
-                        <span class="font-bold text-blue-700">{{ cierre_diario.estadisticas.programadas_dia }}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Métricas Operativas -->
-            <div class="bg-white rounded-lg p-3 sm:p-4 shadow">
-                <h3 class="text-xs font-bold text-gray-900 mb-2 sm:mb-3">⚙️ Métricas Operativas</h3>
-                <div class="space-y-1.5">
-                    <div class="flex justify-between items-center p-1.5 bg-purple-50 rounded text-xs">
-                        <span class="text-gray-700">Pacientes únicos</span>
-                        <span class="font-bold text-purple-700">{{ cierre_diario.estadisticas.pacientes_unicos }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-indigo-50 rounded text-xs">
-                        <span class="text-gray-700">Horas trabajadas</span>
-                        <span class="font-bold text-indigo-700">{{ cierre_diario.estadisticas.horas_trabajadas|floatformat:1 }}h</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-cyan-50 rounded text-xs">
-                        <span class="text-gray-700">Ticket promedio</span>
-                        <span class="font-bold text-cyan-700">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:2 }}</span>
-                    </div>
-                    <div class="flex justify-between items-center p-1.5 bg-teal-50 rounded border-t-2 border-teal-300 mt-1.5 text-xs">
-                        <span class="text-gray-700 font-bold">Ingreso/hora</span>
-                        <span class="font-bold text-teal-700">Bs. {{ cierre_diario.estadisticas.ingreso_por_hora|floatformat:2 }}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Por Servicio del Día -->
-            <div class="bg-white rounded-lg p-3 sm:p-4 shadow">
-                <h3 class="text-xs font-bold text-gray-900 mb-2 sm:mb-3">🎯 Servicios del Día</h3>
-                <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                    {% for servicio in cierre_diario.estadisticas.por_servicio %}
-                    <div class="flex justify-between items-center p-1.5 bg-gray-50 rounded">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ servicio.servicio__color }}"></span>
-                            <span class="text-[10px] text-gray-700">{{ servicio.servicio__nombre|truncatewords:3 }}</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="font-bold text-gray-900 text-[10px]">{{ servicio.cantidad }}</span>
-                            <span class="text-[9px] text-gray-500 ml-1">Bs. {{ servicio.ingresos|floatformat:0 }}</span>
-                        </div>
-                    </div>
-                    {% empty %}
-                    <p class="text-[10px] text-gray-500 text-center py-2">Sin servicios</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Por Profesional del Día -->
-        <div class="bg-white rounded-lg p-3 sm:p-4 shadow mb-3 sm:mb-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">👨‍⚕️ Desempeño por Profesional</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                {% for prof in cierre_diario.estadisticas.por_profesional %}
-                <div class="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-2 sm:p-3">
-                    <p class="text-xs font-bold text-gray-900 mb-1.5">{{ prof.profesional__nombre }} {{ prof.profesional__apellido }}</p>
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-[9px] text-gray-600">Sesiones</p>
-                            <p class="text-base sm:text-lg font-black text-blue-700">{{ prof.sesiones }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[9px] text-gray-600">Ingresos</p>
-                            <p class="text-xs sm:text-sm font-black text-green-700">Bs. {{ prof.ingresos|floatformat:0 }}</p>
-                        </div>
-                    </div>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3 col-span-3">Sin datos</p>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <!-- Comparativa con Días Anteriores -->
-        <div class="bg-white rounded-lg p-3 sm:p-4 shadow mb-3 sm:mb-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">📈 Comparativa Últimos 7 Días</h3>
-            <div class="overflow-x-auto -mx-3 sm:mx-0">
-                <table class="min-w-full text-xs">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-2 py-1.5 text-left text-[10px] font-bold text-gray-600">Día</th>
-                            <th class="px-2 py-1.5 text-center text-[10px] font-bold text-gray-600">Sesiones</th>
-                            <th class="px-2 py-1.5 text-right text-[10px] font-bold text-gray-600">Generado</th>
-                            <th class="px-2 py-1.5 text-right text-[10px] font-bold text-gray-600">Cobrado</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        {% for dia in cierre_diario.comparativa_dias %}
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-2 py-1.5 text-xs text-gray-900">
-                                <span class="font-semibold">{{ dia.dia_semana }}</span>
-                                <span class="text-[10px] text-gray-500 ml-1">{{ dia.fecha|date:"d/m" }}</span>
-                            </td>
-                            <td class="px-2 py-1.5 text-center text-xs font-bold text-gray-900">{{ dia.sesiones }}</td>
-                            <td class="px-2 py-1.5 text-right text-xs font-bold text-blue-700">Bs. {{ dia.ingresos|floatformat:0 }}</td>
-                            <td class="px-2 py-1.5 text-right text-xs font-bold text-green-700">Bs. {{ dia.cobrado|floatformat:0 }}</td>
-                        </tr>
-                        {% endfor %}
-                        <!-- Día actual resaltado -->
-                        <tr class="bg-blue-100 font-bold">
-                            <td class="px-2 py-1.5 text-xs text-blue-900">
-                                <span class="font-black">HOY</span>
-                                <span class="text-[10px] ml-1">{{ cierre_diario.fecha|date:"d/m" }}</span>
-                            </td>
-                            <td class="px-2 py-1.5 text-center text-xs text-blue-900">{{ cierre_diario.sesiones_realizadas }}</td>
-                            <td class="px-2 py-1.5 text-right text-xs text-blue-900">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:0 }}</td>
-                            <td class="px-2 py-1.5 text-right text-xs text-blue-900">Bs. {{ cierre_diario.monto_total|floatformat:0 }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Detalle COMPLETO de Pagos del Día con Agrupación -->
-        <div class="bg-white rounded-lg p-3 sm:p-4 shadow">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                <h3 class="text-xs sm:text-sm font-bold text-gray-900">📋 Detalle Completo de Pagos ({{ cierre_diario.pagos_total }} transacciones)</h3>
-                <div class="text-right">
-                    <p class="text-[9px] text-gray-600">Total</p>
-                    <p class="text-base sm:text-lg font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</p>
-                </div>
-            </div>
-            
-            <div class="overflow-x-auto -mx-3 sm:mx-0">
-                <table class="min-w-full text-xs">
-                    <thead class="bg-gradient-to-r from-blue-50 to-purple-50 sticky top-0">
-                        <tr>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300 w-6"></th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Recibo</th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Paciente</th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Concepto</th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Método</th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Observaciones</th>
-                            <th class="px-2 py-2 text-left text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Registrado</th>
-                            <th class="px-2 py-2 text-right text-[10px] font-bold text-gray-700 border-b-2 border-blue-300">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
-                        {% for grupo in cierre_diario.pagos_agrupados %}
-                        <!-- Fila Principal (Agrupada o Individual) -->
-                        <tr class="hover:bg-blue-50 transition-colors {% if grupo.es_masivo %}cursor-pointer bg-yellow-50{% endif %}" 
-                            {% if grupo.es_masivo %}onclick="toggleDetalle('{{ grupo.recibo }}')"{% endif %}>
-                            <td class="px-2 py-2 text-center">
-                                {% if grupo.es_masivo %}
-                                <button class="text-blue-600 hover:text-blue-800 font-bold text-sm focus:outline-none transition-transform" 
-                                        id="toggle-{{ grupo.recibo }}">
-                                    ▶
-                                </button>
-                                {% else %}
-                                <span class="text-gray-400 text-xs">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2 text-[10px]">
-                                <span class="font-mono font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                                    {{ grupo.recibo }}
-                                </span>
-                                {% if grupo.es_masivo %}
-                                <span class="ml-1 inline-block px-1.5 py-0.5 bg-yellow-200 text-yellow-800 text-[9px] font-bold rounded">
-                                    MASIVO
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2">
-                                <p class="text-xs font-semibold text-gray-900">{{ grupo.paciente.nombre_completo }}</p>
-                                {% if grupo.paciente.telefono_tutor %}
-                                <p class="text-[9px] text-gray-500">📱 {{ grupo.paciente.telefono_tutor }}</p>
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2">
-                                {% if grupo.es_masivo %}
-                                    <!-- Resumen del pago masivo -->
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="text-lg">📦</span>
-                                        <div>
-                                            <p class="text-xs font-bold text-purple-900">Pago Masivo</p>
-                                            <p class="text-[9px] text-gray-600">
-                                                {% if grupo.sesiones_count > 0 %}{{ grupo.sesiones_count }} sesión{{ grupo.sesiones_count|pluralize:"es" }}{% endif %}
-                                                {% if grupo.proyectos_count > 0 %}
-                                                    {% if grupo.sesiones_count > 0 %} + {% endif %}
-                                                    {{ grupo.proyectos_count }} proyecto{{ grupo.proyectos_count|pluralize:"s" }}
-                                                {% endif %}
-                                                {% if grupo.adelantados_count > 0 %}
-                                                    {% if grupo.sesiones_count > 0 or grupo.proyectos_count > 0 %} + {% endif %}
-                                                    {{ grupo.adelantados_count }} adelantado{{ grupo.adelantados_count|pluralize:"s" }}
-                                                {% endif %}
-                                            </p>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <!-- Pago individual -->
-                                    {% with pago=grupo.pagos.0 %}
-                                        {% if pago.sesion %}
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                <div>
-                                                    <p class="text-xs font-semibold text-blue-900">{{ pago.sesion.servicio.nombre }}</p>
-                                                    <p class="text-[9px] text-gray-500">Sesión {{ pago.sesion.fecha|date:"d/m/Y" }}</p>
-                                                </div>
-                                            </div>
-                                        {% elif pago.proyecto %}
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                                                <div>
-                                                    <p class="text-xs font-semibold text-orange-900">{{ pago.proyecto.nombre }}</p>
-                                                    <p class="text-[9px] text-gray-500">Proyecto {{ pago.proyecto.codigo }}</p>
-                                                </div>
-                                            </div>
-                                        {% else %}
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                                <div>
-                                                    <p class="text-xs font-semibold text-green-900">Pago Adelantado</p>
-                                                    <p class="text-[9px] text-gray-500">Genera crédito</p>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    {% endwith %}
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2">
-                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold
-                                    {% if grupo.metodo_pago.nombre == 'Efectivo' %}
-                                        bg-green-100 text-green-800
-                                    {% elif grupo.metodo_pago.nombre == 'QR' %}
-                                        bg-purple-100 text-purple-800
-                                    {% elif grupo.metodo_pago.nombre == 'Tarjeta' %}
-                                        bg-blue-100 text-blue-800
-                                    {% elif grupo.metodo_pago.nombre == 'Transferencia' %}
-                                        bg-indigo-100 text-indigo-800
-                                    {% else %}
-                                        bg-gray-100 text-gray-800
-                                    {% endif %}
-                                ">
-                                    {{ grupo.metodo_pago.nombre }}
-                                </span>
-                                {% if grupo.numero_transaccion %}
-                                <p class="text-[9px] text-gray-500 mt-0.5 font-mono">{{ grupo.numero_transaccion }}</p>
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2 max-w-xs">
-                                {% if grupo.observaciones %}
-                                    <div class="text-[10px] text-gray-700 bg-yellow-50 border border-yellow-200 rounded p-1.5">
-                                        <p class="font-semibold text-yellow-800 mb-0.5">📝 Detalles:</p>
-                                        <p class="whitespace-pre-line">{{ grupo.observaciones|truncatewords:15 }}</p>
-                                    </div>
-                                {% else %}
-                                    <span class="text-[10px] text-gray-400 italic">Sin observaciones</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-2 py-2">
-                                <p class="text-[10px] text-gray-700 font-medium">{{ grupo.registrado_por.get_full_name|default:grupo.registrado_por.username }}</p>
-                                <p class="text-[9px] text-gray-500">{{ grupo.fecha_registro|date:"H:i" }}</p>
-                            </td>
-                            <td class="px-2 py-2 text-right">
-                                <p class="text-xs sm:text-sm font-black text-gray-900">Bs. {{ grupo.total|floatformat:2 }}</p>
-                                {% if grupo.es_masivo %}
-                                <p class="text-[9px] text-gray-500">({{ grupo.pagos|length }} ítems)</p>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        
-                        <!-- Sub-filas de detalle (solo para pagos masivos) -->
-                        {% if grupo.es_masivo %}
-                        <tr id="detalle-{{ grupo.recibo }}" class="hidden bg-gray-50">
-                            <td colspan="8" class="px-3 py-2 sm:px-4 sm:py-3">
-                                <div class="bg-white border-2 border-blue-200 rounded-lg p-2 sm:p-3">
-                                    <h4 class="text-xs font-bold text-gray-900 mb-2 flex items-center gap-1.5">
-                                        <span>📋</span> Desglose del Pago Masivo {{ grupo.recibo }}
-                                    </h4>
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-[10px]">
-                                            <thead class="bg-blue-50">
-                                                <tr>
-                                                    <th class="px-2 py-1.5 text-left text-[9px] font-semibold text-gray-700">Tipo</th>
-                                                    <th class="px-2 py-1.5 text-left text-[9px] font-semibold text-gray-700">Servicio</th>
-                                                    <th class="px-2 py-1.5 text-left text-[9px] font-semibold text-gray-700">Fecha</th>
-                                                    <th class="px-2 py-1.5 text-left text-[9px] font-semibold text-gray-700">Observaciones</th>
-                                                    <th class="px-2 py-1.5 text-right text-[9px] font-semibold text-gray-700">Monto</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-gray-200">
-                                                {% for pago_detalle in grupo.pagos %}
-                                                <tr class="hover:bg-blue-50">
-                                                    <td class="px-2 py-1.5">
-                                                        {% if pago_detalle.sesion %}
-                                                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold text-[9px]">
-                                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                                Sesión
-                                                            </span>
-                                                        {% elif pago_detalle.proyecto %}
-                                                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-orange-100 text-orange-800 rounded font-semibold text-[9px]">
-                                                                <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                                                                Proyecto
-                                                            </span>
-                                                        {% else %}
-                                                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-100 text-green-800 rounded font-semibold text-[9px]">
-                                                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                                                Adelantado
-                                                            </span>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td class="px-2 py-1.5">
-                                                        {% if pago_detalle.sesion %}
-                                                            <p class="text-[10px] font-semibold text-gray-900">{{ pago_detalle.sesion.servicio.nombre }}</p>
-                                                            <p class="text-[9px] text-gray-500">Con {{ pago_detalle.sesion.profesional.nombre_completo }}</p>
-                                                        {% elif pago_detalle.proyecto %}
-                                                            <p class="text-[10px] font-semibold text-gray-900">{{ pago_detalle.proyecto.nombre }}</p>
-                                                            <p class="text-[9px] text-gray-500">{{ pago_detalle.proyecto.codigo }}</p>
-                                                        {% else %}
-                                                            <p class="text-[10px] font-semibold text-gray-900">Pago a cuenta</p>
-                                                            <p class="text-[9px] text-gray-500">Genera crédito disponible</p>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td class="px-2 py-1.5 text-[10px] text-gray-700">
-                                                        {% if pago_detalle.sesion %}
-                                                            {{ pago_detalle.sesion.fecha|date:"d/m/Y" }}
-                                                            <span class="text-[9px] text-gray-500">{{ pago_detalle.sesion.hora_inicio|time:"H:i" }}</span>
-                                                        {% elif pago_detalle.proyecto %}
-                                                            {{ pago_detalle.proyecto.fecha_inicio|date:"d/m/Y" }}
-                                                        {% else %}
-                                                            <span class="text-gray-500">—</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td class="px-2 py-1.5 text-[9px] text-gray-600 max-w-xs">
-                                                        {% if pago_detalle.observaciones %}
-                                                            <p class="truncate">{{ pago_detalle.observaciones }}</p>
-                                                        {% else %}
-                                                            <span class="text-gray-400 italic">—</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td class="px-2 py-1.5 text-right">
-                                                        <span class="text-[10px] font-bold text-gray-900">Bs. {{ pago_detalle.monto|floatformat:2 }}</span>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                            <tfoot class="bg-blue-100 border-t-2 border-blue-300">
-                                                <tr>
-                                                    <td colspan="4" class="px-2 py-1.5 text-right text-[10px] font-bold text-gray-900">
-                                                        SUBTOTAL:
-                                                    </td>
-                                                    <td class="px-2 py-1.5 text-right text-xs font-black text-blue-900">
-                                                        Bs. {{ grupo.total|floatformat:2 }}
-                                                    </td>
-                                                </tr>
-                                            </tfoot>
-                                        </table>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" class="px-3 py-6 text-center text-gray-500">
-                                <div class="flex flex-col items-center gap-2">
-                                    <span class="text-3xl">🔭</span>
-                                    <p class="text-xs font-semibold">Sin pagos registrados en este día</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot class="bg-gradient-to-r from-green-50 to-blue-50 sticky bottom-0">
-                        <tr class="border-t-4 border-green-400">
-                            <td colspan="7" class="px-2 py-2 sm:py-3 text-right">
-                                <span class="text-xs sm:text-sm font-black text-gray-900">TOTAL DEL DÍA:</span>
-                            </td>
-                            <td class="px-2 py-2 sm:py-3 text-right">
-                                <span class="text-base sm:text-lg font-black text-green-700">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</span>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-        
-        <script>
-        // Toggle detalle de pagos masivos
-        function toggleDetalle(recibo) {
-            const detalleRow = document.getElementById('detalle-' + recibo);
-            const toggleBtn = document.getElementById('toggle-' + recibo);
-            
-            if (detalleRow.classList.contains('hidden')) {
-                detalleRow.classList.remove('hidden');
-                toggleBtn.textContent = '▼';
-                toggleBtn.style.transform = 'rotate(90deg)';
-            } else {
-                detalleRow.classList.add('hidden');
-                toggleBtn.textContent = '▶';
-                toggleBtn.style.transform = 'rotate(0deg)';
-            }
-        }
-        </script>
-    </div>
-    {% endif %}
-    
-    <!-- Vista Mensual (Resumen) -->
-    {% if vista == 'mensual' or not cierre_diario %}
-    
-    <!-- Resumen General -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-4">
-        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-[9px] sm:text-xs text-blue-600 uppercase font-bold mb-1">Total Generado</p>
-            <p class="text-xl sm:text-2xl lg:text-3xl font-black text-blue-700">Bs. {{ ingresos.total_generado|floatformat:2 }}</p>
-            <p class="text-[9px] sm:text-xs text-blue-600 mt-1">Sesiones + Proyectos</p>
-        </div>
-        
-        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-[9px] sm:text-xs text-green-600 uppercase font-bold mb-1">Total Cobrado</p>
-            <p class="text-xl sm:text-2xl lg:text-3xl font-black text-green-700">Bs. {{ ingresos.total_cobrado|floatformat:2 }}</p>
-            <p class="text-[9px] sm:text-xs text-green-600 mt-1">Pagos recibidos</p>
-        </div>
-        
-        <div class="bg-red-50 border-2 border-red-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-[9px] sm:text-xs text-red-600 uppercase font-bold mb-1">Pendiente</p>
-            <p class="text-xl sm:text-2xl lg:text-3xl font-black text-red-700">Bs. {{ ingresos.total_pendiente|floatformat:2 }}</p>
-            <p class="text-[9px] sm:text-xs text-red-600 mt-1">Por cobrar</p>
-        </div>
-        
-        <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-[9px] sm:text-xs text-purple-600 uppercase font-bold mb-1">Tasa Cobranza</p>
-            <p class="text-xl sm:text-2xl font-black text-purple-700">{{ ingresos.tasa_cobranza|floatformat:1 }}%</p>
-            <p class="text-[9px] sm:text-xs text-purple-600 mt-1">Promedio: Bs. {{ ingresos.promedio_por_item|floatformat:2 }}</p>
-        </div>
-    </div>
-    
-    <!-- Desglose: Sesiones vs Proyectos -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <!-- Sesiones -->
-        <div class="bg-white border-2 border-blue-200 rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1.5">
-                <span class="text-lg">🔵</span> Sesiones Individuales
-            </h3>
-            <div class="space-y-2">
-                <div class="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Generado:</span>
-                    <span class="text-sm font-black text-blue-700">Bs. {{ ingresos.sesiones.total_generado|floatformat:2 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-green-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Cobrado:</span>
-                    <span class="text-sm font-black text-green-700">Bs. {{ ingresos.sesiones.total_cobrado|floatformat:2 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-red-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Pendiente:</span>
-                    <span class="text-sm font-black text-red-700">Bs. {{ ingresos.sesiones.total_pendiente|floatformat:2 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg border-t-2 border-gray-300 mt-3">
-                    <span class="text-xs text-gray-700 font-bold">Total Sesiones:</span>
-                    <span class="text-sm font-black text-gray-900">{{ ingresos.sesiones.cantidad_sesiones }}</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Proyectos -->
-        <div class="bg-white border-2 border-orange-200 rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1.5">
-                <span class="text-lg">📦</span> Proyectos
-            </h3>
-            <div class="space-y-2">
-                <div class="flex justify-between items-center p-2 bg-orange-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Generado:</span>
-                    <span class="text-sm font-black text-orange-700">Bs. {{ ingresos.proyectos.total_generado|floatformat:2 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-green-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Cobrado:</span>
-                    <span class="text-sm font-black text-green-700">Bs. {{ ingresos.proyectos.total_cobrado|floatformat:2 }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 bg-red-50 rounded-lg">
-                    <span class="text-xs text-gray-700">Pendiente:</span>
-                    <span class="text-sm font-black text-red-700">Bs. {{ ingresos.proyectos.total_pendiente|floatformat:2 }}</span>
-                </div>
-                <div class="grid grid-cols-2 gap-2 mt-3">
-                    <div class="p-2 bg-gray-50 rounded-lg border-t-2 border-gray-300">
-                        <p class="text-[10px] text-gray-600">Activos</p>
-                        <p class="text-sm font-black text-gray-900">{{ ingresos.proyectos.proyectos_activos }}</p>
-                    </div>
-                    <div class="p-2 bg-gray-50 rounded-lg border-t-2 border-gray-300">
-                        <p class="text-[10px] text-gray-600">Finalizados</p>
-                        <p class="text-sm font-black text-gray-900">{{ ingresos.proyectos.proyectos_finalizados }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Movimiento de Créditos -->
-    <div class="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-        <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3 flex items-center gap-1.5">
-            <span class="text-lg">💳</span> Movimiento de Créditos
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-            <div class="bg-white rounded-lg p-2 sm:p-3 shadow">
-                <p class="text-[10px] text-green-600 uppercase font-bold">Créditos Generados</p>
-                <p class="text-xl sm:text-2xl font-black text-green-700">Bs. {{ ingresos.creditos.generados|floatformat:2 }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">{{ ingresos.creditos.generados_cantidad }} pagos adelantados</p>
-            </div>
-            <div class="bg-white rounded-lg p-2 sm:p-3 shadow">
-                <p class="text-[10px] text-orange-600 uppercase font-bold">Créditos Utilizados</p>
-                <p class="text-xl sm:text-2xl font-black text-orange-700">Bs. {{ ingresos.creditos.utilizados|floatformat:2 }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">{{ ingresos.creditos.utilizados_cantidad }} aplicaciones</p>
-            </div>
-            <div class="bg-white rounded-lg p-2 sm:p-3 shadow">
-                <p class="text-[10px] text-blue-600 uppercase font-bold">Saldo Neto</p>
-                <p class="text-xl sm:text-2xl font-black text-blue-700">Bs. {{ ingresos.creditos.saldo_neto|floatformat:2 }}</p>
-                <p class="text-[9px] sm:text-xs text-gray-500 mt-0.5">Generados - Utilizados</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Gráfico de Evolución -->
-    <div class="bg-white border rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-        <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">📈 Evolución de Ingresos (últimos 6 meses)</h3>
-        <canvas id="grafico-ingresos" height="80"></canvas>
-    </div>
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-        <!-- Por Método de Pago -->
-        <div class="bg-white border rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">💳 Por Método de Pago</h3>
-            <div class="space-y-2">
-                {% for metodo in por_metodo %}
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                    <div>
-                        <p class="text-xs font-bold text-gray-900">{{ metodo.metodo_pago__nombre }}</p>
-                        <p class="text-[10px] text-gray-500">{{ metodo.cantidad }} pagos</p>
-                    </div>
-                    <p class="text-sm font-black text-blue-700">Bs. {{ metodo.monto|floatformat:2 }}</p>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3">Sin datos</p>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <!-- Top Servicios -->
-        <div class="bg-white border rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">🏆 Top Servicios</h3>
-            <div class="space-y-2 max-h-72 overflow-y-auto">
-                {% for servicio in por_servicio %}
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                    <div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="inline-block w-2 h-2 rounded-full" style="background-color: {{ servicio.color }}"></span>
-                            <p class="text-xs font-bold text-gray-900">{{ servicio.nombre }}</p>
-                        </div>
-                        <p class="text-[10px] text-gray-500">
-                            {% if servicio.sesiones > 0 %}{{ servicio.sesiones }} sesión{{ servicio.sesiones|pluralize:"es" }}{% endif %}
-                            {% if servicio.proyectos > 0 %}
-                                {% if servicio.sesiones > 0 %} + {% endif %}
-                                {{ servicio.proyectos }} proyecto{{ servicio.proyectos|pluralize:"s" }}
-                            {% endif %}
-                        </p>
-                    </div>
-                    <p class="text-sm font-black text-green-700">Bs. {{ servicio.ingresos|floatformat:2 }}</p>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3">Sin datos</p>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-</div>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap');
 
+  :root {
+    --ink: #0c1220;
+    --ink2: #1e2d40;
+    --ink3: #2e4057;
+    --muted: #5a6f8a;
+    --muted2: #8299b0;
+    --border: #dde4ef;
+    --border2: #eef1f7;
+    --surface: #f5f7fc;
+    --surface2: #edf0f8;
+    --white: #ffffff;
+
+    /* Accents */
+    --emerald: #059669;
+    --emerald-d: #047857;
+    --emerald-l: #d1fae5;
+    --emerald-ll: #ecfdf5;
+    --gold: #b45309;
+    --gold-l: #fef3c7;
+    --gold-ll: #fffbeb;
+    --sapphire: #1d4ed8;
+    --sapphire-l: #dbeafe;
+    --sapphire-ll: #eff6ff;
+    --ruby: #b91c1c;
+    --ruby-l: #fee2e2;
+    --ruby-ll: #fff5f5;
+    --violet: #6d28d9;
+    --violet-l: #ede9fe;
+    --teal: #0d9488;
+    --teal-l: #ccfbf1;
+    --rose: #e11d48;
+    --rose-l: #ffe4e6;
+    --slate: #475569;
+    --amber: #d97706;
+    --amber-l: #fef3c7;
+    --cyan: #0891b2;
+    --cyan-l: #cffafe;
+    --indigo: #4f46e5;
+    --indigo-l: #e0e7ff;
+
+    --shadow-sm: 0 1px 3px rgba(12,18,32,0.06), 0 1px 2px rgba(12,18,32,0.04);
+    --shadow: 0 4px 12px rgba(12,18,32,0.08), 0 2px 4px rgba(12,18,32,0.05);
+    --shadow-lg: 0 12px 32px rgba(12,18,32,0.12), 0 4px 8px rgba(12,18,32,0.06);
+    --shadow-xl: 0 24px 64px rgba(12,18,32,0.16);
+
+    --r-sm: 8px;
+    --r: 12px;
+    --r-lg: 16px;
+    --r-xl: 20px;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--ink); }
+
+  /* ─── PRINT ─── */
+  @media print {
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    body { background: white !important; font-size: 10px; }
+    .page-break { page-break-before: always; }
+    .hero-header { background: #0c1220 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card, .chart-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  }
+  .print-only { display: none; }
+
+  /* ─── LAYOUT ─── */
+  .fin-wrap { max-width: 1380px; margin: 0 auto; padding: 16px 20px 40px; }
+
+  /* ─── HERO HEADER ─── */
+  .hero-header {
+    background: linear-gradient(135deg, #0c1220 0%, #0f1e35 40%, #0c2340 70%, #091c30 100%);
+    border-radius: var(--r-xl); padding: 28px 32px 24px; margin-bottom: 18px;
+    color: white; position: relative; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .hero-header::before {
+    content: ''; position: absolute; top: -60px; right: -40px;
+    width: 280px; height: 280px;
+    background: radial-gradient(circle, rgba(5,150,105,0.18) 0%, transparent 65%);
+    border-radius: 50%; pointer-events: none;
+  }
+  .hero-header::after {
+    content: ''; position: absolute; bottom: -40px; left: 30%;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(29,78,216,0.12) 0%, transparent 65%);
+    border-radius: 50%; pointer-events: none;
+  }
+  .hero-nav { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; position: relative; z-index: 1; }
+  .back-link { color: rgba(255,255,255,0.55); font-size: 0.72rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; letter-spacing: 0.03em; transition: color 0.15s; }
+  .back-link:hover { color: rgba(255,255,255,0.9); }
+  .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-ghost { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); font-size: 0.72rem; font-weight: 600; padding: 7px 14px; border-radius: var(--r-sm); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25); }
+  .hero-body { margin-top: 18px; position: relative; z-index: 1; }
+  .hero-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(5,150,105,0.9); margin-bottom: 6px; }
+  .hero-title { font-family: 'Playfair Display', serif; font-size: 2.1rem; font-weight: 900; line-height: 1.1; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .hero-sub { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin: 0 0 16px; }
+  .hero-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hero-tag { font-size: 0.68rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+  .hero-tag.active { background: rgba(5,150,105,0.2); border-color: rgba(5,150,105,0.35); color: #6ee7b7; }
+
+  /* ─── PERIOD TABS ─── */
+  .period-rail { display: flex; align-items: center; gap: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--r); padding: 3px; margin-bottom: 14px; overflow-x: auto; box-shadow: var(--shadow-sm); flex-wrap: nowrap; }
+  .period-tab { flex: none; font-size: 0.72rem; font-weight: 600; padding: 7px 15px; border-radius: 9px; cursor: pointer; white-space: nowrap; color: var(--muted); text-decoration: none; transition: all 0.15s; letter-spacing: 0.01em; }
+  .period-tab.active { background: var(--ink); color: white; box-shadow: 0 2px 6px rgba(12,18,32,0.2); }
+  .period-tab:hover:not(.active) { background: var(--surface); color: var(--ink); }
+
+  /* ─── FILTER BAR ─── */
+  .filter-bar { background: var(--white); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
+  .filter-bar form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .filter-bar label { font-size: 0.65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 4px; }
+  .filter-group { display: flex; flex-direction: column; }
+  .filter-bar select, .filter-bar input[type="date"] { padding: 8px 10px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--ink); font-family: 'DM Sans', sans-serif; background: var(--surface); transition: border-color 0.15s; outline: none; }
+  .filter-bar select:focus, .filter-bar input[type="date"]:focus { border-color: var(--emerald); }
+  .btn-primary { background: var(--emerald); color: white; border: none; padding: 8px 18px; border-radius: var(--r-sm); font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary:hover { background: var(--emerald-d); }
+
+  /* ─── PERIOD BADGE ─── */
+  .period-indicator { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .period-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; padding: 5px 12px; border-radius: 20px; background: var(--emerald-ll); border: 1px solid #a7f3d0; color: var(--emerald-d); }
+  .cierre-badge { font-size: 0.72rem; font-weight: 700; color: var(--amber); background: var(--amber-l); padding: 5px 12px; border-radius: 20px; border: 1px solid #fcd34d; }
+
+  /* ─── SECTION HEADER ─── */
+  .sec-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .sec-hdr h2 { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin: 0; display: flex; align-items: center; gap: 7px; }
+  .sec-tag { font-size: 0.65rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+
+  /* ─── KPI HERO CARDS ─── */
+  .kpi-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi-card {
+    border-radius: var(--r-lg); padding: 20px 22px 18px; border: 1.5px solid; position: relative; overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .kpi-card .kc-icon { font-size: 1.5rem; margin-bottom: 10px; display: block; }
+  .kpi-card .kc-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 6px; opacity: 0.7; }
+  .kpi-card .kc-val { font-size: 1.9rem; font-weight: 700; font-family: 'DM Mono', monospace; line-height: 1; letter-spacing: -0.02em; }
+  .kpi-card .kc-sub { font-size: 0.7rem; margin-top: 8px; opacity: 0.65; }
+  .kpi-card .kc-delta { position: absolute; top: 16px; right: 16px; font-size: 0.65rem; font-weight: 700; padding: 3px 8px; border-radius: 10px; background: rgba(255,255,255,0.2); }
+  .kpi-card .kc-sparkline { position: absolute; bottom: 0; right: 0; opacity: 0.12; width: 100px; }
+
+  /* ─── MINI STAT PILLS ─── */
+  .stat-pills { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .pill { background: var(--white); border: 1px solid var(--border); border-radius: var(--r); padding: 13px 14px; box-shadow: var(--shadow-sm); }
+  .pill-icon { font-size: 1.1rem; margin-bottom: 5px; }
+  .pill-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+  .pill-val { font-size: 1.15rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ink); }
+  .pill-sub { font-size: 0.6rem; color: var(--muted); margin-top: 2px; }
+
+  /* ─── CHART CARDS ─── */
+  .chart-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+  .chart-card .cc-title { font-size: 0.82rem; font-weight: 700; color: var(--ink); margin: 0 0 4px; }
+  .chart-card .cc-sub { font-size: 0.67rem; color: var(--muted); margin: 0 0 14px; }
+
+  /* ─── GRIDS ─── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 14px; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+  @media (max-width: 900px) { .grid-2, .grid-3, .grid-1-2, .grid-2-1 { grid-template-columns: 1fr; } }
+
+  /* ─── PAYMENT METHODS GRID ─── */
+  .pago-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .pago-card { background: var(--white); border: 1.5px solid var(--border); border-radius: var(--r-lg); padding: 16px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; transition: transform 0.18s, box-shadow 0.18s; }
+  .pago-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .pago-card .pg-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .pago-card .pg-icon { font-size: 1.5rem; margin-bottom: 8px; }
+  .pago-card .pg-name { font-size: 0.67rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .pago-card .pg-val { font-size: 1.25rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ink); }
+  .pago-card .pg-count { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+  .pago-card .pg-pct { font-size: 0.68rem; font-weight: 700; margin-top: 6px; }
+  .pago-card .pg-bar { height: 3px; background: var(--border); border-radius: 10px; margin-top: 8px; overflow: hidden; }
+  .pago-card .pg-fill { height: 100%; border-radius: 10px; transition: width 1.2s ease; }
+
+  /* ─── CARD GENERIC ─── */
+  .card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+  .card h3 { font-size: 0.82rem; font-weight: 700; color: var(--ink); margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+
+  /* ─── LIST ITEMS ─── */
+  .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface); margin-bottom: 6px; transition: background 0.12s; }
+  .list-item:hover { background: var(--emerald-ll); }
+  .li-rank { font-size: 0.7rem; font-weight: 700; color: var(--muted2); width: 20px; flex-shrink: 0; }
+  .li-name { font-size: 0.8rem; font-weight: 700; color: var(--ink); }
+  .li-sub { font-size: 0.63rem; color: var(--muted); margin-top: 2px; }
+  .li-right { text-align: right; }
+  .li-val { font-size: 0.9rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--emerald); }
+  .li-pct { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
+  .scroll-list { max-height: 280px; overflow-y: auto; padding-right: 4px; }
+  .scroll-list::-webkit-scrollbar { width: 4px; }
+  .scroll-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  /* ─── DEUDORES ─── */
+  .deudor-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: var(--ruby-ll); border: 1px solid #fecaca; border-radius: var(--r); margin-bottom: 6px; transition: background 0.12s; }
+  .deudor-row:hover { background: var(--ruby-l); }
+  .dr-name { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+  .dr-detail { font-size: 0.63rem; color: var(--muted); margin-top: 2px; }
+  .dr-badge { display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-top: 3px; }
+  .dr-debt { font-size: 1rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ruby); }
+
+  /* ─── ADELANTOS / CRÉDITO ─── */
+  .adelanto-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: var(--sapphire-ll); border: 1px solid #bfdbfe; border-radius: var(--r); margin-bottom: 6px; transition: background 0.12s; }
+  .adelanto-row:hover { background: var(--sapphire-l); }
+  .adelanto-name { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+  .adelanto-detail { font-size: 0.63rem; color: var(--muted); margin-top: 2px; }
+  .adelanto-val { font-size: 1rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--sapphire); }
+
+  /* ─── SIN COBRO ─── */
+  .sincobro-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; background: var(--amber-l); border: 1px solid #fcd34d; border-radius: var(--r); margin-bottom: 6px; }
+  .sincobro-name { font-size: 0.82rem; font-weight: 700; color: var(--ink); }
+  .sincobro-detail { font-size: 0.63rem; color: var(--muted); margin-top: 2px; }
+  .sincobro-val { font-size: 1rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--gold); }
+
+  /* ─── CIERRE DE CAJA ─── */
+  .cierre-box {
+    background: linear-gradient(135deg, #0c1220 0%, #0f1e35 50%, #091c30 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--r-xl); padding: 26px 28px; color: white; margin-bottom: 18px;
+    position: relative; overflow: hidden;
+  }
+  .cierre-box::before {
+    content: ''; position: absolute; top: -80px; right: -40px; width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(5,150,105,0.12) 0%, transparent 65%);
+    border-radius: 50%;
+  }
+  .cierre-box h2 { font-size: 1rem; font-weight: 700; margin: 0 0 18px; color: #6ee7b7; display: flex; align-items: center; gap: 7px; position: relative; z-index: 1; }
+  .cierre-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; position: relative; z-index: 1; }
+  .ci { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r); padding: 14px 16px; }
+  .ci.ci-green { background: rgba(5,150,105,0.12); border-color: rgba(5,150,105,0.25); }
+  .ci.ci-red { background: rgba(185,28,28,0.1); border-color: rgba(185,28,28,0.2); }
+  .ci.ci-blue { background: rgba(29,78,216,0.1); border-color: rgba(29,78,216,0.2); }
+  .ci.ci-amber { background: rgba(217,119,6,0.1); border-color: rgba(217,119,6,0.2); }
+  .ci-label { font-size: 0.59rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
+  .ci-val { font-size: 1.25rem; font-weight: 700; font-family: 'DM Mono', monospace; color: white; }
+  .ci-green .ci-val { color: #6ee7b7; }
+  .ci-red .ci-val { color: #fca5a5; }
+  .ci-blue .ci-val { color: #93c5fd; }
+  .ci-amber .ci-val { color: #fcd34d; }
+  .ci-sub { font-size: 0.61rem; color: rgba(255,255,255,0.3); margin-top: 3px; }
+  .cierre-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 18px 0; position: relative; z-index: 1; }
+  .cierre-neto { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; position: relative; z-index: 1; }
+  .cierre-neto-val { font-family: 'Playfair Display', serif; font-size: 2.4rem; font-weight: 900; color: #6ee7b7; letter-spacing: -0.02em; }
+  .cierre-neto-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: rgba(255,255,255,0.35); margin-bottom: 4px; }
+  .cierre-firma { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; position: relative; z-index: 1; }
+  .firma-box { flex: 1; min-width: 130px; }
+  .fb-label { font-size: 0.62rem; color: rgba(255,255,255,0.35); margin-bottom: 8px; display: block; }
+  .fb-line { border-bottom: 1px solid rgba(255,255,255,0.15); height: 32px; }
+  .fb-name { font-size: 0.6rem; color: rgba(255,255,255,0.25); text-align: center; margin-top: 5px; }
+  .cierre-timestamp { font-size: 0.68rem; color: rgba(255,255,255,0.3); margin-top: 14px; display: flex; align-items: center; gap: 6px; position: relative; z-index: 1; }
+
+  /* ─── EVOLUTION TABLE ─── */
+  .evo-table { width: 100%; border-collapse: collapse; font-size: 0.77rem; }
+  .evo-table thead th { background: var(--surface2); color: var(--muted); font-size: 0.63rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  .evo-table tbody tr { border-bottom: 1px solid var(--border2); transition: background 0.1s; }
+  .evo-table tbody tr:hover { background: var(--emerald-ll); }
+  .evo-table td { padding: 10px 12px; }
+  .evo-table .td-period { font-family: 'DM Sans', sans-serif; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .evo-table .td-money { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--emerald); }
+  .evo-table .td-red { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--ruby); }
+  .evo-table .td-amber { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--amber); }
+  .evo-table .td-blue { font-family: 'DM Mono', monospace; font-weight: 700; color: var(--sapphire); }
+  .evo-table .td-muted { font-family: 'DM Mono', monospace; color: var(--muted); }
+  .evo-bar { height: 4px; background: var(--border); border-radius: 10px; overflow: hidden; min-width: 60px; }
+  .evo-fill { height: 100%; background: linear-gradient(90deg, var(--emerald), #34d399); border-radius: 10px; }
+
+  /* ─── TRANSACTIONS TABLE ─── */
+  .tx-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+  .tx-table thead th { background: var(--surface2); color: var(--muted); font-size: 0.61rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 9px 10px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+  .tx-table tbody tr { border-bottom: 1px solid var(--border2); transition: background 0.1s; }
+  .tx-table tbody tr:hover { background: var(--surface); }
+  .tx-table td { padding: 9px 10px; }
+  .tx-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.62rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+
+  /* ─── PROGRESS BARS ─── */
+  .prog-row { margin-bottom: 12px; }
+  .prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .prog-label { font-size: 0.74rem; font-weight: 600; color: var(--ink); }
+  .prog-vals { font-size: 0.7rem; font-family: 'DM Mono', monospace; color: var(--muted); }
+  .prog-track { height: 6px; background: var(--border); border-radius: 10px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 10px; transition: width 1.2s ease; }
+
+  /* ─── ALERT BANNERS ─── */
+  .alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--r); margin-bottom: 8px; border: 1px solid; }
+  .alert-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+  .alert-body { flex: 1; }
+  .alert-title { font-size: 0.78rem; font-weight: 700; margin-bottom: 2px; }
+  .alert-text { font-size: 0.7rem; }
+  .alert-warning { background: var(--gold-ll); border-color: #fde68a; }
+  .alert-warning .alert-title { color: var(--gold); }
+  .alert-warning .alert-text { color: var(--amber); }
+  .alert-info { background: var(--sapphire-ll); border-color: #bfdbfe; }
+  .alert-info .alert-title { color: var(--sapphire); }
+  .alert-info .alert-text { color: #1e40af; }
+  .alert-success { background: var(--emerald-ll); border-color: #a7f3d0; }
+  .alert-success .alert-title { color: var(--emerald-d); }
+  .alert-success .alert-text { color: var(--emerald); }
+
+  /* ─── RESUMEN TOTAL BOTTOM ─── */
+  .total-footer { background: var(--ink); color: white; border-radius: var(--r-lg); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  .tf-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: rgba(255,255,255,0.45); margin-bottom: 4px; }
+  .tf-val { font-size: 1.4rem; font-weight: 700; font-family: 'DM Mono', monospace; }
+
+  /* ─── RESPONSIVENESS ─── */
+  @media (max-width: 640px) {
+    .kpi-hero { grid-template-columns: 1fr 1fr; }
+    .pago-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); }
+    .hero-title { font-size: 1.5rem; }
+  }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .kpi-card, .pago-card, .pill { animation: fadeUp 0.4s ease both; }
+  .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+  .kpi-card:nth-child(2) { animation-delay: 0.1s; }
+  .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+  .kpi-card:nth-child(4) { animation-delay: 0.2s; }
+  .kpi-card:nth-child(5) { animation-delay: 0.25s; }
+
+  /* ─── SPARKLINE PLACEHOLDER ─── */
+  .sparkline-svg { display: block; width: 100%; height: 36px; margin-top: 8px; opacity: 0.6; }
+
+  /* ─── TABS WITHIN SECTIONS ─── */
+  .inner-tabs { display: flex; gap: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 2px; margin-bottom: 14px; overflow-x: auto; }
+  .inner-tab { flex: none; font-size: 0.7rem; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; color: var(--muted); transition: all 0.12s; border: none; background: none; font-family: 'DM Sans', sans-serif; }
+  .inner-tab.active { background: var(--white); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+  /* ─── DIVIDERS ─── */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* ─── PERCENTAGE RING ─── */
+  .ring-wrap { display: flex; align-items: center; gap: 10px; }
+  .ring-info { }
+  .ring-pct { font-size: 1.1rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ink); }
+  .ring-label { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+  /* ─── TOTAL PENDIENTES ─── */
+  .pendiente-footer { background: var(--ruby-l); border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .pf-label { font-size: 0.8rem; font-weight: 700; color: var(--ruby); }
+  .pf-val { font-size: 1.2rem; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ruby); }
+
+  /* ─── STICKY SUMMARY BAR ─── */
+  .sticky-bar { position: sticky; top: 0; z-index: 100; background: rgba(245,247,252,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); padding: 8px 20px; margin: -16px -20px 16px; display: flex; gap: 20px; overflow-x: auto; }
+  .sb-item { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .sb-val { font-size: 0.9rem; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .sb-label { font-size: 0.56rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+</style>
+
+<div class="fin-wrap">
+
+  <!-- ══════════════════════════════════════════════════════════ HERO HEADER -->
+  <div class="hero-header no-print">
+    <div class="hero-nav">
+      <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Volver a Reportes</a>
+      <div class="hero-actions">
+        <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
+        <button onclick="exportarCSV()" class="btn-ghost">📥 Exportar CSV</button>
+      </div>
+    </div>
+    <div class="hero-body">
+      <div class="hero-label">Centro de Analítica Financiera</div>
+      <h1 class="hero-title">Reporte Financiero</h1>
+      <p class="hero-sub">Ingresos · Métodos de pago · Saldos · Deudores · Adelantos · Evolución temporal</p>
+      <div class="hero-tags">
+        <span class="hero-tag active">💵 Efectivo</span>
+        <span class="hero-tag active">📱 QR</span>
+        <span class="hero-tag active">🏦 Transferencia</span>
+        <span class="hero-tag active">💳 Tarjeta</span>
+        <span class="hero-tag active">🔮 Crédito</span>
+        <span class="hero-tag active">⏩ Adelantos</span>
+        <span class="hero-tag active">🎁 Sin Cobro</span>
+        <span class="hero-tag active">↩️ Devoluciones</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print Header -->
+  <div class="print-only" style="margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #e2e8f0;">
+    <h1 style="font-size:1.4rem;font-weight:800;margin:0 0 4px;">Reporte Financiero</h1>
+    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }} · Generado: {% now "d/m/Y H:i" %} · Por: {{ request.user.get_full_name|default:request.user.username }}</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ PERIOD TABS -->
+  <div class="period-rail no-print">
+    <a href="?rango=hoy"            class="period-tab {% if rango == 'hoy' %}active{% endif %}">📅 Hoy</a>
+    <a href="?rango=ayer"           class="period-tab {% if rango == 'ayer' %}active{% endif %}">◀ Ayer</a>
+    <a href="?rango=semana"         class="period-tab {% if rango == 'semana' %}active{% endif %}">🗓 Esta Semana</a>
+    <a href="?rango=semana_anterior" class="period-tab {% if rango == 'semana_anterior' %}active{% endif %}">Sem. Ant.</a>
+    <a href="?rango=mes"            class="period-tab {% if rango == 'mes' %}active{% endif %}">📅 Este Mes</a>
+    <a href="?rango=mes_anterior"   class="period-tab {% if rango == 'mes_anterior' %}active{% endif %}">Mes Ant.</a>
+    <a href="?rango=trimestre"      class="period-tab {% if rango == 'trimestre' %}active{% endif %}">📊 Trimestre</a>
+    <a href="?rango=anio"           class="period-tab {% if rango == 'anio' %}active{% endif %}">📈 Año</a>
+    <a href="?rango=cierre"         class="period-tab {% if rango == 'cierre' %}active{% endif %}">🔒 Cierre de Caja</a>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ FILTER BAR -->
+  <div class="filter-bar no-print">
+    <form method="get">
+      <div class="filter-group">
+        <label>Desde</label>
+        <input type="date" name="fecha_desde" value="{{ fecha_desde }}" />
+      </div>
+      <div class="filter-group">
+        <label>Hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" />
+      </div>
+      <div class="filter-group">
+        <label>Sucursal</label>
+        <select name="sucursal">
+          <option value="">Todas las sucursales</option>
+          {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Método de Pago</label>
+        <select name="metodo">
+          <option value="">Todos los métodos</option>
+          {% for m in metodos_pago %}<option value="{{ m.id }}" {% if metodo_id == m.id|stringformat:"s" %}selected{% endif %}>{{ m.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Profesional</label>
+        <select name="profesional">
+          <option value="">Todos</option>
+          {% for p in profesionales %}<option value="{{ p.id }}" {% if profesional_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }} {{ p.apellido }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn-primary">🔍 Aplicar Filtros</button>
+    </form>
+  </div>
+
+  <!-- Period indicator -->
+  <div class="period-indicator">
+    <span class="period-badge">📅 {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }}</span>
+    {% if rango == 'cierre' %}<span class="cierre-badge">🔒 Modo Cierre de Caja</span>{% endif %}
+    {% if sucursal_filtrada %}<span class="period-badge" style="background:var(--sapphire-ll);border-color:#93c5fd;color:var(--sapphire)">🏢 {{ sucursal_filtrada }}</span>{% endif %}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ KPI HERO CARDS -->
+  <div class="sec-hdr"><h2>💰 Resumen General del Período</h2></div>
+  <div class="kpi-hero">
+    <!-- Total Cobrado -->
+    <div class="kpi-card" style="background:var(--emerald-ll);border-color:#6ee7b7;color:var(--emerald-d)">
+      <span class="kc-icon">💵</span>
+      <div class="kc-label">Total Cobrado</div>
+      <div class="kc-val">Bs. {{ stats.total_cobrado|default:0|floatformat:2 }}</div>
+      <div class="kc-sub">{{ stats.total_pagos|default:0 }} transacciones · período seleccionado</div>
+    </div>
+    <!-- Por Cobrar -->
+    <div class="kpi-card" style="background:var(--ruby-ll);border-color:#fca5a5;color:var(--ruby)">
+      <span class="kc-icon">⏳</span>
+      <div class="kc-label">Por Cobrar</div>
+      <div class="kc-val">Bs. {{ stats.total_pendiente|default:0|floatformat:2 }}</div>
+      <div class="kc-sub">{{ stats.pacientes_deudores|default:0 }} pacientes con saldo negativo</div>
+    </div>
+    <!-- Adelantos / Crédito -->
+    <div class="kpi-card" style="background:var(--sapphire-ll);border-color:#93c5fd;color:var(--sapphire)">
+      <span class="kc-icon">⏩</span>
+      <div class="kc-label">Adelantos / Crédito</div>
+      <div class="kc-val">Bs. {{ stats.total_adelantos|default:0|floatformat:2 }}</div>
+      <div class="kc-sub">{{ stats.pacientes_con_credito|default:0 }} pacientes con saldo a favor</div>
+    </div>
+    <!-- Sin Cobro -->
+    <div class="kpi-card" style="background:var(--gold-ll);border-color:#fcd34d;color:var(--gold)">
+      <span class="kc-icon">🎁</span>
+      <div class="kc-label">Sesiones Sin Cobro</div>
+      <div class="kc-val">{{ stats.sesiones_sin_cobro|default:0 }}</div>
+      <div class="kc-sub">Bs. {{ stats.monto_sin_cobro|default:0|floatformat:2 }} valor referencial</div>
+    </div>
+    <!-- Neto Final -->
+    <div class="kpi-card" style="background:var(--ink2);border-color:var(--ink3);color:white">
+      <span class="kc-icon">✅</span>
+      <div class="kc-label" style="color:rgba(255,255,255,0.6)">Neto Final</div>
+      <div class="kc-val" style="color:#6ee7b7">Bs. {{ stats.neto_final|default:0|floatformat:2 }}</div>
+      <div class="kc-sub" style="color:rgba(255,255,255,0.4)">Cobrado menos devoluciones</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ MINI PILLS -->
+  <div class="stat-pills">
+    <div class="pill">
+      <div class="pill-icon">📊</div>
+      <div class="pill-label">Sesiones Realizadas</div>
+      <div class="pill-val" style="color:var(--emerald)">{{ stats.sesiones_realizadas|default:0 }}</div>
+      <div class="pill-sub">de {{ stats.total_sesiones|default:0 }} programadas</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">📋</div>
+      <div class="pill-label">Sesiones Pendientes</div>
+      <div class="pill-val" style="color:var(--ruby)">{{ stats.sesiones_pendientes|default:0 }}</div>
+      <div class="pill-sub">sin realizar</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">💰</div>
+      <div class="pill-label">Promedio / Sesión</div>
+      <div class="pill-val" style="color:var(--sapphire)">{{ stats.promedio_sesion|default:0|floatformat:0 }}</div>
+      <div class="pill-sub">bolivianos</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">📁</div>
+      <div class="pill-label">Proyectos Activos</div>
+      <div class="pill-val" style="color:var(--teal)">{{ stats.proyectos_activos|default:0 }}</div>
+      <div class="pill-sub">en curso</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">📅</div>
+      <div class="pill-label">Mensualidades</div>
+      <div class="pill-val" style="color:var(--violet)">{{ stats.mensualidades_activas|default:0 }}</div>
+      <div class="pill-sub">activas</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">↩️</div>
+      <div class="pill-label">Devoluciones</div>
+      <div class="pill-val" style="color:var(--ruby)">{{ stats.total_devoluciones_count|default:0 }}</div>
+      <div class="pill-sub">Bs. {{ stats.devoluciones|default:0|floatformat:0 }}</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">🧾</div>
+      <div class="pill-label">Facturas Emitidas</div>
+      <div class="pill-val" style="color:var(--sapphire)">{{ stats.facturas_emitidas|default:0 }}</div>
+      <div class="pill-sub">en el período</div>
+    </div>
+    <div class="pill">
+      <div class="pill-icon">❌</div>
+      <div class="pill-label">Pagos Anulados</div>
+      <div class="pill-val" style="color:var(--slate)">{{ stats.pagos_anulados|default:0 }}</div>
+      <div class="pill-sub">Bs. {{ stats.monto_anulado|default:0|floatformat:0 }}</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ ALERTAS -->
+  {% if stats.total_pendiente > 0 %}
+  <div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div class="alert-body">
+      <div class="alert-title">Saldo Pendiente por Cobrar</div>
+      <div class="alert-text">Hay Bs. {{ stats.total_pendiente|floatformat:2 }} pendientes de {{ stats.pacientes_deudores|default:0 }} paciente(s). Revisar la sección de deudores abajo.</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if stats.total_adelantos > 0 %}
+  <div class="alert alert-info">
+    <span class="alert-icon">💡</span>
+    <div class="alert-body">
+      <div class="alert-title">Créditos / Adelantos Disponibles</div>
+      <div class="alert-text">{{ stats.pacientes_con_credito|default:0 }} paciente(s) tienen Bs. {{ stats.total_adelantos|floatformat:2 }} de saldo a favor que puede usarse en próximas sesiones.</div>
+    </div>
+  </div>
+  {% endif %}
+  {% if stats.sesiones_sin_cobro > 0 %}
+  <div class="alert alert-success">
+    <span class="alert-icon">🎁</span>
+    <div class="alert-body">
+      <div class="alert-title">Sesiones Gratuitas / Sin Cobro</div>
+      <div class="alert-text">{{ stats.sesiones_sin_cobro|default:0 }} sesión(es) marcadas como sin cobro en el período (valor referencial: Bs. {{ stats.monto_sin_cobro|default:0|floatformat:2 }}).</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ CHARTS -->
+  {% if grafico_data %}
+  <div class="sec-hdr"><h2>📈 Análisis Gráfico</h2></div>
+  <div class="grid-2" style="margin-bottom:14px">
+    <div class="chart-card">
+      <div class="cc-title">Evolución de Ingresos</div>
+      <div class="cc-sub">Cobrado vs Pendiente por período</div>
+      <canvas id="chart-ingresos" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Distribución por Método de Pago</div>
+      <div class="cc-sub">% del total cobrado</div>
+      <canvas id="chart-metodos" height="160"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom:14px">
+    <div class="chart-card">
+      <div class="cc-title">Tipos de Cobro</div>
+      <div class="cc-sub">Sesiones · Mensualidades · Proyectos</div>
+      <canvas id="chart-tipos" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Efectivo vs Digital</div>
+      <div class="cc-sub">Comparativa métodos físicos vs digitales</div>
+      <canvas id="chart-efectivo-digital" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">Ingresos Netos</div>
+      <div class="cc-sub">Cobrado menos devoluciones</div>
+      <canvas id="chart-neto" height="160"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ PAYMENT METHODS DETAIL -->
+  <div class="sec-hdr">
+    <h2>💳 Desglose Completo por Método de Pago</h2>
+    {% if stats.por_metodo %}<span class="sec-tag" style="background:var(--emerald-ll);color:var(--emerald-d)">{{ stats.por_metodo|length }} métodos</span>{% endif %}
+  </div>
+  <div class="pago-grid">
+
+    <!-- EFECTIVO -->
+    {% with efectivo_pct=stats.efectivo|default:0 %}
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#16a34a,#4ade80)"></div>
+      <div class="pg-icon">💵</div>
+      <div class="pg-name">Efectivo</div>
+      <div class="pg-val">Bs. {{ stats.efectivo|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.efectivo_count|default:0 }} transacciones</div>
+      <div class="pg-pct" style="color:var(--emerald)">{{ stats.efectivo_pct|default:0|floatformat:1 }}% del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.efectivo_pct|default:0 }}%;background:linear-gradient(90deg,#16a34a,#4ade80)"></div></div>
+    </div>
+    {% endwith %}
+
+    <!-- QR -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div>
+      <div class="pg-icon">📱</div>
+      <div class="pg-name">Pago QR</div>
+      <div class="pg-val">Bs. {{ stats.qr|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.qr_count|default:0 }} transacciones</div>
+      <div class="pg-pct" style="color:var(--violet)">{{ stats.qr_pct|default:0|floatformat:1 }}% del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.qr_pct|default:0 }}%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div>
+    </div>
+
+    <!-- TRANSFERENCIA -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#1d4ed8,#60a5fa)"></div>
+      <div class="pg-icon">🏦</div>
+      <div class="pg-name">Transferencia</div>
+      <div class="pg-val">Bs. {{ stats.transferencia|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.transferencia_count|default:0 }} transacciones</div>
+      <div class="pg-pct" style="color:var(--sapphire)">{{ stats.transferencia_pct|default:0|floatformat:1 }}% del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.transferencia_pct|default:0 }}%;background:linear-gradient(90deg,#1d4ed8,#60a5fa)"></div></div>
+    </div>
+
+    <!-- TARJETA -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#0d9488,#2dd4bf)"></div>
+      <div class="pg-icon">💳</div>
+      <div class="pg-name">Tarjeta</div>
+      <div class="pg-val">Bs. {{ stats.tarjeta|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.tarjeta_count|default:0 }} transacciones</div>
+      <div class="pg-pct" style="color:var(--teal)">{{ stats.tarjeta_pct|default:0|floatformat:1 }}% del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.tarjeta_pct|default:0 }}%;background:linear-gradient(90deg,#0d9488,#2dd4bf)"></div></div>
+    </div>
+
+    <!-- CRÉDITO / CUENTA CORRIENTE -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#b45309,#fbbf24)"></div>
+      <div class="pg-icon">🔮</div>
+      <div class="pg-name">Crédito / Cta. Cte.</div>
+      <div class="pg-val">Bs. {{ stats.credito|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.credito_count|default:0 }} usos de crédito</div>
+      <div class="pg-pct" style="color:var(--gold)">{{ stats.credito_pct|default:0|floatformat:1 }}% del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.credito_pct|default:0 }}%;background:linear-gradient(90deg,#b45309,#fbbf24)"></div></div>
+    </div>
+
+    <!-- ADELANTOS USADOS -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#0891b2,#22d3ee)"></div>
+      <div class="pg-icon">⏩</div>
+      <div class="pg-name">Adelantos Usados</div>
+      <div class="pg-val">Bs. {{ stats.adelantos_usados|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.adelantos_usados_count|default:0 }} aplicaciones</div>
+      <div class="pg-pct" style="color:var(--cyan)">Bs. {{ stats.total_adelantos|default:0|floatformat:0 }} en saldo</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.adelantos_usados_pct|default:0 }}%;background:linear-gradient(90deg,#0891b2,#22d3ee)"></div></div>
+    </div>
+
+    <!-- SIN COBRO -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#d97706,#fde68a)"></div>
+      <div class="pg-icon">🎁</div>
+      <div class="pg-name">Sin Cobro / Gratuito</div>
+      <div class="pg-val">{{ stats.sesiones_sin_cobro|default:0 }} ses.</div>
+      <div class="pg-count">Valor ref: Bs. {{ stats.monto_sin_cobro|default:0|floatformat:2 }}</div>
+      <div class="pg-pct" style="color:var(--amber)">no facturado</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:0%;background:linear-gradient(90deg,#d97706,#fde68a)"></div></div>
+    </div>
+
+    <!-- DEVOLUCIONES -->
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#b91c1c,#f87171)"></div>
+      <div class="pg-icon">↩️</div>
+      <div class="pg-name">Devoluciones</div>
+      <div class="pg-val" style="color:var(--ruby)">- Bs. {{ stats.devoluciones|default:0|floatformat:2 }}</div>
+      <div class="pg-count">{{ stats.total_devoluciones_count|default:0 }} reembolsos</div>
+      <div class="pg-pct" style="color:var(--ruby)">resta del total</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ stats.devoluciones_pct|default:0 }}%;background:linear-gradient(90deg,#b91c1c,#f87171)"></div></div>
+    </div>
+
+    <!-- Otros métodos dinámicos -->
+    {% for m in stats.por_metodo %}
+    {% if m.metodo_pago__nombre != 'Efectivo' and m.metodo_pago__nombre != 'QR' and m.metodo_pago__nombre != 'Transferencia' and m.metodo_pago__nombre != 'Tarjeta' %}
+    <div class="pago-card">
+      <div class="pg-accent" style="background:linear-gradient(90deg,#4f46e5,#818cf8)"></div>
+      <div class="pg-icon">💴</div>
+      <div class="pg-name">{{ m.metodo_pago__nombre }}</div>
+      <div class="pg-val">Bs. {{ m.total|floatformat:2 }}</div>
+      <div class="pg-count">{{ m.cantidad }} transacciones</div>
+      <div class="pg-pct" style="color:var(--indigo)">{{ m.porcentaje|default:0|floatformat:1 }}%</div>
+      <div class="pg-bar"><div class="pg-fill" style="width:{{ m.porcentaje|default:0 }}%;background:linear-gradient(90deg,#4f46e5,#818cf8)"></div></div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ INGRESO POR TIPO -->
+  <div class="sec-hdr"><h2>🏷️ Ingresos por Tipo de Cobro</h2></div>
+  <div class="grid-3" style="margin-bottom:16px">
+    <!-- Sesiones -->
+    <div class="card">
+      <h3>🧑‍⚕️ Sesiones</h3>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Sesiones Normales</span>
+          <span class="prog-vals">Bs. {{ stats.pagos_sesiones|default:0|floatformat:0 }}</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:{{ stats.sesiones_pct|default:0 }}%;background:linear-gradient(90deg,#059669,#34d399)"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Sesiones Programadas</span>
+          <span class="prog-vals">{{ stats.sesiones_realizadas|default:0 }} realizadas</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:{{ stats.realizacion_pct|default:0 }}%;background:linear-gradient(90deg,#0891b2,#22d3ee)"></div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--emerald-ll);border-radius:var(--r-sm)">
+        <div style="font-size:0.62rem;color:var(--emerald-d);font-weight:700;margin-bottom:3px">TOTAL SESIONES</div>
+        <div style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--emerald-d)">Bs. {{ stats.pagos_sesiones|default:0|floatformat:2 }}</div>
+        <div style="font-size:0.65rem;color:var(--emerald)">{{ stats.sesiones_pct|default:0|floatformat:1 }}% del ingreso total</div>
+      </div>
+    </div>
+    <!-- Mensualidades -->
+    <div class="card">
+      <h3>📅 Mensualidades</h3>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Mensualidades Cobradas</span>
+          <span class="prog-vals">Bs. {{ stats.pagos_mensualidades|default:0|floatformat:0 }}</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:{{ stats.mensualidades_pct|default:0 }}%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Mensualidades Activas</span>
+          <span class="prog-vals">{{ stats.mensualidades_activas|default:0 }} activas</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:70%;background:linear-gradient(90deg,#6d28d9,#8b5cf6)"></div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--violet-l);border-radius:var(--r-sm)">
+        <div style="font-size:0.62rem;color:#5b21b6;font-weight:700;margin-bottom:3px">TOTAL MENSUALIDADES</div>
+        <div style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:#5b21b6">Bs. {{ stats.pagos_mensualidades|default:0|floatformat:2 }}</div>
+        <div style="font-size:0.65rem;color:var(--violet)">{{ stats.mensualidades_pct|default:0|floatformat:1 }}% del ingreso total</div>
+      </div>
+    </div>
+    <!-- Proyectos -->
+    <div class="card">
+      <h3>📁 Proyectos</h3>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Pagos de Proyectos</span>
+          <span class="prog-vals">Bs. {{ stats.pagos_proyectos|default:0|floatformat:0 }}</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:{{ stats.proyectos_pct|default:0 }}%;background:linear-gradient(90deg,#0d9488,#2dd4bf)"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header">
+          <span class="prog-label">Proyectos Activos</span>
+          <span class="prog-vals">{{ stats.proyectos_activos|default:0 }} activos</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:65%;background:linear-gradient(90deg,#0f766e,#0d9488)"></div></div>
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;background:var(--teal-l);border-radius:var(--r-sm)">
+        <div style="font-size:0.62rem;color:#0f766e;font-weight:700;margin-bottom:3px">TOTAL PROYECTOS</div>
+        <div style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:#0f766e">Bs. {{ stats.pagos_proyectos|default:0|floatformat:2 }}</div>
+        <div style="font-size:0.65rem;color:var(--teal)">{{ stats.proyectos_pct|default:0|floatformat:1 }}% del ingreso total</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ CIERRE DE CAJA -->
+  <div class="cierre-box">
+    <h2>🔒 Cierre de Caja — {{ fecha_desde|date:"d/m/Y" }}{% if fecha_desde != fecha_hasta %} al {{ fecha_hasta|date:"d/m/Y" }}{% endif %}</h2>
+    <div class="cierre-grid">
+      <div class="ci ci-green">
+        <div class="ci-label">Total Cobrado</div>
+        <div class="ci-val">Bs. {{ stats.total_cobrado|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.total_pagos|default:0 }} transacciones</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">💵 Efectivo en Caja</div>
+        <div class="ci-val">Bs. {{ stats.efectivo|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.efectivo_count|default:0 }} pagos</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">📱 QR / Digital</div>
+        <div class="ci-val">Bs. {{ stats.qr|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.qr_count|default:0 }} pagos</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">🏦 Transferencias</div>
+        <div class="ci-val">Bs. {{ stats.transferencia|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.transferencia_count|default:0 }} pagos</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">💳 Tarjeta</div>
+        <div class="ci-val">Bs. {{ stats.tarjeta|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.tarjeta_count|default:0 }} pagos</div>
+      </div>
+      <div class="ci ci-amber">
+        <div class="ci-label">⏩ Adelantos Ingresados</div>
+        <div class="ci-val">Bs. {{ stats.pagos_adelantados|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">pagos anticipados</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">🔮 Crédito Aplicado</div>
+        <div class="ci-val">Bs. {{ stats.credito|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">de cuenta corriente</div>
+      </div>
+      <div class="ci ci-red">
+        <div class="ci-label">↩️ Devoluciones</div>
+        <div class="ci-val">- Bs. {{ stats.devoluciones|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.total_devoluciones_count|default:0 }} reembolsos</div>
+      </div>
+      <div class="ci ci-red">
+        <div class="ci-label">⏳ Saldo Pendiente</div>
+        <div class="ci-val">Bs. {{ stats.total_pendiente|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.pacientes_deudores|default:0 }} pacientes</div>
+      </div>
+      <div class="ci ci-blue">
+        <div class="ci-label">💰 Saldo a Favor</div>
+        <div class="ci-val">Bs. {{ stats.total_adelantos|default:0|floatformat:2 }}</div>
+        <div class="ci-sub">{{ stats.pacientes_con_credito|default:0 }} pacientes</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">🎁 Sin Cobro</div>
+        <div class="ci-val">{{ stats.sesiones_sin_cobro|default:0 }} ses.</div>
+        <div class="ci-sub">Ref: Bs. {{ stats.monto_sin_cobro|default:0|floatformat:2 }}</div>
+      </div>
+      <div class="ci">
+        <div class="ci-label">❌ Pagos Anulados</div>
+        <div class="ci-val">{{ stats.pagos_anulados|default:0 }}</div>
+        <div class="ci-sub">Bs. {{ stats.monto_anulado|default:0|floatformat:2 }}</div>
+      </div>
+    </div>
+
+    <hr class="cierre-divider">
+
+    <div class="cierre-neto">
+      <div>
+        <div class="cierre-neto-label">NETO FINAL DEL PERÍODO</div>
+        <div class="cierre-neto-val">Bs. {{ stats.neto_final|default:0|floatformat:2 }}</div>
+        <div style="font-size:0.68rem;color:rgba(255,255,255,0.35);margin-top:4px">Cobrado − Devoluciones = Neto real</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:0.62rem;color:rgba(255,255,255,0.35);margin-bottom:6px">SESIONES REALIZADAS</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:'DM Mono',monospace;color:white">{{ stats.sesiones_realizadas|default:0 }}</div>
+        <div style="font-size:0.62rem;color:rgba(255,255,255,0.3)">de {{ stats.total_sesiones|default:0 }} programadas</div>
+      </div>
+    </div>
+
+    <div class="cierre-firma">
+      <div class="firma-box">
+        <span class="fb-label">Responsable de Caja</span>
+        <div class="fb-line"></div>
+        <div class="fb-name">Firma y Aclaración</div>
+      </div>
+      <div class="firma-box">
+        <span class="fb-label">Supervisado por</span>
+        <div class="fb-line"></div>
+        <div class="fb-name">Firma</div>
+      </div>
+      <div class="firma-box">
+        <span class="fb-label">Sello / Visto Bueno</span>
+        <div class="fb-line"></div>
+        <div class="fb-name"></div>
+      </div>
+    </div>
+    <div class="cierre-timestamp">
+      🕐 Generado el {% now "d/m/Y \a \l\a\s H:i" %} por {{ request.user.get_full_name|default:request.user.username }}
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ SERVICES + PROFESSIONALS -->
+  <div class="sec-hdr"><h2>🏆 Ranking de Rentabilidad</h2></div>
+  <div class="grid-2" style="margin-bottom:16px">
+    <div class="card">
+      <h3>🩺 Servicios Más Rentables</h3>
+      <div class="scroll-list">
+        {% for s in stats.por_servicio %}
+        <div class="list-item">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span class="li-rank">#{{ forloop.counter }}</span>
+            <div>
+              <div class="li-name">{{ s.servicio__nombre }}</div>
+              <div class="li-sub">{{ s.cantidad }} sesiones · {{ s.realizadas }} realizadas</div>
+            </div>
+          </div>
+          <div class="li-right">
+            <div class="li-val">Bs. {{ s.total|default:0|floatformat:2 }}</div>
+            <div class="li-pct">{{ s.pct|default:0|floatformat:1 }}% del total</div>
+          </div>
+        </div>
+        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos en este período</p>{% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <h3>👨‍⚕️ Ingresos por Profesional</h3>
+      <div class="scroll-list">
+        {% for p in stats.por_profesional %}
+        <div class="list-item">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span class="li-rank">#{{ forloop.counter }}</span>
+            <div>
+              <div class="li-name">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</div>
+              <div class="li-sub">{{ p.sesiones }} sesiones · {{ p.realizadas }} realizadas</div>
+            </div>
+          </div>
+          <div class="li-right">
+            <div class="li-val">Bs. {{ p.ingresos|default:0|floatformat:2 }}</div>
+            <div class="li-pct">{{ p.pct|default:0|floatformat:1 }}% del total</div>
+          </div>
+        </div>
+        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos en este período</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ SUCURSALES -->
+  {% if stats.por_sucursal %}
+  <div class="sec-hdr"><h2>🏢 Ingresos por Sucursal</h2></div>
+  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+    <table class="evo-table">
+      <thead>
+        <tr>
+          <th>Sucursal</th>
+          <th>Cobrado</th>
+          <th>Pendiente</th>
+          <th>Sesiones</th>
+          <th>Devoluciones</th>
+          <th>Neto</th>
+          <th>Participación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stats.por_sucursal %}
+        <tr>
+          <td class="td-period">{{ s.nombre }}</td>
+          <td class="td-money">Bs. {{ s.cobrado|default:0|floatformat:2 }}</td>
+          <td class="td-red">Bs. {{ s.pendiente|default:0|floatformat:2 }}</td>
+          <td class="td-muted">{{ s.sesiones|default:0 }}</td>
+          <td class="td-amber">Bs. {{ s.devoluciones|default:0|floatformat:2 }}</td>
+          <td class="td-money">Bs. {{ s.neto|default:0|floatformat:2 }}</td>
+          <td><div class="evo-bar"><div class="evo-fill" style="width:{{ s.pct|default:0 }}%"></div></div></td>
+        </tr>
+        {% empty %}<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted);font-size:0.8rem">Sin datos</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ EVOLUTION TABLE -->
+  {% if evolucion %}
+  <div class="sec-hdr"><h2>📊 Tabla de Evolución Histórica</h2></div>
+  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+    <table class="evo-table">
+      <thead>
+        <tr>
+          <th>Período</th>
+          <th>Sesiones</th>
+          <th>Realizadas</th>
+          <th>Sin Cobro</th>
+          <th>Cobrado</th>
+          <th>Adelantos</th>
+          <th>Pendiente</th>
+          <th>Devoluciones</th>
+          <th>Neto</th>
+          <th>Tendencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in evolucion %}
+        <tr>
+          <td class="td-period">{{ e.periodo }}</td>
+          <td class="td-muted">{{ e.total_sesiones|default:0 }}</td>
+          <td style="color:var(--emerald);font-weight:700;font-family:'DM Mono',monospace">{{ e.realizadas|default:0 }}</td>
+          <td style="color:var(--amber);font-family:'DM Mono',monospace">{{ e.sin_cobro|default:0 }}</td>
+          <td class="td-money">Bs. {{ e.cobrado|default:0|floatformat:2 }}</td>
+          <td class="td-blue">Bs. {{ e.adelantos|default:0|floatformat:2 }}</td>
+          <td class="td-red">Bs. {{ e.pendiente|default:0|floatformat:2 }}</td>
+          <td class="td-amber">Bs. {{ e.devoluciones|default:0|floatformat:2 }}</td>
+          <td class="td-money">Bs. {{ e.neto|default:0|floatformat:2 }}</td>
+          <td><div class="evo-bar" style="min-width:80px"><div class="evo-fill" style="width:{{ e.pct_max|default:0 }}%"></div></div></td>
+        </tr>
+        {% empty %}<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);font-size:0.8rem">Sin datos en el período seleccionado</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ ADELANTOS / CRÉDITO -->
+  {% if pacientes_credito %}
+  <div class="page-break">
+    <div class="sec-hdr">
+      <h2>⏩ Pacientes con Saldo a Favor / Adelantos</h2>
+      <span class="sec-tag" style="background:var(--sapphire-ll);color:var(--sapphire)">{{ pacientes_credito|length }} pacientes</span>
+    </div>
+    <div class="scroll-list" style="max-height:none;margin-bottom:8px">
+      {% for p in pacientes_credito %}
+      <div class="adelanto-row">
+        <div>
+          <div class="adelanto-name">{{ p.nombre_completo }}</div>
+          <div class="adelanto-detail">
+            Pagos sin asignar: Bs. {{ p.pagos_sin_asignar|default:0|floatformat:2 }}
+            {% if p.ultima_fecha %} · Último pago: {{ p.ultima_fecha|date:"d/m/Y" }}{% endif %}
+          </div>
+        </div>
+        <div class="adelanto-val">+ Bs. {{ p.saldo_favor|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="background:var(--sapphire-ll);border:1px solid #bfdbfe;border-radius:var(--r);padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:0.8rem;font-weight:700;color:var(--sapphire)">Total saldo a favor acumulado</span>
+      <span style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--sapphire)">Bs. {{ stats.total_adelantos|default:0|floatformat:2 }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ DEUDORES -->
+  {% if deudores %}
+  <div class="page-break" style="margin-top:16px">
+    <div class="sec-hdr">
+      <h2>⚠️ Pacientes con Saldo Pendiente</h2>
+      <span class="sec-tag" style="background:var(--ruby-ll);color:var(--ruby)">{{ deudores|length }} pacientes</span>
+    </div>
+    <div class="scroll-list" style="max-height:none;margin-bottom:8px">
+      {% for d in deudores %}
+      <div class="deudor-row">
+        <div>
+          <div class="dr-name">{{ d.nombre_completo }}</div>
+          <div class="dr-detail">
+            {{ d.sesiones_pendientes|default:0 }} sesión(es) sin pagar
+            {% if d.desde %} · desde {{ d.desde|date:"d/m/Y" }}{% endif %}
+          </div>
+          <div>
+            {% if d.deuda > 500 %}
+            <span class="dr-badge" style="background:#fecaca;color:var(--ruby)">🔴 Crítico</span>
+            {% elif d.deuda > 200 %}
+            <span class="dr-badge" style="background:#fef3c7;color:var(--gold)">🟡 Medio</span>
+            {% else %}
+            <span class="dr-badge" style="background:#dcfce7;color:var(--emerald-d)">🟢 Bajo</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="dr-debt">Bs. {{ d.deuda|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="pendiente-footer">
+      <span class="pf-label">Total deuda pendiente acumulada</span>
+      <span class="pf-val">Bs. {{ stats.total_pendiente|default:0|floatformat:2 }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ SIN COBRO -->
+  {% if sesiones_sin_cobro %}
+  <div class="page-break" style="margin-top:16px">
+    <div class="sec-hdr">
+      <h2>🎁 Detalle Sesiones Sin Cobro</h2>
+      <span class="sec-tag" style="background:var(--gold-ll);color:var(--gold)">{{ sesiones_sin_cobro|length }} sesiones</span>
+    </div>
+    <div class="scroll-list" style="max-height:300px;margin-bottom:8px">
+      {% for s in sesiones_sin_cobro %}
+      <div class="sincobro-row">
+        <div>
+          <div class="sincobro-name">{{ s.paciente__nombre }} {{ s.paciente__apellido }}</div>
+          <div class="sincobro-detail">{{ s.fecha|date:"d/m/Y" }} · {{ s.servicio__nombre }} · {{ s.profesional__nombre }}</div>
+        </div>
+        <div class="sincobro-val">Bs. {{ s.precio|default:0|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="background:var(--gold-ll);border:1px solid #fcd34d;border-radius:var(--r);padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:0.8rem;font-weight:700;color:var(--gold)">Total valor referencial sin facturar</span>
+      <span style="font-size:1.2rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--gold)">Bs. {{ stats.monto_sin_cobro|default:0|floatformat:2 }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ DEVOLUCIONES DETALLE -->
+  {% if devoluciones %}
+  <div class="page-break" style="margin-top:16px">
+    <div class="sec-hdr">
+      <h2>↩️ Detalle de Devoluciones</h2>
+      <span class="sec-tag" style="background:var(--ruby-ll);color:var(--ruby)">{{ devoluciones|length }} devoluciones</span>
+    </div>
+    <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+      <table class="tx-table">
+        <thead>
+          <tr>
+            <th>N° Devolución</th>
+            <th>Fecha</th>
+            <th>Paciente</th>
+            <th>Concepto</th>
+            <th>Método</th>
+            <th>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in devoluciones %}
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted)">{{ d.numero_devolucion }}</td>
+            <td style="white-space:nowrap;color:var(--muted)">{{ d.fecha_devolucion|date:"d/m/Y" }}</td>
+            <td style="font-weight:600">{{ d.paciente.nombre }} {{ d.paciente.apellido }}</td>
+            <td style="font-size:0.72rem;color:var(--muted)">{{ d.motivo|truncatechars:50 }}</td>
+            <td><span class="tx-badge" style="background:var(--ruby-ll);color:var(--ruby)">{{ d.metodo_devolucion }}</span></td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--ruby)">- Bs. {{ d.monto|floatformat:2 }}</td>
+          </tr>
+          {% empty %}<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);font-size:0.8rem">Sin devoluciones en el período</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ ÚLTIMAS TRANSACCIONES -->
+  {% if ultimas_transacciones %}
+  <div class="sec-hdr" style="margin-top:8px"><h2>🧾 Últimas Transacciones</h2></div>
+  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th>N° Recibo</th>
+          <th>Fecha</th>
+          <th>Paciente</th>
+          <th>Concepto</th>
+          <th>Método</th>
+          <th>Estado</th>
+          <th>Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in ultimas_transacciones %}
+        <tr>
+          <td style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">{{ t.numero_recibo }}</td>
+          <td style="white-space:nowrap;font-size:0.73rem;color:var(--muted)">{{ t.fecha_pago|date:"d/m/Y H:i" }}</td>
+          <td style="font-weight:600;font-size:0.75rem">{{ t.paciente.nombre }} {{ t.paciente.apellido }}</td>
+          <td style="font-size:0.7rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.concepto|default:"-"|truncatechars:45 }}</td>
+          <td>
+            <span class="tx-badge" style="background:var(--emerald-ll);color:var(--emerald-d)">
+              {% if t.metodo_pago %}{{ t.metodo_pago.nombre }}{% else %}—{% endif %}
+            </span>
+          </td>
+          <td>
+            {% if t.anulado %}
+            <span class="tx-badge" style="background:var(--ruby-ll);color:var(--ruby)">❌ Anulado</span>
+            {% else %}
+            <span class="tx-badge" style="background:var(--emerald-ll);color:var(--emerald-d)">✅ Válido</span>
+            {% endif %}
+          </td>
+          <td style="font-family:'DM Mono',monospace;font-weight:700;color:{% if t.anulado %}var(--ruby){% else %}var(--emerald){% endif %}">
+            Bs. {{ t.monto|floatformat:2 }}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);font-size:0.8rem">Sin transacciones en el período</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════ RESUMEN FINAL -->
+  <div class="total-footer">
+    <div>
+      <div class="tf-label">Período analizado</div>
+      <div class="tf-val" style="color:#6ee7b7;font-size:1rem">{{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</div>
+    </div>
+    <div style="text-align:center">
+      <div class="tf-label">Total Cobrado</div>
+      <div class="tf-val" style="color:#6ee7b7">Bs. {{ stats.total_cobrado|default:0|floatformat:2 }}</div>
+    </div>
+    <div style="text-align:center">
+      <div class="tf-label">Devoluciones</div>
+      <div class="tf-val" style="color:#fca5a5">- Bs. {{ stats.devoluciones|default:0|floatformat:2 }}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="tf-label">NETO FINAL</div>
+      <div class="tf-val" style="color:#6ee7b7;font-size:1.6rem">Bs. {{ stats.neto_final|default:0|floatformat:2 }}</div>
+    </div>
+  </div>
+
+</div><!-- /fin-wrap -->
+
+{% if grafico_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-{% if vista == 'mensual' or not cierre_diario %}
-const ctx = document.getElementById('grafico-ingresos');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: {{ grafico_data.labels|safe }},
-        datasets: [
-            {
-                label: 'Ingresos Totales',
-                data: {{ grafico_data.ingresos|safe }},
-                backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                borderColor: 'rgb(59, 130, 246)',
-                borderWidth: 2
-            },
-            {
-                label: 'Sesiones',
-                data: {{ grafico_data.sesiones|safe }},
-                type: 'line',
-                borderColor: 'rgb(168, 85, 247)',
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                tension: 0.3,
-                yAxisID: 'y1'
-            },
-            {
-                label: 'Proyectos',
-                data: {{ grafico_data.proyectos|safe }},
-                type: 'line',
-                borderColor: 'rgb(249, 115, 22)',
-                backgroundColor: 'rgba(249, 115, 22, 0.1)',
-                tension: 0.3,
-                yAxisID: 'y1'
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: { position: 'top' }
-        },
-        scales: {
-            y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Ingresos (Bs.)'
-                }
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Cantidad'
-                },
-                grid: {
-                    drawOnChartArea: false,
-                }
-            }
-        }
-    }
-});
-{% endif %}
+const COLORS = {
+  green: '#059669', greenL: 'rgba(5,150,105,0.15)', greenG: ['#059669','#34d399'],
+  red: '#b91c1c', redL: 'rgba(185,28,28,0.12)',
+  blue: '#1d4ed8', blueL: 'rgba(29,78,216,0.15)',
+  violet: '#6d28d9', violetL: 'rgba(109,40,217,0.15)',
+  amber: '#d97706', amberL: 'rgba(217,119,6,0.15)',
+  teal: '#0d9488', tealL: 'rgba(13,148,136,0.15)',
+  cyan: '#0891b2', cyanL: 'rgba(8,145,178,0.15)',
+  rose: '#e11d48', roseL: 'rgba(225,29,72,0.15)',
+};
 
-// Verificación de efectivo
-function verificarEfectivo() {
-    const esperado = {{ cierre_diario.efectivo_esperado|default:0 }};
-    const contado = parseFloat(document.getElementById('efectivo-contado').value) || 0;
-    const diferencia = contado - esperado;
-    const divDiferencia = document.getElementById('diferencia-efectivo');
-    
-    divDiferencia.classList.remove('hidden');
-    
-    if (Math.abs(diferencia) < 0.01) {
-        divDiferencia.innerHTML = `
-            <div class="bg-green-100 border-2 border-green-400 rounded-lg p-2">
-                <p class="text-green-800 font-bold text-sm">✅ CUADRE CORRECTO</p>
-                <p class="text-green-700 text-xs">El efectivo coincide</p>
-            </div>
-        `;
-    } else if (diferencia > 0) {
-        divDiferencia.innerHTML = `
-            <div class="bg-blue-100 border-2 border-blue-400 rounded-lg p-2">
-                <p class="text-blue-800 font-bold text-sm">💰 SOBRANTE</p>
-                <p class="text-blue-700 text-base font-black">Bs. ${diferencia.toFixed(2)}</p>
-                <p class="text-blue-600 text-xs">Hay más efectivo del esperado</p>
-            </div>
-        `;
-    } else {
-        divDiferencia.innerHTML = `
-            <div class="bg-red-100 border-2 border-red-400 rounded-lg p-2">
-                <p class="text-red-800 font-bold text-sm">⚠️ FALTANTE</p>
-                <p class="text-red-700 text-base font-black">Bs. ${Math.abs(diferencia).toFixed(2)}</p>
-                <p class="text-red-600 text-xs">Falta efectivo en caja</p>
-            </div>
-        `;
+const defaults = Chart.defaults;
+defaults.font.family = "'DM Sans', sans-serif";
+defaults.color = '#5a6f8a';
+
+// ─── 1. Ingresos (bar + line) ──────────────────────────────────
+const ctx1 = document.getElementById('chart-ingresos');
+if(ctx1) new Chart(ctx1, {
+  type: 'bar',
+  data: {
+    labels: {{ grafico_data.labels|safe }},
+    datasets: [
+      {
+        label: 'Cobrado',
+        data: {{ grafico_data.cobrado|safe }},
+        backgroundColor: 'rgba(5,150,105,0.7)',
+        borderColor: COLORS.green,
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+        order: 2,
+      },
+      {
+        label: 'Pendiente',
+        data: {{ grafico_data.pendiente|safe }},
+        backgroundColor: 'rgba(185,28,28,0.5)',
+        borderColor: COLORS.red,
+        borderWidth: 2,
+        borderRadius: 6,
+        borderSkipped: false,
+        order: 2,
+      },
+      {
+        label: 'Neto',
+        data: {{ grafico_data.neto|safe }},
+        type: 'line',
+        borderColor: '#fbbf24',
+        backgroundColor: 'rgba(251,191,36,0.08)',
+        borderWidth: 2.5,
+        pointRadius: 4,
+        pointBackgroundColor: '#fbbf24',
+        fill: false,
+        tension: 0.4,
+        order: 1,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { position: 'top', labels: { font: { size: 10 }, padding: 12, usePointStyle: true } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: Bs. ${ctx.raw?.toFixed(2) ?? 0}` } }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'Bs.' + v }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      x: { ticks: { font: { size: 9 } }, grid: { display: false } }
     }
+  }
+});
+
+// ─── 2. Métodos doughnut ─────────────────────────────────────────
+const ctx2 = document.getElementById('chart-metodos');
+if(ctx2 && {{ grafico_data.metodos_labels|safe }}.length > 0) new Chart(ctx2, {
+  type: 'doughnut',
+  data: {
+    labels: {{ grafico_data.metodos_labels|safe }},
+    datasets: [{
+      data: {{ grafico_data.metodos_valores|safe }},
+      backgroundColor: [
+        '#059669','#7c3aed','#1d4ed8','#0d9488','#d97706','#0891b2','#e11d48','#4f46e5','#b91c1c','#6d28d9'
+      ],
+      borderWidth: 3,
+      borderColor: '#fff',
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'right', labels: { font: { size: 10 }, padding: 10, usePointStyle: true } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: Bs. ${ctx.raw.toFixed(2)} (${ctx.parsed.toFixed(1)}%)` } }
+    },
+    cutout: '68%',
+  }
+});
+
+// ─── 3. Tipos de cobro (pie) ─────────────────────────────────────
+const ctx3 = document.getElementById('chart-tipos');
+if(ctx3) new Chart(ctx3, {
+  type: 'pie',
+  data: {
+    labels: ['Sesiones', 'Mensualidades', 'Proyectos', 'Adelantos'],
+    datasets: [{
+      data: [
+        {{ stats.pagos_sesiones|default:0 }},
+        {{ stats.pagos_mensualidades|default:0 }},
+        {{ stats.pagos_proyectos|default:0 }},
+        {{ stats.pagos_adelantados|default:0 }}
+      ],
+      backgroundColor: [COLORS.green, COLORS.violet, COLORS.teal, COLORS.cyan],
+      borderWidth: 3, borderColor: '#fff', hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { position: 'right', labels: { font: { size: 10 }, padding: 8, usePointStyle: true } },
+      tooltip: { callbacks: { label: ctx => ` Bs. ${ctx.raw.toFixed(2)}` } }
+    }
+  }
+});
+
+// ─── 4. Efectivo vs Digital (bar horizontal) ─────────────────────
+const ctx4 = document.getElementById('chart-efectivo-digital');
+if(ctx4) new Chart(ctx4, {
+  type: 'bar',
+  data: {
+    labels: ['Efectivo', 'QR', 'Transferencia', 'Tarjeta', 'Crédito'],
+    datasets: [{
+      label: 'Monto (Bs.)',
+      data: [
+        {{ stats.efectivo|default:0 }},
+        {{ stats.qr|default:0 }},
+        {{ stats.transferencia|default:0 }},
+        {{ stats.tarjeta|default:0 }},
+        {{ stats.credito|default:0 }}
+      ],
+      backgroundColor: [
+        'rgba(5,150,105,0.7)',
+        'rgba(109,40,217,0.7)',
+        'rgba(29,78,216,0.7)',
+        'rgba(13,148,136,0.7)',
+        'rgba(217,119,6,0.7)',
+      ],
+      borderColor: [COLORS.green, COLORS.violet, COLORS.blue, COLORS.teal, COLORS.amber],
+      borderWidth: 2,
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` Bs. ${ctx.raw.toFixed(2)}` } }
+    },
+    scales: {
+      x: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'Bs.' + v }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      y: { ticks: { font: { size: 9 } }, grid: { display: false } }
+    }
+  }
+});
+
+// ─── 5. Neto (area line) ─────────────────────────────────────────
+const ctx5 = document.getElementById('chart-neto');
+if(ctx5) new Chart(ctx5, {
+  type: 'line',
+  data: {
+    labels: {{ grafico_data.labels|safe }},
+    datasets: [{
+      label: 'Neto',
+      data: {{ grafico_data.neto|safe }},
+      borderColor: COLORS.green,
+      backgroundColor: 'rgba(5,150,105,0.1)',
+      borderWidth: 2.5,
+      pointRadius: 4,
+      pointBackgroundColor: COLORS.green,
+      fill: true,
+      tension: 0.4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` Bs. ${ctx.raw.toFixed(2)}` } }
+    },
+    scales: {
+      y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => 'Bs.' + v }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+    }
+  }
+});
+
+// ─── Export CSV ────────────────────────────────────────────────
+function exportarCSV() {
+  const rows = [
+    ['Período','{{ fecha_desde }}','{{ fecha_hasta }}'],
+    ['Total Cobrado','{{ stats.total_cobrado|default:0 }}'],
+    ['Por Cobrar','{{ stats.total_pendiente|default:0 }}'],
+    ['Adelantos','{{ stats.total_adelantos|default:0 }}'],
+    ['Efectivo','{{ stats.efectivo|default:0 }}'],
+    ['QR','{{ stats.qr|default:0 }}'],
+    ['Transferencia','{{ stats.transferencia|default:0 }}'],
+    ['Tarjeta','{{ stats.tarjeta|default:0 }}'],
+    ['Crédito','{{ stats.credito|default:0 }}'],
+    ['Devoluciones','{{ stats.devoluciones|default:0 }}'],
+    ['Neto Final','{{ stats.neto_final|default:0 }}'],
+    ['Sesiones Realizadas','{{ stats.sesiones_realizadas|default:0 }}'],
+    ['Sin Cobro','{{ stats.sesiones_sin_cobro|default:0 }}'],
+    ['Pagos Anulados','{{ stats.pagos_anulados|default:0 }}'],
+  ];
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'reporte_financiero_{{ fecha_desde }}_{{ fecha_hasta }}.csv';
+  a.click();
 }
 </script>
+{% endif %}
 {% endblock %}

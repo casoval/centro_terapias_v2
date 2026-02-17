@@ -1,297 +1,527 @@
 {% extends 'base.html' %}
-
 {% block title %}Reporte por Profesional{% endblock %}
-
 {% block content %}
-<div class="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-4">
-    
-    <a href="{% url 'facturacion:dashboard_reportes' %}" class="text-blue-600 hover:text-blue-800 text-xs mb-2 inline-block">
-        ← Volver a Reportes
-    </a>
-    
-    <h1 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">👨‍⚕️ Reporte por Profesional</h1>
-    
-    <!-- Filtros -->
-    <div class="bg-white border rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
-        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            <select name="profesional" onchange="this.form.submit()" required class="px-2 py-1.5 text-xs border rounded-lg">
-                <option value="">Seleccionar profesional...</option>
-                {% for prof in profesionales %}
-                <option value="{{ prof.id }}" {% if profesional and profesional.id == prof.id %}selected{% endif %}>
-                    {{ prof.nombre_completo }}
-                </option>
-                {% endfor %}
-            </select>
-            
-            <select name="sucursal" class="px-2 py-1.5 text-xs border rounded-lg">
-                <option value="">Todas las sucursales</option>
-                {% for s in sucursales %}
-                <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>
-                    {{ s.nombre }}
-                </option>
-                {% endfor %}
-            </select>
-            
-            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="px-2 py-1.5 text-xs border rounded-lg">
-            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="px-2 py-1.5 text-xs border rounded-lg">
-            
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
-                🔍 Generar
-            </button>
-        </form>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap');
+  :root{
+    --ink:#051a12;--ink2:#0a3220;--ink3:#1a4d30;
+    --muted:#4a7a5e;--muted2:#7aaa8a;--border:#c8e8d4;--border2:#e4f4eb;
+    --surface:#f0faf4;--surface2:#e0f4e8;--white:#fff;
+    --emerald:#059669;--emerald-d:#047857;--emerald-l:#d1fae5;--emerald-ll:#ecfdf5;
+    --blue:#1d4ed8;--blue-l:#dbeafe;--blue-ll:#eff6ff;
+    --amber:#d97706;--amber-l:#fef3c7;--amber-ll:#fffbeb;
+    --ruby:#be123c;--ruby-l:#ffe4e6;--ruby-ll:#fff1f2;
+    --violet:#7c3aed;--violet-l:#ede9fe;
+    --teal:#0d9488;--teal-l:#ccfbf1;
+    --sky:#0284c7;--sky-l:#e0f2fe;
+    --shadow-sm:0 1px 3px rgba(5,26,18,0.06);--shadow:0 4px 14px rgba(5,26,18,0.08);--shadow-lg:0 12px 32px rgba(5,26,18,0.12);
+    --r:12px;--r-lg:16px;--r-xl:20px;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:'Space Grotesk',sans-serif;background:var(--surface);color:var(--ink);}
+  @media print{
+    .no-print{display:none!important;}.print-only{display:block!important;}
+    body{background:white!important;font-size:10px;}.page-break{page-break-before:always;}
+    .hero{background:#051a12!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+  .print-only{display:none;}
+  .wrap{max-width:1380px;margin:0 auto;padding:16px 20px 40px;}
+
+  /* HERO */
+  .hero{background:linear-gradient(135deg,#051a12 0%,#073d20 45%,#065f30 75%,#041a10 100%);border-radius:var(--r-xl);padding:28px 32px 24px;margin-bottom:18px;color:white;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.05);}
+  .hero::before{content:'';position:absolute;top:-60px;right:-30px;width:300px;height:300px;background:radial-gradient(circle,rgba(5,150,105,0.22) 0%,transparent 65%);border-radius:50%;}
+  .hero-nav{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;position:relative;z-index:1;}
+  .back-link{color:rgba(255,255,255,0.5);font-size:0.72rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
+  .back-link:hover{color:rgba(255,255,255,0.9);}
+  .hero-actions{display:flex;gap:8px;}
+  .btn-ghost{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);color:rgba(255,255,255,0.8);font-size:0.72rem;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all 0.15s;}
+  .btn-ghost:hover{background:rgba(255,255,255,0.14);}
+  .hero-body{margin-top:18px;position:relative;z-index:1;}
+  .hero-eye{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6ee7b7;margin-bottom:6px;}
+  .hero-title{font-size:2rem;font-weight:700;line-height:1.1;margin:0 0 5px;letter-spacing:-0.02em;}
+  .hero-sub{font-size:0.77rem;color:rgba(255,255,255,0.4);margin:0;}
+
+  /* FILTER */
+  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
+  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
+  .fg{display:flex;flex-direction:column;}
+  .fg label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
+  .filter-bar select,.filter-bar input[type="date"]{padding:8px 10px;font-size:0.77rem;border:1px solid var(--border);border-radius:8px;color:var(--ink);font-family:'Space Grotesk',sans-serif;background:var(--surface);outline:none;}
+  .filter-bar select:focus,.filter-bar input:focus{border-color:var(--emerald);}
+  .btn-primary{background:var(--emerald);color:white;border:none;padding:8px 18px;border-radius:8px;font-size:0.77rem;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;display:inline-flex;align-items:center;gap:5px;}
+  .btn-primary:hover{background:var(--emerald-d);}
+
+  /* PROF IDENTITY CARD */
+  .prof-identity{background:linear-gradient(135deg,var(--emerald-ll),var(--white));border:1.5px solid #6ee7b7;border-radius:var(--r-xl);padding:20px 24px;margin-bottom:16px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;box-shadow:var(--shadow-sm);}
+  .prof-av{width:70px;height:70px;border-radius:var(--r-lg);background:linear-gradient(135deg,var(--emerald),var(--emerald-d));display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;box-shadow:0 4px 12px rgba(5,150,105,0.3);}
+  .prof-main{flex:1;}
+  .prof-name{font-size:1.4rem;font-weight:700;color:var(--ink);margin:0 0 6px;}
+  .prof-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .pchip{font-size:0.68rem;font-weight:600;padding:3px 10px;border-radius:20px;background:var(--emerald-l);color:var(--emerald-d);border:1px solid #a7f3d0;}
+  .pchip.blue{background:var(--blue-ll);color:var(--blue);border-color:#bfdbfe;}
+  .pchip.amber{background:var(--amber-ll);color:#92400e;border-color:#fde68a;}
+  .pchip.red{background:var(--ruby-ll);color:var(--ruby);border-color:#fecdd3;}
+  .prof-meta{display:flex;flex-wrap:wrap;gap:14px;}
+  .pm{font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:4px;}
+  .prof-kpis{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto;}
+  .pk{text-align:center;}
+  .pk-val{font-size:1.5rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--emerald);}
+  .pk-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);}
+
+  /* STATS */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
+  .stat-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;text-align:center;position:relative;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform 0.18s;}
+  .stat-box:hover{transform:translateY(-2px);}
+  .sb-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0;}
+  .sb-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
+  .sb-val{font-size:1.5rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink);}
+  .sb-sub{font-size:0.62rem;color:var(--muted);margin-top:3px;}
+
+  /* TASA CARDS */
+  .tasa-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px;}
+  .tasa-card{border-radius:var(--r-lg);padding:18px;border:2px solid;}
+  .tc-label{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;opacity:0.7;}
+  .tc-val{font-size:2.2rem;font-weight:700;font-family:'Fira Code',monospace;line-height:1;}
+  .tc-sub{font-size:0.67rem;margin-top:5px;opacity:0.65;}
+  .tc-bar{height:5px;background:rgba(0,0,0,0.08);border-radius:10px;margin-top:10px;overflow:hidden;}
+  .tc-fill{height:100%;border-radius:10px;transition:width 1.3s ease;}
+
+  /* CHARTS */
+  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--shadow-sm);}
+  .cc-title{font-size:0.82rem;font-weight:700;color:var(--ink);margin:0 0 3px;}
+  .cc-sub{font-size:0.65rem;color:var(--muted);margin:0 0 14px;}
+
+  /* GRIDS */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+  .g12{display:grid;grid-template-columns:1fr 2fr;gap:14px;margin-bottom:14px;}
+  @media(max-width:900px){.g2,.g3,.g12{grid-template-columns:1fr;}}
+
+  /* CARD */
+  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--shadow-sm);}
+  .card h3{font-size:0.82rem;font-weight:700;color:var(--ink);margin:0 0 12px;display:flex;align-items:center;gap:6px;}
+  .scroll-list{max-height:290px;overflow-y:auto;padding-right:3px;}
+  .scroll-list::-webkit-scrollbar{width:3px;}
+  .scroll-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+
+  /* LIST */
+  .list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r);background:var(--surface);margin-bottom:6px;transition:background 0.12s;}
+  .list-item:hover{background:var(--emerald-ll);}
+  .li-name{font-size:0.8rem;font-weight:700;color:var(--ink);}
+  .li-sub{font-size:0.63rem;color:var(--muted);margin-top:2px;}
+  .li-val{font-size:0.88rem;font-weight:700;font-family:'Fira Code',monospace;text-align:right;}
+  .li-sub2{font-size:0.6rem;color:var(--muted);margin-top:2px;text-align:right;}
+
+  /* PATIENT RANKING */
+  .pat-rank-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:var(--r);margin-bottom:6px;border:1px solid;transition:transform 0.12s;}
+  .pat-rank-row:hover{transform:translateX(3px);}
+  .prr-num{font-size:0.72rem;font-weight:700;color:var(--muted2);min-width:22px;font-family:'Fira Code',monospace;}
+  .prr-body{flex:1;}
+  .prr-name{font-size:0.8rem;font-weight:700;color:var(--ink);}
+  .prr-stats{display:flex;gap:8px;font-size:0.62rem;color:var(--muted);margin-top:2px;flex-wrap:wrap;}
+  .prr-bar{height:3px;background:rgba(0,0,0,0.06);border-radius:10px;margin-top:4px;overflow:hidden;}
+  .prr-fill{height:100%;border-radius:10px;}
+  .prr-tasa{font-size:1rem;font-weight:700;font-family:'Fira Code',monospace;white-space:nowrap;}
+  .rank-best{background:var(--emerald-ll);border-color:#a7f3d0;}
+  .rank-good{background:var(--blue-ll);border-color:#bfdbfe;}
+  .rank-mid{background:var(--amber-ll);border-color:#fde68a;}
+  .rank-bad{background:var(--ruby-ll);border-color:#fecdd3;}
+
+  /* SCHEDULE */
+  .sched-item{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:var(--r);background:var(--surface);margin-bottom:6px;}
+  .sched-day{font-size:0.72rem;font-weight:700;color:var(--ink);min-width:80px;}
+  .sched-bar{flex:1;height:16px;border-radius:8px;overflow:hidden;display:flex;gap:1px;}
+  .sched-seg{min-width:2px;border-radius:2px;}
+  .sched-total{font-size:0.75rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--emerald);min-width:30px;text-align:right;}
+
+  /* BIG TABLE */
+  .big-table{width:100%;border-collapse:collapse;font-size:0.75rem;}
+  .big-table thead th{background:var(--surface2);color:var(--muted);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:9px 10px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;}
+  .big-table tbody tr{border-bottom:1px solid var(--border2);transition:background 0.1s;}
+  .big-table tbody tr:hover{background:var(--emerald-ll);}
+  .big-table td{padding:9px 10px;}
+  .mono{font-family:'Fira Code',monospace;font-weight:600;}
+  .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;}
+
+  /* HMAP ROW */
+  .hmap-row{margin-bottom:10px;}
+  .hmap-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .hmap-label{font-size:0.75rem;font-weight:600;color:var(--ink);}
+  .hmap-track{display:flex;height:16px;border-radius:8px;overflow:hidden;gap:1px;}
+  .hmap-seg{min-width:2px;}
+  .hmap-legend{display:flex;gap:10px;font-size:0.6rem;color:var(--muted);margin-top:3px;}
+
+  /* SEC HDR */
+  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;}
+  .sec-hdr h2{font-size:0.95rem;font-weight:700;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
+  .sec-tag{font-size:0.63rem;font-weight:700;padding:3px 9px;border-radius:20px;}
+
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+  .stat-box{animation:fadeUp 0.35s ease both;}
+  .stat-box:nth-child(2){animation-delay:.05s;}.stat-box:nth-child(3){animation-delay:.1s;}.stat-box:nth-child(4){animation-delay:.15s;}.stat-box:nth-child(5){animation-delay:.2s;}.stat-box:nth-child(6){animation-delay:.25s;}.stat-box:nth-child(7){animation-delay:.3s;}.stat-box:nth-child(8){animation-delay:.35s;}
+</style>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero no-print">
+    <div class="hero-nav">
+      <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Volver a Reportes</a>
+      <div class="hero-actions">
+        <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
+        <button onclick="exportCSV()" class="btn-ghost">📥 CSV</button>
+      </div>
     </div>
-    
-    {% if profesional and datos %}
-    <!-- Info del Profesional -->
-    <div class="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3 mb-3 sm:mb-4">
-        <h2 class="text-base sm:text-lg font-bold text-gray-900">{{ profesional.nombre_completo }}</h2>
-        <p class="text-xs text-gray-600">{{ profesional.especialidad }}</p>
-        <p class="text-[10px] text-gray-500 mt-0.5">Período: {{ fecha_desde|date:"d/m/Y" }} - {{ fecha_hasta|date:"d/m/Y" }}</p>
+    <div class="hero-body">
+      <div class="hero-eye">Rendimiento Clínico-Financiero</div>
+      <h1 class="hero-title">👨‍⚕️ Reporte por Profesional</h1>
+      <p class="hero-sub">Sesiones · Asistencia · Ingresos · Pacientes · Servicios · Productividad · Evolución</p>
     </div>
-    
-    <!-- Estadísticas Principales -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-3 sm:mb-4">
-        <div class="bg-white border rounded-lg p-2 sm:p-3 text-center">
-            <p class="text-[9px] sm:text-xs text-gray-600 uppercase font-bold">Total Sesiones</p>
-            <p class="text-xl sm:text-2xl font-black text-gray-900">{{ datos.stats.total_sesiones }}</p>
-        </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-2 sm:p-3 text-center">
-            <p class="text-[9px] sm:text-xs text-green-600 uppercase font-bold">Realizadas</p>
-            <p class="text-xl sm:text-2xl font-black text-green-700">{{ datos.stats.realizadas }}</p>
-        </div>
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3 text-center">
-            <p class="text-[9px] sm:text-xs text-blue-600 uppercase font-bold">Pacientes</p>
-            <p class="text-xl sm:text-2xl font-black text-blue-700">{{ datos.stats.pacientes_unicos }}</p>
-        </div>
-        <div class="bg-purple-50 border border-purple-200 rounded-lg p-2 sm:p-3 text-center">
-            <p class="text-[9px] sm:text-xs text-purple-600 uppercase font-bold">Horas Trabajadas</p>
-            <p class="text-base sm:text-lg font-black text-purple-700">{{ datos.stats.total_horas_decimal|floatformat:1 }}h</p>
-        </div>
-        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-2 sm:p-3 text-center">
-            <p class="text-[9px] sm:text-xs text-green-600 uppercase font-bold">Ingresos</p>
-            <p class="text-base sm:text-lg font-black text-green-700">Bs. {{ datos.stats.total_generado|default:0|floatformat:2 }}</p>
-        </div>
+  </div>
+
+  <div class="print-only" style="margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;">
+    <h1 style="font-size:1.3rem;font-weight:800;margin:0 0 4px;">Reporte por Profesional{% if profesional %} — {{ profesional.nombre_completo }}{% endif %}</h1>
+    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }} · Generado: {% now "d/m/Y H:i" %}</p>
+  </div>
+
+  <!-- FILTER -->
+  <div class="filter-bar no-print">
+    <form method="get">
+      <div class="fg">
+        <label>Profesional</label>
+        <select name="profesional" onchange="this.form.submit()" style="min-width:200px">
+          <option value="">— Seleccionar profesional —</option>
+          {% for p in profesionales %}<option value="{{ p.id }}" {% if profesional and profesional.id == p.id %}selected{% endif %}>{{ p.nombre_completo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
+      <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
+      <div class="fg">
+        <label>Sucursal</label>
+        <select name="sucursal">
+          <option value="">Todas</option>
+          {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fg">
+        <label>Rango rápido</label>
+        <select name="rango" onchange="aplicarRango(this.value)">
+          <option value="">Personalizado</option>
+          <option value="mes">Este mes</option>
+          <option value="mes_anterior">Mes anterior</option>
+          <option value="trimestre">Trimestre</option>
+          <option value="anio">Este año</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-primary">🔍 Generar</button>
+    </form>
+  </div>
+
+  {% if profesional and datos %}
+
+  <!-- IDENTITY CARD -->
+  <div class="prof-identity">
+    <div class="prof-av">👨‍⚕️</div>
+    <div class="prof-main">
+      <div class="prof-name">{{ profesional.nombre_completo }}</div>
+      <div class="prof-chips">
+        <span class="pchip {% if profesional.activo %}{% else %}red{% endif %}">{% if profesional.activo %}🟢 Activo{% else %}🔴 Inactivo{% endif %}</span>
+        {% if profesional.especialidad %}<span class="pchip blue">🎓 {{ profesional.especialidad }}</span>{% endif %}
+        {% if profesional.titulo %}<span class="pchip blue">📜 {{ profesional.titulo }}</span>{% endif %}
+        {% if profesional.sucursal %}<span class="pchip">🏢 {{ profesional.sucursal.nombre }}</span>{% endif %}
+      </div>
+      <div class="prof-meta">
+        {% if profesional.telefono %}<span class="pm">📱 {{ profesional.telefono }}</span>{% endif %}
+        {% if profesional.email %}<span class="pm">✉️ {{ profesional.email }}</span>{% endif %}
+        {% if profesional.matricula %}<span class="pm">🪪 Matrícula: {{ profesional.matricula }}</span>{% endif %}
+        {% if profesional.fecha_ingreso %}<span class="pm">📅 Desde: {{ profesional.fecha_ingreso|date:"d/m/Y" }}</span>{% endif %}
+      </div>
     </div>
-    
-    <!-- Indicadores de Desempeño -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
-        <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-xs text-blue-600 font-bold uppercase mb-1">Tasa de Cumplimiento</p>
-            <p class="text-3xl sm:text-4xl font-black text-blue-700">{{ datos.stats.tasa_cumplimiento|floatformat:1 }}%</p>
-            <p class="text-[10px] text-blue-600 mt-1">Sesiones realizadas vs programadas</p>
-        </div>
-        <div class="bg-green-50 border-2 border-green-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-xs text-green-600 font-bold uppercase mb-1">Puntualidad</p>
-            <p class="text-3xl sm:text-4xl font-black text-green-700">{{ datos.stats.tasa_puntualidad|floatformat:1 }}%</p>
-            <p class="text-[10px] text-green-600 mt-1">Sesiones sin retraso</p>
-        </div>
-        <div class="bg-purple-50 border-2 border-purple-300 rounded-lg p-3 sm:p-4 text-center">
-            <p class="text-xs text-purple-600 font-bold uppercase mb-1">Ingreso por Hora</p>
-            <p class="text-2xl sm:text-3xl font-black text-purple-700">Bs. {{ datos.stats.ingreso_por_hora|floatformat:2 }}</p>
-            <p class="text-[10px] text-purple-600 mt-1">Promedio</p>
-        </div>
+    <div class="prof-kpis">
+      <div class="pk"><div class="pk-val">{{ datos.stats.total_sesiones }}</div><div class="pk-label">Sesiones</div></div>
+      <div class="pk"><div class="pk-val" style="color:var(--blue)">{{ datos.stats.pacientes_unicos|default:0 }}</div><div class="pk-label">Pacientes</div></div>
+      <div class="pk"><div class="pk-val" style="color:var(--amber)">{{ datos.stats.total_horas|floatformat:0 }}h</div><div class="pk-label">Horas</div></div>
+      <div class="pk"><div class="pk-val" style="font-size:1.1rem">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div><div class="pk-label">Asistencia pac.</div></div>
     </div>
-    
-    <!-- Gráfico de Evolución -->
-    {% if grafico_data %}
-    <div class="bg-white border rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-        <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">📈 Evolución Mensual</h3>
-        <canvas id="grafico-evolucion" height="80"></canvas>
+  </div>
+
+  <!-- STATS GRID -->
+  <div class="stats-grid">
+    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Total Sesiones</div><div class="sb-val">{{ datos.stats.total_sesiones }}</div><div class="sb-sub">en el período</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Realizadas</div><div class="sb-val" style="color:var(--emerald)">{{ datos.stats.realizadas }}</div><div class="sb-sub">completadas</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--ruby)"></div><div class="sb-label">Faltas pac.</div><div class="sb-val" style="color:var(--ruby)">{{ datos.stats.faltas }}</div><div class="sb-sub">ausentismo</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--amber)"></div><div class="sb-label">Retrasos pac.</div><div class="sb-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div><div class="sb-sub">con demora</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--blue)"></div><div class="sb-label">Pacientes únicos</div><div class="sb-val" style="color:var(--blue)">{{ datos.stats.pacientes_unicos|default:0 }}</div><div class="sb-sub">atendidos</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--violet)"></div><div class="sb-label">Horas trabajadas</div><div class="sb-val" style="color:var(--violet);font-size:1.1rem">{{ datos.stats.total_horas|floatformat:1 }}h</div><div class="sb-sub">tiempo clínico</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--teal)"></div><div class="sb-label">Ingresos generados</div><div class="sb-val" style="color:var(--teal);font-size:0.9rem">{{ datos.stats.ingresos_generados|default:0|floatformat:0 }}</div><div class="sb-sub">Bs. período</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--sky)"></div><div class="sb-label">Promedio/sesión</div><div class="sb-val" style="color:var(--sky);font-size:1rem">{{ datos.stats.promedio_sesion|default:0|floatformat:0 }}</div><div class="sb-sub">Bs. por sesión</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--amber)"></div><div class="sb-label">Sesiones/día</div><div class="sb-val" style="color:var(--amber);font-size:1.1rem">{{ datos.stats.sesiones_por_dia|default:0|floatformat:1 }}</div><div class="sb-sub">productividad</div></div>
+    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Reprogramaciones</div><div class="sb-val">{{ datos.stats.reprogramadas|default:0 }}</div><div class="sb-sub">realizadas</div></div>
+  </div>
+
+  <!-- TASA CARDS -->
+  <div class="tasa-grid">
+    <div class="tasa-card" style="background:var(--emerald-ll);border-color:#6ee7b7;color:var(--emerald-d)">
+      <div class="tc-label">Tasa Asistencia Pacientes</div>
+      <div class="tc-val">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div>
+      <div class="tc-sub">Sesiones realizadas sobre programadas</div>
+      <div class="tc-bar"><div class="tc-fill" style="width:{{ datos.stats.tasa_asistencia|floatformat:0 }}%;background:var(--emerald)"></div></div>
     </div>
-    {% endif %}
-    
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-        <!-- Por Servicio -->
-        <div class="bg-white border rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">📋 Servicios Ofrecidos</h3>
-            <div class="space-y-2 max-h-72 overflow-y-auto">
-                {% for s in datos.por_servicio %}
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-1.5">
-                            <span class="inline-block w-2 h-2 rounded-full" style="background-color: {{ s.servicio__color }}"></span>
-                            <p class="text-xs font-bold text-gray-900">{{ s.servicio__nombre }}</p>
-                        </div>
-                        <div class="flex gap-2 sm:gap-3 text-[10px] text-gray-500 mt-0.5">
-                            <span>📊 {{ s.realizadas }}/{{ s.cantidad }} realizadas</span>
-                            <span>⏱️ {{ s.horas_decimal|floatformat:1 }}h</span>
-                        </div>
-                    </div>
-                    <p class="text-sm sm:text-base font-black text-green-700">Bs. {{ s.ingresos|default:0|floatformat:2 }}</p>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3">Sin datos</p>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <!-- Por Sucursal -->
-        <div class="bg-white border rounded-lg p-3 sm:p-4">
-            <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">🏢 Distribución por Sucursal</h3>
-            <div class="space-y-2">
-                {% for s in datos.por_sucursal %}
-                <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                    <div>
-                        <p class="text-xs font-bold text-gray-900">{{ s.sucursal__nombre }}</p>
-                        <p class="text-[10px] text-gray-500">{{ s.realizadas }}/{{ s.cantidad }} realizadas</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm sm:text-base font-black text-blue-700">{{ s.cantidad }}</p>
-                        <p class="text-[10px] text-gray-500">sesiones</p>
-                    </div>
-                </div>
-                {% empty %}
-                <p class="text-xs text-gray-500 text-center py-3">Sin datos</p>
-                {% endfor %}
-            </div>
-        </div>
+    <div class="tasa-card" style="background:var(--blue-ll);border-color:#93c5fd;color:var(--blue)">
+      <div class="tc-label">Puntualidad Pacientes</div>
+      <div class="tc-val">{{ datos.stats.puntualidad|default:0|floatformat:1 }}%</div>
+      <div class="tc-sub">Sin retrasos de pacientes</div>
+      <div class="tc-bar"><div class="tc-fill" style="width:{{ datos.stats.puntualidad|default:0|floatformat:0 }}%;background:var(--blue)"></div></div>
     </div>
-    
-    <!-- Top Pacientes -->
-    <div class="bg-white border rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
-        <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">👥 Top 10 Pacientes Atendidos</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {% for p in datos.top_pacientes %}
-            <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                <div>
-                    <p class="text-xs font-bold text-gray-900">{{ forloop.counter }}. {{ p.paciente__nombre }} {{ p.paciente__apellido }}</p>
-                    <div class="flex gap-2 text-[10px] text-gray-500 mt-0.5">
-                        <span>✅ {{ p.realizadas }} realizadas</span>
-                        {% if p.faltas > 0 %}<span class="text-red-600">❌ {{ p.faltas }} faltas</span>{% endif %}
-                    </div>
-                </div>
-                <p class="text-lg sm:text-xl font-black text-blue-700">{{ p.sesiones }}</p>
-            </div>
-            {% empty %}
-            <p class="text-xs text-gray-500 text-center py-3 col-span-2">Sin datos</p>
-            {% endfor %}
-        </div>
+    <div class="tasa-card" style="background:var(--ruby-ll);border-color:#fca5a5;color:var(--ruby)">
+      <div class="tc-label">Tasa de Faltas</div>
+      <div class="tc-val">{{ datos.stats.tasa_faltas|default:0|floatformat:1 }}%</div>
+      <div class="tc-sub">Ausentismo sin aviso</div>
+      <div class="tc-bar"><div class="tc-fill" style="width:{{ datos.stats.tasa_faltas|default:0|floatformat:0 }}%;background:var(--ruby)"></div></div>
     </div>
-    
-    <!-- Por Día de la Semana -->
-    <div class="bg-white border rounded-lg p-3 sm:p-4">
-        <h3 class="text-xs sm:text-sm font-bold text-gray-900 mb-2 sm:mb-3">📅 Distribución Semanal</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {% for dia in datos.por_dia_semana %}
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3 text-center">
-                <p class="text-[10px] font-bold text-blue-600 uppercase">{{ dia.nombre|slice:":3" }}</p>
-                <p class="text-xl sm:text-2xl font-black text-blue-700 my-1">{{ dia.cantidad }}</p>
-                <p class="text-[10px] text-gray-600">{{ dia.realizadas }} ✅</p>
-            </div>
-            {% endfor %}
-        </div>
+    <div class="tasa-card" style="background:var(--amber-ll);border-color:#fde68a;color:#92400e">
+      <div class="tc-label">Productividad</div>
+      <div class="tc-val">{{ datos.stats.ocupacion|default:0|floatformat:1 }}%</div>
+      <div class="tc-sub">Sesiones realizadas sobre disponibles</div>
+      <div class="tc-bar"><div class="tc-fill" style="width:{{ datos.stats.ocupacion|default:0|floatformat:0 }}%;background:var(--amber)"></div></div>
     </div>
-    
-    {% endif %}
+  </div>
+
+  <!-- CHARTS -->
+  {% if grafico_data %}
+  <div class="g2">
+    <div class="chart-card">
+      <div class="cc-title">📈 Evolución Mensual de Sesiones</div>
+      <div class="cc-sub">Realizadas · Faltas · Total por mes</div>
+      <canvas id="chart-evolucion" height="155"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">💰 Ingresos Generados por Mes</div>
+      <div class="cc-sub">Monto facturado por este profesional</div>
+      <canvas id="chart-ingresos" height="155"></canvas>
+    </div>
+  </div>
+  <div class="g3" style="margin-bottom:14px">
+    <div class="chart-card">
+      <div class="cc-title">🩺 Sesiones por Servicio</div>
+      <div class="cc-sub">Distribución de servicios prestados</div>
+      <canvas id="chart-servicios" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">📊 Distribución de Estados</div>
+      <div class="cc-sub">Realizadas · Faltas · Retrasos</div>
+      <canvas id="chart-estados" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="cc-title">📅 Sesiones por Día</div>
+      <div class="cc-sub">Carga de trabajo semanal</div>
+      <canvas id="chart-dias" height="160"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- SERVICIOS + SUCURSALES -->
+  <div class="g2" style="margin-bottom:14px">
+    <div class="card">
+      <h3>🩺 Servicios Prestados</h3>
+      <div class="scroll-list">
+        {% for s in datos.por_servicio %}
+        <div class="hmap-row">
+          <div class="hmap-header">
+            <span class="hmap-label">{{ s.servicio__nombre }}</span>
+            <span style="font-size:0.75rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--emerald)">{{ s.realizadas }}/{{ s.cantidad }}</span>
+          </div>
+          <div class="hmap-track">
+            {% if s.cantidad > 0 %}
+            <div class="hmap-seg" style="background:var(--emerald);flex:{{ s.realizadas }};border-radius:8px 0 0 8px"></div>
+            <div class="hmap-seg" style="background:var(--ruby);flex:{{ s.faltas|default:0 }}"></div>
+            <div class="hmap-seg" style="background:var(--border);flex:{{ s.otros|default:0 }};border-radius:0 8px 8px 0"></div>
+            {% else %}
+            <div style="width:100%;background:var(--border);border-radius:8px"></div>
+            {% endif %}
+          </div>
+          <div class="hmap-legend">
+            <span>✅ {{ s.realizadas }}</span>
+            <span style="color:var(--ruby)">❌ {{ s.faltas|default:0 }}</span>
+            <span style="color:var(--amber)">⏱ {{ s.horas|default:0|floatformat:1 }}h</span>
+            {% if s.ingresos %}<span style="color:var(--teal);font-weight:700">Bs.{{ s.ingresos|floatformat:0 }}</span>{% endif %}
+          </div>
+        </div>
+        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <h3>🏢 Actividad por Sucursal</h3>
+      <div class="scroll-list">
+        {% for s in datos.por_sucursal %}
+        <div class="list-item">
+          <div>
+            <div class="li-name">{{ s.sucursal__nombre|default:"Sin asignar" }}</div>
+            <div class="li-sub">✅ {{ s.realizadas }}/{{ s.sesiones }} · ⏱ {{ s.horas|default:0|floatformat:1 }}h</div>
+          </div>
+          <div>
+            <div class="li-val" style="color:var(--emerald)">Bs. {{ s.ingresos|default:0|floatformat:0 }}</div>
+            <div class="li-sub2">ingresos</div>
+          </div>
+        </div>
+        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- PACIENTES RANKING -->
+  <div class="sec-hdr">
+    <h2>👥 Ranking de Pacientes Atendidos</h2>
+    <span class="sec-tag" style="background:var(--emerald-ll);color:var(--emerald-d)">{{ datos.por_paciente|length }} pacientes</span>
+  </div>
+  <div class="g2" style="margin-bottom:14px">
+    <div>
+      <div style="font-size:0.75rem;font-weight:700;color:var(--muted);margin-bottom:8px;padding:0 2px">🏆 Mayor asistencia</div>
+      {% for p in datos.por_paciente|slice:":10" %}
+      <div class="pat-rank-row {% if p.tasa >= 90 %}rank-best{% elif p.tasa >= 75 %}rank-good{% elif p.tasa >= 60 %}rank-mid{% else %}rank-bad{% endif %}">
+        <span class="prr-num">{{ forloop.counter }}</span>
+        <div class="prr-body">
+          <div class="prr-name">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</div>
+          <div class="prr-stats">
+            <span style="color:var(--emerald)">✅ {{ p.realizadas }}</span>
+            <span style="color:var(--ruby)">❌ {{ p.faltas|default:0 }}</span>
+            <span>Total: {{ p.sesiones }}</span>
+            {% if p.ingresos %}<span style="color:var(--teal)">Bs.{{ p.ingresos|floatformat:0 }}</span>{% endif %}
+          </div>
+          <div class="prr-bar"><div class="prr-fill" style="width:{{ p.tasa|default:0 }}%;background:{% if p.tasa >= 90 %}var(--emerald){% elif p.tasa >= 75 %}var(--blue){% elif p.tasa >= 60 %}var(--amber){% else %}var(--ruby){% endif %}"></div></div>
+        </div>
+        <div class="prr-tasa" style="color:{% if p.tasa >= 90 %}var(--emerald){% elif p.tasa >= 75 %}var(--blue){% elif p.tasa >= 60 %}var(--amber){% else %}var(--ruby){% endif %}">{{ p.tasa|default:0|floatformat:1 }}%</div>
+      </div>
+      {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+    </div>
+
+    <!-- Tabla completa -->
+    <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)">
+      <table class="big-table">
+        <thead><tr><th>#</th><th>Paciente</th><th>Sesiones</th><th>Realizadas</th><th>Faltas</th><th>Horas</th><th>Ingresos</th><th>Asistencia</th></tr></thead>
+        <tbody>
+          {% for p in datos.por_paciente %}
+          <tr>
+            <td class="mono" style="color:var(--muted2)">{{ forloop.counter }}</td>
+            <td style="font-weight:700">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</td>
+            <td class="mono">{{ p.sesiones }}</td>
+            <td class="mono" style="color:var(--emerald)">{{ p.realizadas }}</td>
+            <td class="mono" style="color:var(--ruby)">{{ p.faltas|default:0 }}</td>
+            <td class="mono" style="color:var(--violet)">{{ p.horas|default:0|floatformat:1 }}h</td>
+            <td class="mono" style="color:var(--teal)">Bs.{{ p.ingresos|default:0|floatformat:0 }}</td>
+            <td><span class="tx-badge" style="background:{% if p.tasa >= 85 %}var(--emerald-ll);color:var(--emerald-d){% elif p.tasa >= 70 %}var(--blue-ll);color:var(--blue){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ p.tasa|default:0|floatformat:1 }}%</span></td>
+          </tr>
+          {% empty %}<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Sin datos</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SESIONES POR DÍA DE LA SEMANA -->
+  {% if por_dia_semana %}
+  <div class="sec-hdr"><h2>📅 Actividad por Día de la Semana</h2></div>
+  <div class="card" style="margin-bottom:14px">
+    <h3>Distribución de sesiones por día</h3>
+    {% for dia in por_dia_semana %}
+    <div class="sched-item">
+      <span class="sched-day">{{ dia.nombre }}</span>
+      <div class="sched-bar">
+        {% if dia.total > 0 %}
+        <div class="sched-seg" style="background:var(--emerald);flex:{{ dia.realizadas }}"></div>
+        <div class="sched-seg" style="background:var(--amber);flex:{{ dia.retrasos|default:0 }}"></div>
+        <div class="sched-seg" style="background:var(--ruby);flex:{{ dia.faltas }}"></div>
+        <div class="sched-seg" style="background:var(--border);flex:1"></div>
+        {% else %}<div class="sched-seg" style="background:var(--border);flex:1;border-radius:8px"></div>{% endif %}
+      </div>
+      <span class="sched-total">{{ dia.total }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- MENSUALIDADES A CARGO -->
+  {% if mensualidades_cargo %}
+  <div class="sec-hdr">
+    <h2>📅 Mensualidades a Cargo</h2>
+    <span class="sec-tag" style="background:var(--violet-l);color:var(--violet)">{{ mensualidades_cargo|length }}</span>
+  </div>
+  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+    <table class="big-table">
+      <thead><tr><th>Código</th><th>Paciente</th><th>Período</th><th>Servicios</th><th>Sesiones</th><th>Realizadas</th><th>Costo</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for m in mensualidades_cargo %}
+        <tr>
+          <td class="mono" style="font-size:0.68rem;color:var(--muted)">{{ m.codigo }}</td>
+          <td style="font-weight:700">{{ m.paciente.nombre_completo }}</td>
+          <td style="font-size:0.73rem;white-space:nowrap">{{ m.get_mes_display }} {{ m.anio }}</td>
+          <td style="font-size:0.72rem">{{ m.servicios_count|default:"—" }}</td>
+          <td class="mono">{{ m.num_sesiones }}</td>
+          <td class="mono" style="color:var(--emerald)">{{ m.num_sesiones_realizadas }}</td>
+          <td class="mono" style="color:var(--teal)">Bs.{{ m.costo_mensual|floatformat:0 }}</td>
+          <td><span class="tx-badge" style="background:{% if m.estado == 'activa' %}var(--emerald-ll);color:var(--emerald-d){% elif m.estado == 'pagada' %}var(--blue-ll);color:var(--blue){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ m.get_estado_display }}</span></td>
+        </tr>
+        {% empty %}<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Sin mensualidades</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- PROYECTOS A CARGO -->
+  {% if proyectos_cargo %}
+  <div class="sec-hdr">
+    <h2>📁 Proyectos como Responsable</h2>
+    <span class="sec-tag" style="background:var(--teal-l);color:var(--teal)">{{ proyectos_cargo|length }}</span>
+  </div>
+  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
+    <table class="big-table">
+      <thead><tr><th>Código</th><th>Nombre</th><th>Paciente</th><th>Tipo</th><th>Inicio</th><th>Costo</th><th>Pagado</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for p in proyectos_cargo %}
+        <tr>
+          <td class="mono" style="font-size:0.68rem;color:var(--muted)">{{ p.codigo }}</td>
+          <td style="font-weight:700">{{ p.nombre }}</td>
+          <td>{{ p.paciente.nombre_completo }}</td>
+          <td style="font-size:0.72rem">{{ p.get_tipo_display }}</td>
+          <td style="font-size:0.72rem;white-space:nowrap">{{ p.fecha_inicio|date:"d/m/Y" }}</td>
+          <td class="mono">Bs.{{ p.costo_total|floatformat:0 }}</td>
+          <td class="mono" style="color:var(--emerald)">Bs.{{ p.total_pagado_neto|floatformat:0 }}</td>
+          <td><span class="tx-badge" style="background:{% if p.estado == 'en_progreso' %}var(--sky-l);color:var(--sky){% elif p.estado == 'completado' %}var(--emerald-ll);color:var(--emerald-d){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ p.get_estado_display }}</span></td>
+        </tr>
+        {% empty %}<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Sin proyectos</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-xl);padding:60px 40px;text-align:center;box-shadow:var(--shadow-sm)">
+    <div style="font-size:3rem;margin-bottom:14px">👨‍⚕️</div>
+    <h3 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin:0 0 8px">Selecciona un profesional para comenzar</h3>
+    <p style="font-size:0.8rem;color:var(--muted);margin:0">Elige un profesional y período para ver su reporte completo de productividad.</p>
+  </div>
+  {% endif %}
+
 </div>
 
 {% if grafico_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const ctx = document.getElementById('grafico-evolucion');
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: {{ grafico_data.labels|safe }},
-        datasets: [
-            {
-                label: 'Sesiones Totales',
-                data: {{ grafico_data.sesiones|safe }},
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 3
-            },
-            {
-                label: 'Realizadas',
-                data: {{ grafico_data.realizadas|safe }},
-                borderColor: 'rgb(34, 197, 94)',
-                backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 3
-            },
-            {
-                label: 'Ingresos (Bs.)',
-                data: {{ grafico_data.ingresos|safe }},
-                borderColor: 'rgb(168, 85, 247)',
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                tension: 0.3,
-                yAxisID: 'y1',
-                borderWidth: 2,
-                pointRadius: 3
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        interaction: {
-            mode: 'index',
-            intersect: false,
-        },
-        plugins: {
-            legend: { 
-                position: 'top',
-                labels: {
-                    padding: 10,
-                    font: {
-                        size: 10
-                    }
-                }
-            }
-        },
-        scales: {
-            y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Sesiones',
-                    font: {
-                        size: 10
-                    }
-                },
-                ticks: {
-                    font: {
-                        size: 9
-                    }
-                }
-            },
-            y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Ingresos (Bs.)',
-                    font: {
-                        size: 10
-                    }
-                },
-                grid: {
-                    drawOnChartArea: false,
-                },
-                ticks: {
-                    font: {
-                        size: 9
-                    }
-                }
-            },
-            x: {
-                ticks: {
-                    font: {
-                        size: 9
-                    }
-                }
-            }
-        }
-    }
-});
+Chart.defaults.font.family = "'Space Grotesk', sans-serif";
+Chart.defaults.color = '#4a7a5e';
+
+new Chart(document.getElementById('chart-evolucion'),{type:'bar',data:{labels:{{ grafico_data.labels|safe }},datasets:[{label:'Realizadas',data:{{ grafico_data.realizadas|safe }},backgroundColor:'rgba(5,150,105,0.7)',borderColor:'#059669',borderWidth:2,borderRadius:5,borderSkipped:false,order:2},{label:'Faltas',data:{{ grafico_data.faltas|safe }},backgroundColor:'rgba(190,18,60,0.5)',borderColor:'#be123c',borderWidth:2,borderRadius:5,borderSkipped:false,order:2},{label:'Total',data:{{ grafico_data.sesiones|safe }},type:'line',borderColor:'#1d4ed8',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#1d4ed8',fill:false,order:1}]},options:{responsive:true,maintainAspectRatio:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:10},padding:12,usePointStyle:true}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}});
+
+new Chart(document.getElementById('chart-ingresos'),{type:'line',data:{labels:{{ grafico_data.labels|safe }},datasets:[{label:'Ingresos',data:{{ grafico_data.ingresos|safe|default:'[]' }},borderColor:'#059669',backgroundColor:'rgba(5,150,105,0.1)',tension:0.4,fill:true,borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#059669'}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` Bs. ${ctx.raw?.toFixed(2)||0}`}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>'Bs.'+v},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}});
+
+new Chart(document.getElementById('chart-servicios'),{type:'doughnut',data:{labels:[{% for s in datos.por_servicio %}"{{ s.servicio__nombre }}"{% if not forloop.last %},{% endif %}{% endfor %}],datasets:[{data:[{% for s in datos.por_servicio %}{{ s.cantidad }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:['#059669','#1d4ed8','#7c3aed','#0d9488','#d97706','#be123c','#0284c7'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'right',labels:{font:{size:9},padding:8,usePointStyle:true}}}}});
+
+new Chart(document.getElementById('chart-estados'),{type:'doughnut',data:{labels:['Realizadas','Con Retraso','Faltas','Permisos','Canceladas'],datasets:[{data:[{{ datos.stats.realizadas|default:0 }},{{ datos.stats.retrasos|default:0 }},{{ datos.stats.faltas|default:0 }},{{ datos.stats.permisos|default:0 }},{{ datos.stats.canceladas|default:0 }}],backgroundColor:['#059669','#1d4ed8','#be123c','#7c3aed','#94a3b8'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{position:'right',labels:{font:{size:9},padding:8,usePointStyle:true}}}}});
+
+new Chart(document.getElementById('chart-dias'),{type:'bar',data:{labels:[{% for d in por_dia_semana %}"{{ d.nombre }}"{% if not forloop.last %},{% endif %}{% endfor %}],datasets:[{label:'Realizadas',data:[{% for d in por_dia_semana %}{{ d.realizadas }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:'rgba(5,150,105,0.7)',borderRadius:5,borderSkipped:false},{label:'Faltas',data:[{% for d in por_dia_semana %}{{ d.faltas }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:'rgba(190,18,60,0.5)',borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:9},padding:8,usePointStyle:true}}},scales:{y:{beginAtZero:true,stacked:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{stacked:true,ticks:{font:{size:9}},grid:{display:false}}}}});
 </script>
 {% endif %}
+<script>
+function aplicarRango(r){const hoy=new Date();let d,h=hoy.toISOString().split('T')[0];if(r==='mes'){d=new Date(hoy.getFullYear(),hoy.getMonth(),1).toISOString().split('T')[0];}else if(r==='mes_anterior'){const i=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);const f=new Date(hoy.getFullYear(),hoy.getMonth(),0);d=i.toISOString().split('T')[0];h=f.toISOString().split('T')[0];}else if(r==='trimestre'){const dd=new Date(hoy);dd.setMonth(hoy.getMonth()-3);d=dd.toISOString().split('T')[0];}else if(r==='anio'){d=new Date(hoy.getFullYear(),0,1).toISOString().split('T')[0];}else return;document.querySelector('[name="fecha_desde"]').value=d;document.querySelector('[name="fecha_hasta"]').value=h;}
+function exportCSV(){const rows=[['Profesional','{{ profesional.nombre_completo|default:"" }}'],['Período','{{ fecha_desde }}','{{ fecha_hasta }}'],['',''],['Total Sesiones','{{ datos.stats.total_sesiones|default:0 }}'],['Realizadas','{{ datos.stats.realizadas|default:0 }}'],['Faltas','{{ datos.stats.faltas|default:0 }}'],['Pacientes únicos','{{ datos.stats.pacientes_unicos|default:0 }}'],['Horas','{{ datos.stats.total_horas|floatformat:2 }}'],['Ingresos','{{ datos.stats.ingresos_generados|default:0 }}'],['Tasa Asistencia','{{ datos.stats.tasa_asistencia|floatformat:2 }}%']];const csv=rows.map(r=>r.join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='profesional_{{ profesional.id|default:"0" }}_{{ fecha_desde }}.csv';a.click();}
+</script>
 {% endblock %}

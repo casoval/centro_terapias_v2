@@ -1,131 +1,360 @@
 {% extends 'base.html' %}
-
-{% block title %}Reportes{% endblock %}
-
+{% block title %}Centro de Reportes{% endblock %}
 {% block content %}
-<div class="max-w-5xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
-    
-    <h1 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">📊 Centro de Reportes</h1>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-        
-        <!-- Reporte por Paciente -->
-        <a href="{% url 'facturacion:reporte_paciente' %}" class="block bg-white border-2 border-blue-200 rounded-lg p-3 sm:p-4 hover:border-blue-400 hover:shadow-lg transition">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">👤</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Reporte por Paciente</h2>
-                    <p class="text-xs text-gray-600">
-                        Historial completo de sesiones, asistencia, servicios utilizados y estado financiero de cada paciente.
-                    </p>
-                    <ul class="mt-2 text-xs text-gray-500 space-y-0.5">
-                        <li>✓ Total de sesiones y asistencia</li>
-                        <li>✓ Desglose por servicio</li>
-                        <li>✓ Evolución mensual</li>
-                        <li>✓ Estado de cuenta</li>
-                    </ul>
-                </div>
-            </div>
-        </a>
-        
-        <!-- Reporte por Profesional -->
-        <a href="{% url 'facturacion:reporte_profesional' %}" class="block bg-white border-2 border-green-200 rounded-lg p-3 sm:p-4 hover:border-green-400 hover:shadow-lg transition">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">👨‍⚕️</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Reporte por Profesional</h2>
-                    <p class="text-xs text-gray-600">
-                        Desempeño de cada profesional: sesiones atendidas, ingresos generados y distribución de servicios.
-                    </p>
-                    <ul class="mt-2 text-xs text-gray-500 space-y-0.5">
-                        <li>✓ Sesiones por período</li>
-                        <li>✓ Ingresos generados</li>
-                        <li>✓ Pacientes atendidos</li>
-                        <li>✓ Distribución por sucursal</li>
-                    </ul>
-                </div>
-            </div>
-        </a>
-        
-        <!-- Reporte por Sucursal -->
-        <a href="{% url 'facturacion:reporte_sucursal' %}" class="block bg-white border-2 border-purple-200 rounded-lg p-3 sm:p-4 hover:border-purple-400 hover:shadow-lg transition">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">🏢</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Reporte por Sucursal</h2>
-                    <p class="text-xs text-gray-600">
-                        Análisis comparativo entre sucursales: actividad, ingresos, profesionales y servicios más demandados.
-                    </p>
-                    <ul class="mt-2 text-xs text-gray-500 space-y-0.5">
-                        <li>✓ Comparativa entre sucursales</li>
-                        <li>✓ Servicios más utilizados</li>
-                        <li>✓ Profesionales activos</li>
-                        <li>✓ Rendimiento mensual</li>
-                    </ul>
-                </div>
-            </div>
-        </a>
-        
-        <!-- Reporte Financiero -->
-        <a href="{% url 'facturacion:reporte_financiero' %}" class="block bg-white border-2 border-yellow-200 rounded-lg p-3 sm:p-4 hover:border-yellow-400 hover:shadow-lg transition">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">💰</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Reporte Financiero</h2>
-                    <p class="text-xs text-gray-600">
-                        Dashboard completo de ingresos: cobrado, pendiente, métodos de pago y evolución temporal.
-                    </p>
-                    <ul class="mt-2 text-xs text-gray-500 space-y-0.5">
-                        <li>✓ Ingresos totales</li>
-                        <li>✓ Por método de pago</li>
-                        <li>✓ Evolución mensual</li>
-                        <li>✓ Servicios más rentables</li>
-                    </ul>
-                </div>
-            </div>
-        </a>
-        
-        <!-- Reporte de Asistencia -->
-        <a href="{% url 'facturacion:reporte_asistencia' %}" class="block bg-white border-2 border-red-200 rounded-lg p-3 sm:p-4 hover:border-red-400 hover:shadow-lg transition">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">📅</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Reporte de Asistencia</h2>
-                    <p class="text-xs text-gray-600">
-                        Análisis de cumplimiento: tasas de asistencia, faltas, retrasos y ranking de pacientes.
-                    </p>
-                    <ul class="mt-2 text-xs text-gray-500 space-y-0.5">
-                        <li>✓ Tasa de asistencia</li>
-                        <li>✓ Faltas y permisos</li>
-                        <li>✓ Puntualidad</li>
-                        <li>✓ Ranking de pacientes</li>
-                    </ul>
-                </div>
-            </div>
-        </a>
-        
-        <!-- Exportar a Excel -->
-        <div class="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 rounded-lg p-3 sm:p-4">
-            <div class="flex items-start gap-2 sm:gap-3">
-                <div class="text-2xl sm:text-3xl">📥</div>
-                <div class="flex-1">
-                    <h2 class="text-sm sm:text-base font-bold text-gray-900 mb-1">Exportar Datos</h2>
-                    <p class="text-xs text-gray-600 mb-2">
-                        Descarga información en formato Excel para análisis externos.
-                    </p>
-                    <div class="space-y-1.5">
-                        <a href="{% url 'facturacion:exportar_excel' %}?tipo=cuentas" 
-                           class="block text-xs bg-white border rounded px-2 py-1.5 hover:bg-gray-50">
-                            📊 Cuentas Corrientes
-                        </a>
-                        <a href="{% url 'facturacion:exportar_excel' %}?tipo=pagos" 
-                           class="block text-xs bg-white border rounded px-2 py-1.5 hover:bg-gray-50">
-                            💵 Historial de Pagos
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+  
+  :root {
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --surface: #f8fafc;
+    --white: #ffffff;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+    --teal: #0d9488;
+    --teal-light: #ccfbf1;
+  }
+  
+  body { font-family: 'Outfit', sans-serif; background: var(--surface); }
+  
+  .rpt-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2d4a 100%);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .rpt-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .rpt-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; left: 20%;
+    width: 300px; height: 150px;
+    background: radial-gradient(ellipse, rgba(124,58,237,0.15) 0%, transparent 70%);
+  }
+  .rpt-hero h1 { color: #fff; font-size: 1.75rem; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .rpt-hero p { color: #94a3b8; font-size: 0.85rem; margin: 0; }
+  .rpt-hero .badge { 
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(37,99,235,0.3); border: 1px solid rgba(37,99,235,0.5);
+    color: #93c5fd; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em;
+    padding: 4px 10px; border-radius: 20px; margin-bottom: 10px; text-transform: uppercase;
+  }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+  .kpi-card .accent { position: absolute; top: 0; left: 0; width: 3px; height: 100%; border-radius: 12px 0 0 12px; }
+  .kpi-card .label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 6px; }
+  .kpi-card .value { font-size: 1.6rem; font-weight: 900; color: var(--ink); line-height: 1; font-family: 'JetBrains Mono', monospace; }
+  .kpi-card .sub { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+  .kpi-card .trend { font-size: 0.65rem; font-weight: 700; }
+  .trend-up { color: var(--green); }
+  .trend-down { color: var(--red); }
+
+  .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  
+  .report-card {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .report-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 60%, rgba(0,0,0,0.02) 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .report-card:hover { border-color: var(--card-color, var(--blue)); box-shadow: 0 8px 30px rgba(0,0,0,0.1); transform: translateY(-2px); }
+  .report-card:hover::before { opacity: 1; }
+  
+  .card-header { display: flex; align-items: flex-start; gap: 14px; }
+  .card-icon {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+    background: var(--card-bg, var(--blue-light));
+  }
+  .card-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin: 0 0 3px; }
+  .card-desc { font-size: 0.75rem; color: var(--muted); margin: 0; line-height: 1.4; }
+  
+  .card-features { display: flex; flex-wrap: wrap; gap: 6px; }
+  .feature-pill {
+    font-size: 0.65rem; font-weight: 600; padding: 3px 8px;
+    border-radius: 20px; background: var(--card-bg, var(--blue-light));
+    color: var(--card-color, var(--blue));
+  }
+  
+  .card-arrow {
+    position: absolute; top: 18px; right: 18px;
+    color: var(--muted); font-size: 0.9rem;
+    transition: transform 0.2s, color 0.2s;
+  }
+  .report-card:hover .card-arrow { transform: translate(3px, -3px); color: var(--card-color, var(--blue)); }
+
+  /* Export section */
+  .export-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .export-btn {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 0.78rem; font-weight: 600; color: var(--ink-2);
+    text-decoration: none; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .export-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+  .export-btn .icon { font-size: 1rem; }
+
+  /* Quick actions */
+  .quick-bar {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .quick-bar .qlabel { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+  .quick-chip {
+    font-size: 0.75rem; font-weight: 600; padding: 5px 12px;
+    border-radius: 8px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--ink-2); text-decoration: none; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .quick-chip:hover { background: var(--blue-light); border-color: var(--blue); color: var(--blue); }
+
+  /* Today summary */
+  .today-box {
+    background: linear-gradient(135deg, #0f172a, #1e3a5f);
+    border-radius: 14px;
+    padding: 20px;
+    color: white;
+    margin-bottom: 24px;
+  }
+  .today-box h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin: 0 0 14px; }
+  .today-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; }
+  .today-stat .ts-val { font-size: 1.4rem; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+  .today-stat .ts-label { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; }
+</style>
+
+<div class="max-w-6xl mx-auto px-3 py-4">
+
+  <!-- Hero Header -->
+  <div class="rpt-hero">
+    <div class="badge">📊 Analytics</div>
+    <h1>Centro de Reportes</h1>
+    <p>Análisis detallado · Rendimiento · Finanzas · Asistencia · Evolución clínica</p>
+  </div>
+
+  <!-- Quick Access Bar -->
+  <div class="quick-bar">
+    <span class="qlabel">Acceso rápido</span>
+    <a href="{% url 'facturacion:reporte_financiero' %}?rango=hoy" class="quick-chip">💵 Caja Hoy</a>
+    <a href="{% url 'facturacion:reporte_financiero' %}?rango=semana" class="quick-chip">📅 Esta Semana</a>
+    <a href="{% url 'facturacion:reporte_financiero' %}?rango=mes" class="quick-chip">📆 Este Mes</a>
+    <a href="{% url 'facturacion:reporte_asistencia' %}" class="quick-chip">✅ Asistencia Hoy</a>
+    <a href="{% url 'facturacion:reporte_financiero' %}?rango=cierre" class="quick-chip">🔒 Cierre de Caja</a>
+    <a href="{% url 'facturacion:exportar_excel' %}?tipo=pagos" class="quick-chip">⬇️ Exportar Excel</a>
+  </div>
+
+  <!-- KPI Cards - these would be populated from context in production -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--blue)"></div>
+      <div class="label">Sesiones Hoy</div>
+      <div class="value">{{ kpis.sesiones_hoy|default:"—" }}</div>
+      <div class="sub">programadas para hoy</div>
     </div>
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--green)"></div>
+      <div class="label">Ingresos Hoy</div>
+      <div class="value" style="font-size:1.1rem">Bs. {{ kpis.ingresos_hoy|default:"—" }}</div>
+      <div class="sub">cobrado hoy</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--amber)"></div>
+      <div class="label">Este Mes</div>
+      <div class="value" style="font-size:1.1rem">Bs. {{ kpis.ingresos_mes|default:"—" }}</div>
+      <div class="sub">ingreso mensual</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--red)"></div>
+      <div class="label">Pendiente</div>
+      <div class="value" style="font-size:1.1rem">Bs. {{ kpis.saldo_pendiente|default:"—" }}</div>
+      <div class="sub">por cobrar</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--purple)"></div>
+      <div class="label">Pacientes Activos</div>
+      <div class="value">{{ kpis.pacientes_activos|default:"—" }}</div>
+      <div class="sub">este mes</div>
+    </div>
+    <div class="kpi-card">
+      <div class="accent" style="background:var(--teal)"></div>
+      <div class="label">Asistencia</div>
+      <div class="value">{{ kpis.tasa_asistencia|default:"—" }}%</div>
+      <div class="sub">tasa del mes</div>
+    </div>
+  </div>
+
+  <!-- Section: Reportes Principales -->
+  <div class="section-title">📋 Reportes Analíticos</div>
+  
+  <div class="report-grid">
+    
+    <!-- Reporte por Paciente -->
+    <a href="{% url 'facturacion:reporte_paciente' %}" class="report-card" style="--card-color: var(--blue); --card-bg: var(--blue-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">👤</div>
+        <div>
+          <p class="card-title">Reporte por Paciente</p>
+          <p class="card-desc">Historial clínico completo, evolución sesión a sesión, estado financiero y notas de profesional.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Notas clínicas</span>
+        <span class="feature-pill">Estado financiero</span>
+        <span class="feature-pill">Evolución mensual</span>
+        <span class="feature-pill">Exportar PDF</span>
+      </div>
+    </a>
+
+    <!-- Reporte por Profesional -->
+    <a href="{% url 'facturacion:reporte_profesional' %}" class="report-card" style="--card-color: var(--green); --card-bg: var(--green-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">👨‍⚕️</div>
+        <div>
+          <p class="card-title">Reporte por Profesional</p>
+          <p class="card-desc">Desempeño individual, sesiones con notas de evolución, ingresos generados y análisis de puntualidad.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Notas de sesión</span>
+        <span class="feature-pill">Ingresos</span>
+        <span class="feature-pill">Puntualidad</span>
+        <span class="feature-pill">Exportar PDF</span>
+      </div>
+    </a>
+
+    <!-- Reporte Financiero -->
+    <a href="{% url 'facturacion:reporte_financiero' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">💰</div>
+        <div>
+          <p class="card-title">Reporte Financiero</p>
+          <p class="card-desc">Ingresos diarios, semanales y mensuales. Cierre de caja, métodos de pago y análisis de deudores.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Cierre de caja</span>
+        <span class="feature-pill">Por método pago</span>
+        <span class="feature-pill">Deudores</span>
+        <span class="feature-pill">Exportar PDF</span>
+      </div>
+    </a>
+
+    <!-- Reporte por Sucursal -->
+    <a href="{% url 'facturacion:reporte_sucursal' %}" class="report-card" style="--card-color: var(--purple); --card-bg: var(--purple-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">🏢</div>
+        <div>
+          <p class="card-title">Reporte por Sucursal</p>
+          <p class="card-desc">Comparativa entre sedes, profesionales activos, servicios más demandados y rendimiento mensual.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Comparativa</span>
+        <span class="feature-pill">Ocupación</span>
+        <span class="feature-pill">Top servicios</span>
+        <span class="feature-pill">Exportar PDF</span>
+      </div>
+    </a>
+
+    <!-- Reporte de Asistencia -->
+    <a href="{% url 'facturacion:reporte_asistencia' %}" class="report-card" style="--card-color: var(--red); --card-bg: var(--red-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">📅</div>
+        <div>
+          <p class="card-title">Reporte de Asistencia</p>
+          <p class="card-desc">Tasas de cumplimiento, faltas, retrasos y semáforo de pacientes con baja asistencia.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Tasa asistencia</span>
+        <span class="feature-pill">Retrasos exactos</span>
+        <span class="feature-pill">Semáforo</span>
+        <span class="feature-pill">Exportar PDF</span>
+      </div>
+    </a>
+
+    <!-- Exportar Datos -->
+    <div class="export-card" style="grid-column: auto;">
+      <p class="section-title" style="margin-bottom:14px">⬇️ Exportación de Datos</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="{% url 'facturacion:exportar_excel' %}?tipo=cuentas" class="export-btn">
+          <span class="icon">📊</span> Cuentas Corrientes (.xlsx)
+        </a>
+        <a href="{% url 'facturacion:exportar_excel' %}?tipo=pagos" class="export-btn">
+          <span class="icon">💵</span> Historial de Pagos (.xlsx)
+        </a>
+        <a href="{% url 'facturacion:exportar_excel' %}?tipo=sesiones" class="export-btn">
+          <span class="icon">📋</span> Sesiones Completas (.xlsx)
+        </a>
+        <a href="{% url 'facturacion:reporte_financiero' %}?rango=cierre" class="export-btn" style="border-color:var(--amber);color:var(--amber)">
+          <span class="icon">🔒</span> Generar Cierre de Caja
+        </a>
+      </div>
+    </div>
+
+  </div>
 </div>
 {% endblock %}
