@@ -1,545 +1,367 @@
 {% extends 'base.html' %}
-{% block title %}Reporte por Sucursal{% endblock %}
+{% block title %}Reporte Sucursal{% endblock %}
 {% block content %}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
   :root{
-    --ink:#140a28;--ink2:#281550;--ink3:#3d2278;
-    --muted:#6b52a0;--muted2:#9b82cc;--border:#d8ccf0;--border2:#ede8f8;
-    --surface:#f5f2fc;--surface2:#ede8f8;--white:#fff;
-    --violet:#7c3aed;--violet-d:#6d28d9;--violet-l:#ede9fe;--violet-ll:#f5f3ff;
-    --emerald:#059669;--emerald-l:#d1fae5;--emerald-ll:#ecfdf5;
-    --blue:#1d4ed8;--blue-l:#dbeafe;--blue-ll:#eff6ff;
-    --amber:#d97706;--amber-l:#fef3c7;--amber-ll:#fffbeb;
-    --ruby:#be123c;--ruby-l:#ffe4e6;--ruby-ll:#fff1f2;
-    --teal:#0d9488;--teal-l:#ccfbf1;
-    --sky:#0284c7;--sky-l:#e0f2fe;
-    --shadow-sm:0 1px 3px rgba(20,10,40,0.06);--shadow:0 4px 14px rgba(20,10,40,0.08);--shadow-lg:0 12px 32px rgba(20,10,40,0.12);
-    --r:12px;--r-lg:16px;--r-xl:20px;
+    --ink:#0f172a;--ink2:#334155;--muted:#64748b;--border:#e2e8f0;--surface:#f8fafc;--white:#fff;
+    --green:#16a34a;--green-l:#dcfce7;--blue:#2563eb;--blue-l:#dbeafe;
+    --red:#dc2626;--red-l:#fee2e2;--amber:#d97706;--amber-l:#fef3c7;
+    --purple:#7c3aed;--purple-l:#ede9fe;--teal:#0d9488;--teal-l:#ccfbf1;
+    --violet:#6d28d9;--violet-l:#ede9fe;
+    --r:12px;
   }
-  *{box-sizing:border-box;}
-  body{font-family:'Nunito',sans-serif;background:var(--surface);color:var(--ink);}
-  @media print{.no-print{display:none!important;}.print-only{display:block!important;}body{background:white!important;font-size:10px;}.page-break{page-break-before:always;}.hero{background:#140a28!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
-  .print-only{display:none;}
-  .wrap{max-width:1380px;margin:0 auto;padding:16px 20px 40px;}
+  body{font-family:'Nunito',sans-serif;background:var(--surface)}
+  @media print{.no-print{display:none!important} body{background:white!important}}
+  .mono{font-family:'Fira Code',monospace}
 
-  /* HERO */
-  .hero{background:linear-gradient(135deg,#140a28 0%,#1e0f40 45%,#2d1568 75%,#120924 100%);border-radius:var(--r-xl);padding:28px 32px 24px;margin-bottom:18px;color:white;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.05);}
-  .hero::before{content:'';position:absolute;top:-60px;right:-30px;width:300px;height:300px;background:radial-gradient(circle,rgba(124,58,237,0.22) 0%,transparent 65%);border-radius:50%;}
-  .hero-nav{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;position:relative;z-index:1;}
-  .back-link{color:rgba(255,255,255,0.5);font-size:0.72rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
-  .back-link:hover{color:rgba(255,255,255,0.9);}
-  .hero-actions{display:flex;gap:8px;}
-  .btn-ghost{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);color:rgba(255,255,255,0.8);font-size:0.72rem;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:'Nunito',sans-serif;transition:all 0.15s;}
-  .btn-ghost:hover{background:rgba(255,255,255,0.14);}
-  .hero-body{margin-top:18px;position:relative;z-index:1;}
-  .hero-eye{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#c4b5fd;margin-bottom:6px;}
-  .hero-title{font-size:2rem;font-weight:900;line-height:1.1;margin:0 0 5px;letter-spacing:-0.025em;}
-  .hero-sub{font-size:0.77rem;color:rgba(255,255,255,0.4);margin:0;}
+  .rpt-header{background:linear-gradient(135deg,#2e1065 0%,#4c1d95 50%,#3b0764 100%);
+    border-radius:16px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden}
+  .rpt-header::after{content:'';position:absolute;top:-30px;right:-30px;width:180px;height:180px;
+    background:radial-gradient(circle,rgba(167,139,250,.25) 0%,transparent 70%);border-radius:50%}
+  .back{color:#c4b5fd;text-decoration:none;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
+  .rpt-header h1{font-size:1.5rem;font-weight:900;margin:0 0 4px}
+  .rpt-header p{color:#c4b5fd;font-size:.8rem;margin:0}
+  .print-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
+    border:1px solid rgba(255,255,255,.3);color:white;font-size:.75rem;font-weight:700;
+    padding:6px 14px;border-radius:8px;cursor:pointer;margin-top:10px}
 
-  /* FILTER */
-  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
-  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
-  .fg{display:flex;flex-direction:column;}
-  .fg label{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
-  .filter-bar select,.filter-bar input[type="date"]{padding:8px 10px;font-size:0.77rem;border:1px solid var(--border);border-radius:8px;color:var(--ink);font-family:'Nunito',sans-serif;background:var(--surface);outline:none;}
-  .filter-bar select:focus,.filter-bar input:focus{border-color:var(--violet);}
-  .btn-primary{background:var(--violet);color:white;border:none;padding:8px 18px;border-radius:8px;font-size:0.77rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;display:inline-flex;align-items:center;gap:5px;}
-  .btn-primary:hover{background:var(--violet-d);}
+  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
+  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+  .fg{display:flex;flex-direction:column;gap:3px}
+  .fg label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .fg select,.fg input[type=date]{padding:7px 10px;font-size:.78rem;border:1px solid var(--border);
+    border-radius:8px;color:var(--ink);font-family:'Nunito',sans-serif;min-width:150px}
+  .btn-primary{background:var(--violet);color:white;border:none;padding:7px 16px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;align-self:flex-end}
 
-  /* SUC IDENTITY */
-  .suc-identity{background:linear-gradient(135deg,var(--violet-ll),var(--white));border:1.5px solid #c4b5fd;border-radius:var(--r-xl);padding:20px 24px;margin-bottom:16px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;box-shadow:var(--shadow-sm);}
-  .suc-av{width:70px;height:70px;border-radius:var(--r-lg);background:linear-gradient(135deg,var(--violet),var(--violet-d));display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;box-shadow:0 4px 12px rgba(124,58,237,0.3);}
-  .suc-main{flex:1;}
-  .suc-name{font-size:1.4rem;font-weight:900;color:var(--ink);margin:0 0 6px;}
-  .suc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
-  .schip{font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--violet-l);color:var(--violet-d);border:1px solid #c4b5fd;}
-  .schip.green{background:var(--emerald-ll);color:#065f46;border-color:#a7f3d0;}
-  .schip.blue{background:var(--blue-ll);color:var(--blue);border-color:#bfdbfe;}
-  .suc-meta{display:flex;flex-wrap:wrap;gap:14px;}
-  .pm{font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:4px;}
-  .suc-kpis{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto;}
-  .sk{text-align:center;}
-  .sk-val{font-size:1.5rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--violet);}
-  .sk-label{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);}
+  /* Sucursal card */
+  .suc-card{background:linear-gradient(135deg,#2e1065,#3b0764);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:white;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .suc-avatar{width:64px;height:64px;border-radius:14px;background:rgba(255,255,255,.15);
+    display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0}
+  .suc-info{flex:1;min-width:200px}
+  .suc-name{font-size:1.2rem;font-weight:900;margin:0 0 4px}
+  .suc-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:700;
+    padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+  .chip.green{background:rgba(34,197,94,.2);color:#86efac}
+  .suc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-top:12px}
+  .sk-item{background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;text-align:center}
+  .sk-label{font-size:.58rem;font-weight:700;text-transform:uppercase;opacity:.6;margin-bottom:3px}
+  .sk-val{font-size:1.1rem;font-weight:900;font-family:'Fira Code',monospace}
 
-  /* STATS */
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;}
-  .stat-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;text-align:center;position:relative;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform 0.18s;}
-  .stat-box:hover{transform:translateY(-2px);}
-  .sb-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0;}
-  .sb-label{font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
-  .sb-val{font-size:1.5rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--ink);}
-  .sb-sub{font-size:0.62rem;color:var(--muted);margin-top:3px;}
+  /* Stats */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+  .kpi-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px;position:relative;overflow:hidden}
+  .kpi-box .accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
+  .kpi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
+  .kpi-val{font-size:1.4rem;font-weight:900;color:var(--ink);font-family:'Fira Code',monospace;line-height:1}
+  .kpi-sub{font-size:.65rem;color:var(--muted);margin-top:4px}
 
-  /* RATE CARDS */
-  .rate-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px;}
-  .rate-card{border-radius:var(--r-lg);padding:18px;border:2px solid;}
-  .rc-label{font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;opacity:0.7;}
-  .rc-val{font-size:2.2rem;font-weight:800;font-family:'Fira Code',monospace;line-height:1;}
-  .rc-sub{font-size:0.67rem;margin-top:5px;opacity:0.65;}
-  .rc-bar{height:5px;background:rgba(0,0,0,0.08);border-radius:10px;margin-top:10px;overflow:hidden;}
-  .rc-fill{height:100%;border-radius:10px;transition:width 1.3s ease;}
+  /* Rate cards */
+  .rate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+  .rate-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+  .rc-label{font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .rc-val{font-size:1.4rem;font-weight:900;font-family:'Fira Code',monospace;margin-bottom:8px}
+  .rc-bar{height:6px;background:var(--border);border-radius:10px;overflow:hidden}
+  .rc-fill{height:100%;border-radius:10px;transition:width 1s}
 
-  /* CHARTS */
-  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--shadow-sm);}
-  .cc-title{font-size:0.82rem;font-weight:800;color:var(--ink);margin:0 0 3px;}
-  .cc-sub{font-size:0.65rem;color:var(--muted);margin:0 0 14px;}
+  /* Charts */
+  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
+  .chart-card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 12px}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  @media(max-width:768px){.two-col{grid-template-columns:1fr}}
 
-  /* GRIDS */
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
-  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
-  @media(max-width:900px){.g2,.g3{grid-template-columns:1fr;}}
+  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+  .card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 10px}
+  .list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:8px;background:var(--surface);margin-bottom:6px;flex-wrap:wrap;gap:6px}
+  .li-name{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .li-sub{font-size:.65rem;color:var(--muted);margin-top:2px}
+  .li-val{font-size:.88rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--green)}
+  .scroll-list{max-height:240px;overflow-y:auto}
 
-  /* CARD */
-  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--shadow-sm);}
-  .card h3{font-size:0.82rem;font-weight:800;color:var(--ink);margin:0 0 12px;display:flex;align-items:center;gap:6px;}
-  .scroll-list{max-height:290px;overflow-y:auto;padding-right:3px;}
-  .scroll-list::-webkit-scrollbar{width:3px;}
-  .scroll-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+  /* Comparativa */
+  .comp-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
+    margin-bottom:5px;background:var(--surface)}
+  .comp-item.current{background:var(--violet-l);border:1px solid rgba(109,40,217,.2)}
+  .comp-name{font-size:.78rem;font-weight:700;color:var(--ink);min-width:120px}
+  .comp-bar-wrap{flex:1;height:14px;background:var(--border);border-radius:8px;overflow:hidden}
+  .comp-bar{height:100%;border-radius:8px;background:var(--violet)}
+  .comp-val{font-size:.72rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink2);min-width:40px;text-align:right}
 
-  /* LIST */
-  .list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r);background:var(--surface);margin-bottom:6px;transition:background 0.12s;}
-  .list-item:hover{background:var(--violet-ll);}
-  .li-name{font-size:0.8rem;font-weight:700;color:var(--ink);}
-  .li-sub{font-size:0.63rem;color:var(--muted);margin-top:2px;}
-  .li-val{font-size:0.88rem;font-weight:700;font-family:'Fira Code',monospace;text-align:right;}
-  .li-sub2{font-size:0.6rem;color:var(--muted);margin-top:2px;text-align:right;}
+  /* Prof ranking */
+  .prof-table{width:100%;border-collapse:collapse;font-size:.75rem}
+  .prof-table th{background:var(--surface);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)}
+  .prof-table td{padding:9px 10px;border-bottom:1px solid var(--border)}
+  .prof-table tr:hover td{background:var(--violet-l)}
+  .tasa-bar{height:4px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:3px}
+  .tasa-fill{height:100%;border-radius:10px}
 
-  /* HMAP */
-  .hmap-row{margin-bottom:10px;}
-  .hmap-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
-  .hmap-label{font-size:0.75rem;font-weight:700;color:var(--ink);}
-  .hmap-track{display:flex;height:16px;border-radius:8px;overflow:hidden;gap:1px;}
-  .hmap-seg{min-width:2px;}
-  .hmap-legend{display:flex;gap:10px;font-size:0.6rem;color:var(--muted);margin-top:3px;flex-wrap:wrap;}
+  .section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 
-  /* BIG TABLE */
-  .big-table{width:100%;border-collapse:collapse;font-size:0.75rem;}
-  .big-table thead th{background:var(--surface2);color:var(--muted);font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;padding:9px 10px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;}
-  .big-table tbody tr{border-bottom:1px solid var(--border2);transition:background 0.1s;}
-  .big-table tbody tr:hover{background:var(--violet-ll);}
-  .big-table td{padding:9px 10px;}
-  .mono{font-family:'Fira Code',monospace;font-weight:600;}
-  .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;}
-
-  /* PROF CARD */
-  .pcard{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:transform 0.18s;}
-  .pcard:hover{transform:translateY(-2px);}
-  .pcard-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0;}
-  .pcard-name{font-size:0.85rem;font-weight:800;color:var(--ink);margin-bottom:3px;}
-  .pcard-spec{font-size:0.65rem;color:var(--muted);margin-bottom:10px;}
-  .pcard-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-  .pcs{background:var(--surface);border-radius:8px;padding:7px 8px;text-align:center;}
-  .pcs-val{font-size:1rem;font-weight:700;font-family:'Fira Code',monospace;}
-  .pcs-label{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-top:2px;}
-  .pcard-bar-wrap{margin-top:10px;}
-  .pcard-bar{height:4px;background:var(--border);border-radius:10px;overflow:hidden;}
-  .pcard-fill{height:100%;border-radius:10px;transition:width 1.2s ease;}
-
-  /* COMPARATIVA SUCURSALES */
-  .comp-row{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:var(--r);background:var(--surface);margin-bottom:6px;}
-  .cr-num{font-size:0.7rem;font-weight:800;color:var(--muted2);min-width:22px;font-family:'Fira Code',monospace;}
-  .cr-name{font-size:0.78rem;font-weight:700;color:var(--ink);flex:1;}
-  .cr-bar{width:100px;height:6px;background:var(--border);border-radius:10px;overflow:hidden;}
-  .cr-fill{height:100%;border-radius:10px;background:var(--violet);}
-  .cr-val{font-size:0.82rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--violet);min-width:70px;text-align:right;}
-
-  /* SEC HDR */
-  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;}
-  .sec-hdr h2{font-size:0.95rem;font-weight:800;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
-  .sec-tag{font-size:0.63rem;font-weight:700;padding:3px 9px;border-radius:20px;}
-
-  @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-  .stat-box{animation:fadeUp 0.35s ease both;}
-  .stat-box:nth-child(2){animation-delay:.05s;}.stat-box:nth-child(3){animation-delay:.1s;}.stat-box:nth-child(4){animation-delay:.15s;}.stat-box:nth-child(5){animation-delay:.2s;}.stat-box:nth-child(6){animation-delay:.25s;}.stat-box:nth-child(7){animation-delay:.3s;}.stat-box:nth-child(8){animation-delay:.35s;}
+  /* Empty */
+  .suc-chips-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .suc-chip-link{font-size:.8rem;font-weight:700;padding:8px 14px;border-radius:10px;background:var(--white);
+    border:1px solid var(--border);color:var(--ink2);text-decoration:none;transition:all .15s}
+  .suc-chip-link:hover{border-color:var(--violet);color:var(--violet);background:var(--violet-l)}
 </style>
 
-<div class="wrap">
+<div class="max-w-7xl mx-auto px-3 py-4">
 
-  <!-- HERO -->
-  <div class="hero no-print">
-    <div class="hero-nav">
-      <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Volver a Reportes</a>
-      <div class="hero-actions">
-        <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
-        <button onclick="exportCSV()" class="btn-ghost">📥 CSV</button>
-      </div>
-    </div>
-    <div class="hero-body">
-      <div class="hero-eye">Análisis Operacional de Sede</div>
-      <h1 class="hero-title">🏢 Reporte por Sucursal</h1>
-      <p class="hero-sub">Sesiones · Asistencia · Ingresos · Profesionales · Servicios · Pacientes · Evolución · Comparativa</p>
-    </div>
+  <!-- Header -->
+  <div class="rpt-header no-print">
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back">← Volver a Reportes</a>
+    <h1>🏢 Reporte por Sucursal</h1>
+    <p>Operaciones · Ingresos · Profesionales · Comparativa entre sedes</p>
+    <button onclick="window.print()" class="print-btn">🖨️ Imprimir / PDF</button>
   </div>
 
-  <div class="print-only" style="margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;">
-    <h1 style="font-size:1.3rem;font-weight:800;margin:0 0 4px;">Reporte por Sucursal{% if sucursal %} — {{ sucursal.nombre }}{% endif %}</h1>
-    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }} · Generado: {% now "d/m/Y H:i" %}</p>
-  </div>
-
-  <!-- FILTER -->
+  <!-- Filters -->
   <div class="filter-bar no-print">
     <form method="get">
       <div class="fg">
         <label>Sucursal</label>
-        <select name="sucursal" onchange="this.form.submit()" style="min-width:200px">
-          <option value="">— Todas las sucursales —</option>
-          {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal and sucursal.id == s.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+        <select name="sucursal">
+          <option value="">— Seleccionar —</option>
+          {% for s in sucursales %}
+          <option value="{{ s.id }}" {% if sucursal and sucursal.id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
       <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
-      <div class="fg">
-        <label>Profesional</label>
-        <select name="profesional">
-          <option value="">Todos</option>
-          {% for p in profesionales %}<option value="{{ p.id }}" {% if prof_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }} {{ p.apellido }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="fg">
-        <label>Rango rápido</label>
-        <select name="rango" onchange="aplicarRango(this.value)">
-          <option value="">Personalizado</option>
-          <option value="mes">Este mes</option>
-          <option value="mes_anterior">Mes anterior</option>
-          <option value="trimestre">Trimestre</option>
-          <option value="anio">Este año</option>
-        </select>
-      </div>
-      <button type="submit" class="btn-primary">🔍 Generar</button>
+      <button type="submit" class="btn-primary">🔍 Ver reporte</button>
     </form>
   </div>
 
-  {% if datos %}
-
-  <!-- IDENTITY CARD -->
-  {% if sucursal %}
-  <div class="suc-identity">
-    <div class="suc-av">🏢</div>
-    <div class="suc-main">
-      <div class="suc-name">{{ sucursal.nombre }}</div>
-      <div class="suc-chips">
-        <span class="schip {% if sucursal.activa %}green{% endif %}">{% if sucursal.activa %}🟢 Activa{% else %}🔴 Inactiva{% endif %}</span>
-        {% if sucursal.ciudad %}<span class="schip blue">📍 {{ sucursal.ciudad }}</span>{% endif %}
-        {% if sucursal.responsable %}<span class="schip">👤 Resp: {{ sucursal.responsable }}</span>{% endif %}
-      </div>
-      <div class="suc-meta">
-        {% if sucursal.direccion %}<span class="pm">🗺️ {{ sucursal.direccion }}</span>{% endif %}
-        {% if sucursal.telefono %}<span class="pm">📱 {{ sucursal.telefono }}</span>{% endif %}
-        {% if sucursal.email %}<span class="pm">✉️ {{ sucursal.email }}</span>{% endif %}
-        {% if sucursal.horario_atencion %}<span class="pm">🕐 {{ sucursal.horario_atencion }}</span>{% endif %}
-      </div>
-    </div>
-    <div class="suc-kpis">
-      <div class="sk"><div class="sk-val">{{ datos.stats.total_sesiones }}</div><div class="sk-label">Sesiones</div></div>
-      <div class="sk"><div class="sk-val" style="color:var(--emerald)">{{ datos.stats.ingresos_generados|default:0|floatformat:0 }}</div><div class="sk-label">Bs. Ingresados</div></div>
-      <div class="sk"><div class="sk-val" style="color:var(--blue)">{{ datos.stats.profesionales_activos|default:0 }}</div><div class="sk-label">Profesionales</div></div>
-      <div class="sk"><div class="sk-val" style="color:var(--amber)">{{ datos.stats.pacientes_unicos|default:0 }}</div><div class="sk-label">Pacientes</div></div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- STATS -->
-  <div class="stats-grid">
-    <div class="stat-box"><div class="sb-accent" style="background:var(--violet)"></div><div class="sb-label">Total Sesiones</div><div class="sb-val">{{ datos.stats.total_sesiones }}</div><div class="sb-sub">en el período</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Realizadas</div><div class="sb-val" style="color:var(--emerald)">{{ datos.stats.realizadas }}</div><div class="sb-sub">completadas</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--ruby)"></div><div class="sb-label">Faltas</div><div class="sb-val" style="color:var(--ruby)">{{ datos.stats.faltas }}</div><div class="sb-sub">ausentismo</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--amber)"></div><div class="sb-label">Retrasos</div><div class="sb-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div><div class="sb-sub">con demora</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--blue)"></div><div class="sb-label">Pacientes únicos</div><div class="sb-val" style="color:var(--blue)">{{ datos.stats.pacientes_unicos|default:0 }}</div><div class="sb-sub">atendidos</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--teal)"></div><div class="sb-label">Profesionales</div><div class="sb-val" style="color:var(--teal)">{{ datos.stats.profesionales_activos|default:0 }}</div><div class="sb-sub">activos período</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--violet)"></div><div class="sb-label">Ingresos</div><div class="sb-val" style="color:var(--violet);font-size:0.9rem">{{ datos.stats.ingresos_generados|default:0|floatformat:0 }}</div><div class="sb-sub">Bs. generados</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--sky)"></div><div class="sb-label">Horas clínicas</div><div class="sb-val" style="color:var(--sky);font-size:1.1rem">{{ datos.stats.total_horas|default:0|floatformat:1 }}h</div><div class="sb-sub">tiempo de atención</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Asistencia</div><div class="sb-val" style="font-size:1rem">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div><div class="sb-sub">tasa cumplimiento</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--amber)"></div><div class="sb-label">Promedio/sesión</div><div class="sb-val" style="color:var(--amber);font-size:1rem">{{ datos.stats.promedio_sesion|default:0|floatformat:0 }}</div><div class="sb-sub">Bs. por sesión</div></div>
-  </div>
-
-  <!-- RATE CARDS -->
-  <div class="rate-grid">
-    <div class="rate-card" style="background:var(--violet-ll);border-color:#c4b5fd;color:var(--violet-d)">
-      <div class="rc-label">Tasa de Asistencia</div>
-      <div class="rc-val">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div>
-      <div class="rc-sub">Sesiones realizadas sobre programadas</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.tasa_asistencia|floatformat:0 }}%;background:var(--violet)"></div></div>
-    </div>
-    <div class="rate-card" style="background:var(--emerald-ll);border-color:#6ee7b7;color:#065f46">
-      <div class="rc-label">Puntualidad</div>
-      <div class="rc-val">{{ datos.stats.puntualidad|default:0|floatformat:1 }}%</div>
-      <div class="rc-sub">Sesiones sin retraso</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.puntualidad|default:0|floatformat:0 }}%;background:var(--emerald)"></div></div>
-    </div>
-    <div class="rate-card" style="background:var(--ruby-ll);border-color:#fca5a5;color:var(--ruby)">
-      <div class="rc-label">Tasa de Faltas</div>
-      <div class="rc-val">{{ datos.stats.tasa_faltas|default:0|floatformat:1 }}%</div>
-      <div class="rc-sub">Ausentismo sin aviso</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.tasa_faltas|default:0|floatformat:0 }}%;background:var(--ruby)"></div></div>
-    </div>
-    <div class="rate-card" style="background:var(--amber-ll);border-color:#fde68a;color:#92400e">
-      <div class="rc-label">Cancelaciones</div>
-      <div class="rc-val">{{ datos.stats.tasa_cancelaciones|default:0|floatformat:1 }}%</div>
-      <div class="rc-sub">Sesiones canceladas</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.tasa_cancelaciones|default:0|floatformat:0 }}%;background:var(--amber)"></div></div>
-    </div>
-  </div>
-
-  <!-- CHARTS -->
-  {% if grafico_data %}
-  <div class="g2">
-    <div class="chart-card">
-      <div class="cc-title">📈 Evolución de Sesiones</div>
-      <div class="cc-sub">Realizadas · Faltas · Total mensual</div>
-      <canvas id="chart-evolucion" height="155"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="cc-title">💰 Evolución de Ingresos</div>
-      <div class="cc-sub">Ingresos generados por mes</div>
-      <canvas id="chart-ingresos" height="155"></canvas>
-    </div>
-  </div>
-  <div class="g3" style="margin-bottom:14px">
-    <div class="chart-card">
-      <div class="cc-title">🩺 Servicios más demandados</div>
-      <div class="cc-sub">Distribución de sesiones por servicio</div>
-      <canvas id="chart-servicios" height="165"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="cc-title">📊 Estados de Sesiones</div>
-      <div class="cc-sub">Porcentaje de cumplimiento</div>
-      <canvas id="chart-estados" height="165"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="cc-title">👨‍⚕️ Sesiones por Profesional</div>
-      <div class="cc-sub">Carga de trabajo comparativa</div>
-      <canvas id="chart-profesionales" height="165"></canvas>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- PROFESIONALES -->
-  <div class="sec-hdr">
-    <h2>👨‍⚕️ Profesionales de la Sucursal</h2>
-    <span class="sec-tag" style="background:var(--violet-l);color:var(--violet-d)">{{ por_profesional|length }} profesionales</span>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:14px">
-    {% for p in por_profesional %}
-    <div class="pcard">
-      <div class="pcard-accent" style="background:{% cycle '#7c3aed' '#059669' '#1d4ed8' '#d97706' '#be123c' '#0d9488' %}"></div>
-      <div class="pcard-name">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</div>
-      <div class="pcard-spec">{{ p.especialidad|default:"Profesional" }} · {{ p.sesiones }} sesiones</div>
-      <div class="pcard-stats">
-        <div class="pcs"><div class="pcs-val" style="color:var(--emerald)">{{ p.realizadas }}</div><div class="pcs-label">Realizadas</div></div>
-        <div class="pcs"><div class="pcs-val" style="color:var(--ruby)">{{ p.faltas|default:0 }}</div><div class="pcs-label">Faltas pac.</div></div>
-        <div class="pcs"><div class="pcs-val" style="color:var(--blue)">{{ p.pacientes_unicos|default:0 }}</div><div class="pcs-label">Pacientes</div></div>
-        <div class="pcs"><div class="pcs-val" style="color:var(--teal);font-size:0.85rem">Bs.{{ p.ingresos|default:0|floatformat:0 }}</div><div class="pcs-label">Ingresos</div></div>
-      </div>
-      <div class="pcard-bar-wrap">
-        <div style="display:flex;justify-content:space-between;font-size:0.62rem;color:var(--muted);margin-bottom:4px"><span>Asistencia pacientes</span><span style="font-weight:700;color:{% if p.tasa_asistencia >= 85 %}var(--emerald){% elif p.tasa_asistencia >= 70 %}var(--violet){% else %}var(--ruby){% endif %}">{{ p.tasa_asistencia|default:0|floatformat:1 }}%</span></div>
-        <div class="pcard-bar"><div class="pcard-fill" style="width:{{ p.tasa_asistencia|default:0 }}%;background:{% if p.tasa_asistencia >= 85 %}var(--emerald){% elif p.tasa_asistencia >= 70 %}var(--violet){% else %}var(--ruby){% endif %}"></div></div>
-      </div>
-    </div>
-    {% empty %}<p style="font-size:0.8rem;color:var(--muted);padding:20px">Sin profesionales en este período.</p>{% endfor %}
-  </div>
-
-  <!-- TABLA PROFESIONALES -->
-  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
-    <table class="big-table">
-      <thead><tr><th>#</th><th>Profesional</th><th>Sesiones</th><th>Realizadas</th><th>Faltas pac.</th><th>Retrasos</th><th>Pacientes</th><th>Horas</th><th>Ingresos</th><th>Asistencia</th></tr></thead>
-      <tbody>
-        {% for p in por_profesional %}
-        <tr>
-          <td class="mono" style="color:var(--muted2)">{{ forloop.counter }}</td>
-          <td style="font-weight:700">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</td>
-          <td class="mono">{{ p.sesiones }}</td>
-          <td class="mono" style="color:var(--emerald)">{{ p.realizadas }}</td>
-          <td class="mono" style="color:var(--ruby)">{{ p.faltas|default:0 }}</td>
-          <td class="mono" style="color:var(--amber)">{{ p.retrasos|default:0 }}</td>
-          <td class="mono" style="color:var(--blue)">{{ p.pacientes_unicos|default:0 }}</td>
-          <td class="mono" style="color:var(--violet)">{{ p.horas|default:0|floatformat:1 }}h</td>
-          <td class="mono" style="color:var(--teal)">Bs.{{ p.ingresos|default:0|floatformat:0 }}</td>
-          <td><span class="tx-badge" style="background:{% if p.tasa_asistencia >= 85 %}var(--emerald-ll);color:#065f46{% elif p.tasa_asistencia >= 70 %}var(--violet-ll);color:var(--violet-d){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ p.tasa_asistencia|default:0|floatformat:1 }}%</span></td>
-        </tr>
-        {% empty %}<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--muted)">Sin datos</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- SERVICIOS + DÍAS -->
-  <div class="g2" style="margin-bottom:14px">
-    <div class="card">
-      <h3>🩺 Servicios Más Demandados</h3>
-      <div class="scroll-list">
-        {% for s in por_servicio %}
-        <div class="hmap-row">
-          <div class="hmap-header">
-            <span class="hmap-label">{{ s.servicio__nombre }}</span>
-            <span style="font-size:0.75rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--violet)">{{ s.realizadas }}/{{ s.cantidad }}</span>
-          </div>
-          <div class="hmap-track">
-            {% if s.cantidad > 0 %}
-            <div class="hmap-seg" style="background:var(--emerald);flex:{{ s.realizadas }};border-radius:8px 0 0 8px"></div>
-            <div class="hmap-seg" style="background:var(--ruby);flex:{{ s.faltas|default:0 }}"></div>
-            <div class="hmap-seg" style="background:var(--border);flex:{{ s.otros|default:1 }};border-radius:0 8px 8px 0"></div>
-            {% else %}<div style="width:100%;background:var(--border);border-radius:8px;height:16px"></div>{% endif %}
-          </div>
-          <div class="hmap-legend">
-            <span>✅ {{ s.realizadas }}</span>
-            <span style="color:var(--ruby)">❌ {{ s.faltas|default:0 }}</span>
-            {% if s.ingresos %}<span style="color:var(--teal);font-weight:700">Bs.{{ s.ingresos|floatformat:0 }}</span>{% endif %}
-          </div>
-        </div>
-        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
-      </div>
-    </div>
-    <div class="card">
-      <h3>📅 Carga por Día de la Semana</h3>
-      <div class="scroll-list">
-        {% for d in por_dia_semana %}
-        <div class="hmap-row">
-          <div class="hmap-header">
-            <span class="hmap-label">{{ d.nombre }}</span>
-            <span style="font-size:0.75rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--violet)">{{ d.total }}</span>
-          </div>
-          <div class="hmap-track">
-            {% if d.total > 0 %}
-            <div class="hmap-seg" style="background:var(--emerald);flex:{{ d.realizadas }}"></div>
-            <div class="hmap-seg" style="background:var(--amber);flex:{{ d.retrasos|default:0 }}"></div>
-            <div class="hmap-seg" style="background:var(--ruby);flex:{{ d.faltas }}"></div>
-            <div class="hmap-seg" style="background:var(--border);flex:1"></div>
-            {% else %}<div style="width:100%;background:var(--border);border-radius:8px;height:16px"></div>{% endif %}
-          </div>
-          <div class="hmap-legend">
-            <span>✅ {{ d.realizadas }}</span>
-            <span style="color:var(--ruby)">❌ {{ d.faltas }}</span>
-            {% if d.retrasos %}<span style="color:var(--amber)">⏰ {{ d.retrasos }}</span>{% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- PACIENTES TOP -->
-  <div class="sec-hdr">
-    <h2>👥 Pacientes con Mayor Actividad</h2>
-    <span class="sec-tag" style="background:var(--blue-ll);color:var(--blue)">{{ por_paciente|length }} pacientes</span>
-  </div>
-  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
-    <table class="big-table">
-      <thead><tr><th>#</th><th>Paciente</th><th>Sesiones</th><th>Realizadas</th><th>Faltas</th><th>Servicios</th><th>Ingresos</th><th>Asistencia</th></tr></thead>
-      <tbody>
-        {% for p in por_paciente %}
-        <tr>
-          <td class="mono" style="color:var(--muted2)">{{ forloop.counter }}</td>
-          <td style="font-weight:700">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</td>
-          <td class="mono">{{ p.sesiones }}</td>
-          <td class="mono" style="color:var(--emerald)">{{ p.realizadas }}</td>
-          <td class="mono" style="color:var(--ruby)">{{ p.faltas|default:0 }}</td>
-          <td style="font-size:0.72rem;color:var(--muted)">{{ p.servicios|default:"—" }}</td>
-          <td class="mono" style="color:var(--teal)">Bs.{{ p.ingresos|default:0|floatformat:0 }}</td>
-          <td><span class="tx-badge" style="background:{% if p.tasa >= 85 %}var(--emerald-ll);color:#065f46{% elif p.tasa >= 70 %}var(--violet-ll);color:var(--violet-d){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ p.tasa|default:0|floatformat:1 }}%</span></td>
-        </tr>
-        {% empty %}<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted)">Sin datos</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- COMPARATIVA GLOBAL -->
-  {% if comparativa_sucursales %}
-  <div class="sec-hdr"><h2>🔀 Comparativa entre Sucursales</h2></div>
-  <div class="g2" style="margin-bottom:14px">
-    <div class="card">
-      <h3>📊 Por Sesiones Realizadas</h3>
-      {% for s in comparativa_sucursales %}
-      <div class="comp-row">
-        <span class="cr-num">{{ forloop.counter }}</span>
-        <span class="cr-name">{% if sucursal and s.sucursal_id == sucursal.id %}<strong>{{ s.nombre }}</strong>{% else %}{{ s.nombre }}{% endif %}</span>
-        <div class="cr-bar"><div class="cr-fill" style="width:{{ s.pct_sesiones|default:0 }}%"></div></div>
-        <span class="cr-val">{{ s.realizadas }}</span>
-      </div>
+  {% if not sucursal %}
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:16px;padding:30px">
+    <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 14px">Selecciona una sucursal para comenzar</p>
+    <div class="suc-chips-grid">
+      {% for s in sucursales %}
+      <a href="?sucursal={{ s.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}" class="suc-chip-link">🏢 {{ s.nombre }}</a>
       {% endfor %}
     </div>
-    <div class="card">
-      <h3>💰 Por Ingresos Generados</h3>
-      {% for s in comparativa_sucursales %}
-      <div class="comp-row">
-        <span class="cr-num">{{ forloop.counter }}</span>
-        <span class="cr-name">{% if sucursal and s.sucursal_id == sucursal.id %}<strong>{{ s.nombre }}</strong>{% else %}{{ s.nombre }}{% endif %}</span>
-        <div class="cr-bar"><div class="cr-fill" style="width:{{ s.pct_ingresos|default:0 }}%;background:var(--teal)"></div></div>
-        <span class="cr-val" style="color:var(--teal)">Bs.{{ s.ingresos|default:0|floatformat:0 }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- MENSUALIDADES ACTIVAS -->
-  {% if mensualidades_activas %}
-  <div class="sec-hdr">
-    <h2>📅 Mensualidades Activas en la Sucursal</h2>
-    <span class="sec-tag" style="background:var(--violet-l);color:var(--violet-d)">{{ mensualidades_activas|length }}</span>
-  </div>
-  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
-    <table class="big-table">
-      <thead><tr><th>Código</th><th>Paciente</th><th>Período</th><th>Servicios</th><th>Sesiones</th><th>Realizadas</th><th>Costo</th><th>Pagado</th><th>Estado</th></tr></thead>
-      <tbody>
-        {% for m in mensualidades_activas %}
-        <tr>
-          <td class="mono" style="font-size:0.68rem;color:var(--muted)">{{ m.codigo }}</td>
-          <td style="font-weight:700">{{ m.paciente.nombre_completo }}</td>
-          <td style="white-space:nowrap;font-size:0.73rem">{{ m.get_mes_display }} {{ m.anio }}</td>
-          <td style="font-size:0.72rem">{{ m.servicios_count|default:"—" }}</td>
-          <td class="mono">{{ m.num_sesiones }}</td>
-          <td class="mono" style="color:var(--emerald)">{{ m.num_sesiones_realizadas }}</td>
-          <td class="mono">Bs.{{ m.costo_mensual|floatformat:0 }}</td>
-          <td class="mono" style="color:var(--emerald)">Bs.{{ m.total_pagado|floatformat:0 }}</td>
-          <td><span class="tx-badge" style="background:{% if m.estado == 'activa' %}var(--emerald-ll);color:#065f46{% elif m.estado == 'pagada' %}var(--blue-ll);color:var(--blue){% else %}var(--ruby-ll);color:var(--ruby){% endif %}">{{ m.get_estado_display }}</span></td>
-        </tr>
-        {% empty %}<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--muted)">Sin mensualidades</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  <!-- TOTAL BAR -->
-  <div style="background:var(--ink);color:white;border-radius:var(--r-lg);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:8px">
-    <div><div style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.4);margin-bottom:3px">Período analizado</div><div style="font-size:1rem;font-weight:700;font-family:'Fira Code',monospace;color:#c4b5fd">{{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</div></div>
-    <div style="text-align:center"><div style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.4);margin-bottom:3px">Sesiones</div><div style="font-size:1.3rem;font-weight:700;font-family:'Fira Code',monospace;color:white">{{ datos.stats.total_sesiones }}</div></div>
-    <div style="text-align:center"><div style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.4);margin-bottom:3px">Asistencia</div><div style="font-size:1.3rem;font-weight:700;font-family:'Fira Code',monospace;color:#6ee7b7">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div></div>
-    <div style="text-align:right"><div style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.4);margin-bottom:3px">Ingresos generados</div><div style="font-size:1.3rem;font-weight:700;font-family:'Fira Code',monospace;color:#c4b5fd">Bs. {{ datos.stats.ingresos_generados|default:0|floatformat:2 }}</div></div>
   </div>
 
   {% else %}
-  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-xl);padding:60px 40px;text-align:center;box-shadow:var(--shadow-sm)">
-    <div style="font-size:3rem;margin-bottom:14px">🏢</div>
-    <h3 style="font-size:1.1rem;font-weight:800;color:var(--ink);margin:0 0 8px">Selecciona una sucursal para comenzar</h3>
-    <p style="font-size:0.8rem;color:var(--muted);margin:0 0 16px">Elige una sucursal y período para generar el reporte operacional completo.</p>
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;font-size:0.72rem">
-      {% for s in sucursales %}<a href="?sucursal={{ s.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}" style="background:var(--violet-l);color:var(--violet);padding:5px 12px;border-radius:20px;text-decoration:none;font-weight:700;border:1px solid #c4b5fd">🏢 {{ s.nombre }}</a>{% endfor %}
+
+  <!-- Sucursal Card -->
+  <div class="suc-card">
+    <div class="suc-avatar">🏢</div>
+    <div class="suc-info">
+      <p class="suc-name">{{ sucursal.nombre }}</p>
+      <div class="suc-chips">
+        <span class="chip {% if sucursal.activa %}green{% endif %}">{% if sucursal.activa %}Activa{% else %}Inactiva{% endif %}</span>
+        {% if sucursal.telefono %}<span class="chip">📞 {{ sucursal.telefono }}</span>{% endif %}
+      </div>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.65)">
+        {% if sucursal.direccion %}📍 <b style="color:white">{{ sucursal.direccion }}</b>{% endif %}
+        · Período: <b style="color:white">{{ fecha_desde }} — {{ fecha_hasta }}</b>
+      </div>
+    </div>
+    {% if datos %}
+    <div class="suc-kpis">
+      <div class="sk-item"><div class="sk-label">Sesiones</div><div class="sk-val">{{ datos.stats.total_sesiones|default:0 }}</div></div>
+      <div class="sk-item"><div class="sk-label">Ingresos</div><div class="sk-val" style="font-size:.85rem">Bs. {{ datos.stats.ingresos_total|floatformat:0 }}</div></div>
+      <div class="sk-item"><div class="sk-label">Profesionales</div><div class="sk-val">{{ datos.stats.profesionales_activos|default:0 }}</div></div>
+      <div class="sk-item"><div class="sk-label">Pacientes</div><div class="sk-val">{{ datos.stats.pacientes_activos|default:0 }}</div></div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if datos %}
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
+      <div class="kpi-label">Total Sesiones</div><div class="kpi-val">{{ datos.stats.total_sesiones|default:0 }}</div><div class="kpi-sub">en el período</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
+      <div class="kpi-label">Realizadas</div><div class="kpi-val" style="color:var(--green)">{{ datos.stats.realizadas|default:0 }}</div><div class="kpi-sub">+ {{ datos.stats.retrasos|default:0 }} con retraso</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--red)"></div>
+      <div class="kpi-label">Faltas</div><div class="kpi-val" style="color:var(--red)">{{ datos.stats.faltas|default:0 }}</div><div class="kpi-sub">inasistencias</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--violet)"></div>
+      <div class="kpi-label">Ingresos Total</div><div class="kpi-val" style="font-size:.9rem">Bs. {{ datos.stats.ingresos_total|floatformat:0 }}</div><div class="kpi-sub">monto generado</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--teal)"></div>
+      <div class="kpi-label">Profesionales</div><div class="kpi-val">{{ datos.stats.profesionales_activos|default:0 }}</div><div class="kpi-sub">activos</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
+      <div class="kpi-label">Pacientes</div><div class="kpi-val">{{ datos.stats.pacientes_activos|default:0 }}</div><div class="kpi-sub">únicos</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--amber)"></div>
+      <div class="kpi-label">Horas Clínicas</div><div class="kpi-val">{{ datos.stats.total_horas_decimal|floatformat:1 }}h</div><div class="kpi-sub">efectivas</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
+      <div class="kpi-label">Ingreso Promedio</div><div class="kpi-val" style="font-size:.9rem">Bs. {{ datos.stats.ingreso_promedio|floatformat:0 }}</div><div class="kpi-sub">por sesión</div>
+    </div>
+  </div>
+
+  <!-- Rate cards -->
+  <div class="rate-grid">
+    <div class="rate-card">
+      <div class="rc-label">Tasa de Ocupación</div>
+      <div class="rc-val" style="color:{% if datos.stats.tasa_ocupacion >= 85 %}var(--green){% elif datos.stats.tasa_ocupacion >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ datos.stats.tasa_ocupacion|floatformat:1 }}%</div>
+      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.tasa_ocupacion|floatformat:0 }}%;background:{% if datos.stats.tasa_ocupacion >= 85 %}var(--green){% elif datos.stats.tasa_ocupacion >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
+    </div>
+    <div class="rate-card">
+      <div class="rc-label">Cancelaciones</div>
+      <div class="rc-val" style="color:var(--muted)">{{ datos.stats.canceladas|default:0 }}</div>
+      <div class="rc-bar"><div class="rc-fill" style="width:{% widthratio datos.stats.canceladas datos.stats.total_sesiones 100 %}%;background:#94a3b8"></div></div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  {% if grafico_data %}
+  <div class="two-col">
+    <div class="chart-card">
+      <h3>📈 Evolución mensual de sesiones</h3>
+      <canvas id="chart-sesiones" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>💰 Evolución de ingresos</h3>
+      <canvas id="chart-ingresos" height="200"></canvas>
     </div>
   </div>
   {% endif %}
 
+  <!-- Por servicio + top profesionales -->
+  <div class="two-col">
+    <div class="card">
+      <h3>🎯 Servicios más demandados</h3>
+      <div class="scroll-list">
+        {% for s in datos.por_servicio %}
+        <div class="list-item">
+          <div>
+            <div class="li-name">{{ s.servicio__nombre }}</div>
+            <div class="li-sub">{{ s.realizadas }} realizadas</div>
+          </div>
+          <div>
+            <div class="li-val">{{ s.cantidad }}</div>
+            <div style="font-size:.65rem;color:var(--muted);text-align:right">Bs. {{ s.ingresos|floatformat:0 }}</div>
+          </div>
+        </div>
+        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <h3>👤 Top Pacientes</h3>
+      <div class="scroll-list">
+        {% for p in datos.top_pacientes %}
+        <div class="list-item">
+          <div>
+            <div class="li-name">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</div>
+            <div class="li-sub">{{ p.realizadas }} realizadas</div>
+          </div>
+          <div class="li-val">{{ p.sesiones }}</div>
+        </div>
+        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Top profesionales table -->
+  {% if datos.top_profesionales %}
+  <div class="section-title">👨‍⚕️ Profesionales Activos</div>
+  <div class="card">
+    <div style="overflow-x:auto">
+      <table class="prof-table">
+        <thead><tr><th>#</th><th>Profesional</th><th>Sesiones</th><th>Realizadas</th><th>Ingresos</th><th>Tasa</th></tr></thead>
+        <tbody>
+          {% for p in datos.top_profesionales %}
+          <tr>
+            <td style="color:var(--muted);font-weight:700">{{ forloop.counter }}</td>
+            <td style="font-weight:700">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</td>
+            <td class="mono">{{ p.sesiones }}</td>
+            <td style="color:var(--green);font-weight:700" class="mono">{{ p.realizadas }}</td>
+            <td class="mono">Bs. {{ p.ingresos|floatformat:0 }}</td>
+            <td>
+              {% if p.sesiones > 0 %}
+              {% widthratio p.realizadas p.sesiones 100 as tpct %}
+              <div style="font-size:.72rem;font-weight:700;color:{% if tpct >= 85 %}var(--green){% elif tpct >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ tpct }}%</div>
+              <div class="tasa-bar"><div class="tasa-fill" style="width:{{ tpct }}%;background:{% if tpct >= 85 %}var(--green){% elif tpct >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Comparativa con otras sucursales -->
+  {% if comparativa %}
+  <div class="section-title">🏆 Comparativa entre Sucursales</div>
+  {% with max_ses=comparativa.0.sesiones %}
+  <div class="two-col">
+    <div class="card">
+      <h3>Por Sesiones</h3>
+      {% for suc in comparativa %}
+      <div class="comp-item {% if suc.es_actual %}current{% endif %}">
+        <span class="comp-name">{{ suc.nombre }}</span>
+        <div class="comp-bar-wrap">
+          <div class="comp-bar" style="width:{% widthratio suc.sesiones max_ses 100 %}%;{% if suc.es_actual %}background:var(--violet){% else %}background:var(--muted){% endif %}"></div>
+        </div>
+        <span class="comp-val">{{ suc.sesiones }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <h3>Por Ingresos</h3>
+      {% with max_ing=comparativa.0.ingresos %}
+      {% for suc in comparativa %}
+      <div class="comp-item {% if suc.es_actual %}current{% endif %}">
+        <span class="comp-name">{{ suc.nombre }}</span>
+        <div class="comp-bar-wrap">
+          <div class="comp-bar" style="width:{% widthratio suc.ingresos max_ing 100 %}%;{% if suc.es_actual %}background:var(--green){% else %}background:var(--muted){% endif %}"></div>
+        </div>
+        <span class="comp-val" style="font-size:.65rem">{{ suc.ingresos|floatformat:0 }}</span>
+      </div>
+      {% endfor %}
+      {% endwith %}
+    </div>
+  </div>
+  {% endwith %}
+  {% endif %}
+
+  {% endif %}{# end if datos #}
+
+  {% endif %}{# end if sucursal #}
 </div>
 
 {% if grafico_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-Chart.defaults.font.family = "'Nunito', sans-serif";
-Chart.defaults.color = '#6b52a0';
+const gLabels = {{ grafico_data.labels|safe }};
+const gSesiones = {{ grafico_data.sesiones|safe }};
+const gRealizadas = {{ grafico_data.realizadas|safe }};
+const gIngresos = {{ grafico_data.ingresos|safe }};
 
-new Chart(document.getElementById('chart-evolucion'),{type:'bar',data:{labels:{{ grafico_data.labels|safe }},datasets:[{label:'Realizadas',data:{{ grafico_data.realizadas|safe }},backgroundColor:'rgba(5,150,105,0.7)',borderColor:'#059669',borderWidth:2,borderRadius:5,borderSkipped:false,order:2},{label:'Faltas',data:{{ grafico_data.faltas|safe }},backgroundColor:'rgba(190,18,60,0.5)',borderColor:'#be123c',borderWidth:2,borderRadius:5,borderSkipped:false,order:2},{label:'Total',data:{{ grafico_data.sesiones|safe }},type:'line',borderColor:'#7c3aed',backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#7c3aed',fill:false,order:1}]},options:{responsive:true,maintainAspectRatio:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:10},padding:12,usePointStyle:true}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}});
+const ctx1 = document.getElementById('chart-sesiones');
+if(ctx1) new Chart(ctx1, {
+  type:'bar',
+  data:{labels:gLabels,datasets:[
+    {label:'Total',data:gSesiones,backgroundColor:'rgba(109,40,217,.5)',borderColor:'#6d28d9',borderWidth:2,borderRadius:5},
+    {label:'Realizadas',data:gRealizadas,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:5}
+  ]},
+  options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},
+    scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}}}
+});
 
-new Chart(document.getElementById('chart-ingresos'),{type:'line',data:{labels:{{ grafico_data.labels|safe }},datasets:[{label:'Ingresos',data:{{ grafico_data.ingresos|safe|default:'[]' }},borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.1)',tension:0.4,fill:true,borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#7c3aed'}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` Bs. ${ctx.raw?.toFixed(2)||0}`}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>'Bs.'+v},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}});
-
-new Chart(document.getElementById('chart-servicios'),{type:'doughnut',data:{labels:[{% for s in por_servicio %}"{{ s.servicio__nombre }}"{% if not forloop.last %},{% endif %}{% endfor %}],datasets:[{data:[{% for s in por_servicio %}{{ s.cantidad }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:['#7c3aed','#059669','#1d4ed8','#0d9488','#d97706','#be123c','#0284c7'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'65%',plugins:{legend:{position:'right',labels:{font:{size:9},padding:7,usePointStyle:true}}}}});
-
-new Chart(document.getElementById('chart-estados'),{type:'doughnut',data:{labels:['Realizadas','Con Retraso','Faltas','Permisos','Canceladas'],datasets:[{data:[{{ datos.stats.realizadas|default:0 }},{{ datos.stats.retrasos|default:0 }},{{ datos.stats.faltas|default:0 }},{{ datos.stats.permisos|default:0 }},{{ datos.stats.canceladas|default:0 }}],backgroundColor:['#059669','#1d4ed8','#be123c','#7c3aed','#94a3b8'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{position:'right',labels:{font:{size:9},padding:7,usePointStyle:true}}}}});
-
-new Chart(document.getElementById('chart-profesionales'),{type:'bar',data:{labels:[{% for p in por_profesional %}"{{ p.profesional__nombre|truncatechars:10 }}"{% if not forloop.last %},{% endif %}{% endfor %}],datasets:[{label:'Realizadas',data:[{% for p in por_profesional %}{{ p.realizadas }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:'rgba(5,150,105,0.7)',borderRadius:5,borderSkipped:false},{label:'Faltas',data:[{% for p in por_profesional %}{{ p.faltas|default:0 }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:'rgba(190,18,60,0.5)',borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:9},padding:8,usePointStyle:true}}},scales:{y:{beginAtZero:true,stacked:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{stacked:true,ticks:{font:{size:9}},grid:{display:false}}}}});
+const ctx2 = document.getElementById('chart-ingresos');
+if(ctx2) new Chart(ctx2, {
+  type:'line',
+  data:{labels:gLabels,datasets:[{
+    label:'Ingresos Bs.',data:gIngresos,
+    backgroundColor:'rgba(109,40,217,.1)',borderColor:'#6d28d9',borderWidth:2,
+    fill:true,tension:.4,pointBackgroundColor:'#6d28d9',pointRadius:4
+  }]},
+  options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},
+    scales:{y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>'Bs.'+v}},x:{ticks:{font:{size:9}}}}}
+});
 </script>
 {% endif %}
-<script>
-function aplicarRango(r){const hoy=new Date();let d,h=hoy.toISOString().split('T')[0];if(r==='mes'){d=new Date(hoy.getFullYear(),hoy.getMonth(),1).toISOString().split('T')[0];}else if(r==='mes_anterior'){const i=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);const f=new Date(hoy.getFullYear(),hoy.getMonth(),0);d=i.toISOString().split('T')[0];h=f.toISOString().split('T')[0];}else if(r==='trimestre'){const dd=new Date(hoy);dd.setMonth(hoy.getMonth()-3);d=dd.toISOString().split('T')[0];}else if(r==='anio'){d=new Date(hoy.getFullYear(),0,1).toISOString().split('T')[0];}else return;document.querySelector('[name="fecha_desde"]').value=d;document.querySelector('[name="fecha_hasta"]').value=h;}
-function exportCSV(){const rows=[['Sucursal','{{ sucursal.nombre|default:"Todas" }}'],['Período','{{ fecha_desde }}','{{ fecha_hasta }}'],['',''],['Total Sesiones','{{ datos.stats.total_sesiones|default:0 }}'],['Realizadas','{{ datos.stats.realizadas|default:0 }}'],['Faltas','{{ datos.stats.faltas|default:0 }}'],['Pacientes únicos','{{ datos.stats.pacientes_unicos|default:0 }}'],['Profesionales','{{ datos.stats.profesionales_activos|default:0 }}'],['Ingresos','{{ datos.stats.ingresos_generados|default:0 }}'],['Tasa Asistencia','{{ datos.stats.tasa_asistencia|floatformat:2 }}%']];const csv=rows.map(r=>r.join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='sucursal_{{ sucursal.id|default:"todas" }}_{{ fecha_desde }}.csv';a.click();}
-</script>
 {% endblock %}

@@ -2852,9 +2852,76 @@ def anular_pago(request, pago_id):
 def dashboard_reportes(request):
     """
     Dashboard de reportes - punto de entrada
-    OPTIMIZADO: Vista simple con enlaces
+    ✅ CORREGIDO: Calcula y pasa KPIs al template
     """
-    return render(request, 'facturacion/reportes/dashboard.html')
+    from datetime import date
+    from decimal import Decimal
+    from django.db.models import Count, Sum, Q
+
+    hoy = date.today()
+    inicio_mes = hoy.replace(day=1)
+
+    # ── Sesiones hoy
+    sesiones_hoy_qs = Sesion.objects.filter(fecha=hoy)
+    sesiones_hoy = sesiones_hoy_qs.count()
+
+    # ── Sesiones del mes para tasa de asistencia
+    sesiones_mes = Sesion.objects.filter(fecha__gte=inicio_mes, fecha__lte=hoy)
+    stats_mes = sesiones_mes.aggregate(
+        total=Count('id'),
+        realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso']))
+    )
+    total_mes = stats_mes['total'] or 0
+    realizadas_mes = stats_mes['realizadas'] or 0
+    tasa_asistencia = round(realizadas_mes / total_mes * 100, 1) if total_mes > 0 else 0
+
+    # ── Pacientes con sesión este mes
+    pacientes_activos = Sesion.objects.filter(
+        fecha__gte=inicio_mes
+    ).values('paciente').distinct().count()
+
+    # ── Financiero: ingresos hoy y mes
+    ingresos_hoy = Decimal('0.00')
+    ingresos_mes = Decimal('0.00')
+    saldo_pendiente = Decimal('0.00')
+
+    try:
+        ingresos_hoy = Pago.objects.filter(
+            fecha_pago=hoy, anulado=False
+        ).exclude(metodo_pago__nombre="Uso de Crédito").aggregate(
+            t=Sum('monto')
+        )['t'] or Decimal('0.00')
+
+        ingresos_mes = Pago.objects.filter(
+            fecha_pago__gte=inicio_mes,
+            fecha_pago__lte=hoy,
+            anulado=False
+        ).exclude(metodo_pago__nombre="Uso de Crédito").aggregate(
+            t=Sum('monto')
+        )['t'] or Decimal('0.00')
+
+        # Saldo pendiente: cuentas con saldo negativo
+        from facturacion.models import CuentaCorriente
+        saldo_pendiente = CuentaCorriente.objects.filter(
+            saldo_actual__lt=0
+        ).aggregate(
+            t=Sum('saldo_actual')
+        )['t'] or Decimal('0.00')
+        saldo_pendiente = abs(saldo_pendiente)
+
+    except Exception:
+        pass
+
+    kpis = {
+        'sesiones_hoy': sesiones_hoy,
+        'ingresos_hoy': f'{ingresos_hoy:.2f}',
+        'ingresos_mes': f'{ingresos_mes:.2f}',
+        'saldo_pendiente': f'{saldo_pendiente:.2f}',
+        'pacientes_activos': pacientes_activos,
+        'tasa_asistencia': tasa_asistencia,
+    }
+
+    return render(request, 'facturacion/reportes/dashboard.html', {'kpis': kpis})
 
 @login_required
 def reporte_paciente(request):

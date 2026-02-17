@@ -1,741 +1,567 @@
 {% extends 'base.html' %}
-{% block title %}Reporte por Paciente{% endblock %}
+{% block title %}Reporte Paciente{% endblock %}
 {% block content %}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
   :root {
-    --ink:#0a1628; --ink2:#1e3050; --ink3:#2e4570;
-    --muted:#5a7090; --muted2:#8aa0bc; --border:#d8e4f0; --border2:#edf2f8;
-    --surface:#f2f6fc; --surface2:#e8edf8; --white:#fff;
-    --blue:#1d4ed8; --blue-d:#1e40af; --blue-l:#dbeafe; --blue-ll:#eff6ff;
-    --emerald:#059669; --emerald-l:#d1fae5; --emerald-ll:#ecfdf5;
-    --ruby:#be123c; --ruby-l:#ffe4e6; --ruby-ll:#fff1f2;
-    --amber:#d97706; --amber-l:#fef3c7; --amber-ll:#fffbeb;
-    --violet:#7c3aed; --violet-l:#ede9fe;
-    --teal:#0d9488; --teal-l:#ccfbf1;
-    --sky:#0284c7; --sky-l:#e0f2fe;
-    --shadow-sm:0 1px 3px rgba(10,22,40,0.06);
-    --shadow:0 4px 14px rgba(10,22,40,0.08);
-    --shadow-lg:0 12px 32px rgba(10,22,40,0.12);
-    --r:12px; --r-lg:16px; --r-xl:20px;
+    --ink:#0f172a;--ink2:#334155;--muted:#64748b;--border:#e2e8f0;--surface:#f8fafc;--white:#fff;
+    --blue:#2563eb;--blue-l:#dbeafe;--green:#16a34a;--green-l:#dcfce7;
+    --red:#dc2626;--red-l:#fee2e2;--amber:#d97706;--amber-l:#fef3c7;
+    --purple:#7c3aed;--purple-l:#ede9fe;--teal:#0d9488;--teal-l:#ccfbf1;
+    --r:12px;
   }
-  *{box-sizing:border-box;}
-  body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:var(--ink);}
-  @media print{
-    .no-print{display:none!important;} .print-only{display:block!important;}
-    body{background:white!important;font-size:10px;} .page-break{page-break-before:always;}
-    .hero{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  }
-  .print-only{display:none;}
+  body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface)}
+  @media print{.no-print{display:none!important} body{background:white!important}}
+  .mono{font-family:'Fira Code',monospace}
 
-  /* LAYOUT */
-  .wrap{max-width:1380px;margin:0 auto;padding:16px 20px 40px;}
+  .rpt-header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f2d4a 100%);
+    border-radius:16px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden}
+  .rpt-header::after{content:'';position:absolute;top:-30px;right:-30px;width:180px;height:180px;
+    background:radial-gradient(circle,rgba(37,99,235,.25) 0%,transparent 70%);border-radius:50%}
+  .back{color:#93c5fd;text-decoration:none;font-size:.75rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
+  .rpt-header h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
+  .rpt-header p{color:#93c5fd;font-size:.8rem;margin:0}
+  .print-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
+    border:1px solid rgba(255,255,255,.3);color:white;font-size:.75rem;font-weight:600;
+    padding:6px 14px;border-radius:8px;cursor:pointer;margin-top:10px}
 
-  /* HERO */
-  .hero{background:linear-gradient(135deg,#0a1628 0%,#0f2045 45%,#0a2860 75%,#0c1e3a 100%);border-radius:var(--r-xl);padding:28px 32px 24px;margin-bottom:18px;color:white;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.05);}
-  .hero::before{content:'';position:absolute;top:-60px;right:-30px;width:300px;height:300px;background:radial-gradient(circle,rgba(29,78,216,0.2) 0%,transparent 65%);border-radius:50%;}
-  .hero-nav{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;position:relative;z-index:1;}
-  .back-link{color:rgba(255,255,255,0.5);font-size:0.72rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:color 0.15s;}
-  .back-link:hover{color:rgba(255,255,255,0.9);}
-  .hero-actions{display:flex;gap:8px;}
-  .btn-ghost{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.13);color:rgba(255,255,255,0.8);font-size:0.72rem;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all 0.15s;}
-  .btn-ghost:hover{background:rgba(255,255,255,0.14);}
-  .hero-body{margin-top:18px;position:relative;z-index:1;}
-  .hero-eye{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#93c5fd;margin-bottom:6px;}
-  .hero-title{font-size:2rem;font-weight:800;line-height:1.1;margin:0 0 5px;letter-spacing:-0.025em;}
-  .hero-sub{font-size:0.77rem;color:rgba(255,255,255,0.4);margin:0;}
+  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
+  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+  .fg{display:flex;flex-direction:column;gap:3px}
+  .fg label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .fg select,.fg input[type=date]{padding:7px 10px;font-size:.78rem;border:1px solid var(--border);
+    border-radius:8px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;min-width:160px}
+  .btn-primary{background:var(--blue);color:white;border:none;padding:7px 16px;border-radius:8px;
+    font-size:.78rem;font-weight:700;cursor:pointer;align-self:flex-end}
 
-  /* FILTER */
-  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
-  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
-  .fg{display:flex;flex-direction:column;}
-  .fg label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
-  .filter-bar select,.filter-bar input[type="date"]{padding:8px 10px;font-size:0.77rem;border:1px solid var(--border);border-radius:8px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);outline:none;transition:border-color 0.15s;}
-  .filter-bar select:focus,.filter-bar input:focus{border-color:var(--blue);}
-  .btn-primary{background:var(--blue);color:white;border:none;padding:8px 18px;border-radius:8px;font-size:0.77rem;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:background 0.15s;display:inline-flex;align-items:center;gap:5px;}
-  .btn-primary:hover{background:var(--blue-d);}
+  /* Quick tabs */
+  .quick-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
+  .qtab{font-size:.72rem;font-weight:600;padding:5px 12px;border:1px solid var(--border);
+    border-radius:8px;background:var(--white);color:var(--muted);text-decoration:none;cursor:pointer;transition:all .15s}
+  .qtab:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 
-  /* PATIENT HERO CARD */
-  .patient-hero{background:linear-gradient(135deg,var(--blue-ll),var(--white));border:1.5px solid #93c5fd;border-radius:var(--r-xl);padding:20px 24px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:var(--shadow-sm);}
-  .pat-avatar{width:64px;height:64px;border-radius:var(--r-lg);background:linear-gradient(135deg,var(--blue),#1e40af);display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0;box-shadow:0 4px 12px rgba(29,78,216,0.3);}
-  .pat-info{flex:1;}
-  .pat-name{font-size:1.3rem;font-weight:800;color:var(--ink);margin:0 0 6px;}
-  .pat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
-  .pat-chip{font-size:0.68rem;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--blue-l);color:var(--blue-d);border:1px solid #bfdbfe;}
-  .pat-chip.green{background:var(--emerald-ll);color:#065f46;border-color:#a7f3d0;}
-  .pat-chip.red{background:var(--ruby-ll);color:var(--ruby);border-color:#fecdd3;}
-  .pat-chip.amber{background:var(--amber-ll);color:#92400e;border-color:#fde68a;}
-  .pat-meta{display:flex;flex-wrap:wrap;gap:12px;}
-  .pm{font-size:0.72rem;color:var(--muted);display:flex;align-items:center;gap:4px;}
-  .pat-period{margin-left:auto;text-align:right;}
-  .pat-period .pp-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);display:block;margin-bottom:3px;}
-  .pat-period .pp-val{font-size:0.82rem;font-weight:700;color:var(--ink);font-family:'Fira Code',monospace;}
+  /* Patient card */
+  .pac-card{background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:white;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .pac-avatar{width:64px;height:64px;border-radius:14px;background:rgba(255,255,255,.15);
+    display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0}
+  .pac-info{flex:1;min-width:200px}
+  .pac-name{font-size:1.2rem;font-weight:800;margin:0 0 4px}
+  .pac-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:700;
+    padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+  .chip.green{background:rgba(34,197,94,.2);color:#86efac}
+  .chip.red{background:rgba(220,38,38,.2);color:#fca5a5}
+  .chip.amber{background:rgba(245,158,11,.2);color:#fcd34d}
+  .pac-meta{display:flex;flex-wrap:wrap;gap:10px}
+  .pac-meta span{font-size:.72rem;color:rgba(255,255,255,.65)}
+  .pac-meta b{color:white}
 
-  /* CLINICAL BOX */
-  .clinical-box{background:var(--teal-l);border:1px solid #5eead4;border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;}
-  .clinical-box h3{font-size:0.78rem;font-weight:700;color:var(--teal);margin:0 0 10px;display:flex;align-items:center;gap:6px;}
-  .clinical-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
-  .clinical-item{background:rgba(255,255,255,0.7);border-radius:8px;padding:10px 12px;}
-  .ci-lbl{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--teal);margin-bottom:4px;}
-  .ci-val{font-size:0.8rem;color:var(--ink2);line-height:1.5;}
-  .alergias-box{background:var(--ruby-ll);border:1px solid #fecdd3;border-radius:8px;padding:10px 12px;margin-top:8px;}
-  .alergias-box .ci-lbl{color:var(--ruby);}
-  .alergias-box .ci-val{color:var(--ruby);}
+  /* Financial hero */
+  .fin-hero{border-radius:14px;padding:18px 20px;margin-bottom:16px;border:2px solid}
+  .fin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
+  .fin-item{background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;text-align:center}
+  .fi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.7;margin-bottom:4px}
+  .fi-val{font-size:1rem;font-weight:900;font-family:'Fira Code',monospace}
 
-  /* FINANCIAL STATUS */
-  .fin-hero{border-radius:var(--r-xl);padding:20px 24px;margin-bottom:16px;border:2px solid;position:relative;overflow:hidden;}
-  .fin-hero.credit{background:linear-gradient(135deg,var(--blue-ll),white);border-color:#93c5fd;}
-  .fin-hero.paid{background:linear-gradient(135deg,var(--emerald-ll),white);border-color:#6ee7b7;}
-  .fin-hero.debt{background:linear-gradient(135deg,var(--ruby-ll),white);border-color:#fca5a5;}
-  .fin-hero.partial{background:linear-gradient(135deg,var(--amber-ll),white);border-color:#fde68a;}
-  .fin-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
-  .fin-title{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px;}
-  .fin-saldo{font-size:2rem;font-weight:800;font-family:'Fira Code',monospace;line-height:1;}
-  .fin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
-  .fin-item{background:rgba(255,255,255,0.6);border-radius:var(--r);padding:12px 14px;}
-  .fi-label{font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:4px;}
-  .fi-val{font-size:1rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink);}
-  .fi-sub{font-size:0.62rem;color:var(--muted);margin-top:2px;}
-  .fin-bar{height:4px;background:rgba(0,0,0,0.08);border-radius:10px;margin-top:8px;overflow:hidden;}
-  .fin-bar-fill{height:100%;border-radius:10px;transition:width 1.2s ease;}
+  /* KPI stats */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+  .kpi-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px;
+    position:relative;overflow:hidden}
+  .kpi-box .accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
+  .kpi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
+  .kpi-val{font-size:1.4rem;font-weight:900;color:var(--ink);font-family:'Fira Code',monospace;line-height:1}
+  .kpi-sub{font-size:.65rem;color:var(--muted);margin-top:4px}
 
-  /* STATS GRID */
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px;}
-  .stat-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;text-align:center;position:relative;overflow:hidden;box-shadow:var(--shadow-sm);transition:transform 0.18s;}
-  .stat-box:hover{transform:translateY(-2px);}
-  .sb-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0;}
-  .sb-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:4px;}
-  .sb-val{font-size:1.5rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--ink);}
-  .sb-sub{font-size:0.62rem;color:var(--muted);margin-top:3px;}
+  /* Charts */
+  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
+  .chart-card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 12px}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  @media(max-width:768px){.two-col{grid-template-columns:1fr}}
 
-  /* CHARTS */
-  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--shadow-sm);}
-  .cc-title{font-size:0.82rem;font-weight:700;color:var(--ink);margin:0 0 3px;}
-  .cc-sub{font-size:0.65rem;color:var(--muted);margin:0 0 14px;}
+  /* Tables / list cards */
+  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+  .card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 10px;display:flex;align-items:center;gap:6px}
+  .list-item{display:flex;justify-content:space-between;align-items:center;
+    padding:9px 10px;border-radius:8px;background:var(--surface);margin-bottom:6px;flex-wrap:wrap;gap:6px}
+  .li-name{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .li-sub{font-size:.65rem;color:var(--muted);margin-top:2px}
+  .li-val{font-size:.88rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--green)}
+  .scroll-list{max-height:240px;overflow-y:auto}
 
-  /* GRIDS */
-  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
-  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
-  .g12{display:grid;grid-template-columns:1fr 2fr;gap:14px;margin-bottom:14px;}
-  .g21{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
-  @media(max-width:900px){.g2,.g3,.g12,.g21{grid-template-columns:1fr;}}
+  /* Clinical card */
+  .clinical-card{background:var(--teal-l);border:1px solid rgba(13,148,136,.2);border-radius:var(--r);padding:16px;margin-bottom:16px}
+  .clinical-card h3{font-size:.8rem;font-weight:700;color:var(--teal);margin:0 0 10px}
+  .clin-row{display:flex;gap:8px;margin-bottom:8px}
+  .clin-label{font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--teal);opacity:.7;min-width:100px}
+  .clin-val{font-size:.78rem;color:var(--ink2);flex:1}
+  .alergia-alert{background:var(--red-l);border:1px solid #fecaca;border-radius:8px;padding:8px 12px;
+    font-size:.78rem;color:var(--red);font-weight:600;margin-top:8px}
 
-  /* CARD */
-  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--shadow-sm);}
-  .card h3{font-size:0.82rem;font-weight:700;color:var(--ink);margin:0 0 12px;display:flex;align-items:center;gap:6px;}
-  .scroll-list{max-height:280px;overflow-y:auto;padding-right:3px;}
-  .scroll-list::-webkit-scrollbar{width:3px;}
-  .scroll-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+  /* Projects */
+  .proj-card{background:var(--white);border:1px solid var(--border);border-left:3px solid var(--teal);
+    border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+  .proj-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .proj-code{font-family:'Fira Code',monospace;font-size:.72rem;color:var(--muted)}
+  .proj-name{font-size:.85rem;font-weight:700;color:var(--ink)}
+  .proj-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-top:8px}
+  .ps-item{background:var(--surface);border-radius:6px;padding:6px 8px;text-align:center}
+  .ps-label{font-size:.58rem;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:2px}
+  .ps-val{font-size:.85rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--ink)}
 
-  /* LIST ITEMS */
-  .list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:var(--r);background:var(--surface);margin-bottom:6px;transition:background 0.12s;}
-  .list-item:hover{background:var(--blue-ll);}
-  .li-name{font-size:0.8rem;font-weight:700;color:var(--ink);}
-  .li-sub{font-size:0.63rem;color:var(--muted);margin-top:2px;}
-  .li-val{font-size:0.88rem;font-weight:700;font-family:'Fira Code',monospace;text-align:right;}
-  .li-sub2{font-size:0.6rem;color:var(--muted);margin-top:2px;text-align:right;}
+  /* Session timeline */
+  .session-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;position:relative}
+  .session-item.realizada{border-left:3px solid var(--green)}
+  .session-item.realizada_retraso{border-left:3px solid var(--amber)}
+  .session-item.falta{border-left:3px solid var(--red)}
+  .session-item.programada{border-left:3px solid var(--blue)}
+  .session-item.permiso{border-left:3px solid var(--purple)}
+  .session-item.cancelada{border-left:3px solid #94a3b8}
+  .s-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .s-date{font-size:.82rem;font-weight:700;color:var(--ink);font-family:'Fira Code',monospace}
+  .s-info{font-size:.72rem;color:var(--ink2);margin-bottom:4px}
+  .s-badge{display:inline-flex;align-items:center;font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:12px}
+  .s-badge.realizada{background:var(--green-l);color:var(--green)}
+  .s-badge.realizada_retraso{background:var(--amber-l);color:var(--amber)}
+  .s-badge.falta{background:var(--red-l);color:var(--red)}
+  .s-badge.programada{background:var(--blue-l);color:var(--blue)}
+  .s-badge.permiso{background:var(--purple-l);color:var(--purple)}
+  .s-badge.cancelada{background:#f1f5f9;color:#64748b}
+  .s-notes{background:var(--green-l);border-left:3px solid var(--green);border-radius:6px;
+    padding:6px 10px;font-size:.72rem;color:var(--ink2);margin-top:6px}
+  .s-obs{background:var(--surface);border-radius:6px;padding:6px 10px;font-size:.72rem;color:var(--muted);margin-top:4px}
+  .s-money{font-family:'Fira Code',monospace;font-size:.75rem;font-weight:700}
 
-  /* MENSUALIDADES */
-  .mens-card{background:var(--violet-l);border:1px solid #c4b5fd;border-radius:var(--r);padding:12px 14px;margin-bottom:8px;}
-  .mens-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-  .mens-code{font-size:0.68rem;font-family:'Fira Code',monospace;color:var(--muted);}
-  .mens-period{font-size:0.82rem;font-weight:700;color:var(--ink);}
-  .mens-status{font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:20px;}
-  .mens-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
-  .mens-stat{background:rgba(255,255,255,0.6);border-radius:8px;padding:8px;text-align:center;}
-  .ms-label{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);}
-  .ms-val{font-size:0.95rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink);}
+  /* Filters timeline */
+  .filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .fchip{font-size:.72rem;font-weight:600;padding:4px 12px;border-radius:8px;
+    border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all .15s}
+  .fchip.active{background:var(--blue);border-color:var(--blue);color:white}
 
-  /* PROYECTOS */
-  .proy-card{background:var(--teal-l);border:1px solid #5eead4;border-radius:var(--r);padding:13px 15px;margin-bottom:8px;}
-  .proy-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-  .proy-name{font-size:0.85rem;font-weight:700;color:var(--ink);}
-  .proy-code{font-size:0.65rem;font-family:'Fira Code',monospace;color:var(--muted);margin-top:2px;}
-  .proy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;}
-  .proy-stat{background:rgba(255,255,255,0.6);border-radius:8px;padding:7px 8px;text-align:center;}
-  .ps-label{font-size:0.58rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);}
-  .ps-val{font-size:0.9rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink);}
-  .proy-progress{margin-top:8px;}
-  .pp-bar{height:5px;background:rgba(0,0,0,0.08);border-radius:10px;overflow:hidden;}
-  .pp-fill{height:100%;background:var(--teal);border-radius:10px;transition:width 1.2s;}
-
-  /* PAGOS HISTORY */
-  .pagos-table{width:100%;border-collapse:collapse;font-size:0.75rem;}
-  .pagos-table thead th{background:var(--surface2);color:var(--muted);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:9px 10px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap;}
-  .pagos-table tbody tr{border-bottom:1px solid var(--border2);transition:background 0.1s;}
-  .pagos-table tbody tr:hover{background:var(--blue-ll);}
-  .pagos-table td{padding:9px 10px;}
-  .pagos-table .mono{font-family:'Fira Code',monospace;font-weight:600;}
-  .tx-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:20px;white-space:nowrap;}
-
-  /* ACCOUNT STATEMENT */
-  .account-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:var(--r);margin-bottom:5px;border-left:3px solid;}
-  .ar-ingreso{background:var(--emerald-ll);border-color:var(--emerald);}
-  .ar-cobro{background:var(--blue-ll);border-color:var(--blue);}
-  .ar-devolucion{background:var(--ruby-ll);border-color:var(--ruby);}
-  .ar-date{font-size:0.68rem;color:var(--muted);font-family:'Fira Code',monospace;white-space:nowrap;}
-  .ar-concept{font-size:0.78rem;font-weight:600;color:var(--ink);}
-  .ar-detail{font-size:0.62rem;color:var(--muted);margin-top:2px;}
-  .ar-amount{font-size:0.9rem;font-weight:700;font-family:'Fira Code',monospace;white-space:nowrap;}
-
-  /* TIMELINE */
-  .tl-item{display:flex;gap:12px;margin-bottom:12px;position:relative;}
-  .tl-item::before{content:'';position:absolute;left:15px;top:32px;bottom:-12px;width:1px;background:var(--border);}
-  .tl-item:last-child::before{display:none;}
-  .tl-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;margin-top:4px;}
-  .tl-realizada{background:var(--emerald-l);color:var(--emerald);}
-  .tl-retraso{background:var(--amber-l);color:var(--amber);}
-  .tl-falta{background:var(--ruby-l);color:var(--ruby);}
-  .tl-permiso{background:var(--violet-l);color:var(--violet);}
-  .tl-cancelada{background:#f1f5f9;color:var(--muted);}
-  .tl-programada{background:var(--blue-l);color:var(--blue);}
-  .tl-content{flex:1;background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;}
-  .tl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;flex-wrap:wrap;gap:4px;}
-  .tl-date{font-size:0.72rem;font-weight:700;color:var(--ink2);font-family:'Fira Code',monospace;}
-  .tl-monto{font-size:0.75rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--emerald);}
-  .tl-notes{background:var(--emerald-ll);border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;margin-top:6px;}
-  .note-label{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--emerald);margin-bottom:3px;}
-  .note-text{font-size:0.72rem;color:var(--ink2);line-height:1.5;}
-  .tl-obs{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-top:4px;}
-  .badge-estado{display:inline-flex;align-items:center;gap:4px;font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;}
-  .estado-realizada{background:var(--emerald-l);color:var(--emerald);}
-  .estado-retraso{background:var(--amber-l);color:var(--amber);}
-  .estado-falta{background:var(--ruby-l);color:var(--ruby);}
-  .estado-permiso{background:var(--violet-l);color:var(--violet);}
-  .estado-cancelada{background:#f1f5f9;color:var(--muted);}
-  .estado-programada{background:var(--blue-l);color:var(--blue);}
-
-  /* SESSION FILTERS */
-  .session-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-  .sf-btn{font-size:0.7rem;font-weight:600;padding:5px 11px;border-radius:7px;border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all 0.15s;}
-  .sf-btn.active,.sf-btn:hover{background:var(--blue-l);border-color:var(--blue);color:var(--blue);}
-
-  /* SEC HDR */
-  .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;}
-  .sec-hdr h2{font-size:0.95rem;font-weight:700;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
-  .sec-tag{font-size:0.63rem;font-weight:700;padding:3px 9px;border-radius:20px;}
-
-  /* DIVIDER */
-  .divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
-
-  @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-  .stat-box{animation:fadeUp 0.35s ease both;}
-  .stat-box:nth-child(2){animation-delay:0.05s;}.stat-box:nth-child(3){animation-delay:0.1s;}.stat-box:nth-child(4){animation-delay:0.15s;}.stat-box:nth-child(5){animation-delay:0.2s;}.stat-box:nth-child(6){animation-delay:0.25s;}.stat-box:nth-child(7){animation-delay:0.3s;}.stat-box:nth-child(8){animation-delay:0.35s;}
+  .section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 </style>
 
-<div class="wrap">
+<div class="max-w-7xl mx-auto px-3 py-4">
 
-  <!-- HERO -->
-  <div class="hero no-print">
-    <div class="hero-nav">
-      <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Volver a Reportes</a>
-      <div class="hero-actions">
-        <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
-        <button onclick="exportCSV()" class="btn-ghost">📥 CSV</button>
-      </div>
-    </div>
-    <div class="hero-body">
-      <div class="hero-eye">Expediente Clínico-Financiero</div>
-      <h1 class="hero-title">👤 Reporte por Paciente</h1>
-      <p class="hero-sub">Historial clínico · Evolución financiera · Asistencia · Mensualidades · Proyectos · Pagos</p>
-    </div>
+  <!-- Header -->
+  <div class="rpt-header no-print">
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back">← Volver a Reportes</a>
+    <h1>👤 Reporte por Paciente</h1>
+    <p>Historial clínico · Asistencia · Financiero · Proyectos · Evolución</p>
+    <button onclick="window.print()" class="print-btn">🖨️ Imprimir / PDF</button>
   </div>
 
-  <div class="print-only" style="margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;">
-    <h1 style="font-size:1.3rem;font-weight:800;margin:0 0 4px;">Reporte por Paciente{% if paciente %} — {{ paciente.nombre_completo }}{% endif %}</h1>
-    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }} · Generado: {% now "d/m/Y H:i" %}</p>
-  </div>
-
-  <!-- FILTER -->
+  <!-- Filters -->
   <div class="filter-bar no-print">
     <form method="get">
       <div class="fg">
         <label>Paciente</label>
-        <select name="paciente" onchange="this.form.submit()" style="min-width:220px">
+        <select name="paciente">
           <option value="">— Seleccionar paciente —</option>
-          {% for p in pacientes %}<option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>{{ p.nombre_completo }}{% if p.edad %} ({{ p.edad }}a){% endif %}</option>{% endfor %}
+          {% for p in pacientes %}
+          <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>
+          {% endfor %}
         </select>
       </div>
-      <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
-      <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
       <div class="fg">
-        <label>Rango rápido</label>
-        <select name="rango" onchange="aplicarRango(this.value)">
-          <option value="">Personalizado</option>
-          <option value="mes">Este mes</option>
-          <option value="mes_anterior">Mes anterior</option>
-          <option value="trimestre">Trimestre</option>
-          <option value="anio">Este año</option>
-          <option value="todo">Todo el historial</option>
-        </select>
+        <label>Desde</label>
+        <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
       </div>
-      <button type="submit" class="btn-primary">🔍 Generar</button>
+      <div class="fg">
+        <label>Hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
+      </div>
+      <button type="submit" class="btn-primary">🔍 Ver reporte</button>
     </form>
   </div>
 
-  {% if paciente and datos %}
+  <!-- Quick ranges (JS) -->
+  {% if paciente %}
+  <div class="quick-tabs no-print">
+    <a class="qtab" onclick="setRango(30)">📅 30 días</a>
+    <a class="qtab" onclick="setRango(90)">📆 3 meses</a>
+    <a class="qtab" onclick="setRango(180)">📈 6 meses</a>
+    <a class="qtab" onclick="setRango(365)">📊 1 año</a>
+  </div>
+  {% endif %}
 
-  <!-- PATIENT HERO CARD -->
-  <div class="patient-hero">
-    <div class="pat-avatar">👤</div>
-    <div class="pat-info">
-      <div class="pat-name">{{ paciente.nombre_completo }}</div>
-      <div class="pat-chips">
-        <span class="pat-chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">{{ paciente.get_estado_display }}</span>
-        {% if paciente.fecha_nacimiento %}<span class="pat-chip">🎂 {{ paciente.edad }} años</span>{% endif %}
-        {% if paciente.genero %}<span class="pat-chip">⚧ {{ paciente.get_genero_display }}</span>{% endif %}
-        {% if paciente.nombre_tutor %}<span class="pat-chip amber">👨‍👩‍👦 Tutor: {{ paciente.nombre_tutor }}</span>{% endif %}
-        {% if cuenta %}<span class="pat-chip {% if cuenta.saldo_actual > 0 %}green{% elif cuenta.saldo_actual < 0 %}red{% endif %}">💰 {% if cuenta.saldo_actual > 0 %}Saldo a favor: Bs.{{ cuenta.saldo_actual|floatformat:0 }}{% elif cuenta.saldo_actual < 0 %}Deuda: Bs.{{ cuenta.saldo_actual|floatformat:0|slice:"1:" }}{% else %}Al día{% endif %}</span>{% endif %}
-      </div>
-      <div class="pat-meta">
-        {% if paciente.fecha_nacimiento %}<span class="pm">📅 {{ paciente.fecha_nacimiento|date:"d/m/Y" }}</span>{% endif %}
-        {% if paciente.telefono_tutor %}<span class="pm">📞 {{ paciente.telefono_tutor }}</span>{% endif %}
-        {% if paciente.email_tutor %}<span class="pm">✉️ {{ paciente.email_tutor }}</span>{% endif %}
-        {% if paciente.parentesco %}<span class="pm">👤 Parentesco: {{ paciente.get_parentesco_display }}</span>{% endif %}
-        {% if paciente.telefono %}<span class="pm">📱 {{ paciente.telefono }}</span>{% endif %}
-        {% if paciente.fecha_ingreso %}<span class="pm">🏥 Ingreso: {{ paciente.fecha_ingreso|date:"d/m/Y" }}</span>{% endif %}
-      </div>
+  {% if not paciente %}
+  <!-- Empty state -->
+  <div style="text-align:center;padding:60px 20px;background:var(--white);border-radius:16px;border:1px solid var(--border)">
+    <div style="font-size:3rem;margin-bottom:12px">👤</div>
+    <p style="font-size:1rem;font-weight:700;color:var(--ink);margin:0 0 6px">Selecciona un paciente</p>
+    <p style="font-size:.82rem;color:var(--muted)">Elige un paciente del selector y un período de fechas para ver el reporte completo.</p>
+  </div>
+
+  {% else %}
+
+  <!-- Patient Card -->
+  <div class="pac-card">
+    <div class="pac-avatar">
+      {% if paciente.foto %}
+      <img src="{{ paciente.get_foto_thumbnail }}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+      {% else %}
+      {{ paciente.nombre|first }}{{ paciente.apellido|first }}
+      {% endif %}
     </div>
-    <div class="pat-period">
-      <span class="pp-label">Período del reporte</span>
-      <span class="pp-val">{{ fecha_desde|date:"d/m/Y" }}<br>{{ fecha_hasta|date:"d/m/Y" }}</span>
+    <div class="pac-info">
+      <p class="pac-name">{{ paciente.nombre_completo }}</p>
+      <div class="pac-chips">
+        <span class="chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">{{ paciente.get_estado_display }}</span>
+        <span class="chip">{{ paciente.edad }} años</span>
+        <span class="chip">{{ paciente.get_genero_display }}</span>
+        {% if paciente.nombre_tutor %}<span class="chip">👤 {{ paciente.nombre_tutor }} ({{ paciente.get_parentesco_display }})</span>{% endif %}
+      </div>
+      <div class="pac-meta">
+        {% if paciente.telefono_tutor %}<span>📞 <b>{{ paciente.telefono_tutor }}</b></span>{% endif %}
+        {% if paciente.email_tutor %}<span>✉️ <b>{{ paciente.email_tutor }}</b></span>{% endif %}
+        <span>📅 Período: <b>{{ fecha_desde }} — {{ fecha_hasta }}</b></span>
+      </div>
     </div>
   </div>
 
-  <!-- CLINICAL INFO -->
-  {% if paciente.diagnostico or paciente.observaciones_medicas or paciente.alergias or paciente.motivo_consulta %}
-  <div class="clinical-box">
-    <h3>🩺 Información Clínica</h3>
-    <div class="clinical-grid">
-      {% if paciente.diagnostico %}<div class="clinical-item"><div class="ci-lbl">Diagnóstico / CIE-10</div><div class="ci-val">{{ paciente.diagnostico }}</div></div>{% endif %}
-      {% if paciente.motivo_consulta %}<div class="clinical-item"><div class="ci-lbl">Motivo de consulta</div><div class="ci-val">{{ paciente.motivo_consulta }}</div></div>{% endif %}
-      {% if paciente.observaciones_medicas %}<div class="clinical-item"><div class="ci-lbl">Observaciones médicas</div><div class="ci-val">{{ paciente.observaciones_medicas }}</div></div>{% endif %}
-      {% if paciente.nombre_medico_derivante %}<div class="clinical-item"><div class="ci-lbl">Médico derivante</div><div class="ci-val">{{ paciente.nombre_medico_derivante }}</div></div>{% endif %}
-    </div>
+  <!-- Clinical info -->
+  {% if paciente.diagnostico or paciente.alergias or paciente.observaciones_medicas %}
+  <div class="clinical-card">
+    <h3>🏥 Información Clínica</h3>
+    {% if paciente.diagnostico %}
+    <div class="clin-row"><span class="clin-label">Diagnóstico</span><span class="clin-val">{{ paciente.diagnostico }}</span></div>
+    {% endif %}
+    {% if paciente.observaciones_medicas %}
+    <div class="clin-row"><span class="clin-label">Observaciones</span><span class="clin-val">{{ paciente.observaciones_medicas }}</span></div>
+    {% endif %}
     {% if paciente.alergias %}
-    <div class="alergias-box" style="margin-top:10px">
-      <div class="ci-lbl">⚠️ Alergias / Contraindicaciones</div>
-      <div class="ci-val">{{ paciente.alergias }}</div>
-    </div>
+    <div class="alergia-alert">⚠️ Alergias: {{ paciente.alergias }}</div>
     {% endif %}
   </div>
   {% endif %}
 
-  <!-- FINANCIAL HERO -->
-  {% if cuenta %}
-  <div class="fin-hero {% if cuenta.saldo_actual > 0 %}credit{% elif cuenta.saldo_actual == 0 %}paid{% elif cuenta.saldo_actual < -50 %}debt{% else %}partial{% endif %}">
-    <div class="fin-header">
+  {% if datos %}
+  <!-- Financial Hero (from cuenta_corriente) -->
+  {% with cc=paciente.cuenta_corriente %}
+  {% if cc %}
+  <div class="fin-hero" style="background:{% if cc.saldo_actual >= 0 %}var(--green-l);border-color:#86efac;color:var(--green){% else %}var(--red-l);border-color:#fca5a5;color:var(--red){% endif %}">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div>
-        <div class="fin-title">Estado Financiero Actual</div>
-        <div class="fin-saldo" style="color:{% if cuenta.saldo_actual > 0 %}var(--blue){% elif cuenta.saldo_actual == 0 %}var(--emerald){% else %}var(--ruby){% endif %}">
-          {% if cuenta.saldo_actual > 0 %}✅ +Bs. {{ cuenta.saldo_actual|floatformat:2 }} a favor
-          {% elif cuenta.saldo_actual == 0 %}✅ Al día
-          {% else %}⚠️ Bs. {{ cuenta.saldo_actual|floatformat:2 }} pendiente{% endif %}
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;opacity:.7">Saldo Actual</div>
+        <div style="font-size:2rem;font-weight:900;font-family:'Fira Code',monospace;line-height:1">
+          Bs. {{ cc.saldo_actual|floatformat:2 }}
+        </div>
+        <div style="font-size:.72rem;margin-top:4px;opacity:.8">
+          {% if cc.saldo_actual >= 0 %}✅ Al día{% else %}⚠️ Con deuda{% endif %}
+          · Crédito disponible: Bs. {{ cc.credito_disponible|floatformat:2 }}
         </div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px">Ocupación</div>
-        <div style="font-size:1.1rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink)">{{ datos.stats.realizadas }}/{{ datos.stats.total_sesiones }}</div>
-        <div style="font-size:0.62rem;color:var(--muted)">sesiones realizadas</div>
+      <div style="font-size:.7rem;opacity:.8;text-align:right">
+        Saldo real: <b class="mono">Bs. {{ cc.saldo_real|floatformat:2 }}</b><br>
+        Devoluciones: <b class="mono">Bs. {{ cc.total_devoluciones|floatformat:2 }}</b>
       </div>
     </div>
     <div class="fin-grid">
       <div class="fin-item">
-        <div class="fi-label">Total consumido</div>
-        <div class="fi-val">Bs. {{ cuenta.total_consumido_actual|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">valor de servicios recibidos</div>
+        <div class="fi-label">Consumido Actual</div>
+        <div class="fi-val">Bs. {{ cc.total_consumido_actual|floatformat:0 }}</div>
       </div>
       <div class="fin-item">
-        <div class="fi-label">Total pagado</div>
-        <div class="fi-val" style="color:var(--emerald)">Bs. {{ cuenta.total_pagado|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">todos los pagos registrados</div>
-        <div class="fin-bar"><div class="fin-bar-fill" style="background:var(--emerald);width:{% if cuenta.total_consumido_actual > 0 %}{{ cuenta.total_pagado|floatformat:0 }}{% else %}0{% endif %}%"></div></div>
+        <div class="fi-label">Consumido Real</div>
+        <div class="fi-val">Bs. {{ cc.total_consumido_real|floatformat:0 }}</div>
       </div>
       <div class="fin-item">
-        <div class="fi-label">Sesiones</div>
-        <div class="fi-val" style="color:var(--blue)">Bs. {{ cuenta.pagos_sesiones|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">pagos por sesiones</div>
+        <div class="fi-label">Total Pagado</div>
+        <div class="fi-val">Bs. {{ cc.total_pagado|floatformat:0 }}</div>
+      </div>
+      <div class="fin-item">
+        <div class="fi-label">Pag. Sesiones</div>
+        <div class="fi-val">Bs. {{ cc.pagos_sesiones|floatformat:0 }}</div>
+      </div>
+      <div class="fin-item">
+        <div class="fi-label">Pag. Mensualidades</div>
+        <div class="fi-val">Bs. {{ cc.pagos_mensualidades|floatformat:0 }}</div>
+      </div>
+      <div class="fin-item">
+        <div class="fi-label">Pag. Proyectos</div>
+        <div class="fi-val">Bs. {{ cc.pagos_proyectos|floatformat:0 }}</div>
       </div>
       <div class="fin-item">
         <div class="fi-label">Mensualidades</div>
-        <div class="fi-val" style="color:var(--violet)">Bs. {{ cuenta.pagos_mensualidades|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">{{ cuenta.num_mensualidades_activas|default:0 }} activa(s)</div>
+        <div class="fi-val">Bs. {{ cc.total_mensualidades|floatformat:0 }}</div>
       </div>
       <div class="fin-item">
         <div class="fi-label">Proyectos</div>
-        <div class="fi-val" style="color:var(--teal)">Bs. {{ cuenta.pagos_proyectos|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">{{ cuenta.num_proyectos_activos|default:0 }} activo(s)</div>
+        <div class="fi-val">Bs. {{ cc.total_proyectos_real|floatformat:0 }}</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <!-- Fallback financial from stats -->
+  <div class="fin-hero" style="background:var(--blue-l);border-color:#93c5fd;color:var(--blue)">
+    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;margin-bottom:8px;opacity:.7">Financiero del período</div>
+    <div class="fin-grid">
+      <div class="fin-item">
+        <div class="fi-label">Total Cobrado</div>
+        <div class="fi-val">Bs. {{ datos.stats.total_cobrado|floatformat:2 }}</div>
       </div>
       <div class="fin-item">
-        <div class="fi-label">Devoluciones</div>
-        <div class="fi-val" style="color:var(--ruby)">- Bs. {{ cuenta.total_devoluciones|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">reembolsos realizados</div>
+        <div class="fi-label">Total Pagado</div>
+        <div class="fi-val">Bs. {{ datos.stats.total_pagado|floatformat:2 }}</div>
       </div>
       <div class="fin-item">
-        <div class="fi-label">Crédito disponible</div>
-        <div class="fi-val" style="color:{% if cuenta.saldo_actual > 0 %}var(--blue){% else %}var(--ruby){% endif %}">Bs. {{ cuenta.saldo_actual|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">saldo neto actual</div>
+        <div class="fi-label">Saldo Pendiente</div>
+        <div class="fi-val">Bs. {{ datos.stats.saldo_pendiente|floatformat:2 }}</div>
       </div>
       <div class="fin-item">
-        <div class="fi-label">Saldo real</div>
-        <div class="fi-val" style="color:{% if cuenta.saldo_real > 0 %}var(--blue){% else %}var(--ruby){% endif %}">Bs. {{ cuenta.saldo_real|default:0|floatformat:2 }}</div>
-        <div class="fi-sub">incluye compromisos futuros</div>
+        <div class="fi-label">Tasa de Pago</div>
+        <div class="fi-val">{{ datos.tasa_pago|floatformat:1 }}%</div>
       </div>
     </div>
   </div>
   {% endif %}
+  {% endwith %}
 
-  <!-- KPI STATS -->
-  <div class="stats-grid">
-    <div class="stat-box"><div class="sb-accent" style="background:var(--blue)"></div><div class="sb-label">Total Sesiones</div><div class="sb-val">{{ datos.stats.total_sesiones }}</div><div class="sb-sub">en el período</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--emerald)"></div><div class="sb-label">Realizadas</div><div class="sb-val" style="color:var(--emerald)">{{ datos.stats.realizadas }}</div><div class="sb-sub">completadas</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--ruby)"></div><div class="sb-label">Faltas</div><div class="sb-val" style="color:var(--ruby)">{{ datos.stats.faltas }}</div><div class="sb-sub">sin aviso</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--amber)"></div><div class="sb-label">Retrasos</div><div class="sb-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div><div class="sb-sub">con demora</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--violet)"></div><div class="sb-label">Permisos</div><div class="sb-val" style="color:var(--violet)">{{ datos.stats.permisos|default:0 }}</div><div class="sb-sub">con aviso</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--blue)"></div><div class="sb-label">Asistencia</div><div class="sb-val" style="font-size:1rem">{{ datos.stats.tasa_asistencia|floatformat:1 }}%</div><div class="sb-sub">tasa</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--teal)"></div><div class="sb-label">Horas Totales</div><div class="sb-val" style="color:var(--teal);font-size:1.1rem">{{ datos.stats.total_horas|floatformat:1 }}h</div><div class="sb-sub">en sesiones</div></div>
-    <div class="stat-box"><div class="sb-accent" style="background:var(--sky)"></div><div class="sb-label">Retraso Prom.</div><div class="sb-val" style="color:var(--sky);font-size:1rem">{{ datos.stats.promedio_retraso|default:0|floatformat:0 }}min</div><div class="sb-sub">cuando llega tarde</div></div>
+  <!-- KPIs Asistencia -->
+  <div class="section-title">📊 Estadísticas del Período</div>
+  <div class="kpi-grid">
+    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
+      <div class="kpi-label">Total Sesiones</div>
+      <div class="kpi-val">{{ datos.stats.total_sesiones|default:0 }}</div>
+      <div class="kpi-sub">en el período</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
+      <div class="kpi-label">Realizadas</div>
+      <div class="kpi-val" style="color:var(--green)">{{ datos.stats.realizadas|default:0 }}</div>
+      <div class="kpi-sub">+ {{ datos.stats.retrasos|default:0 }} con retraso</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--red)"></div>
+      <div class="kpi-label">Faltas</div>
+      <div class="kpi-val" style="color:var(--red)">{{ datos.stats.faltas|default:0 }}</div>
+      <div class="kpi-sub">inasistencias</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--amber)"></div>
+      <div class="kpi-label">Retrasos</div>
+      <div class="kpi-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div>
+      <div class="kpi-sub">llegadas tardías</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--purple)"></div>
+      <div class="kpi-label">Permisos</div>
+      <div class="kpi-val" style="color:var(--purple)">{{ datos.stats.permisos|default:0 }}</div>
+      <div class="kpi-sub">justificados</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:#64748b"></div>
+      <div class="kpi-label">Canceladas</div>
+      <div class="kpi-val">{{ datos.stats.canceladas|default:0 }}</div>
+      <div class="kpi-sub">por el centro</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--teal)"></div>
+      <div class="kpi-label">Tasa Asistencia</div>
+      <div class="kpi-val" style="color:{% if datos.tasa_asistencia >= 85 %}var(--green){% elif datos.tasa_asistencia >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ datos.tasa_asistencia|floatformat:1 }}%</div>
+      <div class="kpi-sub">{% if datos.tasa_asistencia >= 85 %}✅ Excelente{% elif datos.tasa_asistencia >= 60 %}⚠️ Regular{% else %}🔴 Bajo{% endif %}</div>
+    </div>
+    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
+      <div class="kpi-label">Tasa de Pago</div>
+      <div class="kpi-val">{{ datos.tasa_pago|floatformat:1 }}%</div>
+      <div class="kpi-sub">{{ datos.stats.sesiones_pagadas|default:0 }} pagadas / {{ datos.stats.sesiones_pendientes|default:0 }} pend.</div>
+    </div>
   </div>
 
-  <!-- CHARTS ROW -->
+  <!-- Charts -->
   {% if grafico_data %}
-  <div class="g2">
+  <div class="two-col">
     <div class="chart-card">
-      <div class="cc-title">📈 Evolución Mensual</div>
-      <div class="cc-sub">Sesiones · Realizadas · Faltas</div>
-      <canvas id="chart-evolucion" height="160"></canvas>
+      <h3>📈 Evolución mensual de sesiones</h3>
+      <canvas id="chart-sesiones" height="200"></canvas>
     </div>
     <div class="chart-card">
-      <div class="cc-title">🍩 Distribución de Asistencia</div>
-      <div class="cc-sub">Todos los estados del período</div>
-      <canvas id="chart-asistencia-donut" height="160"></canvas>
-    </div>
-  </div>
-  <div class="g2" style="margin-bottom:14px">
-    <div class="chart-card">
-      <div class="cc-title">💰 Evolución Financiera</div>
-      <div class="cc-sub">Consumido vs Pagado por mes</div>
-      <canvas id="chart-financiero" height="130"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="cc-title">🩺 Sesiones por Servicio</div>
-      <div class="cc-sub">Distribución de servicios recibidos</div>
-      <canvas id="chart-servicios" height="130"></canvas>
+      <h3>🥧 Distribución de asistencia</h3>
+      <canvas id="chart-asistencia" height="200"></canvas>
     </div>
   </div>
   {% endif %}
 
-  <!-- SERVICES + PROFESSIONALS -->
-  <div class="g2" style="margin-bottom:14px">
+  <!-- Por servicio + por profesional -->
+  <div class="two-col">
     <div class="card">
-      <h3>🩺 Servicios Recibidos</h3>
+      <h3>🎯 Sesiones por Servicio</h3>
       <div class="scroll-list">
         {% for s in datos.por_servicio %}
         <div class="list-item">
           <div>
             <div class="li-name">{{ s.servicio__nombre }}</div>
-            <div class="li-sub">✅ {{ s.realizadas }}/{{ s.cantidad }} · ⏱ {{ s.horas|default:0|floatformat:1 }}h · {{ s.tasa|default:0|floatformat:1 }}% asistencia</div>
+            <div class="li-sub">{{ s.sesiones_realizadas|default:0 }} realizadas · {{ s.sesiones_falta|default:0 }} faltas</div>
           </div>
           <div>
-            <div class="li-val" style="color:var(--blue)">{{ s.cantidad }}</div>
-            <div class="li-sub2">sesiones</div>
+            <div class="li-val">{{ s.cantidad }}</div>
+            <div style="font-size:.65rem;color:var(--muted);text-align:right">Bs. {{ s.monto_total|floatformat:0 }}</div>
           </div>
         </div>
-        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
       </div>
     </div>
     <div class="card">
-      <h3>👨‍⚕️ Profesionales que lo Atendieron</h3>
+      <h3>👨‍⚕️ Sesiones por Profesional</h3>
       <div class="scroll-list">
         {% for p in datos.por_profesional %}
         <div class="list-item">
           <div>
             <div class="li-name">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</div>
-            <div class="li-sub">{{ p.especialidad|default:'' }} · ✅ {{ p.realizadas }} realizadas</div>
+            <div class="li-sub">{{ p.cantidad }} sesiones realizadas</div>
           </div>
-          <div>
-            <div class="li-val" style="color:var(--violet)">{{ p.sesiones }}</div>
-            <div class="li-sub2">sesiones</div>
-          </div>
+          <div class="li-val">Bs. {{ p.monto_total|floatformat:0 }}</div>
         </div>
-        {% empty %}<p style="font-size:0.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
+        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
       </div>
     </div>
   </div>
 
-  <!-- MENSUALIDADES -->
-  {% if mensualidades %}
-  <div class="sec-hdr">
-    <h2>📅 Mensualidades</h2>
-    <span class="sec-tag" style="background:var(--violet-l);color:var(--violet)">{{ mensualidades|length }} mensualidad(es)</span>
-  </div>
-  <div style="margin-bottom:16px">
-    {% for m in mensualidades %}
-    <div class="mens-card">
-      <div class="mens-header">
-        <div>
-          <div class="mens-code">{{ m.codigo }}</div>
-          <div class="mens-period">{{ m.get_mes_display }} {{ m.anio }} — {{ m.sucursal.nombre|default:"" }}</div>
-        </div>
-        <span class="mens-status" style="background:{% if m.estado == 'activa' %}var(--emerald-l);color:var(--emerald){% elif m.estado == 'pagada' %}var(--blue-l);color:var(--blue){% else %}var(--ruby-l);color:var(--ruby){% endif %}">{{ m.get_estado_display }}</span>
+  <!-- Proyectos -->
+  {% if datos.proyectos %}
+  <div class="section-title">📁 Proyectos del Paciente</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:16px">
+    <!-- Summary -->
+    <div class="card" style="border-left:3px solid var(--teal)">
+      <h3>📊 Resumen Proyectos</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="ps-item"><div class="ps-label">Total</div><div class="ps-val">{{ datos.proyectos_stats.total }}</div></div>
+        <div class="ps-item"><div class="ps-label">Activos</div><div class="ps-val" style="color:var(--blue)">{{ datos.proyectos_stats.activos }}</div></div>
+        <div class="ps-item"><div class="ps-label">Finalizados</div><div class="ps-val" style="color:var(--green)">{{ datos.proyectos_stats.finalizados }}</div></div>
+        <div class="ps-item"><div class="ps-label">Total Bs.</div><div class="ps-val">{{ datos.proyectos_stats.monto_total|floatformat:0 }}</div></div>
       </div>
-      <div class="mens-grid">
-        <div class="mens-stat"><div class="ms-label">Costo</div><div class="ms-val">Bs.{{ m.costo_mensual|floatformat:0 }}</div></div>
-        <div class="mens-stat"><div class="ms-label">Pagado</div><div class="ms-val" style="color:var(--emerald)">Bs.{{ m.total_pagado|floatformat:0 }}</div></div>
-        <div class="mens-stat"><div class="ms-label">Pendiente</div><div class="ms-val" style="color:{% if m.saldo_pendiente > 0 %}var(--ruby){% else %}var(--emerald){% endif %}">Bs.{{ m.saldo_pendiente|floatformat:0 }}</div></div>
-        <div class="mens-stat"><div class="ms-label">Sesiones</div><div class="ms-val">{{ m.num_sesiones }}</div></div>
-        <div class="mens-stat"><div class="ms-label">Realizadas</div><div class="ms-val" style="color:var(--emerald)">{{ m.num_sesiones_realizadas }}</div></div>
-        <div class="mens-stat"><div class="ms-label">Servicios</div><div class="ms-val" style="font-size:0.75rem">{{ m.servicios_count|default:"—" }}</div></div>
+    </div>
+    <!-- Individual projects -->
+    {% for proy in datos.proyectos %}
+    <div class="proj-card">
+      <div class="proj-header">
+        <div>
+          <div class="proj-code">{{ proy.codigo|default:proy.id }}</div>
+          <div class="proj-name">{{ proy.nombre|default:"Proyecto" }}</div>
+        </div>
+        <span style="font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:12px;
+          background:{% if proy.estado == 'finalizado' %}var(--green-l);color:var(--green){% elif proy.estado == 'en_progreso' %}var(--blue-l);color:var(--blue){% else %}var(--amber-l);color:var(--amber){% endif %}">
+          {{ proy.get_estado_display|default:proy.estado }}
+        </span>
+      </div>
+      <div class="proj-stats">
+        <div class="ps-item"><div class="ps-label">Costo</div><div class="ps-val">Bs. {{ proy.costo_total|floatformat:0 }}</div></div>
+        <div class="ps-item"><div class="ps-label">Inicio</div><div class="ps-val" style="font-size:.72rem">{{ proy.fecha_inicio|date:"d/m/y" }}</div></div>
       </div>
     </div>
     {% endfor %}
   </div>
   {% endif %}
 
-  <!-- PROYECTOS -->
-  {% if proyectos %}
-  <div class="sec-hdr">
-    <h2>📁 Proyectos</h2>
-    <span class="sec-tag" style="background:var(--teal-l);color:var(--teal)">{{ proyectos|length }} proyecto(s)</span>
+  <!-- Recent Sessions Timeline -->
+  <div class="section-title">📅 Sesiones Recientes</div>
+  <div class="filter-chips no-print">
+    <button class="fchip active" onclick="filtrarSesiones('todas',this)">Todas</button>
+    <button class="fchip" onclick="filtrarSesiones('realizada',this)">✅ Realizadas</button>
+    <button class="fchip" onclick="filtrarSesiones('realizada_retraso',this)">🕐 Con Retraso</button>
+    <button class="fchip" onclick="filtrarSesiones('falta',this)">❌ Faltas</button>
+    <button class="fchip" onclick="filtrarSesiones('programada',this)">📅 Programadas</button>
   </div>
-  <div style="margin-bottom:16px">
-    {% for p in proyectos %}
-    <div class="proy-card">
-      <div class="proy-header">
+
+  <div id="session-list">
+    {% for s in datos.sesiones_recientes %}
+    <div class="session-item {{ s.estado }}" data-estado="{{ s.estado }}">
+      <div class="s-header">
         <div>
-          <div class="proy-code">{{ p.codigo }} · {{ p.get_tipo_display }}</div>
-          <div class="proy-name">{{ p.nombre }}</div>
+          <span class="s-date">{{ s.fecha|date:"d/m/Y" }} {{ s.hora_inicio|time:"H:i" }}</span>
+          <span class="s-badge {{ s.estado }}">
+            {% if s.estado == 'realizada' %}✅ Realizada
+            {% elif s.estado == 'realizada_retraso' %}🕐 Con Retraso
+            {% elif s.estado == 'falta' %}❌ Falta
+            {% elif s.estado == 'programada' %}📅 Programada
+            {% elif s.estado == 'permiso' %}🛡️ Permiso
+            {% elif s.estado == 'cancelada' %}🚫 Cancelada
+            {% else %}{{ s.get_estado_display }}
+            {% endif %}
+          </span>
         </div>
-        <span class="mens-status" style="background:{% if p.estado == 'en_progreso' %}var(--sky-l);color:var(--sky){% elif p.estado == 'completado' %}var(--emerald-l);color:var(--emerald){% else %}var(--ruby-l);color:var(--ruby){% endif %}">{{ p.get_estado_display }}</span>
+        {% if s.monto_cobrado %}
+        <span class="s-money" style="color:{% if s.total_pagado_sesion is not None and s.total_pagado_sesion >= s.monto_cobrado %}var(--green){% else %}var(--amber){% endif %}">
+          Bs. {{ s.monto_cobrado|floatformat:2 }}
+        </span>
+        {% endif %}
       </div>
-      <div class="proy-grid">
-        <div class="proy-stat"><div class="ps-label">Costo total</div><div class="ps-val">Bs.{{ p.costo_total|floatformat:0 }}</div></div>
-        <div class="proy-stat"><div class="ps-label">Pagado</div><div class="ps-val" style="color:var(--emerald)">Bs.{{ p.total_pagado_neto|floatformat:0 }}</div></div>
-        <div class="proy-stat"><div class="ps-label">Pendiente</div><div class="ps-val" style="color:{% if p.saldo_pendiente > 0 %}var(--ruby){% else %}var(--emerald){% endif %}">Bs.{{ p.saldo_pendiente|floatformat:0 }}</div></div>
-        <div class="proy-stat"><div class="ps-label">Inicio</div><div class="ps-val" style="font-size:0.7rem">{{ p.fecha_inicio|date:"d/m/Y" }}</div></div>
-        <div class="proy-stat"><div class="ps-label">Fin est.</div><div class="ps-val" style="font-size:0.7rem">{{ p.fecha_fin_estimada|date:"d/m/Y"|default:"—" }}</div></div>
-        <div class="proy-stat"><div class="ps-label">Duración</div><div class="ps-val">{{ p.duracion_dias }} días</div></div>
+      <div class="s-info">
+        🎯 <b>{{ s.servicio.nombre }}</b> · 
+        👨‍⚕️ {{ s.profesional.nombre_completo }} · 
+        🏢 {{ s.sucursal.nombre }}
+        {% if s.duracion_minutos %} · ⏱️ {{ s.duracion_minutos }} min{% endif %}
+        {% if s.proyecto %} · 📁 {{ s.proyecto.nombre|default:s.proyecto.codigo }}{% endif %}
       </div>
-      {% if p.costo_total > 0 %}
-      <div class="proy-progress" style="margin-top:8px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.62rem;color:var(--muted)">
-          <span>Progreso de pago</span>
-          <span style="font-weight:700;color:var(--teal)">{% widthratio p.total_pagado_neto p.costo_total 100 %}%</span>
-        </div>
-        <div class="pp-bar"><div class="pp-fill" style="width:{% widthratio p.total_pagado_neto p.costo_total 100 %}%"></div></div>
-      </div>
+      {% if s.notas_sesion %}
+      <div class="s-notes">📝 <b>Nota:</b> {{ s.notas_sesion|truncatechars:150 }}</div>
       {% endif %}
-      {% if p.descripcion %}<div style="margin-top:8px;font-size:0.7rem;color:var(--muted)">{{ p.descripcion|truncatechars:120 }}</div>{% endif %}
+      {% if s.observaciones %}
+      <div class="s-obs">{{ s.observaciones|truncatechars:120 }}</div>
+      {% endif %}
     </div>
+    {% empty %}
+    <div style="text-align:center;padding:30px;color:var(--muted);font-size:.82rem">Sin sesiones en el período seleccionado</div>
     {% endfor %}
   </div>
-  {% endif %}
+  {% endif %}{# end if datos #}
 
-  <!-- HISTORIAL DE PAGOS -->
-  {% if historial_pagos %}
-  <div class="sec-hdr">
-    <h2>💳 Historial de Pagos</h2>
-    <span class="sec-tag" style="background:var(--emerald-ll);color:var(--emerald)">{{ historial_pagos|length }} pagos</span>
-  </div>
-  <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
-    <table class="pagos-table">
-      <thead>
-        <tr>
-          <th>N° Recibo</th><th>Fecha</th><th>Concepto</th><th>Método</th><th>Estado</th><th>Monto</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for pago in historial_pagos %}
-        <tr>
-          <td class="mono" style="font-size:0.68rem;color:var(--muted)">{{ pago.numero_recibo }}</td>
-          <td style="font-size:0.73rem;white-space:nowrap;color:var(--muted)">{{ pago.fecha_pago|date:"d/m/Y" }}</td>
-          <td style="font-size:0.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ pago.concepto|default:"—"|truncatechars:45 }}</td>
-          <td><span class="tx-badge" style="background:var(--blue-ll);color:var(--blue)">{% if pago.metodo_pago %}{{ pago.metodo_pago.nombre }}{% else %}—{% endif %}</span></td>
-          <td>{% if pago.anulado %}<span class="tx-badge" style="background:var(--ruby-ll);color:var(--ruby)">❌ Anulado</span>{% else %}<span class="tx-badge" style="background:var(--emerald-ll);color:var(--emerald)">✅ Válido</span>{% endif %}</td>
-          <td class="mono" style="font-weight:700;color:{% if pago.anulado %}var(--muted){% else %}var(--emerald){% endif %}">Bs. {{ pago.monto|floatformat:2 }}</td>
-        </tr>
-        {% empty %}<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Sin pagos en el período</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-
-  <!-- DEVOLUCIONES -->
-  {% if devoluciones_paciente %}
-  <div class="sec-hdr">
-    <h2>↩️ Devoluciones</h2>
-    <span class="sec-tag" style="background:var(--ruby-ll);color:var(--ruby)">{{ devoluciones_paciente|length }}</span>
-  </div>
-  <div style="margin-bottom:16px">
-    {% for d in devoluciones_paciente %}
-    <div class="account-row ar-devolucion">
-      <div>
-        <div class="ar-concept">{{ d.numero_devolucion }} — {{ d.motivo|truncatechars:50 }}</div>
-        <div class="ar-detail">{{ d.fecha_devolucion|date:"d/m/Y" }} · {{ d.metodo_devolucion }}</div>
-      </div>
-      <div class="ar-amount" style="color:var(--ruby)">- Bs. {{ d.monto|floatformat:2 }}</div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- TIMELINE DE SESIONES -->
-  <div class="page-break">
-    <div class="sec-hdr">
-      <h2>📋 Historial Clínico de Sesiones</h2>
-      <span class="sec-tag no-print" style="background:var(--blue-ll);color:var(--blue)">{{ sesiones_detalle|length }} registros</span>
-    </div>
-    <div class="session-filters no-print">
-      <button class="sf-btn active" onclick="filtrar('todas',this)">Todas</button>
-      <button class="sf-btn" onclick="filtrar('realizada',this)">✅ Realizadas</button>
-      <button class="sf-btn" onclick="filtrar('realizada_retraso',this)">⏰ Con Retraso</button>
-      <button class="sf-btn" onclick="filtrar('con-notas',this)">📝 Con Notas</button>
-      <button class="sf-btn" onclick="filtrar('falta',this)">❌ Faltas</button>
-      <button class="sf-btn" onclick="filtrar('permiso',this)">📋 Permisos</button>
-      <button class="sf-btn" onclick="filtrar('cancelada',this)">🚫 Canceladas</button>
-    </div>
-    <div class="timeline" id="session-timeline">
-      {% for sesion in sesiones_detalle %}
-      <div class="tl-item" data-estado="{{ sesion.estado }}" data-notas="{% if sesion.notas_sesion or sesion.observaciones %}si{% else %}no{% endif %}">
-        <div class="tl-dot tl-{% if sesion.estado == 'realizada' %}realizada{% elif sesion.estado == 'realizada_retraso' %}retraso{% elif sesion.estado == 'falta' %}falta{% elif sesion.estado == 'permiso' %}permiso{% elif sesion.estado == 'cancelada' %}cancelada{% else %}programada{% endif %}">
-          {% if sesion.estado == 'realizada' %}✅{% elif sesion.estado == 'realizada_retraso' %}⏰{% elif sesion.estado == 'falta' %}❌{% elif sesion.estado == 'permiso' %}📝{% elif sesion.estado == 'cancelada' %}🚫{% else %}📆{% endif %}
-        </div>
-        <div class="tl-content">
-          <div class="tl-header">
-            <div>
-              <span class="tl-date">{{ sesion.fecha|date:"d/m/Y" }} {{ sesion.hora_inicio|time:"H:i" }}–{{ sesion.hora_fin|time:"H:i" }}</span>
-              {% if sesion.minutos_retraso %}<span style="font-size:0.62rem;color:var(--amber);font-weight:700;margin-left:6px">+{{ sesion.minutos_retraso }}min</span>{% endif %}
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              {% if sesion.estado == 'realizada' %}<span class="badge-estado estado-realizada">✅ Realizada</span>
-              {% elif sesion.estado == 'realizada_retraso' %}<span class="badge-estado estado-retraso">⏰ Con Retraso</span>
-              {% elif sesion.estado == 'falta' %}<span class="badge-estado estado-falta">❌ Falta</span>
-              {% elif sesion.estado == 'permiso' %}<span class="badge-estado estado-permiso">📝 Permiso</span>
-              {% elif sesion.estado == 'cancelada' %}<span class="badge-estado estado-cancelada">🚫 Cancelada</span>
-              {% else %}<span class="badge-estado estado-programada">📆 Programada</span>{% endif %}
-              {% if sesion.monto_cobrado > 0 %}<span class="tl-monto">Bs. {{ sesion.monto_cobrado|floatformat:2 }}</span>{% endif %}
-            </div>
-          </div>
-          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:4px">
-            🩺 {{ sesion.servicio.nombre }} · {{ sesion.duracion_minutos }}min · 👨‍⚕️ {{ sesion.profesional.nombre_completo }}
-            {% if sesion.sucursal %} · 🏢 {{ sesion.sucursal.nombre }}{% endif %}
-            {% if sesion.proyecto %} · 📁 {{ sesion.proyecto.nombre }}{% endif %}
-            {% if sesion.mensualidad %} · 📅 Mensualidad {{ sesion.mensualidad.get_mes_display }}{% endif %}
-          </div>
-          {% if sesion.notas_sesion %}
-          <div class="tl-notes"><div class="note-label">📝 Nota de Evolución</div><div class="note-text">{{ sesion.notas_sesion }}</div></div>
-          {% endif %}
-          {% if sesion.observaciones %}
-          <div class="tl-obs" style="margin-top:{% if sesion.notas_sesion %}4px{% else %}0{% endif %}"><div class="note-text" style="font-size:0.65rem;font-weight:700;color:var(--muted);margin-bottom:2px">💬 Observaciones</div><div class="note-text">{{ sesion.observaciones }}</div></div>
-          {% endif %}
-          {% if sesion.motivo_reprogramacion %}<div style="margin-top:4px;font-size:0.68rem;color:var(--amber);background:var(--amber-ll);padding:4px 8px;border-radius:6px">🔄 Reprogramación: {{ sesion.motivo_reprogramacion }}</div>{% endif %}
-          {% if sesion.monto_cobrado > 0 %}
-          <div style="margin-top:6px;display:flex;align-items:center;justify-content:flex-end;gap:8px">
-            {% if sesion.pagado %}<span style="font-size:0.65rem;font-weight:700;color:var(--emerald);background:var(--emerald-l);padding:2px 8px;border-radius:8px">✅ Pagado Bs. {{ sesion.total_pagado|floatformat:2 }}</span>
-            {% else %}<span style="font-size:0.65rem;font-weight:700;color:var(--ruby);background:var(--ruby-l);padding:2px 8px;border-radius:8px">⚠️ Pendiente Bs. {{ sesion.saldo_pendiente|floatformat:2 }}</span>{% endif %}
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      {% empty %}
-      <div style="text-align:center;padding:40px;color:var(--muted)">
-        <div style="font-size:2rem;margin-bottom:8px">📭</div>
-        <p style="font-size:0.85rem">Sin sesiones en el período seleccionado.</p>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  {% else %}
-  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r-xl);padding:60px 40px;text-align:center;box-shadow:var(--shadow-sm)">
-    <div style="font-size:3rem;margin-bottom:14px">👤</div>
-    <h3 style="font-size:1.1rem;font-weight:700;color:var(--ink);margin:0 0 8px">Selecciona un paciente para comenzar</h3>
-    <p style="font-size:0.8rem;color:var(--muted);margin:0">Elige un paciente y período para generar su expediente clínico-financiero completo.</p>
-  </div>
-  {% endif %}
-
+  {% endif %}{# end if paciente #}
 </div>
 
 {% if grafico_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-Chart.defaults.color = '#5a7090';
-
-// 1. Evolución
-new Chart(document.getElementById('chart-evolucion'), {
-  type:'line',
+// Sesiones chart
+const ctx1 = document.getElementById('chart-sesiones');
+if(ctx1) new Chart(ctx1, {
+  type:'bar',
   data:{
-    labels:{{ grafico_data.labels|safe }},
+    labels: {{ grafico_data.labels|safe }},
     datasets:[
-      {label:'Sesiones',data:{{ grafico_data.sesiones|safe }},borderColor:'#1d4ed8',backgroundColor:'rgba(29,78,216,0.08)',tension:0.4,fill:true,borderWidth:2.5,pointRadius:4},
-      {label:'Realizadas',data:{{ grafico_data.realizadas|safe }},borderColor:'#059669',backgroundColor:'rgba(5,150,105,0.08)',tension:0.4,fill:true,borderWidth:2.5,pointRadius:4},
-      {label:'Faltas',data:{{ grafico_data.faltas|safe }},borderColor:'#be123c',backgroundColor:'rgba(190,18,60,0.06)',tension:0.4,borderWidth:2,pointRadius:3}
+      {label:'Realizadas',data:{{ grafico_data.realizadas|safe }},backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:5},
+      {label:'Faltas',data:{{ grafico_data.faltas|safe }},backgroundColor:'rgba(220,38,38,.5)',borderColor:'#dc2626',borderWidth:2,borderRadius:5},
+      {label:'Retrasos',data:{{ grafico_data.retrasos|safe }},backgroundColor:'rgba(217,119,6,.5)',borderColor:'#d97706',borderWidth:2,borderRadius:5}
     ]
   },
-  options:{responsive:true,maintainAspectRatio:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:10},padding:12,usePointStyle:true}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}
+  options:{responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{position:'top',labels:{font:{size:10},padding:12}}},
+    scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}}}
 });
 
-// 2. Donut asistencia
-new Chart(document.getElementById('chart-asistencia-donut'),{
+// Asistencia donut
+const totReal = {{ datos.stats.realizadas|default:0 }};
+const totRet = {{ datos.stats.retrasos|default:0 }};
+const totFalta = {{ datos.stats.faltas|default:0 }};
+const totPerm = {{ datos.stats.permisos|default:0 }};
+const totCan = {{ datos.stats.canceladas|default:0 }};
+const ctx2 = document.getElementById('chart-asistencia');
+if(ctx2 && (totReal+totRet+totFalta+totPerm+totCan) > 0) new Chart(ctx2, {
   type:'doughnut',
   data:{
     labels:['Realizadas','Con Retraso','Faltas','Permisos','Canceladas'],
-    datasets:[{data:[{{ datos.stats.realizadas|default:0 }},{{ datos.stats.retrasos|default:0 }},{{ datos.stats.faltas|default:0 }},{{ datos.stats.permisos|default:0 }},{{ datos.stats.canceladas|default:0 }}],backgroundColor:['#059669','#1d4ed8','#be123c','#7c3aed','#94a3b8'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]
+    datasets:[{data:[totReal,totRet,totFalta,totPerm,totCan],
+      backgroundColor:['#16a34a','#d97706','#dc2626','#7c3aed','#94a3b8'],
+      borderWidth:2,borderColor:'#fff',hoverOffset:6}]
   },
-  options:{responsive:true,maintainAspectRatio:true,cutout:'68%',plugins:{legend:{position:'right',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw}`}}}}
-});
-
-// 3. Financiero
-new Chart(document.getElementById('chart-financiero'),{
-  type:'bar',
-  data:{
-    labels:{{ grafico_data.labels|safe }},
-    datasets:[
-      {label:'Consumido',data:{{ grafico_data.consumido|safe|default:'[]' }},backgroundColor:'rgba(29,78,216,0.6)',borderColor:'#1d4ed8',borderWidth:2,borderRadius:5,borderSkipped:false},
-      {label:'Pagado',data:{{ grafico_data.cobrado|safe }},backgroundColor:'rgba(5,150,105,0.6)',borderColor:'#059669',borderWidth:2,borderRadius:5,borderSkipped:false}
-    ]
-  },
-  options:{responsive:true,maintainAspectRatio:true,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',labels:{font:{size:10},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: Bs. ${ctx.raw?.toFixed(2)||0}`}}},scales:{y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>'Bs.'+v},grid:{color:'rgba(0,0,0,0.04)'}},x:{ticks:{font:{size:9}},grid:{display:false}}}}
-});
-
-// 4. Servicios pie
-new Chart(document.getElementById('chart-servicios'),{
-  type:'pie',
-  data:{
-    labels:[{% for s in datos.por_servicio %}"{{ s.servicio__nombre }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-    datasets:[{data:[{% for s in datos.por_servicio %}{{ s.cantidad }}{% if not forloop.last %},{% endif %}{% endfor %}],backgroundColor:['#1d4ed8','#059669','#7c3aed','#0d9488','#d97706','#be123c','#0284c7'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]
-  },
-  options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'right',labels:{font:{size:10},padding:8,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} sesiones`}}}}
+  options:{responsive:true,maintainAspectRatio:true,cutout:'65%',
+    plugins:{legend:{position:'right',labels:{font:{size:10},padding:10}}}}
 });
 </script>
 {% endif %}
 
 <script>
-function filtrar(estado,btn){
-  document.querySelectorAll('.sf-btn').forEach(b=>b.classList.remove('active'));
+function filtrarSesiones(estado, btn){
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('#session-timeline .tl-item').forEach(item=>{
-    if(estado==='todas'){item.style.display='';return;}
-    if(estado==='con-notas'){item.style.display=item.dataset.notas==='si'?'':'none';return;}
-    item.style.display=item.dataset.estado===estado?'':'none';
+  document.querySelectorAll('.session-item').forEach(item=>{
+    item.style.display = (estado==='todas'||item.dataset.estado===estado)?'':'none';
   });
 }
-function aplicarRango(r){
-  const hoy=new Date();let d,h=hoy.toISOString().split('T')[0];
-  if(r==='mes'){d=new Date(hoy.getFullYear(),hoy.getMonth(),1).toISOString().split('T')[0];}
-  else if(r==='mes_anterior'){const i=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);const f=new Date(hoy.getFullYear(),hoy.getMonth(),0);d=i.toISOString().split('T')[0];h=f.toISOString().split('T')[0];}
-  else if(r==='trimestre'){const dd=new Date(hoy);dd.setMonth(hoy.getMonth()-3);d=dd.toISOString().split('T')[0];}
-  else if(r==='anio'){d=new Date(hoy.getFullYear(),0,1).toISOString().split('T')[0];}
-  else if(r==='todo'){d='2020-01-01';}
-  else return;
-  document.querySelector('[name="fecha_desde"]').value=d;
-  document.querySelector('[name="fecha_hasta"]').value=h;
-}
-function exportCSV(){
-  const rows=[['Paciente','{{ paciente.nombre_completo|default:"" }}'],['Período','{{ fecha_desde }}','{{ fecha_hasta }}'],['',''],['Total Sesiones','{{ datos.stats.total_sesiones|default:0 }}'],['Realizadas','{{ datos.stats.realizadas|default:0 }}'],['Faltas','{{ datos.stats.faltas|default:0 }}'],['Retrasos','{{ datos.stats.retrasos|default:0 }}'],['Asistencia','{{ datos.stats.tasa_asistencia|floatformat:2 }}%'],['Horas','{{ datos.stats.total_horas|floatformat:2 }}'],['',''],['Total Consumido','{{ cuenta.total_consumido_actual|default:0 }}'],['Total Pagado','{{ cuenta.total_pagado|default:0 }}'],['Saldo','{{ cuenta.saldo_actual|default:0 }}']];
-  const csv=rows.map(r=>r.join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='paciente_{{ paciente.id|default:"0" }}_{{ fecha_desde }}.csv';a.click();
+function setRango(dias){
+  const hoy = new Date();
+  const desde = new Date(hoy - dias*86400000);
+  const fmt = d => d.toISOString().split('T')[0];
+  const url = new URL(window.location.href);
+  url.searchParams.set('fecha_desde', fmt(desde));
+  url.searchParams.set('fecha_hasta', fmt(hoy));
+  window.location.href = url.toString();
 }
 </script>
 {% endblock %}
