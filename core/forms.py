@@ -8,7 +8,8 @@ class UsuarioForm(forms.ModelForm):
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={
             'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold',
-            'placeholder': '••••••••'
+            'placeholder': '••••••••',
+            'autocomplete': 'new-password'
         }),
         label='Contraseña',
         required=False,
@@ -18,7 +19,8 @@ class UsuarioForm(forms.ModelForm):
     password_confirm = forms.CharField(
         widget=forms.PasswordInput(attrs={
             'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold',
-            'placeholder': '••••••••'
+            'placeholder': '••••••••',
+            'autocomplete': 'new-password'
         }),
         label='Confirmar Contraseña',
         required=False
@@ -30,7 +32,8 @@ class UsuarioForm(forms.ModelForm):
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',
-                'placeholder': 'nombre_usuario'
+                'placeholder': 'nombre_usuario',
+                'autocomplete': 'off'
             }),
             'first_name': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',

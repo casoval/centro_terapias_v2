@@ -4,144 +4,323 @@
 
 {% block extra_css %}
 <style>
-    /* Ocultar botones flotantes en la vista de chat */
-    #paciente-selector-float {
-        display: none !important;
+    /* Ocultar botones flotantes */
+    #paciente-selector-float { display: none !important; }
+    a.fixed.bottom-6.right-6.z-50.w-12.h-12.rounded-full { display: none !important; }
+    
+    {% if tema_chat == 'arcoiris' %}
+    #chat-mensajes {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 400% 400%;
+        animation: gradient-shift 15s ease infinite;
+    }
+    @keyframes gradient-shift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    .mensaje-mio .bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        border: 3px solid rgba(255, 255, 255, 0.5);
+    }
+    .mensaje-otro .bubble {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;
+        color: #1a1a1a !important;
+        box-shadow: 0 8px 16px rgba(250, 112, 154, 0.3);
+        border: 3px solid rgba(255, 255, 255, 0.8);
+    }
+    .chat-header {
+        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%);
+    }
+    .btn-enviar {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     }
     
-    /* Ocultar botón de chat flotante */
-    a.fixed.bottom-6.right-6.z-50.w-12.h-12.rounded-full {
-        display: none !important;
+    {% elif tema_chat == 'oceano' %}
+    #chat-mensajes {
+        background: linear-gradient(to bottom, #1e3c72 0%, #2a5298 30%, #4facfe 60%, #00f2fe 100%);
+    }
+    .mensaje-mio .bubble {
+        background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%) !important;
+        box-shadow: 0 8px 20px rgba(0, 210, 255, 0.4);
+        border: 3px solid #7EC8E3;
+    }
+    .mensaje-otro .bubble {
+        background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%) !important;
+        color: #1a1a1a !important;
+        box-shadow: 0 8px 20px rgba(247, 151, 30, 0.4);
+        border: 3px solid #FFE55C;
+    }
+    .chat-header {
+        background: linear-gradient(90deg, #0083B0 0%, #00B4DB 100%);
+    }
+    .btn-enviar {
+        background: linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%);
+    }
+    
+    {% elif tema_chat == 'espacio' %}
+    #chat-mensajes {
+        background: linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%);
+    }
+    .mensaje-mio .bubble {
+        background: linear-gradient(135deg, #6441A5 0%, #2a0845 100%) !important;
+        box-shadow: 0 0 20px rgba(100, 65, 165, 0.6);
+        border: 3px solid #9D5CFF;
+    }
+    .mensaje-otro .bubble {
+        background: linear-gradient(135deg, #FE8C00 0%, #F83600 100%) !important;
+        box-shadow: 0 0 20px rgba(254, 140, 0, 0.6);
+        border: 3px solid #FFAA00;
+    }
+    .chat-header {
+        background: linear-gradient(90deg, #5433FF 0%, #20BDFF 50%, #A5FECB 100%);
+    }
+    .btn-enviar {
+        background: linear-gradient(135deg, #FF00CC 0%, #3333FF 100%);
+    }
+    
+    {% elif tema_chat == 'selva' %}
+    #chat-mensajes {
+        background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 30%, #90EE90 70%, #7FBF7F 100%);
+    }
+    .mensaje-mio .bubble {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+        color: #333 !important;
+        box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+        border: 4px solid #FFED4E;
+    }
+    .mensaje-otro .bubble {
+        background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%) !important;
+        box-shadow: 0 8px 20px rgba(124, 179, 66, 0.4);
+        border: 4px solid #9CCC65;
+    }
+    .chat-header {
+        background: linear-gradient(90deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
+    }
+    .btn-enviar {
+        background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%);
+    }
+    
+    {% elif tema_chat == 'dulces' %}
+    #chat-mensajes {
+        background: linear-gradient(135deg, #FF9A9E 0%, #FAD0C4 25%, #FBC2EB 50%, #A18CD1 75%, #FBC2EB 100%);
+        background-size: 400% 400%;
+        animation: gradient-shift 15s ease infinite;
+    }
+    .mensaje-mio .bubble {
+        background: linear-gradient(135deg, #FF6B9D 0%, #FFC371 100%) !important;
+        box-shadow: 0 8px 20px rgba(255, 107, 157, 0.4);
+        border: 4px solid #FFE5E5;
+    }
+    .mensaje-otro .bubble {
+        background: linear-gradient(135deg, #C471ED 0%, #F64F59 100%) !important;
+        box-shadow: 0 8px 20px rgba(196, 113, 237, 0.4);
+        border: 4px solid #F5D5F5;
+    }
+    .chat-header {
+        background: linear-gradient(90deg, #FF6FD8 0%, #3813C2 100%);
+    }
+    .btn-enviar {
+        background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%);
+    }
+    
+    {% else %}
+    #chat-mensajes { background: #f8fafc; }
+    .mensaje-mio .bubble {
+        background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    .mensaje-otro .bubble {
+        background: white !important;
+        color: #1e293b !important;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .chat-header {
+        background: white;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .btn-enviar {
+        background: linear-gradient(to right, #3b82f6, #8b5cf6);
+    }
+    {% endif %}
+    
+    .bubble {
+        border-radius: 1.5rem;
+        padding: 0.75rem 1rem;
+        animation: bubble-appear 0.3s ease;
+    }
+    @keyframes bubble-appear {
+        from { opacity: 0; transform: scale(0.8) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .btn-enviar {
+        transition: all 0.3s ease;
+    }
+    .btn-enviar:hover {
+        transform: scale(1.05);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Contenedor de pantalla completa SIN scroll del body -->
 <div class="fixed inset-0 z-40 bg-white flex flex-col" style="padding-top: 80px;">
     
-    <!-- Header del Chat - FIJO ARRIBA -->
-    <div class="bg-white border-b-2 border-slate-200 shadow-sm p-3 sm:p-4 flex-shrink-0">
+    <!-- Header -->
+    <div class="chat-header p-3 sm:p-4 flex-shrink-0 shadow-lg">
         <div class="max-w-5xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-2 sm:gap-4">
-                <!-- Botón Volver -->
                 <a href="{% url 'chat:lista_conversaciones' %}" 
-                   class="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all">
+                    <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
                 </a>
                 
-                <!-- Avatar y Nombre -->
                 {% if foto_url %}
                 <img src="{{ foto_url }}" 
                      alt="{{ nombre_completo }}"
-                     class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-md border-2 border-white flex-shrink-0">
+                     class="w-12 h-12 rounded-full object-cover shadow-xl">
                 {% else %}
-                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-md flex-shrink-0">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-xl">
                     {{ nombre_completo|first|upper }}
                 </div>
                 {% endif %}
                 
                 <div class="min-w-0">
-                    <h2 class="font-bold text-slate-800 text-sm sm:text-lg truncate">
-                        {{ nombre_completo }}
+                    <h2 class="font-bold {% if tema_chat == 'default' %}text-slate-800{% else %}text-white{% endif %} text-base sm:text-xl truncate">
+                        {{ nombre_completo }} {% if tema_chat != 'default' %}👋{% endif %}
                     </h2>
-                    <p class="text-xs text-slate-500 truncate">
+                    <p class="text-xs sm:text-sm {% if tema_chat == 'default' %}text-slate-500{% else %}text-white/90{% endif %} truncate">
                         {% if info_adicional %}
                             {% if rol == "Profesional" %}
-                                Profesional • {{ info_adicional }}
+                                {% if tema_chat != 'default' %}🩺{% endif %} {{ info_adicional }}
                             {% elif rol == "Paciente" %}
-                                Paciente • {{ info_adicional }}
-                            {% else %}
-                                {{ rol }}
-                                <span class="text-slate-400"> • {{ info_adicional }}</span>
-                            {% endif %}
-                        {% else %}
-                            {{ rol }}
-                        {% endif %}
+                                {% if tema_chat != 'default' %}🎈{% endif %} {{ info_adicional }}
+                            {% else %}{{ rol }}{% endif %}
+                        {% else %}{{ rol }}{% endif %}
                     </p>
                 </div>
             </div>
+            
+            <!-- Botón de configuración de tema (TODOS LOS USUARIOS) -->
+            <button onclick="mostrarSelectorTema()" 
+               class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all">
+                <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+                </svg>
+            </button>
         </div>
     </div>
     
-    <!-- Área de Mensajes - CON SCROLL ÚNICO -->
-    <div id="chat-mensajes" class="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-6">
+    <!-- Mensajes -->
+    <div id="chat-mensajes" class="flex-1 overflow-y-auto p-3 sm:p-6">
         <div class="max-w-5xl mx-auto">
             {% for mensaje in mensajes %}
-            <div class="mensaje mb-3 sm:mb-4 flex {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}" 
+            <div class="mensaje mb-4 flex {% if mensaje.remitente == user %}justify-end mensaje-mio{% else %}justify-start mensaje-otro{% endif %}" 
                  data-mensaje-id="{{ mensaje.id }}">
                 <div class="max-w-[85%] sm:max-w-[70%]">
-                    <div class="{% if mensaje.remitente == user %}bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl{% else %}bg-white text-slate-800 rounded-r-2xl rounded-tl-2xl border border-slate-200{% endif %} px-3 py-2 sm:px-4 sm:py-3 shadow-sm">
-                        <p class="text-sm break-words whitespace-pre-wrap">{{ mensaje.contenido }}</p>
+                    <div class="bubble shadow-xl">
+                        <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">{{ mensaje.contenido }}</p>
                     </div>
-                    <div class="flex items-center gap-2 mt-1 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
-                        <span class="text-xs text-slate-500">
-                            {{ mensaje.fecha_envio|date:"H:i" }}
-                        </span>
+                    <div class="flex items-center gap-2 mt-2 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
+                        <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">{{ mensaje.fecha_envio|date:"H:i" }}</span>
                         {% if mensaje.remitente == user %}
-                        <span class="text-xs {% if mensaje.leido %}text-blue-500{% else %}text-slate-400{% endif %}">
-                            ✓✓
-                        </span>
+                        <span class="text-sm {% if mensaje.leido %}text-green-500{% else %}text-gray-400{% endif %}">✓✓</span>
                         {% endif %}
                     </div>
                 </div>
             </div>
             {% empty %}
-            <div class="text-center text-slate-400 py-20">
-                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                </svg>
-                <p class="text-base sm:text-lg">No hay mensajes aún</p>
-                <p class="text-sm mt-1">Envía el primer mensaje para iniciar la conversación</p>
+            <div class="text-center {% if tema_chat == 'default' %}text-slate-400{% else %}text-white{% endif %} py-20">
+                <div class="text-8xl mb-6">💬</div>
+                <p class="text-2xl font-bold">{% if tema_chat != 'default' %}¡No hay mensajes aún!{% else %}No hay mensajes aún{% endif %}</p>
+                <p class="text-lg mt-2">{% if tema_chat != 'default' %}¡Envía el primer mensaje! 🎉{% else %}Envía el primer mensaje{% endif %}</p>
             </div>
             {% endfor %}
         </div>
     </div>
     
-    <!-- Formulario de Envío - FIJO ABAJO -->
-    <div class="bg-white border-t-2 border-slate-200 shadow-lg p-3 sm:p-4 flex-shrink-0">
+    <!-- Formulario -->
+    <div class="{% if tema_chat == 'default' %}bg-white border-t-2 border-slate-200{% else %}bg-gradient-to-r from-purple-100 via-pink-100 to-blue-100 border-t-4{% endif %} shadow-2xl p-3 sm:p-4">
         <div class="max-w-5xl mx-auto">
-            <form id="form-enviar-mensaje" class="flex gap-2 sm:gap-3">
+            <form id="form-enviar-mensaje" class="flex gap-2">
                 {% csrf_token %}
                 <input type="text" 
                        id="input-mensaje" 
                        name="contenido"
-                       placeholder="Escribe un mensaje..."
+                       placeholder="{% if tema_chat != 'default' %}Escribe algo divertido... 😊{% else %}Escribe un mensaje...{% endif %}"
                        maxlength="1000"
                        autocomplete="off"
-                       class="flex-1 px-3 py-2 sm:px-4 sm:py-3 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none text-sm sm:text-base">
+                       class="flex-1 px-4 py-3 border-2 {% if tema_chat == 'default' %}border-slate-200{% else %}border-transparent{% endif %} rounded-full outline-none text-sm sm:text-base font-medium">
                 
                 <button type="submit" 
-                        class="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-2 text-sm sm:text-base flex-shrink-0">
-                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                    </svg>
-                    <span class="hidden sm:inline">Enviar</span>
+                        class="btn-enviar px-5 py-3 text-white rounded-full font-bold flex items-center gap-2">
+                    {% if tema_chat != 'default' %}<span class="text-xl">🚀</span>{% endif %}
+                    <span class="hidden sm:inline">{% if tema_chat != 'default' %}¡Enviar!{% else %}Enviar{% endif %}</span>
                 </button>
             </form>
         </div>
     </div>
-    
+</div>
+
+<!-- Modal de selector de temas (TODOS LOS USUARIOS) -->
+<div id="modal-temas" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-2xl w-full">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold">🎨 Elige tu tema favorito</h3>
+            <button onclick="cerrarSelectorTema()" class="p-2 hover:bg-slate-100 rounded-full">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <button onclick="cambiarTema('default')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'default' %}border-blue-500 bg-blue-50{% else %}border-slate-200{% endif %}">
+                <div class="text-4xl mb-2">🎨</div>
+                <div class="font-bold">Normal</div>
+            </button>
+            
+            <button onclick="cambiarTema('arcoiris')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'arcoiris' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #667eea, #f093fb);">
+                <div class="text-4xl mb-2">🌈</div>
+                <div class="font-bold text-white">Arcoíris</div>
+            </button>
+            
+            <button onclick="cambiarTema('oceano')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'oceano' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);">
+                <div class="text-4xl mb-2">🌊</div>
+                <div class="font-bold text-white">Océano</div>
+            </button>
+            
+            <button onclick="cambiarTema('espacio')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'espacio' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #0F2027, #2C5364);">
+                <div class="text-4xl mb-2">🚀</div>
+                <div class="font-bold text-white">Espacio</div>
+            </button>
+            
+            <button onclick="cambiarTema('selva')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'selva' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #90EE90, #7FBF7F);">
+                <div class="text-4xl mb-2">🦁</div>
+                <div class="font-bold">Safari</div>
+            </button>
+            
+            <button onclick="cambiarTema('dulces')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'dulces' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #FF9A9E, #FAD0C4);">
+                <div class="text-4xl mb-2">🍭</div>
+                <div class="font-bold">Dulces</div>
+            </button>
+        </div>
+    </div>
 </div>
 
 <script>
-// ==================== CONFIGURACIÓN ====================
 const CONVERSACION_ID = {{ conversacion.id }};
 const USUARIO_ACTUAL_ID = {{ user.id }};
-const POLLING_INTERVAL = 3000; // 3 segundos
+const POLLING_INTERVAL = 3000;
 
 let ultimoMensajeId = {% if mensajes %}{{ mensajes.last.id }}{% else %}0{% endif %};
 let polling = null;
 
-// ==================== DOM ELEMENTS ====================
 const formEnviar = document.getElementById('form-enviar-mensaje');
 const inputMensaje = document.getElementById('input-mensaje');
 const chatMensajes = document.getElementById('chat-mensajes');
-
-// ==================== FUNCIONES ====================
 
 function scrollToBottom() {
     chatMensajes.scrollTop = chatMensajes.scrollHeight;
@@ -149,19 +328,18 @@ function scrollToBottom() {
 
 function agregarMensaje(mensaje, esMio) {
     const contenedorMensajes = chatMensajes.querySelector('.max-w-5xl');
-    
     const mensajeDiv = document.createElement('div');
-    mensajeDiv.className = `mensaje mb-3 sm:mb-4 flex ${esMio ? 'justify-end' : 'justify-start'}`;
+    mensajeDiv.className = `mensaje mb-4 flex ${esMio ? 'justify-end mensaje-mio' : 'justify-start mensaje-otro'}`;
     mensajeDiv.setAttribute('data-mensaje-id', mensaje.id);
     
     mensajeDiv.innerHTML = `
         <div class="max-w-[85%] sm:max-w-[70%]">
-            <div class="${esMio ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-l-2xl rounded-tr-2xl' : 'bg-white text-slate-800 rounded-r-2xl rounded-tl-2xl border border-slate-200'} px-3 py-2 sm:px-4 sm:py-3 shadow-sm">
-                <p class="text-sm break-words whitespace-pre-wrap">${escapeHtml(mensaje.contenido)}</p>
+            <div class="bubble shadow-xl">
+                <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">${escapeHtml(mensaje.contenido)}</p>
             </div>
-            <div class="flex items-center gap-2 mt-1 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
-                <span class="text-xs text-slate-500">${mensaje.fecha_envio}</span>
-                ${esMio ? '<span class="text-xs text-slate-400">✓✓</span>' : ''}
+            <div class="flex items-center gap-2 mt-2 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
+                <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">${mensaje.fecha_envio}</span>
+                ${esMio ? '<span class="text-sm text-gray-400">✓✓</span>' : ''}
             </div>
         </div>
     `;
@@ -191,7 +369,47 @@ function checkNuevosMensajes() {
         .catch(error => console.error('Error:', error));
 }
 
-// ==================== EVENT LISTENERS ====================
+function mostrarSelectorTema() {
+    document.getElementById('modal-temas').classList.remove('hidden');
+}
+
+function cerrarSelectorTema() {
+    document.getElementById('modal-temas').classList.add('hidden');
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        document.cookie.split(';').forEach(function(cookie) {
+            const c = cookie.trim();
+            if (c.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(c.substring(name.length + 1));
+            }
+        });
+    }
+    return cookieValue;
+}
+
+function cambiarTema(tema) {
+    const csrfToken = getCookie('csrftoken');
+    fetch('{% url "chat:cambiar_tema_chat" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ tema: tema })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            console.error('Error al cambiar tema:', data.error);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
 
 formEnviar.addEventListener('submit', function(e) {
     e.preventDefault();
@@ -225,23 +443,14 @@ formEnviar.addEventListener('submit', function(e) {
     .catch(error => console.error('Error:', error));
 });
 
-// ==================== INICIALIZACIÓN ====================
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Scroll al último mensaje
     scrollToBottom();
-    
-    // Iniciar polling para nuevos mensajes
     polling = setInterval(checkNuevosMensajes, POLLING_INTERVAL);
     
-    // Detener polling al salir
     window.addEventListener('beforeunload', function() {
-        if (polling) {
-            clearInterval(polling);
-        }
+        if (polling) clearInterval(polling);
     });
     
-    // Focus en input
     inputMensaje.focus();
 });
 </script>

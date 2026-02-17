@@ -13,10 +13,20 @@ class PerfilUsuario(models.Model):
     
     # Tipos de roles - ✅ AGREGADO ROL PACIENTE
     ROL_CHOICES = [
-        ('paciente', 'Paciente'),  # ✅ NUEVO ROL
+        ('paciente', 'Paciente'),
         ('profesional', 'Profesional'),
         ('recepcionista', 'Recepcionista'),
         ('gerente', 'Gerente'),
+    ]
+
+    # ✅ NUEVO: Opciones de tema de chat — disponibles para TODOS los roles
+    TEMA_CHAT_CHOICES = [
+        ('default', 'Normal'),
+        ('arcoiris', 'Arcoíris'),
+        ('oceano', 'Océano'),
+        ('espacio', 'Espacio'),
+        ('selva', 'Safari'),
+        ('dulces', 'Dulces'),
     ]
     
     user = models.OneToOneField(
@@ -32,6 +42,14 @@ class PerfilUsuario(models.Model):
         blank=True,
         help_text='Rol del usuario en el sistema'
     )
+
+    # ✅ NUEVO: Campo de tema de chat para todos los roles
+    tema_chat = models.CharField(
+        max_length=20,
+        choices=TEMA_CHAT_CHOICES,
+        default='default',
+        help_text='Tema visual del chat (aplica a todos los roles)'
+    )
     
     # Relación con Profesional (si aplica)
     profesional = models.OneToOneField(
@@ -43,7 +61,7 @@ class PerfilUsuario(models.Model):
         help_text='Vinculación con el profesional (si es profesional)'
     )
     
-    # ✅ NUEVO: Relación con Paciente (si aplica)
+    # ✅ Relación con Paciente (si aplica)
     paciente = models.OneToOneField(
         'pacientes.Paciente',
         on_delete=models.SET_NULL,
@@ -81,7 +99,7 @@ class PerfilUsuario(models.Model):
         return self.user.is_superuser
     
     def es_paciente(self):
-        """✅ NUEVO: Verifica si tiene rol de paciente"""
+        """✅ Verifica si tiene rol de paciente"""
         return self.rol == 'paciente'
     
     def es_profesional(self):
@@ -180,7 +198,7 @@ class PerfilUsuario(models.Model):
         """Profesionales solo pueden editar observaciones privadas"""
         return self.es_profesional()
     
-    # ✅ NUEVOS PERMISOS PARA PACIENTES
+    # ✅ PERMISOS PARA PACIENTES
     def puede_ver_solo_sus_datos(self):
         """Los pacientes solo pueden ver sus propios datos"""
         return self.es_paciente()

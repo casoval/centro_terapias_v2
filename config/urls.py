@@ -7,27 +7,25 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('core.urls')),
+    path('', include('core.urls', namespace='core')),
     path('pacientes/', include('pacientes.urls')),
     path('agenda/', include('agenda.urls')),
     path('servicios/', include('servicios.urls')),
     path('profesionales/', include('profesionales.urls')),
     path('facturacion/', include('facturacion.urls')),
-    path('chat/', include('chat.urls')),
+    # ✅ CORREGIDO: agregado namespace='chat' para que {% url "chat:..." %} funcione
+    path('chat/', include('chat.urls', namespace='chat')),
 ]
 
 # ==================== DEBUG TOOLBAR ====================
-# ✅ CRÍTICO: Agregar las URLs de Debug Toolbar
 if settings.DEBUG:
     try:
         import debug_toolbar
-        # ⚠️ IMPORTANTE: Debe ir ANTES de urlpatterns principales
         urlpatterns = [
             path('__debug__/', include('debug_toolbar.urls')),
         ] + urlpatterns
-        
     except ImportError:
-        pass  # Debug toolbar no instalado, continuar sin él
+        pass
 
 # ==================== ARCHIVOS ESTÁTICOS Y MEDIA ====================
 if settings.DEBUG:
