@@ -164,7 +164,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="fixed inset-0 z-40 bg-white flex flex-col" style="padding-top: 80px;">
+<div class="fixed inset-0 z-40 bg-white flex flex-col" id="chat-container">
     
     <!-- Header -->
     <div class="chat-header p-3 sm:p-4 flex-shrink-0 shadow-lg">
@@ -255,9 +255,17 @@
                        class="flex-1 px-4 py-3 border-2 {% if tema_chat == 'default' %}border-slate-200{% else %}border-transparent{% endif %} rounded-full outline-none text-sm sm:text-base font-medium">
                 
                 <button type="submit" 
-                        class="btn-enviar px-5 py-3 text-white rounded-full font-bold flex items-center gap-2">
-                    {% if tema_chat != 'default' %}<span class="text-xl">🚀</span>{% endif %}
-                    <span class="hidden sm:inline">{% if tema_chat != 'default' %}¡Enviar!{% else %}Enviar{% endif %}</span>
+                        class="btn-enviar px-4 py-3 text-white rounded-full font-bold flex items-center gap-1.5 min-w-[80px] justify-center">
+                    {% if tema_chat != 'default' %}
+                        <span class="text-lg leading-none">🚀</span>
+                        <span class="hidden sm:inline font-bold">¡Enviar!</span>
+                    {% else %}
+                        <svg class="w-4 h-4 flex-shrink-0 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                        <span class="hidden sm:inline font-bold">Enviar</span>
+                        <span class="sm:hidden font-bold text-sm">Enviar</span>
+                    {% endif %}
                 </button>
             </form>
         </div>
@@ -452,6 +460,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     inputMensaje.focus();
+
+    // ✅ Ajustar altura del contenedor al navbar real
+    function ajustarAlturaChatContainer() {
+        const navbar = document.querySelector('nav, header, .navbar, [class*="navbar"]');
+        const chatContainer = document.getElementById('chat-container');
+        if (chatContainer) {
+            if (navbar) {
+                chatContainer.style.paddingTop = navbar.offsetHeight + 'px';
+            } else {
+                // Fallback: buscar el primer elemento fijo antes del chat
+                const allFixed = document.querySelectorAll('[class*="fixed"], [class*="sticky"]');
+                let maxBottom = 0;
+                allFixed.forEach(el => {
+                    if (el.id !== 'chat-container' && el.id !== 'modal-temas') {
+                        const rect = el.getBoundingClientRect();
+                        if (rect.bottom > maxBottom && rect.top === 0) {
+                            maxBottom = rect.bottom;
+                        }
+                    }
+                });
+                chatContainer.style.paddingTop = (maxBottom || 64) + 'px';
+            }
+        }
+    }
+    ajustarAlturaChatContainer();
+    window.addEventListener('resize', ajustarAlturaChatContainer);
 });
 </script>
 {% endblock %}
