@@ -24,6 +24,7 @@ from .services import PaymentService, AccountService
 from . import pdf_generator  # ✅ Importar módulo de PDFs
 from pacientes.models import Paciente
 from agenda.models import Sesion, Proyecto, Mensualidad
+from facturacion.models import Devolucion
 
 from .admin_views import (
     panel_recalcular_cuentas,
@@ -2396,7 +2397,8 @@ def historial_pagos(request):
     metodo_id = request.GET.get('metodo', '').strip()
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
-    
+    tipo_filtro = request.GET.get('tipo', '').strip()  # pago | anulado | devolucion
+
     # ==================== QUERY DE PAGOS ====================
     pagos = Pago.objects.select_related(
         'paciente',
@@ -2425,6 +2427,13 @@ def historial_pagos(request):
     
     if fecha_hasta:
         pagos = pagos.filter(fecha_pago__lte=fecha_hasta)
+
+    # Filtro tipo sobre la columna Tipo de la tabla
+    if tipo_filtro == 'pago':
+        pagos = pagos.filter(anulado=False)
+    elif tipo_filtro == 'anulado':
+        pagos = pagos.filter(anulado=True)
+    # 'devolucion' → pagos se excluyen completamente abajo
     
     # ==================== QUERY DE DEVOLUCIONES ====================
     devoluciones = Devolucion.objects.select_related(
@@ -2453,28 +2462,60 @@ def historial_pagos(request):
         devoluciones = devoluciones.filter(fecha_devolucion__lte=fecha_hasta)
     
     # ==================== COMBINAR PAGOS Y DEVOLUCIONES ====================
-    # Crear una lista de diccionarios para unificar ambos tipos
     items_combinados = []
-    
-    # Agregar pagos
-    for pago in pagos:
-        items_combinados.append({
-            'tipo': 'pago',
-            'objeto': pago,
-            'fecha': pago.fecha_pago,  # Para ordenamiento
-        })
-    
-    # Agregar devoluciones
-    for devolucion in devoluciones:
-        items_combinados.append({
-            'tipo': 'devolucion',
-            'objeto': devolucion,
-            'fecha': devolucion.fecha_devolucion,  # Para ordenamiento
-        })
-    
-    # Ordenar por fecha descendente (más recientes primero)
-    items_combinados.sort(key=lambda x: x['fecha'], reverse=True)
-    
+
+    incluir_pagos = tipo_filtro != 'devolucion'
+    incluir_devoluciones = tipo_filtro in ('', 'devolucion')
+
+    if incluir_pagos:
+        for pago in pagos:
+            items_combinados.append({
+                'tipo': 'pago',
+                'objeto': pago,
+                'fecha': pago.fecha_pago,
+            })
+
+    if incluir_devoluciones:
+        for devolucion in devoluciones:
+            items_combinados.append({
+                'tipo': 'devolucion',
+                'objeto': devolucion,
+                'fecha': devolucion.fecha_devolucion,
+            })
+
+    # ==================== ORDENAMIENTO POR COLUMNA ====================
+    orden_col = request.GET.get('orden', 'fecha')
+    orden_dir = request.GET.get('dir', 'desc')
+    reverse = (orden_dir == 'desc')
+
+    def get_sort_key(item):
+        obj = item['objeto']
+        if orden_col == 'fecha':
+            return item['fecha']
+        elif orden_col == 'paciente':
+            return (obj.paciente.apellido + obj.paciente.nombre).lower() if obj.paciente else ''
+        elif orden_col == 'monto':
+            return obj.monto
+        elif orden_col == 'metodo':
+            if item['tipo'] == 'devolucion':
+                return obj.metodo_devolucion.nombre.lower() if obj.metodo_devolucion else ''
+            return obj.metodo_pago.nombre.lower() if obj.metodo_pago else ''
+        elif orden_col == 'recibo':
+            if item['tipo'] == 'devolucion':
+                return obj.numero_devolucion.lower() if obj.numero_devolucion else ''
+            return obj.numero_recibo.lower() if obj.numero_recibo else ''
+        elif orden_col == 'concepto':
+            if item['tipo'] == 'devolucion':
+                return obj.motivo.lower() if obj.motivo else ''
+            return obj.concepto.lower() if obj.concepto else ''
+        elif orden_col == 'tipo':
+            if item['tipo'] == 'devolucion':
+                return '0_devolucion'
+            return '1_anulado' if obj.anulado else '2_pago'
+        return item['fecha']
+
+    items_combinados.sort(key=get_sort_key, reverse=reverse)
+
     # ==================== PAGINACIÓN ====================
     paginator = Paginator(items_combinados, 30)  # 30 registros por página
     page_number = request.GET.get('page', 1)
@@ -2493,6 +2534,9 @@ def historial_pagos(request):
         'metodo_id': metodo_id,
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
+        'tipo_filtro': tipo_filtro,
+        'orden_col': orden_col,
+        'orden_dir': orden_dir,
         'metodos_pago': metodos_pago,
         'mostrar_estadisticas': mostrar_estadisticas,
     }
@@ -2500,61 +2544,93 @@ def historial_pagos(request):
     return render(request, 'facturacion/historial_pagos.html', context)
 
 
-def calcular_estadisticas_pagos(pagos_queryset):
+def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filtros=None):
     """
     Calcula estadísticas de pagos usando solo queries a BD
     Función separada para reutilizar en AJAX
-    
-    ✅ MEJORADO: Incluye más métricas útiles y elimina "Total Cobrado"
+
+    ✅ MEJORADO: Incluye pagos reales, uso de crédito, pagos adelantados,
+                 devoluciones y anulados. Aplica los mismos filtros de fecha/búsqueda.
     """
-    
-    # Total de pagos (todos)
-    total_pagos = pagos_queryset.count()
-    
-    # Total pagos válidos (sin crédito)
-    pagos_validos = pagos_queryset.exclude(metodo_pago__nombre="Uso de Crédito")
-    total_pagos_validos = pagos_validos.count()
-    
-    # Total pagos al crédito
-    pagos_credito = pagos_queryset.filter(metodo_pago__nombre="Uso de Crédito")
+
+    # ── BASE: todos los pagos del queryset (incluye anulados y crédito) ──────
+    total_pagos_all = pagos_queryset.count()
+
+    # ── ANULADOS ─────────────────────────────────────────────────────────────
+    pagos_anulados = pagos_queryset.filter(anulado=True)
+    total_anulados = pagos_anulados.count()
+    monto_anulados = pagos_anulados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    # ── BASE NO ANULADOS ──────────────────────────────────────────────────────
+    pagos_no_anulados = pagos_queryset.filter(anulado=False)
+
+    # ── USO DE CRÉDITO (no anulados, método = "Uso de Crédito") ──────────────
+    pagos_credito = pagos_no_anulados.filter(metodo_pago__nombre="Uso de Crédito")
     total_pagos_credito = pagos_credito.count()
-    
-    # Montos totales
-    monto_pagos_validos = pagos_validos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
     monto_pagos_credito = pagos_credito.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-    
-    # ✅ NUEVAS MÉTRICAS
-    # Promedio por transacción
-    promedio_transaccion = monto_pagos_validos / total_pagos_validos if total_pagos_validos > 0 else Decimal('0.00')
-    
-    # Cantidad de métodos de pago utilizados
-    total_metodos = pagos_queryset.values('metodo_pago').distinct().count()
-    
-    # Desglose por método de pago (Top 5) - ORDENADO POR MONTO
-    desglose_metodos = pagos_validos.values(
+
+    # ── PAGOS REALES: no anulados, no crédito ─────────────────────────────────
+    pagos_reales = pagos_no_anulados.exclude(metodo_pago__nombre="Uso de Crédito")
+    total_pagos_reales = pagos_reales.count()
+    monto_pagos_reales = pagos_reales.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    # ── PAGOS ADELANTADOS: reales sin sesión/proyecto/mensualidad asignados ───
+    pagos_adelantados = pagos_reales.filter(
+        sesion__isnull=True,
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+    ).exclude(numero_recibo__startswith='CRE-')
+    total_adelantados = pagos_adelantados.count()
+    monto_adelantados = pagos_adelantados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    # ── PROMEDIO POR TRANSACCIÓN ──────────────────────────────────────────────
+    promedio_transaccion = (
+        monto_pagos_reales / total_pagos_reales if total_pagos_reales > 0 else Decimal('0.00')
+    )
+
+    # ── MÉTODOS ACTIVOS (solo pagos reales) ───────────────────────────────────
+    total_metodos = pagos_reales.values('metodo_pago').distinct().count()
+
+    # ── DESGLOSE POR MÉTODO (top 5, solo pagos reales) ───────────────────────
+    desglose_metodos = pagos_reales.values(
         'metodo_pago__nombre'
     ).annotate(
         cantidad=Count('id'),
         total=Sum('monto')
     ).order_by('-total')[:5]
-    
-    # Mayor pago registrado
-    mayor_pago = pagos_validos.aggregate(max=Coalesce(Sum('monto'), Decimal('0')))
-    
+
+    # ── DEVOLUCIONES ─────────────────────────────────────────────────────────
+    if devoluciones_queryset is not None:
+        total_devoluciones = devoluciones_queryset.count()
+        monto_devoluciones = devoluciones_queryset.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+    else:
+        total_devoluciones = 0
+        monto_devoluciones = Decimal('0.00')
+
     return {
-        # Contadores
-        'total_pagos': total_pagos,
-        'total_pagos_validos': total_pagos_validos,
+        # Contadores generales
+        'total_pagos': total_pagos_all,
+        'total_pagos_reales': total_pagos_reales,
         'total_pagos_credito': total_pagos_credito,
-        
-        # Montos principales (sin "Total Cobrado")
-        'monto_pagos_validos': monto_pagos_validos,
+        'total_adelantados': total_adelantados,
+        'total_anulados': total_anulados,
+        'total_devoluciones': total_devoluciones,
+
+        # Montos
+        'monto_pagos_reales': monto_pagos_reales,
         'monto_pagos_credito': monto_pagos_credito,
-        
-        # Nuevas métricas útiles
+        'monto_adelantados': monto_adelantados,
+        'monto_anulados': monto_anulados,
+        'monto_devoluciones': monto_devoluciones,
+
+        # Compatibilidad con código anterior
+        'monto_pagos_validos': monto_pagos_reales,
+        'total_pagos_validos': total_pagos_reales,
+
+        # Métricas adicionales
         'promedio_transaccion': promedio_transaccion,
         'total_metodos': total_metodos,
-        
+
         # Desglose
         'desglose_metodos': list(desglose_metodos),
     }
@@ -2563,58 +2639,109 @@ def calcular_estadisticas_pagos(pagos_queryset):
 @login_required
 def cargar_estadisticas_pagos_ajax(request):
     """
-    Vista AJAX para cargar estadísticas de pagos bajo demanda
-    Respeta los mismos filtros que la vista principal
+    Vista AJAX para cargar estadísticas de pagos bajo demanda.
+    Respeta los mismos filtros que la vista principal.
+
+    ✅ MEJORADO: Incluye pagos reales, uso de crédito, adelantados,
+                 devoluciones y anulados con filtros dinámicos.
     """
-    
+
     # Aplicar los mismos filtros
     buscar = request.GET.get('q', '').strip()
     metodo_id = request.GET.get('metodo', '')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
-    
-    # Query base
-    pagos = Pago.objects.filter(anulado=False)
-    
-    # Aplicar filtros
+    tipo_filtro = request.GET.get('tipo', '').strip()
+
+    # ── Query base de pagos (TODOS, incluyendo anulados) ──────────────────────
+    pagos = Pago.objects.select_related('metodo_pago')
+
     if buscar:
         pagos = pagos.filter(
             Q(paciente__nombre__icontains=buscar) |
             Q(paciente__apellido__icontains=buscar) |
             Q(numero_recibo__icontains=buscar)
         )
-    
+
     if metodo_id:
         pagos = pagos.filter(metodo_pago_id=metodo_id)
-    
+
     if fecha_desde:
         try:
             fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
             pagos = pagos.filter(fecha_pago__gte=fecha_desde_obj)
-        except:
+        except Exception:
             pass
-    
+
     if fecha_hasta:
         try:
             fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
             pagos = pagos.filter(fecha_pago__lte=fecha_hasta_obj)
-        except:
+        except Exception:
             pass
-    
+
+    # Las estadísticas siempre muestran el resumen GLOBAL (no se filtran por tipo)
+    # para que el usuario vea el panorama completo incluso al filtrar la lista.
+    # El filtro tipo solo afecta la lista de registros, no las tarjetas de resumen.
+
+    # ── Query de devoluciones con los mismos filtros ──────────────────────────
+    devoluciones = Devolucion.objects.all()
+
+    if buscar:
+        devoluciones = devoluciones.filter(
+            Q(paciente__nombre__icontains=buscar) |
+            Q(paciente__apellido__icontains=buscar) |
+            Q(numero_devolucion__icontains=buscar)
+        )
+
+    # Nota: si filtran por método de pago, las devoluciones usan metodo_devolucion
+    # No aplicamos el mismo filtro de método para no distorsionar las devoluciones
+    # a menos que sea un filtro explícito del usuario
+    if fecha_desde:
+        try:
+            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            devoluciones = devoluciones.filter(fecha_devolucion__gte=fecha_desde_obj)
+        except Exception:
+            pass
+
+    if fecha_hasta:
+        try:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            devoluciones = devoluciones.filter(fecha_devolucion__lte=fecha_hasta_obj)
+        except Exception:
+            pass
+
     # Calcular estadísticas
-    stats = calcular_estadisticas_pagos(pagos)
-    
+    stats = calcular_estadisticas_pagos(pagos, devoluciones_queryset=devoluciones)
+
     # Convertir Decimals a float para JSON
     return JsonResponse({
         'success': True,
         'estadisticas': {
+            # Contadores
             'total_pagos': stats['total_pagos'],
-            'total_pagos_validos': stats['total_pagos_validos'],
+            'total_pagos_reales': stats['total_pagos_reales'],
             'total_pagos_credito': stats['total_pagos_credito'],
-            'monto_pagos_validos': float(stats['monto_pagos_validos']),
+            'total_adelantados': stats['total_adelantados'],
+            'total_anulados': stats['total_anulados'],
+            'total_devoluciones': stats['total_devoluciones'],
+
+            # Montos
+            'monto_pagos_reales': float(stats['monto_pagos_reales']),
             'monto_pagos_credito': float(stats['monto_pagos_credito']),
+            'monto_adelantados': float(stats['monto_adelantados']),
+            'monto_anulados': float(stats['monto_anulados']),
+            'monto_devoluciones': float(stats['monto_devoluciones']),
+
+            # Compat
+            'monto_pagos_validos': float(stats['monto_pagos_reales']),
+            'total_pagos_validos': stats['total_pagos_reales'],
+
+            # Métricas
             'promedio_transaccion': float(stats['promedio_transaccion']),
             'total_metodos': stats['total_metodos'],
+
+            # Desglose
             'desglose_metodos': [
                 {
                     'metodo': item['metodo_pago__nombre'],
@@ -2899,6 +3026,15 @@ def dashboard_reportes(request):
         ).exclude(metodo_pago__nombre="Uso de Crédito").aggregate(
             t=Sum('monto')
         )['t'] or Decimal('0.00')
+        
+        # Sumar mensualidades del mes actual (generadas, no cobradas)
+        from agenda.models import Mensualidad
+        mensualidades_mes_dashboard = Mensualidad.objects.filter(
+            anio=hoy.year,
+            mes=hoy.month,
+            estado__in=['activa', 'pausada', 'completada', 'cancelada']
+        ).aggregate(t=Sum('costo_mensual'))['t'] or Decimal('0.00')
+        ingresos_mes += mensualidades_mes_dashboard
 
         # Saldo pendiente: cuentas con saldo negativo
         from facturacion.models import CuentaCorriente
@@ -3069,6 +3205,24 @@ def reporte_paciente(request):
             'monto_total': proyectos_paciente.aggregate(Sum('costo_total'))['costo_total__sum'] or Decimal('0.00'),
         }
         
+        # Mensualidades del paciente en el período
+        from agenda.models import Mensualidad
+        mensualidades_paciente = Mensualidad.objects.filter(
+            paciente=paciente,
+            estado__in=['activa', 'pausada', 'completada', 'cancelada']
+        ).filter(
+            Q(anio__gt=fecha_desde_obj.year) |
+            Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+        ).filter(
+            Q(anio__lt=fecha_hasta_obj.year) |
+            Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+        )
+        mensualidades_stats = {
+            'total': mensualidades_paciente.count(),
+            'activas': mensualidades_paciente.filter(estado='activa').count(),
+            'monto_total': mensualidades_paciente.aggregate(Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00'),
+        }
+        
         datos = {
             'stats': stats,
             'tasa_asistencia': round(tasa_asistencia, 1),
@@ -3078,6 +3232,8 @@ def reporte_paciente(request):
             'por_sucursal': por_sucursal,
             'proyectos_stats': proyectos_stats,
             'proyectos': proyectos_paciente[:5],
+            'mensualidades_stats': mensualidades_stats,
+            'mensualidades': mensualidades_paciente[:5],
             'sesiones_recientes': sesiones.order_by('-fecha', '-hora_inicio')[:15],
         }
     
@@ -3499,6 +3655,25 @@ def reporte_sucursal(request):
             total_horas=Sum('duracion_minutos', filter=Q(estado__in=['realizada', 'realizada_retraso']))
         )
         
+        # Sumar mensualidades de la sucursal en el período
+        from agenda.models import Mensualidad
+        mensualidades_sucursal = Mensualidad.objects.filter(
+            sucursal=sucursal,
+            estado__in=['activa', 'pausada', 'completada', 'cancelada']
+        ).filter(
+            Q(anio__gt=fecha_desde_obj.year) |
+            Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+        ).filter(
+            Q(anio__lt=fecha_hasta_obj.year) |
+            Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+        )
+        ingresos_mensualidades_sucursal = mensualidades_sucursal.aggregate(
+            t=Sum('costo_mensual')
+        )['t'] or Decimal('0.00')
+        stats['ingresos_total'] = (stats['ingresos_total'] or Decimal('0.00')) + ingresos_mensualidades_sucursal
+        stats['mensualidades_count'] = mensualidades_sucursal.count()
+        stats['ingresos_mensualidades'] = ingresos_mensualidades_sucursal
+        
         stats['total_horas_decimal'] = (stats['total_horas'] or 0) / 60
         
         # Tasas
@@ -3577,12 +3752,24 @@ def reporte_sucursal(request):
                 ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
             )
             
+            # Sumar mensualidades de cada sucursal
+            suc_mensualidades_ingresos = Mensualidad.objects.filter(
+                sucursal=suc,
+                estado__in=['activa', 'pausada', 'completada', 'cancelada']
+            ).filter(
+                Q(anio__gt=fecha_desde_obj.year) |
+                Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+            ).filter(
+                Q(anio__lt=fecha_hasta_obj.year) |
+                Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+            ).aggregate(t=Sum('costo_mensual'))['t'] or Decimal('0.00')
+            
             comparativa_data.append({
                 'id': suc.id,
                 'nombre': suc.nombre,
                 'sesiones': suc_stats['sesiones'] or 0,
                 'realizadas': suc_stats['realizadas'] or 0,
-                'ingresos': suc_stats['ingresos'] or Decimal('0.00'),
+                'ingresos': (suc_stats['ingresos'] or Decimal('0.00')) + suc_mensualidades_ingresos,
                 'es_actual': suc.id == sucursal.id
             })
         
@@ -3606,18 +3793,22 @@ def reporte_sucursal(request):
 @login_required
 def reporte_financiero(request):
     """
-    Reporte financiero completo - MEJORADO
+    Reporte financiero completo - VERSIÓN EXTENDIDA Y CORREGIDA
     ✅ Incluye: sesiones, proyectos, créditos, métodos de pago, cierre de caja
+    ✅ Vistas detalladas de pagos, sesiones, proyectos y créditos
+    ✅ CORREGIDO: Resta devoluciones y pagos anulados del total recaudado
     """
     
     from datetime import datetime, timedelta
     from servicios.models import Sucursal
     from agenda.models import Proyecto
+    from django.db.models import Q, Sum, Count, DecimalField
+    from django.db.models.functions import Coalesce
     
     sucursal_id = request.GET.get('sucursal', '')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
-    vista = request.GET.get('vista', 'mensual')  # mensual o diaria
+    vista = request.GET.get('vista', 'mensual')  # mensual, diaria, detalle_pagos, detalle_sesiones, detalle_proyectos, analisis_creditos
     
     # Rango de fechas
     if fecha_desde and fecha_hasta:
@@ -3644,11 +3835,42 @@ def reporte_financiero(request):
         fecha_inicio__lte=fecha_hasta_obj
     ).select_related('paciente', 'servicio_base', 'profesional_responsable', 'sucursal')
     
+    # ==================== MENSUALIDADES ====================
+    # Filtrar mensualidades cuyo mes/año cae dentro del rango seleccionado
+    from agenda.models import Mensualidad
+    mensualidades = Mensualidad.objects.filter(
+        estado__in=['activa', 'vencida', 'pausada', 'completada', 'cancelada']
+    ).filter(
+        # mes/año >= fecha_desde
+        Q(anio__gt=fecha_desde_obj.year) |
+        Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+    ).filter(
+        # mes/año <= fecha_hasta
+        Q(anio__lt=fecha_hasta_obj.year) |
+        Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+    ).select_related('paciente', 'sucursal')
+    
+    if sucursal_id:
+        mensualidades = mensualidades.filter(sucursal_id=sucursal_id)
+    
     # ==================== PAGOS ====================
     pagos = Pago.objects.filter(
         fecha_pago__gte=fecha_desde_obj,
         fecha_pago__lte=fecha_hasta_obj,
-        anulado=False
+        anulado=False  # Solo pagos válidos
+    ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto')
+    
+    # ==================== DEVOLUCIONES ====================
+    devoluciones = Devolucion.objects.filter(
+        fecha_devolucion__gte=fecha_desde_obj,
+        fecha_devolucion__lte=fecha_hasta_obj
+    ).select_related('paciente', 'metodo_devolucion', 'proyecto', 'mensualidad')
+    
+    # ==================== PAGOS ANULADOS (para mostrar) ====================
+    pagos_anulados = Pago.objects.filter(
+        fecha_pago__gte=fecha_desde_obj,
+        fecha_pago__lte=fecha_hasta_obj,
+        anulado=True
     ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto')
     
     # Filtro por sucursal
@@ -3660,52 +3882,418 @@ def reporte_financiero(request):
             Q(proyecto__sucursal_id=sucursal_id) |
             Q(sesion__isnull=True, proyecto__isnull=True, paciente__sucursales__id=sucursal_id)
         )
+        devoluciones = devoluciones.filter(
+            Q(proyecto__sucursal_id=sucursal_id) |
+            Q(mensualidad__sucursal_id=sucursal_id) |
+            Q(proyecto__isnull=True, mensualidad__isnull=True, paciente__sucursales__id=sucursal_id)
+        )
+        pagos_anulados = pagos_anulados.filter(
+            Q(sesion__sucursal_id=sucursal_id) | 
+            Q(proyecto__sucursal_id=sucursal_id) |
+            Q(sesion__isnull=True, proyecto__isnull=True, paciente__sucursales__id=sucursal_id)
+        )
+    # ==================== CONTEXTO BASE ====================
+    context = {
+        'vista': vista,
+        'sucursal_id': sucursal_id,
+        'sucursales': Sucursal.objects.filter(activa=True),
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+    }
+    
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: DETALLE PAGOS
+    # ══════════════════════════════════════════════════════════════════
+    if vista == 'detalle_pagos':
+        detalle_pagos = pagos.order_by('-fecha_pago', '-fecha_registro')
+        
+        # Totales por método
+        detalle_pagos_metodos = pagos.values('metodo_pago__nombre').annotate(
+            cantidad=Count('id'),
+            total=Sum('monto')
+        ).order_by('-total')
+        
+        # Total devoluciones
+        total_devoluciones = devoluciones.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        total_anulaciones = pagos_anulados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        context.update({
+            'detalle_pagos': detalle_pagos,
+            'detalle_pagos_metodos': detalle_pagos_metodos,
+            'detalle_devoluciones': devoluciones,
+            'detalle_anulaciones': pagos_anulados,
+            'total_devoluciones': total_devoluciones,
+            'total_anulaciones': total_anulaciones,
+        })
+        return render(request, 'facturacion/reportes/financiero.html', context)
+    
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: DETALLE SESIONES
+    # ══════════════════════════════════════════════════════════════════
+    elif vista == 'detalle_sesiones':
+        # Todos los estados de sesión
+        todos_estados_sesion = [
+            'programada', 'realizada', 'realizada_retraso',
+            'falta', 'permiso', 'cancelada', 'reprogramada'
+        ]
+        detalle_sesiones = sesiones.filter(
+            estado__in=todos_estados_sesion
+        ).order_by('-fecha', '-hora_inicio')
+
+        # Calcular monto pagado y pendiente por sesión (incluye pagos masivos)
+        for sesion in detalle_sesiones:
+            pagos_directos = pagos.filter(sesion=sesion).exclude(
+                metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_masivos_sesion = DetallePagoMasivo.objects.filter(
+                tipo='sesion',
+                sesion=sesion,
+                pago__anulado=False,
+            ).exclude(
+                pago__metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            sesion.monto_pagado = pagos_directos + pagos_masivos_sesion
+            sesion.monto_pendiente = max(sesion.monto_cobrado - sesion.monto_pagado, Decimal('0.00'))
+
+        # Totales y contadores por estado
+        detalle_sesiones_totales = {
+            'total_generado': detalle_sesiones.aggregate(Sum('monto_cobrado'))['monto_cobrado__sum'] or Decimal('0.00'),
+            'total_pagado': sum(s.monto_pagado for s in detalle_sesiones),
+            'total_pendiente': sum(s.monto_pendiente for s in detalle_sesiones),
+            'por_estado': {
+                estado: detalle_sesiones.filter(estado=estado).count()
+                for estado in todos_estados_sesion
+            },
+        }
+        if detalle_sesiones_totales['total_generado'] > 0:
+            detalle_sesiones_totales['tasa_cobranza'] = (
+                detalle_sesiones_totales['total_pagado'] /
+                detalle_sesiones_totales['total_generado']
+            ) * 100
+        else:
+            detalle_sesiones_totales['tasa_cobranza'] = 0
+
+        context.update({
+            'detalle_sesiones': detalle_sesiones,
+            'detalle_sesiones_totales': detalle_sesiones_totales,
+        })
+        return render(request, 'facturacion/reportes/financiero.html', context)
+    
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: DETALLE PROYECTOS
+    # ══════════════════════════════════════════════════════════════════
+    elif vista == 'detalle_proyectos':
+        # Todos los estados de proyecto
+        detalle_proyectos = proyectos.order_by('-fecha_inicio')
+
+        # Calcular monto pagado y pendiente por proyecto (incluye pagos masivos, neto de devoluciones)
+        for proyecto in detalle_proyectos:
+            pagos_directos = pagos.filter(proyecto=proyecto).exclude(
+                metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_masivos_proyecto = DetallePagoMasivo.objects.filter(
+                tipo='proyecto',
+                proyecto=proyecto,
+                pago__anulado=False,
+            ).exclude(
+                pago__metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            # Devoluciones sin restricción de fecha (igual que _total_pagado_proyecto)
+            devoluciones_proyecto = Devolucion.objects.filter(
+                proyecto=proyecto
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            proyecto.monto_pagado = pagos_directos + pagos_masivos_proyecto - devoluciones_proyecto
+            proyecto.monto_pendiente = max(proyecto.costo_total - proyecto.monto_pagado, Decimal('0.00'))
+
+        # Totales
+        detalle_proyectos_totales = {
+            'total_generado': proyectos.aggregate(Sum('costo_total'))['costo_total__sum'] or Decimal('0.00'),
+            'total_pagado': sum(p.monto_pagado for p in detalle_proyectos),
+            'total_pendiente': sum(p.monto_pendiente for p in detalle_proyectos),
+            'planificados': proyectos.filter(estado='planificado').count(),
+            'activos': proyectos.filter(estado='en_progreso').count(),
+            'finalizados': proyectos.filter(estado='finalizado').count(),
+            'cancelados': proyectos.filter(estado='cancelado').count(),
+        }
+
+        context.update({
+            'detalle_proyectos': detalle_proyectos,
+            'detalle_proyectos_totales': detalle_proyectos_totales,
+        })
+        return render(request, 'facturacion/reportes/financiero.html', context)
+    
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: DETALLE MENSUALIDADES
+    # ══════════════════════════════════════════════════════════════════
+    elif vista == 'detalle_mensualidades':
+        # Todos los estados de mensualidad
+        detalle_mensualidades = mensualidades.prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional',
+        ).order_by('-anio', '-mes')
+
+        # Calcular monto pagado y pendiente por mensualidad (incluye pagos masivos, neto de devoluciones)
+        for mensualidad in detalle_mensualidades:
+            pagos_directos = pagos.filter(mensualidad=mensualidad).exclude(
+                metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_masivos_mens = DetallePagoMasivo.objects.filter(
+                tipo='mensualidad',
+                mensualidad=mensualidad,
+                pago__anulado=False,
+            ).exclude(
+                pago__metodo_pago__nombre="Uso de Crédito"
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            # Devoluciones sin restricción de fecha (igual que _total_pagado_mensualidad)
+            devoluciones_mens = Devolucion.objects.filter(
+                mensualidad=mensualidad
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            mensualidad.monto_pagado = pagos_directos + pagos_masivos_mens - devoluciones_mens
+            mensualidad.monto_pendiente = max(mensualidad.costo_mensual - mensualidad.monto_pagado, Decimal('0.00'))
+
+        # Totales
+        detalle_mensualidades_totales = {
+            'total_generado': mensualidades.aggregate(Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00'),
+            'total_pagado': sum(m.monto_pagado for m in detalle_mensualidades),
+            'total_pendiente': sum(m.monto_pendiente for m in detalle_mensualidades),
+            'activas': mensualidades.filter(estado='activa').count(),
+            'pausadas': mensualidades.filter(estado='pausada').count(),
+            'completadas': mensualidades.filter(estado='completada').count(),
+            'canceladas': mensualidades.filter(estado='cancelada').count(),
+        }
+        if detalle_mensualidades_totales['total_generado'] > 0:
+            detalle_mensualidades_totales['tasa_cobranza'] = (
+                detalle_mensualidades_totales['total_pagado'] /
+                detalle_mensualidades_totales['total_generado']
+            ) * 100
+        else:
+            detalle_mensualidades_totales['tasa_cobranza'] = 0
+
+        context.update({
+            'detalle_mensualidades': detalle_mensualidades,
+            'detalle_mensualidades_totales': detalle_mensualidades_totales,
+        })
+        return render(request, 'facturacion/reportes/financiero.html', context)
+
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: ANÁLISIS DE CRÉDITOS
+    # ══════════════════════════════════════════════════════════════════
+    elif vista == 'analisis_creditos':
+        # Créditos generados (pagos adelantados)
+        creditos_generados = pagos.filter(
+            sesion__isnull=True,
+            proyecto__isnull=True
+        ).exclude(metodo_pago__nombre="Uso de Crédito").order_by('-fecha_pago')
+        
+        # Créditos utilizados
+        creditos_utilizados = Pago.objects.filter(
+            fecha_pago__gte=fecha_desde_obj,
+            fecha_pago__lte=fecha_hasta_obj,
+            metodo_pago__nombre="Uso de Crédito",
+            anulado=False
+        ).select_related('paciente', 'sesion__servicio', 'proyecto__servicio_base').order_by('-fecha_pago')
+        
+        if sucursal_id:
+            creditos_utilizados = creditos_utilizados.filter(
+                Q(sesion__sucursal_id=sucursal_id) | 
+                Q(proyecto__sucursal_id=sucursal_id) |
+                Q(sesion__isnull=True, proyecto__isnull=True, paciente__sucursales__id=sucursal_id)
+            )
+        
+        # Totales
+        total_generado = creditos_generados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        total_utilizado = creditos_utilizados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        # Pacientes con mayor crédito disponible
+        pacientes_con_credito = Paciente.objects.annotate(
+            credito_generado=Coalesce(
+                Sum('pagos__monto', filter=Q(
+                    pagos__sesion__isnull=True,
+                    pagos__proyecto__isnull=True,
+                    pagos__anulado=False
+                ) & ~Q(pagos__metodo_pago__nombre="Uso de Crédito")),
+                Decimal('0.00'),
+                output_field=DecimalField()
+            ),
+            credito_usado=Coalesce(
+                Sum('pagos__monto', filter=Q(
+                    pagos__metodo_pago__nombre="Uso de Crédito",
+                    pagos__anulado=False
+                )),
+                Decimal('0.00'),
+                output_field=DecimalField()
+            )
+        ).annotate(
+            credito_disponible=F('credito_generado') - F('credito_usado')
+        ).filter(
+            credito_disponible__gt=0
+        ).order_by('-credito_disponible')[:20]
+        
+        context.update({
+            'analisis_creditos': {
+                'total_generado': total_generado,
+                'cantidad_generados': creditos_generados.count(),
+                'total_utilizado': total_utilizado,
+                'cantidad_utilizados': creditos_utilizados.count(),
+                'saldo_neto': total_generado - total_utilizado,
+                'generados': creditos_generados,
+                'utilizados': creditos_utilizados,
+                'pacientes_con_credito': pacientes_con_credito,
+            }
+        })
+        return render(request, 'facturacion/reportes/financiero.html', context)
+    
+    # ══════════════════════════════════════════════════════════════════
+    # VISTAS: MENSUAL Y DIARIA (CÓDIGO ORIGINAL CORREGIDO)
+    # ══════════════════════════════════════════════════════════════════
     
     # ==================== INGRESOS POR SESIONES ====================
-    sesiones_realizadas = sesiones.filter(estado__in=['realizada', 'realizada_retraso'])
-    
+    # REAL: realizada, realizada_retraso, falta (igual que total_consumido_actual en services.py)
+    sesiones_realizadas = sesiones.filter(
+        estado__in=['realizada', 'realizada_retraso', 'falta'],
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+    )
+    # PROYECTADO: agrega las programadas (igual que total_consumido_real en services.py)
+    sesiones_programadas_rpt = sesiones.filter(
+        estado='programada',
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+    )
+
+    total_generado_sesiones_real = sesiones_realizadas.aggregate(
+        Sum('monto_cobrado'))['monto_cobrado__sum'] or Decimal('0.00')
+    total_generado_sesiones_prog = sesiones_programadas_rpt.aggregate(
+        Sum('monto_cobrado'))['monto_cobrado__sum'] or Decimal('0.00')
+
     ingresos_sesiones = {
-        'total_generado': sesiones_realizadas.aggregate(Sum('monto_cobrado'))['monto_cobrado__sum'] or Decimal('0.00'),
+        'total_generado_real': total_generado_sesiones_real,
+        'total_generado_proyectado': total_generado_sesiones_real + total_generado_sesiones_prog,
         'cantidad_sesiones': sesiones_realizadas.count(),
+        'cantidad_programadas': sesiones_programadas_rpt.count(),
     }
-    
-    # Calcular pagado en sesiones
-    pagos_sesiones = pagos.filter(sesion__isnull=False).exclude(metodo_pago__nombre="Uso de Crédito")
-    ingresos_sesiones['total_cobrado'] = pagos_sesiones.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-    ingresos_sesiones['total_pendiente'] = ingresos_sesiones['total_generado'] - ingresos_sesiones['total_cobrado']
-    
+
+    # Cobrado en sesiones: directos + DPM en el período, sin "Uso de Crédito"
+    pagos_sesiones_directos = pagos.filter(
+        sesion__isnull=False,
+        sesion__proyecto__isnull=True,
+        sesion__mensualidad__isnull=True,
+    ).exclude(metodo_pago__nombre="Uso de Crédito")
+    pagos_masivos_sesiones_report = DetallePagoMasivo.objects.filter(
+        tipo='sesion',
+        pago__anulado=False,
+        pago__fecha_pago__gte=fecha_desde_obj,
+        pago__fecha_pago__lte=fecha_hasta_obj,
+    ).exclude(pago__metodo_pago__nombre="Uso de Crédito")
+    ingresos_sesiones['total_cobrado'] = (
+        (pagos_sesiones_directos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')) +
+        (pagos_masivos_sesiones_report.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'))
+    )
+    ingresos_sesiones['total_pendiente'] = max(
+        ingresos_sesiones['total_generado_real'] - ingresos_sesiones['total_cobrado'],
+        Decimal('0.00')
+    )
+
     # ==================== INGRESOS POR PROYECTOS ====================
+    # REAL: en_progreso, finalizado, cancelado (igual que services.py)
+    proyectos_reales = proyectos.filter(estado__in=['en_progreso', 'finalizado', 'cancelado'])
+    # PROYECTADO: agrega planificados
+    proyectos_planificados_rpt = proyectos.filter(estado='planificado')
+
+    total_generado_proy_real = proyectos_reales.aggregate(
+        Sum('costo_total'))['costo_total__sum'] or Decimal('0.00')
+    total_generado_proy_plan = proyectos_planificados_rpt.aggregate(
+        Sum('costo_total'))['costo_total__sum'] or Decimal('0.00')
+
     ingresos_proyectos = {
-        'total_generado': proyectos.aggregate(Sum('costo_total'))['costo_total__sum'] or Decimal('0.00'),
-        'cantidad_proyectos': proyectos.count(),
-        'proyectos_activos': proyectos.filter(estado__in=['planificado', 'en_progreso']).count(),
-        'proyectos_finalizados': proyectos.filter(estado='finalizado').count(),
+        'total_generado_real': total_generado_proy_real,
+        'total_generado_proyectado': total_generado_proy_real + total_generado_proy_plan,
+        'cantidad_proyectos': proyectos_reales.count(),
+        'cantidad_planificados': proyectos_planificados_rpt.count(),
+        'proyectos_activos': proyectos_reales.filter(estado='en_progreso').count(),
+        'proyectos_finalizados': proyectos_reales.filter(estado='finalizado').count(),
+        'proyectos_cancelados': proyectos_reales.filter(estado='cancelado').count(),
     }
-    
-    # Calcular pagado en proyectos
-    pagos_proyectos = pagos.filter(proyecto__isnull=False).exclude(metodo_pago__nombre="Uso de Crédito")
-    ingresos_proyectos['total_cobrado'] = pagos_proyectos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-    ingresos_proyectos['total_pendiente'] = ingresos_proyectos['total_generado'] - ingresos_proyectos['total_cobrado']
-    
+
+    # Cobrado en proyectos: directos + DPM - devoluciones del período
+    pagos_proyectos_directos = pagos.filter(
+        proyecto__in=proyectos_reales
+    ).exclude(metodo_pago__nombre="Uso de Crédito")
+    pagos_masivos_proyectos = DetallePagoMasivo.objects.filter(
+        tipo='proyecto',
+        proyecto__in=proyectos_reales,
+        pago__anulado=False,
+        pago__fecha_pago__gte=fecha_desde_obj,
+        pago__fecha_pago__lte=fecha_hasta_obj,
+    ).exclude(pago__metodo_pago__nombre="Uso de Crédito")
+    devoluciones_proyectos = devoluciones.filter(
+        proyecto__in=proyectos_reales
+    ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    ingresos_proyectos['total_cobrado'] = (
+        (pagos_proyectos_directos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')) +
+        (pagos_masivos_proyectos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'))
+    ) - devoluciones_proyectos
+    ingresos_proyectos['total_pendiente'] = max(
+        ingresos_proyectos['total_generado_real'] - ingresos_proyectos['total_cobrado'],
+        Decimal('0.00')
+    )
+
+    # ==================== INGRESOS POR MENSUALIDADES ====================
+    # Mensualidades no tienen estado "planificado" — siempre se incluyen igual en real y proyectado
+    total_generado_mens = mensualidades.aggregate(
+        Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00')
+
+    ingresos_mensualidades = {
+        'total_generado_real': total_generado_mens,
+        'total_generado_proyectado': total_generado_mens,  # igual: no hay mensualidades "planificadas"
+        'cantidad_mensualidades': mensualidades.count(),
+        'activas': mensualidades.filter(estado='activa').count(),
+        'vencidas': mensualidades.filter(estado='vencida').count(),
+        'pausadas': mensualidades.filter(estado='pausada').count(),
+        'completadas': mensualidades.filter(estado='completada').count(),
+        'canceladas': mensualidades.filter(estado='cancelada').count(),
+    }
+
+    # Cobrado en mensualidades: directos + DPM - devoluciones del período
+    pagos_mensualidades_qs = pagos.filter(
+        mensualidad__in=mensualidades
+    ).exclude(metodo_pago__nombre="Uso de Crédito")
+    pagos_masivos_mensualidades = DetallePagoMasivo.objects.filter(
+        tipo='mensualidad',
+        mensualidad__in=mensualidades,
+        pago__anulado=False,
+        pago__fecha_pago__gte=fecha_desde_obj,
+        pago__fecha_pago__lte=fecha_hasta_obj
+    ).exclude(pago__metodo_pago__nombre="Uso de Crédito")
+    devoluciones_mensualidades = devoluciones.filter(
+        mensualidad__in=mensualidades
+    ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    ingresos_mensualidades['total_cobrado'] = (
+        (pagos_mensualidades_qs.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')) +
+        (pagos_masivos_mensualidades.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'))
+    ) - devoluciones_mensualidades
+    ingresos_mensualidades['total_pendiente'] = max(
+        ingresos_mensualidades['total_generado_real'] - ingresos_mensualidades['total_cobrado'],
+        Decimal('0.00')
+    )
+
     # ==================== MOVIMIENTO DE CRÉDITOS ====================
-    # Pagos adelantados (generan crédito)
     pagos_adelantados = pagos.filter(
         sesion__isnull=True,
-        proyecto__isnull=True
-    ).exclude(metodo_pago__nombre="Uso de Crédito")
-    
-    creditos_generados = pagos_adelantados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-    
-    # Uso de crédito
-    pagos_con_credito = Pago.objects.filter(
-        fecha_pago__gte=fecha_desde_obj,
-        fecha_pago__lte=fecha_hasta_obj,
-        metodo_pago__nombre="Uso de Crédito",
-        anulado=False
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).exclude(
+        detalles_masivos__isnull=False
     )
-    
+    creditos_generados = pagos_adelantados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    pagos_con_credito = pagos.filter(metodo_pago__nombre="Uso de Crédito")
     creditos_utilizados = pagos_con_credito.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-    
+
     movimiento_creditos = {
         'generados': creditos_generados,
         'generados_cantidad': pagos_adelantados.count(),
@@ -3713,21 +4301,80 @@ def reporte_financiero(request):
         'utilizados_cantidad': pagos_con_credito.count(),
         'saldo_neto': creditos_generados - creditos_utilizados,
     }
-    
+
+    # ==================== DEVOLUCIONES Y ANULACIONES ====================
+    total_devoluciones = devoluciones.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+    total_anulaciones = pagos_anulados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+
+    devoluciones_por_metodo = devoluciones.values('metodo_devolucion__nombre').annotate(
+        cantidad=Count('id'),
+        monto=Sum('monto')
+    ).order_by('-monto')
+
     # ==================== TOTALES GENERALES ====================
+    # REAL: solo lo ya ocurrido/comprometido (igual que total_consumido_actual en services.py)
+    total_generado_real = (
+        ingresos_sesiones['total_generado_real'] +
+        ingresos_proyectos['total_generado_real'] +
+        ingresos_mensualidades['total_generado_real']
+    )
+    # PROYECTADO: incluye sesiones programadas y proyectos planificados
+    total_generado_proyectado = (
+        ingresos_sesiones['total_generado_proyectado'] +
+        ingresos_proyectos['total_generado_proyectado'] +
+        ingresos_mensualidades['total_generado_proyectado']
+    )
+
+    # TOTAL RECAUDADO BRUTO — fuente única: suma directa del queryset pagos (idéntico al historial)
+    total_cobrado_bruto = (
+        pagos
+        .exclude(metodo_pago__nombre="Uso de Crédito")
+        .aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+    )
+    total_cobrado_neto = total_cobrado_bruto - total_devoluciones
+
+    # Por Cobrar Real = Total Ingresos Real - Recaudado Neto
+    total_pendiente_real = max(total_generado_real - total_cobrado_neto, Decimal('0.00'))
+    # Por Cobrar Proyectado = Total Ingresos Proyectado - Recaudado Neto
+    total_pendiente_proyectado = max(total_generado_proyectado - total_cobrado_neto, Decimal('0.00'))
+
     ingresos = {
-        'total_generado': ingresos_sesiones['total_generado'] + ingresos_proyectos['total_generado'],
-        'total_cobrado': ingresos_sesiones['total_cobrado'] + ingresos_proyectos['total_cobrado'] + creditos_generados,
-        'total_pendiente': ingresos_sesiones['total_pendiente'] + ingresos_proyectos['total_pendiente'],
+        # Dos versiones de "Total Ingresos" como en cuenta corriente
+        'total_generado': total_generado_real,           # alias para compatibilidad con template
+        'total_generado_real': total_generado_real,
+        'total_generado_proyectado': total_generado_proyectado,
+        'total_generado_sesiones_prog': total_generado_sesiones_prog,
+        'total_generado_proy_plan': total_generado_proy_plan,
+        # Recaudado
+        'total_cobrado_bruto': total_cobrado_bruto,
+        'total_cobrado_neto': total_cobrado_neto,
+        'total_devoluciones': total_devoluciones,
+        'total_anulaciones': total_anulaciones,
+        'total_pendiente': total_pendiente_real,
+        'total_pendiente_proyectado': total_pendiente_proyectado,
+        # Sub-stats por categoría
         'sesiones': ingresos_sesiones,
         'proyectos': ingresos_proyectos,
+        'mensualidades': ingresos_mensualidades,
         'creditos': movimiento_creditos,
+        'devoluciones_info': {
+            'total': total_devoluciones,
+            'cantidad': devoluciones.count(),
+            'por_metodo': devoluciones_por_metodo,
+        },
+        'anulaciones_info': {
+            'total': total_anulaciones,
+            'cantidad': pagos_anulados.count(),
+        }
     }
-    
-    # Calcular promedios
-    total_items = ingresos_sesiones['cantidad_sesiones'] + ingresos_proyectos['cantidad_proyectos']
-    ingresos['promedio_por_item'] = ingresos['total_generado'] / total_items if total_items > 0 else Decimal('0.00')
-    ingresos['tasa_cobranza'] = (ingresos['total_cobrado'] / ingresos['total_generado'] * 100) if ingresos['total_generado'] > 0 else 0
+
+    total_items = (
+        ingresos_sesiones['cantidad_sesiones'] +
+        ingresos_proyectos['cantidad_proyectos'] +
+        ingresos_mensualidades['cantidad_mensualidades']
+    )
+    ingresos['promedio_por_item'] = ingresos['total_generado_real'] / total_items if total_items > 0 else Decimal('0.00')
+    ingresos['tasa_cobranza'] = (total_cobrado_neto / ingresos['total_generado_real'] * 100) if ingresos['total_generado_real'] > 0 else 0
     
     # ==================== POR MÉTODO DE PAGO ====================
     por_metodo = pagos.exclude(metodo_pago__nombre="Uso de Crédito").values(
@@ -3788,9 +4435,19 @@ def reporte_financiero(request):
     
     if vista == 'diaria':
         pagos_dia = pagos.filter(fecha_pago=fecha_desde_obj)
+        devoluciones_dia = devoluciones.filter(fecha_devolucion=fecha_desde_obj)
+        pagos_anulados_dia = pagos_anulados.filter(fecha_pago=fecha_desde_obj)
         
         # Total cobrado (sin crédito)
         pagos_dia_validos = pagos_dia.exclude(metodo_pago__nombre="Uso de Crédito")
+        
+        # Total devoluciones del día
+        total_devoluciones_dia = devoluciones_dia.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        total_anulaciones_dia = pagos_anulados_dia.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        # Monto total bruto y neto
+        monto_total_bruto = pagos_dia_validos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        monto_total_neto = monto_total_bruto - total_devoluciones_dia
         
         cierre_diario = {
             'fecha': fecha_desde_obj,
@@ -3799,13 +4456,26 @@ def reporte_financiero(request):
             
             # Pagos totales
             'pagos_total': pagos_dia_validos.count(),
-            'monto_total': pagos_dia_validos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'),
+            'monto_total_bruto': monto_total_bruto,
+            'monto_total_neto': monto_total_neto,
+            'total_devoluciones': total_devoluciones_dia,
+            'total_anulaciones': total_anulaciones_dia,
             
             # Detalle por método
             'por_metodo': pagos_dia_validos.values('metodo_pago__nombre').annotate(
                 cantidad=Count('id'),
                 monto=Sum('monto')
             ).order_by('-monto'),
+            
+            # Devoluciones del día
+            'devoluciones_dia': devoluciones_dia,
+            'devoluciones_por_metodo': devoluciones_dia.values('metodo_devolucion__nombre').annotate(
+                cantidad=Count('id'),
+                monto=Sum('monto')
+            ).order_by('-monto'),
+            
+            # Anulaciones del día
+            'anulaciones_dia': pagos_anulados_dia,
             
             # Sesiones del día
             'sesiones_realizadas': sesiones.filter(
@@ -3821,15 +4491,29 @@ def reporte_financiero(request):
             'proyectos_iniciados': proyectos.filter(fecha_inicio=fecha_desde_obj).count(),
             'monto_proyectos': proyectos.filter(fecha_inicio=fecha_desde_obj).aggregate(Sum('costo_total'))['costo_total__sum'] or Decimal('0.00'),
             
+            # Mensualidades del día (del mes/año correspondiente)
+            'mensualidades_dia': mensualidades.filter(
+                anio=fecha_desde_obj.year, mes=fecha_desde_obj.month
+            ).count(),
+            'monto_mensualidades': mensualidades.filter(
+                anio=fecha_desde_obj.year, mes=fecha_desde_obj.month
+            ).aggregate(Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00'),
+            
             # Créditos del día
             'creditos_generados': pagos_dia.filter(sesion__isnull=True, proyecto__isnull=True).exclude(metodo_pago__nombre="Uso de Crédito").aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'),
             'creditos_utilizados': pagos_dia.filter(metodo_pago__nombre="Uso de Crédito").aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00'),
         }
         
-        # Efectivo esperado
-        cierre_diario['efectivo_esperado'] = pagos_dia_validos.filter(
+        # Efectivo esperado (restando devoluciones en efectivo)
+        efectivo_cobrado = pagos_dia_validos.filter(
             metodo_pago__nombre__in=['Efectivo', 'efectivo']
         ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        efectivo_devuelto = devoluciones_dia.filter(
+            metodo_devolucion__nombre__in=['Efectivo', 'efectivo']
+        ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+        
+        cierre_diario['efectivo_esperado'] = efectivo_cobrado - efectivo_devuelto
         
         # Detalle COMPLETO de pagos del día (agrupados por recibo para pagos masivos)
         pagos_detalle_raw = pagos_dia_validos.select_related(
@@ -3905,8 +4589,8 @@ def reporte_financiero(request):
             'faltas_dia': sesiones.filter(fecha=fecha_desde_obj, estado='falta').count(),
             'canceladas_dia': sesiones.filter(fecha=fecha_desde_obj, estado='cancelada').count(),
             
-            # Promedio ticket del día
-            'ticket_promedio': (pagos_dia_validos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')) / pagos_dia_validos.count() if pagos_dia_validos.count() > 0 else Decimal('0.00'),
+            # Promedio ticket del día (sobre monto neto)
+            'ticket_promedio': monto_total_neto / pagos_dia_validos.count() if pagos_dia_validos.count() > 0 else Decimal('0.00'),
             
             # Horas trabajadas
             'horas_trabajadas': (sesiones.filter(
@@ -3941,12 +4625,19 @@ def reporte_financiero(request):
                 cobrado=Sum('monto')
             )
             
+            # Restar devoluciones de días anteriores
+            devoluciones_dia_ant = devoluciones.filter(
+                fecha_devolucion=dia_anterior
+            ).aggregate(devuelto=Sum('monto'))['devuelto'] or Decimal('0.00')
+            
             comparativa_dias.append({
                 'fecha': dia_anterior,
                 'dia_semana': ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][dia_anterior.weekday()],
                 'sesiones': sesiones_dia_ant['cantidad'] or 0,
                 'ingresos': sesiones_dia_ant['ingresos'] or Decimal('0.00'),
-                'cobrado': pagos_dia_ant['cobrado'] or Decimal('0.00'),
+                'cobrado_bruto': pagos_dia_ant['cobrado'] or Decimal('0.00'),
+                'devuelto': devoluciones_dia_ant,
+                'cobrado_neto': (pagos_dia_ant['cobrado'] or Decimal('0.00')) - devoluciones_dia_ant,
             })
         
         cierre_diario['comparativa_dias'] = list(reversed(comparativa_dias))
@@ -3978,6 +4669,21 @@ def reporte_financiero(request):
         ingresos_proyectos=Sum('costo_total')
     ).order_by('mes')
     
+    # Agregar mensualidades al gráfico
+    from django.db.models import IntegerField
+    mensualidades_mes_grafico = Mensualidad.objects.filter(
+        estado__in=['activa', 'pausada', 'completada', 'cancelada']
+    ).filter(
+        Q(anio__gt=fecha_grafico_desde.year) |
+        Q(anio=fecha_grafico_desde.year, mes__gte=fecha_grafico_desde.month)
+    ).filter(
+        Q(anio__lt=fecha_hasta_obj.year) |
+        Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+    ).values('anio', 'mes').annotate(
+        cantidad=Count('id'),
+        ingresos_mensualidades=Sum('costo_mensual')
+    ).order_by('anio', 'mes')
+    
     # Combinar datos del gráfico
     meses_dict = {}
     
@@ -3986,6 +4692,7 @@ def reporte_financiero(request):
         meses_dict[mes_str] = {
             'sesiones': m['sesiones'],
             'proyectos': 0,
+            'mensualidades': 0,
             'ingresos': float(m['ingresos_sesiones'] or 0)
         }
     
@@ -3998,13 +4705,29 @@ def reporte_financiero(request):
             meses_dict[mes_str] = {
                 'sesiones': 0,
                 'proyectos': p['proyectos'],
+                'mensualidades': 0,
                 'ingresos': float(p['ingresos_proyectos'] or 0)
+            }
+    
+    for mn in mensualidades_mes_grafico:
+        from datetime import date as date_cls
+        mes_str = date_cls(mn['anio'], mn['mes'], 1).strftime('%b %Y')
+        if mes_str in meses_dict:
+            meses_dict[mes_str]['mensualidades'] = mn['cantidad']
+            meses_dict[mes_str]['ingresos'] += float(mn['ingresos_mensualidades'] or 0)
+        else:
+            meses_dict[mes_str] = {
+                'sesiones': 0,
+                'proyectos': 0,
+                'mensualidades': mn['cantidad'],
+                'ingresos': float(mn['ingresos_mensualidades'] or 0)
             }
     
     grafico_data = {
         'labels': list(meses_dict.keys()),
         'sesiones': [meses_dict[k]['sesiones'] for k in meses_dict.keys()],
         'proyectos': [meses_dict[k]['proyectos'] for k in meses_dict.keys()],
+        'mensualidades': [meses_dict[k]['mensualidades'] for k in meses_dict.keys()],
         'ingresos': [meses_dict[k]['ingresos'] for k in meses_dict.keys()],
     }
     
@@ -4019,22 +4742,16 @@ def reporte_financiero(request):
         total_consumido=Sum('sesiones__monto_cobrado', filter=Q(sesiones__estado__in=['realizada', 'realizada_retraso'])) + Sum('proyectos__costo_total')
     ).order_by('-total_consumido')[:10]
     
-    # Lista de sucursales para filtro
-    sucursales = Sucursal.objects.filter(activa=True)
-    
-    context = {
+    context.update({
         'ingresos': ingresos,
         'por_metodo': por_metodo,
         'por_servicio': por_servicio,
         'grafico_data': grafico_data,
         'cierre_diario': cierre_diario,
         'top_pacientes': top_pacientes,
-        'vista': vista,
-        'sucursal_id': sucursal_id,
-        'sucursales': sucursales,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
-    }
+        'devoluciones': devoluciones,
+        'pagos_anulados': pagos_anulados,
+    })
     
     return render(request, 'facturacion/reportes/financiero.html', context)
 

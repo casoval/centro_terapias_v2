@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Reporte Financiero{% endblock %}
+{% block title %}Reporte Financiero Detallado{% endblock %}
 {% block content %}
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
@@ -16,9 +16,10 @@
   }
   body { font-family:'Outfit',sans-serif; background:var(--surface); }
   @media print {
-    .no-print{display:none!important} body{background:white!important;font-size:11px}
+    .no-print{display:none!important} body{background:white!important;font-size:10px}
     .page-break{page-break-before:always}
     .rpt-header{background:#1e3a2f!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    table{font-size:9px}
   }
   .rpt-header {
     background:linear-gradient(135deg,#1a2f1a 0%,#1e3a2f 50%,#14532d 100%);
@@ -30,13 +31,16 @@
     display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
   .rpt-header h1{font-size:1.5rem;font-weight:800;margin:0 0 4px;letter-spacing:-.02em}
   .rpt-header p{color:#a7f3d0;font-size:.8rem;margin:0}
-  .print-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
-    border:1px solid rgba(255,255,255,.3);color:white;font-size:.75rem;font-weight:600;
-    padding:6px 14px;border-radius:8px;cursor:pointer;margin-top:10px;transition:all .15s}
-  .print-btn:hover{background:rgba(255,255,255,.25)}
+  .action-btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;
+    padding:7px 14px;border-radius:8px;cursor:pointer;border:none;transition:all .15s;text-decoration:none}
+  .btn-white{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white}
+  .btn-white:hover{background:rgba(255,255,255,.25)}
+  .btn-green{background:var(--green);color:white}
+  .btn-blue{background:var(--blue);color:white}
 
   .tabs{display:flex;gap:0;background:var(--white);border:1px solid var(--border);
-    border-radius:10px;padding:3px;margin-bottom:14px;overflow-x:auto}
+    border-radius:10px;padding:3px;margin-bottom:14px;overflow-x:auto;flex-wrap:wrap}
   .tab{flex:none;font-size:.75rem;font-weight:600;padding:6px 14px;border-radius:7px;
     cursor:pointer;white-space:nowrap;color:var(--muted);text-decoration:none;transition:all .15s}
   .tab.active,.tab:hover{background:var(--green);color:white}
@@ -50,7 +54,7 @@
 
   /* Hero money cards */
   .money-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
-  .money-card{border-radius:14px;padding:20px;border:2px solid;position:relative;overflow:hidden}
+  .money-card{border-radius:14px;padding:20px;border:2px solid;background:var(--white);position:relative;overflow:hidden}
   .money-card::before{content:'';position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;opacity:.08;background:currentColor}
   .mc-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
   .mc-val{font-size:1.8rem;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1}
@@ -64,6 +68,33 @@
   .sm-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:4px}
   .sm-val{font-size:1.3rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--ink)}
   .sm-sub{font-size:.62rem;color:var(--muted);margin-top:2px}
+
+  /* Tablas detalladas */
+  .table-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+    padding:16px;margin-bottom:16px;overflow-x:auto}
+  .table-card h3{font-size:.85rem;font-weight:700;color:var(--ink);margin:0 0 12px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .badge-count{font-size:.65rem;background:var(--green-l);color:var(--green);
+    padding:3px 8px;border-radius:6px;font-weight:700}
+  
+  table{width:100%;border-collapse:collapse;font-size:.78rem}
+  thead{background:var(--surface);position:sticky;top:0;z-index:10}
+  th{text-align:left;padding:10px 12px;font-weight:700;color:var(--ink2);
+    border-bottom:2px solid var(--border);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--ink)}
+  tbody tr:hover{background:var(--surface)}
+  .td-mono{font-family:'JetBrains Mono',monospace;font-weight:700}
+  .td-right{text-align:right}
+  .td-center{text-align:center}
+  
+  /* Tags */
+  .tag{display:inline-block;font-size:.62rem;font-weight:700;padding:3px 8px;border-radius:5px;
+    background:var(--green-l);color:var(--green);white-space:nowrap}
+  .tag.blue{background:var(--blue-l);color:var(--blue)}
+  .tag.purple{background:var(--purple-l);color:var(--purple)}
+  .tag.amber{background:var(--amber-l);color:var(--amber)}
+  .tag.red{background:var(--red-l);color:var(--red)}
+  .tag.teal{background:var(--teal-l);color:var(--teal)}
 
   /* Charts */
   .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
@@ -114,8 +145,6 @@
   /* Section header */
   .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px}
   .section-hdr h2{font-size:.95rem;font-weight:800;color:var(--ink);margin:0}
-  .badge-count{font-size:.65rem;background:var(--green-l);color:var(--green);
-    padding:3px 8px;border-radius:6px;font-weight:700}
 
   /* Period badge */
   .period-badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;
@@ -129,11 +158,16 @@
   .cr-val{font-size:1.1rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--purple)}
   .cr-sub{font-size:.65rem;color:var(--muted);margin-top:3px}
 
-  .tag{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:5px;
-    background:var(--green-l);color:var(--green)}
-  .tag.amber{background:var(--amber-l);color:var(--amber)}
-  .tag.red{background:var(--red-l);color:var(--red)}
-  .tag.blue{background:var(--blue-l);color:var(--blue)}
+  /* Empty state */
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+  .empty-state svg{width:60px;height:60px;margin-bottom:12px;opacity:.3}
+  
+  /* Collapsible sections */
+  .collapsible{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px}
+  .collapsible::before{content:'▼';font-size:.7rem;transition:transform .2s}
+  .collapsible.collapsed::before{transform:rotate(-90deg)}
+  .collapsible-content{margin-top:12px;transition:max-height .3s}
+  .collapsible-content.hidden{display:none}
 </style>
 
 <div class="max-w-7xl mx-auto px-3 py-4">
@@ -141,9 +175,13 @@
   <!-- Header -->
   <div class="rpt-header no-print">
     <a href="{% url 'facturacion:dashboard_reportes' %}" class="back">← Volver a Reportes</a>
-    <h1>💰 Reporte Financiero</h1>
-    <p>Ingresos · Sesiones · Proyectos · Créditos · Métodos de pago</p>
-    <button onclick="window.print()" class="print-btn">🖨️ Imprimir / PDF</button>
+    <h1>💰 Reporte Financiero Detallado</h1>
+    <p>Análisis completo con listados verificables y trazabilidad de cada transacción</p>
+    <div class="action-btns">
+      <button onclick="window.print()" class="btn btn-white">🖨️ Imprimir</button>
+      <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}export=excel" class="btn btn-white">📊 Excel</a>
+      <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}export=pdf" class="btn btn-white">📄 PDF</a>
+    </div>
   </div>
 
   <!-- View Tabs -->
@@ -152,191 +190,207 @@
        class="tab {% if vista == 'mensual' or not vista %}active{% endif %}">📅 Vista Mensual</a>
     <a href="?vista=diaria&fecha_desde={{ fecha_hasta }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
        class="tab {% if vista == 'diaria' %}active{% endif %}">📆 Cierre Diario</a>
+    <a href="?vista=detalle_pagos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'detalle_pagos' %}active{% endif %}">💳 Detalle Pagos</a>
+    <a href="?vista=detalle_sesiones&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'detalle_sesiones' %}active{% endif %}">🏥 Detalle Sesiones</a>
+    <a href="?vista=detalle_proyectos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'detalle_proyectos' %}active{% endif %}">📋 Detalle Proyectos</a>
+    <a href="?vista=detalle_mensualidades&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'detalle_mensualidades' %}active{% endif %}">📅 Detalle Mensualidades</a>
+    <a href="?vista=analisis_creditos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'analisis_creditos' %}active{% endif %}">💎 Análisis Créditos</a>
   </div>
 
   <!-- Filters -->
   <div class="filter-bar no-print">
     <form method="get">
-      <input type="hidden" name="vista" value="{{ vista|default:'mensual' }}">
-      <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
-      <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
-      <select name="sucursal">
-        <option value="">Todas las sucursales</option>
-        {% for s in sucursales %}
-        <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn-primary">🔍 Filtrar</button>
+      <input type="hidden" name="vista" value="{{ vista }}">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Sucursal</label>
+        <select name="sucursal" style="min-width:180px">
+          <option value="">Todas las sucursales</option>
+          {% for s in sucursales %}
+          <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Desde</label>
+        <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:20px">🔍 Filtrar</button>
     </form>
   </div>
 
-  <!-- Period badge -->
-  <div style="margin-bottom:16px">
-    <span class="period-badge">📅 {{ fecha_desde }} — {{ fecha_hasta }}</span>
-    {% if vista == 'diaria' %}<span style="font-size:.72rem;font-weight:700;color:var(--amber);background:var(--amber-l);padding:4px 10px;border-radius:20px;border:1px solid #fcd34d;margin-left:8px">🔒 Cierre de Caja</span>{% endif %}
-  </div>
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: MENSUAL (RESUMEN) -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'mensual' or not vista %}
 
-  <!-- ══ HERO MONEY CARDS ══ -->
-  {% if ingresos %}
+  <!-- Hero Cards -->
   <div class="money-grid">
-    <div class="money-card" style="background:var(--green-l);border-color:#86efac;color:var(--green)">
-      <span class="mc-badge" style="color:var(--green)">Neto</span>
-      <div class="mc-label">Total Cobrado</div>
-      <div class="mc-val">Bs. {{ ingresos.total_cobrado|floatformat:2 }}</div>
-      <div class="mc-sub">{{ ingresos.sesiones.cantidad_sesiones|default:0 }} ses. + {{ ingresos.proyectos.cantidad_proyectos|default:0 }} proy.</div>
+
+    <!-- Ingresos Real (solo lo ya ocurrido, igual que total_consumido_actual) -->
+    <div class="money-card" style="border-color:var(--green);color:var(--green)">
+      <div class="mc-badge">REAL / ACTUAL</div>
+      <div class="mc-label">Total Ingresos Real</div>
+      <div class="mc-val">Bs. {{ ingresos.total_generado_real|floatformat:2 }}</div>
+      <div class="mc-sub">
+        Ses. realizadas + mensualidades + proyectos activos/finalizados
+      </div>
     </div>
-    <div class="money-card" style="background:var(--red-l);border-color:#fca5a5;color:var(--red)">
-      <span class="mc-badge" style="color:var(--red)">Pendiente</span>
-      <div class="mc-label">Por Cobrar</div>
+
+    <!-- Ingresos Proyectado (incluye programadas y planificados) -->
+    <div class="money-card" style="border-color:#059669;color:#059669">
+      <div class="mc-badge">PROYECTADO</div>
+      <div class="mc-label">Total Ingresos Proyectado</div>
+      <div class="mc-val">Bs. {{ ingresos.total_generado_proyectado|floatformat:2 }}</div>
+      <div class="mc-sub">
+        + {{ ingresos.sesiones.cantidad_programadas }} ses. programadas (Bs. {{ ingresos.total_generado_sesiones_prog|floatformat:0 }})
+        · + {{ ingresos.proyectos.cantidad_planificados }} proy. planificados (Bs. {{ ingresos.total_generado_proy_plan|floatformat:0 }})
+      </div>
+    </div>
+
+    <div class="money-card" style="border-color:var(--blue);color:var(--blue)">
+      <div class="mc-badge">COBRADO BRUTO</div>
+      <div class="mc-label">Total Recaudado</div>
+      <div class="mc-val">Bs. {{ ingresos.total_cobrado_bruto|floatformat:2 }}</div>
+      <div class="mc-sub">Sin restar devoluciones</div>
+    </div>
+    <div class="money-card" style="border-color:var(--teal);color:var(--teal)">
+      <div class="mc-badge">COBRADO NETO</div>
+      <div class="mc-label">Recaudado Neto</div>
+      <div class="mc-val">Bs. {{ ingresos.total_cobrado_neto|floatformat:2 }}</div>
+      <div class="mc-sub">Restando devoluciones</div>
+    </div>
+    <div class="money-card" style="border-color:var(--red);color:var(--red)">
+      <div class="mc-badge">DEVOLUCIONES</div>
+      <div class="mc-label">Total Devuelto</div>
+      <div class="mc-val">Bs. {{ ingresos.total_devoluciones|floatformat:2 }}</div>
+      <div class="mc-sub">{{ ingresos.devoluciones_info.cantidad }} devoluciones</div>
+    </div>
+    <div class="money-card" style="border-color:var(--amber);color:var(--amber)">
+      <div class="mc-badge">PENDIENTE REAL</div>
+      <div class="mc-label">Por Cobrar Real</div>
       <div class="mc-val">Bs. {{ ingresos.total_pendiente|floatformat:2 }}</div>
-      <div class="mc-sub">sesiones y proyectos sin cobrar</div>
+      <div class="mc-sub">Ingresos real − recaudado neto · {{ ingresos.tasa_cobranza|floatformat:1 }}% cobrado</div>
     </div>
-    <div class="money-card" style="background:var(--blue-l);border-color:#93c5fd;color:var(--blue)">
-      <span class="mc-badge" style="color:var(--blue)">Generado</span>
-      <div class="mc-label">Total Generado</div>
-      <div class="mc-val">Bs. {{ ingresos.total_generado|floatformat:2 }}</div>
-      <div class="mc-sub">antes de cobranzas</div>
+    <div class="money-card" style="border-color:#b45309;color:#b45309">
+      <div class="mc-badge">PENDIENTE PROY.</div>
+      <div class="mc-label">Por Cobrar Proyectado</div>
+      <div class="mc-val">Bs. {{ ingresos.total_pendiente_proyectado|floatformat:2 }}</div>
+      <div class="mc-sub">Ingresos proyectado − recaudado neto</div>
     </div>
-    <div class="money-card" style="background:var(--amber-l);border-color:#fcd34d;color:var(--amber)">
-      <span class="mc-badge" style="color:var(--amber)">Promedio</span>
-      <div class="mc-label">Promedio / Ítem</div>
+    <div class="money-card" style="border-color:var(--purple);color:var(--purple)">
+      <div class="mc-badge">PROMEDIO</div>
+      <div class="mc-label">Ticket Promedio</div>
       <div class="mc-val">Bs. {{ ingresos.promedio_por_item|floatformat:2 }}</div>
-      <div class="mc-sub">tasa cobranza: {{ ingresos.tasa_cobranza|floatformat:1 }}%</div>
+      <div class="mc-sub">por item (sobre real)</div>
     </div>
   </div>
 
-  <!-- Breakdown by category -->
+  <!-- Sección de Devoluciones y Anulaciones -->
+  {% if ingresos.total_devoluciones > 0 or ingresos.total_anulaciones > 0 %}
+  <div class="card" style="background:var(--red-l);border-color:var(--red);margin-bottom:16px">
+    <h3 style="color:var(--red);display:flex;align-items:center;justify-content:space-between">
+      ⚠️ Devoluciones y Anulaciones
+      <span class="badge-count" style="background:var(--red-l);color:var(--red)">
+        {{ ingresos.devoluciones_info.cantidad|add:ingresos.anulaciones_info.cantidad }} registros
+      </span>
+    </h3>
+    
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px">
+      {% if ingresos.total_devoluciones > 0 %}
+      <div style="background:white;border:1px solid var(--red);border-radius:10px;padding:14px">
+        <div style="font-size:.68rem;font-weight:700;color:var(--red);margin-bottom:6px">DEVOLUCIONES</div>
+        <div style="font-size:1.4rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--red)">
+          Bs. {{ ingresos.total_devoluciones|floatformat:2 }}
+        </div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:4px">{{ ingresos.devoluciones_info.cantidad }} devoluciones</div>
+        
+        {% if ingresos.devoluciones_info.por_metodo %}
+        <div style="margin-top:8px;font-size:.68rem">
+          {% for m in ingresos.devoluciones_info.por_metodo %}
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--border)">
+            <span style="color:var(--muted)">{{ m.metodo_devolucion__nombre }}</span>
+            <span style="font-weight:700;color:var(--red)">Bs. {{ m.monto|floatformat:2 }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+      
+      {% if ingresos.total_anulaciones > 0 %}
+      <div style="background:white;border:1px solid var(--amber);border-radius:10px;padding:14px">
+        <div style="font-size:.68rem;font-weight:700;color:var(--amber);margin-bottom:6px">ANULACIONES</div>
+        <div style="font-size:1.4rem;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--amber)">
+          Bs. {{ ingresos.total_anulaciones|floatformat:2 }}
+        </div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:4px">{{ ingresos.anulaciones_info.cantidad }} pagos anulados</div>
+        <div style="font-size:.65rem;color:var(--muted);margin-top:6px;font-style:italic">
+          * Los pagos anulados no se incluyen en el total cobrado
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Stats Mini -->
   <div class="stats-row">
     <div class="stat-mini">
-      <div class="sm-label">Sesiones — Generado</div>
-      <div class="sm-val" style="color:var(--blue)">Bs. {{ ingresos.sesiones.total_generado|floatformat:0 }}</div>
-      <div class="sm-sub">{{ ingresos.sesiones.cantidad_sesiones|default:0 }} sesiones</div>
+      <div class="sm-label">Sesiones</div>
+      <div class="sm-val">{{ ingresos.sesiones.cantidad_sesiones }}</div>
+      <div class="sm-sub">Realiz. + Retraso + Falta</div>
     </div>
     <div class="stat-mini">
-      <div class="sm-label">Sesiones — Cobrado</div>
-      <div class="sm-val" style="color:var(--green)">Bs. {{ ingresos.sesiones.total_cobrado|floatformat:0 }}</div>
-      <div class="sm-sub">en efectivo/transferencia</div>
+      <div class="sm-label">Proyectos</div>
+      <div class="sm-val">{{ ingresos.proyectos.cantidad_proyectos }}</div>
+      <div class="sm-sub">{{ ingresos.proyectos.proyectos_activos }} prog · {{ ingresos.proyectos.proyectos_finalizados }} fin · {{ ingresos.proyectos.proyectos_cancelados }} can</div>
     </div>
     <div class="stat-mini">
-      <div class="sm-label">Proyectos — Generado</div>
-      <div class="sm-val" style="color:var(--purple)">Bs. {{ ingresos.proyectos.total_generado|floatformat:0 }}</div>
-      <div class="sm-sub">{{ ingresos.proyectos.cantidad_proyectos|default:0 }} proyectos</div>
+      <div class="sm-label">Mensualidades</div>
+      <div class="sm-val">{{ ingresos.mensualidades.cantidad_mensualidades }}</div>
+      <div class="sm-sub">{{ ingresos.mensualidades.activas }} act · {{ ingresos.mensualidades.vencidas }} ven · {{ ingresos.mensualidades.pausadas }} pau · {{ ingresos.mensualidades.completadas }} comp</div>
     </div>
     <div class="stat-mini">
-      <div class="sm-label">Proyectos — Cobrado</div>
-      <div class="sm-val" style="color:var(--teal)">Bs. {{ ingresos.proyectos.total_cobrado|floatformat:0 }}</div>
-      <div class="sm-sub">{{ ingresos.proyectos.proyectos_finalizados|default:0 }} finalizados</div>
+      <div class="sm-label">Generado Sesiones</div>
+      <div class="sm-val" style="font-size:1rem">Bs. {{ ingresos.sesiones.total_generado_real|floatformat:0 }}</div>
+      <div class="sm-sub">
+        real · prog: Bs. {{ ingresos.total_generado_sesiones_prog|floatformat:0 }}<br>
+        cobrado: Bs. {{ ingresos.sesiones.total_cobrado|floatformat:0 }} · pend: Bs. {{ ingresos.sesiones.total_pendiente|floatformat:0 }}
+      </div>
     </div>
     <div class="stat-mini">
-      <div class="sm-label">Sesiones — Pendiente</div>
-      <div class="sm-val" style="color:var(--red)">Bs. {{ ingresos.sesiones.total_pendiente|floatformat:0 }}</div>
-      <div class="sm-sub">por cobrar</div>
+      <div class="sm-label">Generado Proyectos</div>
+      <div class="sm-val" style="font-size:1rem">Bs. {{ ingresos.proyectos.total_generado_real|floatformat:0 }}</div>
+      <div class="sm-sub">
+        real · plan: Bs. {{ ingresos.total_generado_proy_plan|floatformat:0 }}<br>
+        cobrado neto: Bs. {{ ingresos.proyectos.total_cobrado|floatformat:0 }} · pend: Bs. {{ ingresos.proyectos.total_pendiente|floatformat:0 }}
+      </div>
     </div>
     <div class="stat-mini">
-      <div class="sm-label">Proyectos — Pendiente</div>
-      <div class="sm-val" style="color:var(--red)">Bs. {{ ingresos.proyectos.total_pendiente|floatformat:0 }}</div>
-      <div class="sm-sub">activos: {{ ingresos.proyectos.proyectos_activos|default:0 }}</div>
+      <div class="sm-label">Generado Mensualidades</div>
+      <div class="sm-val" style="font-size:1rem">Bs. {{ ingresos.mensualidades.total_generado_real|floatformat:0 }}</div>
+      <div class="sm-sub">cobrado neto: Bs. {{ ingresos.mensualidades.total_cobrado|floatformat:0 }} · pend: Bs. {{ ingresos.mensualidades.total_pendiente|floatformat:0 }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Créditos Gen.</div>
+      <div class="sm-val" style="font-size:1rem">Bs. {{ ingresos.creditos.generados|floatformat:0 }}</div>
+      <div class="sm-sub">{{ ingresos.creditos.generados_cantidad }} pagos adelantados</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Créditos Usados</div>
+      <div class="sm-val" style="font-size:1rem">Bs. {{ ingresos.creditos.utilizados|floatformat:0 }}</div>
+      <div class="sm-sub">{{ ingresos.creditos.utilizados_cantidad }} usos · saldo: Bs. {{ ingresos.creditos.saldo_neto|floatformat:0 }}</div>
     </div>
   </div>
-
-  <!-- Credits section -->
-  {% if ingresos.creditos %}
-  <div class="section-hdr"><h2>💳 Movimiento de Créditos</h2></div>
-  <div class="credit-grid">
-    <div class="credit-card">
-      <div class="cr-label">Créditos Generados</div>
-      <div class="cr-val">Bs. {{ ingresos.creditos.generados|floatformat:2 }}</div>
-      <div class="cr-sub">{{ ingresos.creditos.generados_cantidad }} pagos adelantados</div>
-    </div>
-    <div class="credit-card">
-      <div class="cr-label">Créditos Utilizados</div>
-      <div class="cr-val" style="color:var(--amber)">Bs. {{ ingresos.creditos.utilizados|floatformat:2 }}</div>
-      <div class="cr-sub">{{ ingresos.creditos.utilizados_cantidad }} usos</div>
-    </div>
-    <div class="credit-card">
-      <div class="cr-label">Saldo Neto Créditos</div>
-      <div class="cr-val" style="color:{% if ingresos.creditos.saldo_neto >= 0 %}var(--green){% else %}var(--red){% endif %}">
-        Bs. {{ ingresos.creditos.saldo_neto|floatformat:2 }}</div>
-      <div class="cr-sub">generados − utilizados</div>
-    </div>
-  </div>
-  {% endif %}
-  {% endif %}{# end if ingresos #}
-
-  <!-- ══ CIERRE DIARIO ══ -->
-  {% if cierre_diario %}
-  <div class="cierre-box">
-    <h2>🔒 Cierre de Caja — {{ fecha_desde }}</h2>
-    <div class="cierre-grid">
-      <div class="cierre-item ci-highlight">
-        <div class="ci-label">Total Cobrado Real</div>
-        <div class="ci-val">Bs. {{ cierre_diario.total_cobrado|floatformat:2 }}</div>
-        <div class="ci-sub">sin crédito interno</div>
-      </div>
-      {% for metodo, monto in cierre_diario.por_metodo.items %}
-      <div class="cierre-item">
-        <div class="ci-label">{{ metodo }}</div>
-        <div class="ci-val">Bs. {{ monto|floatformat:2 }}</div>
-      </div>
-      {% endfor %}
-      <div class="cierre-item">
-        <div class="ci-label">Generado (Sesiones)</div>
-        <div class="ci-val">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:2 }}</div>
-        <div class="ci-sub">{{ cierre_diario.cantidad_sesiones }} sesiones realizadas</div>
-      </div>
-      <div class="cierre-item ci-danger">
-        <div class="ci-label">Pendiente del Día</div>
-        <div class="ci-val">Bs. {{ cierre_diario.monto_pendiente_sesiones|floatformat:2 }}</div>
-        <div class="ci-sub">sin cobrar aún</div>
-      </div>
-    </div>
-    <!-- Estadísticas del día -->
-    {% if cierre_diario.estadisticas %}
-    <div style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">
-      <div class="cierre-item">
-        <div class="ci-label">Pacientes Atendidos</div>
-        <div class="ci-val">{{ cierre_diario.estadisticas.pacientes_unicos }}</div>
-      </div>
-      <div class="cierre-item">
-        <div class="ci-label">Horas Clínicas</div>
-        <div class="ci-val">{{ cierre_diario.estadisticas.horas_trabajadas|floatformat:1 }}h</div>
-      </div>
-      <div class="cierre-item">
-        <div class="ci-label">Ticket Promedio</div>
-        <div class="ci-val">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:0 }}</div>
-      </div>
-      <div class="cierre-item">
-        <div class="ci-label">Retrasos</div>
-        <div class="ci-val">{{ cierre_diario.estadisticas.retrasos_dia }}</div>
-      </div>
-      <div class="cierre-item">
-        <div class="ci-label">Faltas</div>
-        <div class="ci-val" style="color:#fca5a5">{{ cierre_diario.estadisticas.faltas_dia }}</div>
-      </div>
-      <div class="cierre-item">
-        <div class="ci-label">Canceladas</div>
-        <div class="ci-val" style="color:#94a3b8">{{ cierre_diario.estadisticas.canceladas_dia }}</div>
-      </div>
-    </div>
-    {% endif %}
-    <!-- Pagos del día -->
-    {% if cierre_diario.pagos_agrupados %}
-    <div style="margin-top:16px">
-      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:10px">Recibos del día</div>
-      {% for rec in cierre_diario.pagos_agrupados %}
-      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-        <div>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#e2e8f0;font-weight:700">{{ rec.pagos.0.numero_recibo }}</span>
-          <span style="font-size:.65rem;color:#64748b;margin-left:8px">{{ rec.pagos.0.paciente.nombre_completo }}</span>
-          {% if rec.es_masivo %}<span style="font-size:.62rem;background:rgba(124,58,237,.3);color:#c4b5fd;padding:2px 6px;border-radius:4px;margin-left:6px">masivo</span>{% endif %}
-        </div>
-        <span style="font-family:'JetBrains Mono',monospace;font-weight:900;color:#86efac">Bs. {{ rec.total|floatformat:2 }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% endif %}
 
   <!-- ══ EVOLUCIÓN GRÁFICO ══ -->
   {% if grafico_data %}
@@ -356,7 +410,6 @@
   {% if por_metodo %}
   <div class="section-hdr"><h2>💳 Desglose por Método de Pago</h2></div>
   <div class="method-grid">
-    {% with total_metodos=0 %}
     {% for m in por_metodo %}
     <div class="method-card">
       <div class="mc2-label">{{ m.metodo_pago__nombre|default:"Sin método" }}</div>
@@ -367,7 +420,6 @@
       </div>
     </div>
     {% endfor %}
-    {% endwith %}
   </div>
   {% endif %}
 
@@ -407,6 +459,846 @@
       </div>
     </div>
   </div>
+
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: CIERRE DIARIO -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'diaria' and cierre_diario %}
+  <div class="cierre-box">
+    <h2>📆 Cierre de Caja - {{ cierre_diario.dia_semana }}, {{ cierre_diario.fecha_formato }}</h2>
+    
+    <div class="cierre-grid">
+      <!-- Total cobrado -->
+      <div class="cierre-item ci-highlight">
+        <div class="ci-label">Total Cobrado</div>
+        <div class="ci-val">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</div>
+        <div class="ci-sub">{{ cierre_diario.pagos_total }} recibos</div>
+      </div>
+      
+      <!-- Efectivo -->
+      <div class="cierre-item">
+        <div class="ci-label">Efectivo</div>
+        <div class="ci-val">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</div>
+        <div class="ci-sub">Esperado en caja</div>
+      </div>
+      
+      <!-- Sesiones -->
+      <div class="cierre-item">
+        <div class="ci-label">Sesiones</div>
+        <div class="ci-val">{{ cierre_diario.sesiones_realizadas }}</div>
+        <div class="ci-sub">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:2 }}</div>
+      </div>
+      
+      <!-- Proyectos -->
+      <div class="cierre-item">
+        <div class="ci-label">Proyectos</div>
+        <div class="ci-val">{{ cierre_diario.proyectos_iniciados }}</div>
+        <div class="ci-sub">Bs. {{ cierre_diario.monto_proyectos|floatformat:2 }}</div>
+      </div>
+      
+      <!-- Mensualidades del mes -->
+      {% if cierre_diario.mensualidades_dia > 0 %}
+      <div class="cierre-item">
+        <div class="ci-label">Mensualidades</div>
+        <div class="ci-val">{{ cierre_diario.mensualidades_dia }}</div>
+        <div class="ci-sub">Bs. {{ cierre_diario.monto_mensualidades|floatformat:2 }}</div>
+      </div>
+      {% endif %}
+      
+      <!-- Créditos generados -->
+      <div class="cierre-item">
+        <div class="ci-label">Créditos Gen.</div>
+        <div class="ci-val">Bs. {{ cierre_diario.creditos_generados|floatformat:2 }}</div>
+        <div class="ci-sub">Pagos adelantados</div>
+      </div>
+      
+      <!-- Créditos utilizados -->
+      <div class="cierre-item">
+        <div class="ci-label">Créditos Usados</div>
+        <div class="ci-val">Bs. {{ cierre_diario.creditos_utilizados|floatformat:2 }}</div>
+        <div class="ci-sub">Débito de crédito</div>
+      </div>
+      
+      <!-- Pacientes atendidos -->
+      <div class="cierre-item">
+        <div class="ci-label">Pacientes</div>
+        <div class="ci-val">{{ cierre_diario.estadisticas.pacientes_unicos }}</div>
+        <div class="ci-sub">Únicos atendidos</div>
+      </div>
+      
+      <!-- Ticket promedio -->
+      <div class="cierre-item">
+        <div class="ci-label">Ticket Prom.</div>
+        <div class="ci-val">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:2 }}</div>
+        <div class="ci-sub">Por recibo</div>
+      </div>
+      
+      <!-- Horas trabajadas -->
+      <div class="cierre-item">
+        <div class="ci-label">Horas</div>
+        <div class="ci-val">{{ cierre_diario.estadisticas.horas_trabajadas|floatformat:1 }}</div>
+        <div class="ci-sub">Trabajadas</div>
+      </div>
+      
+      <!-- Ingreso por hora -->
+      <div class="cierre-item">
+        <div class="ci-label">Bs./Hora</div>
+        <div class="ci-val">{{ cierre_diario.estadisticas.ingreso_por_hora|floatformat:2 }}</div>
+        <div class="ci-sub">Productividad</div>
+      </div>
+    </div>
+
+    <!-- Métodos de pago del día -->
+    {% if cierre_diario.por_metodo %}
+    <div style="margin-top:20px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Detalle por Método</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+        {% for m in cierre_diario.por_metodo %}
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px">
+          <div style="font-size:.65rem;color:#94a3b8;margin-bottom:4px">{{ m.metodo_pago__nombre }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.1rem;color:white">Bs. {{ m.monto|floatformat:2 }}</div>
+          <div style="font-size:.62rem;color:#64748b;margin-top:2px">{{ m.cantidad }} trans.</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Por profesional -->
+    {% if cierre_diario.estadisticas.por_profesional %}
+    <div style="margin-top:16px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Por Profesional</div>
+      {% for prof in cierre_diario.estadisticas.por_profesional %}
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span style="color:#e2e8f0;font-weight:700;font-size:.8rem">{{ prof.profesional__nombre }} {{ prof.profesional__apellido }}</span>
+          <span style="font-size:.65rem;color:#64748b;margin-left:8px">{{ prof.sesiones }} sesiones</span>
+        </div>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:900;color:#86efac">Bs. {{ prof.ingresos|floatformat:2 }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Por servicio -->
+    {% if cierre_diario.estadisticas.por_servicio %}
+    <div style="margin-top:16px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Por Servicio</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+        {% for serv in cierre_diario.estadisticas.por_servicio %}
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px">
+          <div style="font-size:.65rem;color:#94a3b8;margin-bottom:4px">{{ serv.servicio__nombre }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.1rem;color:white">{{ serv.cantidad }}</div>
+          <div style="font-size:.62rem;color:#64748b;margin-top:2px">Bs. {{ serv.ingresos|floatformat:2 }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Asistencia -->
+    <div style="margin-top:16px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Asistencia</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;text-align:center">
+          <div style="font-size:.62rem;color:#94a3b8;margin-bottom:4px">Programadas</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.3rem;color:#60a5fa">{{ cierre_diario.estadisticas.programadas_dia }}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;text-align:center">
+          <div style="font-size:.62rem;color:#94a3b8;margin-bottom:4px">Retrasos</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.3rem;color:#fb923c">{{ cierre_diario.estadisticas.retrasos_dia }}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;text-align:center">
+          <div style="font-size:.62rem;color:#94a3b8;margin-bottom:4px">Faltas</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.3rem;color:#f87171">{{ cierre_diario.estadisticas.faltas_dia }}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;text-align:center">
+          <div style="font-size:.62rem;color:#94a3b8;margin-bottom:4px">Canceladas</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.3rem;color:#94a3b8">{{ cierre_diario.estadisticas.canceladas_dia }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparativa últimos 7 días -->
+    {% if cierre_diario.comparativa_dias %}
+    <div style="margin-top:16px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Últimos 7 días</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;min-width:600px">
+          <thead>
+            <tr style="background:rgba(255,255,255,.05)">
+              <th style="text-align:left;padding:8px;font-size:.65rem;color:#94a3b8">Día</th>
+              <th style="text-align:left;padding:8px;font-size:.65rem;color:#94a3b8">Fecha</th>
+              <th style="text-align:center;padding:8px;font-size:.65rem;color:#94a3b8">Sesiones</th>
+              <th style="text-align:right;padding:8px;font-size:.65rem;color:#94a3b8">Generado</th>
+              <th style="text-align:right;padding:8px;font-size:.65rem;color:#94a3b8">Cobrado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dia in cierre_diario.comparativa_dias %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+              <td style="padding:8px;color:#e2e8f0;font-size:.75rem">{{ dia.dia_semana }}</td>
+              <td style="padding:8px;color:#94a3b8;font-size:.72rem">{{ dia.fecha|date:"d/m/Y" }}</td>
+              <td style="padding:8px;text-align:center;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-weight:700">{{ dia.sesiones }}</td>
+              <td style="padding:8px;text-align:right;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-weight:700">Bs. {{ dia.ingresos|floatformat:2 }}</td>
+              <td style="padding:8px;text-align:right;color:#86efac;font-family:'JetBrains Mono',monospace;font-weight:900">Bs. {{ dia.cobrado|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Pagos del día (DETALLE COMPLETO) -->
+    {% if cierre_diario.pagos_agrupados %}
+    <div style="margin-top:16px" class="page-break">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">
+        Recibos del día ({{ cierre_diario.pagos_agrupados|length }})
+      </div>
+      {% for rec in cierre_diario.pagos_agrupados %}
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px 14px;margin-bottom:8px">
+        <!-- Header del recibo -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.85rem;color:#86efac;font-weight:700">{{ rec.recibo }}</span>
+            {% if rec.es_masivo %}
+            <span style="font-size:.62rem;background:rgba(124,58,237,.3);color:#c4b5fd;padding:2px 6px;border-radius:4px;margin-left:6px">MASIVO</span>
+            {% endif %}
+            <div style="font-size:.68rem;color:#94a3b8;margin-top:3px">
+              {{ rec.paciente.nombre_completo }} • {{ rec.metodo_pago.nombre }}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.2rem;color:#86efac">Bs. {{ rec.total|floatformat:2 }}</div>
+            <div style="font-size:.65rem;color:#64748b;margin-top:2px">{{ rec.fecha_registro|date:"H:i" }}</div>
+          </div>
+        </div>
+        
+        <!-- Detalles del recibo -->
+        {% if rec.es_masivo %}
+        <div style="border-top:1px solid rgba(255,255,255,.05);padding-top:8px;margin-top:8px">
+          <div style="font-size:.65rem;color:#94a3b8;margin-bottom:6px;font-weight:700">DETALLES:</div>
+          {% for pago in rec.pagos %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:rgba(255,255,255,.02);border-radius:5px;margin-bottom:4px">
+            <div style="font-size:.7rem;color:#e2e8f0">
+              {% if pago.sesion %}
+                🏥 Sesión {{ pago.sesion.servicio.nombre }} ({{ pago.sesion.fecha|date:"d/m" }})
+              {% elif pago.proyecto %}
+                📋 Proyecto {{ pago.proyecto.servicio_base.nombre }}
+              {% else %}
+                💰 Pago adelantado
+              {% endif %}
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#86efac;font-weight:700">Bs. {{ pago.monto|floatformat:2 }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <!-- Recibo simple -->
+        <div style="border-top:1px solid rgba(255,255,255,.05);padding-top:8px;margin-top:8px">
+          {% with pago=rec.pagos.0 %}
+          <div style="font-size:.7rem;color:#e2e8f0">
+            {% if pago.sesion %}
+              🏥 Sesión {{ pago.sesion.servicio.nombre }} • {{ pago.sesion.profesional.nombre_completo }}
+              <div style="font-size:.65rem;color:#64748b;margin-top:2px">{{ pago.sesion.fecha|date:"d/m/Y" }} a las {{ pago.sesion.hora_inicio }}</div>
+            {% elif pago.proyecto %}
+              📋 Proyecto {{ pago.proyecto.servicio_base.nombre }} • {{ pago.proyecto.profesional_responsable.nombre_completo }}
+              <div style="font-size:.65rem;color:#64748b;margin-top:2px">Inicio: {{ pago.proyecto.fecha_inicio|date:"d/m/Y" }}</div>
+            {% else %}
+              💰 Pago adelantado (crédito disponible)
+            {% endif %}
+          </div>
+          {% endwith %}
+        </div>
+        {% endif %}
+        
+        <!-- Footer con info adicional -->
+        {% if rec.observaciones or rec.numero_transaccion %}
+        <div style="border-top:1px solid rgba(255,255,255,.05);padding-top:6px;margin-top:6px;font-size:.65rem;color:#64748b">
+          {% if rec.numero_transaccion %}<div>Trans: {{ rec.numero_transaccion }}</div>{% endif %}
+          {% if rec.observaciones %}<div>Obs: {{ rec.observaciones }}</div>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: DETALLE PAGOS (TODOS LOS PAGOS) -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'detalle_pagos' %}
+  <div class="table-card">
+    <h3>
+      💳 Listado Completo de Pagos
+      <span class="badge-count">{{ detalle_pagos.count }} registros</span>
+    </h3>
+    <table>
+      <thead>
+        <tr>
+          <th>N° Recibo</th>
+          <th>Fecha/Hora</th>
+          <th>Paciente</th>
+          <th>Concepto</th>
+          <th>Método</th>
+          <th class="td-right">Monto</th>
+          <th>Registrado por</th>
+          <th class="td-center">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pago in detalle_pagos %}
+        <tr>
+          <td class="td-mono">{{ pago.numero_recibo }}</td>
+          <td>
+            {{ pago.fecha_pago|date:"d/m/Y" }}<br>
+            <small style="color:var(--muted)">{{ pago.fecha_registro|date:"H:i" }}</small>
+          </td>
+          <td>
+            <strong>{{ pago.paciente.nombre_completo }}</strong>
+            {% if pago.paciente.telefono_tutor %}
+            <br><small style="color:var(--muted)">{{ pago.paciente.telefono_tutor }}</small>
+            {% endif %}
+          </td>
+          <td>
+            {% if pago.sesion %}
+              <span class="tag blue">SESIÓN</span> {{ pago.sesion.servicio.nombre }}
+              <br><small style="color:var(--muted)">{{ pago.sesion.fecha|date:"d/m/Y" }}</small>
+            {% elif pago.proyecto %}
+              <span class="tag purple">PROYECTO</span> {{ pago.proyecto.servicio_base.nombre }}
+            {% elif pago.mensualidad %}
+              <span class="tag teal">MENSUALIDAD</span> {{ pago.mensualidad.servicio.nombre }}
+            {% else %}
+              <span class="tag amber">ADELANTADO</span> Crédito
+            {% endif %}
+            {% if pago.concepto %}
+            <br><small style="color:var(--muted)">{{ pago.concepto|truncatewords:6 }}</small>
+            {% endif %}
+          </td>
+          <td>
+            <span class="tag {% if pago.metodo_pago.nombre == 'Efectivo' %}green{% elif pago.metodo_pago.nombre == 'Uso de Crédito' %}purple{% else %}blue{% endif %}">
+              {{ pago.metodo_pago.nombre }}
+            </span>
+            {% if pago.numero_transaccion %}
+            <br><small style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.65rem">{{ pago.numero_transaccion }}</small>
+            {% endif %}
+          </td>
+          <td class="td-right td-mono" style="color:var(--green);font-weight:800">Bs. {{ pago.monto|floatformat:2 }}</td>
+          <td><small style="color:var(--muted)">{{ pago.registrado_por.username }}</small></td>
+          <td class="td-center">
+            {% if pago.anulado %}
+            <span class="tag red">ANULADO</span>
+            {% else %}
+            <span class="tag green">VÁLIDO</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="empty-state">
+            <div style="padding:40px;text-align:center;color:var(--muted)">
+              No hay pagos registrados en el período seleccionado
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totales por método -->
+  <div class="section-hdr"><h2>Resumen por Método de Pago</h2></div>
+  <div class="method-grid">
+    {% for m in detalle_pagos_metodos %}
+    <div class="method-card">
+      <div class="mc2-label">{{ m.metodo_pago__nombre }}</div>
+      <div class="mc2-val">Bs. {{ m.total|floatformat:2 }}</div>
+      <div class="mc2-count">{{ m.cantidad }} transacciones</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: DETALLE SESIONES -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'detalle_sesiones' %}
+  <div class="table-card">
+    <h3>
+      🏥 Listado Completo de Sesiones
+      <span class="badge-count">{{ detalle_sesiones.count }} sesiones</span>
+    </h3>
+    <p style="font-size:.72rem;color:var(--muted);margin:-4px 0 10px">Incluye todos los estados. El monto pagado incluye pagos masivos y excluye "Uso de Crédito".</p>
+    <!-- Contadores por estado -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <span class="tag blue">Prog: {{ detalle_sesiones_totales.por_estado.programada }}</span>
+      <span class="tag green">Realiz.: {{ detalle_sesiones_totales.por_estado.realizada }}</span>
+      <span class="tag amber">Retraso: {{ detalle_sesiones_totales.por_estado.realizada_retraso }}</span>
+      <span class="tag red">Falta: {{ detalle_sesiones_totales.por_estado.falta }}</span>
+      <span class="tag teal">Permiso: {{ detalle_sesiones_totales.por_estado.permiso }}</span>
+      <span class="tag" style="background:var(--border);color:var(--muted)">Cancelada: {{ detalle_sesiones_totales.por_estado.cancelada }}</span>
+      <span class="tag purple">Reprog.: {{ detalle_sesiones_totales.por_estado.reprogramada }}</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha/Hora</th>
+          <th>Paciente</th>
+          <th>Servicio</th>
+          <th>Profesional</th>
+          <th>Sucursal</th>
+          <th class="td-center">Estado</th>
+          <th class="td-right">Cobrado</th>
+          <th class="td-right">Pagado</th>
+          <th class="td-center">Estado Pago</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sesion in detalle_sesiones %}
+        <tr>
+          <td>
+            <strong>{{ sesion.fecha|date:"d/m/Y" }}</strong><br>
+            <small style="color:var(--muted)">{{ sesion.hora_inicio }} - {{ sesion.hora_fin }}</small>
+          </td>
+          <td><strong>{{ sesion.paciente.nombre_completo }}</strong></td>
+          <td>
+            <span class="tag" style="background-color:{{ sesion.servicio.color }}22;color:{{ sesion.servicio.color }}">
+              {{ sesion.servicio.nombre }}
+            </span>
+            <br><small style="color:var(--muted)">{{ sesion.duracion_minutos }} min</small>
+          </td>
+          <td>{{ sesion.profesional.nombre_completo }}</td>
+          <td><small style="color:var(--muted)">{{ sesion.sucursal.nombre }}</small></td>
+          <td class="td-center">
+            {% if sesion.estado == 'programada' %}<span class="tag blue">PROGRAMADA</span>
+            {% elif sesion.estado == 'realizada' %}<span class="tag green">REALIZADA</span>
+            {% elif sesion.estado == 'realizada_retraso' %}<span class="tag amber">RETRASO</span>
+            {% elif sesion.estado == 'falta' %}<span class="tag red">FALTA</span>
+            {% elif sesion.estado == 'permiso' %}<span class="tag teal">PERMISO</span>
+            {% elif sesion.estado == 'cancelada' %}<span class="tag" style="background:var(--border);color:var(--muted)">CANCELADA</span>
+            {% elif sesion.estado == 'reprogramada' %}<span class="tag purple">REPROGRAMADA</span>
+            {% endif %}
+          </td>
+          <td class="td-right td-mono" style="font-weight:700">Bs. {{ sesion.monto_cobrado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green);font-weight:800">
+            {% if sesion.monto_pagado %}Bs. {{ sesion.monto_pagado|floatformat:2 }}
+            {% else %}<span style="color:var(--muted)">-</span>{% endif %}
+          </td>
+          <td class="td-center">
+            {% if sesion.monto_cobrado == 0 %}
+            <span class="tag" style="background:var(--border);color:var(--muted)">N/A</span>
+            {% elif sesion.monto_pendiente > 0 %}
+            <span class="tag amber">PENDIENTE</span><br>
+            <small style="color:var(--muted)">Bs. {{ sesion.monto_pendiente|floatformat:2 }}</small>
+            {% elif sesion.monto_pagado %}
+            <span class="tag green">PAGADO</span>
+            {% else %}
+            <span class="tag red">SIN PAGO</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">No hay sesiones en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="stats-row">
+    <div class="stat-mini">
+      <div class="sm-label">Total Generado</div>
+      <div class="sm-val" style="font-size:1.1rem">Bs. {{ detalle_sesiones_totales.total_generado|floatformat:2 }}</div>
+      <div class="sm-sub">monto_cobrado acumulado</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pagado</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--green)">Bs. {{ detalle_sesiones_totales.total_pagado|floatformat:2 }}</div>
+      <div class="sm-sub">directos + masivos</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pendiente</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--amber)">Bs. {{ detalle_sesiones_totales.total_pendiente|floatformat:2 }}</div>
+      <div class="sm-sub">generado − pagado</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Tasa Cobranza</div>
+      <div class="sm-val" style="font-size:1.1rem">{{ detalle_sesiones_totales.tasa_cobranza|floatformat:1 }}%</div>
+      <div class="sm-sub">sobre monto generado</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: DETALLE PROYECTOS -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'detalle_proyectos' %}
+  <div class="table-card">
+    <h3>
+      📋 Listado Completo de Proyectos
+      <span class="badge-count">{{ detalle_proyectos.count }} proyectos</span>
+    </h3>
+    <p style="font-size:.72rem;color:var(--muted);margin:-4px 0 10px">Incluye todos los estados. Pagado neto = directos + masivos − devoluciones.</p>
+    <!-- Contadores por estado -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <span class="tag blue">Planificado: {{ detalle_proyectos_totales.planificados }}</span>
+      <span class="tag amber">En Progreso: {{ detalle_proyectos_totales.activos }}</span>
+      <span class="tag green">Finalizado: {{ detalle_proyectos_totales.finalizados }}</span>
+      <span class="tag red">Cancelado: {{ detalle_proyectos_totales.cancelados }}</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha Inicio</th>
+          <th>Paciente</th>
+          <th>Servicio</th>
+          <th>Profesional</th>
+          <th class="td-right">Costo Total</th>
+          <th class="td-right">Pagado Neto</th>
+          <th class="td-right">Pendiente</th>
+          <th class="td-center">Estado</th>
+          <th class="td-center">Pago</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for proyecto in detalle_proyectos %}
+        <tr>
+          <td>
+            <strong>{{ proyecto.fecha_inicio|date:"d/m/Y" }}</strong>
+            {% if proyecto.fecha_fin %}<br><small style="color:var(--muted)">Fin: {{ proyecto.fecha_fin|date:"d/m/Y" }}</small>{% endif %}
+          </td>
+          <td><strong>{{ proyecto.paciente.nombre_completo }}</strong></td>
+          <td>
+            <span class="tag" style="background-color:{{ proyecto.servicio_base.color }}22;color:{{ proyecto.servicio_base.color }}">
+              {{ proyecto.servicio_base.nombre }}
+            </span>
+            {% if proyecto.descripcion %}<br><small style="color:var(--muted)">{{ proyecto.descripcion|truncatewords:8 }}</small>{% endif %}
+          </td>
+          <td>{{ proyecto.profesional_responsable.nombre_completo }}</td>
+          <td class="td-right td-mono" style="font-weight:700">Bs. {{ proyecto.costo_total|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green);font-weight:800">
+            {% if proyecto.monto_pagado %}Bs. {{ proyecto.monto_pagado|floatformat:2 }}
+            {% else %}<span style="color:var(--muted)">-</span>{% endif %}
+          </td>
+          <td class="td-right td-mono" style="color:var(--amber);font-weight:700">
+            {% if proyecto.monto_pendiente > 0 %}Bs. {{ proyecto.monto_pendiente|floatformat:2 }}
+            {% else %}<span style="color:var(--muted)">0.00</span>{% endif %}
+          </td>
+          <td class="td-center">
+            {% if proyecto.estado == 'planificado' %}<span class="tag blue">PLANIFICADO</span>
+            {% elif proyecto.estado == 'en_progreso' %}<span class="tag amber">EN PROGRESO</span>
+            {% elif proyecto.estado == 'finalizado' %}<span class="tag green">FINALIZADO</span>
+            {% elif proyecto.estado == 'cancelado' %}<span class="tag red">CANCELADO</span>
+            {% endif %}
+          </td>
+          <td class="td-center">
+            {% if proyecto.monto_pendiente > 0 %}<span class="tag amber">PENDIENTE</span>
+            {% elif proyecto.monto_pagado %}<span class="tag green">PAGADO</span>
+            {% else %}<span class="tag red">SIN PAGO</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">No hay proyectos en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="stats-row">
+    <div class="stat-mini">
+      <div class="sm-label">Total Generado</div>
+      <div class="sm-val" style="font-size:1.1rem">Bs. {{ detalle_proyectos_totales.total_generado|floatformat:2 }}</div>
+      <div class="sm-sub">costo_total acumulado</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pagado Neto</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--green)">Bs. {{ detalle_proyectos_totales.total_pagado|floatformat:2 }}</div>
+      <div class="sm-sub">directos + masivos − devoluciones</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pendiente</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--amber)">Bs. {{ detalle_proyectos_totales.total_pendiente|floatformat:2 }}</div>
+      <div class="sm-sub">generado − pagado neto</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Planificados</div>
+      <div class="sm-val">{{ detalle_proyectos_totales.planificados }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">En Progreso</div>
+      <div class="sm-val">{{ detalle_proyectos_totales.activos }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Finalizados</div>
+      <div class="sm-val">{{ detalle_proyectos_totales.finalizados }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Cancelados</div>
+      <div class="sm-val">{{ detalle_proyectos_totales.cancelados }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: DETALLE MENSUALIDADES -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'detalle_mensualidades' %}
+  <div class="table-card">
+    <h3>
+      📅 Listado Completo de Mensualidades
+      <span class="badge-count">{{ detalle_mensualidades.count }} mensualidades</span>
+    </h3>
+    <p style="font-size:.72rem;color:var(--muted);margin:-4px 0 10px">Incluye todos los estados. Pagado neto = directos + masivos − devoluciones.</p>
+    <!-- Contadores por estado -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      <span class="tag green">Activa: {{ detalle_mensualidades_totales.activas }}</span>
+      <span class="tag amber">Pausada: {{ detalle_mensualidades_totales.pausadas }}</span>
+      <span class="tag blue">Completada: {{ detalle_mensualidades_totales.completadas }}</span>
+      <span class="tag red">Cancelada: {{ detalle_mensualidades_totales.canceladas }}</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Período</th>
+          <th>Paciente</th>
+          <th>Servicios</th>
+          <th>Sucursal</th>
+          <th class="td-right">Costo Mensual</th>
+          <th class="td-right">Pagado Neto</th>
+          <th class="td-right">Pendiente</th>
+          <th class="td-center">Estado</th>
+          <th class="td-center">Pago</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mensualidad in detalle_mensualidades %}
+        <tr>
+          <td>
+            <strong>{{ mensualidad.get_mes_display|default:mensualidad.mes }}/{{ mensualidad.anio }}</strong>
+          </td>
+          <td><strong>{{ mensualidad.paciente.nombre_completo }}</strong></td>
+          <td>
+            {% for sp in mensualidad.servicios_profesionales.all %}
+            <span class="tag teal" style="margin-bottom:2px;display:inline-block">{{ sp.servicio.nombre }}</span>
+            <br><small style="color:var(--muted)">{{ sp.profesional.nombre_completo }}</small>
+            {% empty %}
+            <span style="color:var(--muted)">-</span>
+            {% endfor %}
+          </td>
+          <td><small style="color:var(--muted)">{{ mensualidad.sucursal.nombre }}</small></td>
+          <td class="td-right td-mono" style="font-weight:700">Bs. {{ mensualidad.costo_mensual|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green);font-weight:800">
+            {% if mensualidad.monto_pagado %}Bs. {{ mensualidad.monto_pagado|floatformat:2 }}
+            {% else %}<span style="color:var(--muted)">-</span>{% endif %}
+          </td>
+          <td class="td-right td-mono" style="color:var(--amber);font-weight:700">
+            {% if mensualidad.monto_pendiente > 0 %}Bs. {{ mensualidad.monto_pendiente|floatformat:2 }}
+            {% else %}<span style="color:var(--muted)">0.00</span>{% endif %}
+          </td>
+          <td class="td-center">
+            {% if mensualidad.estado == 'activa' %}<span class="tag green">ACTIVA</span>
+            {% elif mensualidad.estado == 'pausada' %}<span class="tag amber">PAUSADA</span>
+            {% elif mensualidad.estado == 'completada' %}<span class="tag blue">COMPLETADA</span>
+            {% elif mensualidad.estado == 'cancelada' %}<span class="tag red">CANCELADA</span>
+            {% elif mensualidad.estado == 'vencida' %}<span class="tag red">VENCIDA</span>
+            {% else %}<span class="tag">{{ mensualidad.estado }}</span>
+            {% endif %}
+          </td>
+          <td class="td-center">
+            {% if mensualidad.monto_pendiente > 0 %}<span class="tag amber">PENDIENTE</span>
+            {% elif mensualidad.monto_pagado %}<span class="tag green">PAGADO</span>
+            {% else %}<span class="tag red">SIN PAGO</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">No hay mensualidades en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="stats-row">
+    <div class="stat-mini">
+      <div class="sm-label">Total Generado</div>
+      <div class="sm-val" style="font-size:1.1rem">Bs. {{ detalle_mensualidades_totales.total_generado|floatformat:2 }}</div>
+      <div class="sm-sub">costo_mensual acumulado</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pagado Neto</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--green)">Bs. {{ detalle_mensualidades_totales.total_pagado|floatformat:2 }}</div>
+      <div class="sm-sub">directos + masivos − devoluciones</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Total Pendiente</div>
+      <div class="sm-val" style="font-size:1.1rem;color:var(--amber)">Bs. {{ detalle_mensualidades_totales.total_pendiente|floatformat:2 }}</div>
+      <div class="sm-sub">generado − pagado neto</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Tasa Cobranza</div>
+      <div class="sm-val" style="font-size:1.1rem">{{ detalle_mensualidades_totales.tasa_cobranza|floatformat:1 }}%</div>
+      <div class="sm-sub">sobre monto generado</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Activas</div>
+      <div class="sm-val">{{ detalle_mensualidades_totales.activas }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Pausadas</div>
+      <div class="sm-val">{{ detalle_mensualidades_totales.pausadas }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Completadas</div>
+      <div class="sm-val">{{ detalle_mensualidades_totales.completadas }}</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-label">Canceladas</div>
+      <div class="sm-val">{{ detalle_mensualidades_totales.canceladas }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: ANÁLISIS DE CRÉDITOS -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'analisis_creditos' %}
+  
+  <!-- Resumen créditos -->
+  <div class="credit-grid">
+    <div class="credit-card">
+      <div class="cr-label">Créditos Generados</div>
+      <div class="cr-val">Bs. {{ analisis_creditos.total_generado|floatformat:2 }}</div>
+      <div class="cr-sub">{{ analisis_creditos.cantidad_generados }} pagos adelantados</div>
+    </div>
+    <div class="credit-card">
+      <div class="cr-label">Créditos Utilizados</div>
+      <div class="cr-val">Bs. {{ analisis_creditos.total_utilizado|floatformat:2 }}</div>
+      <div class="cr-sub">{{ analisis_creditos.cantidad_utilizados }} usos</div>
+    </div>
+    <div class="credit-card">
+      <div class="cr-label">Saldo Neto</div>
+      <div class="cr-val" style="color:{% if analisis_creditos.saldo_neto >= 0 %}var(--green){% else %}var(--red){% endif %}">
+        Bs. {{ analisis_creditos.saldo_neto|floatformat:2 }}
+      </div>
+      <div class="cr-sub">Crédito disponible en sistema</div>
+    </div>
+  </div>
+
+  <!-- Listado de créditos generados -->
+  <div class="table-card">
+    <h3>
+      💰 Créditos Generados (Pagos Adelantados)
+      <span class="badge-count">{{ analisis_creditos.generados.count }} registros</span>
+    </h3>
+    <table>
+      <thead>
+        <tr>
+          <th>N° Recibo</th>
+          <th>Fecha</th>
+          <th>Paciente</th>
+          <th>Método Pago</th>
+          <th class="td-right">Monto</th>
+          <th>Registrado por</th>
+          <th>Observaciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pago in analisis_creditos.generados %}
+        <tr>
+          <td class="td-mono">{{ pago.numero_recibo }}</td>
+          <td>{{ pago.fecha_pago|date:"d/m/Y" }}<br><small style="color:var(--muted)">{{ pago.fecha_registro|date:"H:i" }}</small></td>
+          <td><strong>{{ pago.paciente.nombre_completo }}</strong></td>
+          <td>
+            <span class="tag blue">{{ pago.metodo_pago.nombre }}</span>
+          </td>
+          <td class="td-right td-mono" style="color:var(--purple);font-weight:800">Bs. {{ pago.monto|floatformat:2 }}</td>
+          <td><small style="color:var(--muted)">{{ pago.registrado_por.username }}</small></td>
+          <td><small style="color:var(--muted)">{{ pago.concepto|default:"-" }}</small></td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="empty-state">
+            <div style="padding:40px;text-align:center;color:var(--muted)">
+              No hay créditos generados en el período seleccionado
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Listado de créditos utilizados -->
+  <div class="table-card">
+    <h3>
+      💎 Créditos Utilizados
+      <span class="badge-count">{{ analisis_creditos.utilizados.count }} registros</span>
+    </h3>
+    <table>
+      <thead>
+        <tr>
+          <th>N° Recibo</th>
+          <th>Fecha</th>
+          <th>Paciente</th>
+          <th>Concepto</th>
+          <th class="td-right">Monto</th>
+          <th>Registrado por</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pago in analisis_creditos.utilizados %}
+        <tr>
+          <td class="td-mono">{{ pago.numero_recibo }}</td>
+          <td>{{ pago.fecha_pago|date:"d/m/Y" }}<br><small style="color:var(--muted)">{{ pago.fecha_registro|date:"H:i" }}</small></td>
+          <td><strong>{{ pago.paciente.nombre_completo }}</strong></td>
+          <td>
+            {% if pago.sesion %}
+              <span class="tag blue">SESIÓN</span> {{ pago.sesion.servicio.nombre }}
+            {% elif pago.proyecto %}
+              <span class="tag purple">PROYECTO</span> {{ pago.proyecto.servicio_base.nombre }}
+            {% elif pago.mensualidad %}
+              <span class="tag teal">MENSUALIDAD</span>
+              {% with sp=pago.mensualidad.servicios_profesionales.first %}
+                {% if sp %}{{ sp.servicio.nombre }}{% endif %}
+              {% endwith %}
+            {% else %}
+              <span class="tag amber">ADELANTADO</span>
+            {% endif %}
+          </td>
+          <td class="td-right td-mono" style="color:var(--purple);font-weight:800">Bs. {{ pago.monto|floatformat:2 }}</td>
+          <td><small style="color:var(--muted)">{{ pago.registrado_por.username }}</small></td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="empty-state">
+            <div style="padding:40px;text-align:center;color:var(--muted)">
+              No hay créditos utilizados en el período seleccionado
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pacientes con mayor crédito disponible -->
+  <div class="card">
+    <h3>👤 Pacientes con Mayor Crédito Disponible</h3>
+    <div class="scroll-list">
+      {% for p in analisis_creditos.pacientes_con_credito %}
+      <div class="list-item">
+        <div>
+          <div class="li-name">{{ p.nombre }} {{ p.apellido }}</div>
+          <div class="li-sub">{{ p.credito_generado|floatformat:2 }} generado • {{ p.credito_usado|floatformat:2 }} usado</div>
+        </div>
+        <div class="li-val" style="color:var(--purple)">Bs. {{ p.credito_disponible|floatformat:2 }}</div>
+      </div>
+      {% empty %}
+      <p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
@@ -465,4 +1357,18 @@ if(ctx2) new Chart(ctx2, {
 });
 </script>
 {% endif %}
+
+<script>
+// Collapsible sections
+document.querySelectorAll('.collapsible').forEach(el => {
+  el.addEventListener('click', () => {
+    el.classList.toggle('collapsed');
+    const content = el.nextElementSibling;
+    if (content) {
+      content.classList.toggle('hidden');
+    }
+  });
+});
+</script>
+
 {% endblock %}

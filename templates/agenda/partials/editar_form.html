@@ -140,7 +140,7 @@
         </div>
 
         {% if not puede_editar %}
-            {% if es_recepcionista and puede_editar_pago and sesion.requiere_pago and not sesion.pagado %}
+            {% if es_recepcionista and puede_editar_pago %}
                 <div class="mb-4 bg-white rounded-lg border border-amber-200 shadow-sm overflow-hidden">
                     <div class="px-3 py-1.5 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
                         <h4 class="font-bold text-amber-900 text-xs flex items-center gap-1.5">
@@ -379,14 +379,64 @@
                         </div>
                         
                         <div class="p-3">
-                            {% if not sesion.requiere_pago %}
+                            {% if not sesion.requiere_pago and not es_recepcionista %}
+                                {# Solo mostrar "Exento" a roles que NO son recepcionistas #}
                                 <div class="text-center py-1">
                                     <p class="text-xs font-bold text-gray-700 flex items-center justify-center gap-1">🎁 Exento de Pago</p>
                                     <p class="text-[10px] text-gray-500">
                                         {% if sesion.proyecto %}Proyecto: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
                                     </p>
                                 </div>
-                            
+
+                            {% elif es_recepcionista %}
+                                {# ✅ RECEPCIONISTAS: acceso completo a pagos sin restricciones #}
+                                {% if not sesion.requiere_pago %}
+                                <div class="mb-2 px-2 py-1 bg-blue-50 rounded border border-blue-100 flex items-center gap-1.5">
+                                    <span class="text-[9px] text-blue-600">ℹ️</span>
+                                    <span class="text-[9px] font-semibold text-blue-700">
+                                        Sesión exenta —
+                                        {% if sesion.proyecto %}Proyecto: {{ sesion.proyecto.nombre }}{% elif sesion.estado in 'permiso,cancelada,reprogramada' %}{{ sesion.get_estado_display }}{% else %}Gratuita{% endif %}
+                                    </span>
+                                </div>
+                                {% endif %}
+
+                                <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+                                    <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[9px] text-gray-400 font-bold uppercase">Total</span>
+                                        <span class="font-bold text-blue-700 text-xs">Bs.{{ sesion.monto_cobrado }}</span>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[9px] text-gray-400 font-bold uppercase">Pagado</span>
+                                        <span class="font-bold text-emerald-600 text-xs">Bs.{{ sesion.total_pagado }}</span>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded border border-red-100 ring-1 ring-red-50 shadow-sm">
+                                        <span class="block text-[9px] text-red-400 font-bold uppercase">Saldo</span>
+                                        <span class="font-bold text-red-600 text-xs">Bs.{{ sesion.saldo_pendiente }}</span>
+                                    </div>
+                                </div>
+
+                                <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ sesion.id }}"
+                                   class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold text-xs py-2 px-3 rounded shadow hover:shadow-md transition-all">
+                                    💵 Registrar Pago (Bs. {{ sesion.saldo_pendiente }})
+                                </a>
+
+                                {% if sesion.total_pagado > 0 %}
+                                <div class="mt-2 pt-1 border-t border-dashed border-amber-200">
+                                    <p class="text-[9px] font-bold text-amber-700/60 mb-0.5">Abonos realizados:</p>
+                                    {% for pago in sesion.pagos.all %}
+                                    {% if not pago.anulado %}
+                                    <div class="flex justify-between text-[10px] text-gray-600 px-1">
+                                        <div>
+                                            <span>{{ pago.fecha_pago|date:"d/m" }}</span>
+                                            <div class="text-[8px] text-blue-600 font-semibold">{{ pago.metodo_pago.nombre }}</div>
+                                        </div>
+                                        <span class="font-bold text-emerald-700">Bs. {{ pago.monto }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
                             {% elif sesion.pagado %}
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-2">

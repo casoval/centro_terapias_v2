@@ -2347,9 +2347,16 @@ def editar_sesion(request, sesion_id):
                 puede_editar = False
                 mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
             
-            # ✅ CLAVE: Recepcionistas SIEMPRE pueden editar pago hasta que esté pagado
-            puede_editar_pago = not sesion.pagado
+            # ✅ RECEPCIONISTAS: Acceso completo a pagos sin restricciones
+            puede_editar_pago = True
     
+    # ✅ OVERRIDE FINAL: Recepcionistas SIEMPRE gestionan pagos.
+    # Si el perfil tiene es_profesional=True Y es_recepcionista=True,
+    # el bloque `if es_profesional` pone puede_editar_pago=False antes
+    # de que llegue al `elif es_recepcionista`. Este override lo corrige.
+    if es_recepcionista:
+        puede_editar_pago = True
+
     if request.method == 'POST':
         # ✅ CRÍTICO: Verificar permisos antes de procesar
         if not puede_editar and not puede_editar_pago:

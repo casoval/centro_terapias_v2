@@ -20,46 +20,41 @@
         </div>
     </div>
 
-    <!-- 🚀 ESTADÍSTICAS CON CARGA LAZY -->
+    <!-- 📊 ESTADÍSTICAS — se cargan automáticamente al abrir la página -->
     <div id="estadisticas-container" class="mb-2 sm:mb-3">
-        {% if mostrar_estadisticas %}
-            <!-- Estadísticas ya cargadas -->
-            {% include 'facturacion/_estadisticas_pagos.html' %}
-        {% else %}
-            <!-- Botón para cargar estadísticas -->
-            <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 text-center">
-                <button 
-                    id="btn-cargar-estadisticas"
-                    onclick="cargarEstadisticasPagos()"
-                    class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 duration-200">
-                    📊 Mostrar Estadísticas de Pagos
-                </button>
-                <p class="text-xs text-gray-500 mt-1">Total cobrado, métodos de pago, desglose, etc.</p>
-            </div>
-            
-            <!-- Spinner de carga (oculto inicialmente) -->
-            <div id="loading-estadisticas" class="hidden bg-white border rounded-lg p-4 text-center">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-                <p class="text-sm text-gray-600 mt-2">Calculando estadísticas...</p>
-            </div>
-        {% endif %}
+        <!-- Spinner de carga inicial -->
+        <div id="loading-estadisticas" class="bg-white border rounded-lg p-4 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+            <p class="text-sm text-gray-600 mt-2">Calculando estadísticas...</p>
+        </div>
     </div>
 
     <!-- Filtros -->
     <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">
-        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-5 sm:gap-2">
+        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-6 sm:gap-2">
             <!-- Búsqueda -->
             <div>
                 <input type="text" 
+                       id="filtro-q"
                        name="q" 
                        value="{{ buscar }}"
                        placeholder="Buscar paciente o recibo..."
                        class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500">
             </div>
+
+            <!-- Tipo de registro -->
+            <div>
+                <select id="filtro-tipo" name="tipo" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todos los tipos</option>
+                    <option value="pago"      {% if tipo_filtro == 'pago' %}selected{% endif %}>💵 Pago</option>
+                    <option value="anulado"   {% if tipo_filtro == 'anulado' %}selected{% endif %}>❌ Anulado</option>
+                    <option value="devolucion"{% if tipo_filtro == 'devolucion' %}selected{% endif %}>🔙 Devolución</option>
+                </select>
+            </div>
             
             <!-- Método de pago -->
             <div>
-                <select name="metodo" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
+                <select id="filtro-metodo" name="metodo" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
                     <option value="">Todos los métodos</option>
                     {% for metodo in metodos_pago %}
                     <option value="{{ metodo.id }}" {% if metodo_id == metodo.id|stringformat:"s" %}selected{% endif %}>
@@ -72,6 +67,7 @@
             <!-- Fecha desde -->
             <div>
                 <input type="date" 
+                       id="filtro-fecha-desde"
                        name="fecha_desde" 
                        value="{{ fecha_desde }}"
                        class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
@@ -80,6 +76,7 @@
             <!-- Fecha hasta -->
             <div>
                 <input type="date" 
+                       id="filtro-fecha-hasta"
                        name="fecha_hasta" 
                        value="{{ fecha_hasta }}"
                        class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
@@ -105,7 +102,7 @@
     <!-- Vista móvil: Tarjetas -->
     <div class="sm:hidden space-y-2 mb-3">
         {% for item in page_obj %}
-        <div class="bg-white border rounded-lg p-2 shadow-sm {% if item.tipo == 'devolucion' %}border-red-300 bg-red-50{% elif item.tipo == 'pago' and item.objeto.numero_recibo|slice:":4" == "CRE-" %}fila-credito{% endif %}">
+        <div class="bg-white border rounded-lg p-2 shadow-sm {% if item.tipo == 'devolucion' %}border-red-300 bg-red-50{% elif item.tipo == 'pago' and item.objeto.anulado %}bg-gray-100 opacity-60{% elif item.tipo == 'pago' and item.objeto.numero_recibo|slice:":4" == "CRE-" %}border-purple-300 bg-purple-50{% elif item.tipo == 'pago' %}fila-pago-real border-green-300{% endif %}">
             <div class="flex justify-between items-start mb-1.5">
                 <div class="flex-1">
                     <p class="font-bold text-xs text-gray-900">{{ item.objeto.paciente.nombre_completo }}</p>
@@ -203,13 +200,70 @@
         <table class="min-w-full divide-y divide-gray-200 text-xs">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Tipo</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Recibo</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Fecha</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Paciente</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Concepto</th>
-                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider">Método</th>
-                    <th class="px-3 py-2 text-right font-bold text-gray-700 uppercase tracking-wider">Monto</th>
+                    {# Columnas ordenables — click en encabezado alterna asc/desc #}
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=tipo&dir={% if orden_col == 'tipo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Tipo
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'tipo' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=recibo&dir={% if orden_col == 'recibo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Recibo
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'recibo' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=fecha&dir={% if orden_col == 'fecha' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Fecha
+                            <span class="{% if orden_col == 'fecha' %}text-blue-600{% else %}text-gray-400{% endif %} group-hover:text-blue-500">
+                                {% if orden_col == 'fecha' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=paciente&dir={% if orden_col == 'paciente' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Paciente
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'paciente' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=concepto&dir={% if orden_col == 'concepto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Concepto
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'concepto' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=metodo&dir={% if orden_col == 'metodo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                            Método
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'metodo' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
+                    <th class="px-3 py-2 text-right font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
+                        <a href="?orden=monto&dir={% if orden_col == 'monto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                           class="flex items-center justify-end gap-1 hover:text-blue-600 transition-colors">
+                            Monto
+                            <span class="text-gray-400 group-hover:text-blue-500">
+                                {% if orden_col == 'monto' %}{% if orden_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}
+                            </span>
+                        </a>
+                    </th>
                     <th class="px-3 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">Acciones</th>
                 </tr>
             </thead>
@@ -263,7 +317,7 @@
                 </tr>
                 {% else %}
                 <!-- FILA DE PAGO -->
-                <tr class="hover:bg-gray-50 transition-colors {% if item.objeto.numero_recibo|slice:":4" == "CRE-" %}fila-credito{% elif item.objeto.es_pago_masivo %}border-l-4 border-l-blue-500 bg-blue-50{% endif %} {% if item.objeto.anulado %}opacity-50 bg-gray-100{% endif %}">
+                <tr class="hover:bg-gray-50 transition-colors {% if item.objeto.anulado %}opacity-50 bg-gray-100{% elif item.objeto.numero_recibo|slice:":4" == "CRE-" %}bg-purple-50 border-l-4 border-l-purple-400{% elif item.objeto.es_pago_masivo %}fila-pago-real border-l-4 border-l-blue-500{% else %}fila-pago-real{% endif %}">
                     <td class="px-3 py-2 whitespace-nowrap">
                         {% if item.objeto.anulado %}
                         <span class="px-2 py-1 text-[10px] font-bold rounded-full bg-gray-200 text-gray-600 border border-gray-400">
@@ -435,9 +489,9 @@
     <div class="mt-3 sm:mt-4 flex justify-center">
         <nav class="flex gap-1 sm:gap-1.5 text-[10px] sm:text-xs">
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
+                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Primera</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
+                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">‹</a>
             {% endif %}
             
@@ -446,9 +500,9 @@
             </span>
             
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
+                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">›</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Última</a>
             {% endif %}
         </nav>
@@ -528,136 +582,219 @@ function toggleDetallePagoMasivoHistorial(id) {
     }
 }
 
-// Función para cargar estadísticas bajo demanda
+// ==================== ESTADÍSTICAS: SE CARGAN AL HACER CLIC EN FILTRAR ====================
+
 function cargarEstadisticasPagos() {
     const container = document.getElementById('estadisticas-container');
-    const btnCargar = document.getElementById('btn-cargar-estadisticas');
-    const loading = document.getElementById('loading-estadisticas');
     
-    // Mostrar spinner
-    btnCargar.parentElement.classList.add('hidden');
-    loading.classList.remove('hidden');
+    // Mostrar spinner mientras carga
+    container.innerHTML = `
+        <div class="bg-white border rounded-lg p-4 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+            <p class="text-sm text-gray-600 mt-2">Calculando estadísticas...</p>
+        </div>
+    `;
     
-    // Construir URL con filtros actuales
-    const params = new URLSearchParams(window.location.search);
+    // Leer parámetros de la URL actual (ya aplicados por el servidor al hacer clic en Filtrar)
+    const urlActual = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams();
+    
+    const q        = urlActual.get('q')           || '';
+    const tipo     = urlActual.get('tipo')         || '';
+    const metodo   = urlActual.get('metodo')       || '';
+    const fechaDesde = urlActual.get('fecha_desde') || '';
+    const fechaHasta = urlActual.get('fecha_hasta') || '';
+
+    if (q) params.set('q', q);
+    if (tipo) params.set('tipo', tipo);
+    if (metodo) params.set('metodo', metodo);
+    if (fechaDesde) params.set('fecha_desde', fechaDesde);
+    if (fechaHasta) params.set('fecha_hasta', fechaHasta);
+    
     const url = '{% url "facturacion:cargar_estadisticas_pagos_ajax" %}?' + params.toString();
     
-    // Hacer petición AJAX
     fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const stats = data.estadisticas;
-                
-                // Calcular promedio por transacción
-                const promedioTransaccion = stats.total_pagos_validos > 0 
-                    ? stats.monto_pagos_validos / stats.total_pagos_validos 
-                    : 0;
-                
-                // Renderizar estadísticas principales (COMPACTAS)
-                let html = `
-                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
-                        <!-- Pagos Reales -->
-                        <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
-                            <div class="flex items-center justify-between mb-1">
-                                <p class="text-[9px] sm:text-[10px] text-green-700 font-bold uppercase tracking-wide">💰 Ingresos Reales</p>
-                                <span class="bg-green-200 text-green-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_validos}</span>
-                            </div>
-                            <p class="text-xl sm:text-2xl font-black text-green-700 mb-0.5">Bs. ${stats.monto_pagos_validos.toFixed(2)}</p>
-                            <p class="text-[8px] sm:text-[9px] text-green-600">Promedio: Bs. ${promedioTransaccion.toFixed(2)}</p>
-                        </div>
-                        
-                        <!-- Uso de Crédito -->
-                        <div class="bg-gradient-to-br from-purple-50 to-violet-50 border-2 border-purple-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
-                            <div class="flex items-center justify-between mb-1">
-                                <p class="text-[9px] sm:text-[10px] text-purple-700 font-bold uppercase tracking-wide">🎫 Uso de Crédito</p>
-                                <span class="bg-purple-200 text-purple-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_credito}</span>
-                            </div>
-                            <p class="text-xl sm:text-2xl font-black text-purple-700 mb-0.5">Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
-                            <p class="text-[8px] sm:text-[9px] text-purple-600">${stats.total_pagos} transacciones totales</p>
-                        </div>
-                        
-                        <!-- Métodos Diversos -->
-                        <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
-                            <div class="flex items-center justify-between mb-1">
-                                <p class="text-[9px] sm:text-[10px] text-blue-700 font-bold uppercase tracking-wide">📊 Métodos Activos</p>
-                                <span class="bg-blue-200 text-blue-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_metodos || stats.desglose_metodos.length}</span>
-                            </div>
-                            <p class="text-xl sm:text-2xl font-black text-blue-700 mb-0.5">${stats.desglose_metodos.length}</p>
-                            <p class="text-[8px] sm:text-[9px] text-blue-600">Formas de pago utilizadas</p>
-                        </div>
-                    </div>
-                `;
-                
-                // Desglose por método (COMPACTO)
-                if (stats.desglose_metodos && stats.desglose_metodos.length > 0) {
-                    html += `
-                        <div class="bg-white border-2 border-gray-200 rounded-xl p-3 shadow-sm">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                                    <span class="text-base">💳</span>
-                                    Top Métodos de Pago
-                                </h3>
-                                <span class="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">${stats.desglose_metodos.length} métodos</span>
-                            </div>
-                            <div class="space-y-2">
-                    `;
-                    
-                    // Colores para cada método
-                    const colores = [
-                        { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', bar: 'bg-gradient-to-r from-green-500 to-emerald-500' },
-                        { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', bar: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
-                        { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', bar: 'bg-gradient-to-r from-purple-500 to-violet-500' },
-                        { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-800', bar: 'bg-gradient-to-r from-orange-500 to-amber-500' },
-                        { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', bar: 'bg-gradient-to-r from-pink-500 to-rose-500' }
-                    ];
-                    
-                    stats.desglose_metodos.forEach((metodo, index) => {
-                        const porcentaje = ((metodo.total / stats.monto_pagos_validos) * 100).toFixed(1);
-                        const color = colores[index % colores.length];
-                        
-                        html += `
-                            <div class="group ${color.bg} ${color.border} border-2 rounded-lg p-2 hover:shadow-md transition-all">
-                                <div class="flex items-center justify-between mb-1">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="font-bold ${color.text} text-[10px] sm:text-xs">${metodo.metodo}</span>
-                                        <span class="bg-white ${color.text} text-[8px] font-bold px-1.5 py-0.5 rounded-full">${metodo.cantidad} pagos</span>
-                                    </div>
-                                    <span class="font-black ${color.text} text-[10px] sm:text-xs">Bs. ${metodo.total.toFixed(2)}</span>
-                                </div>
-                                <div class="flex items-center gap-1.5">
-                                    <div class="flex-1 bg-white/50 rounded-full h-2 overflow-hidden shadow-inner">
-                                        <div class="${color.bar} h-2 rounded-full transition-all duration-500 flex items-center justify-end pr-1" 
-                                             style="width: ${porcentaje}%">
-                                            <span class="text-white text-[8px] font-bold drop-shadow">${porcentaje}%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    html += `
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                container.innerHTML = html;
+                renderizarEstadisticas(data.estadisticas, container);
+            } else {
+                mostrarErrorEstadisticas(container);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            container.innerHTML = `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                    <p class="text-red-700 text-sm">❌ Error al cargar estadísticas</p>
-                    <button onclick="cargarEstadisticasPagos()" class="mt-2 text-xs text-red-600 underline">
-                        Reintentar
-                    </button>
+            console.error('Error cargando estadísticas:', error);
+            mostrarErrorEstadisticas(container);
+        });
+}
+
+function mostrarErrorEstadisticas(container) {
+    container.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+            <p class="text-red-700 text-sm">❌ Error al cargar estadísticas</p>
+            <button onclick="cargarEstadisticasPagos()" class="mt-2 text-xs text-red-600 underline">
+                Reintentar
+            </button>
+        </div>
+    `;
+}
+
+function renderizarEstadisticas(stats, container) {
+    const totalRecaudado = stats.monto_pagos_reales - stats.monto_devoluciones;
+    const promedioTransaccion = stats.total_pagos_reales > 0 
+        ? stats.monto_pagos_reales / stats.total_pagos_reales 
+        : 0;
+
+    // ── TARJETA PRINCIPAL: Total Recaudado (destacada, ancho completo) ────────
+    let html = `
+        <div class="mb-2">
+            <div class="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 rounded-2xl p-3 sm:p-4 shadow-xl border-2 border-emerald-400 relative overflow-hidden">
+                <!-- Brillo decorativo -->
+                <div class="absolute inset-0 bg-white/5 rounded-2xl"></div>
+                <div class="absolute -top-6 -right-6 w-28 h-28 bg-white/10 rounded-full"></div>
+                <div class="absolute -bottom-4 -left-4 w-20 h-20 bg-white/10 rounded-full"></div>
+                <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-2xl">🏆</span>
+                            <p class="text-white/90 text-xs sm:text-sm font-bold uppercase tracking-widest">Total Recaudado</p>
+                            <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Pagos reales − Devoluciones</span>
+                        </div>
+                        <p class="text-3xl sm:text-4xl font-black text-white drop-shadow-md">
+                            Bs. ${totalRecaudado.toFixed(2)}
+                        </p>
+                    </div>
+                    <div class="flex gap-3 sm:flex-col sm:text-right text-white/80 text-[10px] sm:text-xs">
+                        <div>
+                            <span class="block font-semibold text-white/60 uppercase text-[9px]">Pagos reales</span>
+                            <span class="font-bold text-white">+ Bs. ${stats.monto_pagos_reales.toFixed(2)}</span>
+                        </div>
+                        <div>
+                            <span class="block font-semibold text-white/60 uppercase text-[9px]">Devoluciones</span>
+                            <span class="font-bold text-red-200">− Bs. ${stats.monto_devoluciones.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fila secundaria: 5 tarjetas de detalle -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-2">
+            
+            <!-- 💵 Pagos Reales -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-1">
+                    <p class="text-[9px] sm:text-[10px] text-green-700 font-bold uppercase tracking-wide">💵 Pagos Reales</p>
+                    <span class="bg-green-200 text-green-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_reales}</span>
+                </div>
+                <p class="text-lg sm:text-xl font-black text-green-700 mb-0.5">Bs. ${stats.monto_pagos_reales.toFixed(2)}</p>
+                <p class="text-[8px] sm:text-[9px] text-green-600">Promedio: Bs. ${promedioTransaccion.toFixed(2)}</p>
+            </div>
+            
+            <!-- 🎫 Uso de Crédito -->
+            <div class="bg-gradient-to-br from-purple-50 to-violet-50 border-2 border-purple-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-1">
+                    <p class="text-[9px] sm:text-[10px] text-purple-700 font-bold uppercase tracking-wide">🎫 Uso Crédito</p>
+                    <span class="bg-purple-200 text-purple-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_credito}</span>
+                </div>
+                <p class="text-lg sm:text-xl font-black text-purple-700 mb-0.5">Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
+                <p class="text-[8px] sm:text-[9px] text-purple-600">pagos con saldo disponible</p>
+            </div>
+            
+            <!-- ⏩ Pagos Adelantados -->
+            <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-1">
+                    <p class="text-[9px] sm:text-[10px] text-blue-700 font-bold uppercase tracking-wide">⏩ Adelantados</p>
+                    <span class="bg-blue-200 text-blue-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_adelantados}</span>
+                </div>
+                <p class="text-lg sm:text-xl font-black text-blue-700 mb-0.5">Bs. ${stats.monto_adelantados.toFixed(2)}</p>
+                <p class="text-[8px] sm:text-[9px] text-blue-600">pagos sin asignar a servicio</p>
+            </div>
+            
+            <!-- 🔙 Devoluciones -->
+            <div class="bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-1">
+                    <p class="text-[9px] sm:text-[10px] text-red-700 font-bold uppercase tracking-wide">🔙 Devoluciones</p>
+                    <span class="bg-red-200 text-red-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_devoluciones}</span>
+                </div>
+                <p class="text-lg sm:text-xl font-black text-red-700 mb-0.5">Bs. ${stats.monto_devoluciones.toFixed(2)}</p>
+                <p class="text-[8px] sm:text-[9px] text-red-600">montos devueltos</p>
+            </div>
+            
+            <!-- ❌ Anulados -->
+            <div class="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-300 rounded-xl p-2.5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-1">
+                    <p class="text-[9px] sm:text-[10px] text-gray-600 font-bold uppercase tracking-wide">❌ Anulados</p>
+                    <span class="bg-gray-200 text-gray-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_anulados}</span>
+                </div>
+                <p class="text-lg sm:text-xl font-black text-gray-500 mb-0.5">Bs. ${stats.monto_anulados.toFixed(2)}</p>
+                <p class="text-[8px] sm:text-[9px] text-gray-500">recibos anulados</p>
+            </div>
+        </div>
+    `;
+
+    // Desglose por método (solo si hay datos)
+    if (stats.desglose_metodos && stats.desglose_metodos.length > 0) {
+        const colores = [
+            { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', bar: 'bg-gradient-to-r from-green-500 to-emerald-500' },
+            { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', bar: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
+            { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', bar: 'bg-gradient-to-r from-purple-500 to-violet-500' },
+            { bg: 'bg-orange-100', border: 'border-orange-300', text: 'text-orange-800', bar: 'bg-gradient-to-r from-orange-500 to-amber-500' },
+            { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', bar: 'bg-gradient-to-r from-pink-500 to-rose-500' }
+        ];
+
+        html += `
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-3 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                        <span class="text-base">💳</span>
+                        Desglose por Método de Pago <span class="text-[9px] text-gray-400 font-normal">(pagos reales)</span>
+                    </h3>
+                    <span class="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">${stats.desglose_metodos.length} métodos</span>
+                </div>
+                <div class="space-y-2">
+        `;
+
+        stats.desglose_metodos.forEach((metodo, index) => {
+            const porcentaje = stats.monto_pagos_reales > 0
+                ? ((metodo.total / stats.monto_pagos_reales) * 100).toFixed(1)
+                : 0;
+            const color = colores[index % colores.length];
+
+            html += `
+                <div class="group ${color.bg} ${color.border} border-2 rounded-lg p-2 hover:shadow-md transition-all">
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold ${color.text} text-[10px] sm:text-xs">${metodo.metodo}</span>
+                            <span class="bg-white ${color.text} text-[8px] font-bold px-1.5 py-0.5 rounded-full">${metodo.cantidad} pagos</span>
+                        </div>
+                        <span class="font-black ${color.text} text-[10px] sm:text-xs">Bs. ${metodo.total.toFixed(2)}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="flex-1 bg-white/50 rounded-full h-2 overflow-hidden shadow-inner">
+                            <div class="${color.bar} h-2 rounded-full transition-all duration-500 flex items-center justify-end pr-1" 
+                                 style="width: ${porcentaje}%">
+                                <span class="text-white text-[8px] font-bold drop-shadow">${porcentaje}%</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
         });
+
+        html += `
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
 }
+
+// ── Carga estadísticas al abrir la página (con los filtros ya aplicados en la URL) ──
+document.addEventListener('DOMContentLoaded', () => {
+    cargarEstadisticasPagos();
+});
 
 // ==================== FUNCIONES PARA ANULAR RECIBO ====================
 let pagoIdAnular = null;
@@ -788,14 +925,14 @@ function mostrarMensajeExito(mensaje) {
     .xs\:inline { display: inline; }
 }
 
-/* ==================== ESTILO PARA FILAS DE CRÉDITO ==================== */
-.fila-credito {
+/* ==================== ESTILO PARA FILAS DE PAGOS REALES (efectivo/transferencia/etc.) ==================== */
+.fila-pago-real {
     background-color: #d1fae5 !important; /* Verde claro */
     border-left: 4px solid #10b981 !important;
 }
 
-.fila-credito:hover {
-    background-color: #a7f3d0 !important; /* Verde claro más intenso al hover */
+.fila-pago-real:hover {
+    background-color: #a7f3d0 !important;
 }
 
 </style>
