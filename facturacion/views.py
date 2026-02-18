@@ -1518,22 +1518,12 @@ def registrar_pago(request):
             
             # ✅ NUEVO: Soporte para mensualidades
             elif tipo_pago == 'mensualidad':
-                referencia_id = request.POST.get('mensualidad_id')  # ← AGREGAR ESTA LÍNEA
+                referencia_id = request.POST.get('mensualidad_id')
                 if not referencia_id:
                     raise ValidationError("ID de mensualidad requerido.")
                 from agenda.models import Mensualidad
                 mensualidad = Mensualidad.objects.get(id=referencia_id)
                 paciente = mensualidad.paciente
-                
-                if es_pago_completo:
-                    pagado_previo = mensualidad.pagos.filter(anulado=False).exclude(
-                        metodo_pago__nombre="Uso de Crédito"
-                    ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
-                    
-                    nuevo_costo = pagado_previo + monto_total_aportado
-                    if mensualidad.costo_mensual != nuevo_costo:
-                        mensualidad.costo_mensual = nuevo_costo
-                        mensualidad.save()
                 
             elif tipo_pago == 'adelantado':
                 paciente_id = request.POST.get('paciente_adelantado')
