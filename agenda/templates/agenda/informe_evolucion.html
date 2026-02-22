@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+
+{% block title %}Informe de Evolución — {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<style>
+    .estado-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 10px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .03em;
+    }
+    .card-sesion {
+        transition: box-shadow .2s;
+    }
+    .card-sesion:hover {
+        box-shadow: 0 6px 24px -4px rgba(0,0,0,.10);
+    }
+</style>
+
+<div class="max-w-5xl mx-auto px-3 py-4">
+
+    {# ── ENCABEZADO ─────────────────────────────────────────── #}
+    <div class="bg-gradient-to-r from-indigo-700 via-blue-600 to-cyan-600 rounded-2xl p-4 shadow-xl mb-5">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+                <p class="text-indigo-200 text-[10px] font-bold uppercase tracking-widest mb-0.5">
+                    Informe de Evolución Clínica
+                </p>
+                <h1 class="text-xl font-black text-white">{{ paciente.nombre_completo }}</h1>
+            </div>
+            <a href="{% url 'pacientes:detalle' paciente.id %}"
+               class="bg-white/15 hover:bg-white hover:text-indigo-700 text-white px-4 py-1.5 rounded-lg
+                      font-bold text-xs transition-all border border-white/25 flex items-center gap-1.5">
+                ← Volver al Paciente
+            </a>
+        </div>
+    </div>
+
+    {# ── PANEL DE FILTROS ───────────────────────────────────── #}
+    <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-5 mb-5">
+        <h2 class="text-sm font-black text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span class="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center text-xs">🔍</span>
+            Filtros del informe
+        </h2>
+
+        <form method="post" id="form-filtros">
+            {% csrf_token %}
+
+            {# Fila 1: Profesional + Servicio + Fechas #}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+
+                {# Profesional #}
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        Profesional
+                    </label>
+                    <select name="profesional"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-gray-50">
+                        <option value="">— Todos —</option>
+                        {% for p in profesionales %}
+                            <option value="{{ p.id }}"
+                                {% if filtros.profesional_id == p.id|stringformat:"s" %}selected{% endif %}>
+                                {{ p.nombre }} {{ p.apellido }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# Servicio #}
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        Servicio
+                    </label>
+                    <select name="servicio"
+                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-gray-50">
+                        <option value="">— Todos —</option>
+                        {% for s in servicios %}
+                            <option value="{{ s.id }}"
+                                {% if filtros.servicio_id == s.id|stringformat:"s" %}selected{% endif %}>
+                                {{ s.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# Fecha desde #}
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        Desde
+                    </label>
+                    <input type="date" name="fecha_desde"
+                           value="{{ filtros.fecha_desde }}"
+                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                                  focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-gray-50">
+                </div>
+
+                {# Fecha hasta #}
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        Hasta
+                    </label>
+                    <input type="date" name="fecha_hasta"
+                           value="{{ filtros.fecha_hasta }}"
+                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                                  focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-gray-50">
+                </div>
+            </div>
+
+            {# Fila 2: Estados #}
+            <div class="mb-5">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    Estados a incluir
+                </label>
+                <div class="flex flex-wrap gap-2">
+                    {% for valor, etiqueta in estados %}
+                    <label class="cursor-pointer select-none">
+                        <input type="checkbox" name="estados" value="{{ valor }}" class="sr-only peer"
+                               {% if not filtros or valor in filtros.estados %}checked{% endif %}>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold
+                                     border transition-all
+                                     peer-checked:bg-indigo-600 peer-checked:text-white peer-checked:border-indigo-600
+                                     bg-gray-50 text-gray-600 border-gray-200 hover:border-indigo-400">
+                            {% if valor == 'programada' %}🗓
+                            {% elif valor == 'realizada' %}✅
+                            {% elif valor == 'realizada_retraso' %}⏱
+                            {% elif valor == 'falta' %}❌
+                            {% elif valor == 'permiso' %}🔔
+                            {% elif valor == 'cancelada' %}🚫
+                            {% elif valor == 'reprogramada' %}🔄
+                            {% endif %}
+                            {{ etiqueta }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# Botones #}
+            <div class="flex flex-wrap gap-2 items-center justify-between">
+                <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl font-bold text-sm
+                               transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+                    🔍 Generar Vista Previa
+                </button>
+
+                {% if grupos is not None %}
+                <a href="{% url 'agenda:pdf_informe_evolucion' paciente.id %}?{% if filtros.profesional_id %}profesional={{ filtros.profesional_id }}&{% endif %}{% if filtros.servicio_id %}servicio={{ filtros.servicio_id }}&{% endif %}{% if filtros.fecha_desde %}fecha_desde={{ filtros.fecha_desde }}&{% endif %}{% if filtros.fecha_hasta %}fecha_hasta={{ filtros.fecha_hasta }}&{% endif %}{% for e in filtros.estados %}estados={{ e }}{% if not forloop.last %}&{% endif %}{% endfor %}"
+                   target="_blank"
+                   class="bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800
+                          text-white px-5 py-2 rounded-xl font-bold text-sm shadow-md hover:shadow-lg
+                          transition-all flex items-center gap-2">
+                    📄 Descargar PDF
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {# ── RESULTADOS AGRUPADOS ───────────────────────────────── #}
+    {% if grupos is not None %}
+
+        {# Contador total #}
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm font-bold text-gray-600">
+                {% if total_sesiones == 0 %}
+                    Sin resultados para los filtros seleccionados.
+                {% elif total_sesiones == 1 %}
+                    1 sesión encontrada
+                {% else %}
+                    {{ total_sesiones }} sesiones encontradas
+                {% endif %}
+            </p>
+        </div>
+
+        {% if grupos %}
+            {% for grupo in grupos %}
+
+                {# ══ SEPARADOR DE PROFESIONAL ══════════════════════════ #}
+                <div class="mb-4 {% if not forloop.first %}mt-8{% endif %}">
+                    <div class="flex items-center gap-3 mb-1">
+                        {# Línea izquierda #}
+                        <div class="flex-1 h-px bg-gradient-to-r from-transparent to-indigo-300"></div>
+
+                        {# Chip del profesional #}
+                        <div class="flex items-center gap-2 bg-indigo-600 text-white px-4 py-1.5 rounded-full shadow-md">
+                            <span class="text-base">👤</span>
+                            <span class="font-black text-sm tracking-wide">
+                                {{ grupo.profesional.nombre }} {{ grupo.profesional.apellido }}
+                            </span>
+                            <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                {% with total=0 %}
+                                    {% for sg in grupo.subgrupos %}{{ sg.sesiones|length }}{% endfor %}
+                                {% endwith %}
+                                ses.
+                            </span>
+                        </div>
+
+                        {# Línea derecha #}
+                        <div class="flex-1 h-px bg-gradient-to-l from-transparent to-indigo-300"></div>
+                    </div>
+                </div>
+
+                {% for subgrupo in grupo.subgrupos %}
+
+                    {# ── SEPARADOR DE SERVICIO ──────────────────────── #}
+                    <div class="flex items-center gap-3 mb-3 {% if not forloop.first %}mt-5{% endif %}">
+                        <div class="w-4 h-px bg-gray-300"></div>
+                        <div class="flex items-center gap-2 bg-cyan-50 border border-cyan-200 text-cyan-800
+                                    px-3 py-1 rounded-lg">
+                            <span class="text-xs">🩺</span>
+                            <span class="font-bold text-xs uppercase tracking-wider">
+                                {{ subgrupo.servicio.nombre }}
+                            </span>
+                            <span class="bg-cyan-200 text-cyan-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                {{ subgrupo.sesiones|length }} ses.
+                            </span>
+                        </div>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    {# ── TARJETAS DE SESIÓN ─────────────────────────── #}
+                    <div class="space-y-2.5 mb-2 pl-2">
+                        {% for sesion in subgrupo.sesiones %}
+                            {% if sesion.estado == 'programada' %}
+                                {% with tbcolor="bg-blue-600" tcolor="text-blue-100" bgcolor="bg-blue-50" bdcolor="border-blue-400" lcolor="text-blue-700" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'realizada' %}
+                                {% with tbcolor="bg-green-700" tcolor="text-green-100" bgcolor="bg-green-50" bdcolor="border-green-500" lcolor="text-green-800" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'realizada_retraso' %}
+                                {% with tbcolor="bg-orange-600" tcolor="text-orange-100" bgcolor="bg-orange-50" bdcolor="border-orange-400" lcolor="text-orange-800" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'falta' %}
+                                {% with tbcolor="bg-red-700" tcolor="text-red-100" bgcolor="bg-red-50" bdcolor="border-red-400" lcolor="text-red-800" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'permiso' %}
+                                {% with tbcolor="bg-purple-700" tcolor="text-purple-100" bgcolor="bg-purple-50" bdcolor="border-purple-400" lcolor="text-purple-800" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'cancelada' %}
+                                {% with tbcolor="bg-gray-600" tcolor="text-gray-100" bgcolor="bg-gray-100" bdcolor="border-gray-400" lcolor="text-gray-700" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% elif sesion.estado == 'reprogramada' %}
+                                {% with tbcolor="bg-yellow-600" tcolor="text-yellow-100" bgcolor="bg-yellow-50" bdcolor="border-yellow-400" lcolor="text-yellow-800" %}
+                                    {% include 'agenda/_tarjeta_sesion_informe.html' %}
+                                {% endwith %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                {% endfor %}{# subgrupos #}
+
+            {% endfor %}{# grupos #}
+
+        {% else %}
+            <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-10 text-center">
+                <p class="text-4xl mb-3">🔍</p>
+                <p class="text-gray-500 font-medium text-sm">No se encontraron sesiones con los filtros aplicados.</p>
+                <p class="text-gray-400 text-xs mt-1">Prueba ampliando el rango de fechas o seleccionando más estados.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+
+</div>
+{% endblock %}

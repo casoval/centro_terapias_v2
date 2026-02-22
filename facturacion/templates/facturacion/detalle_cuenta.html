@@ -922,6 +922,54 @@
         </div>
     </div>
 
+    <!-- ============================
+         BANNER DE DEUDAS PENDIENTES
+         ============================ -->
+    {% if deuda_total > 0 %}
+    <div class="flex flex-wrap items-center gap-2 mb-2 sm:mb-3 px-3 py-2 bg-red-50 border border-red-300 rounded-lg shadow-sm">
+        <!-- Ícono + título -->
+        <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-base leading-none">⚠️</span>
+            <span class="text-[11px] font-black text-red-700 uppercase tracking-wide">Deuda pendiente</span>
+        </div>
+
+        <!-- Separador -->
+        <div class="hidden sm:block w-px h-4 bg-red-300"></div>
+
+        <!-- Chips por tipo -->
+        <div class="flex flex-wrap gap-1.5 flex-1">
+            {% if deuda_sesiones_cantidad > 0 %}
+            <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ deuda_sesiones_primera_id|default:'' }}"
+               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 border border-red-300 text-red-800 text-[10px] font-bold hover:bg-red-200 transition cursor-pointer"
+               title="{{ deuda_sesiones_cantidad }} sesión(es) con saldo pendiente">
+                🗓 {{ deuda_sesiones_cantidad }} sesión{{ deuda_sesiones_cantidad|pluralize:"es" }}
+                <span class="font-black">· Bs. {{ deuda_sesiones_monto|floatformat:2 }}</span>
+            </a>
+            {% endif %}
+            {% if deuda_mensualidades_cantidad > 0 %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 border border-orange-300 text-orange-800 text-[10px] font-bold"
+                  title="{{ deuda_mensualidades_cantidad }} mensualidad(es) con saldo pendiente">
+                📅 {{ deuda_mensualidades_cantidad }} mensualidad{{ deuda_mensualidades_cantidad|pluralize:"es" }}
+                <span class="font-black">· Bs. {{ deuda_mensualidades_monto|floatformat:2 }}</span>
+            </span>
+            {% endif %}
+            {% if deuda_proyectos_cantidad > 0 %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-[10px] font-bold"
+                  title="{{ deuda_proyectos_cantidad }} proyecto(s) con saldo pendiente">
+                📦 {{ deuda_proyectos_cantidad }} proyecto{{ deuda_proyectos_cantidad|pluralize:"s" }}
+                <span class="font-black">· Bs. {{ deuda_proyectos_monto|floatformat:2 }}</span>
+            </span>
+            {% endif %}
+        </div>
+
+        <!-- Total destacado -->
+        <div class="ml-auto shrink-0 flex items-center gap-1 bg-red-600 text-white px-2.5 py-1 rounded-lg shadow-sm">
+            <span class="text-[10px] font-bold uppercase">Total:</span>
+            <span class="text-sm font-black">Bs. {{ deuda_total|floatformat:2 }}</span>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ========================================
          TRES TARJETAS: ESTADO ACTUAL | PROYECCIÓN TOTAL | CRÉDITO
          ======================================== -->
@@ -2276,8 +2324,24 @@
                                 </td>
                                 
                                 <!-- Costo -->
-                                <td class="px-2 py-1.5 whitespace-nowrap text-right text-sm font-bold text-gray-900">
-                                    Bs. {{ registro.costo|floatformat:2 }}
+                                <td class="px-2 py-1.5 whitespace-nowrap text-right">
+                                    <span class="text-sm font-bold text-gray-900">Bs. {{ registro.costo|floatformat:2 }}</span>
+                                    {% if registro.tipo == 'sesion' and registro.objeto.monto_original and registro.objeto.monto_original != registro.objeto.monto_cobrado %}
+                                        <div class="text-[10px] text-orange-500 font-semibold line-through">
+                                            Bs. {{ registro.objeto.monto_original|floatformat:2 }}
+                                        </div>
+                                        <div class="text-[9px] text-orange-400 font-medium">precio inicial</div>
+                                    {% elif registro.tipo == 'proyecto' and registro.objeto.costo_original and registro.objeto.costo_original != registro.objeto.costo_total %}
+                                        <div class="text-[10px] text-orange-500 font-semibold line-through">
+                                            Bs. {{ registro.objeto.costo_original|floatformat:2 }}
+                                        </div>
+                                        <div class="text-[9px] text-orange-400 font-medium">precio inicial</div>
+                                    {% elif registro.tipo == 'mensualidad' and registro.objeto.costo_original and registro.objeto.costo_original != registro.objeto.costo_mensual %}
+                                        <div class="text-[10px] text-orange-500 font-semibold line-through">
+                                            Bs. {{ registro.objeto.costo_original|floatformat:2 }}
+                                        </div>
+                                        <div class="text-[9px] text-orange-400 font-medium">precio inicial</div>
+                                    {% endif %}
                                 </td>
                                 
                                 <!-- Estado de Pago -->

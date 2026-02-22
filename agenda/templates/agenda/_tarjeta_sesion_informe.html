@@ -1,0 +1,60 @@
+{# agenda/templates/agenda/_tarjeta_sesion_informe.html #}
+{# Variables: sesion, bgcolor, bdcolor, tbcolor, tcolor, lcolor #}
+
+<div class="card-sesion rounded-xl overflow-hidden shadow-sm border border-l-4 {{ bdcolor }} {{ bgcolor }}">
+
+    {# ── Encabezado de tarjeta ─────────────────────────────── #}
+    <div class="{{ tbcolor }} px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+        <span class="{{ tcolor }} font-black text-sm">
+            {% if sesion.estado == 'programada' %}🗓
+            {% elif sesion.estado == 'realizada' %}✅
+            {% elif sesion.estado == 'realizada_retraso' %}⏱
+            {% elif sesion.estado == 'falta' %}❌
+            {% elif sesion.estado == 'permiso' %}🔔
+            {% elif sesion.estado == 'cancelada' %}🚫
+            {% elif sesion.estado == 'reprogramada' %}🔄
+            {% endif %}
+            {{ sesion.fecha|date:"d \d\e F \d\e Y" }}
+        </span>
+        <span class="estado-badge bg-white/20 {{ tcolor }} border border-white/30">
+            {{ sesion.get_estado_display }}
+        </span>
+    </div>
+
+    {# ── Datos de la sesión ────────────────────────────────── #}
+    <div class="px-4 py-2.5 grid grid-cols-2 md:grid-cols-3 gap-3 border-b border-gray-100">
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Horario</p>
+            <p class="text-sm font-semibold text-gray-700">
+                {{ sesion.hora_inicio|time:"H:i" }} – {{ sesion.hora_fin|time:"H:i" }}
+            </p>
+        </div>
+        <div>
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Duración</p>
+            <p class="text-sm font-semibold text-gray-700">{{ sesion.duracion_minutos }} min</p>
+        </div>
+        {% if sesion.minutos_retraso %}
+        <div>
+            <p class="text-[10px] font-black text-orange-400 uppercase tracking-wider">Retraso</p>
+            <p class="text-sm font-semibold text-orange-600">{{ sesion.minutos_retraso }} min</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Notas de evolución ────────────────────────────────── #}
+    <div class="px-4 py-3">
+        <p class="text-[10px] font-black uppercase tracking-wider {{ lcolor }} mb-1.5">
+            Evolución / Notas del Profesional
+        </p>
+        {% if sesion.notas_sesion %}
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                {{ sesion.notas_sesion }}
+            </p>
+        {% else %}
+            <p class="text-sm text-gray-400 italic">
+                El profesional no realizó ninguna anotación de esta sesión.
+            </p>
+        {% endif %}
+    </div>
+
+</div>

@@ -6,9 +6,9 @@
 <div class="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
     
     <!-- Header -->
-    <div class="flex justify-between items-center mb-2 sm:mb-4 gap-2">
+    <div class="flex justify-between items-center mb-2 sm:mb-3 gap-2">
         <h1 class="text-base sm:text-xl font-bold text-gray-900">💳 Cuentas</h1>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
             <a href="{% url 'facturacion:registrar_pago' %}" 
                class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
                 💰 <span class="hidden xs:inline">Registrar </span>Pago
@@ -17,6 +17,65 @@
                class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
                 🔙 <span class="hidden xs:inline">Registrar </span>Devolución
             </a>
+            {% if request.user.is_staff %}
+            <a href="/facturacion/admin/panel-recalculo/" 
+               title="Panel de recálculo de cuentas (Administrador)"
+               class="text-gray-400 hover:text-amber-600 hover:bg-amber-50 border border-transparent hover:border-amber-200 px-1.5 py-1 rounded-lg text-xs transition-all duration-200 whitespace-nowrap">
+                🔧
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ==================== SUPER FILTRO MAESTRO ==================== -->
+    <div class="bg-white border-2 rounded-xl p-2 sm:p-3 mb-2 sm:mb-3 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span class="text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap">👥 Ver pacientes:</span>
+            <div class="flex gap-1.5 flex-wrap">
+                <a href="?modo_paciente=activo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                          {% if modo_paciente == 'activo' or not modo_paciente %}
+                              bg-green-500 border-green-500 text-white shadow-md
+                          {% else %}
+                              bg-white border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600
+                          {% endif %}">
+                    ✅ Activos
+                </a>
+                <a href="?modo_paciente=inactivo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                          {% if modo_paciente == 'inactivo' %}
+                              bg-slate-500 border-slate-500 text-white shadow-md
+                          {% else %}
+                              bg-white border-gray-300 text-gray-600 hover:border-slate-400 hover:text-slate-600
+                          {% endif %}">
+                    👻 Inactivos
+                </a>
+                <a href="?modo_paciente=todos{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                          {% if modo_paciente == 'todos' %}
+                              bg-indigo-500 border-indigo-500 text-white shadow-md
+                          {% else %}
+                              bg-white border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600
+                          {% endif %}">
+                    🌐 Todos
+                </a>
+            </div>
+            <!-- Indicador del modo actual -->
+            <div class="sm:ml-auto text-[10px] sm:text-xs">
+                {% if modo_paciente == 'activo' or not modo_paciente %}
+                    <span class="bg-green-100 text-green-700 font-semibold px-2 py-1 rounded-full">
+                        📊 Estadísticas: solo pacientes activos
+                    </span>
+                {% elif modo_paciente == 'inactivo' %}
+                    <span class="bg-slate-100 text-slate-700 font-semibold px-2 py-1 rounded-full">
+                        📊 Estadísticas: solo pacientes inactivos
+                    </span>
+                {% else %}
+                    <span class="bg-indigo-100 text-indigo-700 font-semibold px-2 py-1 rounded-full">
+                        📊 Estadísticas: todos los pacientes
+                    </span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -31,9 +90,12 @@
         </div>
     </div>
 
-    <!-- Filtros -->
+    <!-- Filtros secundarios -->
     <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">
         <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-4 sm:gap-2">
+            <!-- Preservar el super filtro -->
+            <input type="hidden" name="modo_paciente" value="{{ modo_paciente|default:'activo' }}">
+            
             <div class="relative">
                 <input type="text" 
                        id="buscar-paciente"
@@ -49,14 +111,14 @@
             </div>
             
             <select name="estado" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
-                <option value="">Todos</option>
-                <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>Deudores</option>
-                <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>Al día</option>
-                <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>A favor</option>
+                <option value="">Todos los saldos</option>
+                <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>⚠️ Deudores</option>
+                <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>✅ Al día</option>
+                <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>🎁 A favor</option>
             </select>
             
             <select name="sucursal" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
-                <option value="">Todas</option>
+                <option value="">Todas las sucursales</option>
                 {% for sucursal in sucursales %}
                 <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
                     {{ sucursal.nombre }}
@@ -68,7 +130,9 @@
                 <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium">
                     🔍 Filtrar
                 </button>
-                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+                <!-- Reset preserva el modo_paciente actual -->
+                <a href="?modo_paciente={{ modo_paciente|default:'activo' }}" 
+                   class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
                     🔄
                 </a>
             </div>
@@ -78,9 +142,14 @@
     <!-- Vista móvil: Tarjetas -->
     <div class="sm:hidden space-y-2 mb-3">
         {% for paciente in page_obj %}
-        <div class="bg-white border rounded-lg p-2 shadow-sm">
+        <div class="bg-white border rounded-lg p-2 shadow-sm {% if paciente.estado == 'inactivo' %}opacity-75 border-slate-300 bg-slate-50{% endif %}">
             <div class="mb-1.5">
-                <p class="font-bold text-xs text-gray-900 mb-0.5">{{ paciente.nombre_completo }}</p>
+                <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
+                    <p class="font-bold text-xs text-gray-900">{{ paciente.nombre_completo }}</p>
+                    {% if paciente.estado == 'inactivo' %}
+                        <span class="bg-slate-200 text-slate-600 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">👻 Inactivo</span>
+                    {% endif %}
+                </div>
                 <p class="text-[10px] text-gray-500">{{ paciente.nombre_tutor }}</p>
             </div>
             
@@ -160,10 +229,23 @@
                 </div>
             </div>
             
-            <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-               class="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-[10px] py-1 rounded border border-blue-200 transition">
-                Ver Detalle Completo →
-            </a>
+            {% if paciente.estado == 'inactivo' %}
+                <div class="flex gap-1.5">
+                    <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                       class="flex-1 block text-center bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-[10px] py-1 rounded border border-slate-300 transition">
+                        Ver Detalle →
+                    </a>
+                    <a href="{% url 'pacientes:editar' paciente.pk %}" 
+                       class="flex-1 block text-center bg-green-100 hover:bg-green-200 text-green-700 font-bold text-[10px] py-1 rounded border border-green-300 transition">
+                        ✅ Activar Paciente
+                    </a>
+                </div>
+            {% else %}
+                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                   class="block w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-[10px] py-1 rounded border border-blue-200 transition">
+                    Ver Detalle Completo →
+                </a>
+            {% endif %}
         </div>
         {% empty %}
         <div class="bg-white border rounded-lg p-4 text-center text-gray-500 text-xs">
@@ -207,10 +289,15 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for paciente in page_obj %}
-                    <tr class="hover:bg-gray-50">
+                    <tr class="hover:bg-gray-50 {% if paciente.estado == 'inactivo' %}opacity-70 bg-slate-50{% endif %}">
                         <!-- Paciente -->
                         <td class="px-2 py-2 border-r-2 border-gray-200">
-                            <p class="font-bold text-gray-900 text-xs">{{ paciente.nombre_completo }}</p>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="font-bold text-gray-900 text-xs">{{ paciente.nombre_completo }}</p>
+                                {% if paciente.estado == 'inactivo' %}
+                                    <span class="bg-slate-200 text-slate-600 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">👻 Inactivo</span>
+                                {% endif %}
+                            </div>
                             <p class="text-[9px] text-gray-500">{{ paciente.nombre_tutor }}</p>
                             <div class="flex flex-wrap gap-1 mt-1">
                                 {% for sucursal in paciente.sucursales.all %}
@@ -274,10 +361,21 @@
                         
                         <!-- Acciones -->
                         <td class="px-2 py-2 text-center">
-                            <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-                               class="text-blue-600 hover:text-blue-800 font-medium text-xs">
-                                Ver Detalle →
-                            </a>
+                            {% if paciente.estado == 'inactivo' %}
+                                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                                   class="block text-slate-500 hover:text-slate-700 font-medium text-xs mb-1">
+                                    Ver Detalle →
+                                </a>
+                                <a href="{% url 'pacientes:editar' paciente.pk %}" 
+                                   class="inline-block bg-green-100 hover:bg-green-200 text-green-700 font-bold text-[10px] px-2 py-1 rounded border border-green-300">
+                                    ✅ Activar Paciente
+                                </a>
+                            {% else %}
+                                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
+                                   class="text-blue-600 hover:text-blue-800 font-medium text-xs">
+                                    Ver Detalle →
+                                </a>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
@@ -355,11 +453,14 @@ function cargarEstadisticas() {
     const estado = document.querySelector('select[name="estado"]')?.value || '';
     const sucursal = document.querySelector('select[name="sucursal"]')?.value || '';
     
-    // ✅ Construir URL con parámetros de filtro
+    // ✅ Construir URL con parámetros de filtro (incluyendo super filtro)
     const params = new URLSearchParams();
     if (buscar) params.append('q', buscar);
     if (estado) params.append('estado', estado);
     if (sucursal) params.append('sucursal', sucursal);
+    // Leer modo_paciente del campo hidden del formulario
+    const modoPaciente = document.querySelector('input[name="modo_paciente"]')?.value || 'activo';
+    params.append('modo_paciente', modoPaciente);
     
     const url = '{% url "facturacion:cargar_estadisticas_ajax" %}' + 
                 (params.toString() ? '?' + params.toString() : '');
@@ -377,6 +478,7 @@ function cargarEstadisticas() {
                 // Renderizar estadísticas
                 const stats = data.estadisticas;
                 const totalPacientes = data.total_pacientes;  // ✅ Usar valor dinámico del backend
+                const inactivos = data.inactivos_resumen || {};
                 
                 // Calcular porcentajes ESTADO ACTUAL
                 const pctDeudores = totalPacientes > 0 ? (stats.deudores / totalPacientes * 100) : 0;
@@ -564,6 +666,71 @@ function cargarEstadisticas() {
                             </div>
                         </div>
                     </div>
+
+                    <!-- ========================================
+                         🔔 BANNER PACIENTES INACTIVOS CON MOVIMIENTOS
+                         Aparece solo si hay inactivos con deuda, crédito o consumo
+                         ======================================== -->
+                    ${(inactivos.con_deuda > 0 || inactivos.con_credito > 0 || inactivos.con_consumo > 0) ? `
+                    <div class="mt-2 border-2 rounded-xl overflow-hidden shadow-sm">
+                        <!-- Encabezado -->
+                        <div class="bg-gradient-to-r from-slate-600 to-slate-700 px-3 py-2 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">👻</span>
+                                <span class="text-white font-bold text-xs sm:text-sm uppercase tracking-wide">Pacientes Inactivos con Movimientos Pendientes</span>
+                            </div>
+                            <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                ${inactivos.con_deuda + inactivos.con_credito} pacientes
+                            </span>
+                        </div>
+                        
+                        <!-- Cuerpo -->
+                        <div class="bg-slate-50 px-3 py-2">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                
+                                <!-- Deuda -->
+                                ${inactivos.con_deuda > 0 ? `
+                                <div class="bg-red-50 border border-red-200 rounded-lg p-2 text-center">
+                                    <p class="text-[9px] text-red-600 font-bold uppercase mb-0.5">⚠️ Con Deuda</p>
+                                    <p class="text-base sm:text-lg font-black text-red-700">${inactivos.con_deuda} <span class="text-xs font-normal">pacientes</span></p>
+                                    <p class="text-xs sm:text-sm font-bold text-red-600">Bs. ${inactivos.total_deuda.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-[9px] text-red-400 mt-0.5">Saldo pendiente de cobro</p>
+                                </div>` : ''}
+                                
+                                <!-- Crédito a favor -->
+                                ${inactivos.con_credito > 0 ? `
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                                    <p class="text-[9px] text-blue-600 font-bold uppercase mb-0.5">🎁 Con Crédito</p>
+                                    <p class="text-base sm:text-lg font-black text-blue-700">${inactivos.con_credito} <span class="text-xs font-normal">pacientes</span></p>
+                                    <p class="text-xs sm:text-sm font-bold text-blue-600">Bs. ${inactivos.total_credito.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-[9px] text-blue-400 mt-0.5">Saldo a favor pendiente</p>
+                                </div>` : ''}
+                                
+                                <!-- Consumo registrado -->
+                                ${inactivos.con_consumo > 0 ? `
+                                <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-center">
+                                    <p class="text-[9px] text-amber-600 font-bold uppercase mb-0.5">📋 Con Consumo</p>
+                                    <p class="text-base sm:text-lg font-black text-amber-700">${inactivos.con_consumo} <span class="text-xs font-normal">pacientes</span></p>
+                                    <p class="text-xs sm:text-sm font-bold text-amber-600">Bs. ${inactivos.total_consumo.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-[9px] text-amber-400 mt-0.5">Servicios consumidos</p>
+                                </div>` : ''}
+                                
+                                <!-- Total pagado por inactivos -->
+                                ${inactivos.con_pago > 0 ? `
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                                    <p class="text-[9px] text-green-600 font-bold uppercase mb-0.5">💵 Total Pagado</p>
+                                    <p class="text-base sm:text-lg font-black text-green-700">${inactivos.con_pago} <span class="text-xs font-normal">pacientes</span></p>
+                                    <p class="text-xs sm:text-sm font-bold text-green-600">Bs. ${inactivos.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                    <p class="text-[9px] text-green-400 mt-0.5">Pagos históricos</p>
+                                </div>` : ''}
+                            </div>
+                            
+                            <p class="text-[9px] sm:text-[10px] text-slate-500 mt-2 text-center">
+                                ℹ️ Estos datos <strong>no están incluidos</strong> en las estadísticas de arriba. Revisar en Historial de Pagos para el detalle completo.
+                            </p>
+                        </div>
+                    </div>
+                    ` : ''}
                 `;
             } else {
                 throw new Error(data.error || 'Error desconocido');

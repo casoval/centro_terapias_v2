@@ -95,62 +95,28 @@
             </p>
         </div>
         
-        <!-- Opciones -->
+        <!-- Aviso de crédito -->
+        <div class="mb-4 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <div class="flex items-start gap-2">
+                <span class="text-xl mt-0.5">💳</span>
+                <div>
+                    <p class="font-bold text-blue-900 text-sm">Saldo a favor del paciente</p>
+                    <p class="text-[11px] text-blue-800 mt-1">
+                        El monto de <strong>Bs. {{ total_pagado }}</strong> quedará registrado como crédito 
+                        y se aplicará automáticamente a las próximas sesiones del paciente.
+                    </p>
+                    <div class="mt-2 p-1.5 bg-blue-100 border border-blue-200 rounded text-[9px] text-blue-800">
+                        <strong>✅ El dinero no se pierde</strong>, se conserva a favor del paciente para uso futuro.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario -->
         <form method="post" action="{% url 'agenda:procesar_cambio_estado' sesion.id %}" id="form-confirmar-cambio">
             {% csrf_token %}
             <input type="hidden" name="estado_nuevo" value="{{ estado_nuevo }}">
-            
-            <div class="mb-4 space-y-2">
-                <h3 class="font-bold text-gray-900 mb-2 text-sm">¿Qué hacer con el dinero pagado?</h3>
-                
-                <!-- Opción 1: Convertir a crédito -->
-                <label class="flex items-start gap-2 p-2.5 border-2 border-blue-300 rounded-lg cursor-pointer hover:bg-blue-50 transition">
-                    <input type="radio" 
-                           name="accion_pago" 
-                           value="convertir_credito"
-                           checked
-                           class="w-4 h-4 text-blue-600 mt-0.5"
-                           onchange="toggleCampoMotivo()">
-                    <div class="flex-1">
-                        <p class="font-bold text-gray-900 text-xs">✅ Conservar el saldo a favor</p>
-                        <p class="text-[10px] text-gray-700 mt-0.5">
-                            El paciente tendrá <strong>Bs. {{ total_pagado }}</strong> disponibles para futuras sesiones
-                        </p>
-                        <div class="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded text-[9px] text-blue-800">
-                            <strong>✅ Recomendado:</strong> El dinero no se pierde, se aplicará automáticamente a las próximas sesiones
-                        </div>
-                    </div>
-                </label>
-                
-                <!-- Opción 2: Anular pago -->
-                <label class="flex items-start gap-2 p-2.5 border-2 border-red-300 rounded-lg cursor-pointer hover:bg-red-50 transition">
-                    <input type="radio" 
-                           name="accion_pago" 
-                           value="anular_pago"
-                           class="w-4 h-4 text-red-600 mt-0.5"
-                           onchange="toggleCampoMotivo()">
-                    <div class="flex-1">
-                        <p class="font-bold text-gray-900 text-xs">❌ Anular pago (devolver dinero)</p>
-                        <p class="text-[10px] text-gray-700 mt-0.5">
-                            Se anulará el pago y deberás devolver el dinero al paciente
-                        </p>
-                        <div class="mt-1.5 p-2 bg-red-50 border border-red-200 rounded text-[9px] text-red-800">
-                            <strong>⚠️ Requiere:</strong> Motivo de anulación y devolución física del dinero
-                        </div>
-                    </div>
-                </label>
-            </div>
-            
-            <!-- Campo de motivo (solo si anula) -->
-            <div id="campo-motivo" class="hidden mb-4">
-                <label class="block text-[11px] font-bold text-gray-700 mb-1">
-                    Motivo de anulación *
-                </label>
-                <textarea name="motivo_anulacion" 
-                          rows="2"
-                          class="w-full px-2.5 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 text-xs"
-                          placeholder="Explica por qué se anula el pago..."></textarea>
-            </div>
+            <input type="hidden" name="accion_pago" value="convertir_credito">
             
             <!-- Observaciones adicionales -->
             <div class="mb-4">
@@ -178,26 +144,3 @@
         </form>
     </div>
 </div>
-
-<script>
-function toggleCampoMotivo() {
-    const radios = document.querySelectorAll('input[name="accion_pago"]');
-    const campoMotivo = document.getElementById('campo-motivo');
-    const textareaMotivo = campoMotivo.querySelector('textarea');
-    
-    let valorSeleccionado = '';
-    radios.forEach(radio => {
-        if (radio.checked) {
-            valorSeleccionado = radio.value;
-        }
-    });
-    
-    if (valorSeleccionado === 'anular_pago') {
-        campoMotivo.classList.remove('hidden');
-        textareaMotivo.required = true;
-    } else {
-        campoMotivo.classList.add('hidden');
-        textareaMotivo.required = false;
-    }
-}
-</script>

@@ -111,7 +111,13 @@
                 <!-- Presupuesto -->
                 <div class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-emerald-100 shadow-sm">
                     <span class="text-[11px] font-bold uppercase text-slate-400">Costo Mensual</span>
-                    <span class="text-xl font-black text-slate-800">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</span>
+                    <div class="text-right">
+                        <span class="text-xl font-black text-slate-800">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</span>
+                        {% if mensualidad.costo_original and mensualidad.costo_original != mensualidad.costo_mensual %}
+                            <div class="text-[11px] text-orange-500 line-through font-bold">Bs. {{ mensualidad.costo_original|floatformat:0 }}</div>
+                            <div class="text-[10px] text-orange-400 font-semibold">precio inicial</div>
+                        {% endif %}
+                    </div>
                 </div>
                 
                 <!-- ✅ Grid con 3 columnas: Pagado, Devoluciones, Saldo -->

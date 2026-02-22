@@ -81,6 +81,15 @@ class Proyecto(models.Model):
         decimal_places=2,
         help_text="Costo FIJO del proyecto completo"
     )
+
+    # ✅ Solo informativo - precio original antes de cualquier ajuste
+    costo_original = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Precio acordado al crear el proyecto (referencia histórica, no afecta cálculos)"
+    )
     
     # Estado
     estado = models.CharField(
@@ -296,8 +305,28 @@ class Sesion(models.Model):
         help_text="Monto a cobrar por esta sesión (0 si es parte de proyecto/evaluación o gratuita)"
     )
     
-    # 🔥 ELIMINADOS: pagado y fecha_pago (ahora son @property)
+    # ✅ Solo informativo - monto con el que nació la sesión antes de cualquier ajuste
+    monto_original = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Monto acordado al crear la sesión (referencia histórica, no afecta cálculos)"
+    )
     
+    # 🆕 Guardado automáticamente antes de poner monto_cobrado en 0 por estado sin cobro.
+    # Permite restaurar el precio exacto al volver a un estado con costo.
+    # No interviene en ningún cálculo ni lógica de pagos.
+    monto_previo_exencion = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Precio guardado automáticamente antes de exentar la sesión (permiso/cancelada/reprogramada). Se usa para restaurar el cobro si el estado vuelve a uno con costo."
+    )
+
+    # 🔥 ELIMINADOS: pagado y fecha_pago (ahora son @property)
+
     # Observaciones
     observaciones = models.TextField(blank=True)
     notas_sesion = models.TextField(
@@ -586,7 +615,8 @@ class Sesion(models.Model):
                 })
     
     def _validar_choque_profesional(self):
-        """El profesional NO puede tener otra sesión al mismo tiempo"""
+        """El profesional NO puede tener otra sesión al mismo tiempo,
+        EXCEPTO cuando comparten horario exacto (sesiones grupales: mismo profesional, varios pacientes)."""
         # ✅ Si se permiten sesiones grupales, saltar esta validación
         if getattr(self, '_permitir_sesiones_grupales', False):
             return
@@ -596,6 +626,14 @@ class Sesion(models.Model):
             fecha=self.fecha,
             estado__in=['programada', 'realizada', 'realizada_retraso']
         ).exclude(pk=self.pk)
+        
+        # ✅ Excluir sesiones con horario idéntico: son del mismo grupo,
+        # no un choque real. Un solapamiento PARCIAL sí es un conflicto.
+        if self.hora_inicio and self.hora_fin:
+            sesiones_existentes = sesiones_existentes.exclude(
+                hora_inicio=self.hora_inicio,
+                hora_fin=self.hora_fin
+            )
         
         for sesion in sesiones_existentes:
             if self._hay_solapamiento(sesion):
@@ -614,22 +652,47 @@ class Sesion(models.Model):
     
     def save(self, *args, **kwargs):
         """Docstring..."""
+        ESTADOS_SIN_COBRO = ['permiso', 'cancelada', 'reprogramada']
+        ESTADOS_CON_COBRO  = ['programada', 'realizada', 'realizada_retraso', 'falta']
+
         update_fields = kwargs.get('update_fields')
-        
+
         if update_fields is None:
             self.full_clean()
-            if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+            if self.estado in ESTADOS_SIN_COBRO:
+                # Guardar el monto actual antes de ponerlo en 0, solo si tiene valor
+                if self.monto_cobrado and self.monto_cobrado > Decimal('0.00'):
+                    self.monto_previo_exencion = self.monto_cobrado
                 self.monto_cobrado = Decimal('0.00')
+            elif self.estado in ESTADOS_CON_COBRO and self.monto_cobrado == Decimal('0.00'):
+                # Restaurar desde monto_previo_exencion (precio exacto guardado al exentar)
+                if self.monto_previo_exencion and self.monto_previo_exencion > Decimal('0.00'):
+                    self.monto_cobrado = self.monto_previo_exencion
+                    self.monto_previo_exencion = None  # limpiar: ya no está exenta
         else:
             if 'estado' in update_fields:
-                if self.estado in ['permiso', 'cancelada', 'reprogramada']:
+                if self.estado in ESTADOS_SIN_COBRO:
+                    # Guardar el monto actual antes de ponerlo en 0, solo si tiene valor
+                    if self.monto_cobrado and self.monto_cobrado > Decimal('0.00'):
+                        self.monto_previo_exencion = self.monto_cobrado
                     self.monto_cobrado = Decimal('0.00')
-                    if 'monto_cobrado' not in update_fields:
-                        update_fields = list(update_fields) + ['monto_cobrado']
-                        kwargs['update_fields'] = update_fields
-        
+                    # Asegurar que ambos campos se persistan
+                    for campo in ['monto_cobrado', 'monto_previo_exencion']:
+                        if campo not in update_fields:
+                            update_fields = list(update_fields) + [campo]
+                    kwargs['update_fields'] = update_fields
+                elif self.estado in ESTADOS_CON_COBRO and self.monto_cobrado == Decimal('0.00'):
+                    # Restaurar desde monto_previo_exencion
+                    if self.monto_previo_exencion and self.monto_previo_exencion > Decimal('0.00'):
+                        self.monto_cobrado = self.monto_previo_exencion
+                        self.monto_previo_exencion = None  # limpiar: ya no está exenta
+                    for campo in ['monto_cobrado', 'monto_previo_exencion']:
+                        if campo not in update_fields:
+                            update_fields = list(update_fields) + [campo]
+                    kwargs['update_fields'] = update_fields
+
         super().save(*args, **kwargs)
-        
+
         # ✅ IMPORTANTE: Esta línea debe estar AQUÍ (dentro del método)
         if update_fields is None or (update_fields and 'monto_cobrado' in update_fields):
             self._actualizar_cuenta_corriente()
@@ -834,6 +897,15 @@ class Mensualidad(models.Model):
         max_digits=10,
         decimal_places=2,
         help_text="Costo TOTAL del mes (no por sesión)"
+    )
+
+    # ✅ Solo informativo - precio original antes de cualquier ajuste
+    costo_original = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Precio acordado al crear la mensualidad (referencia histórica, no afecta cálculos)"
     )
     
     # Estado

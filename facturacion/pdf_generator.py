@@ -57,10 +57,10 @@ COLOR_ROJO_OSCURO = colors.HexColor('#8B0000')  # Rojo oscuro para campos espec�
 COLOR_FONDO_PAGINA = colors.HexColor('#F8F9FA')
 COLOR_FONDO_TARJETA = colors.white
 COLOR_TEXTO_PRINCIPAL = colors.HexColor('#212121')
-COLOR_TEXTO_SECUNDARIO = colors.HexColor('#757575')
+COLOR_TEXTO_SECUNDARIO = colors.HexColor('#3D3D3D')  # Más oscuro para impresión (antes #757575)
 COLOR_GRIS_CLARO = colors.HexColor('#EEEEEE')
-COLOR_GRIS_MEDIO = colors.HexColor('#BDBDBD')
-COLOR_GRIS_BORDE = colors.HexColor('#E0E0E0')
+COLOR_GRIS_MEDIO = colors.HexColor('#888888')       # Más oscuro para impresión (antes #BDBDBD)
+COLOR_GRIS_BORDE = colors.HexColor('#BBBBBB')       # Más oscuro para impresión (antes #E0E0E0)
 
 # Colores para tabla
 COLOR_FILA_PAR = colors.HexColor('#FAFAFA')
@@ -160,35 +160,216 @@ def generar_devolucion_pdf(devolucion, **kwargs):
 # 4. GENERADOR MAESTRO
 # =====================================================
 
+def calcular_espacio_disponible_tabla():
+    """Calcula el espacio vertical disponible para la tabla dentro del recibo"""
+    alto_encima_tabla = 0.6 + 0.3 + 3.5 + 1.90  # cm desde el top
+    alto_debajo_tabla = 5.5  # cm reservados para totales, QR, firmas, footer
+    espacio = ALTO_RECIBO - (alto_encima_tabla * cm) - (alto_debajo_tabla * cm)
+    return espacio
+
+def _tabla_desborda(filas_datos):
+    """Genera página extra si hay más de 6 sesiones pagadas"""
+    return len(filas_datos) > 6
+
 def generar_pdf_maestro(objeto, es_devolucion=False):
     buffer = BytesIO()
     c = pdf_canvas.Canvas(buffer, pagesize=landscape(letter))
     obj_id = getattr(objeto, 'id', '000') or '000'
     c.setTitle(f"{'Devolucion' if es_devolucion else 'Recibo'}_{obj_id}")
 
-    # Fondo de página
+    # Detectar si está anulado
+    es_anulado = getattr(objeto, 'anulado', False)
+
+    # Detectar si la tabla desborda
+    filas_datos = extraer_detalles_enriquecidos(objeto)
+    necesita_pagina_extra = _tabla_desborda(filas_datos)
+
+    # --- PÁGINA 1: Recibos (original + copia) ---
     c.setFillColor(COLOR_FONDO_PAGINA)
     c.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
 
     # 1. Recibo Izquierdo (ORIGINAL)
-    dibujar_recibo_optimizado(c, MARGIN, MARGIN, objeto, es_devolucion, "ORIGINAL: CLIENTE")
+    dibujar_recibo_optimizado(c, MARGIN, MARGIN, objeto, es_devolucion, "ORIGINAL: CLIENTE",
+                               desborda=necesita_pagina_extra)
 
     # 2. Línea de corte
     dibujar_linea_corte(c)
 
     # 3. Recibo Derecho (COPIA)
-    dibujar_recibo_optimizado(c, MARGIN + ANCHO_RECIBO + GAP_CENTRAL, MARGIN, objeto, es_devolucion, "COPIA: ADMINISTRACIÓN")
+    dibujar_recibo_optimizado(c, MARGIN + ANCHO_RECIBO + GAP_CENTRAL, MARGIN, objeto, es_devolucion,
+                               "COPIA: ADMINISTRACIÓN", desborda=necesita_pagina_extra)
+
+    # Sello ANULADO sobre página 1 (landscape)
+    if es_anulado:
+        dibujar_sello_anulado_pagina(c, PAGE_WIDTH, PAGE_HEIGHT)
+
+    # --- PÁGINA 2 (si necesario): Detalle completo de sesiones ---
+    if necesita_pagina_extra:
+        c.showPage()
+        from reportlab.lib.pagesizes import letter as portrait_letter
+        _pw, _ph = portrait_letter
+        c.setFillColor(COLOR_FONDO_PAGINA)
+        c.rect(0, 0, _pw, _ph, fill=1, stroke=0)
+        dibujar_pagina_detalle_completo(c, objeto, es_devolucion, filas_datos)
+        if es_anulado:
+            dibujar_sello_anulado_pagina(c, _pw, _ph)
 
     c.save()
     pdf_data = buffer.getvalue()
     buffer.close()
     return pdf_data
 
+def dibujar_sello_anulado_pagina(c, page_width, page_height):
+    """Dibuja el sello ANULADO en diagonal grande sobre toda la página"""
+    c.saveState()
+
+    cx = page_width / 2
+    cy = page_height / 2
+
+    c.translate(cx, cy)
+    c.rotate(45)
+
+    c.setFont("Helvetica-Bold", 130)
+
+    # Sombra desplazada
+    c.setFillColor(colors.Color(0.5, 0, 0, alpha=0.20))
+    c.drawCentredString(4, -4, "ANULADO")
+
+    # Texto principal rojo semitransparente
+    c.setFillColor(colors.Color(0.8, 0, 0, alpha=0.55))
+    c.drawCentredString(0, 0, "ANULADO")
+
+    c.restoreState()
+
+def dibujar_pagina_detalle_completo(c, obj, es_devolucion, filas_datos):
+    """Página adicional portrait con el detalle completo de todas las sesiones"""
+    from reportlab.lib.pagesizes import letter as portrait_letter
+    pw, ph = portrait_letter
+
+    c.setPageSize((pw, ph))
+
+    # Fondo
+    c.setFillColor(COLOR_FONDO_PAGINA)
+    c.rect(0, 0, pw, ph, fill=1, stroke=0)
+
+    margen = 1.5 * cm
+    y_cursor = ph - margen
+
+    # --- Encabezado de página ---
+    color_titulo = COLOR_ROJO_PRIMARIO if es_devolucion else COLOR_AZUL_PRIMARIO
+    titulo_doc = "DETALLE DE DEVOLUCIÓN" if es_devolucion else "DETALLE DE SESIONES PAGADAS"
+
+    # Barra de título
+    dibujar_gradiente_horizontal(c, margen, y_cursor - 1.0*cm, pw - 2*margen, 1.0*cm,
+                                  COLOR_AZUL_CLARO if not es_devolucion else COLOR_ROJO_CLARO,
+                                  color_titulo)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawCentredString(pw / 2, y_cursor - 0.70*cm, titulo_doc)
+    y_cursor -= 1.2 * cm
+
+    # Info del recibo
+    num = safe_str(getattr(obj, 'numero_devolucion', getattr(obj, 'numero_recibo', '---')))
+    fecha = (getattr(obj, 'fecha_emision', None) or
+             getattr(obj, 'fecha_devolucion', None) or
+             getattr(obj, 'fecha_pago', None) or
+             getattr(obj, 'fecha', None))
+    fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "---"
+    paciente = "---"
+    if hasattr(obj, 'paciente') and obj.paciente:
+        paciente = f"{safe_str(obj.paciente.nombre)} {safe_str(obj.paciente.apellido)}".title()
+
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.setFont("Helvetica", 9)
+    c.drawString(margen, y_cursor - 0.5*cm,
+                 f"Recibo N°: {num}   |   Paciente: {paciente}   |   Fecha: {fecha_str}   |   "
+                 f"Centro de Neurodesarrollo Infantil Misael")
+    y_cursor -= 1.0 * cm
+
+    # Línea separadora
+    c.setStrokeColor(COLOR_GRIS_MEDIO)
+    c.setLineWidth(0.5)
+    c.line(margen, y_cursor, pw - margen, y_cursor)
+    y_cursor -= 0.4 * cm
+
+    # --- Tabla completa ---
+    headers = [["#", "CONCEPTO / DETALLE DE SESIÓN", "MONTO (Bs.)"]]
+    filas_formateadas = []
+    for i, (concepto, monto) in enumerate(filas_datos, start=1):
+        filas_formateadas.append([str(i), concepto, monto])
+
+    tabla_data = headers + filas_formateadas
+    ancho_tabla = pw - 2 * margen
+    col_widths = [ancho_tabla * 0.06, ancho_tabla * 0.76, ancho_tabla * 0.18]
+
+    tabla = Table(tabla_data, colWidths=col_widths, repeatRows=1)
+
+    color_header = COLOR_ROJO_PRIMARIO if es_devolucion else COLOR_AZUL_PRIMARIO
+    estilos = [
+        ('BACKGROUND', (0, 0), (-1, 0), color_header),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (2, -1), 'RIGHT'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 1, COLOR_GRIS_MEDIO),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, colors.white),
+        ('INNERGRID', (0, 1), (-1, -1), 0.5, COLOR_GRIS_CLARO),
+    ]
+    for i in range(1, len(tabla_data)):
+        if i % 2 == 0:
+            estilos.append(('BACKGROUND', (0, i), (-1, i), COLOR_FILA_PAR))
+
+    tabla.setStyle(TableStyle(estilos))
+
+    alto_disponible = y_cursor - margen - 2.5*cm
+    w_t, h_t = tabla.wrapOn(c, ancho_tabla, alto_disponible)
+    tabla.drawOn(c, margen, y_cursor - h_t)
+    y_cursor -= h_t + 0.5*cm
+
+    # --- Total al pie ---
+    monto = safe_decimal(getattr(obj, 'monto', 0))
+    monto_literal = monto_a_letras(monto)
+
+    box_w = 7 * cm
+    box_h = 1.3 * cm
+    box_x = pw - margen - box_w
+    box_y = margen + 1.0*cm
+
+    dibujar_gradiente_redondeado(c, box_x, box_y, box_w, box_h,
+                                  COLOR_AMARILLO_CLARO, COLOR_AMARILLO_PRIMARIO, radio=8)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawRightString(box_x + box_w - 0.4*cm, box_y + 0.8*cm, "TOTAL")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawRightString(box_x + box_w - 0.4*cm, box_y + 0.15*cm, f"Bs. {monto:,.2f}")
+
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.setFont("Helvetica-BoldOblique", 7)
+    c.drawRightString(pw - margen, box_y - 0.35*cm, f"SON: {monto_literal}")
+
+    # Nota al pie
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawString(margen, margen + 0.3*cm,
+                 "Este documento es el detalle adjunto al recibo de pago. Conserve ambas hojas.")
+
+    # --- Marca de agua (logos) sobre la página de detalle ---
+    dibujar_marca_agua_pagina_portrait(c, pw, ph)
+
 # =====================================================
 # 5. FUNCIÓN PRINCIPAL DE DIBUJO
 # =====================================================
 
-def dibujar_recibo_optimizado(c, x, y, obj, es_devolucion, texto_copia):
+def dibujar_recibo_optimizado(c, x, y, obj, es_devolucion, texto_copia, desborda=False):
     """Dibuja un recibo completo con diseño optimizado"""
     top = y + ALTO_RECIBO
     
@@ -244,13 +425,18 @@ def dibujar_recibo_optimizado(c, x, y, obj, es_devolucion, texto_copia):
 
     # --- F. TABLA DE DETALLES ---
     y_tabla = y_paciente - 1.90*cm  # Ajustado
-    altura_tabla = dibujar_tabla_detalles_optimizada(c, x, y_tabla, obj, es_devolucion)
-
-    # --- F.1. OBSERVACIONES (si existen) ---
-    y_observaciones = y_tabla - altura_tabla - 0.3*cm
-    altura_observaciones = dibujar_observaciones_si_existen(c, x, y_observaciones, obj)
+    if desborda:
+        # Mostrar solo panel de resumen; el detalle va en la hoja adjunta
+        altura_tabla = dibujar_panel_resumen_desborde(c, x, y_tabla, obj, es_devolucion)
+        altura_observaciones = 0
+    else:
+        altura_tabla = dibujar_tabla_detalles_optimizada(c, x, y_tabla, obj, es_devolucion)
+        # --- F.1. OBSERVACIONES (si existen) ---
+        y_observaciones = y_tabla - altura_tabla - 0.3*cm
+        altura_observaciones = dibujar_observaciones_si_existen(c, x, y_observaciones, obj)
 
     # --- G. TOTALES ---
+    y_observaciones = y_tabla - altura_tabla - 0.3*cm
     y_totales = y_observaciones - altura_observaciones - 0.3*cm
     dibujar_seccion_totales_optimizada(c, x, y_totales, obj, es_devolucion)
 
@@ -263,6 +449,26 @@ def dibujar_recibo_optimizado(c, x, y, obj, es_devolucion, texto_copia):
     # --- J. FIRMAS ---
     dibujar_seccion_firmas_optimizada(c, x, y)
     
+    # --- K. AVISO DE PÁGINA EXTRA (si aplica) ---
+    if desborda:
+        aviso_w = ANCHO_RECIBO - 1.0*cm
+        aviso_h = 0.55*cm
+        aviso_x = x + 0.5*cm
+        # Posicionar justo encima de la zona de tabla
+        y_tabla_ref = y + ALTO_RECIBO - (0.6 + 0.3 + 3.5 + 1.90)*cm
+        aviso_y = y_tabla_ref - aviso_h - 0.1*cm
+
+        c.saveState()
+        c.setFillColor(COLOR_AZUL_CLARO)
+        c.setFillAlpha(0.25)
+        c.roundRect(aviso_x, aviso_y, aviso_w, aviso_h, 4, fill=1, stroke=0)
+        c.restoreState()
+
+        c.setFillColor(COLOR_AZUL_OSCURO)
+        c.setFont("Helvetica-BoldOblique", 7.5)
+        c.drawCentredString(x + ANCHO_RECIBO/2, aviso_y + 0.15*cm,
+                            "★  Ver hoja adjunta para el detalle completo de sesiones  ★")
+
     # --- K. MARCA DE AGUA (POR ENCIMA) ---
     dibujar_marca_agua_optimizada(c, x, y, texto_copia)
 
@@ -345,16 +551,16 @@ def dibujar_marca_agua_optimizada(c, x, y, texto_copia):
                 # Determinar opacidad según la zona del recibo donde está el centro del logo
                 if logo_center_y >= y_header - 1*cm:
                     # Zona de header con gradientes de colores → más claro
-                    opacity = 0.03
+                    opacity = 0.08
                 elif logo_center_y >= y_fin_paciente:
                     # Zona de info paciente con fondo gris claro → intermedio
-                    opacity = 0.06
+                    opacity = 0.11
                 elif logo_center_y >= y_fin_tabla:
                     # Zona de tabla y totales con fondo blanco → más oscuro
-                    opacity = 0.08
+                    opacity = 0.14
                 else:
                     # Zona de footer/firmas con fondos → más claro
-                    opacity = 0.04
+                    opacity = 0.09
                 
                 c.setFillAlpha(opacity)
                 
@@ -372,6 +578,58 @@ def dibujar_marca_agua_optimizada(c, x, y, texto_copia):
             
     except Exception as e:
         logger.error(f"Error en marca de agua con patrón repetido: {e}")
+
+def dibujar_marca_agua_pagina_portrait(c, pw, ph):
+    """Marca de agua en patrón repetido para páginas portrait (detalle de sesiones)"""
+    logo_path = encontrar_logo_misael()
+
+    if not logo_path:
+        return
+
+    try:
+        img_gray = convertir_imagen_a_escala_grises(logo_path)
+        if not img_gray:
+            return
+
+        from io import BytesIO as _BytesIO
+        buf = _BytesIO()
+        img_gray.save(buf, format='PNG')
+        buf.seek(0)
+        img_reader = ImageReader(buf)
+        iw, ih = img_reader.getSize()
+        aspect = ih / float(iw)
+
+        logo_size   = 3.5 * cm
+        logo_height = logo_size * aspect
+        spacing_x   = 6.5 * cm
+        spacing_y   = 5.0 * cm
+        rotation    = -25
+        opacity     = 0.10   # opacidad uniforme para fondo blanco de hoja portrait
+
+        num_cols = int(pw / spacing_x) + 2
+        num_rows = int(ph / spacing_y) + 2
+
+        for row in range(num_rows):
+            for col in range(num_cols):
+                c.saveState()
+
+                offset_x = (spacing_x / 2) if row % 2 == 1 else 0
+                logo_x = (col * spacing_x) + offset_x - (spacing_x * 0.3)
+                logo_y = (row * spacing_y) - (spacing_y * 0.3)
+
+                c.setFillAlpha(opacity)
+                c.translate(logo_x + logo_size / 2, logo_y + logo_height / 2)
+                c.rotate(rotation)
+                c.translate(-(logo_x + logo_size / 2), -(logo_y + logo_height / 2))
+
+                c.drawImage(img_reader, logo_x, logo_y,
+                            width=logo_size, height=logo_height,
+                            mask='auto', preserveAspectRatio=True)
+                c.restoreState()
+
+    except Exception as e:
+        logger.error(f"Error en marca de agua portrait: {e}")
+
 
 def dibujar_header_optimizado(c, x, y_base, obj, es_devolucion):
     """Header con mejor proporción y espaciado"""
@@ -401,9 +659,16 @@ def dibujar_header_optimizado(c, x, y_base, obj, es_devolucion):
     text_x = x + 3.0 * cm
     y_text = y_base - 0.5*cm
     
+    # Dibujar "Centro de Neurodesarrollo Infantil" normal y "Misael" más grande en morado
+    TEXTO_ANTES = "Centro de Neurodesarrollo Infantil "
+    TEXTO_MISAEL = "Misael"
     c.setFillColor(COLOR_TEXTO_PRINCIPAL)
     c.setFont("Helvetica-Bold", 13.5)
-    c.drawString(text_x, y_text, NOMBRE_CENTRO)
+    ancho_antes = c.stringWidth(TEXTO_ANTES, "Helvetica-Bold", 13.5)
+    c.drawString(text_x, y_text, TEXTO_ANTES)
+    c.setFillColor(colors.HexColor('#4A0080'))  # Morado oscuro
+    c.setFont("Helvetica-Bold", 17)
+    c.drawString(text_x + ancho_antes, y_text - 1, TEXTO_MISAEL)
     
     c.setFont("Helvetica", 9)
     c.setFillColor(COLOR_TEXTO_SECUNDARIO)
@@ -477,7 +742,7 @@ def dibujar_info_paciente_optimizada(c, x, y_base, obj):
         elif hasattr(obj.paciente, 'nombre_tutor'):
             tutor = safe_str(obj.paciente.nombre_tutor)
     
-    fecha = getattr(obj, 'fecha_emision', getattr(obj, 'fecha_pago', None))
+    fecha = (getattr(obj, 'fecha_devolucion', None) or getattr(obj, 'fecha_pago', None) or getattr(obj, 'fecha_emision', None) or getattr(obj, 'fecha', None))
     fecha_str = fecha.strftime("%d/%m/%Y") if fecha else "---"
     
     # Datos - SIN ICONOS
@@ -509,6 +774,73 @@ def dibujar_info_paciente_optimizada(c, x, y_base, obj):
     c.setFont("Helvetica-Bold", 10)
     c.setFillColor(COLOR_TEXTO_PRINCIPAL)
     c.drawRightString(x + ANCHO_RECIBO - 0.8*cm, y_base - 1.15*cm, fecha_str)
+
+def dibujar_panel_resumen_desborde(c, x, y_base, obj, es_devolucion):
+    """Cuando hay muchas sesiones, muestra solo un resumen en el recibo principal"""
+    filas = extraer_detalles_enriquecidos(obj)
+    total_sesiones = len(filas)
+    monto = safe_decimal(getattr(obj, 'monto', 0))
+
+    ancho_panel = ANCHO_RECIBO - 0.8*cm
+    alto_panel = 4.5 * cm
+    panel_x = x + 0.4*cm
+    panel_y = y_base - alto_panel
+
+    # Fondo del panel
+    c.saveState()
+    c.setFillColor(COLOR_AZUL_CLARO)
+    c.setFillAlpha(0.08)
+    c.roundRect(panel_x, panel_y, ancho_panel, alto_panel, 8, fill=1, stroke=0)
+    c.restoreState()
+
+    # Borde
+    c.saveState()
+    color_borde = COLOR_ROJO_PRIMARIO if es_devolucion else COLOR_AZUL_PRIMARIO
+    c.setStrokeColor(color_borde)
+    c.setLineWidth(1.0)
+    c.roundRect(panel_x, panel_y, ancho_panel, alto_panel, 8, fill=0, stroke=1)
+    c.restoreState()
+
+    # Ícono y texto principal
+    cy = y_base - 1.1*cm
+    c.setFillColor(COLOR_AZUL_PRIMARIO if not es_devolucion else COLOR_ROJO_PRIMARIO)
+    c.setFont("Helvetica-Bold", 11)
+    c.drawCentredString(x + ANCHO_RECIBO/2, cy, f"{total_sesiones} SESIONES INCLUIDAS")
+
+    cy -= 0.7*cm
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.setFont("Helvetica", 8.5)
+    c.drawCentredString(x + ANCHO_RECIBO/2, cy, "El detalle completo se encuentra en la")
+
+    cy -= 0.45*cm
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawCentredString(x + ANCHO_RECIBO/2, cy, "HOJA ADJUNTA (página 2)")
+
+    # Línea separadora
+    cy -= 0.5*cm
+    c.setStrokeColor(COLOR_GRIS_BORDE)
+    c.setLineWidth(0.5)
+    c.line(panel_x + 0.5*cm, cy, panel_x + ancho_panel - 0.5*cm, cy)
+
+    # Resumen de las primeras 3 sesiones como muestra
+    cy -= 0.4*cm
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(x + ANCHO_RECIBO/2, cy, "Primeras sesiones:")
+    cy -= 0.35*cm
+    for i, (concepto, monto_fila) in enumerate(filas[:3]):
+        c.setFont("Helvetica", 7)
+        c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+        c.drawString(panel_x + 0.4*cm, cy, f"  {i+1}. {concepto[:55]}{'...' if len(concepto)>55 else ''}")
+        c.drawRightString(panel_x + ancho_panel - 0.3*cm, cy, f"Bs. {monto_fila}")
+        cy -= 0.32*cm
+
+    if total_sesiones > 3:
+        c.setFont("Helvetica-Oblique", 7)
+        c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+        c.drawCentredString(x + ANCHO_RECIBO/2, cy, f"... y {total_sesiones - 3} sesiones más en hoja adjunta")
+
+    return alto_panel
 
 def dibujar_tabla_detalles_optimizada(c, x, y_base, obj, es_devolucion):
     """Tabla con 3 columnas: #, CONCEPTO detallado, MONTO"""
@@ -694,8 +1026,9 @@ def dibujar_seccion_totales_optimizada(c, x, y_base, obj, es_devolucion):
     
     # Info pago (izquierda)
     metodo = "Efectivo"
-    if hasattr(obj, 'metodo_pago') and obj.metodo_pago:
-        metodo = safe_str(obj.metodo_pago.nombre)
+    metodo_obj = (getattr(obj, 'metodo_devolucion', None) or getattr(obj, 'metodo_pago', None))
+    if metodo_obj:
+        metodo = safe_str(metodo_obj.nombre)
     
     usuario = "Sistema"
     if hasattr(obj, 'registrado_por') and obj.registrado_por:
@@ -726,7 +1059,7 @@ def dibujar_qr_optimizado(c, x, y, obj, es_devolucion):
     
     # Generar datos
     numero = safe_str(getattr(obj, 'numero_devolucion' if es_devolucion else 'numero_recibo', '---'))
-    fecha = getattr(obj, 'fecha_emision', getattr(obj, 'fecha_pago', None))
+    fecha = (getattr(obj, 'fecha_devolucion', None) or getattr(obj, 'fecha_pago', None) or getattr(obj, 'fecha_emision', None) or getattr(obj, 'fecha', None))
     fecha_str = fecha.strftime("%Y%m%d") if fecha else "00000000"
     monto = safe_decimal(getattr(obj, 'monto', 0))
     
@@ -737,7 +1070,7 @@ def dibujar_qr_optimizado(c, x, y, obj, es_devolucion):
     # Posición - QR MÁS GRANDE
     qr_size = 2.0 * cm  # AUMENTADO DE 1.6cm A 2.0cm
     qr_x = x + ANCHO_RECIBO - qr_size - 0.5*cm
-    qr_y = y + 2.8*cm
+    qr_y = y + 2.5*cm  # Bajado 0.3cm
     
     # Marco
     c.saveState()
@@ -759,7 +1092,7 @@ def dibujar_qr_optimizado(c, x, y, obj, es_devolucion):
     
     c.setFont("Helvetica-Bold", 6)
     c.setFillColor(COLOR_TEXTO_PRINCIPAL)
-    c.drawCentredString(qr_x + qr_size/2, y + 2.15*cm, f"#{hash_verificacion}")
+    c.drawCentredString(qr_x + qr_size/2, qr_y - 0.65*cm, f"#{hash_verificacion}")
 
 def dibujar_footer_optimizado(c, x, y, texto_copia):
     """Footer más limpio"""

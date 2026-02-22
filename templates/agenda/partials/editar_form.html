@@ -54,6 +54,10 @@
                 <div class="text-right bg-white/10 backdrop-blur-md px-3 py-1 rounded border border-white/20">
                     <p class="text-[10px] font-bold opacity-90 leading-none">Monto</p>
                     <p class="text-sm font-black leading-none">Bs. {{ sesion.monto_cobrado }}</p>
+                    {% if sesion.monto_original and sesion.monto_original != sesion.monto_cobrado %}
+                    <p class="text-[10px] line-through opacity-70 leading-none mt-0.5">Bs. {{ sesion.monto_original }}</p>
+                    <p class="text-[9px] opacity-60 leading-none">precio inicial</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -156,6 +160,9 @@
                             <div class="p-1.5 bg-gray-50 rounded border border-gray-100">
                                 <span class="block text-[9px] text-gray-500 uppercase font-semibold">Total</span>
                                 <span class="block font-bold text-blue-700 text-xs">Bs.{{ sesion.monto_cobrado }}</span>
+                                {% if sesion.monto_original and sesion.monto_original != sesion.monto_cobrado %}
+                                <span class="block text-[9px] text-orange-400 line-through">Bs.{{ sesion.monto_original }}</span>
+                                {% endif %}
                             </div>
                             <div class="p-1.5 bg-gray-50 rounded border border-gray-100">
                                 <span class="block text-[9px] text-gray-500 uppercase font-semibold">Pagado</span>
@@ -404,6 +411,9 @@
                                     <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
                                         <span class="block text-[9px] text-gray-400 font-bold uppercase">Total</span>
                                         <span class="font-bold text-blue-700 text-xs">Bs.{{ sesion.monto_cobrado }}</span>
+                                        {% if sesion.monto_original and sesion.monto_original != sesion.monto_cobrado %}
+                                        <span class="block text-[9px] text-orange-400 line-through">Bs.{{ sesion.monto_original }}</span>
+                                        {% endif %}
                                     </div>
                                     <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
                                         <span class="block text-[9px] text-gray-400 font-bold uppercase">Pagado</span>
@@ -467,6 +477,9 @@
                                     <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
                                         <span class="block text-[9px] text-gray-400 font-bold uppercase">Total</span>
                                         <span class="font-bold text-blue-700 text-xs">Bs.{{ sesion.monto_cobrado }}</span>
+                                        {% if sesion.monto_original and sesion.monto_original != sesion.monto_cobrado %}
+                                        <span class="block text-[9px] text-orange-400 line-through">Bs.{{ sesion.monto_original }}</span>
+                                        {% endif %}
                                     </div>
                                     <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
                                         <span class="block text-[9px] text-gray-400 font-bold uppercase">Pagado</span>
@@ -821,28 +834,9 @@ function guardarSesion{{ sesion.id }}(event) {
                 confirmButtonColor: '#dc2626'
             });
         } else if (data.requiere_confirmacion) {
-            Swal.fire({
-                title: '⚠️ Confirmación requerida',
-                html: `
-                    <div class="text-left">
-                        <p class="mb-3">${data.mensaje}</p>
-                        <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
-                            <p class="text-sm font-semibold text-yellow-800">
-                                💰 Pagos registrados: ${data.cantidad_pagos}
-                            </p>
-                            <p class="text-lg font-bold text-yellow-900">
-                                Total: Bs. ${data.total_pagado}
-                            </p>
-                        </div>
-                        <p class="mt-3 text-sm text-gray-600">
-                            Debes ir a la lista de proyectos para gestionar los pagos
-                        </p>
-                    </div>
-                `,
-                icon: 'warning',
-                confirmButtonText: '✅ Entendido',
-                confirmButtonColor: '#3b82f6',
-            });
+            // ── Hay pagos → cerrar SweetAlert loading y abrir modal de opciones ──
+            Swal.close();
+            abrirModalConfirmacionPago{{ sesion.id }}(data);
         }
     })
     .catch(error => {
@@ -868,4 +862,188 @@ function cerrarModal() {
         document.getElementById('modal-content').innerHTML = '';
     }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL DE CONFIRMACIÓN DE PAGO AL CAMBIAR ESTADO
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Abre el modal de confirmación con los datos de pagos recibidos del servidor.
+ * data = { requiere_confirmacion, estado_nuevo, pagos, total_pagado, cantidad_pagos }
+ */
+function abrirModalConfirmacionPago{{ sesion.id }}(data) {
+    // Construir el listado de pagos
+    let pagosHTML = '';
+    if (data.pagos && data.pagos.length) {
+        data.pagos.forEach(p => {
+            pagosHTML += `
+            <div class="bg-white border border-yellow-200 rounded-lg p-2 mb-1.5">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-mono text-[9px] text-gray-600">${p.numero_recibo}</p>
+                        <p class="text-xs font-bold text-gray-900">${p.concepto}</p>
+                        <p class="text-[9px] text-gray-600 mt-0.5">${p.fecha} · ${p.metodo}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-base font-black text-green-700">Bs. ${p.monto}</p>
+                    </div>
+                </div>
+            </div>`;
+        });
+    }
+
+    // Texto informativo según estado
+    const infoEstado = {
+        'permiso':       'ℹ️ Este estado NO se cobra (monto = Bs. 0)',
+        'cancelada':     'ℹ️ Este estado normalmente NO se cobra',
+        'reprogramada':  'ℹ️ Este estado NO se cobra, deberás crear una nueva sesión manualmente'
+    }[data.estado_nuevo] || '';
+
+    let overlay = document.getElementById('modal-overlay-cambio-estado-{{ sesion.id }}');
+    // Mover al body si no está ya ahí, para evitar doble scroll
+    if (overlay.parentElement !== document.body) {
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+    <div class="bg-white rounded-lg shadow-2xl max-w-xl w-full mx-4">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-3 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="text-2xl">⚠️</div>
+                    <div>
+                        <h2 class="text-base font-bold">⚠️ Confirmación Requerida</h2>
+                        <p class="text-orange-100 text-[10px] mt-0.5">Esta sesión tiene pagos registrados</p>
+                    </div>
+                </div>
+                <button type="button" onclick="cerrarModalConfirmacionPago{{ sesion.id }}()"
+                        class="text-white hover:text-orange-200 text-2xl leading-none">×</button>
+            </div>
+        </div>
+
+        <div class="p-4">
+
+            <!-- Info pagos -->
+            <div class="mb-3 p-2.5 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+                <h3 class="font-bold text-yellow-900 mb-2 flex items-center gap-1.5 text-sm">
+                    <span>💵</span> Pagos Registrados
+                </h3>
+                ${pagosHTML}
+                <div class="mt-2 pt-2 border-t-2 border-yellow-300 flex justify-between items-center">
+                    <span class="font-bold text-yellow-900 text-xs">TOTAL PAGADO:</span>
+                    <span class="text-base font-black text-yellow-900">Bs. ${data.total_pagado}</span>
+                </div>
+            </div>
+
+            <!-- Nuevo estado -->
+            <div class="mb-3 p-2.5 bg-red-50 border-2 border-red-300 rounded-lg">
+                <h3 class="font-bold text-red-900 mb-1.5 flex items-center gap-1.5 text-sm">
+                    <span>🔄</span> Nuevo Estado
+                </h3>
+                <p class="text-sm font-bold text-red-700">${(data.estado_nuevo || '').toUpperCase()}</p>
+                <p class="text-[10px] text-red-800 mt-1">${infoEstado}</p>
+            </div>
+
+            <!-- Aviso de saldo a favor -->
+            <div class="mb-4 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                <div class="flex items-start gap-2">
+                    <span class="text-xl mt-0.5">💳</span>
+                    <div class="flex-1">
+                        <p class="font-bold text-blue-900 text-sm">✅ Saldo a favor del paciente</p>
+                        <p class="text-[11px] text-blue-800 mt-1">
+                            El monto de <strong>Bs. ${data.total_pagado}</strong> quedará registrado como crédito
+                            y se aplicará automáticamente a las próximas sesiones del paciente.
+                        </p>
+                        <div class="mt-2 p-1.5 bg-blue-100 border border-blue-200 rounded text-[9px] text-blue-800">
+                            <strong>✅ El dinero no se pierde</strong>, se conserva a favor del paciente para uso futuro.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Observaciones adicionales -->
+            <div class="mb-4">
+                <label class="block text-[11px] font-bold text-gray-700 mb-1">Observaciones adicionales (opcional)</label>
+                <textarea id="obs-cambio-{{ sesion.id }}" rows="2"
+                          class="w-full px-2.5 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-xs"
+                          placeholder="Notas sobre este cambio de estado..."></textarea>
+            </div>
+
+            <!-- Botones -->
+            <div class="flex gap-2 pt-3 border-t">
+                <button type="button" id="btn-confirmar-cambio-{{ sesion.id }}"
+                        onclick="confirmarCambioEstado{{ sesion.id }}()"
+                        class="flex-1 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-bold py-2.5 px-4 rounded-lg transition shadow-lg text-sm">
+                    ✅ Confirmar Cambio de Estado
+                </button>
+                <button type="button" onclick="cerrarModalConfirmacionPago{{ sesion.id }}()"
+                        class="px-4 py-2.5 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition text-sm">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>`;
+
+    overlay.style.display = 'flex';
+}
+
+function cerrarModalConfirmacionPago{{ sesion.id }}() {
+    const overlay = document.getElementById('modal-overlay-cambio-estado-{{ sesion.id }}');
+    overlay.style.display = 'none';
+    overlay.innerHTML = '';
+    // Revertir el select al estado anterior
+    const select = document.getElementById('estado-{{ sesion.id }}');
+    if (select) select.value = '{{ sesion.estado }}';
+}
+
+function confirmarCambioEstado{{ sesion.id }}() {
+    const accion = 'convertir_credito';
+    const obs = (document.getElementById('obs-cambio-{{ sesion.id }}') || {}).value || '';
+
+    const btn = document.getElementById('btn-confirmar-cambio-{{ sesion.id }}');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Procesando...'; }
+
+    const select = document.getElementById('estado-{{ sesion.id }}');
+    const estadoNuevo = select ? select.value : '';
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    formData.append('estado_nuevo', estadoNuevo);
+    formData.append('accion_pago', accion);
+    formData.append('observaciones_cambio', obs);
+
+    fetch('{% url "agenda:procesar_cambio_estado" sesion.id %}', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('modal-overlay-cambio-estado-{{ sesion.id }}').style.display = 'none';
+            Swal.fire({
+                title: '✅ ¡Listo!',
+                text: data.message || 'Cambio de estado procesado correctamente.',
+                icon: 'success',
+                timer: 2500,
+                showConfirmButton: false
+            }).then(() => { cerrarModal(); location.reload(); });
+        } else {
+            if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar Cambio de Estado'; }
+            Swal.fire({ title: '❌ Error', text: data.error || 'No se pudo procesar el cambio.', icon: 'error', confirmButtonColor: '#dc2626' });
+        }
+    })
+    .catch(() => {
+        if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar Cambio de Estado'; }
+        Swal.fire({ title: '❌ Error', text: 'Error de conexión. Intenta nuevamente.', icon: 'error', confirmButtonColor: '#dc2626' });
+    });
+}
 </script>
+
+<!-- Overlay para modal de confirmación de cambio de estado -->
+<div id="modal-overlay-cambio-estado-{{ sesion.id }}"
+     class="fixed inset-0 bg-black bg-opacity-60 justify-center z-[9999] overflow-y-auto"
+     style="display:none; align-items: flex-start; padding: 2rem 0;">
+</div>

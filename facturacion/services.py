@@ -36,6 +36,12 @@ class AccountService:
         cuenta, created = CuentaCorriente.objects.get_or_create(
             paciente=paciente
         )
+        # BUG 2 FIX: lock a nivel de BD para que Workers simultáneos de
+        # Gunicorn/uWSGI no pisen el cálculo del otro. select_for_update()
+        # bloquea la fila en PostgreSQL hasta que esta transacción termine.
+        # threading.local() en signals.py solo protege dentro del mismo proceso,
+        # no entre procesos. Este lock sí funciona entre todos los workers.
+        cuenta = CuentaCorriente.objects.select_for_update().get(id=cuenta.id)
         
         # ========================================
         # 1. CALCULAR CONSUMIDO
@@ -542,6 +548,8 @@ class AccountService:
             raise ValidationError('El monto de crédito no puede ser mayor al monto total')
         
         # Calcular monto en efectivo
+        # DEFENSA Bug 4: si usar_credito=False, no restar credito aunque monto_credito tenga valor.
+        # Esto protege el servicio ante llamadas directas con datos inconsistentes.
         monto_efectivo = monto_total - (monto_credito if usar_credito else 0)
         
         if monto_efectivo < 0:
@@ -693,11 +701,17 @@ class AccountService:
                     # Ejemplos:
                     # - Si costo era 50 y se pagó 25, ahora monto_cobrado = 25 (condona 25)
                     # - Si costo era 50 y no se pagó nada, ahora monto_cobrado = 0 (todo gratis)
+                    # ✅ Guardar monto original solo la primera vez que se ajusta
+                    if sesion.monto_original is None:
+                        sesion.monto_original = sesion.monto_cobrado
                     sesion.monto_cobrado = total_pagado
                     sesion.save()
                 else:
                     # Pago normal: solo ajustar monto_cobrado
                     if sesion.monto_cobrado != total_pagado:
+                        # ✅ Guardar monto original solo la primera vez que se ajusta
+                        if sesion.monto_original is None:
+                            sesion.monto_original = sesion.monto_cobrado
                         sesion.monto_cobrado = total_pagado
                         sesion.save()
             
@@ -707,8 +721,10 @@ class AccountService:
                     anulado=False
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
                 
-                # ✅ CORREGIDO: Para proyectos, siempre ajustar costo_total (comportamiento original)
                 if proyecto.costo_total != total_pagado:
+                    # ✅ Guardar precio original solo la primera vez que se ajusta (solo informativo)
+                    if proyecto.costo_original is None:
+                        proyecto.costo_original = proyecto.costo_total
                     proyecto.costo_total = total_pagado
                     proyecto.save()
             
@@ -718,8 +734,10 @@ class AccountService:
                     anulado=False
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
                 
-                # ✅ CORREGIDO: Para mensualidades, siempre ajustar costo_mensual (comportamiento original)
                 if mensualidad.costo_mensual != total_pagado:
+                    # ✅ Guardar precio original solo la primera vez que se ajusta (solo informativo)
+                    if mensualidad.costo_original is None:
+                        mensualidad.costo_original = mensualidad.costo_mensual
                     mensualidad.costo_mensual = total_pagado
                     mensualidad.save()
         
@@ -822,20 +840,62 @@ class AccountService:
                 )
         
         elif tipo_devolucion == 'credito':
-            # Verificar crédito disponible
-            from facturacion.models import CuentaCorriente
+            # BUG 1 ESCENARIO B FIX: en lugar de leer cuenta.pagos_adelantados
+            # (campo calculado que puede estar stale por el gap entre commit y
+            # transaction.on_commit), recalculamos el crédito disponible en
+            # tiempo real desde las fuentes dentro de esta misma transacción.
+            #
+            # Además bloqueamos la fila de CuentaCorriente con select_for_update()
+            # para que ningún otro worker pueda crear una segunda devolución de
+            # crédito concurrente contra el mismo saldo antes de que ésta termine.
+            from facturacion.models import CuentaCorriente, DetallePagoMasivo
             cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
-            
-            if monto_devolucion > cuenta.pagos_adelantados:
+            # Lock a nivel de BD — protege contra concurrencia entre workers
+            cuenta = CuentaCorriente.objects.select_for_update().get(id=cuenta.id)
+
+            # Recalcular crédito real en tiempo real (no el campo cacheado)
+            pagos_sin_asignar = Pago.objects.filter(
+                paciente=paciente,
+                sesion__isnull=True,
+                mensualidad__isnull=True,
+                proyecto__isnull=True,
+                anulado=False,
+            ).exclude(
+                metodo_pago__nombre="Uso de Crédito"
+            ).exclude(
+                detalles_masivos__isnull=False
+            ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
+
+            uso_credito = Pago.objects.filter(
+                paciente=paciente,
+                metodo_pago__nombre="Uso de Crédito",
+                anulado=False,
+            ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
+
+            devoluciones_credito_previas = Devolucion.objects.filter(
+                paciente=paciente,
+                proyecto__isnull=True,
+                mensualidad__isnull=True,
+            ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
+
+            credito_real = pagos_sin_asignar - uso_credito - devoluciones_credito_previas
+
+            if monto_devolucion > credito_real:
                 raise ValidationError(
-                    f'Crédito insuficiente. Disponible: Bs.{cuenta.pagos_adelantados}'
+                    f'Crédito insuficiente. '
+                    f'Crédito real disponible: Bs.{credito_real} '
+                    f'(Adelantado: Bs.{pagos_sin_asignar} '
+                    f'- Usado: Bs.{uso_credito} '
+                    f'- Devuelto previamente: Bs.{devoluciones_credito_previas}).'
                 )
         else:
             raise ValidationError('Tipo de devolución no válido')
-        
+
         # Crear devolución
+        # Devolucion.clean() re-valida las mismas reglas antes de guardar
+        # (cubre el caso de creación directa desde Django Admin - Escenario A Fix)
         metodo_pago = MetodoPago.objects.get(id=metodo_pago_id)
-        
+
         devolucion = Devolucion.objects.create(
             paciente=paciente,
             proyecto=proyecto,
@@ -847,7 +907,7 @@ class AccountService:
             observaciones=observaciones,
             registrado_por=user
         )
-        
+
         # Actualizar cuenta corriente
         AccountService.update_balance(paciente)
         
@@ -861,9 +921,10 @@ class AccountService:
 
 class PaymentService:
     """
-    Servicio para procesar pagos y devoluciones
-    ✅ NOTA: Esta clase mantiene compatibilidad con views.py
-    Los métodos están duplicados en AccountService por razones históricas
+    Servicio para procesar pagos y devoluciones.
+    Mantiene compatibilidad con views.py delegando a AccountService.
+    BUG 6 FIX: process_refund ya no es una copia de AccountService.process_refund;
+    delega completamente para garantizar un único punto de verdad.
     """
     
     @staticmethod
@@ -894,112 +955,20 @@ class PaymentService:
     def process_refund(user, paciente, monto_devolucion, metodo_pago_id, fecha_devolucion,
                       tipo_devolucion, referencia_id=None, motivo='', observaciones=''):
         """
-        Procesa una devolución de dinero al paciente
-        
-        Args:
-            user: Usuario que registra la devolución
-            paciente: Instancia del Paciente
-            monto_devolucion: Monto a devolver
-            metodo_pago_id: ID del método de pago para la devolución
-            fecha_devolucion: Fecha de la devolución
-            tipo_devolucion: 'credito', 'proyecto', 'mensualidad'
-            referencia_id: ID del proyecto/mensualidad (None si es crédito general)
-            motivo: Motivo de la devolución
-            observaciones: Observaciones adicionales
-            
-        Returns:
-            dict con 'success', 'mensaje', 'devolucion', 'numero_recibo'
+        Procesa una devolución de dinero al paciente.
+
+        BUG 6 FIX: Antes era una copia exacta de AccountService.process_refund,
+        lo que significaba que correcciones en uno no se propagaban al otro.
+        Ahora delega completamente: un único punto de verdad.
         """
-        from facturacion.models import Devolucion, MetodoPago, Pago
-        from agenda.models import Proyecto, Mensualidad
-        
-        # Validaciones
-        if monto_devolucion <= 0:
-            raise ValidationError('El monto de devolución debe ser mayor a cero')
-        
-        if not motivo:
-            raise ValidationError('Debe especificar el motivo de la devolución')
-        
-        # Obtener referencia según tipo
-        proyecto = None
-        mensualidad = None
-        
-        if tipo_devolucion == 'proyecto':
-            if not referencia_id:
-                raise ValidationError('Debe especificar el proyecto')
-            proyecto = Proyecto.objects.get(id=referencia_id)
-            
-            # Verificar que no se devuelva más de lo pagado
-            total_pagado = Pago.objects.filter(
-                proyecto=proyecto,
-                anulado=False
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
-            
-            devoluciones_previas = Devolucion.objects.filter(
-                proyecto=proyecto
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
-            
-            disponible = total_pagado - devoluciones_previas
-            
-            if monto_devolucion > disponible:
-                raise ValidationError(
-                    f'No se puede devolver más de lo disponible. Disponible: Bs.{disponible}'
-                )
-        
-        elif tipo_devolucion == 'mensualidad':
-            if not referencia_id:
-                raise ValidationError('Debe especificar la mensualidad')
-            mensualidad = Mensualidad.objects.get(id=referencia_id)
-            
-            total_pagado = Pago.objects.filter(
-                mensualidad=mensualidad,
-                anulado=False
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
-            
-            devoluciones_previas = Devolucion.objects.filter(
-                mensualidad=mensualidad
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
-            
-            disponible = total_pagado - devoluciones_previas
-            
-            if monto_devolucion > disponible:
-                raise ValidationError(
-                    f'No se puede devolver más de lo disponible. Disponible: Bs.{disponible}'
-                )
-        
-        elif tipo_devolucion == 'credito':
-            # Verificar crédito disponible
-            from facturacion.models import CuentaCorriente
-            cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
-            
-            if monto_devolucion > cuenta.pagos_adelantados:
-                raise ValidationError(
-                    f'Crédito insuficiente. Disponible: Bs.{cuenta.pagos_adelantados}'
-                )
-        else:
-            raise ValidationError('Tipo de devolución no válido')
-        
-        # Crear devolución
-        metodo_pago = MetodoPago.objects.get(id=metodo_pago_id)
-        
-        devolucion = Devolucion.objects.create(
+        return AccountService.process_refund(
+            user=user,
             paciente=paciente,
-            proyecto=proyecto,
-            mensualidad=mensualidad,
+            monto_devolucion=monto_devolucion,
+            metodo_pago_id=metodo_pago_id,
             fecha_devolucion=fecha_devolucion,
-            monto=monto_devolucion,
+            tipo_devolucion=tipo_devolucion,
+            referencia_id=referencia_id,
             motivo=motivo,
-            metodo_devolucion=metodo_pago,
             observaciones=observaciones,
-            registrado_por=user
         )
-        
-        # Actualizar cuenta corriente
-        AccountService.update_balance(paciente)
-        
-        return {
-            'success': True,
-            'mensaje': f'Devolución registrada exitosamente',
-            'devolucion': devolucion,
-            'numero_recibo': devolucion.numero_devolucion
-        }

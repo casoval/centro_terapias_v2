@@ -83,7 +83,13 @@
                 <!-- Presupuesto Original -->
                 <div class="flex justify-between items-center bg-white px-4 py-3 rounded-xl border border-emerald-100 shadow-sm">
                     <span class="text-[11px] font-bold uppercase text-slate-400">Presupuesto</span>
-                    <span class="text-xl font-black text-slate-800">Bs. {{ proyecto.costo_total|floatformat:2 }}</span>
+                    <div class="text-right">
+                        <span class="text-xl font-black text-slate-800">Bs. {{ proyecto.costo_total|floatformat:2 }}</span>
+                        {% if proyecto.costo_original and proyecto.costo_original != proyecto.costo_total %}
+                            <div class="text-[11px] text-orange-500 line-through font-bold">Bs. {{ proyecto.costo_original|floatformat:2 }}</div>
+                            <div class="text-[10px] text-orange-400 font-semibold">precio inicial</div>
+                        {% endif %}
+                    </div>
                 </div>
                 
                 <!-- Grid con 3 columnas: Pagado, Devoluciones, Saldo -->

@@ -63,4 +63,12 @@ urlpatterns = [
          name='procesar_cambio_estado'),
 
     path('confirmacion-sesiones/', views.confirmacion_sesiones, name='confirmacion_sesiones'),
+
+    # INFORME DE EVOLUCIÓN
+    path('informe-evolucion/<int:paciente_id>/', 
+         views.informe_evolucion, 
+         name='informe_evolucion'),
+    path('informe-evolucion/<int:paciente_id>/pdf/', 
+         views.generar_pdf_informe_evolucion, 
+         name='pdf_informe_evolucion'),
 ]

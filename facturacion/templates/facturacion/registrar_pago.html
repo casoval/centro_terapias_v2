@@ -147,7 +147,7 @@
                                 </div>
                                 <div class="text-right bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                     <label class="block text-[10px] text-gray-400 uppercase">Precio Base</label>
-                                    <span class="font-mono text-xs font-bold text-gray-600">Bs. {{ sesion.servicio.costo_base|default:'0.00' }}</span>
+                                    <span class="font-mono text-xs font-bold text-gray-600">Bs. {{ sesion.servicio.costo_base|default:'0' }}</span>
                                 </div>
                             </div>
                         </div>
@@ -192,7 +192,7 @@
                             </div>
                             <div class="bg-green-50 p-3 text-center">
                                 <span class="block text-[10px] text-green-700 uppercase font-bold">Pagado</span>
-                                <span class="block text-base font-bold text-green-700">{{ proyecto.total_pagado|default:'0.00' }}</span>
+                                <span class="block text-base font-bold text-green-700">{{ proyecto.total_pagado|default:'0' }}</span>
                             </div>
                             <div class="bg-red-50 p-3 text-center">
                                 <span class="block text-[10px] text-red-700 uppercase font-bold">Pendiente</span>
@@ -225,7 +225,7 @@
                             </div>
                             <div class="bg-green-50 p-3 text-center">
                                 <span class="block text-[10px] text-green-700 uppercase font-bold">Pagado</span>
-                                <span class="block text-base font-bold text-green-700">{{ mensualidad.total_pagado|default:'0.00' }}</span>
+                                <span class="block text-base font-bold text-green-700">{{ mensualidad.total_pagado|default:'0' }}</span>
                             </div>
                             <div class="bg-red-50 p-3 text-center">
                                 <span class="block text-[10px] text-red-700 uppercase font-bold">Pendiente</span>
@@ -269,7 +269,7 @@
                                 <div class="flex items-center gap-3">
                                     <div class="relative w-full max-w-[200px]">
                                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">Bs.</span>
-                                        <input type="number" name="monto_credito" id="monto_credito" min="0" max="{{ credito_disponible }}" step="0.01" value="0" class="w-full pl-10 pr-3 py-2 text-emerald-800 font-bold border-emerald-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white" oninput="calcularTotal()">
+                                        <input type="number" name="monto_credito" id="monto_credito" min="0" max="{{ credito_disponible }}" step="1" value="0" inputmode="numeric" pattern="[0-9]*" class="w-full pl-10 pr-3 py-2 text-emerald-800 font-bold border-emerald-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white" oninput="this.value=this.value.replace(/[^0-9]/g,''); calcularTotal()" onkeydown="return soloEnteros(event)" onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,''); calcularTotal();},0)">
                                     </div>
                                     <button type="button" onclick="usarSoloPendiente()" class="text-xs bg-emerald-200 hover:bg-emerald-300 text-emerald-800 px-3 py-2 rounded-lg font-bold transition">
                                         Cubrir Todo
@@ -300,12 +300,14 @@
                                     <label class="block text-xs font-bold text-gray-600 mb-2">Monto a Recibir (Dinero) *</label>
                                     <div class="relative">
                                         <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span>
-                                        <input type="number" name="monto" id="monto" 
-                                            step="0.01" min="0" 
-                                            value="" 
-                                            class="w-full pl-12 pr-4 py-2.5 text-xl font-bold text-gray-800 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors" 
-                                            oninput="calcularTotal()" 
-                                            placeholder="0.00">
+                                        <input type="number" name="monto" id="monto"
+                                            step="1" min="0"
+                                            value=""
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
+                                            class="w-full pl-12 pr-4 py-2.5 text-xl font-bold text-gray-800 border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors"
+                                            onkeydown="return soloEnteros(event)"
+                                            placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -324,18 +326,39 @@
 
                         <div class="space-y-4">
                             {% if modo == 'sesion' or modo == 'proyecto' or modo == 'mensualidad' %}
-                            <label class="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition border border-transparent hover:border-gray-200 cursor-pointer">
-                                <input type="checkbox" name="pago_completo" id="pago_completo" class="mt-1 rounded text-blue-600 focus:ring-blue-500" onchange="togglePagoCompleto()">
-                                <div>
-                                    <span class="block text-sm font-bold text-gray-700">Marcar deuda como Saldada</span>
-                                    <span class="block text-xs text-gray-500">Ajusta automáticamente el monto para dejar la deuda en 0.</span>
+                            <label class="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200
+                                border-2 border-blue-200 bg-blue-50 hover:border-blue-400 hover:bg-blue-100
+                                has-[:checked]:border-blue-500 has-[:checked]:bg-blue-100 has-[:checked]:shadow-md">
+                                <div class="relative flex items-center mt-0.5">
+                                    <input type="checkbox" name="pago_completo" id="pago_completo"
+                                        class="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-blue-400 bg-white checked:bg-blue-500 checked:border-blue-500 transition-all focus:ring-2 focus:ring-blue-300"
+                                        onchange="togglePagoCompleto()">
+                                    <svg class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 14 14" fill="none">
+                                        <path d="M3 8L6 11L11 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <span class="text-sm font-bold text-blue-800">Marcar deuda como Saldada</span>
+                                    </div>
+                                    <span class="block text-xs text-blue-600 mt-0.5">Ajusta automáticamente el monto para dejar la deuda en 0.</span>
                                 </div>
                             </label>
                             {% endif %}
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nota / Observación</label>
-                                <textarea name="observaciones" rows="2" class="w-full px-4 py-2 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 bg-white placeholder-gray-300" placeholder="Ej: Pago realizado por el padre..."></textarea>
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <label class="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                    Nota / Observación
+                                </label>
+                                <textarea name="observaciones" rows="2"
+                                    class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-white placeholder-gray-300 transition"
+                                    placeholder="Ej: Pago realizado por el padre..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -345,16 +368,16 @@
                             <div class="space-y-1 text-sm">
                                 <div class="flex items-center gap-2">
                                     <span class="w-20 text-gray-500">Contado:</span>
-                                    <span id="resumen-adicional" class="font-bold text-gray-800">Bs. 0.00</span>
+                                    <span id="resumen-adicional" class="font-bold text-gray-800">Bs. 0</span>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <span class="w-20 text-gray-500">Credito:</span>
-                                    <span id="resumen-credito" class="font-bold text-emerald-600">Bs. 0.00</span>
+                                    <span id="resumen-credito" class="font-bold text-emerald-600">Bs. 0</span>
                                 </div>
                             </div>
                             <div class="text-right">
                                 <span class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Transacción</span>
-                                <span class="text-3xl font-black text-indigo-700 leading-none tracking-tight" id="resumen-total">Bs. {{ monto_sugerido|default:'0.00' }}</span>
+                                <span class="text-3xl font-black text-indigo-700 leading-none tracking-tight" id="resumen-total">Bs. {{ monto_sugerido|default:'0' }}</span>
                             </div>
                         </div>
                         
@@ -372,6 +395,14 @@
 </div>
 
 <script>
+// ✅ VALIDACIÓN: Solo permite teclas de números enteros (sin decimales)
+function soloEnteros(e) {
+    const permitidas = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+    if (permitidas.includes(e.key)) return true;
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) return true;
+    return false;
+}
+
 let pacienteSeleccionadoId = null;
 const creditoDisponible = parseFloat("{{ credito_disponible }}".replace(',','.')) || 0;
 const montoPendiente = parseFloat("{{ monto_sugerido }}".replace(',','.')) || 0;
@@ -520,7 +551,14 @@ function toggleCredito() {
     
     if (checkbox && checkbox.checked) {
         campo.classList.remove('hidden');
-        usarSoloPendiente();
+        // Pre-llenar con el monto sugerido si está disponible
+        const inputCred = document.getElementById('monto_credito');
+        if (inputCred && parseFloat(inputCred.value) === 0) {
+            let objetivo = montoPendiente > 0 ? montoPendiente : creditoDisponible;
+            const montoCubrir = Math.min(creditoDisponible, objetivo);
+            inputCred.value = montoCubrir.toFixed(0);
+        }
+        calcularTotal();
     } else if (campo) {
         campo.classList.add('hidden');
         const inputCred = document.getElementById('monto_credito');
@@ -535,7 +573,7 @@ function usarSoloPendiente() {
     
     const inputCred = document.getElementById('monto_credito');
     if(inputCred) {
-        inputCred.value = montoCubrir.toFixed(2);
+        inputCred.value = montoCubrir.toFixed(0);
         calcularTotal();
     }
 }
@@ -579,9 +617,8 @@ function manejarCambioMetodoPago() {
     } 
     // ✅ LÓGICA PARA CUALQUIER OTRO MÉTODO
     else {
-        // 1. Limpiar y habilitar campo monto
+        // 1. Habilitar campo monto (sin borrar el valor que el usuario haya ingresado)
         if (montoInput) {
-            montoInput.value = '';
             montoInput.removeAttribute('readonly');
             montoInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
         }
@@ -590,6 +627,12 @@ function manejarCambioMetodoPago() {
         if (usarCreditoCheckbox) {
             usarCreditoCheckbox.removeAttribute('disabled');
             usarCreditoCheckbox.checked = false;
+            // ✅ CORREGIDO Bug 1: limpiar monto_credito y ocultar el campo.
+            // El input sigue en el DOM aunque esté oculto y el navegador lo envía igual,
+            // por eso hay que resetear el valor a 0 explícitamente.
+            const inputCred = document.getElementById('monto_credito');
+            if (inputCred) inputCred.value = '0';
+            document.getElementById('campo-credito')?.classList.add('hidden');
             const wrapper = usarCreditoCheckbox.closest('.rounded-xl');
             if (wrapper) wrapper.classList.remove('opacity-50', 'pointer-events-none');
         }
@@ -631,11 +674,11 @@ function actualizarMensajeInformativo() {
     // ✅ VALIDACIÓN: Crédito en 0 NO es válido
     if (usarCredito && montoCredito === 0) {
         contenedor.classList.remove('hidden');
-        contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
+        contenedor.className = 'mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 animate-fade-in';
         icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-        icono.classList.add('text-red-600');
-        texto.textContent = '⚠️ Crédito con monto 0 no es válido';
-        subtexto.textContent = 'Si vas a usar crédito, debe ser mayor a 0. Para pagar 0 y saldar, usa solo efectivo.';
+        icono.className = 'w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600';
+        texto.textContent = '⚠️ Ingresa el monto de crédito a usar';
+        subtexto.textContent = 'El monto de crédito debe ser mayor a 0, o desmarca "Usar Saldo a Favor".';
         return;
     }
     
@@ -644,7 +687,7 @@ function actualizarMensajeInformativo() {
         contenedor.classList.remove('hidden');
         contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
         icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-        icono.classList.add('text-red-600');
+        icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-red-600";
         texto.textContent = '⚠️ Pago de Bs. 0 no es válido';
         subtexto.textContent = 'Debes ingresar un monto o marcar "Marcar deuda como Saldada" para condonar la deuda.';
         return;
@@ -658,7 +701,7 @@ function actualizarMensajeInformativo() {
                 contenedor.classList.remove('hidden');
                 contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
                 icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-                icono.classList.add('text-red-600');
+                icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-red-600";
                 texto.textContent = '⚠️ No puedes saldar deuda en 0 usando crédito';
                 subtexto.textContent = 'Desmarca "Usar Saldo a Favor" para saldar con Bs. 0 en efectivo.';
                 return;
@@ -668,36 +711,36 @@ function actualizarMensajeInformativo() {
             contenedor.classList.remove('hidden');
             contenedor.className = 'mt-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 animate-fade-in';
             icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>';
-            icono.classList.add('text-yellow-600');
+            icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-yellow-600";
             texto.textContent = '⚠️ Condonación de deuda (Beca/Caso especial)';
             subtexto.textContent = 'Se registrará un pago de Bs. 0 y la deuda quedará saldada.';
         } else if (totalPago < montoPendiente) {
             contenedor.classList.remove('hidden');
             contenedor.className = 'mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 animate-fade-in';
             icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-            icono.classList.add('text-blue-600');
-            texto.textContent = `✓ Deuda saldada con Bs. ${totalPago.toFixed(2)}`;
+            icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600";
+            texto.textContent = `✓ Deuda saldada con Bs. ${totalPago.toFixed(0)}`;
             subtexto.textContent = usarCredito 
-                ? `(Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) - La deuda quedará en cero.`
+                ? `(Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)}) - La deuda quedará en cero.`
                 : 'El monto total cobrado se ajustará y la deuda quedará en cero.';
         } else if (totalPago > montoPendiente) {
             contenedor.classList.remove('hidden');
             contenedor.className = 'mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200 animate-fade-in';
             icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-            icono.classList.add('text-blue-600');
-            texto.textContent = `✓ Deuda saldada - Se ajustará a Bs. ${montoPendiente.toFixed(2)}`;
+            icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600";
+            texto.textContent = `✓ Deuda saldada - Se cobrarán Bs. ${totalPago.toFixed(0)}`;
             subtexto.textContent = usarCredito
-                ? `Pagas Bs. ${totalPago.toFixed(2)} (Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) pero se cobrará solo el pendiente.`
-                : `El cobro se ajustará a Bs. ${montoPendiente.toFixed(2)} y la deuda quedará en cero.`;
+                ? `Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)} - El monto acordado se ajustará a Bs. ${totalPago.toFixed(0)} y la deuda quedará en cero.`
+                : `El monto acordado se ajustará a Bs. ${totalPago.toFixed(0)} y la deuda quedará en cero.`;
         } else {
             // Pago exacto con checkbox marcado
             contenedor.classList.remove('hidden');
             contenedor.className = 'mt-4 p-3 rounded-lg bg-green-50 border border-green-200 animate-fade-in';
             icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-            icono.classList.add('text-green-600');
+            icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-green-600";
             texto.textContent = '✓ Pago completo y exacto';
             subtexto.textContent = usarCredito
-                ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} = Bs. ${totalPago.toFixed(2)} - Deuda saldada.`
+                ? `Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)} = Bs. ${totalPago.toFixed(0)} - Deuda saldada.`
                 : 'La deuda quedará totalmente saldada.';
         }
         return;
@@ -711,69 +754,68 @@ function actualizarMensajeInformativo() {
         contenedor.classList.remove('hidden');
         contenedor.className = 'mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 animate-fade-in';
         icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-        icono.classList.add('text-amber-600');
-        texto.textContent = `ℹ️ Se cobrará el ${porcentaje}% del total (Bs. ${totalPago.toFixed(2)})`;
+        icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600";
+        texto.textContent = `ℹ️ Se cobrará el ${porcentaje}% del total (Bs. ${totalPago.toFixed(0)})`;
         subtexto.textContent = usarCredito
-            ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} - Faltarían Bs. ${faltante.toFixed(2)}`
-            : `Faltarían Bs. ${faltante.toFixed(2)} para completar el pago.`;
+            ? `Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)} - Faltarían Bs. ${faltante.toFixed(0)}`
+            : `Faltarían Bs. ${faltante.toFixed(0)} para completar el pago.`;
     } else if (totalPago > montoPendiente) {
         const exceso = totalPago - montoPendiente;
         
         contenedor.classList.remove('hidden');
         contenedor.className = 'mt-4 p-3 rounded-lg bg-red-50 border border-red-200 animate-fade-in';
         icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-        icono.classList.add('text-red-600');
-        texto.textContent = `⚠️ El monto excede lo debido en Bs. ${exceso.toFixed(2)}`;
+        icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-red-600";
+        texto.textContent = `⚠️ El monto excede lo debido en Bs. ${exceso.toFixed(0)}`;
         subtexto.textContent = usarCredito
-            ? `Total: Bs. ${totalPago.toFixed(2)} (Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)}) - Marca "Saldada" para ajustar.`
+            ? `Total: Bs. ${totalPago.toFixed(0)} (Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)}) - Marca "Saldada" para ajustar.`
             : 'No puedes pagar más de lo que se debe. Usa "Pago Adelantado" o marca "Saldada" para ajustar.';
     } else {
         // Pago exacto
         contenedor.classList.remove('hidden');
         contenedor.className = 'mt-4 p-3 rounded-lg bg-green-50 border border-green-200 animate-fade-in';
         icono.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
-        icono.classList.add('text-green-600');
+        icono.className = "w-5 h-5 flex-shrink-0 mt-0.5 text-green-600";
         texto.textContent = '✓ Pago exacto del monto pendiente';
         subtexto.textContent = usarCredito
-            ? `Crédito: ${montoCredito.toFixed(2)} + Efectivo: ${montoAdicional.toFixed(2)} = Bs. ${totalPago.toFixed(2)} - Deuda saldada.`
+            ? `Crédito: ${montoCredito.toFixed(0)} + Efectivo: ${montoAdicional.toFixed(0)} = Bs. ${totalPago.toFixed(0)} - Deuda saldada.`
             : 'La deuda quedará totalmente saldada.';
     }
 }
 
 function calcularTotal() {
     const usarCredito = document.getElementById('usar_credito')?.checked || false;
-    const montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
+    let montoCredito = usarCredito ? (parseFloat(document.getElementById('monto_credito')?.value) || 0) : 0;
     const montoAdicional = parseFloat(document.getElementById('monto')?.value) || 0;
     
-    // ✅ VALIDACIÓN: Si activa el crédito, NO puede ser 0
-    if (usarCredito && montoCredito === 0) {
-        alert("⚠️ Si vas a usar crédito, debes especificar un monto mayor a 0.\n\nSi quieres pagar 0 para saldar deuda, usa solo efectivo y marca 'Marcar deuda como Saldada'.");
-        document.getElementById('usar_credito').checked = false;
-        document.getElementById('campo-credito')?.classList.add('hidden');
-        return calcularTotal();
-    }
-    
+    // Corregir crédito si excede el disponible (sin alert, solo clamp)
     if (montoCredito > creditoDisponible) {
-        alert("El monto supera el crédito disponible");
-        document.getElementById('monto_credito').value = creditoDisponible.toFixed(2);
-        return calcularTotal();
+        montoCredito = creditoDisponible;
+        const inputCred = document.getElementById('monto_credito');
+        if (inputCred) inputCred.value = creditoDisponible.toFixed(0);
     }
     
     const total = montoCredito + montoAdicional;
     
-    document.getElementById('resumen-credito').textContent = `Bs. ${montoCredito.toFixed(2)}`;
-    document.getElementById('resumen-adicional').textContent = `Bs. ${montoAdicional.toFixed(2)}`;
-    document.getElementById('resumen-total').textContent = `Bs. ${total.toFixed(2)}`;
+    // Siempre actualizar el DOM primero
+    const resumenCredito = document.getElementById('resumen-credito');
+    const resumenAdicional = document.getElementById('resumen-adicional');
+    const resumenTotal = document.getElementById('resumen-total');
+    
+    if (resumenCredito) resumenCredito.textContent = `Bs. ${montoCredito.toFixed(0)}`;
+    if (resumenAdicional) resumenAdicional.textContent = `Bs. ${montoAdicional.toFixed(0)}`;
+    if (resumenTotal) resumenTotal.textContent = `Bs. ${total.toFixed(0)}`;
     
     const metodo = document.getElementById('metodo_pago');
-    
-    if (montoAdicional > 0) {
-        metodo.setAttribute('required', 'required');
-    } else {
-        metodo.removeAttribute('required');
+    if (metodo) {
+        if (montoAdicional > 0) {
+            metodo.setAttribute('required', 'required');
+        } else {
+            metodo.removeAttribute('required');
+        }
     }
     
-    // ✅ NUEVO: Actualizar mensajes informativos
+    // Actualizar mensajes informativos
     actualizarMensajeInformativo();
 }
 
@@ -792,7 +834,21 @@ function togglePagoCompleto() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar cálculos sin pre-llenar el monto
+    // ✅ Registrar listener oninput en JS puro (evita bugs de comillas escapadas en atributo HTML)
+    const montoInput = document.getElementById('monto');
+    if (montoInput) {
+        montoInput.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+            calcularTotal();
+        });
+        montoInput.addEventListener('paste', function() {
+            setTimeout(() => {
+                this.value = this.value.replace(/[^0-9]/g, '');
+                calcularTotal();
+            }, 0);
+        });
+    }
+    // Inicializar cálculos con el monto pre-cargado
     calcularTotal();
     actualizarMensajeInformativo();
 });
@@ -816,10 +872,10 @@ document.getElementById('form-pago').addEventListener('submit', function(e) {
         return false;
     }
     
-    // ✅ VALIDACIÓN CRÍTICA: Si usa crédito, NO puede ser 0 (NUNCA, ni con "Saldada")
+    // ✅ VALIDACIÓN CRÍTICA: Si usa crédito, NO puede ser 0
     if (usarCredito && montoCredito === 0) {
         e.preventDefault();
-        alert('⚠️ No puedes usar crédito con monto 0\n\nSi quieres pagar 0 para saldar deuda:\n• Desmarca "Usar Saldo a Favor"\n• Usa solo efectivo (Bs. 0)\n• Marca "Marcar deuda como Saldada"');
+        alert('⚠️ Si vas a usar crédito, debes ingresar un monto mayor a 0.\n\nOpciones:\n• Ingresa el monto de crédito a usar\n• Desmarca "Usar Saldo a Favor" si no vas a usar crédito');
         document.getElementById('monto_credito').focus();
         return false;
     }
@@ -861,7 +917,7 @@ document.getElementById('form-pago').addEventListener('submit', function(e) {
         if (totalPago > montoPendiente) {
             e.preventDefault();
             const exceso = totalPago - montoPendiente;
-            alert(`⚠️ El monto total (Bs. ${totalPago.toFixed(2)}) excede lo debido (Bs. ${montoPendiente.toFixed(2)}) por Bs. ${exceso.toFixed(2)}\n\nOpciones:\n• Ajusta el monto a Bs. ${montoPendiente.toFixed(2)}\n• Usa "Pago Adelantado" para abonar crédito adicional\n• Marca "Marcar deuda como Saldada" para ajustar automáticamente`);
+            alert(`⚠️ El monto total (Bs. ${totalPago.toFixed(0)}) excede lo debido (Bs. ${montoPendiente.toFixed(0)}) por Bs. ${exceso.toFixed(0)}\n\nOpciones:\n• Ajusta el monto a Bs. ${montoPendiente.toFixed(0)}\n• Usa "Pago Adelantado" para abonar crédito adicional\n• Marca "Marcar deuda como Saldada" para ajustar automáticamente`);
             document.getElementById('monto').focus();
             return false;
         }
@@ -873,7 +929,7 @@ document.getElementById('form-pago').addEventListener('submit', function(e) {
             const porcentaje = ((totalPago / montoPendiente) * 100).toFixed(0);
             const faltante = montoPendiente - totalPago;
             
-            const confirmar = confirm(`ℹ️ Pago parcial detectado\n\nSe cobrará: Bs. ${totalPago.toFixed(2)} (${porcentaje}%)\nFaltante: Bs. ${faltante.toFixed(2)}\n\n¿Deseas continuar?`);
+            const confirmar = confirm(`ℹ️ Pago parcial detectado\n\nSe cobrará: Bs. ${totalPago.toFixed(0)} (${porcentaje}%)\nFaltante: Bs. ${faltante.toFixed(0)}\n\n¿Deseas continuar?`);
             if (!confirmar) {
                 e.preventDefault();
                 return false;

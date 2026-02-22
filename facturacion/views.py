@@ -50,8 +50,14 @@ from .admin_views import (
 def _total_pagado_sesion(sesion):
     """
     Total pagado para una sesión incluyendo pagos masivos (no anulados).
+
+    BUG 8 FIX: Antes usaba sum() sobre un queryset en Python (N objetos cargados
+    en memoria). Ahora usa agregación SQL: una sola query, sin importar cuántos
+    pagos existan.
     """
-    pagos_directos = sum(p.monto for p in sesion.pagos.filter(anulado=False))
+    pagos_directos = sesion.pagos.filter(anulado=False).aggregate(
+        total=Coalesce(Sum('monto'), Decimal('0'))
+    )['total']
     pagos_masivos = DetallePagoMasivo.objects.filter(
         tipo='sesion',
         sesion=sesion,
@@ -63,66 +69,48 @@ def _total_pagado_sesion(sesion):
 def _total_pagado_proyecto(proyecto):
     """
     Total pagado NETO para un proyecto (pagos - devoluciones).
-    
-    ✅ CORREGIDO: Ahora incluye la resta de devoluciones.
-    
-    Calcula:
-    - Pagos directos (FK pago.proyecto)
-    - Pagos masivos (DetallePagoMasivo con tipo='proyecto')
-    - Resta devoluciones del proyecto
-    
-    Returns:
-        Decimal: Monto neto pagado (puede ser negativo si hay más devoluciones que pagos)
+
+    BUG 8 FIX: Antes usaba sum() sobre un queryset en Python (N objetos cargados
+    en memoria). Ahora usa agregación SQL en todas las fuentes.
     """
-    # Pagos directos al proyecto
-    pagos_directos = sum(p.monto for p in proyecto.pagos.filter(anulado=False))
-    
-    # Pagos masivos que incluyen este proyecto
+    pagos_directos = proyecto.pagos.filter(anulado=False).aggregate(
+        total=Coalesce(Sum('monto'), Decimal('0'))
+    )['total']
+
     pagos_masivos = DetallePagoMasivo.objects.filter(
         tipo='proyecto',
         proyecto=proyecto,
         pago__anulado=False
     ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
-    
-    # ✅ NUEVO: Devoluciones realizadas del proyecto
+
     devoluciones = Devolucion.objects.filter(
         proyecto=proyecto
     ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
-    
-    # Total neto = pagos - devoluciones
+
     return pagos_directos + pagos_masivos - devoluciones
 
 
 def _total_pagado_mensualidad(mensualidad):
     """
     Total pagado NETO para una mensualidad (pagos - devoluciones).
-    
-    ✅ CORREGIDO: Ahora incluye la resta de devoluciones.
-    
-    Calcula:
-    - Pagos directos (FK pago.mensualidad)
-    - Pagos masivos (DetallePagoMasivo con tipo='mensualidad')
-    - Resta devoluciones de la mensualidad
-    
-    Returns:
-        Decimal: Monto neto pagado (puede ser negativo si hay más devoluciones que pagos)
+
+    BUG 8 FIX: Antes usaba sum() sobre un queryset en Python (N objetos cargados
+    en memoria). Ahora usa agregación SQL en todas las fuentes.
     """
-    # Pagos directos a la mensualidad
-    pagos_directos = sum(p.monto for p in mensualidad.pagos.filter(anulado=False))
-    
-    # Pagos masivos que incluyen esta mensualidad
+    pagos_directos = mensualidad.pagos.filter(anulado=False).aggregate(
+        total=Coalesce(Sum('monto'), Decimal('0'))
+    )['total']
+
     pagos_masivos = DetallePagoMasivo.objects.filter(
         tipo='mensualidad',
         mensualidad=mensualidad,
         pago__anulado=False
     ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
-    
-    # ✅ NUEVO: Devoluciones realizadas de la mensualidad
+
     devoluciones = Devolucion.objects.filter(
         mensualidad=mensualidad
     ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
-    
-    # Total neto = pagos - devoluciones
+
     return pagos_directos + pagos_masivos - devoluciones
     
 @login_required
@@ -145,18 +133,26 @@ def lista_cuentas_corrientes(request):
     buscar = request.GET.get('q', '').strip()
     estado = request.GET.get('estado', '')
     sucursal_id = request.GET.get('sucursal', '')
+    # ✅ SUPER FILTRO: activo (default) | inactivo | todos
+    modo_paciente = request.GET.get('modo_paciente', 'activo')
+    if modo_paciente not in ('activo', 'inactivo', 'todos'):
+        modo_paciente = 'activo'
     
     # ==================== QUERY BASE OPTIMIZADA ====================
-    # Solo select_related para evitar N+1 queries
-    pacientes = Paciente.objects.filter(
-        estado='activo'
-    ).select_related(
+    pacientes = Paciente.objects.select_related(
         'cuenta_corriente'
     ).prefetch_related(
         'sucursales'
     )
     
-    # Aplicar filtros
+    # ✅ Aplicar super filtro de estado de paciente
+    if modo_paciente == 'activo':
+        pacientes = pacientes.filter(estado='activo')
+    elif modo_paciente == 'inactivo':
+        pacientes = pacientes.filter(estado='inactivo')
+    # 'todos' → no filtrar por estado
+    
+    # Aplicar filtros secundarios
     if buscar:
         pacientes = pacientes.filter(
             Q(nombre__icontains=buscar) | 
@@ -172,8 +168,7 @@ def lista_cuentas_corrientes(request):
         if not hasattr(paciente, 'cuenta_corriente'):
             CuentaCorriente.objects.create(paciente=paciente)
     
-    # ==================== FILTRADO POR ESTADO ====================
-    # Usamos el campo 'saldo_actual' que ya está en BD
+    # ==================== FILTRADO POR ESTADO DE SALDO ====================
     if estado == 'deudor':
         pacientes = pacientes.filter(cuenta_corriente__saldo_actual__lt=0)
     elif estado == 'al_dia':
@@ -181,8 +176,11 @@ def lista_cuentas_corrientes(request):
     elif estado == 'a_favor':
         pacientes = pacientes.filter(cuenta_corriente__saldo_actual__gt=0)
     
-    # Ordenar por saldo actual
-    pacientes = pacientes.order_by('cuenta_corriente__saldo_actual')
+    # Ordenar: inactivos al final si es modo 'todos', luego por saldo
+    if modo_paciente == 'todos':
+        pacientes = pacientes.order_by('estado', 'cuenta_corriente__saldo_actual')
+    else:
+        pacientes = pacientes.order_by('cuenta_corriente__saldo_actual')
     
     # ==================== PAGINACIÓN ====================
     paginator = Paginator(pacientes, 50)
@@ -190,9 +188,6 @@ def lista_cuentas_corrientes(request):
     page_obj = paginator.get_page(page_number)
     
     # ==================== ESTADÍSTICAS GLOBALES ====================
-    # ✅ OPTIMIZADO: Solo queries a nivel de BD, sin loops
-    # Las estadísticas se cargan automáticamente vía AJAX al cargar la página
-    
     estadisticas = None
     mostrar_estadisticas = False  # Las estadísticas se cargan automáticamente con JavaScript
     
@@ -208,12 +203,13 @@ def lista_cuentas_corrientes(request):
         'estado': estado,
         'sucursal_id': sucursal_id,
         'sucursales': sucursales,
+        'modo_paciente': modo_paciente,  # ✅ Pasar al template
     }
     
     return render(request, 'facturacion/cuentas_corrientes.html', context)
 
 
-def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None):
+def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, modo_paciente='activo'):
     """
     Calcula estadísticas globales de todas las cuentas corrientes
     
@@ -222,12 +218,13 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None):
     - Más eficiente (1 query en lugar de 3)
     - Consistente con cuentas individuales
     - ✅ NUEVO: Incluye estadísticas de PROYECCIÓN TOTAL
-    - ✅ DINÁMICO: Acepta filtros de búsqueda, estado y sucursal
+    - ✅ DINÁMICO: Acepta filtros de búsqueda, estado, sucursal y modo_paciente
     
     Args:
         buscar (str, optional): Término de búsqueda por nombre/apellido/tutor
         estado (str, optional): Filtro por estado ('deudor', 'al_dia', 'a_favor')
         sucursal_id (str, optional): ID de sucursal para filtrar
+        modo_paciente (str): 'activo' | 'inactivo' | 'todos'
     
     Returns:
         dict: Estadísticas globales del sistema (estado actual + proyección total)
@@ -237,10 +234,13 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None):
     from facturacion.models import CuentaCorriente
     
     try:
-        # Obtener todas las cuentas de pacientes activos
-        cuentas_activas = CuentaCorriente.objects.filter(
-            paciente__estado='activo'
-        )
+        # ✅ Filtrar cuentas según el super filtro
+        cuentas_activas = CuentaCorriente.objects.all()
+        if modo_paciente == 'activo':
+            cuentas_activas = cuentas_activas.filter(paciente__estado='activo')
+        elif modo_paciente == 'inactivo':
+            cuentas_activas = cuentas_activas.filter(paciente__estado='inactivo')
+        # 'todos' → sin filtro de estado
         
         # ========================================
         # ✅ APLICAR FILTROS DINÁMICOS
@@ -405,17 +405,25 @@ def cargar_estadisticas_ajax(request):
         buscar = request.GET.get('q', '')
         estado = request.GET.get('estado', '')
         sucursal_id = request.GET.get('sucursal', '')
+        modo_paciente = request.GET.get('modo_paciente', 'activo')
+        if modo_paciente not in ('activo', 'inactivo', 'todos'):
+            modo_paciente = 'activo'
         
         # Calcular estadísticas con filtros aplicados
         estadisticas = calcular_estadisticas_globales(
             buscar=buscar if buscar else None,
             estado=estado if estado else None,
-            sucursal_id=sucursal_id if sucursal_id else None
+            sucursal_id=sucursal_id if sucursal_id else None,
+            modo_paciente=modo_paciente,
         )
         
         # ✅ Calcular total de pacientes con los mismos filtros
         from django.db.models import Q
-        pacientes = Paciente.objects.filter(estado='activo')
+        pacientes = Paciente.objects.all()
+        if modo_paciente == 'activo':
+            pacientes = pacientes.filter(estado='activo')
+        elif modo_paciente == 'inactivo':
+            pacientes = pacientes.filter(estado='inactivo')
         
         if buscar:
             pacientes = pacientes.filter(
@@ -436,9 +444,52 @@ def cargar_estadisticas_ajax(request):
         
         total_pacientes = pacientes.count()
         
+        # ✅ Calcular resumen de pacientes INACTIVOS — solo cuando modo es 'activo'
+        # (si el usuario ya está viendo inactivos o todos, no tiene sentido el banner)
+        inactivos_resumen = None
+        if modo_paciente == 'activo':
+            from facturacion.models import CuentaCorriente
+            from django.db.models import Sum, Q as Q2
+            
+            cuentas_inactivos = CuentaCorriente.objects.filter(paciente__estado='inactivo')
+            
+            if buscar:
+                cuentas_inactivos = cuentas_inactivos.filter(
+                    Q2(paciente__nombre__icontains=buscar) |
+                    Q2(paciente__apellido__icontains=buscar) |
+                    Q2(paciente__nombre_tutor__icontains=buscar)
+                )
+            if sucursal_id:
+                cuentas_inactivos = cuentas_inactivos.filter(
+                    paciente__sucursales__id=sucursal_id
+                )
+            
+            inactivos_con_deuda   = cuentas_inactivos.filter(saldo_actual__lt=0)
+            inactivos_con_credito = cuentas_inactivos.filter(saldo_actual__gt=0)
+            inactivos_con_consumo = cuentas_inactivos.filter(total_consumido_actual__gt=0)
+            inactivos_con_pago    = cuentas_inactivos.filter(total_pagado__gt=0)
+            
+            total_deuda_inactivos   = abs(inactivos_con_deuda.aggregate(t=Sum('saldo_actual'))['t'] or Decimal('0.00'))
+            total_credito_inactivos = inactivos_con_credito.aggregate(t=Sum('saldo_actual'))['t'] or Decimal('0.00')
+            total_pagado_inactivos  = inactivos_con_pago.aggregate(t=Sum('total_pagado'))['t'] or Decimal('0.00')
+            total_consumo_inactivos = inactivos_con_consumo.aggregate(t=Sum('total_consumido_actual'))['t'] or Decimal('0.00')
+            
+            inactivos_resumen = {
+                'total_inactivos_con_movimientos': inactivos_con_deuda.count() + inactivos_con_credito.count(),
+                'con_deuda':    inactivos_con_deuda.count(),
+                'con_credito':  inactivos_con_credito.count(),
+                'con_consumo':  inactivos_con_consumo.count(),
+                'con_pago':     inactivos_con_pago.count(),
+                'total_deuda':   float(total_deuda_inactivos),
+                'total_credito': float(total_credito_inactivos),
+                'total_pagado':  float(total_pagado_inactivos),
+                'total_consumo': float(total_consumo_inactivos),
+            }
+        
         return JsonResponse({
             'success': True,
             'total_pacientes': total_pacientes,  # ✅ Añadir total de pacientes
+            'inactivos_resumen': inactivos_resumen,  # ✅ Resumen de inactivos con movimientos
             'estadisticas': {
                 # Estado Actual
                 'total_consumido': float(estadisticas['total_consumido']),
@@ -1468,7 +1519,10 @@ def registrar_pago(request):
             
             raw_credito = request.POST.get('monto_credito', '').strip()
             raw_monto = request.POST.get('monto', '').strip()
-            monto_credito = Decimal(raw_credito if raw_credito else '0')
+            # ✅ CORREGIDO Bug 2: solo leer monto_credito si usar_credito está activo.
+            # Aunque el campo llegue con valor en el POST (campo oculto no limpiado),
+            # si el checkbox está desmarcado se debe ignorar completamente.
+            monto_credito = Decimal(raw_credito if raw_credito and usar_credito else '0')
             monto_efectivo = Decimal(raw_monto if raw_monto else '0')
             
             metodo_pago_id = request.POST.get('metodo_pago')
@@ -1532,8 +1586,10 @@ def registrar_pago(request):
             else:
                 raise ValidationError('Tipo de pago no válido')
 
-            # ✅ CORREGIDO: Calcular monto total correctamente
-            monto_total = monto_efectivo + monto_credito
+            # ✅ CORREGIDO Bug 3: monto_total solo suma credito si usar_credito es True.
+            # Con el Bug 2 ya corregido monto_credito sera 0 si usar_credito=False,
+            # pero esta linea lo deja explicito como segunda linea de defensa.
+            monto_total = monto_efectivo + (monto_credito if usar_credito else Decimal('0'))
             
             # Procesar Pago con Servicio (actualizado para mensualidad)
             resultado = PaymentService.process_payment(
@@ -2115,7 +2171,7 @@ def procesar_pagos_masivos(request):
         
         # CALCULAR TOTAL Y PREPARAR AJUSTES
         items_ajustados = []
-        total_pago = Decimal('0.00')
+        total_pago = Decimal('0')
         
         # ========================================
         # Procesar SESIONES
@@ -2131,7 +2187,7 @@ def procesar_pagos_masivos(request):
                 monto_personalizado = request.POST.get(monto_personalizado_key)
                 
                 if monto_personalizado:
-                    monto_pagar = Decimal(monto_personalizado)
+                    monto_pagar = Decimal(monto_personalizado).quantize(Decimal('1'))
                 else:
                     monto_pagar = sesion.monto_cobrado - _total_pagado_sesion(sesion)
                 
@@ -2165,7 +2221,7 @@ def procesar_pagos_masivos(request):
                 monto_personalizado = request.POST.get(monto_personalizado_key)
                 
                 if monto_personalizado:
-                    monto_pagar = Decimal(monto_personalizado)
+                    monto_pagar = Decimal(monto_personalizado).quantize(Decimal('1'))
                 else:
                     monto_pagar = proyecto.costo_total - _total_pagado_proyecto(proyecto)
                 
@@ -2199,7 +2255,7 @@ def procesar_pagos_masivos(request):
                 monto_personalizado = request.POST.get(monto_personalizado_key)
                 
                 if monto_personalizado:
-                    monto_pagar = Decimal(monto_personalizado)
+                    monto_pagar = Decimal(monto_personalizado).quantize(Decimal('1'))
                 else:
                     monto_pagar = mensualidad.costo_mensual - _total_pagado_mensualidad(mensualidad)
                 
@@ -2258,6 +2314,9 @@ def procesar_pagos_masivos(request):
             
             # 💾 CREAR UN SOLO PAGO MASIVO
             concepto_principal = f"Pago masivo de {', '.join(tipos_str)}: {concepto_items}"
+            
+            # ✅ Asegurar que el total no tenga decimales (campo decimal_places=0)
+            total_pago = total_pago.quantize(Decimal('1'))
             
             pago_masivo = Pago.objects.create(
                 paciente=paciente,
@@ -2643,104 +2702,98 @@ def cargar_estadisticas_pagos_ajax(request):
     fecha_hasta = request.GET.get('fecha_hasta', '')
     tipo_filtro = request.GET.get('tipo', '').strip()
 
-    # ── Query base de pagos (TODOS, incluyendo anulados) ──────────────────────
-    pagos = Pago.objects.select_related('metodo_pago')
+    # ── Helpers de filtrado reutilizables ────────────────────────────────────
+    def aplicar_filtros_pagos(qs):
+        if buscar:
+            qs = qs.filter(
+                Q(paciente__nombre__icontains=buscar) |
+                Q(paciente__apellido__icontains=buscar) |
+                Q(numero_recibo__icontains=buscar)
+            )
+        if metodo_id:
+            qs = qs.filter(metodo_pago_id=metodo_id)
+        if fecha_desde:
+            try:
+                qs = qs.filter(fecha_pago__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+            except Exception:
+                pass
+        if fecha_hasta:
+            try:
+                qs = qs.filter(fecha_pago__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+            except Exception:
+                pass
+        return qs
 
-    if buscar:
-        pagos = pagos.filter(
-            Q(paciente__nombre__icontains=buscar) |
-            Q(paciente__apellido__icontains=buscar) |
-            Q(numero_recibo__icontains=buscar)
-        )
+    def aplicar_filtros_devoluciones(qs):
+        if buscar:
+            qs = qs.filter(
+                Q(paciente__nombre__icontains=buscar) |
+                Q(paciente__apellido__icontains=buscar) |
+                Q(numero_devolucion__icontains=buscar)
+            )
+        if fecha_desde:
+            try:
+                qs = qs.filter(fecha_devolucion__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+            except Exception:
+                pass
+        if fecha_hasta:
+            try:
+                qs = qs.filter(fecha_devolucion__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+            except Exception:
+                pass
+        return qs
 
-    if metodo_id:
-        pagos = pagos.filter(metodo_pago_id=metodo_id)
+    # ── Queries ACTIVOS (dato principal de las tarjetas) ─────────────────────
+    pagos_activos = aplicar_filtros_pagos(
+        Pago.objects.select_related('metodo_pago').filter(paciente__estado='activo')
+    )
+    devoluciones_activos = aplicar_filtros_devoluciones(
+        Devolucion.objects.filter(paciente__estado='activo')
+    )
 
-    if fecha_desde:
-        try:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            pagos = pagos.filter(fecha_pago__gte=fecha_desde_obj)
-        except Exception:
-            pass
+    # ── Queries TODOS (dato informativo, incluye inactivos) ───────────────────
+    pagos_todos = aplicar_filtros_pagos(
+        Pago.objects.select_related('metodo_pago')
+    )
+    devoluciones_todos = aplicar_filtros_devoluciones(
+        Devolucion.objects.all()
+    )
 
-    if fecha_hasta:
-        try:
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            pagos = pagos.filter(fecha_pago__lte=fecha_hasta_obj)
-        except Exception:
-            pass
+    # ── Calcular estadísticas para ambas versiones ────────────────────────────
+    stats       = calcular_estadisticas_pagos(pagos_activos, devoluciones_queryset=devoluciones_activos)
+    stats_todos = calcular_estadisticas_pagos(pagos_todos,   devoluciones_queryset=devoluciones_todos)
 
-    # Las estadísticas siempre muestran el resumen GLOBAL (no se filtran por tipo)
-    # para que el usuario vea el panorama completo incluso al filtrar la lista.
-    # El filtro tipo solo afecta la lista de registros, no las tarjetas de resumen.
-
-    # ── Query de devoluciones con los mismos filtros ──────────────────────────
-    devoluciones = Devolucion.objects.all()
-
-    if buscar:
-        devoluciones = devoluciones.filter(
-            Q(paciente__nombre__icontains=buscar) |
-            Q(paciente__apellido__icontains=buscar) |
-            Q(numero_devolucion__icontains=buscar)
-        )
-
-    # Nota: si filtran por método de pago, las devoluciones usan metodo_devolucion
-    # No aplicamos el mismo filtro de método para no distorsionar las devoluciones
-    # a menos que sea un filtro explícito del usuario
-    if fecha_desde:
-        try:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            devoluciones = devoluciones.filter(fecha_devolucion__gte=fecha_desde_obj)
-        except Exception:
-            pass
-
-    if fecha_hasta:
-        try:
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            devoluciones = devoluciones.filter(fecha_devolucion__lte=fecha_hasta_obj)
-        except Exception:
-            pass
-
-    # Calcular estadísticas
-    stats = calcular_estadisticas_pagos(pagos, devoluciones_queryset=devoluciones)
-
-    # Convertir Decimals a float para JSON
-    return JsonResponse({
-        'success': True,
-        'estadisticas': {
-            # Contadores
-            'total_pagos': stats['total_pagos'],
-            'total_pagos_reales': stats['total_pagos_reales'],
-            'total_pagos_credito': stats['total_pagos_credito'],
-            'total_adelantados': stats['total_adelantados'],
-            'total_anulados': stats['total_anulados'],
-            'total_devoluciones': stats['total_devoluciones'],
-
-            # Montos
-            'monto_pagos_reales': float(stats['monto_pagos_reales']),
-            'monto_pagos_credito': float(stats['monto_pagos_credito']),
-            'monto_adelantados': float(stats['monto_adelantados']),
-            'monto_anulados': float(stats['monto_anulados']),
-            'monto_devoluciones': float(stats['monto_devoluciones']),
-
-            # Compat
-            'monto_pagos_validos': float(stats['monto_pagos_reales']),
-            'total_pagos_validos': stats['total_pagos_reales'],
-
-            # Métricas
-            'promedio_transaccion': float(stats['promedio_transaccion']),
-            'total_metodos': stats['total_metodos'],
-
-            # Desglose
+    def serializar_stats(s):
+        return {
+            'total_pagos':          s['total_pagos'],
+            'total_pagos_reales':   s['total_pagos_reales'],
+            'total_pagos_credito':  s['total_pagos_credito'],
+            'total_adelantados':    s['total_adelantados'],
+            'total_anulados':       s['total_anulados'],
+            'total_devoluciones':   s['total_devoluciones'],
+            'monto_pagos_reales':   float(s['monto_pagos_reales']),
+            'monto_pagos_credito':  float(s['monto_pagos_credito']),
+            'monto_adelantados':    float(s['monto_adelantados']),
+            'monto_anulados':       float(s['monto_anulados']),
+            'monto_devoluciones':   float(s['monto_devoluciones']),
+            'monto_pagos_validos':  float(s['monto_pagos_reales']),
+            'total_pagos_validos':  s['total_pagos_reales'],
+            'promedio_transaccion': float(s['promedio_transaccion']),
+            'total_metodos':        s['total_metodos'],
             'desglose_metodos': [
                 {
-                    'metodo': item['metodo_pago__nombre'],
+                    'metodo':   item['metodo_pago__nombre'],
                     'cantidad': item['cantidad'],
-                    'total': float(item['total'])
+                    'total':    float(item['total'])
                 }
-                for item in stats['desglose_metodos']
+                for item in s['desglose_metodos']
             ]
         }
+
+    return JsonResponse({
+        'success': True,
+        'estadisticas':       serializar_stats(stats),        # Solo activos → dato principal
+        'estadisticas_todos': serializar_stats(stats_todos),  # Todos (incl. inactivos) → dato informativo
     })
 
 # ==================== OPTIMIZACIÓN EXTREMA DEL RECIBO PDF ====================

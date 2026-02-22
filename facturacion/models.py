@@ -45,35 +45,35 @@ class CuentaCorriente(models.Model):
     # Consumido Real (incluye programadas y planificadas)
     total_sesiones_normales_real = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Sesiones realizadas + falta (estados con costo ya generado)"
     )
     
     total_sesiones_programadas = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Sesiones programadas (compromiso futuro)"
     )
     
     total_mensualidades = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Mensualidades activas/pausadas/completadas"
     )
     
     total_proyectos_real = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Proyectos en_progreso/finalizados"
     )
     
     total_proyectos_planificados = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Proyectos planificados (compromiso futuro)"
     )
@@ -81,7 +81,7 @@ class CuentaCorriente(models.Model):
     # Total Consumido Real (con programadas y planificadas)
     total_consumido_real = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Total incluyendo todos los compromisos"
     )
@@ -93,7 +93,7 @@ class CuentaCorriente(models.Model):
     # Total Consumido Actual (solo realizadas, sin futuros)
     total_consumido_actual = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Total solo de lo ya ocurrido (sin programadas ni planificadas)"
     )
@@ -104,21 +104,21 @@ class CuentaCorriente(models.Model):
     
     pagos_sesiones = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos aplicados a sesiones normales"
     )
     
     pagos_mensualidades = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos aplicados a mensualidades"
     )
     
     pagos_proyectos = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos aplicados a proyectos"
     )
@@ -126,28 +126,28 @@ class CuentaCorriente(models.Model):
     # ✅ NUEVO: Pagos con crédito (para desglose detallado)
     pagos_sesiones_credito = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos a sesiones usando crédito (método 'Uso de Crédito')"
     )
     
     pagos_mensualidades_credito = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos a mensualidades usando crédito (método 'Uso de Crédito')"
     )
     
     pagos_proyectos_credito = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos a proyectos usando crédito (método 'Uso de Crédito')"
     )
     
     pagos_adelantados = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Crédito disponible total (adelantado - usado)"
     )
@@ -158,35 +158,35 @@ class CuentaCorriente(models.Model):
     
     pagos_sin_asignar = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos adelantados sin asignar (adelantado puro)"
     )
     
     pagos_sesiones_programadas = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos a sesiones programadas (adelantado)"
     )
     
     pagos_proyectos_planificados = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Pagos a proyectos planificados (adelantado)"
     )
     
     uso_credito = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Monto usado del crédito (método 'Uso de Crédito')"
     )
     
     total_devoluciones = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Devoluciones realizadas (se restan del total pagado)"
     )
@@ -194,7 +194,7 @@ class CuentaCorriente(models.Model):
     # Total Pagado (mismo para ambas perspectivas)
     total_pagado = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Total pagado efectivamente (pagos - devoluciones)"
     )
@@ -206,7 +206,7 @@ class CuentaCorriente(models.Model):
     # Saldo Real (con programadas y planificadas)
     saldo_real = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Saldo incluyendo todos los compromisos futuros"
     )
@@ -214,7 +214,7 @@ class CuentaCorriente(models.Model):
     # Saldo Actual (sin programadas ni planificadas)
     saldo_actual = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         default=0,
         help_text="Saldo solo de lo ya ocurrido"
     )
@@ -490,7 +490,7 @@ class Pago(models.Model):
     
     # Datos del pago
     fecha_pago = models.DateField(help_text="Fecha en que se realizó el pago")
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto = models.DecimalField(max_digits=10, decimal_places=0)
     metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     concepto = models.CharField(max_length=200)
     numero_transaccion = models.CharField(
@@ -620,54 +620,153 @@ class Pago(models.Model):
         Genera número de recibo automáticamente con prefijo según tipo
         - REC-0001: Pagos en efectivo, QR, transferencia
         - CRE-0001: Uso de crédito
+
+        BUG 7 FIX: Si se pasan update_fields (ej: anulaciones parciales),
+        se omite full_clean() para evitar validaciones innecesarias sobre
+        campos que no se están modificando.
+
+        BUG 4 FIX: El ordenamiento usa Cast numérico en lugar de
+        orden alfabético sobre el CharField, lo que evita que
+        'REC-9999' > 'REC-10000' rompa la secuencia al superar 9.999 registros.
         """
+        from django.db import transaction
+        from django.db.models.functions import Cast, Substr
+        from django.db.models import IntegerField
+
+        # BUG 7 FIX: solo validar cuando NO es una actualización parcial
+        update_fields = kwargs.get('update_fields')
+
         if not self.numero_recibo:
-            # ✅ Determinar prefijo según método de pago
+            # Determinar prefijo según método de pago
             if self.metodo_pago.nombre == "Uso de Crédito":
                 prefijo = "CRE"
             else:
                 prefijo = "REC"
-        
-            # ✅ Buscar el último número con este prefijo
-            ultimo_recibo = Pago.objects.filter(
-                numero_recibo__startswith=f'{prefijo}-'
-            ).order_by('-numero_recibo').first()
-        
-            if ultimo_recibo:
-                # Extraer el número del formato PREFIJO-NNNN
-                ultimo_numero = int(ultimo_recibo.numero_recibo.split('-')[-1])
-                nuevo_numero = ultimo_numero + 1
-            else:
-                nuevo_numero = 1
-        
-            # ✅ Formato simple: PREFIJO-NNNN (ej: REC-0001, CRE-0023)
-            self.numero_recibo = f'{prefijo}-{nuevo_numero:04d}'
-    
-        self.full_clean()
+
+            with transaction.atomic():
+                # BUG 4 FIX: ordenar por el número entero extraído del sufijo,
+                # no alfabéticamente por el CharField completo.
+                ultimo_recibo = (
+                    Pago.objects
+                    .filter(numero_recibo__startswith=f'{prefijo}-')
+                    .select_for_update()
+                    .annotate(
+                        num=Cast(
+                            Substr('numero_recibo', len(prefijo) + 2),  # +2 por el guion
+                            output_field=IntegerField()
+                        )
+                    )
+                    .order_by('-num')
+                    .first()
+                )
+
+                if ultimo_recibo:
+                    nuevo_numero = ultimo_recibo.num + 1
+                else:
+                    nuevo_numero = 1
+
+                self.numero_recibo = f'{prefijo}-{nuevo_numero:04d}'
+
+                # full_clean solo al crear (numero_recibo nuevo)
+                self.full_clean()
+                super().save(*args, **kwargs)
+            return  # ya se guardó dentro del bloque atomic
+
+        # Actualización de registro existente
+        if not update_fields:
+            # Guardado completo: validar normalmente
+            self.full_clean()
+        # Si hay update_fields: es actualización parcial (ej: anulación),
+        # se omite full_clean() intencionalmente (Bug 7 Fix)
         super().save(*args, **kwargs)
     
     def anular(self, usuario, motivo):
         """
-        Anula el pago registrando auditoría completa
-        
-        Args:
-            usuario: Usuario que anula el pago
-            motivo: Motivo de la anulación
+        Anula el pago registrando auditoría completa.
+
+        ESCENARIO C FIX: Se bloquea la anulación si existen devoluciones que
+        dependen financieramente de este pago. Permitirlo generaría un estado
+        imposible: la clínica habría entregado dinero basado en un pago que
+        "no existió", creando dinero de la nada en los registros.
+
+        Flujo correcto si se necesita anular:
+            1. Ir al historial de devoluciones del proyecto/mensualidad
+            2. Anular o revertir las devoluciones que dependen de este pago
+            3. Recién entonces anular este pago
         """
         from django.utils import timezone
-        
+        from django.db.models import Sum as _Sum
+
         if self.anulado:
-            raise ValidationError("Este pago ya está anulado")
-        
-        # Marcar como anulado con auditoría
+            raise ValidationError("Este pago ya está anulado.")
+
+        # ── Bloqueo por devoluciones de proyecto ─────────────────────────────
+        if self.proyecto_id:
+            from facturacion.models import Devolucion
+            total_dev = (
+                Devolucion.objects
+                .filter(proyecto_id=self.proyecto_id)
+                .aggregate(total=_Sum('monto'))['total']
+            ) or Decimal('0')
+
+            if total_dev > 0:
+                raise ValidationError(
+                    f"No se puede anular este pago porque el proyecto asociado "
+                    f"ya tiene Bs.{total_dev} en devoluciones registradas. "
+                    f"Anular este pago dejaría esas devoluciones sin respaldo financiero. "
+                    f"Para proceder: primero anule las devoluciones del proyecto "
+                    f"'{self.proyecto}' y luego intente anular este pago."
+                )
+
+        # ── Bloqueo por devoluciones de mensualidad ───────────────────────────
+        if self.mensualidad_id:
+            from facturacion.models import Devolucion
+            total_dev = (
+                Devolucion.objects
+                .filter(mensualidad_id=self.mensualidad_id)
+                .aggregate(total=_Sum('monto'))['total']
+            ) or Decimal('0')
+
+            if total_dev > 0:
+                raise ValidationError(
+                    f"No se puede anular este pago porque la mensualidad asociada "
+                    f"ya tiene Bs.{total_dev} en devoluciones registradas. "
+                    f"Anular este pago dejaría esas devoluciones sin respaldo financiero. "
+                    f"Para proceder: primero anule las devoluciones de la mensualidad "
+                    f"'{self.mensualidad}' y luego intente anular este pago."
+                )
+
+        # ── Bloqueo por crédito usado vinculado a la misma sesión ────────────
+        # Si se anula el pago en efectivo pero existe un CRE- vinculado a la
+        # misma sesión, el crédito descontado queda huérfano (se usó crédito
+        # para una sesión cuyo pago "no existió").
+        if self.sesion_id and self.metodo_pago.nombre != "Uso de Crédito":
+            pagos_credito = Pago.objects.filter(
+                sesion_id=self.sesion_id,
+                metodo_pago__nombre="Uso de Crédito",
+                anulado=False
+            ).exclude(id=self.id)
+
+            if pagos_credito.exists():
+                total_credito = (
+                    pagos_credito.aggregate(total=_Sum('monto'))['total']
+                ) or Decimal('0')
+                raise ValidationError(
+                    f"No se puede anular este pago porque la sesión tiene "
+                    f"Bs.{total_credito} adicionales pagados con crédito. "
+                    f"Anular solo el pago en efectivo dejaría ese crédito usado sin respaldo. "
+                    f"Para proceder: anule primero los recibos de 'Uso de Crédito' "
+                    f"de esta sesión y luego intente anular este pago."
+                )
+
+        # ── Proceder con la anulación ─────────────────────────────────────────
         self.anulado = True
         self.motivo_anulacion = motivo
         self.anulado_por = usuario
         self.fecha_anulacion = timezone.now()
         self.save(update_fields=['anulado', 'motivo_anulacion', 'anulado_por', 'fecha_anulacion'])
-        
-        # Actualizar la cuenta corriente del paciente
-        # (los signals se encargarán de esto automáticamente)
+
+        # La cuenta corriente se actualiza automáticamente vía signal post_save
 
 
 class DetallePagoMasivo(models.Model):
@@ -720,7 +819,7 @@ class DetallePagoMasivo(models.Model):
     # Datos del detalle
     monto = models.DecimalField(
         max_digits=10,
-        decimal_places=2,
+        decimal_places=0,
         help_text="Monto pagado para este ítem específico"
     )
     concepto = models.CharField(
@@ -804,7 +903,7 @@ class Devolucion(models.Model):
     
     # Datos de la devolución
     fecha_devolucion = models.DateField()
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto = models.DecimalField(max_digits=10, decimal_places=0)
     motivo = models.TextField(help_text="Motivo de la devolución")
     metodo_devolucion = models.ForeignKey(
         MetodoPago,
@@ -849,23 +948,188 @@ class Devolucion(models.Model):
     
     def __str__(self):
         return f"{self.numero_devolucion} - {self.paciente} - Bs. {self.monto}"
-    
+
+    def clean(self):
+        """
+        Validaciones financieras que se ejecutan SIEMPRE, incluyendo desde el
+        Django Admin (que llama full_clean() → clean() automáticamente).
+
+        BUG 1 ESCENARIO A FIX: Antes, la validación de crédito disponible solo
+        existía en process_refund (en services.py). El Django Admin no pasa por
+        ese servicio: crea el objeto directo en BD, bypaseando la validación.
+        Al poner la lógica aquí en clean(), cualquier intento de crear una
+        Devolucion inválida — sea desde el Admin, desde una API, o desde una
+        vista — es bloqueado antes de llegar a la BD.
+
+        IMPORTANTE: No usamos select_for_update() aquí porque clean() puede
+        ejecutarse fuera de una transacción. La protección contra race conditions
+        entre procesos la hace process_refund (Escenario B Fix en services.py).
+        Este clean() protege contra el error humano en Admin.
+        """
+        from django.core.exceptions import ValidationError
+        from django.db.models import Sum
+
+        # Solo validar si el objeto es nuevo (creación, no edición).
+        # Al editar una devolución existente no tiene sentido re-validar el
+        # crédito disponible (ya se consumió cuando se creó).
+        if self.pk:
+            return
+
+        if self.monto is None or self.monto <= 0:
+            raise ValidationError({'monto': 'El monto de devolución debe ser mayor a cero.'})
+
+        # ── Devolución de crédito general (sin proyecto ni mensualidad) ────────
+        if not self.proyecto_id and not self.mensualidad_id:
+            # Calcular crédito disponible en tiempo real desde las fuentes
+            # (no desde el campo calculado pagos_adelantados que puede estar stale)
+            from facturacion.models import Pago, Devolucion as Dev, DetallePagoMasivo
+
+            pagos_sin_asignar = (
+                Pago.objects
+                .filter(
+                    paciente=self.paciente,
+                    sesion__isnull=True,
+                    mensualidad__isnull=True,
+                    proyecto__isnull=True,
+                    anulado=False,
+                )
+                .exclude(metodo_pago__nombre="Uso de Crédito")
+                .exclude(detalles_masivos__isnull=False)
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            uso_credito = (
+                Pago.objects
+                .filter(
+                    paciente=self.paciente,
+                    metodo_pago__nombre="Uso de Crédito",
+                    anulado=False,
+                )
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            # Devoluciones de crédito ya existentes (excluye la actual que aún no existe)
+            devoluciones_credito_previas = (
+                Dev.objects
+                .filter(
+                    paciente=self.paciente,
+                    proyecto__isnull=True,
+                    mensualidad__isnull=True,
+                )
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            credito_real = pagos_sin_asignar - uso_credito - devoluciones_credito_previas
+
+            if self.monto > credito_real:
+                raise ValidationError({
+                    'monto': (
+                        f'Crédito insuficiente. '
+                        f'Crédito real disponible: Bs.{credito_real} '
+                        f'(Adelantado: Bs.{pagos_sin_asignar} '
+                        f'- Usado: Bs.{uso_credito} '
+                        f'- Devuelto previamente: Bs.{devoluciones_credito_previas}). '
+                        f'No se puede devolver Bs.{self.monto}.'
+                    )
+                })
+
+        # ── Devolución de proyecto ─────────────────────────────────────────────
+        elif self.proyecto_id:
+            from facturacion.models import Pago, Devolucion as Dev
+
+            total_pagado_proyecto = (
+                Pago.objects
+                .filter(proyecto_id=self.proyecto_id, anulado=False)
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            devoluciones_previas_proyecto = (
+                Dev.objects
+                .filter(proyecto_id=self.proyecto_id)
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            disponible = total_pagado_proyecto - devoluciones_previas_proyecto
+
+            if self.monto > disponible:
+                raise ValidationError({
+                    'monto': (
+                        f'No se puede devolver Bs.{self.monto} del proyecto. '
+                        f'Disponible: Bs.{disponible} '
+                        f'(Pagado: Bs.{total_pagado_proyecto} '
+                        f'- Ya devuelto: Bs.{devoluciones_previas_proyecto}).'
+                    )
+                })
+
+        # ── Devolución de mensualidad ──────────────────────────────────────────
+        elif self.mensualidad_id:
+            from facturacion.models import Pago, Devolucion as Dev
+
+            total_pagado_mensualidad = (
+                Pago.objects
+                .filter(mensualidad_id=self.mensualidad_id, anulado=False)
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            devoluciones_previas_mensualidad = (
+                Dev.objects
+                .filter(mensualidad_id=self.mensualidad_id)
+                .aggregate(total=Sum('monto'))['total']
+            ) or Decimal('0')
+
+            disponible = total_pagado_mensualidad - devoluciones_previas_mensualidad
+
+            if self.monto > disponible:
+                raise ValidationError({
+                    'monto': (
+                        f'No se puede devolver Bs.{self.monto} de la mensualidad. '
+                        f'Disponible: Bs.{disponible} '
+                        f'(Pagado: Bs.{total_pagado_mensualidad} '
+                        f'- Ya devuelto: Bs.{devoluciones_previas_mensualidad}).'
+                    )
+                })
+
     def save(self, *args, **kwargs):
-        """Genera número de devolución automáticamente"""
+        """
+        Genera número de devolución automáticamente.
+
+        BUG 4 FIX: El ordenamiento usa Cast numérico en lugar de
+        orden alfabético sobre el CharField, lo que evita que
+        'DEV-9999' > 'DEV-10000' rompa la secuencia al superar 9.999 registros.
+        """
         if not self.numero_devolucion:
-            # ✅ Formato simple: DEV-NNNN
-            ultima_dev = Devolucion.objects.filter(
-                numero_devolucion__startswith='DEV-'
-            ).order_by('-numero_devolucion').first()
-        
-            if ultima_dev:
-                ultimo_numero = int(ultima_dev.numero_devolucion.split('-')[-1])
-                nuevo_numero = ultimo_numero + 1
-            else:
-                nuevo_numero = 1
-        
-            self.numero_devolucion = f'DEV-{nuevo_numero:04d}'
-    
+            from django.db import transaction
+            from django.db.models.functions import Cast, Substr
+            from django.db.models import IntegerField
+
+            prefijo = 'DEV'
+
+            with transaction.atomic():
+                # BUG 4 FIX: ordenar por el número entero extraído del sufijo,
+                # no alfabéticamente por el CharField completo.
+                ultima_dev = (
+                    Devolucion.objects
+                    .filter(numero_devolucion__startswith=f'{prefijo}-')
+                    .select_for_update()
+                    .annotate(
+                        num=Cast(
+                            Substr('numero_devolucion', len(prefijo) + 2),  # +2 por el guion
+                            output_field=IntegerField()
+                        )
+                    )
+                    .order_by('-num')
+                    .first()
+                )
+
+                if ultima_dev:
+                    nuevo_numero = ultima_dev.num + 1
+                else:
+                    nuevo_numero = 1
+
+                self.numero_devolucion = f'{prefijo}-{nuevo_numero:04d}'
+                super().save(*args, **kwargs)
+            return  # ya se guardó dentro del bloque atomic
+
         super().save(*args, **kwargs)
 
 class Factura(models.Model):
@@ -893,9 +1157,9 @@ class Factura(models.Model):
     nit_ci = models.CharField(max_length=20)
 
     # Totales
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
-    descuento = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    total = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=0)
+    descuento = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    total = models.DecimalField(max_digits=10, decimal_places=0)
 
     # Estado
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='borrador')

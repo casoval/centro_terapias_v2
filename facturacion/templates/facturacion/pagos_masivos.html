@@ -22,7 +22,7 @@
                 <option value="">Seleccionar paciente con deuda...</option>
                 {% for p in pacientes_con_deuda %}
                 <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
-                    {{ p.nombre_completo }} - DEBE: Bs. {{ p.deuda_total_display|floatformat:2 }}
+                    {{ p.nombre_completo }} - DEBE: Bs. {{ p.deuda_total_display|floatformat:0 }}
                 </option>
                 {% endfor %}
             </select>
@@ -45,7 +45,7 @@
             </div>
             <div class="text-right">
                 <p class="text-[10px] text-red-600 font-bold uppercase">Deudas Pendientes</p>
-                <p class="text-xl font-black text-red-700">Bs. {{ paciente.deuda_total_display|floatformat:2 }}</p>
+                <p class="text-xl font-black text-red-700">Bs. {{ paciente.deuda_total_display|floatformat:0 }}</p>
                 
                 <!-- ✅ Información adicional -->
                 <div class="mt-2 text-[10px] text-gray-600 space-y-0.5">
@@ -56,7 +56,7 @@
                 
                 {% if paciente.cuenta_corriente.pagos_adelantados > 0 %}
                 <p class="text-[10px] text-green-600 mt-2 pt-2 border-t border-blue-300">
-                    💰 Crédito disponible: Bs. {{ paciente.cuenta_corriente.pagos_adelantados|floatformat:2 }}
+                    💰 Crédito disponible: Bs. {{ paciente.cuenta_corriente.pagos_adelantados|floatformat:0 }}
                 </p>
                 {% endif %}
             </div>
@@ -153,10 +153,10 @@
                                 {{ proyecto.profesional_responsable.nombre }} {{ proyecto.profesional_responsable.apellido }}
                             </td>
                             <td class="px-2 py-1.5 text-right text-gray-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ proyecto.costo_total|floatformat:2 }}
+                                Bs. {{ proyecto.costo_total|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right text-green-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ proyecto.total_pagado_calc|floatformat:2 }}
+                                Bs. {{ proyecto.total_pagado_calc|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
@@ -171,7 +171,7 @@
                                     
                                     <!-- Monto Pendiente -->
                                     <span class="monto-pendiente-proyecto-{{ proyecto.id }} font-bold text-red-600 text-xs">
-                                        Bs. {{ proyecto.saldo_pendiente_calc|floatformat:2 }}
+                                        Bs. {{ proyecto.saldo_pendiente_calc|floatformat:0 }}
                                     </span>
                                     
                                     <!-- Input Personalizado -->
@@ -182,8 +182,13 @@
                                         name="monto_personalizado_proyecto_{{ proyecto.id }}"
                                         data-item-tipo="proyecto"
                                         data-item-id="{{ proyecto.id }}"
+                                        inputmode="numeric"
+                                        pattern="[0-9]*"
                                         class="input-personalizado-proyecto-{{ proyecto.id }} hidden w-20 px-1.5 py-0.5 text-xs border rounded text-right input-personalizado"
                                         placeholder="0"
+                                        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                                        onkeydown="return soloEnteros(event)"
+                                        onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'');},0)"
                                         onchange="actualizarMontoItem('proyecto', {{ proyecto.id }})">
                                 </div>
                             </td>
@@ -242,10 +247,10 @@
                                 {% endfor %}
                             </td>
                             <td class="px-2 py-1.5 text-right text-gray-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ mensualidad.costo_mensual|floatformat:2 }}
+                                Bs. {{ mensualidad.costo_mensual|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right text-green-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ mensualidad.total_pagado_calc|floatformat:2 }}
+                                Bs. {{ mensualidad.total_pagado_calc|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
@@ -260,7 +265,7 @@
 
                                     <!-- Monto Pendiente -->
                                     <span class="monto-pendiente-mensualidad-{{ mensualidad.id }} font-bold text-red-600 text-xs">
-                                        Bs. {{ mensualidad.saldo_pendiente_calc|floatformat:2 }}
+                                        Bs. {{ mensualidad.saldo_pendiente_calc|floatformat:0 }}
                                     </span>
 
                                     <!-- Input Personalizado -->
@@ -271,8 +276,13 @@
                                         name="monto_personalizado_mensualidad_{{ mensualidad.id }}"
                                         data-item-tipo="mensualidad"
                                         data-item-id="{{ mensualidad.id }}"
+                                        inputmode="numeric"
+                                        pattern="[0-9]*"
                                         class="input-personalizado-mensualidad-{{ mensualidad.id }} hidden w-20 px-1.5 py-0.5 text-xs border rounded text-right input-personalizado"
                                         placeholder="0"
+                                        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                                        onkeydown="return soloEnteros(event)"
+                                        onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'');},0)"
                                         onchange="actualizarMontoItem('mensualidad', {{ mensualidad.id }})">
                                 </div>
                             </td>
@@ -325,10 +335,10 @@
                                 {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
                             </td>
                             <td class="px-2 py-1.5 text-right text-gray-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ sesion.monto_cobrado|floatformat:2 }}
+                                Bs. {{ sesion.monto_cobrado|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right text-green-600 text-[11px] hidden sm:table-cell">
-                                Bs. {{ sesion.total_pagado|floatformat:2 }}
+                                Bs. {{ sesion.total_pagado|floatformat:0 }}
                             </td>
                             <td class="px-2 py-1.5 text-right">
                                 <div class="flex items-center justify-end gap-1.5">
@@ -343,7 +353,7 @@
                                     
                                     <!-- Monto Pendiente -->
                                     <span class="monto-pendiente-sesion-{{ sesion.id }} font-bold text-red-600 text-xs">
-                                        Bs. {{ sesion.saldo_pendiente_calc|floatformat:2 }}
+                                        Bs. {{ sesion.saldo_pendiente_calc|floatformat:0 }}
                                     </span>
                                     
                                     <!-- Input Personalizado -->
@@ -354,8 +364,13 @@
                                         name="monto_personalizado_sesion_{{ sesion.id }}"
                                         data-item-tipo="sesion"
                                         data-item-id="{{ sesion.id }}"
+                                        inputmode="numeric"
+                                        pattern="[0-9]*"
                                         class="input-personalizado-sesion-{{ sesion.id }} hidden w-20 px-1.5 py-0.5 text-xs border rounded text-right input-personalizado"
                                         placeholder="0"
+                                        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                                        onkeydown="return soloEnteros(event)"
+                                        onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'');},0)"
                                         onchange="actualizarMontoItem('sesion', {{ sesion.id }})">
                                 </div>
                             </td>
@@ -368,7 +383,7 @@
                                 Total Seleccionado:
                             </td>
                             <td class="px-2 py-2 text-right">
-                                <span id="total-display" class="text-base font-black text-blue-700">Bs. 0.00</span>
+                                <span id="total-display" class="text-base font-black text-blue-700">Bs. 0</span>
                             </td>
                         </tr>
                     </tfoot>
@@ -435,6 +450,14 @@
 </div>
 
 <script>
+// ✅ VALIDACIÓN: Solo permite teclas de números enteros (sin decimales)
+function soloEnteros(e) {
+    const permitidas = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+    if (permitidas.includes(e.key)) return true;
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) return true;
+    return false;
+}
+
 // Objeto para almacenar montos personalizados
 let montosPersonalizados = {
     sesion: {},
@@ -510,7 +533,7 @@ function calcularTotal() {
         }
     });
     
-    document.getElementById('total-display').textContent = 'Bs. ' + totalSeleccionado.toFixed(2);
+    document.getElementById('total-display').textContent = 'Bs. ' + Math.round(totalSeleccionado);
     
     // Habilitar/deshabilitar botón
     const btn = document.getElementById('btn-submit');

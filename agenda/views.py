@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
 from calendar import monthrange, Calendar
 from decimal import Decimal
+from itertools import groupby
 
 from agenda.models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad
 from pacientes.models import Paciente, PacienteServicio
@@ -2386,21 +2387,34 @@ def editar_sesion(request, sesion_id):
                     'mensaje': f'❌ Estado inválido: {estado_nuevo}'
                 }, status=400)
             
-            # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos (SOLO para NO profesionales)
-            if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+            # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos
+            if puede_editar and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                 pagos_activos = sesion.pagos.filter(anulado=False)
                 
                 if pagos_activos.exists():
                     # ✅ AJAX: Devolver JSON indicando que necesita confirmación
-                    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                    pagos_activos_list = pagos_activos.select_related('metodo_pago')
+                    total_pagado = pagos_activos_list.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                    
+                    pagos_data = [
+                        {
+                            'numero_recibo': p.numero_recibo,
+                            'concepto': p.concepto[:40],
+                            'fecha': p.fecha_pago.strftime('%d/%m/%Y'),
+                            'metodo': p.metodo_pago.nombre,
+                            'monto': str(p.monto),
+                        }
+                        for p in pagos_activos_list
+                    ]
                     
                     return JsonResponse({
                         'requiere_confirmacion': True,
                         'sesion_id': sesion.id,
                         'estado_nuevo': estado_nuevo,
-                        'total_pagado': float(total_pagado),
-                        'cantidad_pagos': pagos_activos.count(),
-                        'mensaje': f'Esta sesión tiene {pagos_activos.count()} pago(s) registrado(s) por Bs. {total_pagado}'
+                        'pagos': pagos_data,
+                        'total_pagado': str(total_pagado),
+                        'cantidad_pagos': len(pagos_data),
+                        'mensaje': f'Esta sesión tiene {len(pagos_data)} pago(s) registrado(s) por Bs. {total_pagado}'
                     })
             
             # ✅ USAR TRANSACCIÓN para garantizar atomicidad
@@ -2479,7 +2493,8 @@ def editar_sesion(request, sesion_id):
                     # ✅ CRÍTICO: Guardar SIN validación de choques (solo cambio de estado)
                     # Usamos update_fields para evitar full_clean()
                     campos_actualizar = [
-                        'estado', 'monto_cobrado', 'observaciones', 'notas_sesion',
+                        'estado', 'monto_cobrado', 'monto_previo_exencion',
+                        'observaciones', 'notas_sesion',
                         'modificada_por', 'fecha_modificacion'
                     ]
                     
@@ -2555,120 +2570,6 @@ def editar_sesion(request, sesion_id):
         'es_admin': es_admin,
     })
 
-
-@login_required
-def modal_confirmar_cambio_estado(request, sesion_id):
-    """
-    API: Generar contenido del modal de confirmación (HTMX)
-    Esta vista devuelve SOLO el HTML del modal, no una página completa
-    """
-    sesion = get_object_or_404(Sesion, id=sesion_id)
-    estado_nuevo = request.GET.get('estado')
-    
-    pagos_activos = sesion.pagos.filter(anulado=False)
-    total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
-    
-    return render(request, 'agenda/partials/modal_confirmar_cambio.html', {
-        'sesion': sesion,
-        'estado_nuevo': estado_nuevo,
-        'pagos': pagos_activos,
-        'total_pagado': total_pagado
-    })
-
-@login_required
-def procesar_cambio_estado(request, sesion_id):
-    """
-    Procesar cambio de estado con manejo de pagos
-    🆕 NUEVO: Gestiona conversión a crédito, anulación, o transferencia
-    """
-    
-    if request.method != 'POST':
-        return redirect('agenda:calendario')
-    
-    sesion = get_object_or_404(Sesion, id=sesion_id)
-    
-    try:
-        from django.db import transaction
-        
-        estado_nuevo = request.POST.get('estado_nuevo')
-        accion_pago = request.POST.get('accion_pago')
-        observaciones_cambio = request.POST.get('observaciones_cambio', '')
-        
-        with transaction.atomic():
-            # Obtener pagos activos
-            pagos_activos = sesion.pagos.filter(anulado=False)
-            
-            # ACCIÓN 1: CONVERTIR A CRÉDITO (A FAVOR)
-            if accion_pago == 'convertir_credito':
-                for pago in pagos_activos:
-                    # Desvincular de la sesión
-                    pago.sesion = None
-                    
-                    # Actualizar concepto
-                    pago.concepto = f"Crédito por sesión {sesion.fecha} ({estado_nuevo})"
-                    
-                    # Agregar observación
-                    if observaciones_cambio:
-                        pago.observaciones += f"\n\n[Sistema] {observaciones_cambio}"
-                    pago.observaciones += f"\n[Sistema] Convertido a crédito el {date.today()} - Sesión cambió a {estado_nuevo}"
-                    
-                    pago.save()
-                
-                messages.success(
-                    request, 
-                    f'✅ Estado cambiado a "{estado_nuevo}". '
-                    f'Bs. {pagos_activos.aggregate(Sum("monto"))["monto__sum"]} convertidos a saldo a favor'
-                )
-            
-            # ACCIÓN 2: ANULAR PAGO
-            elif accion_pago == 'anular_pago':
-                motivo_anulacion = request.POST.get('motivo_anulacion', '').strip()
-                
-                if not motivo_anulacion:
-                    messages.error(request, '❌ Debe especificar un motivo de anulación')
-                    return redirect('agenda:calendario')
-                
-                for pago in pagos_activos:
-                    pago.anular(
-                        user=request.user,
-                        motivo=f"Sesión cambió a {estado_nuevo}. {motivo_anulacion}"
-                    )
-                
-                messages.warning(
-                    request,
-                    f'⚠️ Estado cambiado a "{estado_nuevo}". '
-                    f'{pagos_activos.count()} pago(s) anulado(s). DEBE devolver el dinero al paciente.'
-                )
-            
-            # ACCIÓN 3: TRANSFERIR (SOLO REPROGRAMADA)
-            elif accion_pago == 'transferir_pago':
-                # Los pagos quedan vinculados a la sesión
-                # Cuando se cree la nueva sesión, se pueden transferir manualmente
-                
-                # Agregar nota
-                sesion.observaciones += f"\n[Sistema] Pagos pendientes de transferir a nueva sesión"
-                
-                messages.info(
-                    request,
-                    f'ℹ️ Estado cambiado a "Reprogramada". '
-                    f'Los pagos quedarán disponibles para transferir a la nueva sesión.'
-                )
-            
-            # ✅ CRÍTICO: Cambiar estado de la sesión
-            sesion.estado = estado_nuevo
-            sesion.monto_cobrado = Decimal('0.00')
-            
-            if observaciones_cambio:
-                sesion.observaciones += f"\n\n{observaciones_cambio}"
-            
-            sesion.modificada_por = request.user
-            sesion.save()
-                    
-        return redirect('agenda:calendario')
-        
-    except Exception as e:
-        messages.error(request, f'❌ Error: {str(e)}')
-        return redirect('agenda:calendario')
 
 def _calcular_estadisticas_mes(sesion):
     """Calcular estadísticas del mes para el paciente"""
@@ -3331,3 +3232,353 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
         print(traceback.format_exc())  # Para debugging
         messages.error(request, f'❌ Error al crear sesiones: {str(e)}')
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad.id)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CAMBIO DE ESTADO CON PAGOS REGISTRADOS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ESTADOS_SIN_COBRO = ['permiso', 'cancelada', 'reprogramada']
+
+
+@login_required
+def modal_confirmar_cambio_estado(request, sesion_id):
+    """
+    Consulta AJAX: ¿tiene pagos esta sesión antes de cambiar a un estado sin cobro?
+    GET  ?estado_nuevo=permiso              → JSON  { requiere_confirmacion: true/false }
+    GET  ?estado_nuevo=permiso&formato=html → HTML  del partial con los datos del modal
+    """
+    from facturacion.models import Pago
+
+    sesion = get_object_or_404(Sesion, id=sesion_id)
+    estado_nuevo = request.GET.get('estado_nuevo', '')
+
+    if estado_nuevo not in ESTADOS_SIN_COBRO:
+        return JsonResponse({'requiere_confirmacion': False})
+
+    pagos = Pago.objects.filter(
+        sesion=sesion,
+        anulado=False
+    ).select_related('metodo_pago').exclude(metodo_pago__nombre='Uso de Crédito')
+
+    if not pagos.exists():
+        return JsonResponse({'requiere_confirmacion': False})
+
+    total_pagado = sum(p.monto for p in pagos)
+
+    # El JS del editar_form.html necesita los datos como JSON para construir el modal
+    pagos_data = [
+        {
+            'numero_recibo': p.numero_recibo,
+            'concepto': p.concepto[:40],
+            'fecha': p.fecha_pago.strftime('%d/%m/%Y'),
+            'metodo': p.metodo_pago.nombre,
+            'monto': str(p.monto),
+        }
+        for p in pagos
+    ]
+
+    return JsonResponse({
+        'requiere_confirmacion': True,
+        'estado_nuevo': estado_nuevo,
+        'pagos': pagos_data,
+        'total_pagado': str(total_pagado),
+        'cantidad_pagos': len(pagos_data),
+    })
+
+
+@login_required
+def procesar_cambio_estado(request, sesion_id):
+    """
+    POST: Procesa el cambio de estado de una sesión que tiene pagos registrados.
+
+    Campos POST:
+        estado_nuevo         → 'permiso' | 'cancelada' | 'reprogramada'
+        accion_pago          → 'convertir_credito' | 'anular_pago'
+        motivo_anulacion     → texto (requerido si accion_pago == 'anular_pago')
+        observaciones_cambio → texto opcional
+    """
+    from django.db import transaction
+    from facturacion.models import Pago
+    from facturacion.services import AccountService
+
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    sesion = get_object_or_404(Sesion, id=sesion_id)
+
+    estado_nuevo         = request.POST.get('estado_nuevo', '').strip()
+    accion_pago          = request.POST.get('accion_pago', '').strip()
+    motivo_anulacion     = request.POST.get('motivo_anulacion', '').strip()
+    observaciones_cambio = request.POST.get('observaciones_cambio', '').strip()
+
+    # ── Validaciones ──────────────────────────────────────────────────────────
+    if estado_nuevo not in ESTADOS_SIN_COBRO:
+        return JsonResponse({'success': False, 'error': f"Estado '{estado_nuevo}' no requiere confirmación de pagos."}, status=400)
+
+    if accion_pago not in ['convertir_credito', 'anular_pago']:
+        return JsonResponse({'success': False, 'error': 'Debes elegir qué hacer con el dinero pagado.'}, status=400)
+
+    if accion_pago == 'anular_pago' and not motivo_anulacion:
+        return JsonResponse({'success': False, 'error': 'El motivo de anulación es obligatorio.'}, status=400)
+
+    # ── Obtener pagos activos de la sesión ────────────────────────────────────
+    pagos_sesion = Pago.objects.filter(
+        sesion=sesion,
+        anulado=False
+    ).select_related('metodo_pago', 'paciente')
+
+    try:
+        with transaction.atomic():
+
+            # ── Cambiar estado de la sesión ───────────────────────────────────
+            estado_anterior = sesion.estado
+            sesion.estado = estado_nuevo
+            if observaciones_cambio:
+                obs_previas = getattr(sesion, 'observaciones', '') or ''
+                sesion.observaciones = (obs_previas + '\n' + observaciones_cambio).strip() if obs_previas else observaciones_cambio
+            sesion.save()
+
+            # ── Procesar pagos ────────────────────────────────────────────────
+            monto_total = Decimal('0.00')
+            for pago in pagos_sesion:
+                monto_total += pago.monto
+
+                if accion_pago == 'convertir_credito':
+                    # Desvincular de la sesión → queda como pago adelantado (crédito)
+                    pago.sesion = None
+                    pago.concepto = (
+                        f"Crédito por cambio de estado - sesión {sesion.fecha} "
+                        f"({estado_anterior} → {estado_nuevo})"
+                    )
+                    if observaciones_cambio:
+                        pago.observaciones = (
+                            (pago.observaciones + '\n' if pago.observaciones else '') +
+                            f"Cambio de estado: {observaciones_cambio}"
+                        )
+                    pago.save(update_fields=['sesion', 'concepto', 'observaciones'])
+
+                elif accion_pago == 'anular_pago':
+                    pago.anular(
+                        usuario=request.user,
+                        motivo=(
+                            f"Cambio de estado sesión {sesion.fecha} "
+                            f"({estado_anterior} → {estado_nuevo}). "
+                            f"Motivo: {motivo_anulacion}"
+                        )
+                    )
+
+            # ── Recalcular cuenta corriente ───────────────────────────────────
+            AccountService.update_balance(sesion.paciente)
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    # ── Respuesta de éxito ────────────────────────────────────────────────────
+    if accion_pago == 'convertir_credito':
+        mensaje = (
+            f"Estado cambiado a '{estado_nuevo}'. "
+            f"Bs. {monto_total} convertidos en crédito disponible para el paciente."
+        )
+    else:
+        mensaje = (
+            f"Estado cambiado a '{estado_nuevo}'. "
+            f"Pago(s) anulados. Recuerda devolver Bs. {monto_total} al paciente."
+        )
+
+    return JsonResponse({'success': True, 'message': mensaje})
+
+@login_required
+def informe_evolucion(request, paciente_id):
+    """
+    Vista del formulario de filtros y previsualización del informe de evolución.
+    GET  → muestra el formulario con los filtros
+    POST → aplica filtros, agrupa por profesional → servicio y muestra en pantalla
+    """
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    # Profesionales que han atendido a este paciente
+    profesionales = Profesional.objects.filter(
+        sesiones__paciente=paciente
+    ).distinct().order_by('nombre', 'apellido')
+
+    # Servicios que ha recibido este paciente
+    servicios = TipoServicio.objects.filter(
+        sesiones__paciente=paciente
+    ).distinct().order_by('nombre')
+
+    ESTADOS = [
+        ('programada',        'Programada'),
+        ('realizada',         'Realizada'),
+        ('realizada_retraso', 'Realizada con Retraso'),
+        ('falta',             'Falta sin Aviso'),
+        ('permiso',           'Permiso (con aviso)'),
+        ('cancelada',         'Cancelada'),
+        ('reprogramada',      'Reprogramada'),
+    ]
+
+    grupos = None
+    filtros = {}
+    total_sesiones = 0
+
+    if request.method == 'POST':
+        profesional_id  = request.POST.get('profesional', '').strip()
+        servicio_id     = request.POST.get('servicio', '').strip()
+        fecha_desde_str = request.POST.get('fecha_desde', '').strip()
+        fecha_hasta_str = request.POST.get('fecha_hasta', '').strip()
+        estados_sel     = request.POST.getlist('estados')
+
+        filtros = {
+            'profesional_id': profesional_id,
+            'servicio_id':    servicio_id,
+            'fecha_desde':    fecha_desde_str,
+            'fecha_hasta':    fecha_hasta_str,
+            'estados':        estados_sel,
+        }
+
+        qs = Sesion.objects.filter(paciente=paciente).select_related(
+            'profesional', 'servicio', 'sucursal'
+        )
+
+        if profesional_id:
+            qs = qs.filter(profesional_id=profesional_id)
+
+        if servicio_id:
+            qs = qs.filter(servicio_id=servicio_id)
+
+        if fecha_desde_str:
+            try:
+                fd = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                qs = qs.filter(fecha__gte=fd)
+                filtros['fecha_desde_obj'] = fd
+            except ValueError:
+                pass
+
+        if fecha_hasta_str:
+            try:
+                fh = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                qs = qs.filter(fecha__lte=fh)
+                filtros['fecha_hasta_obj'] = fh
+            except ValueError:
+                pass
+
+        if estados_sel:
+            qs = qs.filter(estado__in=estados_sel)
+
+        # Ordenar: profesional → servicio → fecha → hora
+        qs = qs.order_by(
+            'profesional__nombre', 'profesional__apellido',
+            'servicio__nombre',
+            'fecha', 'hora_inicio'
+        )
+
+        # Agrupar en Python: profesional → servicio → sesiones
+        grupos = []
+        for prof, sesiones_prof in groupby(qs, key=lambda s: s.profesional):
+            subgrupos = []
+            for serv, sesiones_serv in groupby(sesiones_prof, key=lambda s: s.servicio):
+                lista = list(sesiones_serv)
+                total_sesiones += len(lista)
+                subgrupos.append({
+                    'servicio': serv,
+                    'sesiones': lista,
+                })
+            grupos.append({
+                'profesional': prof,
+                'subgrupos':   subgrupos,
+            })
+
+    return render(request, 'agenda/informe_evolucion.html', {
+        'paciente':       paciente,
+        'profesionales':  profesionales,
+        'servicios':      servicios,
+        'estados':        ESTADOS,
+        'grupos':         grupos,
+        'filtros':        filtros,
+        'total_sesiones': total_sesiones,
+    })
+
+
+@login_required
+def generar_pdf_informe_evolucion(request, paciente_id):
+    """
+    Genera y descarga el PDF del informe de evolución según los parámetros GET.
+    """
+    from agenda.informe_evolucion_pdf import generar_informe_evolucion_pdf
+
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    profesional_id  = request.GET.get('profesional', '').strip()
+    servicio_id     = request.GET.get('servicio', '').strip()
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+    estados_sel     = request.GET.getlist('estados')
+
+    qs = Sesion.objects.filter(paciente=paciente).select_related(
+        'profesional', 'servicio', 'sucursal'
+    )
+
+    profesional_nombre = "Todos los profesionales"
+    servicio_nombre    = "Todos los servicios"
+    fecha_desde = None
+    fecha_hasta = None
+
+    if profesional_id:
+        qs = qs.filter(profesional_id=profesional_id)
+        try:
+            prof = Profesional.objects.get(pk=profesional_id)
+            profesional_nombre = f"{prof.nombre} {prof.apellido}"
+        except Profesional.DoesNotExist:
+            pass
+
+    if servicio_id:
+        qs = qs.filter(servicio_id=servicio_id)
+        try:
+            from servicios.models import TipoServicio
+            srv = TipoServicio.objects.get(pk=servicio_id)
+            servicio_nombre = srv.nombre
+        except TipoServicio.DoesNotExist:
+            pass
+
+    if fecha_desde_str:
+        try:
+            fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            qs = qs.filter(fecha__gte=fecha_desde)
+        except ValueError:
+            pass
+
+    if fecha_hasta_str:
+        try:
+            fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            qs = qs.filter(fecha__lte=fecha_hasta)
+        except ValueError:
+            pass
+
+    if estados_sel:
+        qs = qs.filter(estado__in=estados_sel)
+
+    qs = qs.order_by(
+        'profesional__nombre', 'profesional__apellido',
+        'servicio__nombre',
+        'fecha', 'hora_inicio'
+    )
+
+    buffer = generar_informe_evolucion_pdf(
+        paciente=paciente,
+        sesiones=qs,
+        profesional_nombre=profesional_nombre,
+        servicio_nombre=servicio_nombre,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        estados_filtro=estados_sel,
+    )
+
+    nombre_archivo = (
+        f"informe_evolucion_{paciente.apellido}_{paciente.nombre}_"
+        f"{date.today().strftime('%Y%m%d')}.pdf"
+    ).replace(' ', '_')
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
+    return response
