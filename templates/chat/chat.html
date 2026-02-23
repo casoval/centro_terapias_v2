@@ -287,7 +287,17 @@
                 {% endif %}
             </div>
 
-            <!-- Botón temas -->
+            <!-- Botón voz automática (solo IA) -->
+                {% if es_chat_ia %}
+                <button id="btn-toggle-voz"
+                        onclick="toggleVozAutomatica()"
+                        title="Activar/desactivar respuesta en voz"
+                        class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2 text-lg">
+                    🔇
+                </button>
+                {% endif %}
+
+                <!-- Botón temas -->
             <button onclick="mostrarSelectorTema()"
                     class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2">
                 <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}"
@@ -486,6 +496,7 @@ let ultimoMensajeId = {% if mensajes %}{{ mensajes.last.id }}{% else %}0{% endif
 let pollingTimer    = null;
 let estaEscuchando  = false;
 let reconocimiento  = null;
+let vozActivada     = false;  // 🔊 Auto-TTS: desactivado por defecto
 const sintesis      = window.speechSynthesis;
 
 const formEnviar   = document.getElementById('form-enviar-mensaje');
@@ -543,9 +554,8 @@ function agregarMensaje(msg, esMio) {
     contenedor.appendChild(div);
     scrollToBottom();
 
-    // Auto-TTS para respuestas IA si el modo voz está activo
-    if (esIA && document.getElementById('btn-stop-tts') &&
-        document.getElementById('btn-stop-tts').style.display !== 'none') {
+    // Auto-TTS: leer en voz alta si el usuario activó el modo voz
+    if (esIA && vozActivada) {
         leerTexto(msg.contenido);
     }
 }
@@ -649,6 +659,26 @@ function cambiarTema(tema) {
     })
     .then(r => r.json())
     .then(d => { if (d.success) location.reload(); });
+}
+
+// ================================================================
+// TOGGLE VOZ AUTOMÁTICA
+// ================================================================
+function toggleVozAutomatica() {
+    vozActivada = !vozActivada;
+    const btn = document.getElementById('btn-toggle-voz');
+    if (!btn) return;
+
+    if (vozActivada) {
+        btn.textContent = '🔊';
+        btn.title = 'Voz automática activada (clic para desactivar)';
+        btn.classList.add('ring-2', 'ring-white');
+    } else {
+        btn.textContent = '🔇';
+        btn.title = 'Activar respuesta en voz';
+        btn.classList.remove('ring-2', 'ring-white');
+        detenerVoz();
+    }
 }
 
 // ================================================================
