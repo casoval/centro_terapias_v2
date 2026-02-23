@@ -1,28 +1,48 @@
 """
 Agente IA para el sistema de chat.
 Motor: Groq (gratis) con llama-3.3-70b-versatile
-Acceso a BD: via tools/funciones que el agente llama dinámicamente
-✅ MEJORADO: Restricción de tools por rol + system prompts detallados por rol
+
+Modelos reales del proyecto:
+  pacientes.Paciente          → nombre, apellido, nombre_tutor, telefono_tutor,
+                                 fecha_nacimiento, genero, estado, diagnostico,
+                                 sucursales (M2M), user (O2O nullable)
+  profesionales.Profesional   → nombre, apellido, especialidad, telefono, email,
+                                 activo, servicios (M2M), sucursales (M2M), user (FK)
+  servicios.TipoServicio      → nombre, costo_base, precio_mensual, precio_proyecto, activo
+  servicios.Sucursal          → nombre, direccion, activa
+  core.PerfilUsuario          → rol, profesional (O2O), paciente (O2O), sucursales (M2M)
+  agenda.Sesion               → paciente, profesional, fecha, hora_inicio, estado,
+                                 tipo_sesion (FK TipoServicio), monto, sucursal
+  agenda.Proyecto             → paciente, profesional, estado, fecha_inicio, monto_total
+  agenda.Mensualidad          → paciente, profesional, estado, monto
+  facturacion.Pago            → paciente, monto, fecha, metodo_pago, anulado,
+                                 sesion (FK nullable), proyecto (FK nullable),
+                                 mensualidad (FK nullable)
+  facturacion.CuentaCorriente → paciente (O2O), saldo_actual, total_pagado,
+                                 total_consumido_actual, pagos_adelantados,
+                                 saldo_real, total_sesiones_normales_real
+  facturacion.Factura         → paciente, numero_factura, fecha_emision, total,
+                                 estado (borrador/emitida/anulada), razon_social
 """
 
 import json
 import os
 from datetime import datetime, timedelta
-from django.contrib.auth.models import User
-from django.db.models import Q, Sum, Count, Avg
+from django.db.models import Q, Sum, Count
 from django.utils import timezone
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
 
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_API_KEY  = os.environ.get('GROQ_API_KEY', '')
 IA_USER_USERNAME = 'asistente_ia'
-MODELO_GROQ = 'llama-3.3-70b-versatile'
+MODELO_GROQ   = 'llama-3.3-70b-versatile'
 
 
 def get_o_crear_usuario_ia():
     """Obtiene o crea el usuario ficticio que representa al agente IA."""
+    from django.contrib.auth.models import User
     user, _ = User.objects.get_or_create(
         username=IA_USER_USERNAME,
         defaults={
@@ -36,118 +56,163 @@ def get_o_crear_usuario_ia():
 
 
 # ============================================================
-# TOOLS — funciones que el agente puede invocar
+# TOOLS
 # ============================================================
 
 def tool_obtener_pacientes(filtro: str = '', limite: int = 20) -> dict:
     """
-    Busca pacientes en la base de datos.
-    filtro: nombre, apellido o DNI parcial
+    Busca pacientes. Filtra por nombre, apellido o nombre del tutor.
+    Campos reales: nombre, apellido, nombre_tutor, telefono_tutor,
+                   fecha_nacimiento, genero, estado, diagnostico
     """
     try:
         from pacientes.models import Paciente
-        qs = Paciente.objects.select_related('user').all()
+        qs = Paciente.objects.prefetch_related('sucursales')
         if filtro:
             qs = qs.filter(
                 Q(nombre__icontains=filtro) |
                 Q(apellido__icontains=filtro) |
-                Q(dni__icontains=filtro) |
-                Q(user__email__icontains=filtro)
+                Q(nombre_tutor__icontains=filtro)
             )
-        qs = qs[:limite]
         resultado = []
-        for p in qs:
+        for p in qs.order_by('apellido', 'nombre')[:limite]:
+            sucursales = ', '.join(s.nombre for s in p.sucursales.filter(activa=True))
             resultado.append({
-                'id': p.id,
-                'nombre': f'{p.nombre} {p.apellido}',
-                'dni': getattr(p, 'dni', 'N/A'),
-                'email': p.user.email if p.user else 'Sin usuario',
-                'tutor': getattr(p, 'nombre_tutor', 'N/A'),
-                'telefono': getattr(p, 'telefono', 'N/A'),
+                'id':            p.id,
+                'nombre_completo': f'{p.nombre} {p.apellido}',
+                'edad':          p.edad,
+                'genero':        p.get_genero_display(),
+                'estado':        p.estado,
+                'tutor':         p.nombre_tutor,
+                'parentesco':    p.get_parentesco_display(),
+                'telefono_tutor': p.telefono_tutor,
+                'diagnostico':   (p.diagnostico[:120] + '…') if len(p.diagnostico) > 120 else p.diagnostico,
+                'sucursales':    sucursales or 'Sin asignar',
+                'fecha_registro': str(p.fecha_registro.date()) if p.fecha_registro else '',
             })
         return {'pacientes': resultado, 'total': len(resultado)}
     except Exception as e:
         return {'error': str(e)}
 
 
-def tool_obtener_agenda(fecha_inicio: str = '', fecha_fin: str = '',
-                        profesional_id: int = None, paciente_id: int = None) -> dict:
+def tool_obtener_sesiones(
+    fecha_inicio: str = '',
+    fecha_fin: str = '',
+    profesional_id: int = None,
+    paciente_id: int = None,
+    estado: str = '',
+    solo_hoy: bool = False,
+) -> dict:
     """
-    Consulta citas/sesiones en la agenda.
-    Fechas en formato YYYY-MM-DD. Si no se dan, devuelve los próximos 7 días.
+    Consulta sesiones de la agenda.
+    estados: realizada, programada, cancelada, falta, retraso,
+             realizada_retraso, con_retraso
+    Si no se pasan fechas, devuelve los próximos 7 días.
+    solo_hoy=True devuelve solo las sesiones de hoy.
     """
     try:
         from agenda.models import Sesion
-        qs = Sesion.objects.select_related('paciente', 'profesional', 'profesional__user')
+        qs = Sesion.objects.select_related(
+            'paciente', 'profesional', 'tipo_sesion', 'sucursal'
+        )
 
-        if fecha_inicio:
-            qs = qs.filter(fecha__gte=fecha_inicio)
+        hoy = timezone.now().date()
+        if solo_hoy:
+            qs = qs.filter(fecha=hoy)
         else:
-            qs = qs.filter(fecha__gte=timezone.now().date())
-
-        if fecha_fin:
-            qs = qs.filter(fecha__lte=fecha_fin)
-        else:
-            qs = qs.filter(fecha__lte=(timezone.now().date() + timedelta(days=7)))
+            qs = qs.filter(fecha__gte=fecha_inicio if fecha_inicio else hoy)
+            if fecha_fin:
+                qs = qs.filter(fecha__lte=fecha_fin)
+            elif not fecha_inicio:
+                qs = qs.filter(fecha__lte=hoy + timedelta(days=7))
 
         if profesional_id:
             qs = qs.filter(profesional_id=profesional_id)
         if paciente_id:
             qs = qs.filter(paciente_id=paciente_id)
+        if estado:
+            qs = qs.filter(estado=estado)
 
-        qs = qs.order_by('fecha', 'hora')[:50]
+        # Contadores útiles
+        contadores = qs.values('estado').annotate(n=Count('id'))
+        resumen_estados = {r['estado']: r['n'] for r in contadores}
 
         sesiones = []
-        for s in qs:
+        for s in qs.order_by('fecha', 'hora_inicio')[:60]:
+            profesional_nombre = 'Sin asignar'
+            if s.profesional:
+                profesional_nombre = f'{s.profesional.nombre} {s.profesional.apellido}'
             sesiones.append({
-                'id': s.id,
-                'fecha': str(s.fecha),
-                'hora': str(getattr(s, 'hora', '')),
-                'paciente': f'{s.paciente.nombre} {s.paciente.apellido}',
-                'profesional': s.profesional.user.get_full_name() if s.profesional and s.profesional.user else 'N/A',
-                'estado': getattr(s, 'estado', 'N/A'),
-                'servicio': str(getattr(s, 'servicio', 'N/A')),
+                'id':          s.id,
+                'fecha':       str(s.fecha),
+                'hora':        str(getattr(s, 'hora_inicio', '') or ''),
+                'paciente':    f'{s.paciente.nombre} {s.paciente.apellido}',
+                'profesional': profesional_nombre,
+                'estado':      s.estado,
+                'tipo':        str(s.tipo_sesion) if s.tipo_sesion else 'N/A',
+                'monto':       str(getattr(s, 'monto', '0')),
+                'sucursal':    str(s.sucursal) if getattr(s, 'sucursal', None) else 'N/A',
             })
-        return {'sesiones': sesiones, 'total': len(sesiones)}
+
+        return {
+            'sesiones': sesiones,
+            'total': len(sesiones),
+            'resumen_por_estado': resumen_estados,
+        }
     except Exception as e:
         return {'error': str(e)}
 
 
 def tool_obtener_profesionales(filtro: str = '', especialidad: str = '') -> dict:
-    """Busca profesionales por nombre o especialidad."""
+    """
+    Busca profesionales.
+    Campos reales: nombre, apellido, especialidad, telefono, email, activo
+    """
     try:
         from profesionales.models import Profesional
-        qs = Profesional.objects.select_related('user')
+        qs = Profesional.objects.prefetch_related('servicios', 'sucursales').filter(activo=True)
         if filtro:
             qs = qs.filter(
-                Q(user__first_name__icontains=filtro) |
-                Q(user__last_name__icontains=filtro)
+                Q(nombre__icontains=filtro) |
+                Q(apellido__icontains=filtro)
             )
         if especialidad:
             qs = qs.filter(especialidad__icontains=especialidad)
 
         resultado = []
-        for p in qs[:30]:
+        for p in qs.order_by('nombre', 'apellido')[:30]:
+            servicios   = ', '.join(s.nombre for s in p.servicios.filter(activo=True))
+            sucursales  = ', '.join(s.nombre for s in p.sucursales.filter(activa=True))
             resultado.append({
-                'id': p.id,
-                'nombre': p.user.get_full_name() if p.user else 'N/A',
+                'id':          p.id,
+                'nombre':      f'{p.nombre} {p.apellido}',
                 'especialidad': getattr(p, 'especialidad', 'N/A'),
-                'email': p.user.email if p.user else 'N/A',
-                'telefono': getattr(p, 'telefono', 'N/A'),
+                'telefono':    getattr(p, 'telefono', 'N/A'),
+                'email':       getattr(p, 'email', 'N/A'),
+                'servicios':   servicios or 'Sin servicios',
+                'sucursales':  sucursales or 'Sin sucursales',
+                'activo':      p.activo,
             })
         return {'profesionales': resultado, 'total': len(resultado)}
     except Exception as e:
         return {'error': str(e)}
 
 
-def tool_obtener_facturacion(fecha_inicio: str = '', fecha_fin: str = '',
-                              paciente_id: int = None) -> dict:
+def tool_obtener_pagos(
+    fecha_inicio: str = '',
+    fecha_fin: str = '',
+    paciente_id: int = None,
+    limite: int = 30,
+) -> dict:
     """
-    Consulta facturas/pagos. Devuelve resumen financiero.
+    Consulta pagos no anulados.
+    Campos reales: paciente, monto, fecha, metodo_pago, anulado
     """
     try:
-        from facturacion.models import Factura
-        qs = Factura.objects.all()
+        from facturacion.models import Pago
+        qs = Pago.objects.select_related(
+            'paciente', 'metodo_pago'
+        ).filter(anulado=False)
 
         if fecha_inicio:
             qs = qs.filter(fecha__gte=fecha_inicio)
@@ -156,108 +221,313 @@ def tool_obtener_facturacion(fecha_inicio: str = '', fecha_fin: str = '',
         if paciente_id:
             qs = qs.filter(paciente_id=paciente_id)
 
-        totales = qs.aggregate(
-            total=Sum('monto'),
+        totales = qs.aggregate(total=Sum('monto'), cantidad=Count('id'))
+
+        pagos = []
+        for p in qs.order_by('-fecha')[:limite]:
+            pagos.append({
+                'id':       p.id,
+                'fecha':    str(p.fecha),
+                'paciente': f'{p.paciente.nombre} {p.paciente.apellido}',
+                'monto':    str(p.monto),
+                'metodo':   str(p.metodo_pago) if p.metodo_pago else 'N/A',
+            })
+
+        return {
+            'pagos': pagos,
+            'resumen': {
+                'total_cobrado': str(totales['total'] or 0),
+                'cantidad_pagos': totales['cantidad'],
+            },
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def tool_obtener_cuentas_corrientes(
+    filtro: str = '',
+    estado_saldo: str = '',
+) -> dict:
+    """
+    Consulta saldos de cuentas corrientes.
+    estado_saldo: deudor (saldo < 0) | al_dia (= 0) | a_favor (> 0)
+    Campos reales: saldo_actual, total_pagado, total_consumido_actual,
+                   pagos_adelantados, saldo_real
+    """
+    try:
+        from facturacion.models import CuentaCorriente
+        qs = CuentaCorriente.objects.select_related('paciente')
+
+        if filtro:
+            qs = qs.filter(
+                Q(paciente__nombre__icontains=filtro) |
+                Q(paciente__apellido__icontains=filtro) |
+                Q(paciente__nombre_tutor__icontains=filtro)
+            )
+        if estado_saldo == 'deudor':
+            qs = qs.filter(saldo_actual__lt=0)
+        elif estado_saldo == 'al_dia':
+            qs = qs.filter(saldo_actual=0)
+        elif estado_saldo == 'a_favor':
+            qs = qs.filter(saldo_actual__gt=0)
+
+        resumen = qs.aggregate(
+            suma_saldos=Sum('saldo_actual'),
             cantidad=Count('id'),
-            promedio=Avg('monto')
+        )
+
+        cuentas = []
+        for c in qs.order_by('saldo_actual')[:30]:
+            cuentas.append({
+                'paciente':          f'{c.paciente.nombre} {c.paciente.apellido}',
+                'estado_paciente':   c.paciente.estado,
+                'saldo_actual':      str(c.saldo_actual),
+                'saldo_real':        str(c.saldo_real),
+                'total_pagado':      str(c.total_pagado),
+                'total_consumido':   str(c.total_consumido_actual),
+                'credito_disponible': str(c.pagos_adelantados),
+            })
+
+        return {
+            'cuentas': cuentas,
+            'resumen': {
+                'suma_todos_saldos': str(resumen['suma_saldos'] or 0),
+                'total_pacientes':   resumen['cantidad'],
+            },
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def tool_obtener_facturas(
+    fecha_inicio: str = '',
+    fecha_fin: str = '',
+    paciente_id: int = None,
+    estado: str = '',
+) -> dict:
+    """
+    Consulta facturas.
+    estados: borrador | emitida | anulada
+    Campos reales: numero_factura, fecha_emision, total, estado, razon_social
+    """
+    try:
+        from facturacion.models import Factura
+        qs = Factura.objects.select_related('paciente')
+
+        if fecha_inicio:
+            qs = qs.filter(fecha_emision__gte=fecha_inicio)
+        if fecha_fin:
+            qs = qs.filter(fecha_emision__lte=fecha_fin)
+        if paciente_id:
+            qs = qs.filter(paciente_id=paciente_id)
+        if estado:
+            qs = qs.filter(estado=estado)
+
+        totales = qs.filter(estado='emitida').aggregate(
+            total=Sum('total'), cantidad=Count('id')
         )
 
         facturas = []
-        for f in qs.order_by('-fecha')[:20]:
+        for f in qs.order_by('-fecha_emision')[:25]:
             facturas.append({
-                'id': f.id,
-                'fecha': str(getattr(f, 'fecha', '')),
-                'paciente': str(getattr(f, 'paciente', 'N/A')),
-                'monto': float(getattr(f, 'monto', 0) or 0),
-                'estado': getattr(f, 'estado', 'N/A'),
+                'numero':       f.numero_factura,
+                'fecha':        str(f.fecha_emision),
+                'paciente':     f'{f.paciente.nombre} {f.paciente.apellido}',
+                'razon_social': f.razon_social,
+                'total':        str(f.total),
+                'estado':       f.estado,
             })
 
         return {
             'facturas': facturas,
             'resumen': {
-                'total_monto': float(totales['total'] or 0),
-                'cantidad_facturas': totales['cantidad'],
-                'promedio': float(totales['promedio'] or 0),
-            }
+                'total_facturado_emitido': str(totales['total'] or 0),
+                'cantidad_emitidas':       totales['cantidad'],
+            },
         }
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def tool_obtener_proyectos(
+    paciente_id: int = None,
+    profesional_id: int = None,
+    estado: str = '',
+) -> dict:
+    """
+    Consulta proyectos terapéuticos.
+    estados: planificado | en_progreso | finalizado | cancelado
+    """
+    try:
+        from agenda.models import Proyecto
+        qs = Proyecto.objects.select_related('paciente', 'profesional')
+
+        if paciente_id:
+            qs = qs.filter(paciente_id=paciente_id)
+        if profesional_id:
+            qs = qs.filter(profesional_id=profesional_id)
+        if estado:
+            qs = qs.filter(estado=estado)
+
+        proyectos = []
+        for p in qs.order_by('-fecha_inicio')[:30]:
+            prof = 'Sin asignar'
+            if p.profesional:
+                prof = f'{p.profesional.nombre} {p.profesional.apellido}'
+            proyectos.append({
+                'id':           p.id,
+                'paciente':     f'{p.paciente.nombre} {p.paciente.apellido}',
+                'profesional':  prof,
+                'estado':       getattr(p, 'estado', 'N/A'),
+                'fecha_inicio': str(getattr(p, 'fecha_inicio', '')),
+                'monto_total':  str(getattr(p, 'monto_total', '0')),
+            })
+        return {'proyectos': proyectos, 'total': len(proyectos)}
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def tool_obtener_servicios() -> dict:
+    """Lista todos los tipos de servicio activos con sus precios."""
+    try:
+        from servicios.models import TipoServicio
+        servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
+        resultado = []
+        for s in servicios:
+            resultado.append({
+                'id':              s.id,
+                'nombre':          s.nombre,
+                'costo_sesion':    str(s.costo_base),
+                'precio_mensual':  str(s.precio_mensual or 'N/A'),
+                'precio_proyecto': str(s.precio_proyecto or 'N/A'),
+                'duracion_min':    s.duracion_minutos,
+            })
+        return {'servicios': resultado, 'total': len(resultado)}
+    except Exception as e:
+        return {'error': str(e)}
+
+
+def tool_obtener_sucursales() -> dict:
+    """Lista las sucursales activas del centro."""
+    try:
+        from servicios.models import Sucursal
+        sucursales = Sucursal.objects.filter(activa=True)
+        resultado = [
+            {'id': s.id, 'nombre': s.nombre, 'direccion': s.direccion, 'telefono': s.telefono}
+            for s in sucursales
+        ]
+        return {'sucursales': resultado, 'total': len(resultado)}
     except Exception as e:
         return {'error': str(e)}
 
 
 def tool_estadisticas_generales() -> dict:
     """
-    Genera un resumen estadístico general del sistema.
-    Útil para informes rápidos.
+    Resumen estadístico completo del sistema.
+    Ideal para informes rápidos del día o del mes.
     """
     try:
         from pacientes.models import Paciente
         from profesionales.models import Profesional
         from agenda.models import Sesion
+        from facturacion.models import Pago, CuentaCorriente
 
-        hoy = timezone.now().date()
-        inicio_mes = hoy.replace(day=1)
+        hoy         = timezone.now().date()
+        inicio_mes  = hoy.replace(day=1)
+
+        sesiones_hoy = Sesion.objects.filter(fecha=hoy)
+        sesiones_mes = Sesion.objects.filter(fecha__gte=inicio_mes)
 
         stats = {
-            'pacientes_total': Paciente.objects.count(),
-            'profesionales_total': Profesional.objects.count(),
-            'sesiones_hoy': Sesion.objects.filter(fecha=hoy).count(),
-            'sesiones_mes': Sesion.objects.filter(fecha__gte=inicio_mes).count(),
-            'sesiones_pendientes': Sesion.objects.filter(
-                fecha__gte=hoy,
-                **({'estado__in': ['pendiente', 'confirmada']} if hasattr(Sesion, 'estado') else {})
-            ).count(),
+            'fecha_actual':               str(hoy),
+
+            # Pacientes
+            'pacientes_activos':          Paciente.objects.filter(estado='activo').count(),
+            'pacientes_inactivos':        Paciente.objects.filter(estado='inactivo').count(),
+
+            # Profesionales
+            'profesionales_activos':      Profesional.objects.filter(activo=True).count(),
+
+            # Sesiones hoy
+            'sesiones_hoy_total':         sesiones_hoy.count(),
+            'sesiones_hoy_realizadas':    sesiones_hoy.filter(estado='realizada').count(),
+            'sesiones_hoy_programadas':   sesiones_hoy.filter(estado='programada').count(),
+            'sesiones_hoy_canceladas':    sesiones_hoy.filter(estado='cancelada').count(),
+            'sesiones_hoy_falta':         sesiones_hoy.filter(estado='falta').count(),
+
+            # Sesiones del mes
+            'sesiones_mes_total':         sesiones_mes.count(),
+            'sesiones_mes_realizadas':    sesiones_mes.filter(estado='realizada').count(),
+            'sesiones_mes_canceladas':    sesiones_mes.filter(estado='cancelada').count(),
+
+            # Cobros del mes
+            'cobros_mes_bs':              str(
+                Pago.objects.filter(
+                    fecha__gte=inicio_mes, anulado=False
+                ).aggregate(t=Sum('monto'))['t'] or 0
+            ),
+
+            # Saldos
+            'pacientes_con_deuda':        CuentaCorriente.objects.filter(saldo_actual__lt=0).count(),
+            'pacientes_con_credito':      CuentaCorriente.objects.filter(saldo_actual__gt=0).count(),
+            'pacientes_al_dia':           CuentaCorriente.objects.filter(saldo_actual=0).count(),
+            'deuda_total_sistema_bs':     str(
+                CuentaCorriente.objects.filter(
+                    saldo_actual__lt=0
+                ).aggregate(t=Sum('saldo_actual'))['t'] or 0
+            ),
+            'credito_total_sistema_bs':   str(
+                CuentaCorriente.objects.filter(
+                    saldo_actual__gt=0
+                ).aggregate(t=Sum('saldo_actual'))['t'] or 0
+            ),
         }
-
-        try:
-            from facturacion.models import Factura
-            stats['facturacion_mes'] = float(
-                Factura.objects.filter(fecha__gte=inicio_mes).aggregate(t=Sum('monto'))['t'] or 0
-            )
-        except Exception:
-            stats['facturacion_mes'] = 'N/A'
-
         return stats
     except Exception as e:
         return {'error': str(e)}
 
 
 def tool_buscar_en_sistema(termino: str) -> dict:
-    """
-    Búsqueda general en todo el sistema por un término.
-    Busca en pacientes, profesionales y servicios.
-    """
+    """Búsqueda global: pacientes, profesionales, servicios y sucursales."""
     resultados = {}
 
     try:
         from pacientes.models import Paciente
-        pacientes = Paciente.objects.filter(
-            Q(nombre__icontains=termino) | Q(apellido__icontains=termino)
+        pacs = Paciente.objects.filter(
+            Q(nombre__icontains=termino) |
+            Q(apellido__icontains=termino) |
+            Q(nombre_tutor__icontains=termino)
         )[:5]
-        resultados['pacientes'] = [
-            f"{p.nombre} {p.apellido} (ID:{p.id})" for p in pacientes
-        ]
+        resultados['pacientes'] = [f'{p.nombre} {p.apellido} (ID:{p.id}, {p.estado})' for p in pacs]
     except Exception:
         resultados['pacientes'] = []
 
     try:
         from profesionales.models import Profesional
-        profesionales = Profesional.objects.filter(
-            Q(user__first_name__icontains=termino) |
-            Q(user__last_name__icontains=termino) |
+        profs = Profesional.objects.filter(
+            Q(nombre__icontains=termino) |
+            Q(apellido__icontains=termino) |
             Q(especialidad__icontains=termino)
-        ).select_related('user')[:5]
+        )[:5]
         resultados['profesionales'] = [
-            f"{p.user.get_full_name()} - {getattr(p, 'especialidad', '')}" for p in profesionales
+            f'{p.nombre} {p.apellido} — {p.especialidad} (ID:{p.id})' for p in profs
         ]
     except Exception:
         resultados['profesionales'] = []
 
     try:
-        from servicios.models import Servicio
-        servicios = Servicio.objects.filter(nombre__icontains=termino)[:5]
-        resultados['servicios'] = [str(s) for s in servicios]
+        from servicios.models import TipoServicio
+        servs = TipoServicio.objects.filter(nombre__icontains=termino, activo=True)[:5]
+        resultados['servicios'] = [f'{s.nombre} — Bs.{s.costo_base}' for s in servs]
     except Exception:
         resultados['servicios'] = []
+
+    try:
+        from servicios.models import Sucursal
+        sucs = Sucursal.objects.filter(nombre__icontains=termino, activa=True)[:5]
+        resultados['sucursales'] = [f'{s.nombre} — {s.direccion}' for s in sucs]
+    except Exception:
+        resultados['sucursales'] = []
 
     return resultados
 
@@ -266,448 +536,352 @@ def tool_buscar_en_sistema(termino: str) -> dict:
 # DEFINICIÓN DE TOOLS PARA GROQ (formato OpenAI-compatible)
 # ============================================================
 
-# Catálogo completo de tools con su definición
-_TOOLS_CATALOGO = {
-    'obtener_pacientes': {
+TOOLS_DEFINICION = [
+    {
         "type": "function",
         "function": {
             "name": "obtener_pacientes",
-            "description": "Busca y lista pacientes registrados en el sistema. Útil para consultar datos de un paciente específico.",
+            "description": "Busca y lista pacientes. Filtra por nombre, apellido o tutor.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "filtro": {"type": "string", "description": "Nombre, apellido o DNI a buscar (puede estar vacío para listar todos)"},
-                    "limite": {"type": "integer", "description": "Número máximo de resultados (default 20)"}
-                }
-            }
-        }
+                    "filtro": {"type": "string", "description": "Texto a buscar en nombre, apellido o tutor"},
+                    "limite": {"type": "integer", "description": "Máximo resultados (default 20)"},
+                },
+            },
+        },
     },
-    'obtener_agenda': {
+    {
         "type": "function",
         "function": {
-            "name": "obtener_agenda",
-            "description": "Consulta citas y sesiones programadas. Puede filtrar por rango de fechas, profesional o paciente.",
+            "name": "obtener_sesiones",
+            "description": (
+                "Consulta sesiones de la agenda. "
+                "estados válidos: realizada, programada, cancelada, falta, retraso, realizada_retraso. "
+                "Usa solo_hoy=true para ver la agenda del día de hoy."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "fecha_inicio": {"type": "string", "description": "Fecha inicio en formato YYYY-MM-DD"},
-                    "fecha_fin": {"type": "string", "description": "Fecha fin en formato YYYY-MM-DD"},
-                    "profesional_id": {"type": "integer", "description": "ID del profesional para filtrar"},
-                    "paciente_id": {"type": "integer", "description": "ID del paciente para filtrar"}
-                }
-            }
-        }
+                    "fecha_inicio":    {"type": "string",  "description": "Fecha inicio YYYY-MM-DD"},
+                    "fecha_fin":       {"type": "string",  "description": "Fecha fin YYYY-MM-DD"},
+                    "profesional_id":  {"type": "integer", "description": "ID del profesional"},
+                    "paciente_id":     {"type": "integer", "description": "ID del paciente"},
+                    "estado":          {"type": "string",  "description": "Estado de la sesión"},
+                    "solo_hoy":        {"type": "boolean", "description": "true para solo sesiones de hoy"},
+                },
+            },
+        },
     },
-    'obtener_profesionales': {
+    {
         "type": "function",
         "function": {
             "name": "obtener_profesionales",
-            "description": "Busca profesionales de salud registrados en el sistema.",
+            "description": "Busca profesionales activos por nombre o especialidad.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "filtro": {"type": "string", "description": "Nombre a buscar"},
-                    "especialidad": {"type": "string", "description": "Especialidad a filtrar"}
-                }
-            }
-        }
+                    "filtro":      {"type": "string", "description": "Nombre a buscar"},
+                    "especialidad": {"type": "string", "description": "Especialidad a filtrar"},
+                },
+            },
+        },
     },
-    'obtener_facturacion': {
+    {
         "type": "function",
         "function": {
-            "name": "obtener_facturacion",
-            "description": "Consulta facturas y datos financieros. Puede filtrar por fecha y paciente.",
+            "name": "obtener_pagos",
+            "description": "Consulta pagos realizados. Puede filtrar por fechas y paciente.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD"},
-                    "fecha_fin": {"type": "string", "description": "Fecha fin YYYY-MM-DD"},
-                    "paciente_id": {"type": "integer", "description": "ID del paciente"}
-                }
-            }
-        }
+                    "fecha_inicio": {"type": "string",  "description": "Fecha inicio YYYY-MM-DD"},
+                    "fecha_fin":    {"type": "string",  "description": "Fecha fin YYYY-MM-DD"},
+                    "paciente_id":  {"type": "integer", "description": "ID del paciente"},
+                    "limite":       {"type": "integer", "description": "Máximo resultados"},
+                },
+            },
+        },
     },
-    'estadisticas_generales': {
+    {
+        "type": "function",
+        "function": {
+            "name": "obtener_cuentas_corrientes",
+            "description": (
+                "Consulta saldos y cuentas corrientes de pacientes. "
+                "estado_saldo: deudor (negativo), al_dia (cero), a_favor (positivo)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filtro":       {"type": "string", "description": "Nombre del paciente"},
+                    "estado_saldo": {"type": "string", "description": "deudor | al_dia | a_favor"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "obtener_facturas",
+            "description": "Consulta facturas. estados: borrador, emitida, anulada.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "fecha_inicio": {"type": "string",  "description": "Fecha inicio YYYY-MM-DD"},
+                    "fecha_fin":    {"type": "string",  "description": "Fecha fin YYYY-MM-DD"},
+                    "paciente_id":  {"type": "integer", "description": "ID del paciente"},
+                    "estado":       {"type": "string",  "description": "borrador | emitida | anulada"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "obtener_proyectos",
+            "description": "Consulta proyectos terapéuticos. estados: planificado, en_progreso, finalizado, cancelado.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "paciente_id":    {"type": "integer", "description": "ID del paciente"},
+                    "profesional_id": {"type": "integer", "description": "ID del profesional"},
+                    "estado":         {"type": "string",  "description": "Estado del proyecto"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "obtener_servicios",
+            "description": "Lista todos los tipos de servicio activos con sus precios (sesión, mensual, proyecto).",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "obtener_sucursales",
+            "description": "Lista las sucursales activas del centro con dirección y teléfono.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
         "type": "function",
         "function": {
             "name": "estadisticas_generales",
-            "description": "Genera un resumen estadístico general del sistema: totales de pacientes, sesiones del día, del mes, facturación, etc. Ideal para informes rápidos.",
-            "parameters": {"type": "object", "properties": {}}
-        }
+            "description": (
+                "Genera un resumen estadístico completo: pacientes activos, sesiones del día "
+                "y del mes, cobros, deudas y créditos. Ideal para informes rápidos."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
-    'buscar_en_sistema': {
+    {
         "type": "function",
         "function": {
             "name": "buscar_en_sistema",
-            "description": "Búsqueda general en todo el sistema por un término. Busca en pacientes, profesionales y servicios a la vez.",
+            "description": "Búsqueda global en pacientes, profesionales, servicios y sucursales.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "termino": {"type": "string", "description": "Término de búsqueda"}
+                    "termino": {"type": "string", "description": "Texto a buscar"},
                 },
-                "required": ["termino"]
-            }
-        }
+                "required": ["termino"],
+            },
+        },
     },
-}
+]
 
-# Mapa nombre → función real
 TOOLS_MAP = {
-    'obtener_pacientes': tool_obtener_pacientes,
-    'obtener_agenda': tool_obtener_agenda,
-    'obtener_profesionales': tool_obtener_profesionales,
-    'obtener_facturacion': tool_obtener_facturacion,
-    'estadisticas_generales': tool_estadisticas_generales,
-    'buscar_en_sistema': tool_buscar_en_sistema,
-}
-
-# ============================================================
-# PERMISOS DE TOOLS POR ROL
-# ============================================================
-
-# Define qué tools puede usar cada rol
-_TOOLS_POR_ROL = {
-    # Paciente: solo su propia información
-    'paciente': [
-        'obtener_agenda',       # filtrada a su paciente_id en el prompt
-        'obtener_facturacion',  # filtrada a su paciente_id en el prompt
-    ],
-    # Profesional: su agenda y sus pacientes, sin acceso financiero global
-    'profesional': [
-        'obtener_agenda',
-        'obtener_pacientes',
-        'obtener_profesionales',
-        'buscar_en_sistema',
-    ],
-    # Recepcionista: gestión operativa, sin datos financieros
-    'recepcionista': [
-        'obtener_agenda',
-        'obtener_pacientes',
-        'obtener_profesionales',
-        'buscar_en_sistema',
-    ],
-    # Gerente: acceso total excepto... todo permitido
-    'gerente': [
-        'obtener_agenda',
-        'obtener_pacientes',
-        'obtener_profesionales',
-        'obtener_facturacion',
-        'estadisticas_generales',
-        'buscar_en_sistema',
-    ],
-    # Superadmin: acceso total
-    'superadmin': list(_TOOLS_CATALOGO.keys()),
+    'obtener_pacientes':         tool_obtener_pacientes,
+    'obtener_sesiones':          tool_obtener_sesiones,
+    'obtener_profesionales':     tool_obtener_profesionales,
+    'obtener_pagos':             tool_obtener_pagos,
+    'obtener_cuentas_corrientes': tool_obtener_cuentas_corrientes,
+    'obtener_facturas':          tool_obtener_facturas,
+    'obtener_proyectos':         tool_obtener_proyectos,
+    'obtener_servicios':         tool_obtener_servicios,
+    'obtener_sucursales':        tool_obtener_sucursales,
+    'estadisticas_generales':    tool_estadisticas_generales,
+    'buscar_en_sistema':         tool_buscar_en_sistema,
 }
 
 
-def _get_tools_para_rol(usuario) -> list:
-    """
-    Devuelve la lista de definiciones de tools permitidas para el rol del usuario.
-    """
-    if usuario.is_superuser:
-        claves = _TOOLS_POR_ROL['superadmin']
-    elif not hasattr(usuario, 'perfil'):
-        # Usuario sin perfil definido: acceso mínimo
-        claves = ['obtener_agenda', 'buscar_en_sistema']
-    elif usuario.perfil.es_paciente():
-        claves = _TOOLS_POR_ROL['paciente']
-    elif usuario.perfil.es_profesional():
-        claves = _TOOLS_POR_ROL['profesional']
-    elif usuario.perfil.es_recepcionista():
-        claves = _TOOLS_POR_ROL['recepcionista']
-    elif usuario.perfil.es_gerente():
-        claves = _TOOLS_POR_ROL['gerente']
-    else:
-        claves = ['buscar_en_sistema']
-
-    return [_TOOLS_CATALOGO[k] for k in claves if k in _TOOLS_CATALOGO]
-
-
 # ============================================================
-# SYSTEM PROMPT SEGÚN ROL
+# SYSTEM PROMPT SEGÚN ROL (usa PerfilUsuario real del proyecto)
 # ============================================================
 
 def _get_system_prompt(usuario) -> str:
     hoy = datetime.now().strftime('%d/%m/%Y %H:%M')
+    base = f"""Eres el Asistente IA del Centro Terapéutico. Fecha y hora actual: {hoy}.
 
-    # Base común a todos los roles
-    base = f"""Eres el Asistente IA del sistema de gestión de la clínica. Fecha y hora actual: {hoy}.
-Tienes acceso en tiempo real a la base de datos de la clínica mediante herramientas (tools).
+Tienes acceso en tiempo real a la base de datos mediante herramientas (tools).
+Puedes consultar: pacientes, sesiones, agenda, profesionales, pagos, cuentas corrientes, facturas, proyectos, servicios y sucursales.
 
-REGLAS GENERALES:
-- Usa SIEMPRE las herramientas para obtener datos reales; nunca inventes ni supongas información.
-- Responde en español, de forma clara y estructurada.
-- Si no encuentras datos, dilo claramente y sugiere cómo reformular la búsqueda.
-- Ante emergencias médicas, indica siempre llamar a emergencias (118 o 911).
-- Sé conciso: evita párrafos innecesarios, prioriza la información útil."""
+REGLAS:
+- Usa SIEMPRE las herramientas para datos reales. Nunca inventes información.
+- Responde en español claro y bien estructurado.
+- Usa emojis (📊 💰 📅 👥 🏥) para organizar informes largos.
+- Las monedas son Bolivianos (Bs.).
+- Si no encuentras datos, dilo claramente.
+- Si el usuario pregunta por el día de hoy, usa solo_hoy=true en obtener_sesiones."""
 
-    # Sin perfil definido
-    if not hasattr(usuario, 'perfil') and not usuario.is_superuser:
-        return base + "\n\nResponde de forma general. No tienes acceso a datos sensibles de pacientes."
-
-    # ── SUPERADMIN ──────────────────────────────────────────
+    # Superadmin
     if usuario.is_superuser:
-        nombre = usuario.get_full_name() or usuario.username
-        return base + f"""
+        return base + "\n\n🔑 Acceso TOTAL. Puedes consultar y ver todo el sistema."
 
-ROL: Administrador del sistema — {nombre}
-ACCESO: Total a todos los módulos del sistema.
-
-CAPACIDADES:
-- Ver y buscar cualquier paciente, profesional, sesión o factura.
-- Generar informes globales: estadísticas, facturación, actividad por profesional.
-- Comparar períodos, identificar tendencias y anomalías.
-
-ESTILO DE RESPUESTA:
-- Usa formato de informe cuando presentes estadísticas (secciones, totales destacados).
-- Para búsquedas rápidas, responde directo con los datos relevantes.
-- Incluye siempre totales y resúmenes al final de los listados."""
+    # Sin perfil
+    if not hasattr(usuario, 'perfil'):
+        return base
 
     perfil = usuario.perfil
 
-    # ── PACIENTE ─────────────────────────────────────────────
+    # ROL PACIENTE
     if perfil.es_paciente():
-        nombre = usuario.get_full_name() or usuario.username
-        paciente = getattr(usuario, 'paciente', None)
+        paciente = getattr(perfil, 'paciente', None)
         paciente_id = paciente.id if paciente else None
-        tutor = getattr(paciente, 'nombre_tutor', 'N/A') if paciente else 'N/A'
-
+        nombre = f'{paciente.nombre} {paciente.apellido}' if paciente else usuario.get_full_name()
         return base + f"""
 
-ROL: Paciente — {nombre}
-ID de paciente en sistema: {paciente_id}
+👤 Usuario: {nombre} (Paciente, ID:{paciente_id})
+⚠️ RESTRICCIÓN ESTRICTA: Solo puedes mostrar información de ESTE paciente (ID:{paciente_id}).
+Puedes ayudarle con: sus sesiones, sus pagos, su saldo y sus proyectos."""
 
-RESTRICCIÓN DE PRIVACIDAD (CRÍTICA):
-- Solo puedes mostrar información relacionada con ESTE paciente (ID: {paciente_id}).
-- NUNCA muestres datos de otros pacientes, aunque el usuario los solicite.
-- Si se solicita información de otro paciente, responde: "Solo puedo mostrarte tu propia información."
-- Al usar obtener_agenda, filtra SIEMPRE con paciente_id={paciente_id}.
-- Al usar obtener_facturacion, filtra SIEMPRE con paciente_id={paciente_id}.
-
-CAPACIDADES:
-- Consultar sus propias citas: próximas, pasadas, canceladas.
-- Ver el estado de sus facturas y pagos pendientes.
-- Informarse sobre los profesionales que lo atienden.
-- Resolver dudas generales sobre la clínica (horarios, servicios, ubicación).
-
-ESTILO DE RESPUESTA:
-- Tono amable, empático y cercano. Usa el nombre "{nombre}" cuando sea natural.
-- Evita tecnicismos médicos innecesarios; usa lenguaje claro y accesible.
-- Si tiene citas próximas, mencionarlas proactivamente cuando sea relevante.
-- Si hay facturas pendientes, indicarlo de forma amable (no alarmante).
-- Tutor/contacto registrado: {tutor}."""
-
-    # ── PROFESIONAL ──────────────────────────────────────────
-    elif perfil.es_profesional():
-        nombre = usuario.get_full_name()
-        profesional = getattr(usuario, 'profesional', None)
-        prof_id = profesional.id if profesional else None
-        especialidad = getattr(profesional, 'especialidad', 'N/A') if profesional else 'N/A'
-
+    # ROL PROFESIONAL
+    if perfil.es_profesional():
+        prof = getattr(perfil, 'profesional', None)
+        prof_id = prof.id if prof else None
+        nombre = f'{prof.nombre} {prof.apellido}' if prof else usuario.get_full_name()
         return base + f"""
 
-ROL: Profesional de salud — {nombre}
-Especialidad: {especialidad} | ID en sistema: {prof_id}
+👨‍⚕️ Usuario: {nombre} (Profesional, ID:{prof_id})
+Puedes ayudarle con: su agenda, sus pacientes asignados, estadísticas de sus sesiones e informes de actividad."""
 
-RESTRICCIÓN DE PRIVACIDAD:
-- Puedes ver información de pacientes asignados a tu agenda.
-- No tienes acceso a datos financieros globales de la clínica.
-- No compartas datos de un paciente con otro.
-
-CAPACIDADES:
-- Consultar y revisar tu agenda: sesiones del día, semana o período específico.
-- Buscar información de tus pacientes asignados.
-- Ver datos de colegas profesionales (nombre, especialidad, contacto).
-- Realizar búsquedas dentro del sistema.
-
-ESTILO DE RESPUESTA:
-- Tono profesional y directo. Prioriza eficiencia: el profesional necesita datos rápidos.
-- Para la agenda, presenta siempre: fecha, hora, nombre del paciente y estado.
-- Al mostrar lista de pacientes, incluye datos de contacto relevantes.
-- Sugiere acciones concretas cuando corresponda (ej: "Tienes 3 sesiones hoy").
-- Al consultar tu agenda sin fechas específicas, usa SIEMPRE profesional_id={prof_id}."""
-
-    # ── RECEPCIONISTA ────────────────────────────────────────
-    elif perfil.es_recepcionista():
-        nombre = usuario.get_full_name()
-
+    # ROL RECEPCIONISTA
+    if perfil.es_recepcionista():
+        sucursales = perfil.get_sucursales()
+        nombres_suc = ', '.join(s.nombre for s in sucursales) if sucursales else 'todas'
         return base + f"""
 
-ROL: Recepcionista — {nombre}
+🗂️ Usuario: {usuario.get_full_name()} (Recepcionista — Sucursales: {nombres_suc})
+Puedes ayudarle con: agenda del día, búsqueda de pacientes, registro de pagos y consultas administrativas."""
 
-RESTRICCIÓN:
-- No tienes acceso a datos financieros ni de facturación.
-- Puedes gestionar agenda y datos de pacientes y profesionales.
-
-CAPACIDADES:
-- Consultar y gestionar la agenda general de todos los profesionales.
-- Buscar pacientes por nombre, apellido o DNI.
-- Ver disponibilidad y datos de contacto de los profesionales.
-- Realizar búsquedas rápidas en todo el sistema.
-
-ESTILO DE RESPUESTA:
-- Tono eficiente y operativo. Las recepcionistas necesitan respuestas rápidas y accionables.
-- Prioriza datos de contacto, horarios y estados de citas.
-- Para búsquedas de pacientes, muestra siempre: nombre completo, DNI y teléfono.
-- Para la agenda, muestra siempre: hora, paciente, profesional y estado.
-- Si hay citas sin confirmar o pendientes hoy, indícalo al inicio de la respuesta.
-- Respuestas cortas y concretas; evita texto innecesario."""
-
-    # ── GERENTE ──────────────────────────────────────────────
-    elif perfil.es_gerente():
-        nombre = usuario.get_full_name()
-
+    # ROL GERENTE
+    if perfil.es_gerente():
         return base + f"""
 
-ROL: Gerente — {nombre}
-ACCESO: Amplio a todos los módulos operativos y financieros.
+📊 Usuario: {usuario.get_full_name()} (Gerente)
+Acceso amplio. Puedes generar informes financieros, estadísticas globales, resúmenes de actividad y análisis de deudas."""
 
-CAPACIDADES:
-- Consultar estadísticas globales: pacientes, sesiones, facturación.
-- Generar informes financieros por período, profesional o servicio.
-- Analizar actividad por profesional: sesiones, rendimiento, tendencias.
-- Comparar períodos y detectar variaciones importantes.
-- Acceso completo a agenda, pacientes, profesionales y facturación.
-
-ESTILO DE RESPUESTA:
-- Tono ejecutivo y analítico. Presenta datos con contexto y análisis breve.
-- Para informes financieros: incluye totales, promedios y comparativas cuando sea posible.
-- Usa secciones claramente diferenciadas: 📊 Resumen, 📋 Detalle, 💡 Observaciones.
-- Destaca variaciones significativas o datos que requieran atención.
-- Al final de informes extensos, incluye siempre un resumen ejecutivo de 2-3 líneas."""
-
-    # Fallback
-    return base + "\n\nResponde de forma general con la información disponible."
+    return base
 
 
 # ============================================================
-# LÓGICA PRINCIPAL — Llamada a Groq con tool use
+# LÓGICA PRINCIPAL
 # ============================================================
 
 def responder_con_ia(conversacion, usuario_humano):
     """
-    Función principal. Llama a Groq con el historial de la conversación
-    y ejecuta las tools necesarias. Guarda la respuesta como Mensaje.
+    Llama a Groq, ejecuta las tools necesarias y guarda
+    la respuesta como Mensaje en la conversación.
     """
     from .models import Mensaje, NotificacionChat
 
-    usuario_ia = get_o_crear_usuario_ia()
-    historial = _construir_historial(conversacion, usuario_ia)
+    usuario_ia  = get_o_crear_usuario_ia()
+    historial   = _construir_historial(conversacion, usuario_ia)
     system_prompt = _get_system_prompt(usuario_humano)
+    respuesta   = _llamar_groq_con_tools(historial, system_prompt)
 
-    # ✅ Tools filtradas según el rol del usuario
-    tools_permitidas = _get_tools_para_rol(usuario_humano)
-
-    respuesta_texto = _llamar_groq_con_tools(historial, system_prompt, tools_permitidas)
-
-    # Guardar en BD
     mensaje_ia = Mensaje.objects.create(
         conversacion=conversacion,
         remitente=usuario_ia,
-        contenido=respuesta_texto
+        contenido=respuesta,
     )
     NotificacionChat.objects.create(
         usuario=usuario_humano,
         conversacion=conversacion,
-        mensaje=mensaje_ia
+        mensaje=mensaje_ia,
     )
     conversacion.save()
-
     return mensaje_ia
 
 
-def _construir_historial(conversacion, usuario_ia, limite=15):
+def _construir_historial(conversacion, usuario_ia, limite: int = 15) -> list:
     """Convierte los últimos N mensajes al formato Groq/OpenAI."""
-    mensajes = list(
-        conversacion.mensajes.order_by('-fecha_envio')[:limite]
-    )
-    mensajes.reverse()
-
-    historial = []
-    for msg in mensajes:
-        rol = 'assistant' if msg.remitente == usuario_ia else 'user'
-        historial.append({'role': rol, 'content': msg.contenido})
-    return historial
+    msgs = list(conversacion.mensajes.order_by('-fecha_envio')[:limite])
+    msgs.reverse()
+    return [
+        {'role': 'assistant' if m.remitente == usuario_ia else 'user',
+         'content': m.contenido}
+        for m in msgs
+    ]
 
 
-def _llamar_groq_con_tools(historial: list, system_prompt: str, tools: list) -> str:
-    """
-    Llama a la API de Groq con las tools permitidas para el rol.
-    Si el modelo decide usar una tool, la ejecuta y vuelve a llamar
-    hasta obtener una respuesta final de texto.
-    """
+def _llamar_groq_con_tools(historial: list, system_prompt: str) -> str:
+    """Llama a Groq con tool use en bucle hasta obtener respuesta de texto."""
     try:
         from groq import Groq
     except ImportError:
-        return '⚠️ El paquete `groq` no está instalado. Ejecuta: pip install groq'
+        return '⚠️ El paquete groq no está instalado. Ejecuta: pip install groq'
 
     if not GROQ_API_KEY:
-        return '⚠️ No se ha configurado GROQ_API_KEY en las variables de entorno.'
+        return '⚠️ GROQ_API_KEY no configurada. Añádela al archivo .env'
 
-    client = Groq(api_key=GROQ_API_KEY)
+    client   = Groq(api_key=GROQ_API_KEY)
     mensajes = [{'role': 'system', 'content': system_prompt}] + historial
 
-    # Máximo 5 rondas de tool use para evitar loops
-    for _ in range(5):
+    for _ in range(6):  # máx 6 rondas de tool use
         response = client.chat.completions.create(
             model=MODELO_GROQ,
             messages=mensajes,
-            tools=tools,
+            tools=TOOLS_DEFINICION,
             tool_choice='auto',
             max_tokens=2048,
-            temperature=0.3,
+            temperature=0.1,
         )
 
-        mensaje_respuesta = response.choices[0].message
+        msg = response.choices[0].message
 
-        # Si el modelo quiere llamar tools
-        if mensaje_respuesta.tool_calls:
+        if not msg.tool_calls:
+            # Respuesta final de texto
+            return msg.content or 'No pude generar una respuesta. Intenta reformular tu pregunta.'
 
-            # Filtrar tool calls a las permitidas (seguridad extra)
-            tool_calls_permitidos = [
-                tc for tc in mensaje_respuesta.tool_calls
-                if tc.function.name in TOOLS_MAP and
-                any(t['function']['name'] == tc.function.name for t in tools)
-            ]
+        # Añadir mensaje del asistente con tool_calls
+        mensajes.append({
+            'role':       'assistant',
+            'content':    msg.content or '',
+            'tool_calls': [
+                {
+                    'id':   tc.id,
+                    'type': 'function',
+                    'function': {
+                        'name':      tc.function.name,
+                        'arguments': tc.function.arguments,
+                    },
+                }
+                for tc in msg.tool_calls
+            ],
+        })
 
-            if not tool_calls_permitidos:
-                return 'No tengo permisos para acceder a esa información con tu rol actual.'
+        # Ejecutar cada tool y añadir resultado
+        for tc in msg.tool_calls:
+            nombre = tc.function.name
+            try:
+                args = json.loads(tc.function.arguments or '{}')
+            except json.JSONDecodeError:
+                args = {}
 
-            # Añadir la respuesta del asistente al historial
+            if nombre in TOOLS_MAP:
+                resultado = TOOLS_MAP[nombre](**args)
+            else:
+                resultado = {'error': f'Tool "{nombre}" no encontrada'}
+
             mensajes.append({
-                'role': 'assistant',
-                'content': mensaje_respuesta.content or '',
-                'tool_calls': [
-                    {
-                        'id': tc.id,
-                        'type': 'function',
-                        'function': {
-                            'name': tc.function.name,
-                            'arguments': tc.function.arguments,
-                        }
-                    }
-                    for tc in tool_calls_permitidos
-                ]
+                'role':         'tool',
+                'tool_call_id': tc.id,
+                'content':      json.dumps(resultado, ensure_ascii=False, default=str),
             })
 
-            # Ejecutar cada tool y añadir resultado
-            for tool_call in tool_calls_permitidos:
-                nombre_tool = tool_call.function.name
-                try:
-                    args = json.loads(tool_call.function.arguments or '{}')
-                except json.JSONDecodeError:
-                    args = {}
-
-                resultado = TOOLS_MAP[nombre_tool](**args)
-
-                mensajes.append({
-                    'role': 'tool',
-                    'tool_call_id': tool_call.id,
-                    'content': json.dumps(resultado, ensure_ascii=False, default=str),
-                })
-
-        else:
-            # Respuesta final de texto
-            return mensaje_respuesta.content or 'No pude generar una respuesta.'
-
-    return 'Se alcanzó el límite de consultas. Por favor reformula tu pregunta.'
+    return 'Se alcanzó el límite de consultas internas. Por favor reformula tu pregunta.'
