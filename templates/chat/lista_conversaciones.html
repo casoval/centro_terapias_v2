@@ -6,8 +6,8 @@
 {% block content %}
 <div class="min-h-screen py-4 px-2 sm:py-6 sm:px-4 overflow-x-hidden">
     <div class="max-w-4xl mx-auto w-full">
-        
-        <!-- Header - Más compacto -->
+
+        <!-- Header -->
         <div class="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-4">
             <div class="flex items-center justify-between gap-2 min-w-0">
                 <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -23,9 +23,9 @@
                         </p>
                     </div>
                 </div>
-                
-                <!-- Botón Nuevo Mensaje - Compacto en móvil -->
-                <a href="{% url 'chat:seleccionar_destinatario' %}" 
+
+                <!-- Botón Nuevo Mensaje -->
+                <a href="{% url 'chat:seleccionar_destinatario' %}"
                    class="px-3 py-2 sm:px-5 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-2 text-sm sm:text-base flex-shrink-0">
                     <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -35,20 +35,67 @@
                 </a>
             </div>
         </div>
-        
+
+        <!-- ============================================================
+             BOTÓN ASISTENTE IA (siempre visible, primero en la lista)
+        ============================================================ -->
+        <a href="{% url 'chat:chat_con_ia' %}"
+           class="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 mb-3 sm:mb-4 bg-gradient-to-r from-violet-50 to-blue-50 border-2 border-violet-200 hover:border-violet-400 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition-all duration-300 block">
+
+            <!-- Avatar IA -->
+            <div class="relative flex-shrink-0">
+                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xl sm:text-2xl shadow-md">
+                    🤖
+                </div>
+                <!-- Badge online (siempre activo) -->
+                <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full"></span>
+                {% if mensajes_no_leidos_ia > 0 %}
+                <span class="absolute -top-1 -right-1 min-w-[20px] h-5 bg-violet-600 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-lg border-2 border-white">
+                    {{ mensajes_no_leidos_ia }}
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-0.5">
+                    <h3 class="font-bold text-violet-800 text-sm sm:text-base group-hover:text-violet-600 transition-colors truncate">
+                        Asistente IA
+                    </h3>
+                    <span class="flex-shrink-0 inline-flex items-center gap-1 bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        ✨ IA
+                    </span>
+                </div>
+                <p class="text-xs sm:text-sm text-violet-600/80 truncate">
+                    Consulta datos, informes, agenda, facturación y más
+                </p>
+                <p class="text-xs text-slate-400 mt-0.5 truncate">
+                    🎤 Soporta voz · 🔊 Responde hablando · ⚡ Tiempo real
+                </p>
+            </div>
+
+            <!-- Flecha -->
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-violet-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all flex-shrink-0"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </a>
+
+        <!-- ============================================================
+             LISTA DE CONVERSACIONES NORMALES
+        ============================================================ -->
         {% if conversaciones_data %}
-        <!-- Lista de Conversaciones - Más compacta -->
         <div class="bg-white rounded-xl shadow-lg overflow-hidden">
             <div class="divide-y divide-slate-100">
                 {% for data in conversaciones_data %}
-                <a href="{% url 'chat:chat_conversacion' data.conversacion.id %}" 
+                <a href="{% url 'chat:chat_conversacion' data.conversacion.id %}"
                    class="block hover:bg-blue-50 transition-all duration-200 group">
                     <div class="p-3 sm:p-4 flex items-start gap-2 sm:gap-3 min-w-0">
-                        
-                        <!-- Avatar - Más pequeño en móvil -->
+
+                        <!-- Avatar -->
                         <div class="relative flex-shrink-0">
                             {% if data.foto_url %}
-                            <img src="{{ data.foto_url }}" 
+                            <img src="{{ data.foto_url }}"
                                  alt="{{ data.nombre_completo }}"
                                  class="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover shadow-md border-2 border-white">
                             {% else %}
@@ -56,65 +103,50 @@
                                 {{ data.nombre_completo|first|upper }}
                             </div>
                             {% endif %}
-                            
+
                             {% if data.mensajes_no_leidos > 0 %}
-                            <!-- Badge de mensajes no leídos -->
                             <span class="absolute -top-1 -right-1 min-w-[20px] h-5 sm:min-w-[22px] sm:h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-lg border-2 border-white">
                                 {{ data.mensajes_no_leidos }}
                             </span>
                             {% endif %}
                         </div>
-                        
-                        <!-- Contenido - Optimizado para móvil con nombres en 2 líneas -->
+
+                        <!-- Contenido -->
                         <div class="flex-1 min-w-0">
-                            <!-- Header con nombre y fecha -->
                             <div class="flex items-start justify-between gap-2 mb-0.5 sm:mb-1 min-w-0">
                                 <div class="min-w-0 flex-1">
-                                    <!-- Nombre: truncate en desktop, wrap en móvil -->
                                     <h3 class="font-semibold text-slate-800 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-2 sm:truncate">
                                         {{ data.nombre_completo }}
                                     </h3>
                                 </div>
-                                
                                 {% if data.ultimo_mensaje %}
                                 <span class="text-xs text-slate-500 whitespace-nowrap flex-shrink-0 mt-0.5">
                                     {{ data.ultimo_mensaje.fecha_envio|date:"d/m H:i" }}
                                 </span>
                                 {% endif %}
                             </div>
-                            
-                            <!-- Rol/Info adicional -->
+
                             <p class="text-xs text-slate-500 line-clamp-2 sm:truncate">
                                 {% if data.info_adicional %}
-                                    {% if data.rol == "Profesional" %}
-                                        Profesional • {{ data.info_adicional }}
-                                    {% elif data.rol == "Paciente" %}
-                                        Paciente • {{ data.info_adicional }}
-                                    {% else %}
-                                        {{ data.rol }}
-                                        <span class="text-slate-400"> • {{ data.info_adicional }}</span>
-                                    {% endif %}
-                                {% else %}
-                                    {{ data.rol }}
-                                {% endif %}
+                                    {% if data.rol == "Profesional" %}Profesional • {{ data.info_adicional }}
+                                    {% elif data.rol == "Paciente" %}Paciente • {{ data.info_adicional }}
+                                    {% else %}{{ data.rol }}<span class="text-slate-400"> • {{ data.info_adicional }}</span>{% endif %}
+                                {% else %}{{ data.rol }}{% endif %}
                             </p>
-                            
+
                             {% if data.ultimo_mensaje %}
                             <p class="text-xs sm:text-sm text-slate-600 truncate {% if data.mensajes_no_leidos > 0 %}font-semibold{% endif %}">
                                 {% if data.ultimo_mensaje.remitente == user %}
-                                    <span class="text-blue-600">Tú:</span>
+                                <span class="text-blue-600">Tú:</span>
                                 {% endif %}
                                 {{ data.ultimo_mensaje.contenido }}
                             </p>
                             {% else %}
-                            <p class="text-xs sm:text-sm text-slate-400 italic truncate">
-                                Sin mensajes aún
-                            </p>
+                            <p class="text-xs sm:text-sm text-slate-400 italic truncate">Sin mensajes aún</p>
                             {% endif %}
                         </div>
-                        
-                        <!-- Indicador visual -->
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0" 
+
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0"
                              fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
@@ -123,23 +155,21 @@
                 {% endfor %}
             </div>
         </div>
-        
+
         {% else %}
-        <!-- Estado vacío - Compacto -->
+        <!-- Estado vacío -->
         <div class="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
             <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
                 <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg sm:text-xl font-semibold text-slate-700 mb-2">
-                No tienes conversaciones
-            </h3>
+            <h3 class="text-lg sm:text-xl font-semibold text-slate-700 mb-2">No tienes conversaciones</h3>
             <p class="text-sm sm:text-base text-slate-500 mb-4 sm:mb-6">
-                Inicia una conversación
+                Usa el Asistente IA o inicia una conversación con alguien
             </p>
-            <a href="{% url 'chat:seleccionar_destinatario' %}" 
+            <a href="{% url 'chat:seleccionar_destinatario' %}"
                class="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 text-sm sm:text-base">
                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -148,7 +178,7 @@
             </a>
         </div>
         {% endif %}
-        
+
     </div>
 </div>
 {% endblock %}

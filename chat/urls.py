@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_ia  # ✅ NUEVO: Agente IA
 
 app_name = 'chat'
 
@@ -15,6 +16,10 @@ urlpatterns = [
     path('nuevos/<int:conversacion_id>/', views.obtener_nuevos_mensajes, name='obtener_nuevos_mensajes'),
     path('leida/<int:conversacion_id>/', views.marcar_conversacion_leida, name='marcar_conversacion_leida'),
 
-    # ✅ NUEVO: Endpoint universal para cambiar tema (todos los roles)
+    # Endpoint universal para cambiar tema (todos los roles)
     path('cambiar-tema/', views.cambiar_tema_chat, name='cambiar_tema_chat'),
+
+    # ✅ NUEVO: Agente IA
+    path('ia/', views_ia.chat_con_ia, name='chat_con_ia'),
+    path('ia/enviar/<int:conversacion_id>/', views_ia.enviar_mensaje_ia, name='enviar_mensaje_ia'),
 ]

@@ -1,13 +1,16 @@
 {% extends 'base.html' %}
 
-{% block title %}Chat con {{ nombre_completo }}{% endblock %}
+{% block title %}{% if es_chat_ia %}Asistente IA{% else %}Chat con {{ nombre_completo }}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* Ocultar botones flotantes */
+    /* Ocultar botones flotantes globales */
     #paciente-selector-float { display: none !important; }
     a.fixed.bottom-6.right-6.z-50.w-12.h-12.rounded-full { display: none !important; }
-    
+
+    /* ============================================================
+       TEMAS (idénticos a tu versión original)
+    ============================================================ */
     {% if tema_chat == 'arcoiris' %}
     #chat-mensajes {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
@@ -16,91 +19,69 @@
     }
     @keyframes gradient-shift {
         0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
+        50%       { background-position: 100% 50%; }
     }
     .mensaje-mio .bubble {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
-        border: 3px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 8px 16px rgba(102,126,234,.3);
+        border: 3px solid rgba(255,255,255,.5);
     }
-    .mensaje-otro .bubble {
+    .mensaje-otro .bubble, .mensaje-ia .bubble {
         background: linear-gradient(135deg, #fa709a 0%, #fee140 100%) !important;
         color: #1a1a1a !important;
-        box-shadow: 0 8px 16px rgba(250, 112, 154, 0.3);
-        border: 3px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 8px 16px rgba(250,112,154,.3);
+        border: 3px solid rgba(255,255,255,.8);
     }
-    .chat-header {
-        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%);
-    }
-    .btn-enviar {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    }
-    
+    .chat-header { background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%); }
+    .btn-enviar  { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+
     {% elif tema_chat == 'oceano' %}
-    #chat-mensajes {
-        background: linear-gradient(to bottom, #1e3c72 0%, #2a5298 30%, #4facfe 60%, #00f2fe 100%);
-    }
+    #chat-mensajes { background: linear-gradient(to bottom, #1e3c72 0%, #2a5298 30%, #4facfe 60%, #00f2fe 100%); }
     .mensaje-mio .bubble {
         background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%) !important;
-        box-shadow: 0 8px 20px rgba(0, 210, 255, 0.4);
+        box-shadow: 0 8px 20px rgba(0,210,255,.4);
         border: 3px solid #7EC8E3;
     }
-    .mensaje-otro .bubble {
+    .mensaje-otro .bubble, .mensaje-ia .bubble {
         background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%) !important;
         color: #1a1a1a !important;
-        box-shadow: 0 8px 20px rgba(247, 151, 30, 0.4);
+        box-shadow: 0 8px 20px rgba(247,151,30,.4);
         border: 3px solid #FFE55C;
     }
-    .chat-header {
-        background: linear-gradient(90deg, #0083B0 0%, #00B4DB 100%);
-    }
-    .btn-enviar {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%);
-    }
-    
+    .chat-header { background: linear-gradient(90deg, #0083B0 0%, #00B4DB 100%); }
+    .btn-enviar  { background: linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%); }
+
     {% elif tema_chat == 'espacio' %}
-    #chat-mensajes {
-        background: linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%);
-    }
+    #chat-mensajes { background: linear-gradient(135deg, #0F2027 0%, #203A43 50%, #2C5364 100%); }
     .mensaje-mio .bubble {
         background: linear-gradient(135deg, #6441A5 0%, #2a0845 100%) !important;
-        box-shadow: 0 0 20px rgba(100, 65, 165, 0.6);
+        box-shadow: 0 0 20px rgba(100,65,165,.6);
         border: 3px solid #9D5CFF;
     }
-    .mensaje-otro .bubble {
+    .mensaje-otro .bubble, .mensaje-ia .bubble {
         background: linear-gradient(135deg, #FE8C00 0%, #F83600 100%) !important;
-        box-shadow: 0 0 20px rgba(254, 140, 0, 0.6);
+        box-shadow: 0 0 20px rgba(254,140,0,.6);
         border: 3px solid #FFAA00;
     }
-    .chat-header {
-        background: linear-gradient(90deg, #5433FF 0%, #20BDFF 50%, #A5FECB 100%);
-    }
-    .btn-enviar {
-        background: linear-gradient(135deg, #FF00CC 0%, #3333FF 100%);
-    }
-    
+    .chat-header { background: linear-gradient(90deg, #5433FF 0%, #20BDFF 50%, #A5FECB 100%); }
+    .btn-enviar  { background: linear-gradient(135deg, #FF00CC 0%, #3333FF 100%); }
+
     {% elif tema_chat == 'selva' %}
-    #chat-mensajes {
-        background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 30%, #90EE90 70%, #7FBF7F 100%);
-    }
+    #chat-mensajes { background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 30%, #90EE90 70%, #7FBF7F 100%); }
     .mensaje-mio .bubble {
         background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
         color: #333 !important;
-        box-shadow: 0 8px 20px rgba(255, 215, 0, 0.4);
+        box-shadow: 0 8px 20px rgba(255,215,0,.4);
         border: 4px solid #FFED4E;
     }
-    .mensaje-otro .bubble {
+    .mensaje-otro .bubble, .mensaje-ia .bubble {
         background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%) !important;
-        box-shadow: 0 8px 20px rgba(124, 179, 66, 0.4);
+        box-shadow: 0 8px 20px rgba(124,179,66,.4);
         border: 4px solid #9CCC65;
     }
-    .chat-header {
-        background: linear-gradient(90deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
-    }
-    .btn-enviar {
-        background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%);
-    }
-    
+    .chat-header { background: linear-gradient(90deg, #8B4513 0%, #D2691E 50%, #CD853F 100%); }
+    .btn-enviar  { background: linear-gradient(135deg, #7CB342 0%, #558B2F 100%); }
+
     {% elif tema_chat == 'dulces' %}
     #chat-mensajes {
         background: linear-gradient(135deg, #FF9A9E 0%, #FAD0C4 25%, #FBC2EB 50%, #A18CD1 75%, #FBC2EB 100%);
@@ -109,42 +90,43 @@
     }
     .mensaje-mio .bubble {
         background: linear-gradient(135deg, #FF6B9D 0%, #FFC371 100%) !important;
-        box-shadow: 0 8px 20px rgba(255, 107, 157, 0.4);
+        box-shadow: 0 8px 20px rgba(255,107,157,.4);
         border: 4px solid #FFE5E5;
     }
-    .mensaje-otro .bubble {
+    .mensaje-otro .bubble, .mensaje-ia .bubble {
         background: linear-gradient(135deg, #C471ED 0%, #F64F59 100%) !important;
-        box-shadow: 0 8px 20px rgba(196, 113, 237, 0.4);
+        box-shadow: 0 8px 20px rgba(196,113,237,.4);
         border: 4px solid #F5D5F5;
     }
-    .chat-header {
-        background: linear-gradient(90deg, #FF6FD8 0%, #3813C2 100%);
-    }
-    .btn-enviar {
-        background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%);
-    }
-    
+    .chat-header { background: linear-gradient(90deg, #FF6FD8 0%, #3813C2 100%); }
+    .btn-enviar  { background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%); }
+
     {% else %}
     #chat-mensajes { background: #f8fafc; }
     .mensaje-mio .bubble {
         background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+        box-shadow: 0 4px 12px rgba(59,130,246,.2);
     }
     .mensaje-otro .bubble {
         background: white !important;
         color: #1e293b !important;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,.05);
     }
-    .chat-header {
-        background: white;
-        border-bottom: 2px solid #e2e8f0;
+    /* Burbuja IA en tema default: gradiente violeta distintivo */
+    .mensaje-ia .bubble {
+        background: linear-gradient(135deg, #f5f3ff, #ede9fe) !important;
+        color: #3b0764 !important;
+        border-left: 4px solid #7c3aed !important;
+        box-shadow: 0 2px 8px rgba(124,58,237,.12);
     }
-    .btn-enviar {
-        background: linear-gradient(to right, #3b82f6, #8b5cf6);
-    }
+    .chat-header { background: white; border-bottom: 2px solid #e2e8f0; }
+    .btn-enviar  { background: linear-gradient(to right, #3b82f6, #8b5cf6); }
     {% endif %}
-    
+
+    /* ============================================================
+       BURBUJAS COMPARTIDAS
+    ============================================================ */
     .bubble {
         border-radius: 1.5rem;
         padding: 0.75rem 1rem;
@@ -152,78 +134,199 @@
     }
     @keyframes bubble-appear {
         from { opacity: 0; transform: scale(0.8) translateY(10px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .btn-enviar {
-        transition: all 0.3s ease;
+
+    /* ============================================================
+       BOTÓN ENVIAR
+    ============================================================ */
+    .btn-enviar { transition: all 0.3s ease; }
+    .btn-enviar:hover { transform: scale(1.05); }
+
+    /* ============================================================
+       INDICADOR TYPING IA
+    ============================================================ */
+    .typing-dot {
+        width: 7px; height: 7px;
+        background: #7c3aed;
+        border-radius: 50%;
+        display: inline-block;
+        animation: bounce-dot 1.2s infinite;
     }
-    .btn-enviar:hover {
-        transform: scale(1.05);
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce-dot {
+        0%, 60%, 100% { transform: translateY(0); }
+        30%           { transform: translateY(-7px); }
     }
+
+    /* ============================================================
+       BOTÓN MICRÓFONO
+    ============================================================ */
+    #btn-mic.escuchando {
+        background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
+        border-color: #f87171 !important;
+        color: #dc2626 !important;
+        animation: pulse-ring 1s infinite;
+    }
+    @keyframes pulse-ring {
+        0%   { box-shadow: 0 0 0 0 rgba(220,38,38,.4); }
+        70%  { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+        100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+    }
+
+    /* ============================================================
+       SUGERENCIAS RÁPIDAS
+    ============================================================ */
+    .sugerencia-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 12px;
+        background: white;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 999px;
+        font-size: .75rem;
+        cursor: pointer;
+        color: #4a5568;
+        transition: all .2s;
+        white-space: nowrap;
+    }
+    .sugerencia-chip:hover {
+        border-color: #7c3aed;
+        color: #7c3aed;
+        background: #f5f3ff;
+        transform: translateY(-1px);
+    }
+
+    /* ============================================================
+       BADGE IA EN HEADER
+    ============================================================ */
+    .ia-badge-pill {
+        display: inline-flex; align-items: center; gap: 3px;
+        background: linear-gradient(135deg, #7c3aed, #4f6ef7);
+        color: white; font-size: .65rem; font-weight: 700;
+        padding: 2px 7px; border-radius: 999px; letter-spacing: .3px;
+        vertical-align: middle; margin-left: 4px;
+    }
+
+    /* ============================================================
+       TTS BOTÓN EN BURBUJA IA
+    ============================================================ */
+    .btn-escuchar {
+        font-size: .7rem; color: #7c3aed;
+        background: none; border: none; cursor: pointer;
+        padding: 2px 6px; opacity: .7; transition: opacity .2s;
+        margin-top: 4px; display: inline-flex; align-items: center; gap: 3px;
+    }
+    .btn-escuchar:hover { opacity: 1; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="fixed inset-0 z-40 bg-white flex flex-col" id="chat-container">
-    
-    <!-- Header -->
+
+    <!-- ================================================================
+         HEADER
+    ================================================================ -->
     <div class="chat-header p-3 sm:p-4 flex-shrink-0 shadow-lg">
         <div class="max-w-5xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-2 sm:gap-4">
-                <a href="{% url 'chat:lista_conversaciones' %}" 
-                   class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all">
-                    <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                <!-- Volver -->
+                <a href="{% url 'chat:lista_conversaciones' %}"
+                   class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0">
+                    <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
                 </a>
-                
-                {% if foto_url %}
-                <img src="{{ foto_url }}" 
-                     alt="{{ nombre_completo }}"
-                     class="w-12 h-12 rounded-full object-cover shadow-xl">
+
+                <!-- Avatar -->
+                {% if es_chat_ia %}
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xl sm:text-2xl shadow-xl flex-shrink-0">
+                    🤖
+                </div>
+                {% elif foto_url %}
+                <img src="{{ foto_url }}" alt="{{ nombre_completo }}"
+                     class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-xl flex-shrink-0">
                 {% else %}
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-xl">
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center text-white text-lg sm:text-xl font-bold shadow-xl flex-shrink-0">
                     {{ nombre_completo|first|upper }}
                 </div>
                 {% endif %}
-                
-                <div class="min-w-0">
+
+                <!-- Nombre + rol -->
+                <div class="min-w-0 flex-1">
                     <h2 class="font-bold {% if tema_chat == 'default' %}text-slate-800{% else %}text-white{% endif %} text-base sm:text-xl truncate">
-                        {{ nombre_completo }} {% if tema_chat != 'default' %}👋{% endif %}
+                        {% if es_chat_ia %}
+                            Asistente IA
+                            <span class="ia-badge-pill">✨ IA</span>
+                        {% else %}
+                            {{ nombre_completo }}{% if tema_chat != 'default' %} 👋{% endif %}
+                        {% endif %}
                     </h2>
                     <p class="text-xs sm:text-sm {% if tema_chat == 'default' %}text-slate-500{% else %}text-white/90{% endif %} truncate">
-                        {% if info_adicional %}
-                            {% if rol == "Profesional" %}
-                                {% if tema_chat != 'default' %}🩺{% endif %} {{ info_adicional }}
-                            {% elif rol == "Paciente" %}
-                                {% if tema_chat != 'default' %}🎈{% endif %} {{ info_adicional }}
-                            {% else %}{{ rol }}{% endif %}
-                        {% else %}{{ rol }}{% endif %}
+                        {% if es_chat_ia %}
+                            Datos en tiempo real · Voz activada
+                        {% elif info_adicional %}
+                            {% if rol == "Profesional" %}{% if tema_chat != 'default' %}🩺 {% endif %}{{ info_adicional }}
+                            {% elif rol == "Paciente" %}{% if tema_chat != 'default' %}🎈 {% endif %}{{ info_adicional }}
+                            {% else %}{{ rol }} • {{ info_adicional }}{% endif %}
+                        {% else %}
+                            {{ rol }}
+                        {% endif %}
                     </p>
                 </div>
+
+                <!-- Indicador "pensando..." (solo IA) -->
+                {% if es_chat_ia %}
+                <div id="typing-indicator" class="hidden flex items-center gap-1.5 px-3 py-1.5 bg-white/20 rounded-full flex-shrink-0">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="text-xs {% if tema_chat == 'default' %}text-slate-500{% else %}text-white/80{% endif %} ml-1">pensando…</span>
+                </div>
+                {% endif %}
             </div>
-            
-            <!-- Botón de configuración de tema (TODOS LOS USUARIOS) -->
-            <button onclick="mostrarSelectorTema()" 
-               class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all">
-                <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+
+            <!-- Botón temas -->
+            <button onclick="mostrarSelectorTema()"
+                    class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2">
+                <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
                 </svg>
             </button>
         </div>
     </div>
-    
-    <!-- Mensajes -->
+
+    <!-- ================================================================
+         MENSAJES
+    ================================================================ -->
     <div id="chat-mensajes" class="flex-1 overflow-y-auto p-3 sm:p-6">
         <div class="max-w-5xl mx-auto">
+
             {% for mensaje in mensajes %}
-            <div class="mensaje mb-4 flex {% if mensaje.remitente == user %}justify-end mensaje-mio{% else %}justify-start mensaje-otro{% endif %}" 
+            <div class="mensaje mb-4 flex {% if mensaje.remitente == user %}justify-end mensaje-mio{% elif es_chat_ia %}justify-start mensaje-ia{% else %}justify-start mensaje-otro{% endif %}"
                  data-mensaje-id="{{ mensaje.id }}">
+
+                {% if es_chat_ia and mensaje.remitente != user %}
+                <!-- Mini avatar IA -->
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-sm mr-2 flex-shrink-0 self-end mb-8">
+                    🤖
+                </div>
+                {% endif %}
+
                 <div class="max-w-[85%] sm:max-w-[70%]">
                     <div class="bubble shadow-xl">
                         <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">{{ mensaje.contenido }}</p>
                     </div>
-                    <div class="flex items-center gap-2 mt-2 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
+
+                    <div class="flex items-center gap-2 mt-1 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
+                        {% if es_chat_ia and mensaje.remitente != user %}
+                        <button class="btn-escuchar" onclick="leerEnVoz(this)">
+                            🔊 <span>Escuchar</span>
+                        </button>
+                        {% endif %}
                         <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">{{ mensaje.fecha_envio|date:"H:i" }}</span>
                         {% if mensaje.remitente == user %}
                         <span class="text-sm {% if mensaje.leido %}text-green-500{% else %}text-gray-400{% endif %}">✓✓</span>
@@ -233,32 +336,85 @@
             </div>
             {% empty %}
             <div class="text-center {% if tema_chat == 'default' %}text-slate-400{% else %}text-white{% endif %} py-20">
+                {% if es_chat_ia %}
+                <div class="text-7xl mb-4">🤖</div>
+                <p class="text-2xl font-bold">¡Hola! Soy tu Asistente IA</p>
+                <p class="text-base mt-2 opacity-80">Pregúntame cualquier cosa sobre la clínica</p>
+                {% else %}
                 <div class="text-8xl mb-6">💬</div>
                 <p class="text-2xl font-bold">{% if tema_chat != 'default' %}¡No hay mensajes aún!{% else %}No hay mensajes aún{% endif %}</p>
                 <p class="text-lg mt-2">{% if tema_chat != 'default' %}¡Envía el primer mensaje! 🎉{% else %}Envía el primer mensaje{% endif %}</p>
+                {% endif %}
             </div>
             {% endfor %}
+
         </div>
     </div>
-    
-    <!-- Formulario -->
-    <div class="{% if tema_chat == 'default' %}bg-white border-t-2 border-slate-200{% else %}bg-gradient-to-r from-purple-100 via-pink-100 to-blue-100 border-t-4{% endif %} shadow-2xl p-3 sm:p-4">
+
+    <!-- ================================================================
+         SUGERENCIAS RÁPIDAS (solo chat IA)
+    ================================================================ -->
+    {% if es_chat_ia %}
+    <div id="sugerencias-ia" class="flex-shrink-0 {% if tema_chat == 'default' %}bg-white border-t border-slate-100{% else %}bg-white/10{% endif %} px-3 py-2 overflow-x-auto">
+        <div class="flex gap-2 max-w-5xl mx-auto" style="width:max-content">
+            <button class="sugerencia-chip" onclick="usarSugerencia('📊 Estadísticas del día de hoy')">📊 Estadísticas del día</button>
+            <button class="sugerencia-chip" onclick="usarSugerencia('¿Cuántas sesiones hay programadas para hoy?')">📅 Agenda de hoy</button>
+            <button class="sugerencia-chip" onclick="usarSugerencia('Lista los pacientes registrados')">👥 Listar pacientes</button>
+            <button class="sugerencia-chip" onclick="usarSugerencia('Resumen de facturación del mes actual')">💰 Facturación del mes</button>
+            <button class="sugerencia-chip" onclick="usarSugerencia('Genera un informe general completo del sistema')">📋 Informe general</button>
+            <button class="sugerencia-chip" onclick="usarSugerencia('Lista los profesionales disponibles y sus especialidades')">🩺 Profesionales</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ================================================================
+         BARRA DE ENTRADA
+    ================================================================ -->
+    <div class="{% if tema_chat == 'default' %}bg-white border-t-2 border-slate-200{% else %}bg-gradient-to-r from-purple-100 via-pink-100 to-blue-100 border-t-4{% endif %} shadow-2xl p-3 sm:p-4 flex-shrink-0">
         <div class="max-w-5xl mx-auto">
-            <form id="form-enviar-mensaje" class="flex gap-2">
+            <form id="form-enviar-mensaje" class="flex gap-2 items-end">
                 {% csrf_token %}
-                <input type="text" 
-                       id="input-mensaje" 
+
+                <!-- Botón micrófono (solo IA) -->
+                {% if es_chat_ia %}
+                <button type="button" id="btn-mic"
+                        onclick="toggleMic()"
+                        title="Hablar con el asistente"
+                        class="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center transition-all text-slate-600">
+                    🎤
+                </button>
+                {% endif %}
+
+                <!-- Input texto -->
+                <input type="text"
+                       id="input-mensaje"
                        name="contenido"
-                       placeholder="{% if tema_chat != 'default' %}Escribe algo divertido... 😊{% else %}Escribe un mensaje...{% endif %}"
-                       maxlength="1000"
+                       placeholder="{% if es_chat_ia %}Pregunta algo al Asistente IA…{% elif tema_chat != 'default' %}Escribe algo divertido... 😊{% else %}Escribe un mensaje...{% endif %}"
+                       maxlength="{% if es_chat_ia %}2000{% else %}1000{% endif %}"
                        autocomplete="off"
-                       class="flex-1 px-4 py-3 border-2 {% if tema_chat == 'default' %}border-slate-200{% else %}border-transparent{% endif %} rounded-full outline-none text-sm sm:text-base font-medium">
-                
-                <button type="submit" 
-                        class="btn-enviar px-4 py-3 text-white rounded-full font-bold flex items-center gap-1.5 min-w-[80px] justify-center">
+                       class="flex-1 px-4 py-3 border-2 {% if tema_chat == 'default' %}border-slate-200{% else %}border-transparent{% endif %} rounded-full outline-none text-sm sm:text-base font-medium focus:border-violet-400 transition-colors">
+
+                <!-- Botón detener voz IA -->
+                {% if es_chat_ia %}
+                <button type="button" id="btn-stop-tts"
+                        onclick="detenerVoz()"
+                        style="display:none"
+                        title="Detener voz"
+                        class="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 flex items-center justify-center transition-all text-violet-600">
+                    🔇
+                </button>
+                {% endif %}
+
+                <!-- Enviar -->
+                <button type="submit"
+                        class="btn-enviar px-4 py-3 text-white rounded-full font-bold flex items-center gap-1.5 min-w-[80px] justify-center flex-shrink-0">
                     {% if tema_chat != 'default' %}
                         <span class="text-lg leading-none">🚀</span>
                         <span class="hidden sm:inline font-bold">¡Enviar!</span>
+                    {% elif es_chat_ia %}
+                        <span class="text-base leading-none">➤</span>
+                        <span class="hidden sm:inline font-bold">Enviar</span>
+                        <span class="sm:hidden font-bold text-sm">Enviar</span>
                     {% else %}
                         <svg class="w-4 h-4 flex-shrink-0 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
@@ -272,7 +428,9 @@
     </div>
 </div>
 
-<!-- Modal de selector de temas (TODOS LOS USUARIOS) -->
+<!-- ================================================================
+     MODAL SELECTOR DE TEMAS (idéntico al original)
+================================================================ -->
 <div id="modal-temas" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl p-6 max-w-2xl w-full">
         <div class="flex justify-between items-center mb-6">
@@ -283,34 +441,28 @@
                 </svg>
             </button>
         </div>
-        
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <button onclick="cambiarTema('default')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'default' %}border-blue-500 bg-blue-50{% else %}border-slate-200{% endif %}">
                 <div class="text-4xl mb-2">🎨</div>
                 <div class="font-bold">Normal</div>
             </button>
-            
-            <button onclick="cambiarTema('arcoiris')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'arcoiris' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #667eea, #f093fb);">
+            <button onclick="cambiarTema('arcoiris')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'arcoiris' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background:linear-gradient(135deg,#667eea,#f093fb);">
                 <div class="text-4xl mb-2">🌈</div>
                 <div class="font-bold text-white">Arcoíris</div>
             </button>
-            
-            <button onclick="cambiarTema('oceano')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'oceano' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);">
+            <button onclick="cambiarTema('oceano')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'oceano' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background:linear-gradient(135deg,#00d2ff,#3a7bd5);">
                 <div class="text-4xl mb-2">🌊</div>
                 <div class="font-bold text-white">Océano</div>
             </button>
-            
-            <button onclick="cambiarTema('espacio')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'espacio' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #0F2027, #2C5364);">
+            <button onclick="cambiarTema('espacio')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'espacio' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background:linear-gradient(135deg,#0F2027,#2C5364);">
                 <div class="text-4xl mb-2">🚀</div>
                 <div class="font-bold text-white">Espacio</div>
             </button>
-            
-            <button onclick="cambiarTema('selva')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'selva' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #90EE90, #7FBF7F);">
+            <button onclick="cambiarTema('selva')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'selva' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background:linear-gradient(135deg,#90EE90,#7FBF7F);">
                 <div class="text-4xl mb-2">🦁</div>
                 <div class="font-bold">Safari</div>
             </button>
-            
-            <button onclick="cambiarTema('dulces')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'dulces' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background: linear-gradient(135deg, #FF9A9E, #FAD0C4);">
+            <button onclick="cambiarTema('dulces')" class="p-4 rounded-2xl border-4 hover:scale-105 transition-all {% if tema_chat == 'dulces' %}border-blue-500{% else %}border-slate-200{% endif %}" style="background:linear-gradient(135deg,#FF9A9E,#FAD0C4);">
                 <div class="text-4xl mb-2">🍭</div>
                 <div class="font-bold">Dulces</div>
             </button>
@@ -319,122 +471,136 @@
 </div>
 
 <script>
-const CONVERSACION_ID = {{ conversacion.id }};
-const USUARIO_ACTUAL_ID = {{ user.id }};
-const POLLING_INTERVAL = 3000;
+// ================================================================
+// CONFIG
+// ================================================================
+const CONVERSACION_ID    = {{ conversacion.id }};
+const USUARIO_ACTUAL_ID  = {{ user.id }};
+const ES_CHAT_IA         = {{ es_chat_ia|yesno:"true,false" }};
+const URL_ENVIAR         = ES_CHAT_IA
+    ? "{% url 'chat:enviar_mensaje_ia' conversacion.id %}"
+    : `/chat/enviar/${CONVERSACION_ID}/`;
+const POLLING_INTERVAL   = ES_CHAT_IA ? 2000 : 3000;
 
 let ultimoMensajeId = {% if mensajes %}{{ mensajes.last.id }}{% else %}0{% endif %};
-let polling = null;
+let pollingTimer    = null;
+let estaEscuchando  = false;
+let reconocimiento  = null;
+const sintesis      = window.speechSynthesis;
 
-const formEnviar = document.getElementById('form-enviar-mensaje');
+const formEnviar   = document.getElementById('form-enviar-mensaje');
 const inputMensaje = document.getElementById('input-mensaje');
 const chatMensajes = document.getElementById('chat-mensajes');
 
+// ================================================================
+// SCROLL
+// ================================================================
 function scrollToBottom() {
     chatMensajes.scrollTop = chatMensajes.scrollHeight;
 }
 
-function agregarMensaje(mensaje, esMio) {
-    const contenedorMensajes = chatMensajes.querySelector('.max-w-5xl');
-    const mensajeDiv = document.createElement('div');
-    mensajeDiv.className = `mensaje mb-4 flex ${esMio ? 'justify-end mensaje-mio' : 'justify-start mensaje-otro'}`;
-    mensajeDiv.setAttribute('data-mensaje-id', mensaje.id);
-    
-    mensajeDiv.innerHTML = `
+// ================================================================
+// ESCAPE HTML
+// ================================================================
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+// ================================================================
+// AGREGAR BURBUJA AL DOM (compatible con tu estructura original)
+// ================================================================
+function agregarMensaje(msg, esMio) {
+    const contenedor = chatMensajes.querySelector('.max-w-5xl');
+    const div = document.createElement('div');
+
+    const esIA = ES_CHAT_IA && !esMio;
+    div.className = `mensaje mb-4 flex ${esMio ? 'justify-end mensaje-mio' : (esIA ? 'justify-start mensaje-ia' : 'justify-start mensaje-otro')}`;
+    div.setAttribute('data-mensaje-id', msg.id);
+
+    const miniAvatarHtml = esIA
+        ? `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-sm mr-2 flex-shrink-0 self-end mb-8">🤖</div>`
+        : '';
+
+    const escucharHtml = esIA
+        ? `<button class="btn-escuchar" onclick="leerEnVoz(this)">🔊 <span>Escuchar</span></button>`
+        : '';
+
+    div.innerHTML = `
+        ${miniAvatarHtml}
         <div class="max-w-[85%] sm:max-w-[70%]">
             <div class="bubble shadow-xl">
-                <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">${escapeHtml(mensaje.contenido)}</p>
+                <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">${escapeHtml(msg.contenido)}</p>
             </div>
-            <div class="flex items-center gap-2 mt-2 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
-                <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">${mensaje.fecha_envio}</span>
+            <div class="flex items-center gap-2 mt-1 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
+                ${escucharHtml}
+                <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">${msg.fecha_envio}</span>
                 ${esMio ? '<span class="text-sm text-gray-400">✓✓</span>' : ''}
             </div>
-        </div>
-    `;
-    
-    contenedorMensajes.appendChild(mensajeDiv);
+        </div>`;
+
+    contenedor.appendChild(div);
     scrollToBottom();
+
+    // Auto-TTS para respuestas IA si el modo voz está activo
+    if (esIA && document.getElementById('btn-stop-tts') &&
+        document.getElementById('btn-stop-tts').style.display !== 'none') {
+        leerTexto(msg.contenido);
+    }
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// ================================================================
+// TYPING INDICATOR
+// ================================================================
+function mostrarTyping(visible) {
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    if (visible) el.classList.remove('hidden');
+    else         el.classList.add('hidden');
 }
 
+// ================================================================
+// POLLING
+// ================================================================
 function checkNuevosMensajes() {
     fetch(`/chat/nuevos/${CONVERSACION_ID}/?ultimo_mensaje_id=${ultimoMensajeId}`)
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             if (data.hay_nuevos) {
-                data.mensajes.forEach(mensaje => {
-                    const esMio = mensaje.remitente_id === USUARIO_ACTUAL_ID;
-                    agregarMensaje(mensaje, esMio);
-                    ultimoMensajeId = Math.max(ultimoMensajeId, mensaje.id);
+                data.mensajes.forEach(msg => {
+                    const esMio = msg.remitente_id === USUARIO_ACTUAL_ID;
+                    agregarMensaje(msg, esMio);
+                    ultimoMensajeId = Math.max(ultimoMensajeId, msg.id);
                 });
+                if (ES_CHAT_IA) mostrarTyping(false);
             }
         })
-        .catch(error => console.error('Error:', error));
+        .catch(() => {});
 }
 
-function mostrarSelectorTema() {
-    document.getElementById('modal-temas').classList.remove('hidden');
-}
-
-function cerrarSelectorTema() {
-    document.getElementById('modal-temas').classList.add('hidden');
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        document.cookie.split(';').forEach(function(cookie) {
-            const c = cookie.trim();
-            if (c.startsWith(name + '=')) {
-                cookieValue = decodeURIComponent(c.substring(name.length + 1));
-            }
-        });
-    }
-    return cookieValue;
-}
-
-function cambiarTema(tema) {
-    const csrfToken = getCookie('csrftoken');
-    fetch('{% url "chat:cambiar_tema_chat" %}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({ tema: tema })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            console.error('Error al cambiar tema:', data.error);
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
-
+// ================================================================
+// ENVIAR MENSAJE
+// ================================================================
 formEnviar.addEventListener('submit', function(e) {
     e.preventDefault();
-    
     const contenido = inputMensaje.value.trim();
     if (!contenido) return;
-    
+
     const formData = new FormData(this);
-    
-    fetch(`/chat/enviar/${CONVERSACION_ID}/`, {
+
+    // Ocultar sugerencias tras primer mensaje
+    const sugs = document.getElementById('sugerencias-ia');
+    if (sugs) sugs.style.display = 'none';
+
+    if (ES_CHAT_IA) mostrarTyping(true);
+
+    fetch(URL_ENVIAR, {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
+        headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.success) {
             agregarMensaje({
@@ -443,49 +609,183 @@ formEnviar.addEventListener('submit', function(e) {
                 fecha_envio: data.fecha_envio,
                 remitente_id: USUARIO_ACTUAL_ID
             }, true);
-            
             inputMensaje.value = '';
             ultimoMensajeId = Math.max(ultimoMensajeId, data.mensaje_id);
+        } else {
+            if (ES_CHAT_IA) mostrarTyping(false);
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(() => { if (ES_CHAT_IA) mostrarTyping(false); });
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    scrollToBottom();
-    polling = setInterval(checkNuevosMensajes, POLLING_INTERVAL);
-    
-    window.addEventListener('beforeunload', function() {
-        if (polling) clearInterval(polling);
+// ================================================================
+// SUGERENCIAS RÁPIDAS
+// ================================================================
+function usarSugerencia(texto) {
+    inputMensaje.value = texto;
+    inputMensaje.focus();
+}
+
+// ================================================================
+// TEMAS (idéntico a tu original)
+// ================================================================
+function mostrarSelectorTema()  { document.getElementById('modal-temas').classList.remove('hidden'); }
+function cerrarSelectorTema()   { document.getElementById('modal-temas').classList.add('hidden'); }
+
+function getCookie(name) {
+    let val = null;
+    document.cookie.split(';').forEach(c => {
+        const t = c.trim();
+        if (t.startsWith(name + '=')) val = decodeURIComponent(t.substring(name.length + 1));
     });
-    
+    return val;
+}
+
+function cambiarTema(tema) {
+    fetch('{% url "chat:cambiar_tema_chat" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ tema })
+    })
+    .then(r => r.json())
+    .then(d => { if (d.success) location.reload(); });
+}
+
+// ================================================================
+// TEXT-TO-SPEECH (TTS del navegador — gratis)
+// ================================================================
+function leerEnVoz(btn) {
+    const p = btn.closest('div').querySelector('p');
+    if (p) leerTexto(p.innerText);
+}
+
+function leerTexto(texto) {
+    if (!sintesis) return;
+    sintesis.cancel();
+
+    const utt = new SpeechSynthesisUtterance(texto);
+    utt.lang  = 'es-ES';
+    utt.rate  = 1.0;
+
+    // Elegir voz en español si existe
+    const voces = sintesis.getVoices();
+    const vozEs = voces.find(v => v.lang.startsWith('es'));
+    if (vozEs) utt.voice = vozEs;
+
+    const btnStop = document.getElementById('btn-stop-tts');
+    utt.onstart = () => { if (btnStop) btnStop.style.display = 'flex'; };
+    utt.onend   = () => { if (btnStop) btnStop.style.display = 'none'; };
+    utt.onerror = () => { if (btnStop) btnStop.style.display = 'none'; };
+
+    sintesis.speak(utt);
+}
+
+function detenerVoz() {
+    if (sintesis) sintesis.cancel();
+    const btn = document.getElementById('btn-stop-tts');
+    if (btn) btn.style.display = 'none';
+}
+
+// ================================================================
+// RECONOCIMIENTO DE VOZ (Web Speech API — gratis)
+// ================================================================
+function inicializarReconocimiento() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        const btn = document.getElementById('btn-mic');
+        if (btn) {
+            btn.title   = 'Tu navegador no soporta voz. Usa Chrome.';
+            btn.style.opacity = '.4';
+            btn.onclick = () => alert('Reconocimiento de voz no disponible. Prueba con Chrome.');
+        }
+        return false;
+    }
+
+    reconocimiento = new SR();
+    reconocimiento.lang = 'es-ES';
+    reconocimiento.continuous = false;
+    reconocimiento.interimResults = true;
+
+    reconocimiento.onresult = (e) => {
+        const texto = Array.from(e.results).map(r => r[0].transcript).join('');
+        inputMensaje.value = texto;
+    };
+
+    reconocimiento.onend = () => {
+        estaEscuchando = false;
+        const btn = document.getElementById('btn-mic');
+        if (btn) btn.classList.remove('escuchando');
+        if (inputMensaje.value.trim()) setTimeout(() => formEnviar.dispatchEvent(new Event('submit')), 400);
+    };
+
+    reconocimiento.onerror = (e) => {
+        estaEscuchando = false;
+        const btn = document.getElementById('btn-mic');
+        if (btn) btn.classList.remove('escuchando');
+        if (e.error !== 'no-speech') console.warn('Voz error:', e.error);
+    };
+
+    return true;
+}
+
+function toggleMic() {
+    if (!reconocimiento && !inicializarReconocimiento()) return;
+
+    const btn = document.getElementById('btn-mic');
+    if (estaEscuchando) {
+        reconocimiento.stop();
+        estaEscuchando = false;
+        btn.classList.remove('escuchando');
+    } else {
+        detenerVoz(); // evitar eco
+        reconocimiento.start();
+        estaEscuchando = true;
+        btn.classList.add('escuchando');
+    }
+}
+
+// ================================================================
+// INICIALIZACIÓN
+// ================================================================
+document.addEventListener('DOMContentLoaded', function () {
+    scrollToBottom();
+    pollingTimer = setInterval(checkNuevosMensajes, POLLING_INTERVAL);
+
+    // Cargar voces TTS
+    if (sintesis) {
+        sintesis.getVoices();
+        sintesis.onvoiceschanged = () => sintesis.getVoices();
+    }
+
+    // Pre-inicializar reconocimiento de voz si es chat IA
+    if (ES_CHAT_IA) inicializarReconocimiento();
+
     inputMensaje.focus();
 
-    // ✅ Ajustar altura del contenedor al navbar real
-    function ajustarAlturaChatContainer() {
+    // Ajustar padding por la navbar (lógica original)
+    function ajustarAltura() {
         const navbar = document.querySelector('nav, header, .navbar, [class*="navbar"]');
-        const chatContainer = document.getElementById('chat-container');
-        if (chatContainer) {
-            if (navbar) {
-                chatContainer.style.paddingTop = navbar.offsetHeight + 'px';
-            } else {
-                // Fallback: buscar el primer elemento fijo antes del chat
-                const allFixed = document.querySelectorAll('[class*="fixed"], [class*="sticky"]');
-                let maxBottom = 0;
-                allFixed.forEach(el => {
-                    if (el.id !== 'chat-container' && el.id !== 'modal-temas') {
-                        const rect = el.getBoundingClientRect();
-                        if (rect.bottom > maxBottom && rect.top === 0) {
-                            maxBottom = rect.bottom;
-                        }
-                    }
-                });
-                chatContainer.style.paddingTop = (maxBottom || 64) + 'px';
-            }
+        const cont   = document.getElementById('chat-container');
+        if (!cont) return;
+        if (navbar) {
+            cont.style.paddingTop = navbar.offsetHeight + 'px';
+        } else {
+            let max = 0;
+            document.querySelectorAll('[class*="fixed"], [class*="sticky"]').forEach(el => {
+                if (el.id !== 'chat-container' && el.id !== 'modal-temas') {
+                    const r = el.getBoundingClientRect();
+                    if (r.bottom > max && r.top === 0) max = r.bottom;
+                }
+            });
+            cont.style.paddingTop = (max || 64) + 'px';
         }
     }
-    ajustarAlturaChatContainer();
-    window.addEventListener('resize', ajustarAlturaChatContainer);
+    ajustarAltura();
+    window.addEventListener('resize', ajustarAltura);
+
+    window.addEventListener('beforeunload', () => {
+        if (pollingTimer) clearInterval(pollingTimer);
+    });
 });
 </script>
 {% endblock %}
