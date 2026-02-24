@@ -4,26 +4,25 @@
         <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
         <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg"></div>
         
-        <div class="relative z-10 flex items-center justify-between gap-4">
-            <!-- Número del día -->
-            <div class="flex items-center gap-3">
+        <div class="relative z-10 flex items-center justify-between gap-3 flex-wrap">
+
+            {# Fecha a la izquierda #}
+            <div class="flex items-center gap-3 flex-shrink-0">
                 <div class="text-4xl font-black tracking-tight leading-none opacity-95">
                     {{ calendario_data.fecha|date:"d" }}
                 </div>
                 <div class="h-10 w-px bg-white/30"></div>
-            </div>
-            
-            <!-- Información del día y mes -->
-            <div class="flex-1">
-                <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
-                    {{ calendario_data.fecha|date:"l" }}
-                </div>
-                <div class="text-xs font-medium uppercase tracking-wider opacity-75">
-                    {{ calendario_data.fecha|date:"F Y" }}
+                <div>
+                    <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
+                        {{ calendario_data.fecha|date:"l" }}
+                    </div>
+                    <div class="text-xs font-medium uppercase tracking-wider opacity-75">
+                        {{ calendario_data.fecha|date:"F Y" }}
+                    </div>
                 </div>
             </div>
-            
-            <!-- Toggle Vista -->
+
+            {# Toggle Lista / Timeline — mismo layout que semanal #}
             <div class="flex items-center bg-white/10 border border-white/25 rounded-xl p-1 gap-1 flex-shrink-0 shadow-inner">
                 <button id="dia-btn-lista"
                         onclick="diaCambiarVista('lista')"
@@ -47,15 +46,17 @@
                 </button>
             </div>
 
-            <!-- Badge HOY -->
-            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm border border-white/30 shadow-sm">
-                📍 HOY
-            </span>
+            {# Derecha: badge HOY #}
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm border border-white/30 shadow-sm">
+                    📍 HOY
+                </span>
+            </div>
+
         </div>
     </div>
 
-    <div id="dia-vista-lista">
-    <div class="p-4 bg-white border-b border-gray-200">
+    <div id="dia-seccion-metricas" class="p-4 bg-white border-b border-gray-200">
         <!-- Sistema de Pestañas -->
         <div class="flex gap-2 mb-4 border-b border-gray-200">
             <button onclick="cambiarTab('metricas')" id="tab-metricas" class="tab-button flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-widest transition-all border-b-2 border-blue-600 text-blue-600 bg-blue-50/50">
@@ -159,7 +160,7 @@
         {% endif %}
     </div>
 
-    <div class="p-4 bg-gray-50 min-h-[400px]">
+    <div id="dia-seccion-sesiones" class="p-4 bg-gray-50 min-h-[400px]">
         {% if calendario_data.sesiones %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {% for grupo in calendario_data.sesiones_agrupadas %}
@@ -346,7 +347,7 @@
         {% endif %}
     </div>
 
-    <div class="p-3 bg-white border-t border-gray-200 text-center">
+    <div id="dia-seccion-leyenda" class="p-3 bg-white border-t border-gray-200 text-center">
         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Referencia de Colores</span>
         <div class="flex flex-wrap gap-3 justify-center text-[10px] text-gray-600 font-medium items-center">
             <div class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-200 rounded border border-blue-300"></span>Prog.</div>
@@ -372,9 +373,8 @@
                 <span>Sesión Grupal</span>
             </div>
         </div>
-    </div>
-    </div>{# /dia-vista-lista #}
-</div>{# /tarjeta principal #}
+    </div>   
+</div>
 
 <style>
 /* Animación de pulso para el borde de sesiones EN VIVO - ROJO VIBRANTE */
@@ -403,75 +403,71 @@
 </style>
 
 <script>
-// Toggle Lista / Timeline (diario)
-var diaVistaActual = 'lista';
+function cambiarTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    document.querySelectorAll('.tab-button').forEach(b => {
+        b.classList.remove('border-blue-600','text-blue-600','bg-blue-50/50','border-emerald-600','text-emerald-600','bg-emerald-50/50');
+        b.classList.add('border-transparent','text-gray-400');
+    });
+    if (tab === 'metricas') {
+        document.getElementById('contenido-metricas').classList.remove('hidden');
+        const btn = document.getElementById('tab-metricas');
+        btn.classList.remove('border-transparent','text-gray-400');
+        btn.classList.add('border-blue-600','text-blue-600','bg-blue-50/50');
+    } else if (tab === 'flujo') {
+        document.getElementById('contenido-flujo').classList.remove('hidden');
+        const btn = document.getElementById('tab-flujo');
+        btn.classList.remove('border-transparent','text-gray-400');
+        btn.classList.add('border-emerald-600','text-emerald-600','bg-emerald-50/50');
+    }
+}
+
+// ── Toggle Lista / Timeline ───────────────────────────────────────────────
 var dtlIniciado = false;
+var DIA_LISTA_IDS = ['dia-seccion-metricas','dia-seccion-sesiones','dia-seccion-leyenda'];
 
 window.diaCambiarVista = function(vista) {
-    var listaEl     = document.getElementById('dia-vista-lista');
     var tlEl        = document.getElementById('dtl-card');
     var btnLista    = document.getElementById('dia-btn-lista');
     var btnTimeline = document.getElementById('dia-btn-timeline');
-
-    diaVistaActual = vista;
+    if (!btnLista || !btnTimeline) return;
 
     if (vista === 'timeline') {
-        if (listaEl) listaEl.classList.add('hidden');
+        DIA_LISTA_IDS.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
         if (tlEl) tlEl.classList.remove('hidden');
-        btnTimeline.classList.add('bg-white', 'text-indigo-700', 'shadow-md');
-        btnTimeline.classList.remove('text-white/80', 'hover:bg-white/15');
-        btnLista.classList.remove('bg-white', 'text-blue-700', 'shadow-md');
-        btnLista.classList.add('text-white/80', 'hover:bg-white/15');
-        // Iniciar timeline la primera vez (igual que el semanal)
-        if (!dtlIniciado) {
-            if (typeof dtlInit === 'function') { dtlInit(); dtlIniciado = true; }
-        } else {
-            if (typeof dtlScrollAhora === 'function') setTimeout(dtlScrollAhora, 150);
+        btnTimeline.classList.add('bg-white','text-indigo-700','shadow-md');
+        btnTimeline.classList.remove('text-white/80','hover:bg-white/15');
+        btnLista.classList.remove('bg-white','text-blue-700','shadow-md');
+        btnLista.classList.add('text-white/80','hover:bg-white/15');
+        if (!dtlIniciado && typeof dtlInit === 'function') {
+            dtlInit(); dtlIniciado = true;
+        } else if (typeof dtlScrollAhora === 'function') {
+            setTimeout(dtlScrollAhora, 150);
         }
     } else {
+        DIA_LISTA_IDS.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
         if (tlEl) tlEl.classList.add('hidden');
-        if (listaEl) listaEl.classList.remove('hidden');
-        btnLista.classList.add('bg-white', 'text-blue-700', 'shadow-md');
-        btnLista.classList.remove('text-white/80', 'hover:bg-white/15');
-        btnTimeline.classList.remove('bg-white', 'text-indigo-700', 'shadow-md');
-        btnTimeline.classList.add('text-white/80', 'hover:bg-white/15');
+        btnLista.classList.add('bg-white','text-blue-700','shadow-md');
+        btnLista.classList.remove('text-white/80','hover:bg-white/15');
+        btnTimeline.classList.remove('bg-white','text-indigo-700','shadow-md');
+        btnTimeline.classList.add('text-white/80','hover:bg-white/15');
     }
 };
 
-// Función para cambiar entre pestañas (métricas/flujo)
-function cambiarTab(tab) {
-    // Ocultar todos los contenidos
-    document.querySelectorAll('.tab-content').forEach(contenido => {
-        contenido.classList.add('hidden');
-    });
-    
-    // Desactivar todos los botones de pestañas
-    document.querySelectorAll('.tab-button').forEach(boton => {
-        boton.classList.remove('border-blue-600', 'text-blue-600', 'bg-blue-50/50', 'border-emerald-600', 'text-emerald-600', 'bg-emerald-50/50');
-        boton.classList.add('border-transparent', 'text-gray-400');
-    });
-    
-    // Activar la pestaña seleccionada
-    if (tab === 'metricas') {
-        document.getElementById('contenido-metricas').classList.remove('hidden');
-        const tabButton = document.getElementById('tab-metricas');
-        tabButton.classList.remove('border-transparent', 'text-gray-400');
-        tabButton.classList.add('border-blue-600', 'text-blue-600', 'bg-blue-50/50');
-    } else if (tab === 'flujo') {
-        document.getElementById('contenido-flujo').classList.remove('hidden');
-        const tabButton = document.getElementById('tab-flujo');
-        tabButton.classList.remove('border-transparent', 'text-gray-400');
-        tabButton.classList.add('border-emerald-600', 'text-emerald-600', 'bg-emerald-50/50');
-    }
-}
-</script>
-
 {% if subvista == 'timeline' %}
-<script>
-(function() {
-    if (typeof diaCambiarVista === 'function') {
+// Esperar a que dtlInit esté disponible (se define en el partial que carga después)
+(function esperarTimeline(intentos) {
+    if (typeof dtlInit === 'function') {
         diaCambiarVista('timeline');
+    } else if (intentos > 0) {
+        setTimeout(function() { esperarTimeline(intentos - 1); }, 50);
     }
-})();
-</script>
+})(20);
 {% endif %}
+</script>

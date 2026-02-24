@@ -1,34 +1,25 @@
 {% load fecha_tags %}
 
-{# ═══════════════════════════════════════════════════════════════════════════ #}
-{# CALENDARIO DIARIO — VISTA TIMELINE POR PROFESIONAL (9:00–20:00)            #}
-{# Template separado. Incluir debajo de calendario_diario.html               #}
-{# ═══════════════════════════════════════════════════════════════════════════ #}
-
-<div id="dtl-card" class="hidden bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 mt-6">
+<div id="dtl-card" class="hidden bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 mt-4">
 
     {# ── HEADER ────────────────────────────────────────────────────────────── #}
     <div class="px-5 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white relative overflow-hidden">
         <div class="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
         <div class="relative z-10 flex items-center justify-between gap-4 flex-wrap">
-
             <div class="flex items-center gap-3">
-                <span class="text-3xl">⏱️</span>
+                <span class="text-2xl">⏱️</span>
                 <div class="h-8 w-px bg-white/30"></div>
                 <div>
-                    <div class="text-base font-bold tracking-wide opacity-90">Timeline por Profesional</div>
+                    <div class="text-sm font-bold tracking-wide opacity-90">Timeline del Día</div>
                     <div class="text-[10px] font-medium uppercase tracking-wider opacity-65">
-                        09:00 – 20:00 · Una columna por profesional
+                        07:00 – 21:00 · {{ calendario_data.fecha|date:"l d \d\e F" }}
                     </div>
                 </div>
             </div>
-
-            <div class="flex items-center gap-2">
-                <button onclick="dtlScrollAhora()"
-                        class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 border border-white/30 hover:bg-white/30 transition-all whitespace-nowrap">
-                    ⏱ Ir a Ahora
-                </button>
-            </div>
+            <button onclick="dtlScrollAhora()"
+                    class="px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 border border-white/30 hover:bg-white/30 transition-all whitespace-nowrap">
+                ⏱ Ir a Ahora
+            </button>
         </div>
     </div>
 
@@ -41,141 +32,198 @@
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-purple-200 border border-purple-300 inline-block"></span>Permiso</span>
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-gray-200 border border-gray-300 inline-block"></span>Cancel.</span>
         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-orange-200 border border-orange-300 inline-block"></span>Reprog.</span>
+        <span class="ml-auto text-[9px] text-indigo-400 font-bold">07:00 – 21:00</span>
     </div>
 
     {# ── GRID ──────────────────────────────────────────────────────────────── #}
-    <div id="dtl-grid" class="flex overflow-x-auto">
+    <div id="dtl-wrapper">
+        <div id="dtl-grid" class="flex min-w-0 select-none">
 
-        {# Columna de horas #}
-        <div class="flex-shrink-0 w-14 bg-gray-50 border-r border-gray-200">
-            <div class="h-12 border-b border-gray-200 bg-gray-100"></div>
-            <div id="dtl-hora-col" class="relative"></div>
-        </div>
+            {# Columna de horas #}
+            <div class="flex-shrink-0 w-14 bg-gray-50 border-r border-gray-200 relative" style="padding-top:44px;">
+                <div id="dtl-hora-col" class="relative"></div>
+            </div>
 
-        {# Columnas de profesionales — generadas por JS #}
-        <div id="dtl-cols-profesionales" class="flex flex-1 divide-x divide-gray-200"></div>
+            {# Columna única de sesiones #}
+            <div class="flex-1 flex flex-col min-w-0">
 
-    </div>
+                {# Header #}
+                <div class="flex-shrink-0 h-11 flex items-center justify-center border-b border-gray-200 bg-indigo-50">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+                        {{ calendario_data.fecha|date:"l d \d\e F Y" }}
+                    </span>
+                </div>
 
-    {# ── DATOS SERIALIZADOS PARA JS ────────────────────────────────────────── #}
-    <script id="dtl-data" type="application/json">
-    [
-        {% for sesion in calendario_data.sesiones %}
-        {
-            "id":            {{ sesion.id }},
-            "horaInicio":    "{{ sesion.hora_inicio|time:'H:i' }}",
-            "horaFin":       "{{ sesion.hora_fin|time:'H:i' }}",
-            "paciente":      "{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}",
-            "servicio":      "{{ sesion.servicio.nombre|escapejs }}",
-            "servicioColor": "{{ sesion.servicio.color|default:'#6366f1'|escapejs }}",
-            "profesionalId": {{ sesion.profesional.id }},
-            "profesional":   "{{ sesion.profesional.nombre|escapejs }} {{ sesion.profesional.apellido|escapejs }}",
-            "sucursal":      "{{ sesion.sucursal.nombre|escapejs }}",
-            "estado":        "{{ sesion.estado }}",
-            "monto":         {{ sesion.monto_cobrado|default:0 }},
-            "pagado":        {% if sesion.pagado %}true{% else %}false{% endif %},
-            "enCurso":       {% if sesion.es_sesion_en_curso %}true{% else %}false{% endif %},
-            "ultima":        {% if sesion.es_ultima_sesion_paciente_servicio %}true{% else %}false{% endif %},
-            "url":           "{% url 'agenda:editar_sesion' sesion.id %}"
-        }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ]
-    </script>
+                {# Cuerpo con sesiones — mismo patrón que semanal timeline #}
+                <div class="dtl-col-body relative bg-white" style="flex-shrink:0;">
+                    <div class="dtl-grid-lines absolute inset-0 pointer-events-none"></div>
 
-</div>
+                    {# Línea de ahora #}
+                    <div id="dtl-linea-ahora" class="absolute left-0 right-0 z-30 pointer-events-none" style="display:none;">
+                        <div class="relative">
+                            <div class="absolute -left-1 -top-1.5 w-3 h-3 bg-red-500 rounded-full shadow"></div>
+                            <div class="h-0.5 bg-red-500 shadow-sm"></div>
+                        </div>
+                    </div>
+
+                    {# Sesiones — renderizadas desde Django, posicionadas por JS #}
+                    {% for sesion in sesiones %}
+                    <div class="dtl-sesion group absolute cursor-pointer rounded-md shadow-sm border-l-[3px] overflow-hidden
+                                transition-all duration-150 hover:shadow-lg hover:z-50 hover:-translate-y-px
+                                {% if sesion.es_sesion_en_curso %}bg-red-50 border-l-red-500 border border-red-200 ring-2 ring-red-400
+                                {% elif sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
+                                {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
+                                {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
+                                {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
+                                {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
+                                {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-70
+                                {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
+                                {% endif %}"
+                         data-hora-inicio="{{ sesion.hora_inicio|time:'H:i' }}"
+                         data-hora-fin="{{ sesion.hora_fin|time:'H:i' }}"
+                         hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                         hx-target="#modal-content"
+                         hx-swap="innerHTML"
+                         title="{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }} · {{ sesion.hora_inicio|time:'g:i A' }}–{{ sesion.hora_fin|time:'g:i A' }} · {{ sesion.servicio.nombre }} · {{ sesion.profesional.nombre }}">
+
+                        <div class="p-1 h-full flex flex-col overflow-hidden">
+                            <div class="text-[8px] font-black leading-none mb-0.5 dtl-t-hora
+                                        {% if sesion.es_sesion_en_curso %}text-red-700
+                                        {% elif sesion.estado == 'programada' %}text-blue-700
+                                        {% elif sesion.estado == 'realizada' %}text-emerald-700
+                                        {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
+                                        {% elif sesion.estado == 'falta' %}text-rose-700
+                                        {% elif sesion.estado == 'permiso' %}text-purple-700
+                                        {% elif sesion.estado == 'cancelada' %}text-gray-500
+                                        {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                        {% endif %}">
+                                {{ sesion.hora_inicio|time:"g:i" }}–{{ sesion.hora_fin|time:"g:i" }}
+                            </div>
+                            <div class="text-[9px] font-bold text-gray-800 leading-tight truncate dtl-t-pac">
+                                {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                            </div>
+                            <div class="flex items-center gap-0.5 mt-0.5 dtl-t-srv">
+                                <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:{{ sesion.servicio.color }};"></span>
+                                <span class="text-[7px] text-gray-500 truncate">{{ sesion.servicio.nombre }}</span>
+                            </div>
+                            <div class="text-[7px] text-gray-400 truncate mt-auto pt-0.5 dtl-t-prof">
+                                👨‍⚕️ {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido|slice:":1" }}.
+                            </div>
+                        </div>
+
+                        {% if sesion.es_sesion_en_curso %}
+                        <div class="absolute top-0 right-0 bg-red-500 text-white text-[6px] font-black px-1 py-0.5 rounded-bl">EN CURSO</div>
+                        {% endif %}
+                        {% if sesion.es_ultima_sesion_paciente_servicio %}
+                        <div class="absolute bottom-0.5 right-0.5 text-[9px]" title="Última sesión">⚠️</div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    {% endfor %}
+
+                </div>{# /dtl-col-body #}
+            </div>{# /columna única #}
+
+        </div>{# /dtl-grid #}
+    </div>{# /dtl-wrapper #}
+
+</div>{# /dtl-card #}
+
+
+<style>
+.dtl-sesion.dtl-mini .dtl-t-srv,
+.dtl-sesion.dtl-mini .dtl-t-prof { display: none; }
+.dtl-sesion.dtl-tiny .dtl-t-hora,
+.dtl-sesion.dtl-tiny .dtl-t-srv,
+.dtl-sesion.dtl-tiny .dtl-t-prof { display: none; }
+.dtl-sesion.dtl-tiny .dtl-t-pac  { font-size: 7px; }
+</style>
 
 
 <script>
 (function () {
-    const H_INI   = 9;
-    const H_FIN   = 20;
-    const TOT_MIN = (H_FIN - H_INI) * 60;
-    const PX_MIN  = 2;
-    const TOT_PX  = TOT_MIN * PX_MIN; // 1320px
-
-    const ESTADO_STYLES = {
-        programada:        { bg:'#eff6ff', border:'#3b82f6', text:'#1d4ed8' },
-        realizada:         { bg:'#f0fdf4', border:'#22c55e', text:'#15803d' },
-        realizada_retraso: { bg:'#fffbeb', border:'#f59e0b', text:'#b45309' },
-        falta:             { bg:'#fff1f2', border:'#f43f5e', text:'#be123c' },
-        permiso:           { bg:'#faf5ff', border:'#a855f7', text:'#7e22ce' },
-        cancelada:         { bg:'#f9fafb', border:'#9ca3af', text:'#6b7280' },
-        reprogramada:      { bg:'#fff7ed', border:'#f97316', text:'#c2410c' },
-    };
+    var H_INI   = 7;
+    var H_FIN   = 21;
+    var TOT_MIN = (H_FIN - H_INI) * 60;
+    var PX_MIN  = 2;
+    var TOT_PX  = TOT_MIN * PX_MIN;  // 1680px
 
     function hhmm(str) {
-        const [h, m] = str.split(':').map(Number);
-        return h * 60 + m;
+        var p = str.split(':');
+        return parseInt(p[0]) * 60 + parseInt(p[1]);
     }
-    function toPx(min)      { return min * PX_MIN; }
     function offsetMin(min) { return min - H_INI * 60; }
+    function toPx(min)      { return min * PX_MIN; }
 
-    // ── Columna de horas ──────────────────────────────────────────────────
+    // ── Horas ─────────────────────────────────────────────────────────────
     function dibujarHoras() {
-        const col = document.getElementById('dtl-hora-col');
+        var col = document.getElementById('dtl-hora-col');
         if (!col) return;
         col.style.height = TOT_PX + 'px';
-        let html = '';
-        for (let h = H_INI; h <= H_FIN; h++) {
-            for (let m = 0; m < 60; m += 30) {
+        var html = '';
+        for (var h = H_INI; h <= H_FIN; h++) {
+            for (var m = 0; m < 60; m += 30) {
                 if (h === H_FIN && m > 0) break;
-                const top   = toPx((h - H_INI) * 60 + m);
-                const label = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-                const bold  = m === 0;
-                html += `<div style="position:absolute;left:0;right:0;top:${top}px;
-                                     transform:translateY(-50%);padding-right:6px;
-                                     display:flex;align-items:center;justify-content:flex-end;">
-                            <span style="font-size:9px;font-weight:${bold?700:500};
-                                         color:${bold?'#6b7280':'#9ca3af'};line-height:1;white-space:nowrap;">
-                                ${label}
-                            </span>
-                         </div>`;
+                var top   = toPx((h - H_INI) * 60 + m);
+                var label = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+                var bold  = m === 0;
+                html += '<div style="position:absolute;left:0;right:0;top:' + top + 'px;transform:translateY(-50%);padding-right:6px;display:flex;align-items:center;justify-content:flex-end;">'
+                      + '<span style="font-size:9px;font-weight:' + (bold?700:500) + ';color:' + (bold?'#6b7280':'#9ca3af') + ';line-height:1;white-space:nowrap;">' + label + '</span>'
+                      + '</div>';
             }
         }
         col.innerHTML = html;
     }
 
     // ── Líneas de fondo ───────────────────────────────────────────────────
-    function lineasFondo() {
-        let html = '';
-        for (let h = H_INI; h <= H_FIN; h++) {
-            for (let m = 0; m < 60; m += 30) {
+    function dibujarLineas() {
+        var container = document.querySelector('#dtl-grid .dtl-col-body .dtl-grid-lines');
+        if (!container) return;
+        var html = '';
+        for (var h = H_INI; h <= H_FIN; h++) {
+            for (var m = 0; m < 60; m += 30) {
                 if (h === H_FIN && m > 0) break;
-                const top = toPx((h - H_INI) * 60 + m);
-                const esH = m === 0;
-                html += `<div style="position:absolute;left:0;right:0;top:${top}px;
-                                     border-top:1px ${esH?'solid':'dashed'} ${esH?'#d1d5db':'#e5e7eb'};
-                                     pointer-events:none;"></div>`;
+                var top = toPx((h - H_INI) * 60 + m);
+                var esH = m === 0;
+                html += '<div style="position:absolute;left:0;right:0;top:' + top + 'px;border-top:1px '
+                      + (esH ? 'solid #d1d5db' : 'dashed #e5e7eb') + ';pointer-events:none;"></div>';
             }
         }
-        return html;
+        container.innerHTML = html;
     }
 
-    // ── Crear columna de profesional ──────────────────────────────────────
-    function crearColumna(profId, nombre, sesiones) {
-        const col = document.createElement('div');
-        col.className = 'flex flex-col flex-1 min-w-[160px]';
-
-        // Header
-        col.innerHTML = `
-            <div class="h-12 flex flex-col items-center justify-center border-b-2 border-indigo-200 bg-indigo-50 px-2 flex-shrink-0">
-                <div class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-black mb-0.5">👨‍⚕️</div>
-                <span class="text-[9px] font-bold text-indigo-800 text-center leading-tight truncate w-full text-center" title="${nombre}">${nombre}</span>
-            </div>`;
-
-        // Cuerpo
-        const body = document.createElement('div');
-        body.className = 'relative bg-white';
+    // ── Posicionar y resolver solapamientos ───────────────────────────────
+    function posicionarSesiones() {
+        var body = document.querySelector('#dtl-grid .dtl-col-body');
+        if (!body) return;
         body.style.height = TOT_PX + 'px';
-        body.innerHTML = lineasFondo();
+
+        var sesiones = Array.from(body.querySelectorAll('.dtl-sesion'));
+        if (!sesiones.length) return;
+
+        sesiones.forEach(function(el) {
+            var ini = hhmm(el.dataset.horaInicio);
+            var fin = hhmm(el.dataset.horaFin);
+            var top = toPx(Math.max(offsetMin(ini), 0));
+            var h   = toPx(Math.max(fin - ini, 15));
+            el.style.top    = top + 'px';
+            el.style.height = h + 'px';
+            el.style.left   = '0';
+            el.style.right  = '0';
+            el.dataset.startMin = ini;
+            el.dataset.endMin   = fin;
+            el.classList.remove('dtl-mini','dtl-tiny');
+            if (h < 40) el.classList.add('dtl-mini');
+            if (h < 22) el.classList.add('dtl-tiny');
+        });
 
         // Resolver solapamientos
-        const ordered = sesiones.slice().sort((a, b) => hhmm(a.horaInicio) - hhmm(b.horaInicio));
-        const clusters = [];
-        let cluster = [ordered[0]];
-        for (let i = 1; i < ordered.length; i++) {
-            const prev = cluster[cluster.length - 1];
-            if (hhmm(ordered[i].horaInicio) < hhmm(prev.horaFin)) {
+        var ordered = sesiones.slice().sort(function(a,b) {
+            return Number(a.dataset.startMin) - Number(b.dataset.startMin);
+        });
+        var clusters = [], cluster = [ordered[0]];
+        for (var i = 1; i < ordered.length; i++) {
+            if (Number(ordered[i].dataset.startMin) < Number(cluster[cluster.length-1].dataset.endMin)) {
                 cluster.push(ordered[i]);
             } else {
                 clusters.push(cluster);
@@ -183,164 +231,62 @@
             }
         }
         clusters.push(cluster);
-
-        clusters.forEach(cl => {
-            const n = cl.length;
-            cl.forEach((s, idx) => {
-                const ini    = hhmm(s.horaInicio);
-                const fin    = hhmm(s.horaFin);
-                const top    = toPx(Math.max(offsetMin(ini), 0));
-                const height = Math.max(toPx(fin - ini), 20);
-                const left   = (100 / n * idx).toFixed(2) + '%';
-                const width  = ((100 / n) - 0.5).toFixed(2) + '%';
-                const st     = ESTADO_STYLES[s.estado] || ESTADO_STYLES.programada;
-                const mini   = height < 40;
-                const tiny   = height < 24;
-
-                const card = document.createElement('div');
-                card.style.cssText = `
-                    position:absolute; top:${top}px; height:${height}px;
-                    left:${left}; width:${width}; z-index:${10 + idx};
-                    background:${s.enCurso ? 'linear-gradient(135deg,#fef2f2,#fff1f2)' : st.bg};
-                    border-left:3px solid ${s.enCurso ? '#ef4444' : st.border};
-                    border:1px solid ${(s.enCurso ? '#fca5a5' : st.border) + '50'};
-                    border-left:3px solid ${s.enCurso ? '#ef4444' : st.border};
-                    border-radius:4px; overflow:hidden; cursor:pointer;
-                    box-shadow:${s.enCurso ? '0 0 0 2px #ef444450' : '0 1px 3px rgba(0,0,0,0.08)'};
-                    transition:all 0.15s ease;
-                `;
-
-                card.innerHTML = `
-                    <div style="padding:3px 4px;height:100%;display:flex;flex-direction:column;overflow:hidden;">
-                        ${!tiny ? `<div style="font-size:8px;font-weight:800;color:${st.text};line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                            ${s.horaInicio}–${s.horaFin}
-                        </div>` : ''}
-                        <div style="font-size:${tiny?7:9}px;font-weight:700;color:#1f2937;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            ${s.paciente}
-                        </div>
-                        ${!mini ? `<div style="display:flex;align-items:center;gap:2px;margin-top:2px;overflow:hidden;">
-                            <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:${s.servicioColor};"></span>
-                            <span style="font-size:7px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.servicio}</span>
-                        </div>` : ''}
-                        ${height > 64 ? `<div style="font-size:7px;color:#9ca3af;margin-top:auto;padding-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            🏢 ${s.sucursal}
-                        </div>` : ''}
-                        ${height > 84 && s.monto > 0 ? `<div style="font-size:8px;font-weight:800;color:#374151;margin-top:2px;">
-                            Bs.${s.monto} <span style="font-size:7px;font-weight:600;color:${s.pagado?'#16a34a':'#dc2626'};">${s.pagado?'✓ Pag':'⚠ Pend'}</span>
-                        </div>` : ''}
-                    </div>
-                    ${s.ultima ? `<div style="position:absolute;bottom:2px;right:2px;font-size:9px;" title="Última sesión">⚠️</div>` : ''}
-                    ${s.enCurso ? `<div style="position:absolute;top:0;right:0;background:#ef4444;color:white;font-size:6px;font-weight:800;padding:1px 3px;border-radius:0 0 0 4px;letter-spacing:0.05em;">EN CURSO</div>` : ''}
-                `;
-
-                card.setAttribute('hx-get', s.url);
-                card.setAttribute('hx-target', '#modal-content');
-                card.setAttribute('hx-swap', 'innerHTML');
-                card.title = `${s.paciente} · ${s.horaInicio}–${s.horaFin} · ${s.servicio}`;
-
-                card.addEventListener('mouseenter', () => { card.style.transform = 'translateY(-1px)'; card.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'; });
-                card.addEventListener('mouseleave', () => { card.style.transform = ''; card.style.boxShadow = s.enCurso ? '0 0 0 2px #ef444450' : '0 1px 3px rgba(0,0,0,0.08)'; });
-
-                body.appendChild(card);
+        clusters.forEach(function(cl) {
+            var n = cl.length;
+            cl.forEach(function(el, idx) {
+                el.style.left   = (100/n*idx).toFixed(2) + '%';
+                el.style.width  = (100/n - 0.5).toFixed(2) + '%';
+                el.style.right  = 'auto';
+                el.style.zIndex = 10 + idx;
             });
         });
-
-        col.appendChild(body);
-        return col;
     }
 
-    // ── Línea "Ahora" ─────────────────────────────────────────────────────
+    // ── Línea ahora ───────────────────────────────────────────────────────
     function actualizarAhora() {
-        document.querySelectorAll('.dtl-ahora').forEach(el => el.remove());
-        const ahora  = new Date();
-        const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
-        const off    = offsetMin(nowMin);
-        if (off < 0 || off > TOT_MIN) return;
-        const px = toPx(off);
-        document.querySelectorAll('#dtl-cols-profesionales .relative').forEach(body => {
-            const linea = document.createElement('div');
-            linea.className = 'dtl-ahora';
-            linea.style.cssText = `position:absolute;left:0;right:0;top:${px}px;z-index:40;pointer-events:none;`;
-            linea.innerHTML = `
-                <div style="position:relative;">
-                    <div style="position:absolute;left:-3px;top:-4px;width:8px;height:8px;background:#ef4444;border-radius:50%;box-shadow:0 0 6px #ef4444;"></div>
-                    <div style="height:2px;background:#ef4444;opacity:0.9;box-shadow:0 0 4px #ef444460;"></div>
-                </div>`;
-            body.appendChild(linea);
-        });
+        var nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        var off    = offsetMin(nowMin);
+        var linea  = document.getElementById('dtl-linea-ahora');
+        if (!linea) return;
+        if (off < 0 || off > TOT_MIN) { linea.style.display = 'none'; return; }
+        linea.style.display = 'block';
+        linea.style.top     = toPx(off) + 'px';
     }
 
     // ── Scroll a ahora ────────────────────────────────────────────────────
-    window.dtlScrollAhora = function () {
-        const ahora  = new Date();
-        const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
-        const off    = offsetMin(nowMin);
-        const px     = toPx(off);
-        const card   = document.getElementById('dtl-card');
+    window.dtlScrollAhora = function() {
+        var nowMin  = new Date().getHours() * 60 + new Date().getMinutes();
+        var px      = toPx(offsetMin(nowMin));
+        var card    = document.getElementById('dtl-card');
         if (!card) return;
-        const offsetY = card.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: offsetY + 60 + px - 120, behavior: 'smooth' });
+        var offsetY = card.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: offsetY + 55 + px - 150, behavior: 'smooth' });
     };
+
+    // ── Vacío ─────────────────────────────────────────────────────────────
+    function mostrarVacio() {
+        var body = document.querySelector('#dtl-grid .dtl-col-body');
+        if (!body || body.querySelectorAll('.dtl-sesion').length) return;
+        var vacio = document.createElement('div');
+        vacio.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;opacity:0.35;';
+        vacio.innerHTML = '<div style="font-size:2rem;margin-bottom:6px;">☕</div><div style="font-size:12px;font-weight:700;color:#6b7280;">Sin sesiones para mostrar</div>';
+        body.appendChild(vacio);
+    }
 
     // ── INIT ──────────────────────────────────────────────────────────────
     function init() {
-        const raw = document.getElementById('dtl-data');
-        if (!raw) { console.error('dtl-data no encontrado'); return; }
-        let sesiones = [];
-        try {
-            sesiones = JSON.parse(raw.textContent);
-        } catch(e) {
-            console.error('Error JSON dtl-data:', e, raw.textContent.substring(0, 200));
-            return;
-        }
-
-        // Filtrar fuera de rango
-        sesiones = sesiones.filter(s => {
-            const ini = hhmm(s.horaInicio);
-            return ini >= H_INI * 60 && ini < H_FIN * 60;
-        });
-
-        // Agrupar por profesional
-        const profMap = new Map();
-        sesiones.forEach(s => {
-            if (!profMap.has(s.profesionalId)) {
-                profMap.set(s.profesionalId, { nombre: s.profesional, sesiones: [] });
-            }
-            profMap.get(s.profesionalId).sesiones.push(s);
-        });
-
         dibujarHoras();
-
-        const contenedor = document.getElementById('dtl-cols-profesionales');
-        if (!contenedor) { console.error('dtl-cols-profesionales no encontrado'); return; }
-        contenedor.innerHTML = '';
-
-        if (profMap.size === 0) {
-            contenedor.innerHTML = `
-                <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:80px 0;opacity:0.4;">
-                    <div style="text-align:center;">
-                        <div style="font-size:2.5rem;margin-bottom:8px;">☕</div>
-                        <div style="font-size:13px;font-weight:700;color:#6b7280;">Sin sesiones para mostrar</div>
-                    </div>
-                </div>`;
-            return;
-        }
-
-        profMap.forEach((data, profId) => {
-            contenedor.appendChild(crearColumna(profId, data.nombre, data.sesiones));
-        });
-
-        // Procesar HTMX en cards dinámicos
-        if (typeof htmx !== 'undefined') {
-            contenedor.querySelectorAll('[hx-get]').forEach(el => htmx.process(el));
-        }
-
+        dibujarLineas();
+        posicionarSesiones();
+        mostrarVacio();
         actualizarAhora();
         setInterval(actualizarAhora, 60000);
         setTimeout(dtlScrollAhora, 200);
+        if (typeof htmx !== 'undefined') {
+            document.querySelectorAll('#dtl-grid [hx-get]').forEach(function(el) { htmx.process(el); });
+        }
     }
 
-    // Exponer init para ser llamado desde el toggle
     window.dtlInit = init;
 
 })();
