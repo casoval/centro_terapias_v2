@@ -1,188 +1,221 @@
 {% load fecha_tags %}
 <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 flex flex-col">
-    
+
+    {# ══════════════════════════════════════════════════════════════════════ #}
+    {# HEADER AZUL — con toggle Lista / Timeline                             #}
+    {# ══════════════════════════════════════════════════════════════════════ #}
     <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md relative overflow-hidden">
         <div class="absolute top-0 right-0 -mt-2 -mr-2 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
         <div class="absolute bottom-0 left-0 -mb-2 -ml-2 w-16 h-16 bg-white opacity-10 rounded-full blur-lg"></div>
-        
-        <div class="relative z-10 flex items-center justify-between gap-4">
-            <!-- Icono y título -->
-            <div class="flex items-center gap-3">
-                <div class="text-4xl font-black tracking-tight leading-none opacity-95">
-                    📅
-                </div>
+
+        <div class="relative z-10 flex items-center justify-between gap-3 flex-wrap">
+
+            {# Icono + título #}
+            <div class="flex items-center gap-3 flex-shrink-0">
+                <div class="text-4xl font-black tracking-tight leading-none opacity-95" id="sem-icono">📅</div>
                 <div class="h-10 w-px bg-white/30"></div>
-            </div>
-            
-            <!-- Información de vista -->
-            <div class="flex-1">
-                <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight">
-                    Vista Semanal
-                </div>
-                <div class="text-xs font-medium uppercase tracking-wider opacity-75">
-                    Gestión de Agenda
+                <div>
+                    <div class="text-lg font-bold capitalize tracking-wide opacity-90 leading-tight" id="sem-titulo">Vista Semanal</div>
+                    <div class="text-xs font-medium uppercase tracking-wider opacity-65" id="sem-subtitulo">Gestión de Agenda</div>
                 </div>
             </div>
-            
-            <!-- Controles -->
-            <div class="flex items-center gap-2">
-                <button id="btn-restaurar" onclick="toggleZoomDia(-1)" class="hidden px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm border border-white/30 shadow-sm hover:bg-white/30 transition-all">
+
+            {# ── TOGGLE VISTA ── #}
+            <div class="flex items-center bg-white/10 border border-white/25 rounded-xl p-1 gap-1 flex-shrink-0 shadow-inner">
+                <button id="sem-btn-lista"
+                        onclick="semCambiarVista('lista')"
+                        class="sem-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wide transition-all duration-200
+                               bg-white text-blue-700 shadow-md">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Lista
+                </button>
+                <button id="sem-btn-timeline"
+                        onclick="semCambiarVista('timeline')"
+                        class="sem-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wide transition-all duration-200
+                               text-white/80 hover:bg-white/15">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Timeline
+                </button>
+            </div>
+
+            {# Controles compartidos #}
+            <div class="flex items-center gap-2 flex-wrap flex-shrink-0">
+                {# Botón restaurar zoom (solo lista) #}
+                <button id="btn-restaurar"
+                        onclick="toggleZoomDia(-1)"
+                        class="hidden px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-all">
                     ↺ Ver Todo
                 </button>
 
+                {# Timeline: scroll a ahora #}
+                <button id="sem-btn-ahora"
+                        onclick="tlScrollAhora()"
+                        class="hidden px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-all whitespace-nowrap">
+                    ⏱ Ir a Ahora
+                </button>
+
+                {# Toggle domingo (aplica a ambas vistas) #}
                 <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-full border border-white/20 hover:bg-white/20 transition-all">
-                    <input type="checkbox" 
-                           id="toggle-domingo" 
-                           class="w-4 h-4 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
-                           onchange="toggleDomingo(this.checked)">
-                    <span class="text-xs text-white font-bold tracking-wide">Mostrar Domingos</span>
+                    <input type="checkbox"
+                           id="toggle-domingo"
+                           class="w-4 h-4 accent-white cursor-pointer"
+                           onchange="semToggleDomingo(this.checked)">
+                    <span class="text-xs text-white font-bold tracking-wide">Dom.</span>
                 </label>
             </div>
         </div>
     </div>
 
-    <div id="header-dias" class="flex w-full bg-gray-200 border-b border-gray-200 divide-x divide-gray-200 flex-shrink-0">
-        {% for dia in calendario_data.dias %}
-        <div class="dia-header flex-1 min-w-0 transition-all duration-500 ease-in-out py-2.5 px-1 text-center bg-gray-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 relative overflow-hidden
-                    {% if dia.es_hoy %}bg-blue-50/50{% endif %} 
-                    {% if forloop.last %}columna-domingo border-r-0{% endif %}" 
-             data-dia="{{ forloop.counter0 }}"
-             onclick="toggleZoomDia({{ forloop.counter0 }})"
-             title="Click para enfocar este día">
-            
-            <div class="header-content w-full flex flex-col items-center whitespace-nowrap">
-                <span class="text-[9px] font-bold uppercase tracking-widest mb-0.5 
-                    {% if dia.es_hoy %}text-blue-600{% else %}text-gray-400{% endif %}">
-                    {{ dia.fecha|dia_semana|slice:":3" }}
-                </span>
-                <div class="w-7 h-7 flex items-center justify-center rounded-full mb-0.5 text-xs font-black shadow-sm transition-transform duration-300
-                    {% if dia.es_hoy %}bg-blue-600 text-white shadow-blue-200 scale-110{% else %}bg-white text-gray-700 border border-gray-200{% endif %}">
-                    {{ dia.dia_numero }}
+
+    {# ══════════════════════════════════════════════════════════════════════ #}
+    {# VISTA LISTA (por defecto visible)                                     #}
+    {# ══════════════════════════════════════════════════════════════════════ #}
+    <div id="sem-vista-lista">
+
+        <div id="header-dias" class="flex w-full bg-gray-200 border-b border-gray-200 divide-x divide-gray-200 flex-shrink-0">
+            {% for dia in calendario_data.dias %}
+            <div class="dia-header flex-1 min-w-0 transition-all duration-500 ease-in-out py-2.5 px-1 text-center bg-gray-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 relative overflow-hidden
+                        {% if dia.es_hoy %}bg-blue-50/50{% endif %}
+                        {% if forloop.last %}columna-domingo border-r-0{% endif %}"
+                 data-dia="{{ forloop.counter0 }}"
+                 onclick="toggleZoomDia({{ forloop.counter0 }})"
+                 title="Click para enfocar este día">
+                <div class="header-content w-full flex flex-col items-center whitespace-nowrap">
+                    <span class="text-[9px] font-bold uppercase tracking-widest mb-0.5
+                        {% if dia.es_hoy %}text-blue-600{% else %}text-gray-400{% endif %}">
+                        {{ dia.fecha|dia_semana|slice:":3" }}
+                    </span>
+                    <div class="w-7 h-7 flex items-center justify-center rounded-full mb-0.5 text-xs font-black shadow-sm transition-transform duration-300
+                        {% if dia.es_hoy %}bg-blue-600 text-white shadow-blue-200 scale-110{% else %}bg-white text-gray-700 border border-gray-200{% endif %}">
+                        {{ dia.dia_numero }}
+                    </div>
+                    <span class="text-[8px] font-medium text-gray-400 uppercase">{{ dia.fecha|mes_nombre|slice:":3" }}</span>
                 </div>
-                <span class="text-[8px] font-medium text-gray-400 uppercase">{{ dia.fecha|mes_nombre|slice:":3" }}</span>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
 
-    <div id="grid-sesiones" class="flex w-full bg-gray-200 divide-x divide-gray-200">
-        {% for dia in calendario_data.dias %}
-        <div class="columna-dia flex-1 min-w-0 transition-all duration-500 ease-in-out bg-white p-1.5 flex flex-col gap-1.5 relative overflow-y-auto overflow-x-hidden
-                    {% if dia.es_hoy %}bg-blue-50/10{% endif %}
-                    {% if forloop.last %}columna-domingo{% endif %}" 
-             data-dia="{{ forloop.counter0 }}"
-             style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9;">
-            
-            <div class="content-wrapper h-full w-full transition-opacity duration-300" 
-                 onclick="handleColumnClick(event, {{ forloop.counter0 }})">
-                
-                {% if dia.sesiones_agrupadas %}
-                    {% for grupo in dia.sesiones_agrupadas %}
-                        
-                        {% if grupo.mostrar_linea_tarde %}
-                            <div class="my-1.5 relative flex items-center justify-center pointer-events-none">
-                                <div class="h-px bg-orange-200 w-full absolute"></div>
-                                <span class="relative z-10 px-1.5 py-0.5 text-[7px] font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-full shadow-sm whitespace-nowrap">
-                                    ☀️ Tarde
-                                </span>
-                            </div>
-                        {% endif %}
-                        
-                        {% for sesion in grupo.sesiones %}
-                        {% if sesion.es_grupal %}
-                        <div class="relative pl-1.5 border-l-2 border-teal-400 bg-teal-50/40 rounded-r-md mb-1.5">
-                            <div class="absolute -left-3 top-1 z-10">
-                                <span class="inline-flex items-center gap-0.5 bg-teal-500 text-white text-[6px] font-black px-1 py-0.5 rounded-full shadow leading-none">
-                                    👥{{ sesion.num_grupo }}
-                                </span>
-                            </div>
-                        {% endif %}
-                        <div class="group relative cursor-pointer rounded-md border-l-[3px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden bg-opacity-90 mb-1.5
-                            {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
-                            {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
-                            {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
-                            {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
-                            {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
-                            {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-75
-                            {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
-                            {% endif %}"
-                             hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
-                             hx-target="#modal-content"
-                             hx-swap="innerHTML">
-                            
-                            <div class="p-2">
-                                <div class="flex items-center justify-between mb-1 border-b border-black/5 pb-1 gap-1">
-                                    <div class="flex items-baseline gap-0.5 min-w-0">
-                                        <span class="text-[10px] font-black leading-none whitespace-nowrap
-                                            {% if sesion.estado == 'programada' %}text-blue-700
-                                            {% elif sesion.estado == 'realizada' %}text-emerald-700
-                                            {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
-                                            {% elif sesion.estado == 'falta' %}text-rose-700
-                                            {% elif sesion.estado == 'permiso' %}text-purple-700
-                                            {% elif sesion.estado == 'cancelada' %}text-gray-600
-                                            {% elif sesion.estado == 'reprogramada' %}text-orange-700
-                                            {% endif %}">
-                                            {{ sesion.hora_inicio|time:"g:i A" }}
-                                        </span>
-                                        <span class="text-[8px] text-gray-500 font-medium whitespace-nowrap">
-                                            -{{ sesion.hora_fin|time:"g:i A" }}
-                                        </span>
-                                    </div>
+        <div id="grid-sesiones" class="flex w-full bg-gray-200 divide-x divide-gray-200">
+            {% for dia in calendario_data.dias %}
+            <div class="columna-dia flex-1 min-w-0 transition-all duration-500 ease-in-out bg-white p-1.5 flex flex-col gap-1.5 relative overflow-y-auto overflow-x-hidden
+                        {% if dia.es_hoy %}bg-blue-50/10{% endif %}
+                        {% if forloop.last %}columna-domingo{% endif %}"
+                 data-dia="{{ forloop.counter0 }}"
+                 style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9;">
 
-                                    <span class="text-[7px] font-bold uppercase px-1 py-0.5 rounded-full border whitespace-nowrap flex-shrink-0
-                                        {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800 border-blue-200
-                                        {% elif sesion.estado == 'realizada' %}bg-emerald-100 text-emerald-800 border-emerald-200
-                                        {% elif sesion.estado == 'realizada_retraso' %}bg-amber-100 text-amber-800 border-amber-200
-                                        {% elif sesion.estado == 'falta' %}bg-rose-100 text-rose-800 border-rose-200
-                                        {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800 border-purple-200
-                                        {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800 border-gray-200
-                                        {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800 border-orange-200
-                                        {% endif %}">
-                                        {% if sesion.estado == 'programada' %}Prog
-                                        {% elif sesion.estado == 'realizada' %}Real
-                                        {% elif sesion.estado == 'realizada_retraso' %}Retr
-                                        {% elif sesion.estado == 'falta' %}Falt
-                                        {% elif sesion.estado == 'permiso' %}Perm
-                                        {% elif sesion.estado == 'cancelada' %}Canc
-                                        {% elif sesion.estado == 'reprogramada' %}Repr
-                                        {% endif %}
+                <div class="content-wrapper h-full w-full transition-opacity duration-300"
+                     onclick="handleColumnClick(event, {{ forloop.counter0 }})">
+
+                    {% if dia.sesiones_agrupadas %}
+                        {% for grupo in dia.sesiones_agrupadas %}
+                            {% if grupo.mostrar_linea_tarde %}
+                                <div class="my-1.5 relative flex items-center justify-center pointer-events-none">
+                                    <div class="h-px bg-orange-200 w-full absolute"></div>
+                                    <span class="relative z-10 px-1.5 py-0.5 text-[7px] font-bold text-orange-600 bg-orange-50 border border-orange-200 rounded-full shadow-sm whitespace-nowrap">
+                                        ☀️ Tarde
                                     </span>
                                 </div>
+                            {% endif %}
 
-                                <div class="mb-1">
-                                    <h4 class="text-[10px] font-bold text-gray-800 leading-tight truncate mb-0.5">
-                                        {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
-                                    </h4>
-                                    <div class="flex items-center gap-1">
-                                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }};"></span>
-                                        <span class="text-[8px] text-gray-600 truncate font-medium">{{ sesion.servicio.nombre }}</span>
-                                    </div>
+                            {% for sesion in grupo.sesiones %}
+                            {% if sesion.es_grupal %}
+                            <div class="relative pl-1.5 border-l-2 border-teal-400 bg-teal-50/40 rounded-r-md mb-1.5">
+                                <div class="absolute -left-3 top-1 z-10">
+                                    <span class="inline-flex items-center gap-0.5 bg-teal-500 text-white text-[6px] font-black px-1 py-0.5 rounded-full shadow leading-none">
+                                        👥{{ sesion.num_grupo }}
+                                    </span>
                                 </div>
-                                
-                                {% if sesion.proyecto or sesion.mensualidad %}
-                                <div class="flex gap-1 mb-1 flex-wrap">
-                                    {% if sesion.proyecto %}
-                                    <span class="px-1 py-0.5 bg-white rounded border border-purple-200 text-[7px] font-bold text-purple-700 leading-none shadow-sm whitespace-nowrap">📦 Proy.</span>
-                                    {% endif %}
-                                    {% if sesion.mensualidad %}
-                                    <span class="px-1 py-0.5 bg-white rounded border border-indigo-200 text-[7px] font-bold text-indigo-700 leading-none shadow-sm whitespace-nowrap">💳 Mens.</span>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
+                            {% endif %}
+                            <div class="group relative cursor-pointer rounded-md border-l-[3px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden bg-opacity-90 mb-1.5
+                                {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
+                                {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
+                                {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
+                                {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
+                                {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
+                                {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-75
+                                {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
+                                {% endif %}"
+                                 hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                                 hx-target="#modal-content"
+                                 hx-swap="innerHTML">
 
-                                <div class="mt-1 pt-1 border-t border-black/5 flex items-end justify-between gap-1">
-                                    <div class="flex flex-col gap-0.5 min-w-0">
-                                        <div class="flex items-center gap-1 text-[7px] text-gray-500" title="Profesional">
-                                            <span class="flex-shrink-0">👨‍⚕️</span>
-                                            <span class="truncate">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</span>
+                                <div class="p-2">
+                                    <div class="flex items-center justify-between mb-1 border-b border-black/5 pb-1 gap-1">
+                                        <div class="flex items-baseline gap-0.5 min-w-0">
+                                            <span class="text-[10px] font-black leading-none whitespace-nowrap
+                                                {% if sesion.estado == 'programada' %}text-blue-700
+                                                {% elif sesion.estado == 'realizada' %}text-emerald-700
+                                                {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
+                                                {% elif sesion.estado == 'falta' %}text-rose-700
+                                                {% elif sesion.estado == 'permiso' %}text-purple-700
+                                                {% elif sesion.estado == 'cancelada' %}text-gray-600
+                                                {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                                {% endif %}">
+                                                {{ sesion.hora_inicio|time:"g:i A" }}
+                                            </span>
+                                            <span class="text-[8px] text-gray-500 font-medium whitespace-nowrap">
+                                                -{{ sesion.hora_fin|time:"g:i A" }}
+                                            </span>
                                         </div>
-                                        <div class="flex items-center gap-1 text-[7px] text-gray-400" title="Sucursal">
-                                            <span class="flex-shrink-0">🏢</span>
-                                            <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                                        <span class="text-[7px] font-bold uppercase px-1 py-0.5 rounded-full border whitespace-nowrap flex-shrink-0
+                                            {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800 border-blue-200
+                                            {% elif sesion.estado == 'realizada' %}bg-emerald-100 text-emerald-800 border-emerald-200
+                                            {% elif sesion.estado == 'realizada_retraso' %}bg-amber-100 text-amber-800 border-amber-200
+                                            {% elif sesion.estado == 'falta' %}bg-rose-100 text-rose-800 border-rose-200
+                                            {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800 border-purple-200
+                                            {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800 border-gray-200
+                                            {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800 border-orange-200
+                                            {% endif %}">
+                                            {% if sesion.estado == 'programada' %}Prog
+                                            {% elif sesion.estado == 'realizada' %}Real
+                                            {% elif sesion.estado == 'realizada_retraso' %}Retr
+                                            {% elif sesion.estado == 'falta' %}Falt
+                                            {% elif sesion.estado == 'permiso' %}Perm
+                                            {% elif sesion.estado == 'cancelada' %}Canc
+                                            {% elif sesion.estado == 'reprogramada' %}Repr
+                                            {% endif %}
+                                        </span>
+                                    </div>
+
+                                    <div class="mb-1">
+                                        <h4 class="text-[10px] font-bold text-gray-800 leading-tight truncate mb-0.5">
+                                            {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                                        </h4>
+                                        <div class="flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }};"></span>
+                                            <span class="text-[8px] text-gray-600 truncate font-medium">{{ sesion.servicio.nombre }}</span>
                                         </div>
                                     </div>
 
-                                    {% if sesion.monto_cobrado > 0 %}
+                                    {% if sesion.proyecto or sesion.mensualidad %}
+                                    <div class="flex gap-1 mb-1 flex-wrap">
+                                        {% if sesion.proyecto %}
+                                        <span class="px-1 py-0.5 bg-white rounded border border-purple-200 text-[7px] font-bold text-purple-700 leading-none shadow-sm whitespace-nowrap">📦 Proy.</span>
+                                        {% endif %}
+                                        {% if sesion.mensualidad %}
+                                        <span class="px-1 py-0.5 bg-white rounded border border-indigo-200 text-[7px] font-bold text-indigo-700 leading-none shadow-sm whitespace-nowrap">💳 Mens.</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="mt-1 pt-1 border-t border-black/5 flex items-end justify-between gap-1">
+                                        <div class="flex flex-col gap-0.5 min-w-0">
+                                            <div class="flex items-center gap-1 text-[7px] text-gray-500" title="Profesional">
+                                                <span class="flex-shrink-0">👨‍⚕️</span>
+                                                <span class="truncate">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-1 text-[7px] text-gray-400" title="Sucursal">
+                                                <span class="flex-shrink-0">🏢</span>
+                                                <span class="truncate">{{ sesion.sucursal.nombre }}</span>
+                                            </div>
+                                        </div>
+                                        {% if sesion.monto_cobrado > 0 %}
                                         <div class="flex flex-col items-end flex-shrink-0">
                                             <div class="text-[9px] font-black text-gray-800 leading-none mb-0.5">
                                                 Bs.{{ sesion.monto_cobrado|floatformat:0 }}
@@ -191,208 +224,534 @@
                                                 {% if sesion.pagado %}bg-emerald-100 border-emerald-200 text-emerald-800
                                                 {% else %}bg-rose-50 border-rose-200 text-rose-700 animate-pulse{% endif %}">
                                                 <span class="text-[7px]">💰</span>
-                                                <span class="text-[7px] font-bold uppercase">
-                                                    {% if sesion.pagado %}Pag{% else %}Pend{% endif %}
-                                                </span>
+                                                <span class="text-[7px] font-bold uppercase">{% if sesion.pagado %}Pag{% else %}Pend{% endif %}</span>
                                             </div>
                                         </div>
-                                    {% endif %}
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            {% if sesion.es_ultima_sesion_paciente_servicio %}
-                            <div class="absolute bottom-0.5 right-0.5">
-                                <span class="text-[10px]" title="Última sesión">⚠️</span>
-                            </div>
-                            {% endif %}
 
-                            {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
-                                {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
-                                <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
-                                        class="absolute bottom-1 left-1 p-0.5 bg-rose-500 text-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20 hover:scale-110"
-                                        title="Eliminar sesión">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                                {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                <div class="absolute bottom-0.5 right-0.5">
+                                    <span class="text-[10px]" title="Última sesión">⚠️</span>
+                                </div>
                                 {% endif %}
-                            {% endif %}
-                        </div>
-                        {% if sesion.es_grupal %}</div>{% endif %}
+
+                                {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
+                                    {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
+                                    <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
+                                            class="absolute bottom-1 left-1 p-0.5 bg-rose-500 text-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20 hover:scale-110"
+                                            title="Eliminar sesión">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% if sesion.es_grupal %}</div>{% endif %}
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
-                {% else %}
-                    <div class="h-full flex flex-col items-center justify-center opacity-30 cursor-pointer hover:opacity-60 transition-opacity min-h-[100px]"
-                         onclick="toggleZoomDia({{ forloop.counter0 }})">
-                        <span class="text-xl mb-1">☕</span>
-                        <span class="text-[8px] font-medium text-center">Libre</span>
+                    {% else %}
+                        <div class="h-full flex flex-col items-center justify-center opacity-30 cursor-pointer hover:opacity-60 transition-opacity min-h-[100px]"
+                             onclick="toggleZoomDia({{ forloop.counter0 }})">
+                            <span class="text-xl mb-1">☕</span>
+                            <span class="text-[8px] font-medium text-center">Libre</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Leyenda #}
+        <div class="p-3 bg-white border-t border-gray-200 flex-shrink-0">
+            <div class="flex flex-wrap gap-2 items-center justify-center text-[9px] font-medium text-gray-600">
+                <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Prog.</span>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Real.</span>
+                <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Retraso</span>
+                <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">Falta</span>
+                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">Permiso</span>
+                <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">Cancel.</span>
+                <div class="w-px h-3 bg-gray-300 mx-1"></div>
+                <span class="px-2 py-0.5 bg-white rounded border border-purple-200 text-purple-700 font-bold shadow-sm">📦 Proyecto</span>
+                <span class="px-2 py-0.5 bg-white rounded border border-indigo-200 text-indigo-700 font-bold shadow-sm">💳 Mensualidad</span>
+                <div class="w-px h-3 bg-gray-300 mx-1"></div>
+                <div class="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                    <span class="text-[8px]">💰</span><span>Pago Pend/Realiz</span>
+                </div>
+                <span class="px-2 py-0.5 bg-white rounded border border-amber-200 text-amber-700 font-bold shadow-sm">⚠️ Última Sesión</span>
+                <span class="px-2 py-0.5 bg-white rounded border border-teal-300 text-teal-700 font-bold shadow-sm">👥 Grupal</span>
+            </div>
+        </div>
+
+    </div>{# /sem-vista-lista #}
+
+
+    {# ══════════════════════════════════════════════════════════════════════ #}
+    {# VISTA TIMELINE (oculta por defecto)                                   #}
+    {# ══════════════════════════════════════════════════════════════════════ #}
+    <div id="sem-vista-timeline" class="hidden flex flex-col">
+
+        {# Leyenda timeline #}
+        <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-x-4 gap-y-1 items-center text-[9px] font-semibold text-gray-500">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-blue-200 border border-blue-300 inline-block"></span>Prog.</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-200 border border-emerald-300 inline-block"></span>Realizada</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-200 border border-amber-300 inline-block"></span>Retraso</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-rose-200 border border-rose-300 inline-block"></span>Falta</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-purple-200 border border-purple-300 inline-block"></span>Permiso</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-gray-200 border border-gray-300 inline-block"></span>Cancel.</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-orange-200 border border-orange-300 inline-block"></span>Reprog.</span>
+            <span class="ml-auto text-[9px] text-indigo-400 font-bold">09:00 – 20:00</span>
+        </div>
+
+        {# Área scrollable #}
+        <div id="tl-wrapper">
+            <div id="tl-grid" class="flex min-w-[560px] select-none">
+
+                {# Columna de horas #}
+                <div class="flex-shrink-0 w-14 bg-gray-50 border-r border-gray-200 relative" style="padding-top: 44px;">
+                    <div id="tl-hora-col" class="relative"></div>
+                </div>
+
+                {# Columnas de días #}
+                {% for dia in calendario_data.dias %}
+                <div class="tl-col-dia flex-1 min-w-0 border-r border-gray-200 flex flex-col
+                            {% if forloop.last %}tl-col-domingo{% endif %}"
+                     data-dia="{{ forloop.counter0 }}">
+
+                    {# Header del día #}
+                    <div class="flex-shrink-0 h-11 flex flex-col items-center justify-center border-b border-gray-200
+                                {% if dia.es_hoy %}bg-indigo-50{% else %}bg-gray-50{% endif %}">
+                        <span class="text-[9px] font-bold uppercase tracking-widest
+                                     {% if dia.es_hoy %}text-indigo-600{% else %}text-gray-400{% endif %}">
+                            {{ dia.fecha|dia_semana|slice:":3" }}
+                        </span>
+                        <div class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-black
+                                    {% if dia.es_hoy %}bg-indigo-600 text-white{% else %}text-gray-700{% endif %}">
+                            {{ dia.dia_numero }}
+                        </div>
                     </div>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <div class="p-3 bg-white border-t border-gray-200 flex-shrink-0">
-        <div class="flex flex-wrap gap-2 items-center justify-center text-[9px] font-medium text-gray-600">
-            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Prog.</span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">Real.</span>
-            <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">Retraso</span>
-            <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">Falta</span>
-            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">Permiso</span>
-            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">Cancel.</span>
-            
-            <div class="w-px h-3 bg-gray-300 mx-1"></div>
-            
-            <span class="px-2 py-0.5 bg-white rounded border border-purple-200 text-purple-700 font-bold shadow-sm">
-                📦 Proyecto
-            </span>
-            <span class="px-2 py-0.5 bg-white rounded border border-indigo-200 text-indigo-700 font-bold shadow-sm">
-                💳 Mensualidad
-            </span>
+                    {# Área de sesiones #}
+                    <div class="tl-col-body relative bg-white" style="flex-shrink:0;">
+                        <div class="tl-grid-lines absolute inset-0 pointer-events-none"></div>
 
-            <div class="w-px h-3 bg-gray-300 mx-1"></div>
-            
-            <div class="flex items-center gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                <span class="text-[8px]">💰</span>
-                <span>Pago Pend/Realiz</span>
-            </div>
-            <span class="px-2 py-0.5 bg-white rounded border border-amber-200 text-amber-700 font-bold shadow-sm">
-                ⚠️ Última Sesión
-            </span>
-            <span class="px-2 py-0.5 bg-white rounded border border-teal-300 text-teal-700 font-bold shadow-sm">
-                👥 Grupal
-            </span>
-        </div>
-    </div>
-</div>
+                        {% if dia.es_hoy %}
+                        <div id="tl-linea-ahora" class="absolute left-0 right-0 z-30 pointer-events-none" style="display:none;">
+                            <div class="relative">
+                                <div class="absolute -left-1 -top-1.5 w-3 h-3 bg-red-500 rounded-full shadow"></div>
+                                <div class="h-0.5 bg-red-500 shadow-sm"></div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# Sesiones #}
+                        {% for grupo in dia.sesiones_agrupadas %}
+                            {% for sesion in grupo.sesiones %}
+                            <div class="tl-sesion group absolute cursor-pointer rounded-md shadow-sm border-l-[3px] overflow-hidden
+                                        transition-all duration-150 hover:shadow-lg hover:z-50 hover:-translate-y-px
+                                        {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
+                                        {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
+                                        {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
+                                        {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
+                                        {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
+                                        {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-70
+                                        {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
+                                        {% endif %}"
+                                 data-hora-inicio="{{ sesion.hora_inicio|time:'H:i' }}"
+                                 data-hora-fin="{{ sesion.hora_fin|time:'H:i' }}"
+                                 data-profesional-id="{{ sesion.profesional.id }}"
+                                 data-servicio-id="{{ sesion.servicio.id }}"
+                                 data-paciente-id="{{ sesion.paciente.id }}"
+                                 hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                                 hx-target="#modal-content"
+                                 hx-swap="innerHTML"
+                                 title="{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }} · {{ sesion.hora_inicio|time:'g:i A' }}–{{ sesion.hora_fin|time:'g:i A' }} · {{ sesion.servicio.nombre }} · {{ sesion.profesional.nombre }}">
+
+                                <div class="p-1 h-full flex flex-col overflow-hidden">
+                                    <div class="text-[8px] font-black leading-none mb-0.5 tl-t-hora
+                                                {% if sesion.estado == 'programada' %}text-blue-700
+                                                {% elif sesion.estado == 'realizada' %}text-emerald-700
+                                                {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
+                                                {% elif sesion.estado == 'falta' %}text-rose-700
+                                                {% elif sesion.estado == 'permiso' %}text-purple-700
+                                                {% elif sesion.estado == 'cancelada' %}text-gray-500
+                                                {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                                {% endif %}">
+                                        {{ sesion.hora_inicio|time:"g:i" }}–{{ sesion.hora_fin|time:"g:i" }}
+                                    </div>
+                                    <div class="text-[9px] font-bold text-gray-800 leading-tight truncate tl-t-pac">
+                                        {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                                    </div>
+                                    <div class="flex items-center gap-0.5 mt-0.5 tl-t-srv">
+                                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:{{ sesion.servicio.color }};"></span>
+                                        <span class="text-[7px] text-gray-500 truncate">{{ sesion.servicio.nombre }}</span>
+                                    </div>
+                                    <div class="text-[7px] text-gray-400 truncate mt-auto pt-0.5 tl-t-prof">
+                                        {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido|slice:":1" }}.
+                                    </div>
+                                </div>
+
+                                {% if sesion.es_ultima_sesion_paciente_servicio %}
+                                <div class="absolute bottom-0.5 right-0.5 text-[9px]" title="Última sesión">⚠️</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% endfor %}
+
+                    </div>{# /tl-col-body #}
+                </div>{# /tl-col-dia #}
+                {% endfor %}
+
+            </div>{# /tl-grid #}
+        </div>{# /tl-wrapper #}
+
+    </div>{# /sem-vista-timeline #}
+
+</div>{# /main card #}
+
+
+<style>
+.tl-col-oculta { display: none !important; }
+.tl-sesion.tl-mini .tl-t-srv,
+.tl-sesion.tl-mini .tl-t-prof { display: none; }
+.tl-sesion.tl-tiny .tl-t-hora,
+.tl-sesion.tl-tiny .tl-t-srv,
+.tl-sesion.tl-tiny .tl-t-prof { display: none; }
+.tl-sesion.tl-tiny .tl-t-pac { font-size: 7px; }
+</style>
+
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toggle = document.getElementById('toggle-domingo');
-    
-    // Verificar si hay sesiones en algún domingo
-    const columnasDomingo = document.querySelectorAll('.columna-domingo');
-    let tieneSesiones = false;
-    
-    columnasDomingo.forEach(col => {
-        if (col.getAttribute('data-dia') === '6') {
-            const sesiones = col.querySelectorAll('.group');
-            if (sesiones.length > 0) {
+(function () {
+
+    // ── Constantes timeline ────────────────────────────────────────────────
+    var TL_H_INI   = 9;
+    var TL_H_FIN   = 20;
+    var TL_TOT_MIN = (TL_H_FIN - TL_H_INI) * 60;   // 660
+    var TL_PX_MIN  = 2;                               // 2px por minuto
+    var TL_TOT_PX  = TL_TOT_MIN * TL_PX_MIN;         // 1320px
+
+    var vistaActual = 'lista';
+    var tlIniciado  = false;
+
+    // ── Toggle de vista (botón del header) ────────────────────────────────
+    window.semCambiarVista = function (vista) {
+        vistaActual = vista;
+        var listaEl     = document.getElementById('sem-vista-lista');
+        var timelineEl  = document.getElementById('sem-vista-timeline');
+        var btnLista    = document.getElementById('sem-btn-lista');
+        var btnTimeline = document.getElementById('sem-btn-timeline');
+        var btnRestaurar = document.getElementById('btn-restaurar');
+        var btnAhora    = document.getElementById('sem-btn-ahora');
+        var icono       = document.getElementById('sem-icono');
+        var subtitulo   = document.getElementById('sem-subtitulo');
+
+        if (vista === 'timeline') {
+            listaEl.classList.add('hidden');
+            timelineEl.classList.remove('hidden');
+            // Estilos botones
+            btnTimeline.classList.add('bg-white', 'text-indigo-700', 'shadow-md');
+            btnTimeline.classList.remove('text-white/80', 'hover:bg-white/15');
+            btnLista.classList.remove('bg-white', 'text-blue-700', 'shadow-md');
+            btnLista.classList.add('text-white/80', 'hover:bg-white/15');
+            // Controles específicos
+            if (btnRestaurar) btnRestaurar.classList.add('hidden');
+            if (btnAhora) btnAhora.classList.remove('hidden');
+            icono.textContent = '⏱';
+            subtitulo.textContent = '09:00 – 20:00 · Espacios libres y sesiones';
+            // Iniciar timeline la primera vez
+            if (!tlIniciado) { tlInit(); tlIniciado = true; }
+            else { tlActualizarLineaAhora(); }
+            setTimeout(tlScrollAhora, 150);
+        } else {
+            timelineEl.classList.add('hidden');
+            listaEl.classList.remove('hidden');
+            btnLista.classList.add('bg-white', 'text-blue-700', 'shadow-md');
+            btnLista.classList.remove('text-white/80', 'hover:bg-white/15');
+            btnTimeline.classList.remove('bg-white', 'text-indigo-700', 'shadow-md');
+            btnTimeline.classList.add('text-white/80', 'hover:bg-white/15');
+            if (btnAhora) btnAhora.classList.add('hidden');
+            icono.textContent = '📅';
+            subtitulo.textContent = 'Gestión de Agenda';
+        }
+    };
+
+    // ── Toggle domingo (ambas vistas) ─────────────────────────────────────
+    window.semToggleDomingo = function (mostrar) {
+        // Vista lista
+        if (diaZoomed === -1) {
+            document.querySelectorAll('.columna-domingo').forEach(function(col) {
+                col.style.display = mostrar ? '' : 'none';
+                if (mostrar) col.classList.add('flex-1');
+            });
+        }
+        // Vista timeline
+        document.querySelectorAll('.tl-col-domingo').forEach(function(col) {
+            col.classList.toggle('tl-col-oculta', !mostrar);
+        });
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // LÓGICA VISTA LISTA (sin cambios respecto al original)
+    // ══════════════════════════════════════════════════════════════════════
+
+    var diaZoomed = -1;
+
+    // Detectar domingo al cargar
+    document.addEventListener('DOMContentLoaded', function () {
+        var toggle = document.getElementById('toggle-domingo');
+        var columnasDomingo = document.querySelectorAll('.columna-domingo');
+        var tieneSesiones = false;
+        columnasDomingo.forEach(function(col) {
+            if (col.getAttribute('data-dia') === '6' && col.querySelectorAll('.group').length > 0) {
                 tieneSesiones = true;
             }
-        }
-    });
-    
-    if (!tieneSesiones) {
-        ocultarDomingo();
-        if (toggle) toggle.checked = false;
-    } else {
-        if (toggle) toggle.checked = true;
-    }
-});
-
-let diaZoomed = -1;
-
-function toggleDomingo(mostrar) {
-    // Si hay un zoom activo, no permitir ocultar/mostrar domingo para evitar glitches visuales hasta restaurar
-    if (diaZoomed !== -1) return;
-
-    const columnas = document.querySelectorAll('.columna-domingo');
-    columnas.forEach(col => {
-        if (mostrar) {
-            col.style.display = ''; // Restaurar display flex (default del css)
-            // Necesitamos asegurarnos que recupere su clase flex-1 si no hay zoom
-            if (diaZoomed === -1) col.classList.add('flex-1');
+        });
+        if (!tieneSesiones) {
+            ocultarDomingo();
+            if (toggle) toggle.checked = false;
         } else {
-            col.style.display = 'none';
+            if (toggle) toggle.checked = true;
         }
     });
-}
 
-function ocultarDomingo() {
-    document.querySelectorAll('.columna-domingo').forEach(col => col.style.display = 'none');
-}
+    function ocultarDomingo() {
+        document.querySelectorAll('.columna-domingo').forEach(function(c){ c.style.display='none'; });
+        document.querySelectorAll('.tl-col-domingo').forEach(function(c){ c.classList.add('tl-col-oculta'); });
+    }
 
-function mostrarDomingo() {
-    document.querySelectorAll('.columna-domingo').forEach(col => col.style.display = '');
-}
+    // Mantener compatibilidad con toggleDomingo si se llama desde otro sitio
+    window.toggleDomingo = window.semToggleDomingo;
 
-function handleColumnClick(event, diaIndex) {
-    // Si el click fue en una sesión específica (la tarjeta), no disparamos el zoom para dejar que HTMX funcione
-    if (event.target.closest('.group')) return;
-    
-    toggleZoomDia(diaIndex);
-}
+    window.handleColumnClick = function (event, diaIndex) {
+        if (event.target.closest('.group')) return;
+        toggleZoomDia(diaIndex);
+    };
 
-function toggleZoomDia(index) {
-    const headers = document.querySelectorAll('.dia-header');
-    const columns = document.querySelectorAll('.columna-dia');
-    const btnRestaurar = document.getElementById('btn-restaurar');
-    const isDomingoVisible = document.getElementById('toggle-domingo').checked;
+    window.toggleZoomDia = function (index) {
+        var headers  = document.querySelectorAll('.dia-header');
+        var columns  = document.querySelectorAll('.columna-dia');
+        var btnRest  = document.getElementById('btn-restaurar');
 
-    // Si clicamos el mismo día ya activo o pasamos -1, restauramos la vista
-    if (diaZoomed === index || index === -1) {
-        // Restaurar estado original
-        headers.forEach(h => {
-            h.classList.remove('flex-[2.5]', 'w-32', 'flex-none');
-            h.classList.add('flex-1');
-            h.querySelector('.header-content').style.opacity = '1';
-            h.querySelector('.header-content').style.transform = 'scale(1)';
-        });
-        
-        columns.forEach(c => {
-            c.classList.remove('flex-[2.5]', 'w-32', 'flex-none', 'bg-gray-100');
-            c.classList.add('flex-1', 'bg-white');
-            c.querySelector('.content-wrapper').style.opacity = '1';
-            c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
-        });
-
-        btnRestaurar.classList.add('hidden');
-        diaZoomed = -1;
-
-    } else {
-        // Activar Zoom
-        headers.forEach((h, i) => {
-            // Resetear clases base
-            h.classList.remove('flex-1');
-            
-            if (i === index) {
-                // Día Activo
-                h.classList.add('flex-[2.5]'); // Ensanche moderado
-                h.classList.remove('w-32', 'flex-none');
+        if (diaZoomed === index || index === -1) {
+            headers.forEach(function(h) {
+                h.classList.remove('flex-[2.5]','w-32','flex-none');
+                h.classList.add('flex-1');
                 h.querySelector('.header-content').style.opacity = '1';
-                h.querySelector('.header-content').style.transform = 'scale(1.1)';
-            } else {
-                // Días Inactivos
-                h.classList.add('w-32', 'flex-none'); // Ancho amplio
-                h.classList.remove('flex-[2.5]');
-                h.querySelector('.header-content').style.opacity = '0.5';
-                h.querySelector('.header-content').style.transform = 'scale(0.9)';
-            }
-        });
-
-        columns.forEach((c, i) => {
-            c.classList.remove('flex-1');
-            
-            if (i === index) {
-                // Columna Activa
-                c.classList.add('flex-[2.5]', 'bg-white');
-                c.classList.remove('w-32', 'flex-none', 'bg-gray-100');
+                h.querySelector('.header-content').style.transform = 'scale(1)';
+            });
+            columns.forEach(function(c) {
+                c.classList.remove('flex-[2.5]','w-32','flex-none','bg-gray-100');
+                c.classList.add('flex-1','bg-white');
                 c.querySelector('.content-wrapper').style.opacity = '1';
                 c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
-            } else {
-                // Columna Inactiva
-                c.classList.add('w-32', 'flex-none', 'bg-gray-100');
-                c.classList.remove('flex-[2.5]', 'bg-white');
-                // Ocultar contenido visualmente para evitar desorden
-                c.querySelector('.content-wrapper').style.opacity = '0'; 
-                c.querySelector('.content-wrapper').style.pointerEvents = 'none';
+            });
+            if (btnRest) btnRest.classList.add('hidden');
+            diaZoomed = -1;
+        } else {
+            headers.forEach(function(h, i) {
+                h.classList.remove('flex-1');
+                if (i === index) {
+                    h.classList.add('flex-[2.5]');
+                    h.classList.remove('w-32','flex-none');
+                    h.querySelector('.header-content').style.opacity = '1';
+                    h.querySelector('.header-content').style.transform = 'scale(1.1)';
+                } else {
+                    h.classList.add('w-32','flex-none');
+                    h.classList.remove('flex-[2.5]');
+                    h.querySelector('.header-content').style.opacity = '0.5';
+                    h.querySelector('.header-content').style.transform = 'scale(0.9)';
+                }
+            });
+            columns.forEach(function(c, i) {
+                c.classList.remove('flex-1');
+                if (i === index) {
+                    c.classList.add('flex-[2.5]','bg-white');
+                    c.classList.remove('w-32','flex-none','bg-gray-100');
+                    c.querySelector('.content-wrapper').style.opacity = '1';
+                    c.querySelector('.content-wrapper').style.pointerEvents = 'auto';
+                } else {
+                    c.classList.add('w-32','flex-none','bg-gray-100');
+                    c.classList.remove('flex-[2.5]','bg-white');
+                    c.querySelector('.content-wrapper').style.opacity = '0';
+                    c.querySelector('.content-wrapper').style.pointerEvents = 'none';
+                }
+            });
+            if (btnRest) btnRest.classList.remove('hidden');
+            diaZoomed = index;
+        }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // LÓGICA TIMELINE
+    // ══════════════════════════════════════════════════════════════════════
+
+    function hhmm(str) {
+        var p = str.split(':');
+        return parseInt(p[0]) * 60 + parseInt(p[1]);
+    }
+    function offsetMin(min) { return min - TL_H_INI * 60; }
+    function toPx(min)      { return min * TL_PX_MIN; }
+
+    function tlInit() {
+        tlAjustarAltura();
+        tlDibujarHoras();
+        tlDibujarLineas();
+        tlPosicionarSesiones();
+        tlActualizarLineaAhora();
+        tlCheckDomingo();
+        setInterval(tlActualizarLineaAhora, 60000);
+    }
+
+    function tlAjustarAltura() {
+        var col = document.getElementById('tl-hora-col');
+        if (col) col.style.height = TL_TOT_PX + 'px';
+        document.querySelectorAll('.tl-col-body').forEach(function(c) {
+            c.style.height = TL_TOT_PX + 'px';
+        });
+    }
+
+    function tlDibujarHoras() {
+        var col = document.getElementById('tl-hora-col');
+        if (!col) return;
+        var html = '';
+        for (var h = TL_H_INI; h <= TL_H_FIN; h++) {
+            for (var m = 0; m < 60; m += 30) {
+                if (h === TL_H_FIN && m > 0) break;
+                var top   = toPx((h - TL_H_INI) * 60 + m);
+                var label = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+                var bold  = m === 0;
+                html += '<div style="position:absolute;left:0;right:0;top:' + top + 'px;'
+                      + 'transform:translateY(-50%);padding-right:6px;display:flex;'
+                      + 'align-items:center;justify-content:flex-end;">'
+                      + '<span style="font-size:9px;font-weight:' + (bold?'700':'500') + ';'
+                      + 'color:' + (bold?'#6b7280':'#9ca3af') + ';line-height:1;white-space:nowrap;">'
+                      + label + '</span></div>';
             }
+        }
+        col.innerHTML = html;
+    }
+
+    function tlDibujarLineas() {
+        document.querySelectorAll('.tl-col-body .tl-grid-lines').forEach(function(container) {
+            var html = '';
+            for (var h = TL_H_INI; h <= TL_H_FIN; h++) {
+                for (var m = 0; m < 60; m += 30) {
+                    if (h === TL_H_FIN && m > 0) break;
+                    var top   = toPx((h - TL_H_INI) * 60 + m);
+                    var esH   = m === 0;
+                    html += '<div style="position:absolute;left:0;right:0;top:' + top + 'px;'
+                          + 'border-top:1px ' + (esH?'solid':'dashed') + ' '
+                          + (esH?'#d1d5db':'#e5e7eb') + ';pointer-events:none;"></div>';
+                }
+            }
+            container.innerHTML = html;
+        });
+    }
+
+    function tlPosicionarSesiones() {
+        document.querySelectorAll('.tl-col-body').forEach(function(body) {
+            var sesiones = Array.from(body.querySelectorAll('.tl-sesion'));
+            sesiones.forEach(function(el) {
+                var ini = hhmm(el.dataset.horaInicio);
+                var fin = hhmm(el.dataset.horaFin);
+                var top = toPx(Math.max(offsetMin(ini), 0));
+                var h   = toPx(Math.max(fin - ini, 15));
+                el.style.top    = top + 'px';
+                el.style.height = h + 'px';
+                el.dataset.startMin = ini;
+                el.dataset.endMin   = fin;
+                el.classList.remove('tl-mini','tl-tiny');
+                if (h < 40) el.classList.add('tl-mini');
+                if (h < 22) el.classList.add('tl-tiny');
+            });
+            tlResolverSolapamientos(sesiones.filter(function(e){ return e.style.display !== 'none'; }));
+        });
+    }
+
+    function tlResolverSolapamientos(sesiones) {
+        if (!sesiones.length) return;
+        var ordered = sesiones.slice().sort(function(a,b){
+            return Number(a.dataset.startMin) - Number(b.dataset.startMin);
+        });
+        var clusters = [];
+        var cluster  = [ordered[0]];
+        for (var i = 1; i < ordered.length; i++) {
+            var prev = cluster[cluster.length - 1];
+            if (Number(ordered[i].dataset.startMin) < Number(prev.dataset.endMin)) {
+                cluster.push(ordered[i]);
+            } else {
+                clusters.push(cluster);
+                cluster = [ordered[i]];
+            }
+        }
+        clusters.push(cluster);
+        clusters.forEach(function(cl) {
+            var n = cl.length;
+            cl.forEach(function(el, idx) {
+                var pct = 100 / n;
+                el.style.left  = (pct * idx) + '%';
+                el.style.width = (pct - 0.8) + '%';
+                el.style.zIndex = 10 + idx;
+            });
+        });
+    }
+
+    function tlActualizarLineaAhora() {
+        var ahora = new Date();
+        var nowMin = ahora.getHours() * 60 + ahora.getMinutes();
+        var off    = offsetMin(nowMin);
+        var linea  = document.getElementById('tl-linea-ahora');
+        if (!linea) return;
+        if (off < 0 || off > TL_TOT_MIN) { linea.style.display = 'none'; return; }
+        linea.style.display = 'block';
+        linea.style.top     = toPx(off) + 'px';
+    }
+
+    window.tlScrollAhora = function () {
+        var ahora  = new Date();
+        var nowMin = ahora.getHours() * 60 + ahora.getMinutes();
+        var off    = offsetMin(nowMin);
+        var px     = toPx(off);
+        var tlTop  = document.getElementById('sem-vista-timeline');
+        var offsetY = tlTop ? tlTop.getBoundingClientRect().top + window.scrollY : 0;
+        window.scrollTo({ top: offsetY + px + 44 - 120, behavior: 'smooth' });
+    };
+
+    function tlCheckDomingo() {
+        var col = document.querySelector('.tl-col-domingo');
+        if (!col) return;
+        var tiene = col.querySelectorAll('.tl-sesion').length > 0;
+        var tog   = document.getElementById('toggle-domingo');
+        if (!tiene) {
+            col.classList.add('tl-col-oculta');
+            if (tog) tog.checked = false;
+        }
+    }
+
+    // Filtros visuales del timeline (llamados desde el dropdown global del header de página
+    // a través del query param — no es necesario aquí porque el backend ya filtra.
+    // Si en el futuro se agrega filtro client-side, se pueden activar estos métodos.)
+    window.tlFiltrar = function() {
+        var profId = '';
+        var filtroProf = document.getElementById('filtro-profesional');
+        if (filtroProf) profId = filtroProf.value;
+
+        document.querySelectorAll('.tl-sesion').forEach(function(el) {
+            var visible = true;
+            if (profId && el.dataset.profesionalId !== profId) visible = false;
+            el.style.display = visible ? '' : 'none';
         });
 
-        btnRestaurar.classList.remove('hidden');
-        diaZoomed = index;
-    }
-}
+        // Re-resolver solapamientos con sesiones visibles
+        document.querySelectorAll('.tl-col-body').forEach(function(body) {
+            var vis = Array.from(body.querySelectorAll('.tl-sesion'))
+                          .filter(function(e){ return e.style.display !== 'none'; });
+            tlResolverSolapamientos(vis);
+        });
+    };
+
+})();
 </script>

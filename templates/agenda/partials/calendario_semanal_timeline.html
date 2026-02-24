@@ -1,0 +1,485 @@
+{% load fecha_tags %}
+
+{# ═══════════════════════════════════════════════════════════════════════════ #}
+{# CALENDARIO SEMANAL — VISTA TIMELINE (9:00–20:00)                           #}
+{# Sección separada. No reemplaza la vista lista existente.                   #}
+{# ═══════════════════════════════════════════════════════════════════════════ #}
+
+<div id="timeline-semanal" class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 mt-6">
+
+    {# ── CABECERA ──────────────────────────────────────────────────────────── #}
+    <div class="px-5 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white relative overflow-hidden">
+        <div class="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+        <div class="relative z-10 flex items-center justify-between gap-4 flex-wrap">
+
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🗓️</span>
+                <div class="h-8 w-px bg-white/30"></div>
+                <div>
+                    <div class="text-base font-bold tracking-wide opacity-90">Vista Timeline Semanal</div>
+                    <div class="text-[10px] font-medium uppercase tracking-wider opacity-65">9:00 – 20:00 · Horas con sesiones y espacios libres</div>
+                </div>
+            </div>
+
+            {# Filtro por profesional #}
+            <div class="flex items-center gap-2 flex-wrap">
+                {% if not es_profesional %}
+                <div class="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider opacity-75 whitespace-nowrap">👨‍⚕️ Profesional</span>
+                    <select id="tl-filtro-profesional"
+                            onchange="timelineFilterProfesional(this.value)"
+                            class="bg-transparent text-white text-xs font-semibold border-0 outline-none cursor-pointer min-w-[120px]"
+                            style="color:white;">
+                        <option value="" style="color:#1e293b;">— Todos —</option>
+                        {% for prof in profesionales %}
+                        <option value="{{ prof.id }}" style="color:#1e293b;">{{ prof.nombre }} {{ prof.apellido }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                {# Toggle domingo #}
+                <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/20 transition-all text-xs font-bold">
+                    <input type="checkbox" id="tl-toggle-domingo" onchange="timelineToggleDomingo(this.checked)" class="accent-white w-3.5 h-3.5">
+                    Dom.
+                </label>
+
+                {# Scroll al momento actual #}
+                <button onclick="timelineScrollAhora()" 
+                        class="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white/20 border border-white/30 hover:bg-white/30 transition-all whitespace-nowrap">
+                    ⏱ Ir a Ahora
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {# ── LEYENDA DE COLORES ────────────────────────────────────────────────── #}
+    <div class="px-4 py-2 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-x-4 gap-y-1 items-center text-[9px] font-semibold text-gray-600">
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-blue-200 border border-blue-300 inline-block"></span>Prog.</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-emerald-200 border border-emerald-300 inline-block"></span>Realizada</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-amber-200 border border-amber-300 inline-block"></span>Retraso</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-rose-200 border border-rose-300 inline-block"></span>Falta</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-purple-200 border border-purple-300 inline-block"></span>Permiso</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-gray-200 border border-gray-300 inline-block"></span>Cancelada</div>
+        <div class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-orange-200 border border-orange-300 inline-block"></span>Reprog.</div>
+        <div class="w-px h-3 bg-gray-300 mx-1"></div>
+        <div class="flex items-center gap-1"><span class="text-violet-600">▓</span> Espacio libre</div>
+    </div>
+
+    {# ── GRID PRINCIPAL ────────────────────────────────────────────────────── #}
+    <div id="tl-grid-wrapper" class="overflow-auto" style="max-height: 74vh;">
+        <div id="tl-grid" class="flex min-w-[640px]">
+
+            {# ── Columna de horas ──────────────────────────────────────────── #}
+            <div class="flex-shrink-0 w-14 bg-gray-50 border-r border-gray-200 relative" style="padding-top: 48px;">
+                {# 48px = altura del header de días #}
+                <div id="tl-hora-col" class="relative" style="height: 1320px;">
+                    {# Generado por JS: marcas de hora cada 30 min #}
+                </div>
+            </div>
+
+            {# ── Columnas de días ──────────────────────────────────────────── #}
+            {% for dia in calendario_data.dias %}
+            <div class="tl-col-dia flex-1 min-w-0 border-r border-gray-200 flex flex-col
+                        {% if forloop.last %}tl-col-domingo{% endif %}"
+                 data-dia="{{ forloop.counter0 }}">
+
+                {# Header del día #}
+                <div class="tl-col-header flex-shrink-0 h-12 flex flex-col items-center justify-center
+                            border-b border-gray-200 sticky top-0 z-20
+                            {% if dia.es_hoy %}bg-violet-50{% else %}bg-gray-50{% endif %}">
+                    <span class="text-[9px] font-bold uppercase tracking-widest
+                                 {% if dia.es_hoy %}text-violet-600{% else %}text-gray-400{% endif %}">
+                        {{ dia.fecha|dia_semana|slice:":3" }}
+                    </span>
+                    <div class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-black
+                                {% if dia.es_hoy %}bg-violet-600 text-white{% else %}text-gray-700{% endif %}">
+                        {{ dia.dia_numero }}
+                    </div>
+                </div>
+
+                {# Área de sesiones — posicionamiento absoluto via JS #}
+                <div class="tl-col-body relative flex-1 bg-white" style="height: 1320px;">
+
+                    {# Líneas de fondo: cada 60 min oscura, cada 30 min tenue — generadas por JS #}
+                    <div class="tl-grid-lines absolute inset-0 pointer-events-none"></div>
+
+                    {# Indicador "ahora" — solo en el día de hoy #}
+                    {% if dia.es_hoy %}
+                    <div id="tl-linea-ahora" class="absolute left-0 right-0 z-30 pointer-events-none" style="display:none;">
+                        <div class="relative">
+                            <div class="absolute -left-1 -top-1.5 w-3 h-3 bg-red-500 rounded-full shadow-md"></div>
+                            <div class="h-0.5 bg-red-500 opacity-90 shadow-sm"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# ── SESIONES ── #}
+                    {% for grupo in dia.sesiones_agrupadas %}
+                        {% for sesion in grupo.sesiones %}
+                        <div class="tl-sesion group absolute cursor-pointer rounded-md shadow-sm border-l-[3px] overflow-hidden
+                                    transition-all duration-150 hover:shadow-lg hover:z-50 hover:-translate-y-0.5
+                                    {% if sesion.estado == 'programada' %}bg-blue-50 border-l-blue-500 border border-blue-100
+                                    {% elif sesion.estado == 'realizada' %}bg-emerald-50 border-l-emerald-500 border border-emerald-100
+                                    {% elif sesion.estado == 'realizada_retraso' %}bg-amber-50 border-l-amber-500 border border-amber-100
+                                    {% elif sesion.estado == 'falta' %}bg-rose-50 border-l-rose-500 border border-rose-100
+                                    {% elif sesion.estado == 'permiso' %}bg-purple-50 border-l-purple-500 border border-purple-100
+                                    {% elif sesion.estado == 'cancelada' %}bg-gray-50 border-l-gray-400 border border-gray-200 opacity-70
+                                    {% elif sesion.estado == 'reprogramada' %}bg-orange-50 border-l-orange-500 border border-orange-100
+                                    {% endif %}"
+                             data-hora-inicio="{{ sesion.hora_inicio|time:"H:i" }}"
+                             data-hora-fin="{{ sesion.hora_fin|time:"H:i" }}"
+                             data-profesional-id="{{ sesion.profesional.id }}"
+                             data-sesion-id="{{ sesion.id }}"
+                             hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
+                             hx-target="#modal-content"
+                             hx-swap="innerHTML"
+                             title="{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }} · {{ sesion.hora_inicio|time:'g:i A' }}–{{ sesion.hora_fin|time:'g:i A' }} · {{ sesion.servicio.nombre }}">
+
+                            <div class="p-1 h-full flex flex-col overflow-hidden">
+                                {# Hora #}
+                                <div class="text-[8px] font-black leading-none mb-0.5
+                                            {% if sesion.estado == 'programada' %}text-blue-700
+                                            {% elif sesion.estado == 'realizada' %}text-emerald-700
+                                            {% elif sesion.estado == 'realizada_retraso' %}text-amber-700
+                                            {% elif sesion.estado == 'falta' %}text-rose-700
+                                            {% elif sesion.estado == 'permiso' %}text-purple-700
+                                            {% elif sesion.estado == 'cancelada' %}text-gray-500
+                                            {% elif sesion.estado == 'reprogramada' %}text-orange-700
+                                            {% endif %} tl-hora-label">
+                                    {{ sesion.hora_inicio|time:"g:i" }}–{{ sesion.hora_fin|time:"g:i A" }}
+                                </div>
+                                {# Paciente #}
+                                <div class="text-[9px] font-bold text-gray-800 leading-tight truncate tl-paciente-label">
+                                    {{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}
+                                </div>
+                                {# Servicio #}
+                                <div class="flex items-center gap-0.5 mt-0.5 tl-servicio-label">
+                                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:{{ sesion.servicio.color }};"></span>
+                                    <span class="text-[7px] text-gray-500 truncate">{{ sesion.servicio.nombre }}</span>
+                                </div>
+                                {# Profesional — visible si sesión es suficientemente alta #}
+                                <div class="text-[7px] text-gray-400 truncate mt-auto pt-0.5 tl-prof-label">
+                                    {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido|slice:":1" }}.
+                                </div>
+                            </div>
+
+                            {# Badge de estado #}
+                            <div class="absolute top-0.5 right-0.5 hidden group-hover:flex tl-badge">
+                                <span class="text-[6px] font-bold uppercase px-1 py-0.5 rounded-full border
+                                    {% if sesion.estado == 'programada' %}bg-blue-100 text-blue-800 border-blue-200
+                                    {% elif sesion.estado == 'realizada' %}bg-emerald-100 text-emerald-800 border-emerald-200
+                                    {% elif sesion.estado == 'realizada_retraso' %}bg-amber-100 text-amber-800 border-amber-200
+                                    {% elif sesion.estado == 'falta' %}bg-rose-100 text-rose-800 border-rose-200
+                                    {% elif sesion.estado == 'permiso' %}bg-purple-100 text-purple-800 border-purple-200
+                                    {% elif sesion.estado == 'cancelada' %}bg-gray-100 text-gray-800 border-gray-200
+                                    {% elif sesion.estado == 'reprogramada' %}bg-orange-100 text-orange-800 border-orange-200
+                                    {% endif %}">
+                                    {{ sesion.estado|slice:":4" }}
+                                </span>
+                            </div>
+
+                            {% if sesion.es_ultima_sesion_paciente_servicio %}
+                            <div class="absolute bottom-0.5 right-0.5 text-[9px]" title="Última sesión">⚠️</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+
+                </div>{# fin tl-col-body #}
+            </div>{# fin tl-col-dia #}
+            {% endfor %}
+
+        </div>{# fin tl-grid #}
+    </div>{# fin tl-grid-wrapper #}
+
+</div>{# fin timeline-semanal #}
+
+
+<style>
+/* ── Transiciones suaves para mostrar/ocultar columnas ── */
+.tl-col-dia {
+    transition: flex 0.3s ease, opacity 0.2s ease;
+}
+.tl-col-oculta {
+    display: none;
+}
+
+/* ── Hover en slot libre ── */
+.tl-slot-libre:hover {
+    background-color: rgba(139, 92, 246, 0.08) !important;
+    cursor: pointer;
+}
+
+/* ── Sesión muy pequeña: ocultar textos secundarios ── */
+.tl-sesion.tl-mini .tl-hora-label { font-size: 7px; }
+.tl-sesion.tl-mini .tl-servicio-label,
+.tl-sesion.tl-mini .tl-prof-label { display: none; }
+
+.tl-sesion.tl-tiny .tl-paciente-label { font-size: 7px; }
+.tl-sesion.tl-tiny .tl-hora-label,
+.tl-sesion.tl-tiny .tl-servicio-label,
+.tl-sesion.tl-tiny .tl-prof-label { display: none; }
+</style>
+
+
+<script>
+(function () {
+    // ── Constantes de tiempo ─────────────────────────────────────────────────
+    const HORA_INICIO  = 9;      // 9:00
+    const HORA_FIN     = 20;     // 20:00
+    const TOTAL_MIN    = (HORA_FIN - HORA_INICIO) * 60;  // 660 min
+    const PX_POR_MIN   = 2;      // 2px por minuto → 1320px total
+    const TOTAL_PX     = TOTAL_MIN * PX_POR_MIN;         // 1320px
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function horaAMinutos(horaStr) {
+        // "09:30" → 570
+        const [h, m] = horaStr.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    function minutosDesdeInicio(minutos) {
+        // Minutos desde las 9:00
+        return minutos - HORA_INICIO * 60;
+    }
+
+    function minutosToPx(minutos) {
+        return minutos * PX_POR_MIN;
+    }
+
+    // ── Dibujar líneas de hora en cada columna ───────────────────────────────
+    function dibujarLineasFondo() {
+        document.querySelectorAll('.tl-col-body .tl-grid-lines').forEach(container => {
+            let html = '';
+            for (let h = HORA_INICIO; h <= HORA_FIN; h++) {
+                for (let m = 0; m < 60; m += 30) {
+                    if (h === HORA_FIN && m > 0) break;
+                    const totalMin = (h - HORA_INICIO) * 60 + m;
+                    const top = minutosToPx(totalMin);
+                    const esHoraEnPunto = (m === 0);
+                    html += `<div style="position:absolute;left:0;right:0;top:${top}px;
+                                         border-top: 1px ${esHoraEnPunto ? 'solid' : 'dashed'} ${esHoraEnPunto ? '#d1d5db' : '#e5e7eb'};
+                                         pointer-events:none;"></div>`;
+                }
+            }
+            container.innerHTML = html;
+        });
+    }
+
+    // ── Dibujar marcas de hora en columna izquierda ──────────────────────────
+    function dibujarColumnaTiempo() {
+        const col = document.getElementById('tl-hora-col');
+        if (!col) return;
+        let html = '';
+        for (let h = HORA_INICIO; h <= HORA_FIN; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                if (h === HORA_FIN && m > 0) break;
+                const totalMin = (h - HORA_INICIO) * 60 + m;
+                const top = minutosToPx(totalMin);
+                const label = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                const esHora = (m === 0);
+                html += `
+                    <div style="position:absolute;left:0;right:0;top:${top}px;transform:translateY(-50%);
+                                padding-right:6px;display:flex;align-items:center;justify-content:flex-end;">
+                        <span style="font-size:9px;font-weight:${esHora ? '700' : '500'};
+                                     color:${esHora ? '#6b7280' : '#9ca3af'};line-height:1;
+                                     white-space:nowrap;">${label}</span>
+                    </div>`;
+            }
+        }
+        col.innerHTML = html;
+        col.style.height = TOTAL_PX + 'px';
+    }
+
+    // ── Posicionar sesiones ───────────────────────────────────────────────────
+    function posicionarSesiones() {
+        // Agrupar por columna para detectar solapamientos
+        document.querySelectorAll('.tl-col-body').forEach(colBody => {
+            const sesiones = Array.from(colBody.querySelectorAll('.tl-sesion'));
+
+            // Calcular top/height de cada sesión
+            sesiones.forEach(el => {
+                const horaInicioStr = el.dataset.horaInicio;
+                const horaFinStr    = el.dataset.horaFin;
+                if (!horaInicioStr || !horaFinStr) return;
+
+                const startMin  = horaAMinutos(horaInicioStr);
+                const endMin    = horaAMinutos(horaFinStr);
+                const offsetMin = minutosDesdeInicio(startMin);
+                const durMin    = endMin - startMin;
+
+                const top    = minutosToPx(Math.max(offsetMin, 0));
+                const height = minutosToPx(Math.max(durMin, 15)); // mínimo 30px (15min)
+
+                el.style.top     = top + 'px';
+                el.style.height  = height + 'px';
+                el.dataset.startMin = startMin;
+                el.dataset.endMin   = endMin;
+
+                // Clases según altura
+                el.classList.remove('tl-mini', 'tl-tiny');
+                if (height < 40) el.classList.add('tl-mini');
+                if (height < 22) el.classList.add('tl-tiny');
+            });
+
+            // Detectar solapamientos y ajustar ancho/left
+            resolverSolapamientos(sesiones);
+        });
+    }
+
+    // Resuelve solapamientos dentro de una columna de día
+    function resolverSolapamientos(sesiones) {
+        if (sesiones.length === 0) return;
+
+        // Ordenar por inicio
+        const ordered = [...sesiones].sort((a, b) =>
+            Number(a.dataset.startMin) - Number(b.dataset.startMin)
+        );
+
+        // Agrupar en "clusters" de sesiones solapadas
+        const clusters = [];
+        let cluster = [ordered[0]];
+
+        for (let i = 1; i < ordered.length; i++) {
+            const prev = cluster[cluster.length - 1];
+            const curr = ordered[i];
+            const prevEnd   = Number(prev.dataset.endMin);
+            const currStart = Number(curr.dataset.startMin);
+
+            if (currStart < prevEnd) {
+                // Se solapa
+                cluster.push(curr);
+            } else {
+                clusters.push(cluster);
+                cluster = [curr];
+            }
+        }
+        clusters.push(cluster);
+
+        // Asignar ancho y posición left dentro de cada cluster
+        clusters.forEach(cl => {
+            const n = cl.length;
+            cl.forEach((el, i) => {
+                const pct   = 100 / n;
+                const left  = pct * i;
+                const width = pct - 1; // 1% de margen entre sesiones solapadas
+                el.style.left  = left + '%';
+                el.style.width = width + '%';
+                el.style.zIndex = 10 + i;
+            });
+        });
+    }
+
+    // ── Línea "Ahora" ────────────────────────────────────────────────────────
+    function actualizarLineaAhora() {
+        const ahora  = new Date();
+        const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
+        const offsetMin = minutosDesdeInicio(nowMin);
+        const linea = document.getElementById('tl-linea-ahora');
+        if (!linea) return;
+
+        if (offsetMin < 0 || offsetMin > TOTAL_MIN) {
+            linea.style.display = 'none';
+            return;
+        }
+        linea.style.display = 'block';
+        linea.style.top = minutosToPx(offsetMin) + 'px';
+    }
+
+    // ── Filtro por profesional ───────────────────────────────────────────────
+    window.timelineFilterProfesional = function (profId) {
+        document.querySelectorAll('.tl-sesion').forEach(el => {
+            if (!profId || el.dataset.profesionalId === profId) {
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        });
+        // Re-resolver solapamientos (solo visibles)
+        document.querySelectorAll('.tl-col-body').forEach(colBody => {
+            const visibles = Array.from(colBody.querySelectorAll('.tl-sesion'))
+                                  .filter(el => el.style.display !== 'none');
+            resolverSolapamientos(visibles);
+        });
+    };
+
+    // ── Toggle domingo ───────────────────────────────────────────────────────
+    window.timelineToggleDomingo = function (mostrar) {
+        document.querySelectorAll('.tl-col-domingo').forEach(col => {
+            col.classList.toggle('tl-col-oculta', !mostrar);
+        });
+    };
+
+    // ── Scroll al momento actual ─────────────────────────────────────────────
+    window.timelineScrollAhora = function () {
+        const ahora  = new Date();
+        const nowMin = ahora.getHours() * 60 + ahora.getMinutes();
+        const offsetMin = minutosDesdeInicio(nowMin);
+        const px = minutosToPx(offsetMin);
+
+        const wrapper = document.getElementById('tl-grid-wrapper');
+        if (!wrapper) return;
+        // Restar 48 (header días) + 80px de margen superior para contexto
+        wrapper.scrollTo({ top: px + 48 - 80, behavior: 'smooth' });
+    };
+
+    // ── Slots libres ─────────────────────────────────────────────────────────
+    // (Opcional: Click en zona vacía → se podría abrir modal de nueva sesión)
+    // Por ahora solo visual via CSS hover en tl-slot-libre.
+
+    // ── Detectar si hay domingos con sesiones ────────────────────────────────
+    function checkDomingo() {
+        const colDom = document.querySelector('.tl-col-domingo');
+        if (!colDom) return;
+        const tieneSesiones = colDom.querySelectorAll('.tl-sesion').length > 0;
+        const toggle = document.getElementById('tl-toggle-domingo');
+        if (!tieneSesiones) {
+            colDom.classList.add('tl-col-oculta');
+            if (toggle) toggle.checked = false;
+        } else {
+            if (toggle) toggle.checked = true;
+        }
+    }
+
+    // ── Tamaño de columna hora ────────────────────────────────────────────────
+    function ajustarAlturaHoraCol() {
+        const col = document.getElementById('tl-hora-col');
+        if (col) col.style.height = TOTAL_PX + 'px';
+        document.querySelectorAll('.tl-col-body').forEach(c => {
+            c.style.height = TOTAL_PX + 'px';
+        });
+    }
+
+    // ── INIT ─────────────────────────────────────────────────────────────────
+    function init() {
+        ajustarAlturaHoraCol();
+        dibujarColumnaTiempo();
+        dibujarLineasFondo();
+        posicionarSesiones();
+        actualizarLineaAhora();
+        checkDomingo();
+
+        // Actualizar línea "ahora" cada minuto
+        setInterval(actualizarLineaAhora, 60 * 1000);
+
+        // Scroll automático al momento actual al cargar
+        setTimeout(timelineScrollAhora, 200);
+    }
+
+    // Ejecutar al cargar (soporte para HTMX y carga normal)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Re-init si HTMX recarga el fragmento
+    document.addEventListener('htmx:afterSwap', function (e) {
+        if (e.detail.target && e.detail.target.id === 'tl-grid-wrapper') {
+            setTimeout(init, 50);
+        }
+    });
+
+})();
+</script>
