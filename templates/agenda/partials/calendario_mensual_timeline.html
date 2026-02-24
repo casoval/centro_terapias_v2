@@ -74,20 +74,32 @@
     </div>
 
     {# ── GRID PRINCIPAL ────────────────────────────────────────────────────── #}
-    {# Un solo contenedor de scroll. La columna de horas usa sticky inline.   #}
-    <div id="tm-grid-wrapper" style="overflow:auto; max-height:74vh; position:relative;">
-    <div id="tm-grid" style="display:flex; width:max-content; min-width:100%;">
+    {# ESTRUCTURA: dos hijos flex lado a lado.                                 #}
+    {# El sidebar de horas (izquierda) NUNCA hace scroll horizontal.           #}
+    {# El wrapper de días (derecha) hace scroll en ambas direcciones.          #}
+    {# El scrollTop del sidebar se sincroniza con el del wrapper via JS.       #}
+    <div id="tm-grid-outer" style="display:flex; max-height:74vh; overflow:hidden;">
 
-        {# ── Columna de horas — sticky left (inline, no Tailwind) ─────────── #}
-        <div id="tm-hora-col-wrap"
-             style="position:sticky; left:0; z-index:25; flex-shrink:0; width:56px;
-                    background:#f9fafb; border-right:1px solid #e5e7eb; display:flex; flex-direction:column;">
-            {# Esquina vacía — ocupa el espacio del header de días #}
-            <div style="position:sticky; top:0; z-index:26; flex-shrink:0; height:48px;
+        {# ── SIDEBAR DE HORAS — fijo, nunca se desplaza horizontalmente ─── #}
+        <div id="tm-hora-sidebar"
+             style="flex:0 0 56px; width:56px; min-width:56px; max-width:56px;
+                    display:flex; flex-direction:column;
+                    background:#f9fafb; border-right:1px solid #e5e7eb;
+                    z-index:30; position:relative;">
+            {# Esquina superior izquierda: mismo alto que los headers de días #}
+            <div style="flex:0 0 48px; height:48px; min-height:48px; max-height:48px;
                         background:#f9fafb; border-bottom:1px solid #e5e7eb;"></div>
-            {# Etiquetas de hora #}
-            <div id="tm-hora-col" style="position:relative; height:1320px; flex-shrink:0;"></div>
+            {# Contenedor interno: acepta scrollTop desde JS, oculta su scrollbar #}
+            <div id="tm-hora-sidebar-inner"
+                 style="flex:1; overflow-y:scroll; overflow-x:hidden;
+                        scrollbar-width:none; -ms-overflow-style:none;">
+                <div id="tm-hora-col" style="position:relative; height:1320px;"></div>
+            </div>
         </div>
+
+        {# ── ÁREA DE DÍAS — scroll horizontal y vertical ─────────────────── #}
+        <div id="tm-grid-wrapper" style="flex:1; min-width:0; overflow:auto;">
+        <div id="tm-grid" style="display:flex; min-width:900px;">
 
             {# ── Columnas de días (aplanamos semanas) ──────────────────────── #}
             {% for semana in calendario_data.semanas %}
@@ -97,6 +109,7 @@
                             {% if forloop.counter0 == 6 %}tm-col-domingo{% endif %}
                             {% if forloop.parentloop.first and forloop.first %}{% else %}{% if forloop.first %}tm-col-inicio-semana{% endif %}{% endif %}
                             {% if dia.es_otro_mes %}tm-col-otro-mes{% endif %}"
+                     style="min-width:120px; width:120px; flex:0 0 120px;"
                      data-dia-semana="{{ forloop.counter0 }}"
                      data-fecha="{{ dia.fecha|date:'Y-m-d' }}">
 
@@ -230,12 +243,17 @@
             {% endfor %}
 
         </div>{# fin tm-grid #}
-    </div>{# fin tm-grid-wrapper #}
+        </div>{# fin tm-grid-wrapper #}
+
+    </div>{# fin tm-grid-outer #}
 
 </div>{# fin timeline-mensual #}
 
 
 <style>
+/* ── Scrollbar oculto en el sidebar de horas ── */
+#tm-hora-sidebar-inner::-webkit-scrollbar { display: none; }
+
 /* ── Columna domingo ── */
 .tm-col-domingo {
     transition: flex 0.3s ease, opacity 0.2s ease;
@@ -502,6 +520,16 @@
         }
     }
 
+    // ── Sincronizar scroll vertical: sidebar sigue al wrapper ───────────────
+    function sincronizarScrollHoras() {
+        const wrapper = document.getElementById('tm-grid-wrapper');
+        const inner   = document.getElementById('tm-hora-sidebar-inner');
+        if (!wrapper || !inner) return;
+        wrapper.addEventListener('scroll', function () {
+            inner.scrollTop = wrapper.scrollTop;
+        });
+    }
+
     // ── INIT ─────────────────────────────────────────────────────────────────
     function init() {
         ajustarAlturas();
@@ -510,6 +538,7 @@
         posicionarSesiones();
         actualizarLineaAhora();
         checkDomingos();
+        sincronizarScrollHoras();
 
         setInterval(actualizarLineaAhora, 60 * 1000);
 
