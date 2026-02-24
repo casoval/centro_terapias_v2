@@ -129,6 +129,7 @@
             <form method="get" class="bg-white/60 backdrop-blur-sm p-2 rounded-xl border border-slate-200/60" id="filtrosForm">
                 <input type="hidden" name="vista" value="{{ vista }}">
                 <input type="hidden" name="fecha" value="{{ fecha_base|date:'Y-m-d' }}">
+                <input type="hidden" name="subvista" value="{{ subvista|default:'' }}" id="input-subvista">
                 
                 {% if user.perfil.es_profesional and not user.is_superuser %}
                 <input type="hidden" name="profesional" value="{{ profesional_id }}">
@@ -364,19 +365,34 @@ function aplicarFiltros() {
     if (formData.get('sucursal')) params.set('sucursal', formData.get('sucursal'));
     if (formData.get('tipo_sesion')) params.set('tipo_sesion', formData.get('tipo_sesion'));
     if (formData.get('estado')) params.set('estado', formData.get('estado'));
-    
+
+    // Preservar sub-vista activa (lista/timeline) en la URL
+    var semBtn = document.getElementById('sem-btn-timeline');
+    var diaBtn = document.getElementById('dia-btn-timeline');
+    if (semBtn && semBtn.classList.contains('bg-white')) params.set('subvista', 'timeline');
+    else if (diaBtn && diaBtn.classList.contains('bg-white')) params.set('subvista', 'timeline');
+
     window.location.href = '?' + params.toString();
 }
 
 function limpiarFiltros() {
     const vista = document.querySelector('input[name="vista"]').value;
-    
+
+    // Preservar sub-vista activa en la URL
+    var subvista = '';
+    var semBtn = document.getElementById('sem-btn-timeline');
+    var diaBtn = document.getElementById('dia-btn-timeline');
+    if ((semBtn && semBtn.classList.contains('bg-white')) ||
+        (diaBtn && diaBtn.classList.contains('bg-white'))) {
+        subvista = '&subvista=timeline';
+    }
+
     // ✅ Si es profesional, mantener el filtro de profesional al limpiar
     {% if user.perfil.es_profesional and not user.is_superuser %}
     const profesionalId = document.querySelector('input[name="profesional"]').value;
-    window.location.href = '?vista=' + vista + '&profesional=' + profesionalId;
+    window.location.href = '?vista=' + vista + '&profesional=' + profesionalId + subvista;
     {% else %}
-    window.location.href = '?vista=' + vista;
+    window.location.href = '?vista=' + vista + subvista;
     {% endif %}
 }
 

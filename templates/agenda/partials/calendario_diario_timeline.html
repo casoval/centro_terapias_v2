@@ -5,7 +5,7 @@
 {# Template separado. Incluir debajo de calendario_diario.html               #}
 {# ═══════════════════════════════════════════════════════════════════════════ #}
 
-<div id="dtl-card" class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 mt-6">
+<div id="dtl-card" class="hidden bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200 mt-6">
 
     {# ── HEADER ────────────────────────────────────────────────────────────── #}
     <div class="px-5 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white relative overflow-hidden">
@@ -60,27 +60,24 @@
     {# ── DATOS SERIALIZADOS PARA JS ────────────────────────────────────────── #}
     <script id="dtl-data" type="application/json">
     [
-        {% for grupo in calendario_data.sesiones_agrupadas %}
-            {% for sesion in grupo.sesiones %}
-            {
-                "id":            {{ sesion.id }},
-                "horaInicio":    "{{ sesion.hora_inicio|time:'H:i' }}",
-                "horaFin":       "{{ sesion.hora_fin|time:'H:i' }}",
-                "paciente":      "{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}",
-                "servicio":      "{{ sesion.servicio.nombre|escapejs }}",
-                "servicioColor": "{{ sesion.servicio.color|escapejs }}",
-                "profesionalId": {{ sesion.profesional.id }},
-                "profesional":   "{{ sesion.profesional.nombre|escapejs }} {{ sesion.profesional.apellido|escapejs }}",
-                "sucursal":      "{{ sesion.sucursal.nombre|escapejs }}",
-                "estado":        "{{ sesion.estado }}",
-                "monto":         {{ sesion.monto_cobrado|default:0 }},
-                "pagado":        {% if sesion.pagado %}true{% else %}false{% endif %},
-                "enCurso":       {% if sesion.es_sesion_en_curso %}true{% else %}false{% endif %},
-                "ultima":        {% if sesion.es_ultima_sesion_paciente_servicio %}true{% else %}false{% endif %},
-                "url":           "{% url 'agenda:editar_sesion' sesion.id %}"
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-            {% if not forloop.last and calendario_data.sesiones_agrupadas|length > 1 %},{% endif %}
+        {% for sesion in calendario_data.sesiones %}
+        {
+            "id":            {{ sesion.id }},
+            "horaInicio":    "{{ sesion.hora_inicio|time:'H:i' }}",
+            "horaFin":       "{{ sesion.hora_fin|time:'H:i' }}",
+            "paciente":      "{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}",
+            "servicio":      "{{ sesion.servicio.nombre|escapejs }}",
+            "servicioColor": "{{ sesion.servicio.color|default:'#6366f1'|escapejs }}",
+            "profesionalId": {{ sesion.profesional.id }},
+            "profesional":   "{{ sesion.profesional.nombre|escapejs }} {{ sesion.profesional.apellido|escapejs }}",
+            "sucursal":      "{{ sesion.sucursal.nombre|escapejs }}",
+            "estado":        "{{ sesion.estado }}",
+            "monto":         {{ sesion.monto_cobrado|default:0 }},
+            "pagado":        {% if sesion.pagado %}true{% else %}false{% endif %},
+            "enCurso":       {% if sesion.es_sesion_en_curso %}true{% else %}false{% endif %},
+            "ultima":        {% if sesion.es_ultima_sesion_paciente_servicio %}true{% else %}false{% endif %},
+            "url":           "{% url 'agenda:editar_sesion' sesion.id %}"
+        }{% if not forloop.last %},{% endif %}
         {% endfor %}
     ]
     </script>
@@ -288,9 +285,14 @@
     // ── INIT ──────────────────────────────────────────────────────────────
     function init() {
         const raw = document.getElementById('dtl-data');
-        if (!raw) return;
+        if (!raw) { console.error('dtl-data no encontrado'); return; }
         let sesiones = [];
-        try { sesiones = JSON.parse(raw.textContent); } catch(e) { return; }
+        try {
+            sesiones = JSON.parse(raw.textContent);
+        } catch(e) {
+            console.error('Error JSON dtl-data:', e, raw.textContent.substring(0, 200));
+            return;
+        }
 
         // Filtrar fuera de rango
         sesiones = sesiones.filter(s => {
@@ -310,6 +312,7 @@
         dibujarHoras();
 
         const contenedor = document.getElementById('dtl-cols-profesionales');
+        if (!contenedor) { console.error('dtl-cols-profesionales no encontrado'); return; }
         contenedor.innerHTML = '';
 
         if (profMap.size === 0) {
@@ -337,11 +340,8 @@
         setTimeout(dtlScrollAhora, 200);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    // Exponer init para ser llamado desde el toggle
+    window.dtlInit = init;
 
 })();
 </script>

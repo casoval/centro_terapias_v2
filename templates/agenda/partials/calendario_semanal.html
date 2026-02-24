@@ -318,11 +318,15 @@
                 {% for dia in calendario_data.dias %}
                 <div class="tl-col-dia flex-1 min-w-0 border-r border-gray-200 flex flex-col
                             {% if forloop.last %}tl-col-domingo{% endif %}"
+                     style="transition: flex 0.3s ease, opacity 0.3s ease, min-width 0.3s ease;"
                      data-dia="{{ forloop.counter0 }}">
 
-                    {# Header del día #}
+                    {# Header del día — clic para zoom #}
                     <div class="flex-shrink-0 h-11 flex flex-col items-center justify-center border-b border-gray-200
-                                {% if dia.es_hoy %}bg-indigo-50{% else %}bg-gray-50{% endif %}">
+                                cursor-pointer select-none
+                                {% if dia.es_hoy %}bg-indigo-50 hover:bg-indigo-100{% else %}bg-gray-50 hover:bg-gray-100{% endif %}
+                                transition-colors duration-150"
+                         onclick="tlZoomDia({{ forloop.counter0 }})">
                         <span class="text-[9px] font-bold uppercase tracking-widest
                                      {% if dia.es_hoy %}text-indigo-600{% else %}text-gray-400{% endif %}">
                             {{ dia.fecha|dia_semana|slice:":3" }}
@@ -414,6 +418,15 @@
 
 <style>
 .tl-col-oculta { display: none !important; }
+.tl-col-dia {
+    transition: flex 0.3s cubic-bezier(0.4,0,0.2,1),
+                min-width 0.3s cubic-bezier(0.4,0,0.2,1),
+                opacity 0.3s ease,
+                filter 0.3s ease;
+}
+.tl-col-dia .flex-shrink-0.h-11 {
+    transition: transform 0.25s ease, background-color 0.15s ease;
+}
 .tl-sesion.tl-mini .tl-t-srv,
 .tl-sesion.tl-mini .tl-t-prof { display: none; }
 .tl-sesion.tl-tiny .tl-t-hora,
@@ -475,10 +488,73 @@
             if (btnAhora) btnAhora.classList.add('hidden');
             icono.textContent = '📅';
             subtitulo.textContent = 'Gestión de Agenda';
+            // Resetear zoom del timeline al volver a lista
+            if (tlDiaZoomed !== -1) tlZoomDia(-1);
         }
     };
 
-    // ── Toggle domingo (ambas vistas) ─────────────────────────────────────
+    // ── Zoom de columna en timeline ───────────────────────────────────────
+    var tlDiaZoomed = -1;
+
+    window.tlZoomDia = function(index) {
+        var cols    = document.querySelectorAll('#tl-grid .tl-col-dia:not(.tl-col-oculta)');
+        var btnRest = document.getElementById('btn-restaurar');
+
+        if (tlDiaZoomed === index || index === -1) {
+            // Restaurar todo
+            cols.forEach(function(col) {
+                col.style.flex      = '1';
+                col.style.minWidth  = '0';
+                col.style.opacity   = '1';
+                col.style.filter    = '';
+                var hdr = col.querySelector('.flex-shrink-0.h-11');
+                if (hdr) hdr.style.transform = 'scale(1)';
+            });
+            if (btnRest) btnRest.classList.add('hidden');
+            tlDiaZoomed = -1;
+        } else {
+            var visibles = Array.from(cols);
+            visibles.forEach(function(col, i) {
+                var diaIdx = parseInt(col.getAttribute('data-dia'));
+                var hdr = col.querySelector('.flex-shrink-0.h-11');
+                if (diaIdx === index) {
+                    col.style.flex     = '2.5';
+                    col.style.minWidth = '0';
+                    col.style.opacity  = '1';
+                    col.style.filter   = '';
+                    if (hdr) hdr.style.transform = 'scale(1)';
+                } else {
+                    col.style.flex     = '0';
+                    col.style.minWidth = '44px';
+                    col.style.opacity  = '0.35';
+                    col.style.filter   = 'grayscale(0.4)';
+                    if (hdr) hdr.style.transform = 'scale(0.9)';
+                }
+            });
+            if (btnRest) btnRest.classList.remove('hidden');
+            tlDiaZoomed = index;
+            // Re-resolver solapamientos en la columna ampliada
+            setTimeout(function() {
+                document.querySelectorAll('#tl-grid .tl-col-dia').forEach(function(col) {
+                    var vis = Array.from(col.querySelectorAll('.tl-sesion'))
+                                  .filter(function(e){ return e.style.display !== 'none'; });
+                    tlResolverSolapamientos(vis);
+                });
+            }, 310);
+        }
+    };
+
+    // Restaurar zoom del timeline al hacer clic en "Ver Todo"
+    var _origToggleZoom = window.toggleZoomDia;
+    window.toggleZoomDia = function(index) {
+        if (vistaActual === 'timeline') {
+            tlZoomDia(index);
+        } else {
+            _origToggleZoom(index);
+        }
+    };
+
+
     window.semToggleDomingo = function (mostrar) {
         // Vista lista
         if (diaZoomed === -1) {
@@ -755,3 +831,14 @@
 
 })();
 </script>
+
+{% if subvista == 'timeline' %}
+<script>
+// Arrancar directamente en timeline si viene de filtro con subvista=timeline
+(function() {
+    if (typeof semCambiarVista === 'function') {
+        semCambiarVista('timeline');
+    }
+})();
+</script>
+{% endif %}

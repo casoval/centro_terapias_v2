@@ -761,6 +761,7 @@ def calendario(request):
     # Obtener parámetros de filtro
     vista = request.GET.get('vista', 'diaria')
     fecha_str = request.GET.get('fecha', '')
+    subvista = request.GET.get('subvista', '').strip()  # 'timeline' o ''
     
     # Filtros
     estado_filtro = request.GET.get('estado', '').strip() or None
@@ -1059,6 +1060,7 @@ def calendario(request):
 
     context = {
         'vista': vista,
+        'subvista': subvista,
         'fecha_base': fecha_base,
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,

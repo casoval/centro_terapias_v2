@@ -23,6 +23,30 @@
                 </div>
             </div>
             
+            <!-- Toggle Vista -->
+            <div class="flex items-center bg-white/10 border border-white/25 rounded-xl p-1 gap-1 flex-shrink-0 shadow-inner">
+                <button id="dia-btn-lista"
+                        onclick="diaCambiarVista('lista')"
+                        class="dia-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wide transition-all duration-200
+                               bg-white text-blue-700 shadow-md">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Lista
+                </button>
+                <button id="dia-btn-timeline"
+                        onclick="diaCambiarVista('timeline')"
+                        class="dia-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wide transition-all duration-200
+                               text-white/80 hover:bg-white/15">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Timeline
+                </button>
+            </div>
+
             <!-- Badge HOY -->
             <span class="inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white backdrop-blur-sm border border-white/30 shadow-sm">
                 📍 HOY
@@ -30,6 +54,7 @@
         </div>
     </div>
 
+    <div id="dia-vista-lista">
     <div class="p-4 bg-white border-b border-gray-200">
         <!-- Sistema de Pestañas -->
         <div class="flex gap-2 mb-4 border-b border-gray-200">
@@ -347,8 +372,9 @@
                 <span>Sesión Grupal</span>
             </div>
         </div>
-    </div>   
-</div>
+    </div>
+    </div>{# /dia-vista-lista #}
+</div>{# /tarjeta principal #}
 
 <style>
 /* Animación de pulso para el borde de sesiones EN VIVO - ROJO VIBRANTE */
@@ -377,7 +403,42 @@
 </style>
 
 <script>
-// Función para cambiar entre pestañas
+// Toggle Lista / Timeline (diario)
+var diaVistaActual = 'lista';
+var dtlIniciado = false;
+
+window.diaCambiarVista = function(vista) {
+    var listaEl     = document.getElementById('dia-vista-lista');
+    var tlEl        = document.getElementById('dtl-card');
+    var btnLista    = document.getElementById('dia-btn-lista');
+    var btnTimeline = document.getElementById('dia-btn-timeline');
+
+    diaVistaActual = vista;
+
+    if (vista === 'timeline') {
+        if (listaEl) listaEl.classList.add('hidden');
+        if (tlEl) tlEl.classList.remove('hidden');
+        btnTimeline.classList.add('bg-white', 'text-indigo-700', 'shadow-md');
+        btnTimeline.classList.remove('text-white/80', 'hover:bg-white/15');
+        btnLista.classList.remove('bg-white', 'text-blue-700', 'shadow-md');
+        btnLista.classList.add('text-white/80', 'hover:bg-white/15');
+        // Iniciar timeline la primera vez (igual que el semanal)
+        if (!dtlIniciado) {
+            if (typeof dtlInit === 'function') { dtlInit(); dtlIniciado = true; }
+        } else {
+            if (typeof dtlScrollAhora === 'function') setTimeout(dtlScrollAhora, 150);
+        }
+    } else {
+        if (tlEl) tlEl.classList.add('hidden');
+        if (listaEl) listaEl.classList.remove('hidden');
+        btnLista.classList.add('bg-white', 'text-blue-700', 'shadow-md');
+        btnLista.classList.remove('text-white/80', 'hover:bg-white/15');
+        btnTimeline.classList.remove('bg-white', 'text-indigo-700', 'shadow-md');
+        btnTimeline.classList.add('text-white/80', 'hover:bg-white/15');
+    }
+};
+
+// Función para cambiar entre pestañas (métricas/flujo)
 function cambiarTab(tab) {
     // Ocultar todos los contenidos
     document.querySelectorAll('.tab-content').forEach(contenido => {
@@ -404,3 +465,13 @@ function cambiarTab(tab) {
     }
 }
 </script>
+
+{% if subvista == 'timeline' %}
+<script>
+(function() {
+    if (typeof diaCambiarVista === 'function') {
+        diaCambiarVista('timeline');
+    }
+})();
+</script>
+{% endif %}
