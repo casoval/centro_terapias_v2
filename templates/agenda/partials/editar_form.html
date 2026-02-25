@@ -361,13 +361,34 @@
                     </div>
 
                     <div class="relative">
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1 flex justify-between">
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1 flex justify-between items-center">
                             <span>📋 Evolución / Notas Clínicas</span>
-                            <span class="text-[9px] font-normal text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Privado</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[9px] font-normal text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Privado</span>
+                                <!-- Indicador de escucha -->
+                                <span id="mic-status-{{ sesion.id }}"
+                                      class="hidden text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200 animate-pulse">
+                                    🔴 Escuchando...
+                                </span>
+                            </div>
                         </label>
-                        <textarea name="notas_sesion" rows="6"
-                                  class="w-full text-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none shadow-sm transition-all placeholder-gray-400"
-                                  placeholder="Registre aquí la evolución del paciente, observaciones clínicas, progreso... ">{{ sesion.notas_sesion }}</textarea>
+                        <div class="relative">
+                            <textarea name="notas_sesion" id="notas-sesion-{{ sesion.id }}" rows="6"
+                                      class="w-full text-xs px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none shadow-sm transition-all placeholder-gray-400"
+                                      placeholder="Registre aquí la evolución del paciente, observaciones clínicas, progreso... ">{{ sesion.notas_sesion }}</textarea>
+                            <!-- Botón micrófono dentro del textarea -->
+                            <button type="button"
+                                    id="btn-mic-notas-{{ sesion.id }}"
+                                    onclick="toggleMicNotas{{ sesion.id }}()"
+                                    title="Dictar evolución por voz"
+                                    class="absolute bottom-2 right-2 w-7 h-7 rounded-full border border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center transition-all text-gray-500 hover:text-blue-600 shadow-sm"
+                                    style="font-size:14px; line-height:1;">
+                                🎤
+                            </button>
+                        </div>
+                        <p class="text-[9px] text-gray-400 mt-0.5 flex items-center gap-1">
+                            <span>🎤</span> Pulsa el micrófono para dictar. El texto se añade al final de las notas existentes.
+                        </p>
                     </div>
                 </div>
 
@@ -637,13 +658,31 @@
 
                     {% if user.is_superuser or user.perfil.es_gerente %}
                     <div class="mt-2 pt-2 border-t border-gray-100">
-                        <label class="block text-[10px] font-bold text-gray-700 mb-1 flex justify-between">
+                        <label class="block text-[10px] font-bold text-gray-700 mb-1 flex justify-between items-center">
                             <span>📋 Evolución / Notas (Vista Admin)</span>
-                            <span class="text-[9px] text-gray-400 font-normal">Privado</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[9px] text-gray-400 font-normal">Privado</span>
+                                <!-- Indicador de escucha admin -->
+                                <span id="mic-status-admin-{{ sesion.id }}"
+                                      class="hidden text-[9px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200 animate-pulse">
+                                    🔴 Escuchando...
+                                </span>
+                            </div>
                         </label>
-                        <textarea name="notas_sesion" rows="2"
-                                  class="w-full text-xs px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 resize-none transition-all"
-                                  placeholder="Contenido privado...">{{ sesion.notas_sesion }}</textarea>
+                        <div class="relative">
+                            <textarea name="notas_sesion" id="notas-sesion-admin-{{ sesion.id }}" rows="2"
+                                      class="w-full text-xs px-3 py-2 pr-10 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 resize-none transition-all"
+                                      placeholder="Contenido privado...">{{ sesion.notas_sesion }}</textarea>
+                            <!-- Botón micrófono admin -->
+                            <button type="button"
+                                    id="btn-mic-notas-admin-{{ sesion.id }}"
+                                    onclick="toggleMicNotasAdmin{{ sesion.id }}()"
+                                    title="Dictar notas por voz"
+                                    class="absolute bottom-2 right-2 w-7 h-7 rounded-full border border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 flex items-center justify-center transition-all text-gray-500 hover:text-blue-600 shadow-sm"
+                                    style="font-size:14px; line-height:1;">
+                                🎤
+                            </button>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -987,6 +1026,186 @@ function abrirModalConfirmacionPago{{ sesion.id }}(data) {
 
     overlay.style.display = 'flex';
 }
+
+// ================================================================
+// MICRÓFONO — Evolución / Notas Clínicas (Profesional)
+// ================================================================
+(function() {
+    let _rec{{ sesion.id }}    = null;
+    let _escucha{{ sesion.id }} = false;
+
+    function _crearReconocimiento{{ sesion.id }}(targetId, statusId, btnId) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.title = 'Tu navegador no soporta dictado. Usa Chrome.';
+                btn.style.opacity = '.4';
+                btn.onclick = () => Swal.fire({
+                    icon: 'warning',
+                    title: 'Navegador no compatible',
+                    text: 'El reconocimiento de voz requiere Chrome o Edge.',
+                    confirmButtonColor: '#3b82f6'
+                });
+            }
+            return null;
+        }
+
+        const rec = new SR();
+        rec.lang            = 'es-ES';
+        rec.continuous      = false;
+        rec.interimResults  = true;
+
+        let textoBase = '';
+
+        rec.onstart = () => {
+            const ta = document.getElementById(targetId);
+            textoBase = ta ? ta.value : '';
+        };
+
+        rec.onresult = (e) => {
+            const ta = document.getElementById(targetId);
+            if (!ta) return;
+            const dictado = Array.from(e.results).map(r => r[0].transcript).join('');
+            // Añade el dictado al texto existente (separado por espacio si hay contenido)
+            const separador = textoBase && !textoBase.endsWith('\n') && !textoBase.endsWith(' ') ? ' ' : '';
+            ta.value = textoBase + separador + dictado;
+        };
+
+        rec.onend = () => {
+            _escucha{{ sesion.id }} = false;
+            const btn    = document.getElementById(btnId);
+            const status = document.getElementById(statusId);
+            if (btn)    { btn.style.background = ''; btn.style.borderColor = ''; btn.title = 'Dictar por voz'; btn.textContent = '🎤'; }
+            if (status) status.classList.add('hidden');
+        };
+
+        rec.onerror = (e) => {
+            _escucha{{ sesion.id }} = false;
+            const btn    = document.getElementById(btnId);
+            const status = document.getElementById(statusId);
+            if (btn)    { btn.style.background = ''; btn.style.borderColor = ''; btn.textContent = '🎤'; }
+            if (status) status.classList.add('hidden');
+            if (e.error !== 'no-speech') console.warn('[Mic Notas] Error:', e.error);
+        };
+
+        return rec;
+    }
+
+    window.toggleMicNotas{{ sesion.id }} = function() {
+        const btnId    = 'btn-mic-notas-{{ sesion.id }}';
+        const statusId = 'mic-status-{{ sesion.id }}';
+        const targetId = 'notas-sesion-{{ sesion.id }}';
+
+        if (!_rec{{ sesion.id }}) {
+            _rec{{ sesion.id }} = _crearReconocimiento{{ sesion.id }}(targetId, statusId, btnId);
+            if (!_rec{{ sesion.id }}) return;
+        }
+
+        const btn    = document.getElementById(btnId);
+        const status = document.getElementById(statusId);
+
+        if (_escucha{{ sesion.id }}) {
+            _rec{{ sesion.id }}.stop();
+        } else {
+            _rec{{ sesion.id }}.start();
+            _escucha{{ sesion.id }} = true;
+            if (btn) {
+                btn.style.background    = 'linear-gradient(135deg,#fee2e2,#fecaca)';
+                btn.style.borderColor   = '#f87171';
+                btn.style.color         = '#dc2626';
+                btn.title               = 'Detener dictado';
+                btn.textContent         = '⏹';
+            }
+            if (status) status.classList.remove('hidden');
+        }
+    };
+})();
+
+// ================================================================
+// MICRÓFONO — Evolución / Notas Admin/Gerente
+// ================================================================
+(function() {
+    let _recAdmin{{ sesion.id }}    = null;
+    let _escuchaAdmin{{ sesion.id }} = false;
+
+    function _crearRecAdmin{{ sesion.id }}(targetId, statusId, btnId) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) {
+            const btn = document.getElementById(btnId);
+            if (btn) { btn.style.opacity = '.4'; btn.onclick = () => alert('Requiere Chrome o Edge.'); }
+            return null;
+        }
+
+        const rec = new SR();
+        rec.lang           = 'es-ES';
+        rec.continuous     = false;
+        rec.interimResults = true;
+
+        let textoBase = '';
+
+        rec.onstart = () => {
+            const ta = document.getElementById(targetId);
+            textoBase = ta ? ta.value : '';
+        };
+
+        rec.onresult = (e) => {
+            const ta = document.getElementById(targetId);
+            if (!ta) return;
+            const dictado    = Array.from(e.results).map(r => r[0].transcript).join('');
+            const separador  = textoBase && !textoBase.endsWith('\n') && !textoBase.endsWith(' ') ? ' ' : '';
+            ta.value = textoBase + separador + dictado;
+        };
+
+        rec.onend = () => {
+            _escuchaAdmin{{ sesion.id }} = false;
+            const btn    = document.getElementById(btnId);
+            const status = document.getElementById(statusId);
+            if (btn)    { btn.style.background = ''; btn.style.borderColor = ''; btn.textContent = '🎤'; btn.title = 'Dictar por voz'; }
+            if (status) status.classList.add('hidden');
+        };
+
+        rec.onerror = (e) => {
+            _escuchaAdmin{{ sesion.id }} = false;
+            const btn    = document.getElementById(btnId);
+            const status = document.getElementById(statusId);
+            if (btn)    { btn.style.background = ''; btn.style.borderColor = ''; btn.textContent = '🎤'; }
+            if (status) status.classList.add('hidden');
+            if (e.error !== 'no-speech') console.warn('[Mic Admin] Error:', e.error);
+        };
+
+        return rec;
+    }
+
+    window.toggleMicNotasAdmin{{ sesion.id }} = function() {
+        const btnId    = 'btn-mic-notas-admin-{{ sesion.id }}';
+        const statusId = 'mic-status-admin-{{ sesion.id }}';
+        const targetId = 'notas-sesion-admin-{{ sesion.id }}';
+
+        if (!_recAdmin{{ sesion.id }}) {
+            _recAdmin{{ sesion.id }} = _crearRecAdmin{{ sesion.id }}(targetId, statusId, btnId);
+            if (!_recAdmin{{ sesion.id }}) return;
+        }
+
+        const btn    = document.getElementById(btnId);
+        const status = document.getElementById(statusId);
+
+        if (_escuchaAdmin{{ sesion.id }}) {
+            _recAdmin{{ sesion.id }}.stop();
+        } else {
+            _recAdmin{{ sesion.id }}.start();
+            _escuchaAdmin{{ sesion.id }} = true;
+            if (btn) {
+                btn.style.background  = 'linear-gradient(135deg,#fee2e2,#fecaca)';
+                btn.style.borderColor = '#f87171';
+                btn.style.color       = '#dc2626';
+                btn.title             = 'Detener dictado';
+                btn.textContent       = '⏹';
+            }
+            if (status) status.classList.remove('hidden');
+        }
+    };
+})();
 
 function cerrarModalConfirmacionPago{{ sesion.id }}() {
     const overlay = document.getElementById('modal-overlay-cambio-estado-{{ sesion.id }}');
