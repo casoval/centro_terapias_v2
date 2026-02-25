@@ -64,6 +64,14 @@ urlpatterns = [
 
     path('confirmacion-sesiones/', views.confirmacion_sesiones, name='confirmacion_sesiones'),
 
+    # ✅ NUEVO: Copiar mensualidad al mes siguiente
+    path('mensualidades/<int:mensualidad_id>/copiar/modal/',
+         views.modal_copiar_mensualidad,
+         name='modal_copiar_mensualidad'),
+    path('mensualidades/<int:mensualidad_id>/copiar/procesar/',
+         views.procesar_copiar_mensualidad,
+         name='procesar_copiar_mensualidad'),
+
     # INFORME DE EVOLUCIÓN
     path('informe-evolucion/<int:paciente_id>/', 
          views.informe_evolucion, 

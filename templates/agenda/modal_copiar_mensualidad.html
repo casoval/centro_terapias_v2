@@ -1,0 +1,338 @@
+<!-- ========================================================
+     MODAL: COPIAR MENSUALIDAD — PREVISUALIZACIÓN EDITABLE
+     Flujo: ver fechas generadas → editar/añadir/eliminar → confirmar
+     ======================================================== -->
+
+<!-- HEADER -->
+<div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 flex items-center justify-between rounded-t-2xl sticky top-0 z-10">
+    <div class="flex items-center gap-2">
+        <span class="text-2xl">📋</span>
+        <div>
+            <h2 class="text-base font-black text-white">Copiar Mensualidad</h2>
+            <p class="text-emerald-100 text-[11px] mt-0.5">
+                {{ mensualidad_origen.paciente.nombre_completo }} ·
+                {{ mensualidad_origen.periodo_display }}
+                → <strong>{{ mes_destino_display }} {{ anio_destino }}</strong>
+            </p>
+        </div>
+    </div>
+    <button onclick="cerrarModalCopiarMensualidad()"
+            class="text-white hover:bg-white/20 w-7 h-7 rounded-lg transition-colors flex items-center justify-center font-bold text-lg">×</button>
+</div>
+
+<div class="p-4">
+
+{% if mensualidad_destino_existe %}
+<!-- ── BLOQUEO: ya existe mensualidad en destino ────────── -->
+<div class="bg-red-50 border-2 border-red-300 rounded-xl p-4 text-center">
+    <span class="text-4xl">🚫</span>
+    <p class="text-sm font-bold text-red-700 mt-2">
+        Ya existe una mensualidad para <strong>{{ mensualidad_origen.paciente.nombre_completo }}</strong>
+        en {{ mes_destino_display }} {{ anio_destino }}.
+    </p>
+    <a href="{% url 'agenda:detalle_mensualidad' mensualidad_destino_existe.id %}"
+       class="mt-3 inline-block px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-sm rounded-xl transition-colors">
+        Ir a esa mensualidad →
+    </a>
+</div>
+
+{% elif not sesiones_preview %}
+<!-- ── SIN SESIONES ──────────────────────────────────────── -->
+<div class="text-center py-6">
+    <span class="text-4xl">📭</span>
+    <p class="text-sm font-bold text-slate-700 mt-2">No hay sesiones para copiar</p>
+    <p class="text-xs text-slate-500">Esta mensualidad no tiene sesiones agendadas.</p>
+</div>
+
+{% else %}
+<!-- ── FORMULARIO PRINCIPAL ──────────────────────────────── -->
+<form method="post"
+      action="{% url 'agenda:procesar_copiar_mensualidad' mensualidad_origen.id %}"
+      id="formCopiarMensualidad">
+    {% csrf_token %}
+    <input type="hidden" name="mes_destino"  value="{{ mes_destino }}">
+    <input type="hidden" name="anio_destino" value="{{ anio_destino }}">
+
+    <!-- COSTO -->
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+        <label class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
+            <span>💰</span> Costo mensual:
+        </label>
+        <span class="text-sm font-bold text-slate-500">Bs.</span>
+        <input type="number" name="costo_mensual"
+               min="0" step="0.01"
+               value="{{ costo_mensual_valor }}"
+               required
+               class="flex-1 min-w-[100px] px-3 py-1.5 border-2 border-slate-200 rounded-lg text-sm font-bold
+                      focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none">
+        <span class="text-[10px] text-slate-400 whitespace-nowrap">por defecto igual al origen</span>
+    </div>
+
+    <!-- OPCIÓN GRUPALES -->
+    <div class="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <label class="flex items-start gap-2 cursor-pointer select-none group">
+            <input type="checkbox" name="sesiones_grupales" id="sesGrupalesCopiar" value="1"
+                   class="mt-0.5 rounded text-purple-600 focus:ring-purple-400 border-gray-300"
+                   onchange="toggleAvisoCopiar()">
+            <div>
+                <span class="text-xs font-semibold text-purple-900 group-hover:text-purple-700">👥 Sesiones Grupales</span>
+                <p class="text-[10px] text-purple-700 mt-0.5">Permitir que el profesional atienda varios pacientes al mismo tiempo.</p>
+            </div>
+        </label>
+        <div id="avisoGrupalCopiar"
+             class="hidden mt-2 bg-purple-50 border border-purple-300 rounded-lg px-3 py-2 text-[11px] text-purple-800">
+            ℹ️ Con Sesiones Grupales activo, solo se bloquean conflictos del <strong>paciente</strong>. Los del profesional se ignoran.
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         TABLA EDITABLE DE SESIONES
+         ═══════════════════════════════════════════════════════ -->
+    <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <span>📅</span>
+                Sesiones en <span class="text-emerald-700">{{ mes_destino_display }} {{ anio_destino }}</span>
+                <span id="contadorSesiones"
+                      class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black">
+                    {{ sesiones_preview|length }}
+                </span>
+            </h3>
+            <button type="button"
+                    onclick="agregarFilaSesion()"
+                    class="flex items-center gap-1 text-[11px] font-black text-emerald-700
+                           bg-emerald-50 hover:bg-emerald-100 border border-emerald-300
+                           px-2.5 py-1 rounded-lg transition-colors">
+                + Añadir sesión
+            </button>
+        </div>
+
+        {% if sesiones_con_conflicto %}
+        <div class="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 mb-3 text-[11px] text-amber-800">
+            ⚠️ <strong>{{ sesiones_con_conflicto }} sesión(es)</strong> marcadas en rojo tienen conflicto de horario.
+            Cambia su fecha/hora o desmarca el checkbox para omitirlas.
+        </div>
+        {% endif %}
+
+        <!-- Tabla -->
+        <div class="border border-slate-200 rounded-xl overflow-hidden text-[11px]">
+
+            <!-- Cabecera -->
+            <div class="grid bg-slate-100 border-b border-slate-200 px-2 py-1.5 font-black uppercase text-[10px] text-slate-500 gap-1"
+                 style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
+                <span></span>
+                <span>Fecha</span>
+                <span>Hora</span>
+                <span>Min</span>
+                <span>Servicio</span>
+                <span>Profesional</span>
+                <span></span>
+            </div>
+
+            <!-- Filas -->
+            <div id="listaSesiones" class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                {% for s in sesiones_preview %}
+                <div class="sesion-row grid items-center gap-1 px-2 py-1.5 transition-colors
+                            {% if s.conflicto %}bg-red-50{% else %}hover:bg-slate-50{% endif %}"
+                     style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
+
+                    <!-- Checkbox incluir -->
+                    <input type="checkbox"
+                           name="incluir_sesion[]"
+                           value="{{ forloop.counter0 }}"
+                           {% if not s.conflicto %}checked{% endif %}
+                           class="chk-sesion rounded text-emerald-600 focus:ring-emerald-400 border-gray-300"
+                           onchange="actualizarContador()">
+
+                    <!-- Fecha -->
+                    <input type="date"
+                           name="fecha[]"
+                           value="{{ s.fecha_iso }}"
+                           min="{{ min_fecha_iso }}"
+                           max="{{ max_fecha_iso }}"
+                           required
+                           class="w-full px-1.5 py-1 border rounded-lg text-[11px] font-bold outline-none
+                                  focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400
+                                  {% if s.conflicto %}border-red-300 bg-red-50{% else %}border-slate-200{% endif %}"
+                           onchange="validarFila(this)">
+
+                    <!-- Hora inicio -->
+                    <input type="time"
+                           name="hora_inicio[]"
+                           value="{{ s.hora_inicio_val }}"
+                           required
+                           class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
+                                  outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400">
+
+                    <!-- Duración (minutos) -->
+                    <input type="number"
+                           name="duracion[]"
+                           value="{{ s.duracion }}"
+                           min="5" max="480" step="5"
+                           required
+                           title="Duración en minutos"
+                           class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
+                                  outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 text-center">
+
+                    <!-- Servicio -->
+                    <select name="servicio_id[]"
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
+                                   outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+                        {% for sp in servicios_profesionales %}
+                        <option value="{{ sp.servicio.id }}"
+                                {% if sp.servicio.id == s.servicio_id %}selected{% endif %}>
+                            {{ sp.servicio.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Profesional -->
+                    <select name="profesional_id[]"
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
+                                   outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+                        {% for sp in servicios_profesionales %}
+                        <option value="{{ sp.profesional.id }}"
+                                {% if sp.profesional.id == s.profesional_id %}selected{% endif %}>
+                            {{ sp.profesional.nombre }} {{ sp.profesional.apellido }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Eliminar -->
+                    <button type="button"
+                            onclick="eliminarFila(this)"
+                            title="Eliminar esta sesión"
+                            class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500
+                                   flex items-center justify-center text-xs font-black transition-colors">×</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <p class="text-[10px] text-slate-400 mt-1.5">
+            💡 Edita fecha/hora, añade nuevas sesiones o elimina las que no necesites. Solo se crean las marcadas con ✓.
+        </p>
+    </div>
+
+    <!-- BOTONES -->
+    <div class="flex gap-2 pt-2 border-t border-slate-100">
+        <button type="button"
+                onclick="cerrarModalCopiarMensualidad()"
+                class="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-colors">
+            Cancelar
+        </button>
+        <button type="submit"
+                id="btnConfirmarCopiar"
+                class="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500
+                       hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl
+                       transition-all shadow-md flex items-center justify-center gap-2">
+            📋 Crear <span id="textoContadorBtn">{{ sesiones_preview|length }}</span> sesión(es)
+        </button>
+    </div>
+</form>
+{% endif %}
+
+</div>
+
+<!-- Template para nueva fila vacía -->
+<template id="templateFilaSesion">
+    <div class="sesion-row grid items-center gap-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-50/80 transition-colors"
+         style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
+        <input type="checkbox" name="incluir_sesion[]" value="nuevo" checked
+               class="chk-sesion rounded text-emerald-600 focus:ring-emerald-400 border-gray-300"
+               onchange="actualizarContador()">
+        <input type="date" name="fecha[]"
+               min="{{ min_fecha_iso }}" max="{{ max_fecha_iso }}" required
+               class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
+               onchange="validarFila(this)">
+        <input type="time" name="hora_inicio[]" required
+               class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+        <input type="number" name="duracion[]" value="45"
+               min="5" max="480" step="5" required
+               title="Duración en minutos"
+               class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white text-center">
+        <select name="servicio_id[]"
+                class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                       outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+            {% for sp in servicios_profesionales %}
+            <option value="{{ sp.servicio.id }}">{{ sp.servicio.nombre }}</option>
+            {% endfor %}
+        </select>
+        <select name="profesional_id[]"
+                class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                       outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+            {% for sp in servicios_profesionales %}
+            <option value="{{ sp.profesional.id }}">{{ sp.profesional.nombre }} {{ sp.profesional.apellido }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" onclick="eliminarFila(this)"
+                class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center text-xs font-black">×</button>
+    </div>
+</template>
+
+<script>
+function toggleAvisoCopiar() {
+    const cb    = document.getElementById('sesGrupalesCopiar');
+    const aviso = document.getElementById('avisoGrupalCopiar');
+    if (cb && aviso) aviso.classList.toggle('hidden', !cb.checked);
+}
+
+function agregarFilaSesion() {
+    const tpl   = document.getElementById('templateFilaSesion');
+    const lista = document.getElementById('listaSesiones');
+    if (!tpl || !lista) return;
+    const clone = tpl.content.cloneNode(true);
+    // Sugerir primera fecha del mes destino
+    const inputFecha = clone.querySelector('input[type="date"]');
+    if (inputFecha && inputFecha.min) inputFecha.value = inputFecha.min;
+    lista.appendChild(clone);
+    actualizarContador();
+    lista.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function eliminarFila(btn) {
+    btn.closest('.sesion-row').remove();
+    actualizarContador();
+}
+
+function actualizarContador() {
+    const n     = document.querySelectorAll('.chk-sesion:checked').length;
+    const badge = document.getElementById('contadorSesiones');
+    const texto = document.getElementById('textoContadorBtn');
+    if (badge) badge.textContent = n;
+    if (texto) texto.textContent = n;
+}
+
+function validarFila(input) {
+    const fuera = input.min && input.max && input.value &&
+                  (input.value < input.min || input.value > input.max);
+    input.classList.toggle('border-red-400', !!fuera);
+    input.classList.toggle('bg-red-50',      !!fuera);
+    input.title = fuera ? 'La fecha debe estar dentro del mes destino' : '';
+}
+
+// Prevenir envío sin sesiones marcadas y deshabilitar botón
+const _fc = document.getElementById('formCopiarMensualidad');
+if (_fc) {
+    _fc.addEventListener('submit', function(e) {
+        const n = document.querySelectorAll('.chk-sesion:checked').length;
+        if (n === 0) {
+            e.preventDefault();
+            alert('⚠️ Marca al menos una sesión para crear.');
+            return;
+        }
+        const btn = document.getElementById('btnConfirmarCopiar');
+        if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Creando sesiones...'; }
+    });
+}
+
+function cerrarModalCopiarMensualidad() {
+    const modal = document.getElementById('modalCopiarMensualidad');
+    if (modal) modal.classList.add('hidden');
+    const cont = document.getElementById('contenidoModalCopiar');
+    if (cont) cont.innerHTML = '<div class="p-8 text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div><p class="text-slate-600">Preparando copia...</p></div>';
+}
+</script>

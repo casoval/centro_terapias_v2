@@ -360,18 +360,40 @@
         </div>
     </div>
 
-    <!-- Botón de Pago -->
-    {% if mensualidad.saldo_pendiente > 0 %}
-    <div class="mt-6 flex justify-center">
+    <!-- Botones de acción inferior -->
+    <div class="mt-6 flex flex-wrap justify-center gap-3">
+        {% if mensualidad.saldo_pendiente > 0 %}
         <a href="{% url 'facturacion:registrar_pago' %}?mensualidad={{ mensualidad.id }}" 
            class="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-black py-3 px-8 rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95">
             💵 Registrar Pago de Mensualidad
         </a>
+        {% endif %}
+
+        <!-- Botón Copiar al mes siguiente -->
+        {% if mensualidad.estado != 'cancelada' %}
+        <button
+            onclick="abrirModalCopiarMensualidad({{ mensualidad.id }})"
+            class="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 text-white font-black py-3 px-8 rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2">
+            <span>📋</span> Copiar al mes siguiente
+        </button>
+        {% endif %}
     </div>
-    {% endif %}
 </div>
 
-<!-- ✅ NUEVO: Modal para agendar sesiones rápidamente -->
+<!-- ✅ NUEVO: Modal para copiar mensualidad al mes siguiente -->
+<div id="modalCopiarMensualidad"
+     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div id="contenidoModalCopiar">
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                <p class="text-slate-600">Preparando copia...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ Modal para agendar sesiones rápidamente -->
 <div id="modalAgendarRapido" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <!-- Contenedor donde se cargará el contenido del modal vía HTMX -->
@@ -838,7 +860,77 @@ document.addEventListener('keydown', function(e) {
         if (modalAgendar && !modalAgendar.classList.contains('hidden')) {
             cerrarModalAgendarRapido();
         }
+        const modalCopiar = document.getElementById('modalCopiarMensualidad');
+        if (modalCopiar && !modalCopiar.classList.contains('hidden')) {
+            cerrarModalCopiarMensualidad();
+        }
     }
+});
+
+// ========================================
+// FUNCIONES PARA MODAL COPIAR MENSUALIDAD
+// ========================================
+
+function abrirModalCopiarMensualidad(mensualidadId, mesDestino, anioDestino) {
+    const modal      = document.getElementById('modalCopiarMensualidad');
+    const contenedor = document.getElementById('contenidoModalCopiar');
+
+    modal.classList.remove('hidden');
+    contenedor.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent mx-auto mb-3"></div>
+            <p class="text-slate-600 font-medium">Preparando copia...</p>
+        </div>
+    `;
+
+    let url = `/agenda/mensualidades/${mensualidadId}/copiar/modal/`;
+    const params = new URLSearchParams();
+    if (mesDestino)  params.append('mes_destino',  mesDestino);
+    if (anioDestino) params.append('anio_destino', anioDestino);
+    if (params.toString()) url += '?' + params.toString();
+
+    fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+    })
+    .then(r => r.text())
+    .then(html => {
+        contenedor.innerHTML = html;
+        // Ejecutar scripts incrustados (igual que en abrirModalAgendarRapido)
+        contenedor.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+    })
+    .catch(() => {
+        contenedor.innerHTML = `
+            <div class="p-6 text-center">
+                <p class="text-red-600 font-bold">❌ Error al cargar. Intenta nuevamente.</p>
+                <button onclick="cerrarModalCopiarMensualidad()"
+                        class="mt-3 px-4 py-2 bg-slate-100 rounded-xl font-bold text-sm">Cerrar</button>
+            </div>
+        `;
+    });
+}
+
+function cerrarModalCopiarMensualidad() {
+    const modal = document.getElementById('modalCopiarMensualidad');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.getElementById('contenidoModalCopiar').innerHTML = `
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                <p class="text-slate-600">Preparando copia...</p>
+            </div>
+        `;
+    }
+}
+
+// Cerrar al hacer click fuera del modal copiar
+document.getElementById('modalCopiarMensualidad')?.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModalCopiarMensualidad();
 });
 </script>
 
