@@ -32,7 +32,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center gap-2">
             <span class="text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap">👥 Ver pacientes:</span>
             <div class="flex gap-1.5 flex-wrap">
-                <a href="?modo_paciente=activo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                <a href="?modo_paciente=activo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                    class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
                           {% if modo_paciente == 'activo' or not modo_paciente %}
                               bg-green-500 border-green-500 text-white shadow-md
@@ -41,7 +41,7 @@
                           {% endif %}">
                     ✅ Activos
                 </a>
-                <a href="?modo_paciente=inactivo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                <a href="?modo_paciente=inactivo{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                    class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
                           {% if modo_paciente == 'inactivo' %}
                               bg-slate-500 border-slate-500 text-white shadow-md
@@ -50,7 +50,7 @@
                           {% endif %}">
                     👻 Inactivos
                 </a>
-                <a href="?modo_paciente=todos{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+                <a href="?modo_paciente=todos{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                    class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
                           {% if modo_paciente == 'todos' %}
                               bg-indigo-500 border-indigo-500 text-white shadow-md
@@ -92,49 +92,81 @@
 
     <!-- Filtros secundarios -->
     <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">
-        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-4 sm:gap-2">
+        <form method="get" id="form-filtros" class="space-y-2 sm:space-y-0">
             <!-- Preservar el super filtro -->
             <input type="hidden" name="modo_paciente" value="{{ modo_paciente|default:'activo' }}">
             
-            <div class="relative">
-                <input type="text" 
-                       id="buscar-paciente"
-                       name="q" 
-                       value="{{ buscar }}"
-                       placeholder="Buscar..."
-                       autocomplete="off"
-                       class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <!-- Fila 1: filtros existentes -->
+            <div class="sm:grid sm:grid-cols-4 sm:gap-2">
+                <div class="relative">
+                    <input type="text" 
+                           id="buscar-paciente"
+                           name="q" 
+                           value="{{ buscar }}"
+                           placeholder="Buscar..."
+                           autocomplete="off"
+                           class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    
+                    <div id="resultados-busqueda" 
+                         class="hidden absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 sm:max-h-52 overflow-y-auto">
+                    </div>
+                </div>
                 
-                <div id="resultados-busqueda" 
-                     class="hidden absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 sm:max-h-52 overflow-y-auto">
+                <select name="estado" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
+                    <option value="">Todos los saldos</option>
+                    <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>⚠️ Deudores</option>
+                    <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>✅ Al día</option>
+                    <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>🎁 A favor</option>
+                </select>
+                
+                <select name="sucursal" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
+                    <option value="">Todas las sucursales</option>
+                    {% for sucursal in sucursales %}
+                    <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                        {{ sucursal.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+                
+                <div class="flex gap-1.5">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium">
+                        🔍 Filtrar
+                    </button>
+                    <a href="?modo_paciente={{ modo_paciente|default:'activo' }}" 
+                       class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+                        🔄
+                    </a>
                 </div>
             </div>
             
-            <select name="estado" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
-                <option value="">Todos los saldos</option>
-                <option value="deudor" {% if estado == 'deudor' %}selected{% endif %}>⚠️ Deudores</option>
-                <option value="al_dia" {% if estado == 'al_dia' %}selected{% endif %}>✅ Al día</option>
-                <option value="a_favor" {% if estado == 'a_favor' %}selected{% endif %}>🎁 A favor</option>
-            </select>
-            
-            <select name="sucursal" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
-                <option value="">Todas las sucursales</option>
-                {% for sucursal in sucursales %}
-                <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>
-                    {{ sucursal.nombre }}
-                </option>
-                {% endfor %}
-            </select>
-            
-            <div class="flex gap-1.5">
-                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium">
-                    🔍 Filtrar
-                </button>
-                <!-- Reset preserva el modo_paciente actual -->
-                <a href="?modo_paciente={{ modo_paciente|default:'activo' }}" 
-                   class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm">
-                    🔄
-                </a>
+            <!-- Fila 2: rango de fechas para estadísticas -->
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+                <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                    📅 Período estadísticas:
+                </span>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">Desde</label>
+                    <input type="date"
+                           name="fecha_desde"
+                           id="fecha_desde"
+                           value="{{ fecha_desde }}"
+                           class="px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400">
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">Hasta</label>
+                    <input type="date"
+                           name="fecha_hasta"
+                           id="fecha_hasta"
+                           value="{{ fecha_hasta }}"
+                           class="px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400">
+                </div>
+                {% if fecha_desde or fecha_hasta %}
+                <span class="inline-flex items-center gap-1 bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-orange-200">
+                    📅 {{ fecha_desde|default:"..." }} → {{ fecha_hasta|default:"..." }}
+                </span>
+                {% else %}
+                <span class="text-[10px] text-gray-400 italic">Sin período (datos históricos)</span>
+                {% endif %}
             </div>
         </form>
     </div>
@@ -395,9 +427,9 @@
     <div class="mt-3 sm:mt-4 flex justify-center">
         <nav class="flex gap-1 sm:gap-1.5 text-[10px] sm:text-xs">
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Primera</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">‹</a>
             {% endif %}
             
@@ -406,9 +438,9 @@
             </span>
             
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">›</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}" 
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Última</a>
             {% endif %}
         </nav>
@@ -452,12 +484,16 @@ function cargarEstadisticas() {
     const buscar = document.getElementById('buscar-paciente')?.value || '';
     const estado = document.querySelector('select[name="estado"]')?.value || '';
     const sucursal = document.querySelector('select[name="sucursal"]')?.value || '';
+    const fechaDesde = document.getElementById('fecha_desde')?.value || '';  // ✅ NUEVO
+    const fechaHasta = document.getElementById('fecha_hasta')?.value || '';  // ✅ NUEVO
     
-    // ✅ Construir URL con parámetros de filtro (incluyendo super filtro)
+    // ✅ Construir URL con parámetros de filtro (incluyendo super filtro y fechas)
     const params = new URLSearchParams();
     if (buscar) params.append('q', buscar);
     if (estado) params.append('estado', estado);
     if (sucursal) params.append('sucursal', sucursal);
+    if (fechaDesde) params.append('fecha_desde', fechaDesde);  // ✅ NUEVO
+    if (fechaHasta) params.append('fecha_hasta', fechaHasta);  // ✅ NUEVO
     // Leer modo_paciente del campo hidden del formulario
     const modoPaciente = document.querySelector('input[name="modo_paciente"]')?.value || 'activo';
     params.append('modo_paciente', modoPaciente);
@@ -477,8 +513,11 @@ function cargarEstadisticas() {
             if (data.success) {
                 // Renderizar estadísticas
                 const stats = data.estadisticas;
-                const totalPacientes = data.total_pacientes;  // ✅ Usar valor dinámico del backend
+                const totalPacientes = data.total_pacientes;
                 const inactivos = data.inactivos_resumen || {};
+                const filtroFechasActivo = data.filtro_fechas_activo || false;  // ✅ NUEVO
+                const fDesde = data.fecha_desde || '';   // ✅ NUEVO
+                const fHasta = data.fecha_hasta || '';   // ✅ NUEVO
                 
                 // Calcular porcentajes ESTADO ACTUAL
                 const pctDeudores = totalPacientes > 0 ? (stats.deudores / totalPacientes * 100) : 0;
@@ -490,12 +529,17 @@ function cargarEstadisticas() {
                 const pctAFavorProyeccion = totalPacientes > 0 ? (stats.a_favor_proyeccion / totalPacientes * 100) : 0;
                 const pctAlDiaProyeccion = totalPacientes > 0 ? (stats.al_dia_proyeccion / totalPacientes * 100) : 0;
                 
+                // ✅ Título dinámico según período
+                const tituloEstadActual = filtroFechasActivo
+                    ? `📅 Período: ${fDesde} → ${fHasta}`
+                    : `📊 Estado Actual (Consumido + Asistidas)`;
+                
                 container.innerHTML = `
                     <!-- ========================================
-                         📊 ESTADO ACTUAL
+                         📊 ESTADO ACTUAL / PERÍODO
                          ======================================== -->
                     <div class="mb-3">
-                        <h2 class="text-xs sm:text-sm font-bold text-blue-700 mb-2 px-1">📊 Estado Actual (Consumido + Asistidas)</h2>
+                        <h2 class="text-xs sm:text-sm font-bold ${filtroFechasActivo ? 'text-orange-700' : 'text-blue-700'} mb-2 px-1">${tituloEstadActual}</h2>
                         
                         <!-- Estadísticas principales -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 mb-2">
@@ -578,6 +622,8 @@ function cargarEstadisticas() {
                         </div>
                     </div>
                     
+                    <!-- Proyección: solo sin filtro de fechas -->
+                    ${!filtroFechasActivo ? `
                     <!-- ========================================
                          🔮 PROYECCIÓN TOTAL
                          ======================================== -->
@@ -666,6 +712,7 @@ function cargarEstadisticas() {
                             </div>
                         </div>
                     </div>
+                    ` : ''}  <!-- fin proyección -->
 
                     <!-- ========================================
                          🔔 BANNER PACIENTES INACTIVOS CON MOVIMIENTOS
@@ -766,40 +813,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1️⃣ Cargar estadísticas automáticamente
     cargarEstadisticas();
     
-    // 2️⃣ Configurar búsqueda de pacientes
+    // ✅ Las estadísticas se actualizan solo al hacer submit del formulario (botón Filtrar).
+    // NO hay listeners de change para selects ni fechas — todo queda en manos del usuario.
+    
+    // 2️⃣ Configurar búsqueda de pacientes (autocomplete — no afecta estadísticas)
     const inputBuscar = document.getElementById('buscar-paciente');
     const resultadosDiv = document.getElementById('resultados-busqueda');
-    const selectEstado = document.querySelector('select[name="estado"]');
-    const selectSucursal = document.querySelector('select[name="sucursal"]');
     let timeoutId = null;
     
-    // ✅ 3️⃣ Actualizar estadísticas cuando cambian los selects
-    selectEstado.addEventListener('change', function() {
-        cargarEstadisticas();
-    });
-    
-    selectSucursal.addEventListener('change', function() {
-        cargarEstadisticas();
-    });
-    
-    // ✅ 4️⃣ Actualizar estadísticas cuando se escribe en búsqueda (con debounce)
-    let statsTimeoutId = null;
     inputBuscar.addEventListener('input', function() {
         const query = this.value.trim();
         clearTimeout(timeoutId);
-        clearTimeout(statsTimeoutId);
-        
         if (query.length < 1) {
             resultadosDiv.classList.add('hidden');
             resultadosDiv.innerHTML = '';
-            // Actualizar estadísticas cuando se limpia la búsqueda
-            cargarEstadisticas();
             return;
         }
-        
         timeoutId = setTimeout(() => buscarPacientes(query), 300);
-        // Actualizar estadísticas después de 500ms de escribir
-        statsTimeoutId = setTimeout(() => cargarEstadisticas(), 500);
     });
     
     function buscarPacientes(query) {

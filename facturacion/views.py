@@ -191,6 +191,10 @@ def lista_cuentas_corrientes(request):
     estadisticas = None
     mostrar_estadisticas = False  # Las estadísticas se cargan automáticamente con JavaScript
     
+    # ✅ NUEVO: Leer rango de fechas (solo afectan estadísticas)
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+    
     # ==================== SUCURSALES PARA FILTRO ====================
     from servicios.models import Sucursal
     sucursales = Sucursal.objects.filter(activa=True)
@@ -203,140 +207,305 @@ def lista_cuentas_corrientes(request):
         'estado': estado,
         'sucursal_id': sucursal_id,
         'sucursales': sucursales,
-        'modo_paciente': modo_paciente,  # ✅ Pasar al template
+        'modo_paciente': modo_paciente,
+        # ✅ NUEVO: fechas para el template
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
     }
     
     return render(request, 'facturacion/cuentas_corrientes.html', context)
 
 
-def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, modo_paciente='activo'):
+def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, modo_paciente='activo',
+                                   fecha_desde=None, fecha_hasta=None):
     """
-    Calcula estadísticas globales de todas las cuentas corrientes
-    
-    ✅ CORREGIDO: 
-    - Usa campos pre-calculados de CuentaCorriente para consistencia
-    - Más eficiente (1 query en lugar de 3)
-    - Consistente con cuentas individuales
-    - ✅ NUEVO: Incluye estadísticas de PROYECCIÓN TOTAL
-    - ✅ DINÁMICO: Acepta filtros de búsqueda, estado, sucursal y modo_paciente
-    
-    Args:
-        buscar (str, optional): Término de búsqueda por nombre/apellido/tutor
-        estado (str, optional): Filtro por estado ('deudor', 'al_dia', 'a_favor')
-        sucursal_id (str, optional): ID de sucursal para filtrar
-        modo_paciente (str): 'activo' | 'inactivo' | 'todos'
-    
-    Returns:
-        dict: Estadísticas globales del sistema (estado actual + proyección total)
+    Calcula estadísticas globales de todas las cuentas corrientes.
+
+    ✅ NUEVO: Acepta fecha_desde / fecha_hasta (objetos date).
+    Cuando se pasan fechas, los totales se calculan directamente
+    desde Pago / Sesion / Devolucion filtrados por período, en lugar
+    de leer los campos pre-calculados de CuentaCorriente.
+    Los contadores de estado (deudores/al_día/a_favor) y la sección
+    de Proyección Total solo tienen sentido sin filtro de fechas.
     """
     from decimal import Decimal
     from django.db.models import Sum, Q
-    from facturacion.models import CuentaCorriente
+    from facturacion.models import CuentaCorriente, Pago, Devolucion
+    
+    filtro_fechas_activo = bool(fecha_desde or fecha_hasta)
     
     try:
-        # ✅ Filtrar cuentas según el super filtro
-        cuentas_activas = CuentaCorriente.objects.all()
+        # ====================================================
+        # BASE: IDs de pacientes según los filtros de la vista
+        # ====================================================
+        from pacientes.models import Paciente
+        pacientes_qs = Paciente.objects.all()
         if modo_paciente == 'activo':
-            cuentas_activas = cuentas_activas.filter(paciente__estado='activo')
+            pacientes_qs = pacientes_qs.filter(estado='activo')
         elif modo_paciente == 'inactivo':
-            cuentas_activas = cuentas_activas.filter(paciente__estado='inactivo')
-        # 'todos' → sin filtro de estado
-        
-        # ========================================
-        # ✅ APLICAR FILTROS DINÁMICOS
-        # ========================================
-        
-        # Filtro de búsqueda
+            pacientes_qs = pacientes_qs.filter(estado='inactivo')
         if buscar:
-            cuentas_activas = cuentas_activas.filter(
-                Q(paciente__nombre__icontains=buscar) | 
-                Q(paciente__apellido__icontains=buscar) |
-                Q(paciente__nombre_tutor__icontains=buscar)
+            pacientes_qs = pacientes_qs.filter(
+                Q(nombre__icontains=buscar) |
+                Q(apellido__icontains=buscar) |
+                Q(nombre_tutor__icontains=buscar)
             )
-        
-        # Filtro por sucursal
         if sucursal_id:
-            cuentas_activas = cuentas_activas.filter(
-                paciente__sucursales__id=sucursal_id
-            )
+            pacientes_qs = pacientes_qs.filter(sucursales__id=sucursal_id)
         
-        # Filtro por estado (aplicar DESPUÉS de obtener las cuentas)
+        # Aplicar filtro de estado de saldo (sobre CuentaCorriente histórica)
         if estado == 'deudor':
-            cuentas_activas = cuentas_activas.filter(saldo_actual__lt=0)
+            pacientes_qs = pacientes_qs.filter(cuenta_corriente__saldo_actual__lt=0)
         elif estado == 'al_dia':
-            cuentas_activas = cuentas_activas.filter(saldo_actual=0)
+            pacientes_qs = pacientes_qs.filter(cuenta_corriente__saldo_actual=0)
         elif estado == 'a_favor':
-            cuentas_activas = cuentas_activas.filter(saldo_actual__gt=0)
+            pacientes_qs = pacientes_qs.filter(cuenta_corriente__saldo_actual__gt=0)
         
-        # ========================================
-        # ✅ ESTADO ACTUAL (consumido + asistidas)
-        # ========================================
+        paciente_ids = list(pacientes_qs.values_list('id', flat=True).distinct())
+        
+        # ====================================================
+        # RAMA A: CON FILTRO DE FECHAS
+        # Replica la lógica exacta de AccountService.update_balance()
+        # pero aplicando el filtro de fecha sobre cada modelo.
+        #
+        # REGLAS CRÍTICAS (igual que AccountService):
+        # 1. total_pagado = suma de Pago.monto (no anulados, sin "Uso de Crédito")
+        #    filtrado por fecha_pago — minus devoluciones del período.
+        #    Los pagos masivos ya están en Pago.monto (su monto total),
+        #    sus detalles en DetallePagoMasivo son subdivisiones del mismo dinero.
+        # 2. total_consumido = sesiones_normales_realizadas (sin proyecto ni mensualidad)
+        #                    + costo de mensualidades cuyo mes/año cae en el período
+        #                    + costo de proyectos cuya fecha_inicio cae en el período
+        # 3. Se excluye "Uso de Crédito" del total pagado (igual que AccountService).
+        # ====================================================
+        if filtro_fechas_activo:
+            from agenda.models import Sesion, Proyecto, Mensualidad
+            
+            # --------------------------------------------------
+            # Filtros de fecha reutilizables
+            # --------------------------------------------------
+            q_fecha_pago = Q()
+            if fecha_desde:
+                q_fecha_pago &= Q(fecha_pago__gte=fecha_desde)
+            if fecha_hasta:
+                q_fecha_pago &= Q(fecha_pago__lte=fecha_hasta)
+            
+            q_fecha_dev = Q()
+            if fecha_desde:
+                q_fecha_dev &= Q(fecha_devolucion__gte=fecha_desde)
+            if fecha_hasta:
+                q_fecha_dev &= Q(fecha_devolucion__lte=fecha_hasta)
+            
+            q_fecha_ses = Q()
+            if fecha_desde:
+                q_fecha_ses &= Q(fecha__gte=fecha_desde)
+            if fecha_hasta:
+                q_fecha_ses &= Q(fecha__lte=fecha_hasta)
+            
+            # Mensualidad: filtrar por mes/año dentro del período
+            q_fecha_mens = Q()
+            if fecha_desde:
+                q_fecha_mens &= (
+                    Q(anio__gt=fecha_desde.year) |
+                    Q(anio=fecha_desde.year, mes__gte=fecha_desde.month)
+                )
+            if fecha_hasta:
+                q_fecha_mens &= (
+                    Q(anio__lt=fecha_hasta.year) |
+                    Q(anio=fecha_hasta.year, mes__lte=fecha_hasta.month)
+                )
+            
+            q_fecha_proy = Q()
+            if fecha_desde:
+                q_fecha_proy &= Q(fecha_inicio__gte=fecha_desde)
+            if fecha_hasta:
+                q_fecha_proy &= Q(fecha_inicio__lte=fecha_hasta)
+            
+            # --------------------------------------------------
+            # TOTAL PAGADO del período
+            # Todos los pagos válidos: no anulados, sin "Uso de Crédito"
+            # --------------------------------------------------
+            pagos_validos_qs = (
+                Pago.objects
+                .filter(paciente_id__in=paciente_ids, anulado=False)
+                .exclude(metodo_pago__nombre="Uso de Crédito")
+                .filter(q_fecha_pago)
+            )
+            total_pagado_bruto = (
+                pagos_validos_qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
+            )
+            
+            # Devoluciones del período
+            devoluciones_qs = (
+                Devolucion.objects
+                .filter(paciente_id__in=paciente_ids)
+                .filter(q_fecha_dev)
+            )
+            total_devuelto = (
+                devoluciones_qs.aggregate(t=Sum('monto'))['t'] or Decimal('0')
+            )
+            
+            total_pagado = total_pagado_bruto - total_devuelto
+            
+            # --------------------------------------------------
+            # TOTAL CONSUMIDO del período
+            # Igual que AccountService.total_consumido_actual:
+            #   sesiones normales realizadas  (proyecto=None, mensualidad=None)
+            # + costo de mensualidades del período
+            # + costo de proyectos del período
+            # --------------------------------------------------
+            
+            # 1) Sesiones normales: sin proyecto ni mensualidad, realizadas
+            sesiones_qs = Sesion.objects.filter(
+                paciente_id__in=paciente_ids,
+                proyecto__isnull=True,
+                mensualidad__isnull=True,
+                estado__in=['realizada', 'realizada_retraso', 'falta'],
+            ).filter(q_fecha_ses)
+            consumido_sesiones = (
+                sesiones_qs.aggregate(t=Sum('monto_cobrado'))['t'] or Decimal('0')
+            )
+            
+            # 2) Mensualidades cuyo mes/año cae en el período
+            mensualidades_qs = Mensualidad.objects.filter(
+                paciente_id__in=paciente_ids,
+                estado__in=['activa', 'pausada', 'completada', 'cancelada'],
+            ).filter(q_fecha_mens)
+            consumido_mensualidades = (
+                mensualidades_qs.aggregate(t=Sum('costo_mensual'))['t'] or Decimal('0')
+            )
+            
+            # 3) Proyectos con fecha_inicio en el período
+            proyectos_qs = Proyecto.objects.filter(
+                paciente_id__in=paciente_ids,
+                estado__in=['en_progreso', 'finalizado', 'cancelado'],
+            ).filter(q_fecha_proy)
+            consumido_proyectos = (
+                proyectos_qs.aggregate(t=Sum('costo_total'))['t'] or Decimal('0')
+            )
+            
+            total_consumido = consumido_sesiones + consumido_mensualidades + consumido_proyectos
+            total_balance = total_pagado - total_consumido
+            
+            # --------------------------------------------------
+            # CLASIFICACIÓN por paciente en el período
+            # --------------------------------------------------
+            pagados_map = dict(
+                pagos_validos_qs
+                .values('paciente_id').annotate(t=Sum('monto'))
+                .values_list('paciente_id', 't')
+            )
+            devueltos_map = dict(
+                devoluciones_qs
+                .values('paciente_id').annotate(t=Sum('monto'))
+                .values_list('paciente_id', 't')
+            )
+            sesiones_map = dict(
+                sesiones_qs
+                .values('paciente_id').annotate(t=Sum('monto_cobrado'))
+                .values_list('paciente_id', 't')
+            )
+            mensualidades_map = dict(
+                mensualidades_qs
+                .values('paciente_id').annotate(t=Sum('costo_mensual'))
+                .values_list('paciente_id', 't')
+            )
+            proyectos_map = dict(
+                proyectos_qs
+                .values('paciente_id').annotate(t=Sum('costo_total'))
+                .values_list('paciente_id', 't')
+            )
+            
+            deudores_count = al_dia_count = a_favor_count = 0
+            total_debe = total_favor = Decimal('0')
+            
+            # Todos los pacientes que tuvieron algún movimiento en el período
+            paciente_ids_set = set(paciente_ids)
+            all_ids = (
+                paciente_ids_set &
+                (
+                    set(pagados_map) | set(sesiones_map) |
+                    set(mensualidades_map) | set(proyectos_map)
+                )
+            )
+            for pid in all_ids:
+                pagado = (
+                    (pagados_map.get(pid) or Decimal('0')) -
+                    (devueltos_map.get(pid) or Decimal('0'))
+                )
+                consumido = (
+                    (sesiones_map.get(pid) or Decimal('0')) +
+                    (mensualidades_map.get(pid) or Decimal('0')) +
+                    (proyectos_map.get(pid) or Decimal('0'))
+                )
+                saldo = pagado - consumido
+                if saldo < 0:
+                    deudores_count += 1
+                    total_debe += abs(saldo)
+                elif saldo > 0:
+                    a_favor_count += 1
+                    total_favor += saldo
+                else:
+                    al_dia_count += 1
+            
+            return {
+                'total_consumido': total_consumido,
+                'total_pagado': total_pagado,
+                'total_balance': total_balance,
+                'deudores': deudores_count,
+                'al_dia': al_dia_count,
+                'a_favor': a_favor_count,
+                'total_debe': total_debe,
+                'total_favor': total_favor,
+                # Proyección no aplica en período → mismos valores
+                'total_proyectado': total_consumido,
+                'total_balance_proyeccion': total_balance,
+                'deudores_proyeccion': deudores_count,
+                'al_dia_proyeccion': al_dia_count,
+                'a_favor_proyeccion': a_favor_count,
+                'total_debe_proyeccion': total_debe,
+                'total_favor_proyeccion': total_favor,
+                'filtro_fechas_activo': True,
+            }
+        
+        # ====================================================
+        # RAMA B: SIN FECHAS — campos pre-calculados (comportamiento original)
+        # ====================================================
+        cuentas_activas = CuentaCorriente.objects.filter(paciente_id__in=paciente_ids)
         
         estadisticas_actual = cuentas_activas.aggregate(
-            total_consumido=Sum('total_consumido_actual'),  # ⬅️ Campo pre-calculado
-            total_pagado=Sum('total_pagado'),               # ⬅️ Campo pre-calculado
-            total_balance=Sum('saldo_actual')               # ⬅️ Campo pre-calculado
+            total_consumido=Sum('total_consumido_actual'),
+            total_pagado=Sum('total_pagado'),
+            total_balance=Sum('saldo_actual')
         )
-        
-        # Convertir None a Decimal('0.00')
         total_consumido = estadisticas_actual['total_consumido'] or Decimal('0.00')
-        total_pagado = estadisticas_actual['total_pagado'] or Decimal('0.00')
-        total_balance = estadisticas_actual['total_balance'] or Decimal('0.00')
-        
-        # ========================================
-        # ✅ PROYECCIÓN TOTAL (todas las sesiones programadas)
-        # ========================================
+        total_pagado    = estadisticas_actual['total_pagado']    or Decimal('0.00')
+        total_balance   = estadisticas_actual['total_balance']   or Decimal('0.00')
         
         estadisticas_proyeccion = cuentas_activas.aggregate(
-            total_proyectado=Sum('total_consumido_real'),  # ⬅️ Incluye todas las sesiones
-            total_balance_proyeccion=Sum('saldo_real')     # ⬅️ Saldo con proyección
+            total_proyectado=Sum('total_consumido_real'),
+            total_balance_proyeccion=Sum('saldo_real')
         )
+        total_proyectado          = estadisticas_proyeccion['total_proyectado']          or Decimal('0.00')
+        total_balance_proyeccion  = estadisticas_proyeccion['total_balance_proyeccion']  or Decimal('0.00')
         
-        total_proyectado = estadisticas_proyeccion['total_proyectado'] or Decimal('0.00')
-        total_balance_proyeccion = estadisticas_proyeccion['total_balance_proyeccion'] or Decimal('0.00')
+        deudores_count  = cuentas_activas.filter(saldo_actual__lt=0).count()
+        al_dia_count    = cuentas_activas.filter(saldo_actual=0).count()
+        a_favor_count   = cuentas_activas.filter(saldo_actual__gt=0).count()
         
-        # ========================================
-        # CLASIFICACIÓN POR SALDO ACTUAL
-        # ========================================
-        
-        deudores_count = cuentas_activas.filter(saldo_actual__lt=0).count()
-        al_dia_count = cuentas_activas.filter(saldo_actual=0).count()
-        a_favor_count = cuentas_activas.filter(saldo_actual__gt=0).count()
-        
-        # Total que deben (valor absoluto)
-        total_debe_result = cuentas_activas.filter(
-            saldo_actual__lt=0
-        ).aggregate(total=Sum('saldo_actual'))['total']
-        
-        total_debe = abs(total_debe_result) if total_debe_result else Decimal('0.00')
-        
-        # Total a favor
-        total_favor = cuentas_activas.filter(
-            saldo_actual__gt=0
-        ).aggregate(total=Sum('saldo_actual'))['total'] or Decimal('0.00')
-        
-        # ========================================
-        # ✅ CLASIFICACIÓN POR SALDO PROYECTADO
-        # ========================================
+        total_debe_r  = cuentas_activas.filter(saldo_actual__lt=0).aggregate(t=Sum('saldo_actual'))['t']
+        total_debe    = abs(total_debe_r) if total_debe_r else Decimal('0.00')
+        total_favor   = cuentas_activas.filter(saldo_actual__gt=0).aggregate(t=Sum('saldo_actual'))['t'] or Decimal('0.00')
         
         deudores_proyeccion_count = cuentas_activas.filter(saldo_real__lt=0).count()
-        al_dia_proyeccion_count = cuentas_activas.filter(saldo_real=0).count()
-        a_favor_proyeccion_count = cuentas_activas.filter(saldo_real__gt=0).count()
+        al_dia_proyeccion_count   = cuentas_activas.filter(saldo_real=0).count()
+        a_favor_proyeccion_count  = cuentas_activas.filter(saldo_real__gt=0).count()
         
-        # Total que deberán (valor absoluto)
-        total_debe_proyeccion_result = cuentas_activas.filter(
-            saldo_real__lt=0
-        ).aggregate(total=Sum('saldo_real'))['total']
-        
-        total_debe_proyeccion = abs(total_debe_proyeccion_result) if total_debe_proyeccion_result else Decimal('0.00')
-        
-        # Total a favor proyectado
-        total_favor_proyeccion = cuentas_activas.filter(
-            saldo_real__gt=0
-        ).aggregate(total=Sum('saldo_real'))['total'] or Decimal('0.00')
+        total_debe_proy_r       = cuentas_activas.filter(saldo_real__lt=0).aggregate(t=Sum('saldo_real'))['t']
+        total_debe_proyeccion   = abs(total_debe_proy_r) if total_debe_proy_r else Decimal('0.00')
+        total_favor_proyeccion  = cuentas_activas.filter(saldo_real__gt=0).aggregate(t=Sum('saldo_real'))['t'] or Decimal('0.00')
         
         return {
-            # Estado Actual
             'total_consumido': total_consumido,
             'total_pagado': total_pagado,
             'total_balance': total_balance,
@@ -345,8 +514,6 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             'a_favor': a_favor_count,
             'total_debe': total_debe,
             'total_favor': total_favor,
-            
-            # ✅ Proyección Total
             'total_proyectado': total_proyectado,
             'total_balance_proyeccion': total_balance_proyeccion,
             'deudores_proyeccion': deudores_proyeccion_count,
@@ -354,33 +521,21 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             'a_favor_proyeccion': a_favor_proyeccion_count,
             'total_debe_proyeccion': total_debe_proyeccion,
             'total_favor_proyeccion': total_favor_proyeccion,
+            'filtro_fechas_activo': False,
         }
         
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error en estadísticas globales: {str(e)}", exc_info=True)
-        
-        # Retornar valores por defecto en caso de error
+        z = Decimal('0.00')
         return {
-            # Estado Actual
-            'total_consumido': Decimal('0.00'),
-            'total_pagado': Decimal('0.00'),
-            'total_balance': Decimal('0.00'),
-            'deudores': 0,
-            'al_dia': 0,
-            'a_favor': 0,
-            'total_debe': Decimal('0.00'),
-            'total_favor': Decimal('0.00'),
-            
-            # Proyección Total
-            'total_proyectado': Decimal('0.00'),
-            'total_balance_proyeccion': Decimal('0.00'),
-            'deudores_proyeccion': 0,
-            'al_dia_proyeccion': 0,
-            'a_favor_proyeccion': 0,
-            'total_debe_proyeccion': Decimal('0.00'),
-            'total_favor_proyeccion': Decimal('0.00'),
+            'total_consumido': z, 'total_pagado': z, 'total_balance': z,
+            'deudores': 0, 'al_dia': 0, 'a_favor': 0, 'total_debe': z, 'total_favor': z,
+            'total_proyectado': z, 'total_balance_proyeccion': z,
+            'deudores_proyeccion': 0, 'al_dia_proyeccion': 0, 'a_favor_proyeccion': 0,
+            'total_debe_proyeccion': z, 'total_favor_proyeccion': z,
+            'filtro_fechas_activo': False,
         }
 
 
@@ -409,12 +564,27 @@ def cargar_estadisticas_ajax(request):
         if modo_paciente not in ('activo', 'inactivo', 'todos'):
             modo_paciente = 'activo'
         
+        # ✅ NUEVO: Leer rango de fechas
+        fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+        fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+        fecha_desde_obj = None
+        fecha_hasta_obj = None
+        try:
+            if fecha_desde_str:
+                fecha_desde_obj = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            if fecha_hasta_str:
+                fecha_hasta_obj = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+        
         # Calcular estadísticas con filtros aplicados
         estadisticas = calcular_estadisticas_globales(
             buscar=buscar if buscar else None,
             estado=estado if estado else None,
             sucursal_id=sucursal_id if sucursal_id else None,
             modo_paciente=modo_paciente,
+            fecha_desde=fecha_desde_obj,
+            fecha_hasta=fecha_hasta_obj,
         )
         
         # ✅ Calcular total de pacientes con los mismos filtros
@@ -488,8 +658,11 @@ def cargar_estadisticas_ajax(request):
         
         return JsonResponse({
             'success': True,
-            'total_pacientes': total_pacientes,  # ✅ Añadir total de pacientes
-            'inactivos_resumen': inactivos_resumen,  # ✅ Resumen de inactivos con movimientos
+            'total_pacientes': total_pacientes,
+            'inactivos_resumen': inactivos_resumen,
+            'filtro_fechas_activo': estadisticas.get('filtro_fechas_activo', False),  # ✅ NUEVO
+            'fecha_desde': fecha_desde_str,   # ✅ NUEVO
+            'fecha_hasta': fecha_hasta_str,   # ✅ NUEVO
             'estadisticas': {
                 # Estado Actual
                 'total_consumido': float(estadisticas['total_consumido']),
