@@ -3588,26 +3588,20 @@ def generar_pdf_informe_evolucion(request, paciente_id):
 import collections as _collections
 
 
+
+
 @login_required
 @solo_sus_sucursales
 def modal_copiar_mensualidad(request, mensualidad_id):
     """
-    Genera la previsualización editable de sesiones para copiar una mensualidad.
+    Modal para copiar mensualidad con lógica de semana tipo.
 
-    Lógica de fechas (nueva, sin omisiones):
-    - Para cada sesión origen se toma su día de la semana (Lun=0 … Dom=6).
-    - Se obtienen todos los días de ese día de semana en el mes destino.
-    - Se asigna por *ocurrencia*: 1ª sesión del lunes → 1er lunes del destino, etc.
-    - Si el mes origen tiene MÁS ocurrencias que el destino (ej. 5 lunes vs 4),
-      la(s) extra(s) se mapean al ÚLTIMO día disponible de ese día de semana
-      en lugar de omitirse.
-
-    El usuario puede editar fecha/hora, eliminar filas o agregar nuevas antes
-    de confirmar.
-
-    GET params opcionales:
-        mes_destino  (1-12)
-        anio_destino (YYYY)
+    Flujo:
+    - Selector de mes destino con estado (disponible / ya existe).
+    - Formulario: editar SOLO la semana tipo (~5-7 filas).
+    - Preview de solo lectura del mes completo para ver conflictos.
+    - Al procesar: la semana tipo se replica a cada día del mes destino,
+      incluyendo días pasados (mensualidades creadas tarde).
     """
     mensualidad_origen = get_object_or_404(
         Mensualidad.objects.select_related('paciente', 'sucursal')
@@ -3627,10 +3621,14 @@ def modal_copiar_mensualidad(request, mensualidad_id):
                 status=403
             )
 
-    # ── Mes/año destino ────────────────────────────────────
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+
     mes_origen  = mensualidad_origen.mes
     anio_origen = mensualidad_origen.anio
 
+    # ── Mes/año destino ────────────────────────────────────
     try:
         mes_destino  = int(request.GET.get('mes_destino',  0)) or (mes_origen % 12) + 1
         anio_destino = int(request.GET.get('anio_destino', 0)) or (
@@ -3640,12 +3638,31 @@ def modal_copiar_mensualidad(request, mensualidad_id):
         mes_destino  = (mes_origen % 12) + 1
         anio_destino = anio_origen + 1 if mes_origen == 12 else anio_origen
 
-    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    if mes_destino == mes_origen and anio_destino == anio_origen:
+        mes_destino  = (mes_origen % 12) + 1
+        anio_destino = anio_origen + 1 if mes_origen == 12 else anio_origen
 
     mes_destino_display = MESES[mes_destino]
 
-    # ── ¿Ya existe mensualidad en el destino? ──────────────
+    # ── Opciones de mes: 12 siguientes con estado ──────────
+    opciones_mes = []
+    for delta in range(1, 13):
+        m_raw = mes_origen + delta
+        m = ((m_raw - 1) % 12) + 1
+        a = anio_origen + (m_raw - 1) // 12
+        existe = Mensualidad.objects.filter(
+            paciente=mensualidad_origen.paciente,
+            mes=m, anio=a
+        ).first()
+        opciones_mes.append({
+            'mes':      m,
+            'anio':     a,
+            'label':    f"{MESES[m]} {a}",
+            'selected': (m == mes_destino and a == anio_destino),
+            'existe':   existe,           # objeto Mensualidad o None
+        })
+
+    # ── ¿Ya existe mensualidad en el destino seleccionado? ─
     mensualidad_destino_existe = Mensualidad.objects.filter(
         paciente=mensualidad_origen.paciente,
         mes=mes_destino,
@@ -3659,95 +3676,145 @@ def modal_copiar_mensualidad(request, mensualidad_id):
         .order_by('servicio__nombre')
     )
 
-    # ── Sesiones del origen ────────────────────────────────
+    # ── Sesiones del origen para detectar el patrón ───────
     sesiones_origen = list(
         mensualidad_origen.sesiones
         .select_related('servicio', 'profesional')
         .order_by('fecha', 'hora_inicio')
     )
 
-    # ── Construir previsualización ─────────────────────────
-    # días del mes destino agrupados por día de la semana
     dias_en_destino = monthrange(anio_destino, mes_destino)[1]
-    dias_por_semana = _collections.defaultdict(list)   # {0: [3,10,17,24], ...}
+    min_fecha       = date(anio_destino, mes_destino, 1)
+    max_fecha       = date(anio_destino, mes_destino, dias_en_destino)
+
+    # ── Extraer patrón semanal (semana tipo) ───────────────
+    # patron_wd: { weekday: [ {hora_inicio, duracion, servicio_id, profesional_id} ] }
+    patron_wd        = _collections.defaultdict(list)
+    patron_irregular = False
+
+    if sesiones_origen:
+        semanas_vistas = _collections.defaultdict(lambda: _collections.defaultdict(list))
+        for s in sesiones_origen:
+            wd       = s.fecha.weekday()
+            iso_week = s.fecha.isocalendar()[1]
+            semanas_vistas[iso_week][wd].append({
+                'hora_inicio':    s.hora_inicio,
+                'duracion':       s.duracion_minutos,
+                'servicio_id':    s.servicio_id,
+                'profesional_id': s.profesional_id,
+            })
+
+        semana_base_key = min(semanas_vistas.keys())
+        semana_base     = semanas_vistas[semana_base_key]
+
+        for wd, slots in semana_base.items():
+            patron_wd[wd] = slots
+
+        def normalizar_semana(sd):
+            r = []
+            for wd in sorted(sd.keys()):
+                for slot in sd[wd]:
+                    r.append((wd, slot['hora_inicio'], slot['servicio_id'], slot['profesional_id']))
+            return tuple(r)
+
+        patron_base_norm = normalizar_semana(semana_base)
+        for iso_week, sd in semanas_vistas.items():
+            if iso_week == semana_base_key:
+                continue
+            if normalizar_semana(sd) != patron_base_norm:
+                patron_irregular = True
+                break
+
+    # ── Semana tipo para el formulario editable ────────────
+    # Lista ordenada por weekday → el usuario edita esto
+    semana_tipo = []
+    for wd in sorted(patron_wd.keys()):
+        for slot in patron_wd[wd]:
+            semana_tipo.append({
+                'weekday':       wd,
+                'dia_nombre':    DIAS_SEMANA[wd],
+                'hora_inicio':   slot['hora_inicio'].strftime('%H:%M'),
+                'duracion':      slot['duracion'],
+                'servicio_id':   slot['servicio_id'],
+                'profesional_id':slot['profesional_id'],
+            })
+
+    # ── Preview del mes completo (solo lectura) ────────────
+    # Expandir el patrón a todos los días del mes destino
+    preview_mes  = []   # { fecha_display, fecha_iso, slots: [{hora, servicio, profesional, conflicto}] }
+    total_conflictos = 0
+
     for d in range(1, dias_en_destino + 1):
-        wd = date(anio_destino, mes_destino, d).weekday()
-        dias_por_semana[wd].append(d)
+        fecha_d = date(anio_destino, mes_destino, d)
+        wd      = fecha_d.weekday()
 
-    min_fecha = date(anio_destino, mes_destino, 1)
-    max_fecha = date(anio_destino, mes_destino, dias_en_destino)
+        if wd not in patron_wd:
+            continue
 
-    # Contador de ocurrencias por (día_semana, hora, servicio, profesional)
-    slots_contador = _collections.defaultdict(int)
+        slots_dia = []
+        for slot in patron_wd[wd]:
+            hora_inicio = slot['hora_inicio']
+            duracion    = slot['duracion']
+            hora_fin    = (datetime.combine(fecha_d, hora_inicio)
+                           + timedelta(minutes=duracion)).time()
 
-    sesiones_preview    = []   # lista de dicts para el template
-    sesiones_con_conflicto = 0
+            conflicto = Sesion.objects.filter(
+                paciente    = mensualidad_origen.paciente,
+                fecha       = fecha_d,
+                hora_inicio = hora_inicio,
+                estado__in  = ['programada', 'realizada', 'realizada_retraso']
+            ).exists()
 
-    for sesion in sesiones_origen:
-        wd          = sesion.fecha.weekday()
-        hora_inicio = sesion.hora_inicio
-        duracion    = sesion.duracion_minutos
+            if conflicto:
+                total_conflictos += 1
 
-        key       = (wd, hora_inicio, sesion.servicio_id, sesion.profesional_id)
-        ocurrencia = slots_contador[key]
-        slots_contador[key] += 1
+            # Resolver nombres para mostrar
+            sp_match = next(
+                (sp for sp in servicios_profesionales
+                 if sp.servicio_id == slot['servicio_id']
+                 and sp.profesional_id == slot['profesional_id']),
+                None
+            )
 
-        dias_disp = dias_por_semana[wd]   # lista de días del mes destino con ese wd
+            slots_dia.append({
+                'hora':        hora_inicio.strftime('%H:%M'),
+                'hora_fin':    hora_fin.strftime('%H:%M'),
+                'duracion':    duracion,
+                'servicio':    sp_match.servicio.nombre if sp_match else f"#{slot['servicio_id']}",
+                'profesional': (
+                    f"{sp_match.profesional.nombre} {sp_match.profesional.apellido}"
+                    if sp_match else f"#{slot['profesional_id']}"
+                ),
+                'conflicto':   conflicto,
+            })
 
-        if not dias_disp:
-            # Día de semana que no existe en el mes destino (muy raro, p.ej. mes de 28 días)
-            # En este caso usamos el último día del mes
-            dia_destino = dias_en_destino
-        elif ocurrencia < len(dias_disp):
-            # Caso normal: hay suficientes ocurrencias en el mes destino
-            dia_destino = dias_disp[ocurrencia]
-        else:
-            # ✅ NUEVA LÓGICA: hay más sesiones en origen que días disponibles en destino
-            # → usar el ÚLTIMO día disponible de ese día de semana, NO omitir
-            dia_destino = dias_disp[-1]
-
-        fecha_destino = date(anio_destino, mes_destino, dia_destino)
-
-        # Recalcular hora_fin a partir de duración
-        hora_fin = (datetime.combine(fecha_destino, hora_inicio)
-                    + timedelta(minutes=duracion)).time()
-
-        # Detectar conflicto de paciente en esa fecha/hora
-        conflicto = Sesion.objects.filter(
-            paciente    = mensualidad_origen.paciente,
-            fecha       = fecha_destino,
-            hora_inicio = hora_inicio,
-            estado__in  = ['programada', 'realizada', 'realizada_retraso']
-        ).exists()
-
-        if conflicto:
-            sesiones_con_conflicto += 1
-
-        sesiones_preview.append({
-            'fecha_iso':       fecha_destino.isoformat(),          # "2025-03-03"
-            'hora_inicio_val': hora_inicio.strftime('%H:%M'),      # "10:00"
-            'hora_fin_val':    hora_fin.strftime('%H:%M'),
-            'duracion':        duracion,
-            'servicio_id':     sesion.servicio_id,
-            'profesional_id':  sesion.profesional_id,
-            'conflicto':       conflicto,
+        preview_mes.append({
+            'fecha_iso':     fecha_d.isoformat(),
+            'fecha_display': fecha_d.day,                  # solo el número del día
+            'dia_nombre':    DIAS_SEMANA[wd],
+            'dia_semana':    wd,
+            'slots':         slots_dia,
+            'tiene_conflicto': any(s['conflicto'] for s in slots_dia),
         })
 
-    # Ordenar por fecha y hora para que la tabla quede limpia
-    sesiones_preview.sort(key=lambda s: (s['fecha_iso'], s['hora_inicio_val']))
-
     context = {
-        'mensualidad_origen':          mensualidad_origen,
-        'costo_mensual_valor':         str(mensualidad_origen.costo_mensual or '0'),
-        'servicios_profesionales':     servicios_profesionales,
-        'sesiones_preview':            sesiones_preview,
-        'sesiones_con_conflicto':      sesiones_con_conflicto,
-        'mes_destino':                 mes_destino,
-        'anio_destino':                anio_destino,
-        'mes_destino_display':         mes_destino_display,
-        'mensualidad_destino_existe':  mensualidad_destino_existe,
-        'min_fecha_iso':               min_fecha.isoformat(),
-        'max_fecha_iso':               max_fecha.isoformat(),
+        'mensualidad_origen':         mensualidad_origen,
+        'costo_mensual_valor':        str(mensualidad_origen.costo_mensual or '0'),
+        'servicios_profesionales':    servicios_profesionales,
+        'semana_tipo':                semana_tipo,
+        'preview_mes':                preview_mes,
+        'total_conflictos':           total_conflictos,
+        'patron_irregular':           patron_irregular,
+        'mes_destino':                mes_destino,
+        'anio_destino':               anio_destino,
+        'mes_destino_display':        mes_destino_display,
+        'mensualidad_destino_existe': mensualidad_destino_existe,
+        'min_fecha_iso':              min_fecha.isoformat(),
+        'max_fecha_iso':              max_fecha.isoformat(),
+        'opciones_mes':               opciones_mes,
+        'DIAS_SEMANA_JSON':           json.dumps(
+            ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+        ),
     }
 
     return render(request, 'agenda/modal_copiar_mensualidad.html', context)
@@ -3757,19 +3824,23 @@ def modal_copiar_mensualidad(request, mensualidad_id):
 @solo_sus_sucursales
 def procesar_copiar_mensualidad(request, mensualidad_id):
     """
-    Crea la nueva mensualidad y sus sesiones a partir de los datos
-    editados en el modal de previsualización.
+    Recibe la semana tipo editada por el usuario y:
+    1. Crea la nueva mensualidad.
+    2. Copia los ServicioProfesionalMensualidad.
+    3. Expande la semana tipo a TODOS los días del mes destino
+       (incluye días pasados si se crea tarde en el mes).
+    4. Omite sesiones con conflicto si grupales=OFF, las crea si grupales=ON.
 
-    POST arrays (parallel, misma longitud):
-        fecha[]           YYYY-MM-DD
-        hora_inicio[]     HH:MM
-        servicio_id[]     int
-        profesional_id[]  int
-        incluir_sesion[]  índices (0-based) de las filas marcadas con checkbox
+    POST arrays (semana tipo, filas paralelas):
+        weekday[]        int  0-6
+        hora_inicio[]    HH:MM
+        duracion[]       int  minutos
+        servicio_id[]    int
+        profesional_id[] int
 
     POST escalares:
         mes_destino, anio_destino, costo_mensual
-        sesiones_grupales   '1' | ''
+        sesiones_grupales  '1' | ''
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
@@ -3783,14 +3854,15 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
         id=mensualidad_id
     )
 
-    # ── Permisos ───────────────────────────────────────────
     sucursales_usuario = request.sucursales_usuario
     if sucursales_usuario is not None:
         if not sucursales_usuario.filter(id=mensualidad_origen.sucursal.id).exists():
             messages.error(request, '❌ No tienes permiso.')
             return redirect('agenda:lista_mensualidades')
 
-    # ── Parámetros escalares ───────────────────────────────
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
     try:
         mes_destino   = int(request.POST['mes_destino'])
         anio_destino  = int(request.POST['anio_destino'])
@@ -3800,17 +3872,12 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
         messages.error(request, '❌ Datos inválidos.')
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
 
-    sesiones_grupales_raw      = request.POST.get('sesiones_grupales', '')
-    permitir_sesiones_grupales = sesiones_grupales_raw in ('on', '1', 'true', 'True')
+    permitir_grupales = request.POST.get('sesiones_grupales', '') in ('on', '1', 'true', 'True')
 
-    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-
-    # ── ¿Ya existe mensualidad en destino? ─────────────────
+    # ── Verificar que no exista ya ─────────────────────────
     if Mensualidad.objects.filter(
         paciente=mensualidad_origen.paciente,
-        mes=mes_destino,
-        anio=anio_destino
+        mes=mes_destino, anio=anio_destino
     ).exists():
         messages.error(
             request,
@@ -3819,70 +3886,52 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
         )
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
 
-    # ── Leer arrays del formulario ─────────────────────────
-    fechas            = request.POST.getlist('fecha[]')
-    horas_inicio      = request.POST.getlist('hora_inicio[]')
-    duraciones        = request.POST.getlist('duracion[]')
-    servicios_ids     = request.POST.getlist('servicio_id[]')
+    # ── Leer la semana tipo del POST ───────────────────────
+    weekdays       = request.POST.getlist('weekday[]')
+    horas_inicio   = request.POST.getlist('hora_inicio[]')
+    duraciones     = request.POST.getlist('duracion[]')
+    servicios_ids  = request.POST.getlist('servicio_id[]')
     profesionales_ids = request.POST.getlist('profesional_id[]')
-    # indices de filas marcadas (el valor del checkbox es el índice 0-based de la fila,
-    # o "nuevo" para filas añadidas manualmente → incluirlas siempre)
-    incluir_raw     = set(request.POST.getlist('incluir_sesion[]'))
 
-    total_filas = len(fechas)
-
-    if total_filas == 0:
-        messages.warning(request, '⚠️ No se envió ninguna sesión.')
+    if not weekdays:
+        messages.warning(request, '⚠️ La semana tipo está vacía.')
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
 
-    # Construir lista de sesiones a crear (solo las marcadas)
-    sesiones_a_crear = []
-    for idx in range(total_filas):
-        idx_str = str(idx)
-        # Una fila está marcada si su índice está en incluir_raw O si es "nuevo"
-        marcada = idx_str in incluir_raw or 'nuevo' in incluir_raw
-        if not marcada:
-            continue
-
+    # Construir patron_wd: { weekday: [ {hora_inicio, duracion, servicio_id, profesional_id} ] }
+    patron_wd = _collections.defaultdict(list)
+    for idx in range(len(weekdays)):
         try:
-            fecha_obj      = datetime.strptime(fechas[idx], '%Y-%m-%d').date()
-            hora_obj       = datetime.strptime(horas_inicio[idx], '%H:%M').time()
-            duracion_min   = int(duraciones[idx]) if idx < len(duraciones) and duraciones[idx] else 45
+            wd             = int(weekdays[idx])
+            hora_inicio    = datetime.strptime(horas_inicio[idx], '%H:%M').time()
+            duracion       = int(duraciones[idx]) if duraciones[idx] else 45
             servicio_id    = int(servicios_ids[idx])
             profesional_id = int(profesionales_ids[idx])
         except (ValueError, IndexError):
-            continue  # fila mal formada, omitir
-
-        # Validar que la fecha pertenece al mes destino
-        if fecha_obj.month != mes_destino or fecha_obj.year != anio_destino:
             continue
-
-        sesiones_a_crear.append({
-            'fecha':          fecha_obj,
-            'hora_inicio':    hora_obj,
-            'duracion':       duracion_min,
+        patron_wd[wd].append({
+            'hora_inicio':    hora_inicio,
+            'duracion':       duracion,
             'servicio_id':    servicio_id,
             'profesional_id': profesional_id,
         })
 
-    if not sesiones_a_crear:
-        messages.warning(request, '⚠️ No hay sesiones válidas para crear.')
+    if not patron_wd:
+        messages.warning(request, '⚠️ No hay slots válidos en la semana tipo.')
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
 
-    # Precargar servicios y profesionales en un dict para no hacer N queries
-    from servicios.models import TipoServicio
-    servicios_map    = {s.id: s for s in TipoServicio.objects.all()}
-    profesionales_map = {p.id: p for p in
-                         __import__('profesionales.models', fromlist=['Profesional'])
-                         .Profesional.objects.all()}
+    # Precargar servicios y profesionales
+    from servicios.models import TipoServicio as _TipoServicio
+    from profesionales.models import Profesional as _Profesional
+    servicios_map     = {s.id: s for s in _TipoServicio.objects.all()}
+    profesionales_map = {p.id: p for p in _Profesional.objects.all()}
 
-    # ── Crear mensualidad y sesiones dentro de una transacción ──
+    dias_en_mes = monthrange(anio_destino, mes_destino)[1]
+
     from django.db import transaction as _tx
-
     try:
         with _tx.atomic():
 
-            # 1. Nueva mensualidad
+            # 1. Crear la nueva mensualidad
             nueva = Mensualidad(
                 paciente      = mensualidad_origen.paciente,
                 sucursal      = mensualidad_origen.sucursal,
@@ -3906,70 +3955,72 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
                     profesional = sp.profesional,
                 )
 
-            # 3. Crear sesiones
-            creadas   = 0
-            omitidas  = 0
+            # 3. Expandir semana tipo a todos los días del mes
+            creadas  = 0
+            omitidas = 0
             conflictos_detalle = []
 
-            for datos in sesiones_a_crear:
-                servicio    = servicios_map.get(datos['servicio_id'])
-                profesional = profesionales_map.get(datos['profesional_id'])
+            for d in range(1, dias_en_mes + 1):
+                fecha = date(anio_destino, mes_destino, d)
+                wd    = fecha.weekday()
 
-                if not servicio or not profesional:
-                    omitidas += 1
+                if wd not in patron_wd:
                     continue
 
-                hora_inicio = datos['hora_inicio']
-                fecha       = datos['fecha']
-                duracion    = datos['duracion']  # viene del input editado por el usuario
+                for slot in patron_wd[wd]:
+                    servicio    = servicios_map.get(slot['servicio_id'])
+                    profesional = profesionales_map.get(slot['profesional_id'])
 
-                # Calcular hora_fin
-                hora_fin = (datetime.combine(fecha, hora_inicio)
-                            + timedelta(minutes=duracion)).time()
+                    if not servicio or not profesional:
+                        omitidas += 1
+                        continue
 
-                # Validar disponibilidad (misma función que procesar_agendar_mensualidad)
-                disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
-                    mensualidad_origen.paciente,
-                    profesional,
-                    fecha,
-                    hora_inicio,
-                    hora_fin,
-                    permitir_sesiones_grupales=permitir_sesiones_grupales
-                )
+                    hora_inicio = slot['hora_inicio']
+                    duracion    = slot['duracion']
+                    hora_fin    = (datetime.combine(fecha, hora_inicio)
+                                   + timedelta(minutes=duracion)).time()
 
-                if not disponible:
-                    omitidas += 1
-                    conflictos_detalle.append(
-                        f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
+                    disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
+                        mensualidad_origen.paciente,
+                        profesional,
+                        fecha,
+                        hora_inicio,
+                        hora_fin,
+                        permitir_sesiones_grupales=permitir_grupales
                     )
-                    continue
 
-                try:
-                    sesion = Sesion(
-                        paciente         = mensualidad_origen.paciente,
-                        servicio         = servicio,
-                        profesional      = profesional,
-                        sucursal         = mensualidad_origen.sucursal,
-                        mensualidad      = nueva,
-                        fecha            = fecha,
-                        hora_inicio      = hora_inicio,
-                        hora_fin         = hora_fin,
-                        duracion_minutos = duracion,
-                        estado           = 'programada',
-                        monto_cobrado    = Decimal('0.00'),
-                        creada_por       = request.user,
-                        modificada_por   = request.user,
-                    )
-                    if permitir_sesiones_grupales:
-                        sesion._permitir_sesiones_grupales = True
+                    if not disponible:
+                        omitidas += 1
+                        conflictos_detalle.append(
+                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
+                        )
+                        continue
 
-                    sesion.save()
-                    creadas += 1
-
-                except ValidationError:
-                    omitidas += 1
-                    conflictos_detalle.append(f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}")
-                    continue
+                    try:
+                        sesion = Sesion(
+                            paciente         = mensualidad_origen.paciente,
+                            servicio         = servicio,
+                            profesional      = profesional,
+                            sucursal         = mensualidad_origen.sucursal,
+                            mensualidad      = nueva,
+                            fecha            = fecha,
+                            hora_inicio      = hora_inicio,
+                            hora_fin         = hora_fin,
+                            duracion_minutos = duracion,
+                            estado           = 'programada',
+                            monto_cobrado    = Decimal('0.00'),
+                            creada_por       = request.user,
+                            modificada_por   = request.user,
+                        )
+                        if permitir_grupales:
+                            sesion._permitir_sesiones_grupales = True
+                        sesion.save()
+                        creadas += 1
+                    except ValidationError:
+                        omitidas += 1
+                        conflictos_detalle.append(
+                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}"
+                        )
 
             # 4. Mensaje de resultado
             if creadas > 0:
@@ -3985,7 +4036,7 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
                 messages.warning(
                     request,
                     f'⚠️ Se creó la mensualidad {nueva.codigo} pero no se pudo '
-                    f'crear ninguna sesión (todas tenían conflicto).'
+                    f'crear ninguna sesión (todas tenían conflicto de horario).'
                 )
 
             return redirect('agenda:detalle_mensualidad', mensualidad_id=nueva.id)

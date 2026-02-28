@@ -1,6 +1,8 @@
 <!-- ========================================================
-     MODAL: COPIAR MENSUALIDAD — PREVISUALIZACIÓN EDITABLE
-     Flujo: ver fechas generadas → editar/añadir/eliminar → confirmar
+     MODAL: COPIAR MENSUALIDAD
+     - Selector de mes con estado (disponible / ya existe)
+     - Semana tipo editable (~5-7 filas)
+     - Preview mes completo solo lectura (conflictos)
      ======================================================== -->
 
 <!-- HEADER -->
@@ -20,32 +22,72 @@
             class="text-white hover:bg-white/20 w-7 h-7 rounded-lg transition-colors flex items-center justify-center font-bold text-lg">×</button>
 </div>
 
-<div class="p-4">
+<div class="p-4 space-y-4">
+
+<!-- ══════════════════════════════════════════════════════
+     SELECTOR DE MES
+     ══════════════════════════════════════════════════════ -->
+<div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+    <p class="text-xs font-black text-slate-600 mb-2 flex items-center gap-1">📆 Seleccionar mes destino:</p>
+    <div class="flex flex-wrap gap-1.5">
+        {% for op in opciones_mes %}
+        <button type="button"
+                onclick="cambiarMesCopiar('{% url 'agenda:modal_copiar_mensualidad' mensualidad_origen.id %}?mes_destino={{ op.mes }}&anio_destino={{ op.anio }}')"
+                class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1
+                       {% if op.selected %}
+                           bg-emerald-600 text-white border-emerald-600 shadow-md
+                       {% elif op.existe %}
+                           bg-orange-50 text-orange-700 border-orange-300 hover:bg-orange-100
+                       {% else %}
+                           bg-white text-slate-600 border-slate-200 hover:border-emerald-400 hover:text-emerald-700
+                       {% endif %}">
+            {% if op.existe and not op.selected %}
+                <span title="Ya existe mensualidad">⚠️</span>
+            {% elif not op.existe and not op.selected %}
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+            {% endif %}
+            {{ op.label }}
+        </button>
+        {% endfor %}
+    </div>
+    <div class="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
+        <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span> Disponible</span>
+        <span class="flex items-center gap-1"><span class="text-orange-500">⚠️</span> Ya existe</span>
+    </div>
+</div>
 
 {% if mensualidad_destino_existe %}
-<!-- ── BLOQUEO: ya existe mensualidad en destino ────────── -->
-<div class="bg-red-50 border-2 border-red-300 rounded-xl p-4 text-center">
-    <span class="text-4xl">🚫</span>
-    <p class="text-sm font-bold text-red-700 mt-2">
-        Ya existe una mensualidad para <strong>{{ mensualidad_origen.paciente.nombre_completo }}</strong>
-        en {{ mes_destino_display }} {{ anio_destino }}.
+<!-- ══════════════════════════════════════════════════════
+     BLOQUEO: ya existe
+     ══════════════════════════════════════════════════════ -->
+<div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 text-center">
+    <span class="text-4xl">⚠️</span>
+    <p class="text-sm font-black text-orange-800 mt-2">
+        Ya existe una mensualidad para <strong>{{ mes_destino_display }} {{ anio_destino }}</strong>
+    </p>
+    <p class="text-xs text-orange-600 mt-1">
+        {{ mensualidad_origen.paciente.nombre_completo }} · {{ mensualidad_destino_existe.codigo }}
     </p>
     <a href="{% url 'agenda:detalle_mensualidad' mensualidad_destino_existe.id %}"
-       class="mt-3 inline-block px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-sm rounded-xl transition-colors">
-        Ir a esa mensualidad →
+       class="mt-3 inline-block px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold text-sm rounded-xl transition-colors">
+        Ver esa mensualidad →
     </a>
 </div>
 
-{% elif not sesiones_preview %}
-<!-- ── SIN SESIONES ──────────────────────────────────────── -->
+{% elif not semana_tipo %}
+<!-- ══════════════════════════════════════════════════════
+     SIN SESIONES EN ORIGEN
+     ══════════════════════════════════════════════════════ -->
 <div class="text-center py-6">
     <span class="text-4xl">📭</span>
     <p class="text-sm font-bold text-slate-700 mt-2">No hay sesiones para copiar</p>
-    <p class="text-xs text-slate-500">Esta mensualidad no tiene sesiones agendadas.</p>
+    <p class="text-xs text-slate-500">La mensualidad origen no tiene sesiones agendadas.</p>
 </div>
 
 {% else %}
-<!-- ── FORMULARIO PRINCIPAL ──────────────────────────────── -->
+<!-- ══════════════════════════════════════════════════════
+     FORMULARIO PRINCIPAL
+     ══════════════════════════════════════════════════════ -->
 <form method="post"
       action="{% url 'agenda:procesar_copiar_mensualidad' mensualidad_origen.id %}"
       id="formCopiarMensualidad">
@@ -54,74 +96,75 @@
     <input type="hidden" name="anio_destino" value="{{ anio_destino }}">
 
     <!-- COSTO -->
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-        <label class="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1">
-            <span>💰</span> Costo mensual:
-        </label>
+    <div class="flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <label class="text-xs font-bold text-slate-700 flex items-center gap-1">💰 Costo mensual:</label>
         <span class="text-sm font-bold text-slate-500">Bs.</span>
-        <input type="number" name="costo_mensual"
-               min="0" step="0.01"
-               value="{{ costo_mensual_valor }}"
-               required
-               class="flex-1 min-w-[100px] px-3 py-1.5 border-2 border-slate-200 rounded-lg text-sm font-bold
+        <input type="number" name="costo_mensual" min="0" step="0.01"
+               value="{{ costo_mensual_valor }}" required
+               class="w-32 px-3 py-1.5 border-2 border-slate-200 rounded-lg text-sm font-bold
                       focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none">
-        <span class="text-[10px] text-slate-400 whitespace-nowrap">por defecto igual al origen</span>
+        <span class="text-[10px] text-slate-400">por defecto igual al origen</span>
     </div>
 
-    <!-- OPCIÓN GRUPALES -->
-    <div class="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
+    <!-- SESIONES GRUPALES -->
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
         <label class="flex items-start gap-2 cursor-pointer select-none group">
             <input type="checkbox" name="sesiones_grupales" id="sesGrupalesCopiar" value="1"
                    class="mt-0.5 rounded text-purple-600 focus:ring-purple-400 border-gray-300"
                    onchange="toggleAvisoCopiar()">
             <div>
-                <span class="text-xs font-semibold text-purple-900 group-hover:text-purple-700">👥 Sesiones Grupales</span>
-                <p class="text-[10px] text-purple-700 mt-0.5">Permitir que el profesional atienda varios pacientes al mismo tiempo.</p>
+                <span class="text-xs font-semibold text-purple-900">👥 Permitir sesiones grupales</span>
+                <p class="text-[10px] text-purple-700 mt-0.5">
+                    Activar si el profesional atiende varios pacientes al mismo tiempo.
+                    Con esta opción los conflictos de horario del profesional se ignoran
+                    y se crean igualmente.
+                </p>
             </div>
         </label>
         <div id="avisoGrupalCopiar"
              class="hidden mt-2 bg-purple-50 border border-purple-300 rounded-lg px-3 py-2 text-[11px] text-purple-800">
-            ℹ️ Con Sesiones Grupales activo, solo se bloquean conflictos del <strong>paciente</strong>. Los del profesional se ignoran.
+            ✅ Activo — los conflictos de horario del profesional no bloquearán la creación.
+            Solo se omitirán si el <strong>paciente</strong> tiene otro turno a la misma hora.
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════
-         TABLA EDITABLE DE SESIONES
-         ═══════════════════════════════════════════════════════ -->
-    <div class="mb-4">
+    {% if patron_irregular %}
+    <!-- ADVERTENCIA: patrón irregular -->
+    <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 flex gap-2">
+        <span class="text-xl flex-shrink-0">⚠️</span>
+        <div>
+            <p class="text-xs font-black text-amber-800">El patrón semanal no fue uniforme en el mes origen</p>
+            <p class="text-[11px] text-amber-700 mt-0.5">
+                Algunas semanas tuvieron sesiones diferentes. Se tomó la <strong>primera semana</strong>
+                como base. Revisa la semana tipo y ajústala si es necesario.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ══════════════════════════════════════════════════
+         SEMANA TIPO — EDITABLE
+         ══════════════════════════════════════════════════ -->
+    <div>
         <div class="flex items-center justify-between mb-2">
             <h3 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                <span>📅</span>
-                Sesiones en <span class="text-emerald-700">{{ mes_destino_display }} {{ anio_destino }}</span>
-                <span id="contadorSesiones"
-                      class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-black">
-                    {{ sesiones_preview|length }}
-                </span>
+                🔁 Semana tipo
+                <span class="text-[10px] font-normal text-slate-500">— se repetirá en cada semana del mes</span>
             </h3>
-            <button type="button"
-                    onclick="agregarFilaSesion()"
+            <button type="button" onclick="agregarSlot()"
                     class="flex items-center gap-1 text-[11px] font-black text-emerald-700
                            bg-emerald-50 hover:bg-emerald-100 border border-emerald-300
                            px-2.5 py-1 rounded-lg transition-colors">
-                + Añadir sesión
+                + Añadir slot
             </button>
         </div>
 
-        {% if sesiones_con_conflicto %}
-        <div class="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 mb-3 text-[11px] text-amber-800">
-            ⚠️ <strong>{{ sesiones_con_conflicto }} sesión(es)</strong> marcadas en rojo tienen conflicto de horario.
-            Cambia su fecha/hora o desmarca el checkbox para omitirlas.
-        </div>
-        {% endif %}
-
-        <!-- Tabla -->
         <div class="border border-slate-200 rounded-xl overflow-hidden text-[11px]">
-
             <!-- Cabecera -->
-            <div class="grid bg-slate-100 border-b border-slate-200 px-2 py-1.5 font-black uppercase text-[10px] text-slate-500 gap-1"
-                 style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
-                <span></span>
-                <span>Fecha</span>
+            <div class="grid bg-slate-100 border-b border-slate-200 px-2 py-1.5 font-black
+                        uppercase text-[10px] text-slate-500 gap-1"
+                 style="grid-template-columns: 7rem 4.5rem 3.5rem 1fr 1fr 1.5rem;">
+                <span>Día</span>
                 <span>Hora</span>
                 <span>Min</span>
                 <span>Servicio</span>
@@ -129,50 +172,35 @@
                 <span></span>
             </div>
 
-            <!-- Filas -->
-            <div id="listaSesiones" class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                {% for s in sesiones_preview %}
-                <div class="sesion-row grid items-center gap-1 px-2 py-1.5 transition-colors
-                            {% if s.conflicto %}bg-red-50{% else %}hover:bg-slate-50{% endif %}"
-                     style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
+            <!-- Filas de la semana tipo -->
+            <div id="listaSemana" class="divide-y divide-slate-100">
+                {% for slot in semana_tipo %}
+                <div class="slot-row grid items-center gap-1 px-2 py-1.5 hover:bg-slate-50 transition-colors"
+                     style="grid-template-columns: 7rem 4.5rem 3.5rem 1fr 1fr 1.5rem;">
 
-                    <!-- Checkbox incluir -->
-                    <input type="checkbox"
-                           name="incluir_sesion[]"
-                           value="{{ forloop.counter0 }}"
-                           {% if not s.conflicto %}checked{% endif %}
-                           class="chk-sesion rounded text-emerald-600 focus:ring-emerald-400 border-gray-300"
-                           onchange="actualizarContador()">
+                    <!-- Día de la semana -->
+                    <select name="weekday[]"
+                            class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
+                                   outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+                        <option value="0" {% if slot.weekday == 0 %}selected{% endif %}>Lunes</option>
+                        <option value="1" {% if slot.weekday == 1 %}selected{% endif %}>Martes</option>
+                        <option value="2" {% if slot.weekday == 2 %}selected{% endif %}>Miércoles</option>
+                        <option value="3" {% if slot.weekday == 3 %}selected{% endif %}>Jueves</option>
+                        <option value="4" {% if slot.weekday == 4 %}selected{% endif %}>Viernes</option>
+                        <option value="5" {% if slot.weekday == 5 %}selected{% endif %}>Sábado</option>
+                        <option value="6" {% if slot.weekday == 6 %}selected{% endif %}>Domingo</option>
+                    </select>
 
-                    <!-- Fecha -->
-                    <input type="date"
-                           name="fecha[]"
-                           value="{{ s.fecha_iso }}"
-                           min="{{ min_fecha_iso }}"
-                           max="{{ max_fecha_iso }}"
-                           required
-                           class="w-full px-1.5 py-1 border rounded-lg text-[11px] font-bold outline-none
-                                  focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400
-                                  {% if s.conflicto %}border-red-300 bg-red-50{% else %}border-slate-200{% endif %}"
-                           onchange="validarFila(this)">
-
-                    <!-- Hora inicio -->
-                    <input type="time"
-                           name="hora_inicio[]"
-                           value="{{ s.hora_inicio_val }}"
-                           required
+                    <!-- Hora -->
+                    <input type="time" name="hora_inicio[]" value="{{ slot.hora_inicio }}" required
                            class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
-                                  outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400">
+                                  outline-none focus:ring-1 focus:ring-emerald-400">
 
-                    <!-- Duración (minutos) -->
-                    <input type="number"
-                           name="duracion[]"
-                           value="{{ s.duracion }}"
-                           min="5" max="480" step="5"
-                           required
-                           title="Duración en minutos"
+                    <!-- Duración -->
+                    <input type="number" name="duracion[]" value="{{ slot.duracion }}"
+                           min="5" max="480" step="5" required title="Minutos"
                            class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold
-                                  outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 text-center">
+                                  outline-none focus:ring-1 focus:ring-emerald-400 text-center">
 
                     <!-- Servicio -->
                     <select name="servicio_id[]"
@@ -180,7 +208,7 @@
                                    outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
                         {% for sp in servicios_profesionales %}
                         <option value="{{ sp.servicio.id }}"
-                                {% if sp.servicio.id == s.servicio_id %}selected{% endif %}>
+                                {% if sp.servicio.id == slot.servicio_id %}selected{% endif %}>
                             {{ sp.servicio.nombre }}
                         </option>
                         {% endfor %}
@@ -192,68 +220,133 @@
                                    outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
                         {% for sp in servicios_profesionales %}
                         <option value="{{ sp.profesional.id }}"
-                                {% if sp.profesional.id == s.profesional_id %}selected{% endif %}>
+                                {% if sp.profesional.id == slot.profesional_id %}selected{% endif %}>
                             {{ sp.profesional.nombre }} {{ sp.profesional.apellido }}
                         </option>
                         {% endfor %}
                     </select>
 
                     <!-- Eliminar -->
-                    <button type="button"
-                            onclick="eliminarFila(this)"
-                            title="Eliminar esta sesión"
+                    <button type="button" onclick="eliminarSlot(this)"
                             class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500
                                    flex items-center justify-center text-xs font-black transition-colors">×</button>
                 </div>
                 {% endfor %}
             </div>
         </div>
-
-        <p class="text-[10px] text-slate-400 mt-1.5">
-            💡 Edita fecha/hora, añade nuevas sesiones o elimina las que no necesites. Solo se crean las marcadas con ✓.
+        <p class="text-[10px] text-slate-400 mt-1">
+            💡 Define los días y horarios de una semana. El sistema replicará este patrón
+            a <strong>todos los días de {{ mes_destino_display }}</strong>, incluyendo la primera
+            y última semana aunque sean parciales.
         </p>
     </div>
 
+    <!-- ══════════════════════════════════════════════════
+         PREVIEW MES COMPLETO — SOLO LECTURA
+         ══════════════════════════════════════════════════ -->
+    {% if preview_mes %}
+    <div>
+        <button type="button" onclick="togglePreview()"
+                class="w-full flex items-center justify-between text-xs font-black text-slate-700
+                       bg-slate-100 hover:bg-slate-200 border border-slate-200
+                       rounded-xl px-3 py-2 transition-colors">
+            <span class="flex items-center gap-2">
+                📅 Vista previa — {{ mes_destino_display }} {{ anio_destino }}
+                <span class="bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded-full text-[10px] font-black">
+                    {{ preview_mes|length }} días con sesiones
+                </span>
+                {% if total_conflictos %}
+                <span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full text-[10px] font-black">
+                    ⚠️ {{ total_conflictos }} conflicto(s)
+                </span>
+                {% endif %}
+            </span>
+            <span id="iconoPreview" class="text-slate-500 font-black">▶</span>
+        </button>
+
+        <div id="contenidoPreview" class="hidden mt-1">
+            {% if total_conflictos %}
+            <div class="mb-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-[11px] text-red-800">
+                ⚠️ <strong>{{ total_conflictos }} sesión(es)</strong> tienen conflicto de horario.
+                Se omitirán al crear a menos que actives <strong>Sesiones Grupales</strong>.
+            </div>
+            {% endif %}
+
+            <div class="border border-slate-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+                {% for dia in preview_mes %}
+                <div class="flex items-start gap-2 px-3 py-2 text-[11px] border-b border-slate-100 last:border-0
+                            {% if dia.tiene_conflicto %}bg-red-50{% else %}hover:bg-slate-50{% endif %}">
+                    <!-- Fecha -->
+                    <div class="flex-shrink-0 w-28">
+                        <span class="font-black text-slate-800">{{ dia.dia_nombre }}</span>
+                        <span class="text-slate-500 ml-1">{{ dia.fecha_iso|date:"d/m" }}</span>
+                    </div>
+                    <!-- Slots -->
+                    <div class="flex flex-wrap gap-1 flex-1">
+                        {% for slot in dia.slots %}
+                        <div class="px-2 py-0.5 rounded-lg border text-[10px] leading-tight
+                                    {% if slot.conflicto %}
+                                        bg-red-100 border-red-300 text-red-800
+                                    {% else %}
+                                        bg-white border-slate-200 text-slate-700
+                                    {% endif %}">
+                            {% if slot.conflicto %}<span title="Conflicto de horario">⚠️</span>{% endif %}
+                            <strong>{{ slot.hora }}</strong> · {{ slot.servicio }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">
+                Solo lectura. Edita la semana tipo arriba para cambiar el patrón.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- BOTONES -->
     <div class="flex gap-2 pt-2 border-t border-slate-100">
-        <button type="button"
-                onclick="cerrarModalCopiarMensualidad()"
-                class="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-colors">
+        <button type="button" onclick="cerrarModalCopiarMensualidad()"
+                class="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700
+                       font-bold text-sm rounded-xl transition-colors">
             Cancelar
         </button>
-        <button type="submit"
-                id="btnConfirmarCopiar"
+        <button type="submit" id="btnConfirmarCopiar"
                 class="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500
-                       hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl
-                       transition-all shadow-md flex items-center justify-center gap-2">
-            📋 Crear <span id="textoContadorBtn">{{ sesiones_preview|length }}</span> sesión(es)
+                       hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm
+                       rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
+            📋 Crear mensualidad para {{ mes_destino_display }}
         </button>
     </div>
+
 </form>
 {% endif %}
 
-</div>
+</div><!-- /p-4 -->
 
-<!-- Template para nueva fila vacía -->
-<template id="templateFilaSesion">
-    <div class="sesion-row grid items-center gap-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-50/80 transition-colors"
-         style="grid-template-columns:1.5rem 1fr 5rem 4rem 1fr 1fr 1.5rem;">
-        <input type="checkbox" name="incluir_sesion[]" value="nuevo" checked
-               class="chk-sesion rounded text-emerald-600 focus:ring-emerald-400 border-gray-300"
-               onchange="actualizarContador()">
-        <input type="date" name="fecha[]"
-               min="{{ min_fecha_iso }}" max="{{ max_fecha_iso }}" required
-               class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
-                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white"
-               onchange="validarFila(this)">
+<!-- Template fila vacía para añadir slot -->
+<template id="templateSlot">
+    <div class="slot-row grid items-center gap-1 px-2 py-1.5 bg-emerald-50 transition-colors"
+         style="grid-template-columns: 7rem 4.5rem 3.5rem 1fr 1fr 1.5rem;">
+        <select name="weekday[]"
+                class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
+                       outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
+            <option value="0">Lunes</option>
+            <option value="1">Martes</option>
+            <option value="2">Miércoles</option>
+            <option value="3">Jueves</option>
+            <option value="4">Viernes</option>
+            <option value="5">Sábado</option>
+            <option value="6">Domingo</option>
+        </select>
         <input type="time" name="hora_inicio[]" required
                class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
-                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
-        <input type="number" name="duracion[]" value="45"
-               min="5" max="480" step="5" required
-               title="Duración en minutos"
+                      outline-none focus:ring-1 focus:ring-emerald-400">
+        <input type="number" name="duracion[]" value="45" min="5" max="480" step="5" required
+               title="Minutos"
                class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
-                      outline-none focus:ring-1 focus:ring-emerald-400 bg-white text-center">
+                      outline-none focus:ring-1 focus:ring-emerald-400 text-center">
         <select name="servicio_id[]"
                 class="w-full px-1.5 py-1 border border-emerald-300 rounded-lg text-[11px] font-bold
                        outline-none focus:ring-1 focus:ring-emerald-400 bg-white">
@@ -268,67 +361,79 @@
             <option value="{{ sp.profesional.id }}">{{ sp.profesional.nombre }} {{ sp.profesional.apellido }}</option>
             {% endfor %}
         </select>
-        <button type="button" onclick="eliminarFila(this)"
-                class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center text-xs font-black">×</button>
+        <button type="button" onclick="eliminarSlot(this)"
+                class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500
+                       flex items-center justify-center text-xs font-black">×</button>
     </div>
 </template>
 
 <script>
-function toggleAvisoCopiar() {
-    const cb    = document.getElementById('sesGrupalesCopiar');
-    const aviso = document.getElementById('avisoGrupalCopiar');
-    if (cb && aviso) aviso.classList.toggle('hidden', !cb.checked);
-}
-
-function agregarFilaSesion() {
-    const tpl   = document.getElementById('templateFilaSesion');
-    const lista = document.getElementById('listaSesiones');
-    if (!tpl || !lista) return;
-    const clone = tpl.content.cloneNode(true);
-    // Sugerir primera fecha del mes destino
-    const inputFecha = clone.querySelector('input[type="date"]');
-    if (inputFecha && inputFecha.min) inputFecha.value = inputFecha.min;
-    lista.appendChild(clone);
-    actualizarContador();
-    lista.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function eliminarFila(btn) {
-    btn.closest('.sesion-row').remove();
-    actualizarContador();
-}
-
-function actualizarContador() {
-    const n     = document.querySelectorAll('.chk-sesion:checked').length;
-    const badge = document.getElementById('contadorSesiones');
-    const texto = document.getElementById('textoContadorBtn');
-    if (badge) badge.textContent = n;
-    if (texto) texto.textContent = n;
-}
-
-function validarFila(input) {
-    const fuera = input.min && input.max && input.value &&
-                  (input.value < input.min || input.value > input.max);
-    input.classList.toggle('border-red-400', !!fuera);
-    input.classList.toggle('bg-red-50',      !!fuera);
-    input.title = fuera ? 'La fecha debe estar dentro del mes destino' : '';
-}
-
-// Prevenir envío sin sesiones marcadas y deshabilitar botón
-const _fc = document.getElementById('formCopiarMensualidad');
-if (_fc) {
-    _fc.addEventListener('submit', function(e) {
-        const n = document.querySelectorAll('.chk-sesion:checked').length;
-        if (n === 0) {
-            e.preventDefault();
-            alert('⚠️ Marca al menos una sesión para crear.');
-            return;
-        }
-        const btn = document.getElementById('btnConfirmarCopiar');
-        if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Creando sesiones...'; }
+// ── Cambiar mes destino (funciona después de swaps HTMX) ──
+function cambiarMesCopiar(url) {
+    const contenedor = document.getElementById('contenidoModalCopiar');
+    if (!contenedor) return;
+    // Mostrar spinner mientras carga
+    contenedor.innerHTML = '<div class="p-8 text-center"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600 mx-auto mb-3"></div><p class="text-slate-500 text-sm">Cargando...</p></div>';
+    fetch(url, {
+        headers: { 'HX-Request': 'true', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.text())
+    .then(html => {
+        contenedor.innerHTML = html;
+        // Re-procesar HTMX en el nuevo contenido por si hay otros elementos hx-*
+        if (window.htmx) htmx.process(contenedor);
+    })
+    .catch(() => {
+        contenedor.innerHTML = '<p class="text-red-600 font-bold p-4 text-center">❌ Error al cargar. Intenta de nuevo.</p>';
     });
 }
 
+// ── Toggle aviso grupales ──────────────────────────────────
+function toggleAvisoCopiar() {
+    const cb    = document.getElementById('sesGrupalesCopiar');
+    const aviso = document.getElementById('avisoGrupalCopiar');
+    if (aviso) aviso.classList.toggle('hidden', !cb.checked);
+}
+
+// ── Toggle preview mes completo ───────────────────────────
+function togglePreview() {
+    const cont  = document.getElementById('contenidoPreview');
+    const icono = document.getElementById('iconoPreview');
+    if (!cont) return;
+    const oculto = cont.classList.toggle('hidden');
+    if (icono) icono.textContent = oculto ? '▶' : '▼';
+}
+
+// ── Añadir fila a la semana tipo ──────────────────────────
+function agregarSlot() {
+    const tpl   = document.getElementById('templateSlot');
+    const lista = document.getElementById('listaSemana');
+    if (!tpl || !lista) return;
+    lista.appendChild(tpl.content.cloneNode(true));
+    lista.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Eliminar fila de la semana tipo ───────────────────────
+function eliminarSlot(btn) {
+    btn.closest('.slot-row').remove();
+}
+
+// ── Prevenir envío sin slots ──────────────────────────────
+const _fc = document.getElementById('formCopiarMensualidad');
+if (_fc) {
+    _fc.addEventListener('submit', function(e) {
+        const filas = document.querySelectorAll('.slot-row').length;
+        if (filas === 0) {
+            e.preventDefault();
+            alert('⚠️ La semana tipo está vacía. Añade al menos un slot antes de continuar.');
+            return;
+        }
+        const btn = document.getElementById('btnConfirmarCopiar');
+        if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Creando mensualidad...'; }
+    });
+}
+
+// ── Cerrar modal ──────────────────────────────────────────
 function cerrarModalCopiarMensualidad() {
     const modal = document.getElementById('modalCopiarMensualidad');
     if (modal) modal.classList.add('hidden');
