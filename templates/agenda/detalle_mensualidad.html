@@ -58,10 +58,23 @@
         <!-- ✅ MODIFICADO: Información de Servicios con Profesionales -->
         <div class="bg-purple-50/60 rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
             <div class="bg-gradient-to-r from-purple-600 to-purple-400 px-5 py-2.5 border-b border-purple-200">
-                <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">
-                    📋 Servicios Incluidos
-                    <span class="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">{{ mensualidad.servicios_profesionales.count }}</span>
-                </h2>
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">
+                        📋 Servicios Incluidos
+                        <span class="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">{{ mensualidad.servicios_profesionales.count }}</span>
+                    </h2>
+                    {% if mensualidad.estado != 'completada' and mensualidad.estado != 'cancelada' %}
+                    <button
+                        onclick="abrirModalAgregarServicio()"
+                        class="flex items-center gap-1.5 bg-white/20 hover:bg-white/35 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all border border-white/30 hover:border-white/60 hover:scale-105 active:scale-95 shadow-sm"
+                        title="Agregar nuevo servicio a esta mensualidad">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Nuevo Servicio
+                    </button>
+                    {% endif %}
+                </div>
             </div>
             <div class="p-5 space-y-3">
                 <!-- ✅ NUEVO: Lista de servicios con profesionales y botón + -->
@@ -943,6 +956,263 @@ document.getElementById('modalCopiarMensualidad')?.addEventListener('click', fun
     animation: bounce-once 0.5s ease-in-out;
 }
 </style>
+
+<!-- =====================================================
+     MODAL: AGREGAR NUEVO SERVICIO A LA MENSUALIDAD
+     ===================================================== -->
+<div id="modalAgregarServicio"
+     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-purple-700 to-purple-500 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2 rounded-xl">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-[14px] font-black text-white uppercase tracking-wide">Agregar Servicio</h3>
+                    <p class="text-[10px] text-purple-200 font-medium">{{ mensualidad.paciente.nombre_completo }}</p>
+                </div>
+            </div>
+            <button onclick="cerrarModalAgregarServicio()"
+                    class="text-white/70 hover:text-white transition-colors p-1.5 hover:bg-white/10 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 space-y-5">
+
+            <!-- Spinner de carga -->
+            <div id="masv__loading" class="text-center py-6">
+                <div class="animate-spin rounded-full h-10 w-10 border-[3px] border-purple-500 border-t-transparent mx-auto mb-3"></div>
+                <p class="text-[12px] text-slate-500 font-medium">Cargando servicios disponibles...</p>
+            </div>
+
+            <!-- Error al cargar -->
+            <div id="masv__error" class="hidden bg-red-50 border border-red-200 rounded-xl p-4">
+                <p class="text-[12px] text-red-600 font-bold flex items-center gap-2">
+                    <span>❌</span>
+                    <span id="masv__errorMsg">No se pudieron cargar los servicios.</span>
+                </p>
+            </div>
+
+            <!-- Sin servicios disponibles -->
+            <div id="masv__empty" class="hidden text-center py-6">
+                <div class="text-4xl mb-3">📭</div>
+                <p class="text-[13px] font-black text-slate-700">Sin servicios disponibles</p>
+                <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                    El paciente no tiene servicios activos pendientes de agregar,<br>
+                    o todos ya están incluidos en esta mensualidad.
+                </p>
+            </div>
+
+            <!-- Formulario -->
+            <form id="masv__form"
+                  method="post"
+                  action="{% url 'agenda:agregar_servicio_mensualidad' mensualidad.id %}"
+                  class="hidden space-y-5">
+                {% csrf_token %}
+
+                <!-- Servicio -->
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-slate-500 tracking-wider mb-2">
+                        Servicio
+                    </label>
+                    <div class="relative">
+                        <select id="masv__selectServicio"
+                                name="servicio_id"
+                                onchange="masv_actualizarProfesionales()"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-800 px-4 py-3 pr-10 focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all appearance-none cursor-pointer">
+                            <option value="">— Selecciona un servicio —</option>
+                        </select>
+                        <div class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profesional -->
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-slate-500 tracking-wider mb-2">
+                        Profesional
+                    </label>
+                    <div class="relative">
+                        <select id="masv__selectProfesional"
+                                name="profesional_id"
+                                disabled
+                                class="w-full bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-800 px-4 py-3 pr-10 focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                            <option value="">— Primero elige un servicio —</option>
+                        </select>
+                        <div class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <p id="masv__sinProfMsg" class="hidden text-[11px] text-amber-600 font-semibold mt-1.5">
+                        ⚠️ Sin profesionales disponibles para este servicio en esta sucursal.
+                    </p>
+                </div>
+
+                <!-- Botones -->
+                <div class="flex gap-3 pt-1">
+                    <button type="button"
+                            onclick="cerrarModalAgregarServicio()"
+                            class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[11px] uppercase py-3 rounded-xl transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            id="masv__btnConfirmar"
+                            disabled
+                            class="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-[11px] uppercase py-3 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Agregar Servicio
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<script>
+// =====================================================
+// MODAL: AGREGAR SERVICIO A MENSUALIDAD
+// Prefijo masv__ para evitar colisiones con otros modales
+// =====================================================
+
+let _masvServicios = [];  // cache de datos de la API
+
+function abrirModalAgregarServicio() {
+    const modal = document.getElementById('modalAgregarServicio');
+    modal.classList.remove('hidden');
+    _masvReset();
+
+    // Llamar a la API con los IDs del paciente y mensualidad de esta página
+    const url = "{% url 'agenda:api_servicios_disponibles_mensualidad' %}"
+              + "?paciente_id={{ mensualidad.paciente.id }}"
+              + "&mensualidad_id={{ mensualidad.id }}";
+
+    fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => {
+            document.getElementById('masv__loading').classList.add('hidden');
+
+            if (data.error) { _masvMostrarError(data.error); return; }
+
+            _masvServicios = data.servicios || [];
+
+            if (_masvServicios.length === 0) {
+                document.getElementById('masv__empty').classList.remove('hidden');
+                return;
+            }
+
+            // Poblar select de servicios
+            const sel = document.getElementById('masv__selectServicio');
+            sel.innerHTML = '<option value="">— Selecciona un servicio —</option>';
+            _masvServicios.forEach(s => {
+                const o = document.createElement('option');
+                o.value = s.id;
+                o.textContent = s.nombre;
+                sel.appendChild(o);
+            });
+
+            document.getElementById('masv__form').classList.remove('hidden');
+        })
+        .catch(err => {
+            document.getElementById('masv__loading').classList.add('hidden');
+            _masvMostrarError('No se pudo cargar la lista. Intenta nuevamente.');
+            console.error('masv error:', err);
+        });
+}
+
+function masv_actualizarProfesionales() {
+    const servicioId   = document.getElementById('masv__selectServicio').value;
+    const selProf      = document.getElementById('masv__selectProfesional');
+    const sinProfMsg   = document.getElementById('masv__sinProfMsg');
+    const btnConfirmar = document.getElementById('masv__btnConfirmar');
+
+    // Resetear profesional
+    selProf.innerHTML = '<option value="">— Selecciona un profesional —</option>';
+    selProf.disabled  = true;
+    sinProfMsg.classList.add('hidden');
+    btnConfirmar.disabled = true;
+
+    if (!servicioId) return;
+
+    const servicio = _masvServicios.find(s => String(s.id) === String(servicioId));
+    if (!servicio || !servicio.profesionales.length) {
+        sinProfMsg.classList.remove('hidden');
+        return;
+    }
+
+    // Poblar profesionales
+    servicio.profesionales.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.nombre;
+        selProf.appendChild(o);
+    });
+    selProf.disabled = false;
+
+    // Si hay solo uno, seleccionarlo automáticamente y habilitar el botón
+    if (servicio.profesionales.length === 1) {
+        selProf.value = servicio.profesionales[0].id;
+        btnConfirmar.disabled = false;
+    }
+
+    selProf.onchange = () => { btnConfirmar.disabled = !selProf.value; };
+}
+
+function cerrarModalAgregarServicio() {
+    document.getElementById('modalAgregarServicio').classList.add('hidden');
+    _masvReset();
+    _masvServicios = [];
+}
+
+function _masvReset() {
+    document.getElementById('masv__loading').classList.remove('hidden');
+    document.getElementById('masv__error').classList.add('hidden');
+    document.getElementById('masv__empty').classList.add('hidden');
+    document.getElementById('masv__form').classList.add('hidden');
+    document.getElementById('masv__sinProfMsg').classList.add('hidden');
+    const selS = document.getElementById('masv__selectServicio');
+    const selP = document.getElementById('masv__selectProfesional');
+    if (selS) selS.innerHTML = '';
+    if (selP) { selP.innerHTML = ''; selP.disabled = true; }
+    const btn = document.getElementById('masv__btnConfirmar');
+    if (btn) btn.disabled = true;
+}
+
+function _masvMostrarError(msg) {
+    const el = document.getElementById('masv__error');
+    document.getElementById('masv__errorMsg').textContent = msg;
+    el.classList.remove('hidden');
+}
+
+// Cerrar al hacer clic en el fondo oscuro
+document.getElementById('modalAgregarServicio')?.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModalAgregarServicio();
+});
+
+// ESC — se integra al listener global que ya existe en este archivo
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const m = document.getElementById('modalAgregarServicio');
+        if (m && !m.classList.contains('hidden')) cerrarModalAgregarServicio();
+    }
+});
+</script>
 
 <div id="modalConfirmacion" class="fixed inset-0 z-[100] hidden">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>

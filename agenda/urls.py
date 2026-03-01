@@ -16,7 +16,7 @@ urlpatterns = [
     # API para cargar proyectos del paciente
     path('api/proyectos-paciente/<int:paciente_id>/', views.obtener_proyectos_paciente, name='proyectos_paciente'),
     
-    # ✅ NUEVO: API para datos de confirmación al cancelar
+    # API para datos de confirmación al cancelar
     path('api/datos-confirmacion-cancelacion/', views.api_datos_confirmacion_cancelacion, name='api_datos_confirmacion_cancelacion'),
     
     # Otras APIs
@@ -25,7 +25,7 @@ urlpatterns = [
     path('api/eliminar/<int:sesion_id>/', views.eliminar_sesion, name='eliminar_sesion'),
     path('api/validar-horario/', views.validar_horario, name='validar_horario'),
 
-    # Modal de confirmaciÃ³n de cambio de estado
+    # Modal de confirmación de cambio de estado
     path('api/modal-confirmar-estado/<int:sesion_id>/', 
          views.modal_confirmar_cambio_estado, 
          name='modal_confirmar_estado'),
@@ -46,7 +46,7 @@ urlpatterns = [
     path('confirmacion-mensualidad/', views.confirmacion_mensualidad, name='confirmacion_mensualidad'), 
     path('api/mensualidades-paciente/', views.obtener_mensualidades_paciente, name='mensualidades_paciente'),
     
-    # âœ… NUEVO: Agendamiento rÃ¡pido desde mensualidad
+    # Agendamiento rápido desde mensualidad
     path('mensualidades/agendar/modal/<int:servicio_profesional_id>/', 
          views.modal_agendar_mensualidad, 
          name='modal_agendar_mensualidad'),
@@ -57,20 +57,51 @@ urlpatterns = [
          views.vista_previa_mensualidad, 
          name='vista_previa_mensualidad'),
     
-    # Procesar cambio de estado con confirmaciÃ³n
+    # Procesar cambio de estado con confirmación
     path('sesion/<int:sesion_id>/procesar-cambio-estado/', 
          views.procesar_cambio_estado, 
          name='procesar_cambio_estado'),
 
     path('confirmacion-sesiones/', views.confirmacion_sesiones, name='confirmacion_sesiones'),
 
-    # ✅ NUEVO: Copiar mensualidad al mes siguiente
+    # Agregar servicio a mensualidad existente
+    path('mensualidades/<int:mensualidad_id>/agregar-servicio/',
+         views.agregar_servicio_mensualidad,
+         name='agregar_servicio_mensualidad'),
+    path('api/servicios-disponibles-mensualidad/',
+         views.api_servicios_disponibles_mensualidad,
+         name='api_servicios_disponibles_mensualidad'),
+
+    # Copiar mensualidad al mes siguiente
     path('mensualidades/<int:mensualidad_id>/copiar/modal/',
          views.modal_copiar_mensualidad,
          name='modal_copiar_mensualidad'),
     path('mensualidades/<int:mensualidad_id>/copiar/procesar/',
          views.procesar_copiar_mensualidad,
          name='procesar_copiar_mensualidad'),
+
+    # ✅ NUEVO: Agendar por patrón semanal (APIs primero, luego la vista principal)
+    path('patron-semanal/api/vinculos-paciente/',
+         views.api_vinculos_paciente,
+         name='api_vinculos_paciente'),
+    path('patron-semanal/api/pacientes-json/',
+         views.api_pacientes_sucursal_json,
+         name='api_pacientes_sucursal_json'),
+    path('patron-semanal/api/semanas-paciente/<int:paciente_id>/',
+         views.api_semanas_paciente,
+         name='api_semanas_paciente'),
+    path('patron-semanal/api/semanas-mes/',
+         views.api_semanas_mes,
+         name='api_semanas_mes'),
+    path('patron-semanal/api/preview/',
+         views.api_preview_patron,
+         name='api_preview_patron'),
+    path('patron-semanal/procesar/',
+         views.procesar_patron_semanal,
+         name='procesar_patron_semanal'),
+    path('patron-semanal/',
+         views.agendar_patron_semanal,
+         name='agendar_patron_semanal'),
 
     # INFORME DE EVOLUCIÓN
     path('informe-evolucion/<int:paciente_id>/', 

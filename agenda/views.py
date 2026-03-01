@@ -3669,6 +3669,12 @@ def modal_copiar_mensualidad(request, mensualidad_id):
         anio=anio_destino
     ).first()
 
+    sesiones_destino_count = 0
+    if mensualidad_destino_existe:
+        sesiones_destino_count = mensualidad_destino_existe.sesiones.filter(
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        ).count()
+
     # ── Servicios-profesionales de la mensualidad origen ──
     servicios_profesionales = list(
         mensualidad_origen.servicios_profesionales
@@ -3689,6 +3695,14 @@ def modal_copiar_mensualidad(request, mensualidad_id):
 
     # ── Extraer patrón semanal (semana tipo) ───────────────
     # patron_wd: { weekday: [ {hora_inicio, duracion, servicio_id, profesional_id} ] }
+    #
+    # ESTRATEGIA: usamos la UNIÓN de todos los slots únicos de todas las semanas,
+    # agrupados por weekday. Así, si se agregaron nuevos servicios/slots a mitad de mes,
+    # aparecen igualmente en la semana tipo sin marcar el patrón como irregular.
+    #
+    # patron_irregular solo se activa si hay CONFLICTOS REALES: mismo (weekday, servicio_id,
+    # profesional_id) con distintas horas de inicio en diferentes semanas — no simplemente
+    # porque unas semanas tengan más slots que otras.
     patron_wd        = _collections.defaultdict(list)
     patron_irregular = False
 
@@ -3704,26 +3718,31 @@ def modal_copiar_mensualidad(request, mensualidad_id):
                 'profesional_id': s.profesional_id,
             })
 
-        semana_base_key = min(semanas_vistas.keys())
-        semana_base     = semanas_vistas[semana_base_key]
-
-        for wd, slots in semana_base.items():
-            patron_wd[wd] = slots
-
-        def normalizar_semana(sd):
-            r = []
-            for wd in sorted(sd.keys()):
-                for slot in sd[wd]:
-                    r.append((wd, slot['hora_inicio'], slot['servicio_id'], slot['profesional_id']))
-            return tuple(r)
-
-        patron_base_norm = normalizar_semana(semana_base)
+        # Construir patron_wd como unión de slots únicos de todas las semanas
+        # Clave de deduplicación: (hora_inicio, servicio_id, profesional_id)
         for iso_week, sd in semanas_vistas.items():
-            if iso_week == semana_base_key:
-                continue
-            if normalizar_semana(sd) != patron_base_norm:
-                patron_irregular = True
-                break
+            for wd, slots in sd.items():
+                claves_existentes = {
+                    (sl['hora_inicio'], sl['servicio_id'], sl['profesional_id'])
+                    for sl in patron_wd[wd]
+                }
+                for slot in slots:
+                    clave = (slot['hora_inicio'], slot['servicio_id'], slot['profesional_id'])
+                    if clave not in claves_existentes:
+                        patron_wd[wd].append(slot)
+                        claves_existentes.add(clave)
+
+        # Detectar irregularidades REALES: mismo (wd, servicio_id, profesional_id)
+        # con hora_inicio distinta entre semanas distintas.
+        # Agrupamos por (wd, servicio_id, profesional_id) y verificamos consistencia de hora.
+        horas_por_clave = _collections.defaultdict(set)
+        for iso_week, sd in semanas_vistas.items():
+            for wd, slots in sd.items():
+                for slot in slots:
+                    key = (wd, slot['servicio_id'], slot['profesional_id'])
+                    horas_por_clave[key].add(slot['hora_inicio'])
+
+        patron_irregular = any(len(horas) > 1 for horas in horas_por_clave.values())
 
     # ── Semana tipo para el formulario editable ────────────
     # Lista ordenada por weekday → el usuario edita esto
@@ -3741,8 +3760,13 @@ def modal_copiar_mensualidad(request, mensualidad_id):
 
     # ── Preview del mes completo (solo lectura) ────────────
     # Expandir el patrón a todos los días del mes destino
-    preview_mes  = []   # { fecha_display, fecha_iso, slots: [{hora, servicio, profesional, conflicto}] }
-    total_conflictos = 0
+    preview_mes  = []   # { fecha_display, fecha_iso, slots: [{hora, servicio, profesional, conflicto, conflicto_paciente, conflicto_profesional}] }
+    total_conflictos         = 0
+    total_conflictos_paciente    = 0
+    total_conflictos_profesional = 0
+
+    # Estados relevantes para detección de solapamientos
+    _ESTADOS_ACTIVOS = ['programada', 'realizada', 'realizada_retraso']
 
     for d in range(1, dias_en_destino + 1):
         fecha_d = date(anio_destino, mes_destino, d)
@@ -3758,43 +3782,68 @@ def modal_copiar_mensualidad(request, mensualidad_id):
             hora_fin    = (datetime.combine(fecha_d, hora_inicio)
                            + timedelta(minutes=duracion)).time()
 
-            conflicto = Sesion.objects.filter(
-                paciente    = mensualidad_origen.paciente,
-                fecha       = fecha_d,
-                hora_inicio = hora_inicio,
-                estado__in  = ['programada', 'realizada', 'realizada_retraso']
+            # ── Conflicto PACIENTE: solapamiento de rango (no solo hora exacta) ──
+            conflicto_paciente = Sesion.objects.filter(
+                paciente   = mensualidad_origen.paciente,
+                fecha      = fecha_d,
+                estado__in = _ESTADOS_ACTIVOS,
+                hora_inicio__lt = hora_fin,
+                hora_fin__gt    = hora_inicio,
             ).exists()
 
-            if conflicto:
-                total_conflictos += 1
-
-            # Resolver nombres para mostrar
+            # ── Conflicto PROFESIONAL: solapamiento de rango ──
+            # Buscamos el objeto profesional desde servicios_profesionales
             sp_match = next(
                 (sp for sp in servicios_profesionales
-                 if sp.servicio_id == slot['servicio_id']
+                 if sp.servicio_id   == slot['servicio_id']
                  and sp.profesional_id == slot['profesional_id']),
                 None
             )
+            conflicto_profesional = False
+            if sp_match:
+                conflicto_profesional = Sesion.objects.filter(
+                    profesional = sp_match.profesional,
+                    fecha       = fecha_d,
+                    estado__in  = _ESTADOS_ACTIVOS,
+                    hora_inicio__lt = hora_fin,
+                    hora_fin__gt    = hora_inicio,
+                ).exclude(
+                    # Excluir la propia sesión del paciente si ya contabilizamos arriba
+                    paciente = mensualidad_origen.paciente,
+                ).exists()
+
+            conflicto = conflicto_paciente or conflicto_profesional
+
+            if conflicto:
+                total_conflictos += 1
+            if conflicto_paciente:
+                total_conflictos_paciente += 1
+            if conflicto_profesional:
+                total_conflictos_profesional += 1
 
             slots_dia.append({
-                'hora':        hora_inicio.strftime('%H:%M'),
-                'hora_fin':    hora_fin.strftime('%H:%M'),
-                'duracion':    duracion,
-                'servicio':    sp_match.servicio.nombre if sp_match else f"#{slot['servicio_id']}",
-                'profesional': (
+                'hora':                  hora_inicio.strftime('%H:%M'),
+                'hora_fin':              hora_fin.strftime('%H:%M'),
+                'duracion':              duracion,
+                'servicio':              sp_match.servicio.nombre if sp_match else f"#{slot['servicio_id']}",
+                'profesional':           (
                     f"{sp_match.profesional.nombre} {sp_match.profesional.apellido}"
                     if sp_match else f"#{slot['profesional_id']}"
                 ),
-                'conflicto':   conflicto,
+                'conflicto':             conflicto,
+                'conflicto_paciente':    conflicto_paciente,
+                'conflicto_profesional': conflicto_profesional,
             })
 
         preview_mes.append({
-            'fecha_iso':     fecha_d.isoformat(),
-            'fecha_display': fecha_d.day,                  # solo el número del día
-            'dia_nombre':    DIAS_SEMANA[wd],
-            'dia_semana':    wd,
-            'slots':         slots_dia,
-            'tiene_conflicto': any(s['conflicto'] for s in slots_dia),
+            'fecha_iso':                   fecha_d.isoformat(),
+            'fecha_display':               fecha_d.day,
+            'dia_nombre':                  DIAS_SEMANA[wd],
+            'dia_semana':                  wd,
+            'slots':                       slots_dia,
+            'tiene_conflicto':             any(s['conflicto'] for s in slots_dia),
+            'tiene_conflicto_paciente':    any(s['conflicto_paciente'] for s in slots_dia),
+            'tiene_conflicto_profesional': any(s['conflicto_profesional'] for s in slots_dia),
         })
 
     context = {
@@ -3803,12 +3852,15 @@ def modal_copiar_mensualidad(request, mensualidad_id):
         'servicios_profesionales':    servicios_profesionales,
         'semana_tipo':                semana_tipo,
         'preview_mes':                preview_mes,
-        'total_conflictos':           total_conflictos,
+        'total_conflictos':                  total_conflictos,
+        'total_conflictos_paciente':         total_conflictos_paciente,
+        'total_conflictos_profesional':      total_conflictos_profesional,
         'patron_irregular':           patron_irregular,
         'mes_destino':                mes_destino,
         'anio_destino':               anio_destino,
         'mes_destino_display':        mes_destino_display,
         'mensualidad_destino_existe': mensualidad_destino_existe,
+        'sesiones_destino_count':     sesiones_destino_count,
         'min_fecha_iso':              min_fecha.isoformat(),
         'max_fecha_iso':              max_fecha.isoformat(),
         'opciones_mes':               opciones_mes,
@@ -3874,17 +3926,23 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
 
     permitir_grupales = request.POST.get('sesiones_grupales', '') in ('on', '1', 'true', 'True')
 
-    # ── Verificar que no exista ya ─────────────────────────
-    if Mensualidad.objects.filter(
+    # ── Verificar mensualidad destino ────────────────────────
+    mensualidad_destino_existente = Mensualidad.objects.filter(
         paciente=mensualidad_origen.paciente,
         mes=mes_destino, anio=anio_destino
-    ).exists():
-        messages.error(
-            request,
-            f'❌ Ya existe una mensualidad para {mensualidad_origen.paciente} '
-            f'en {MESES[mes_destino]} {anio_destino}.'
-        )
-        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+    ).first()
+    if mensualidad_destino_existente:
+        sesiones_count = mensualidad_destino_existente.sesiones.filter(
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        ).count()
+        if sesiones_count > 0:
+            messages.error(
+                request,
+                f'❌ La mensualidad {MESES[mes_destino]} {anio_destino} ya tiene '
+                f'{sesiones_count} sesión(es). Eliminá todas las sesiones antes '
+                f'de copiar, o usá el patrón semanal para agregar sesiones.'
+            )
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
 
     # ── Leer la semana tipo del POST ───────────────────────
     weekdays       = request.POST.getlist('weekday[]')
@@ -3931,29 +3989,40 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
     try:
         with _tx.atomic():
 
-            # 1. Crear la nueva mensualidad
-            nueva = Mensualidad(
-                paciente      = mensualidad_origen.paciente,
-                sucursal      = mensualidad_origen.sucursal,
-                mes           = mes_destino,
-                anio          = anio_destino,
-                costo_mensual = costo_mensual,
-                estado        = 'activa',
-                observaciones = (
+            # 1. Crear o reutilizar mensualidad destino
+            if mensualidad_destino_existente:
+                # Ya existe con 0 sesiones: actualizar costo y reutilizar
+                nueva = mensualidad_destino_existente
+                nueva.costo_mensual = costo_mensual
+                nueva.observaciones = (
                     f"Copiada desde {mensualidad_origen.codigo} "
                     f"({mensualidad_origen.periodo_display})"
-                ),
-                creada_por    = request.user,
-            )
-            nueva.save()
-
-            # 2. Copiar ServicioProfesionalMensualidad
-            for sp in mensualidad_origen.servicios_profesionales.all():
-                ServicioProfesionalMensualidad.objects.create(
-                    mensualidad = nueva,
-                    servicio    = sp.servicio,
-                    profesional = sp.profesional,
                 )
+                nueva.save()
+            else:
+                nueva = Mensualidad(
+                    paciente      = mensualidad_origen.paciente,
+                    sucursal      = mensualidad_origen.sucursal,
+                    mes           = mes_destino,
+                    anio          = anio_destino,
+                    costo_mensual = costo_mensual,
+                    estado        = 'activa',
+                    observaciones = (
+                        f"Copiada desde {mensualidad_origen.codigo} "
+                        f"({mensualidad_origen.periodo_display})"
+                    ),
+                    creada_por    = request.user,
+                )
+                nueva.save()
+
+            # 2. Copiar ServicioProfesionalMensualidad (solo si es nueva)
+            if not mensualidad_destino_existente:
+                for sp in mensualidad_origen.servicios_profesionales.all():
+                    ServicioProfesionalMensualidad.objects.create(
+                        mensualidad = nueva,
+                        servicio    = sp.servicio,
+                        profesional = sp.profesional,
+                    )
 
             # 3. Expandir semana tipo a todos los días del mes
             creadas  = 0
@@ -4046,3 +4115,809 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
         traceback.print_exc()
         messages.error(request, f'❌ Error al copiar mensualidad: {e}')
         return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+# ════════════════════════════════════════════════════════════════
+#  AGENDAR POR PATRÓN SEMANAL  (sesiones normales, sin mensualidad)
+# ════════════════════════════════════════════════════════════════
+
+def _semana_iso_a_rango(iso_year, iso_week):
+    """Devuelve (lunes, domingo) de la semana ISO dada."""
+    lunes  = date.fromisocalendar(iso_year, iso_week, 1)
+    domingo = lunes + timedelta(days=6)
+    return lunes, domingo
+
+
+def _construir_semanas_de_mes(anio, mes):
+    """
+    Devuelve lista de dicts con todas las semanas que tienen
+    al menos un día en ese mes/año, con info de compartición.
+
+    Cada dict:
+        iso_year, iso_week       → identificadores únicos
+        lunes, domingo           → date
+        dias_mes   [date, ...]   → días que pertenecen a este mes
+        dias_otro  [date, ...]   → días que pertenecen al otro mes
+        compartida               → bool
+        mes_anterior             → bool (los días extra son del mes anterior)
+        mes_siguiente            → bool (los días extra son del mes siguiente)
+        label                    → "lun 2 – dom 8 mar"
+    """
+    DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    dias_en_mes = monthrange(anio, mes)[1]
+    semanas_vistas = {}  # (iso_year, iso_week) → set de fechas del mes
+
+    for d in range(1, dias_en_mes + 1):
+        fecha = date(anio, mes, d)
+        key   = (fecha.isocalendar()[0], fecha.isocalendar()[1])
+        semanas_vistas.setdefault(key, []).append(fecha)
+
+    resultado = []
+    for (iy, iw), dias_del_mes in sorted(semanas_vistas.items()):
+        lunes, domingo = _semana_iso_a_rango(iy, iw)
+        dias_otro = [
+            lunes + timedelta(days=i)
+            for i in range(7)
+            if (lunes + timedelta(days=i)) not in dias_del_mes
+        ]
+        compartida     = len(dias_otro) > 0
+        mes_anterior   = compartida and dias_otro[0] < dias_del_mes[0]
+        mes_siguiente  = compartida and dias_otro[-1] > dias_del_mes[-1]
+
+        # Label legible: "Lun 2 – Dom 8"
+        fmt_ini = f"{DIAS_CORTO[lunes.weekday()]} {lunes.day}"
+        fmt_fin = f"{DIAS_CORTO[domingo.weekday()]} {domingo.day}"
+        label   = f"{fmt_ini} – {fmt_fin}"
+
+        resultado.append({
+            'iso_year':      iy,
+            'iso_week':      iw,
+            'lunes':         lunes,
+            'domingo':       domingo,
+            'dias_mes':      dias_del_mes,
+            'dias_otro':     dias_otro,
+            'compartida':    compartida,
+            'mes_anterior':  mes_anterior,
+            'mes_siguiente': mes_siguiente,
+            'label':         label,
+            'key':           f"{iy}-{iw}",   # para usar en el template
+        })
+    return resultado
+
+
+@login_required
+@solo_sus_sucursales
+def agendar_patron_semanal(request):
+    """
+    Página principal: buscador de paciente + formulario de 4 pasos.
+    Paso 1 — elegir paciente
+    Paso 2 — elegir/definir semana tipo
+    Paso 3 — elegir semanas a aplicar (navegación por mes)
+    Paso 4 — preview y confirmar
+    """
+    sucursales_usuario = request.sucursales_usuario
+
+    # Sucursales para filtros
+    if sucursales_usuario is not None and sucursales_usuario.exists():
+        sucursales = sucursales_usuario
+    else:
+        sucursales = Sucursal.objects.filter(activa=True)
+
+    # Servicios y profesionales para el formulario de semana tipo
+    from servicios.models import TipoServicio as _TS
+    from profesionales.models import Profesional as _Prof
+    servicios     = _TS.objects.filter(activo=True).order_by('nombre')
+    profesionales = _Prof.objects.filter(activo=True).order_by('nombre')
+
+    # Mes actual para el selector inicial de semanas
+    hoy = date.today()
+
+    context = {
+        'sucursales':     sucursales,
+        'servicios':      servicios,
+        'profesionales':  profesionales,
+        'mes_actual':     hoy.month,
+        'anio_actual':    hoy.year,
+        'DIAS_SEMANA':    json.dumps(['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']),
+    }
+    return render(request, 'agenda/agendar_patron_semanal.html', context)
+
+
+@login_required
+def api_semanas_paciente(request, paciente_id):
+    """
+    Devuelve las últimas 4 semanas con sesiones del paciente
+    para mostrar como sugerencias de semana base.
+    """
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    # Últimas 12 semanas ISO que tengan sesiones (no canceladas)
+    sesiones = (
+        Sesion.objects
+        .filter(
+            paciente=paciente,
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        )
+        .select_related('servicio', 'profesional')
+        .order_by('-fecha')
+    )
+
+    # Agrupar por semana ISO
+    semanas = {}
+    for s in sesiones:
+        iy, iw, _ = s.fecha.isocalendar()
+        key = (iy, iw)
+        semanas.setdefault(key, []).append(s)
+        if len(semanas) >= 12 and key in semanas:
+            pass  # seguimos para no cortar sesiones de la misma semana
+        if len(semanas) > 12:
+            break
+
+    DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    resultado = []
+    for (iy, iw), sesiones_semana in sorted(semanas.items(), reverse=True)[:12]:
+        lunes, domingo = _semana_iso_a_rango(iy, iw)
+        slots = []
+        for s in sorted(sesiones_semana, key=lambda x: (x.fecha.weekday(), x.hora_inicio)):
+            slots.append({
+                'weekday':       s.fecha.weekday(),
+                'dia_nombre':    DIAS_SEMANA[s.fecha.weekday()],
+                'hora_inicio':   s.hora_inicio.strftime('%H:%M'),
+                'duracion':      s.duracion_minutos,
+                'servicio_id':   s.servicio_id,
+                'servicio_nombre': s.servicio.nombre,
+                'profesional_id':  s.profesional_id,
+                'profesional_nombre': f"{s.profesional.nombre} {s.profesional.apellido}",
+            })
+        resultado.append({
+            'key':    f"{iy}-{iw}",
+            'label':  f"{lunes.strftime('%d/%m')} – {domingo.strftime('%d/%m/%Y')}",
+            'lunes':  lunes.isoformat(),
+            'domingo': domingo.isoformat(),
+            'slots':  slots,
+        })
+
+    return JsonResponse({'semanas': resultado, 'paciente_nombre': str(paciente)})
+
+
+@login_required
+def api_semanas_mes(request):
+    """
+    Devuelve las semanas de un mes con info de:
+    - Si son compartidas con mes anterior/siguiente
+    - Si el paciente ya tiene sesiones en esos días
+    GET params: mes, anio, paciente_id
+    """
+    try:
+        mes        = int(request.GET['mes'])
+        anio       = int(request.GET['anio'])
+        paciente_id = int(request.GET['paciente_id'])
+    except (KeyError, ValueError):
+        return JsonResponse({'error': 'Parámetros inválidos'}, status=400)
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+    semanas  = _construir_semanas_de_mes(anio, mes)
+
+    # ✅ mes_fijo: cuando viene de mensualidad, solo mostramos ese mes
+    # GET param opcional: mes_fijo=1 bloquea la navegación y filtra días en semanas compartidas
+    mes_fijo = request.GET.get('mes_fijo', '0') == '1'
+
+    # Fechas con sesiones del paciente en el rango del mes + semanas adyacentes
+    fecha_ini = semanas[0]['lunes']
+    fecha_fin = semanas[-1]['domingo']
+    fechas_con_sesion = set(
+        Sesion.objects.filter(
+            paciente=paciente,
+            fecha__range=(fecha_ini, fecha_fin),
+            estado__in=['programada', 'realizada', 'realizada_retraso']
+        ).values_list('fecha', flat=True)
+    )
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    semanas_json = []
+    for s in semanas:
+        dias_mes_con_sesion  = [d.isoformat() for d in s['dias_mes']  if d in fechas_con_sesion]
+        dias_otro_con_sesion = [d.isoformat() for d in s['dias_otro'] if d in fechas_con_sesion]
+
+        # Nombres del otro mes para mostrar en las opciones de semana compartida
+        if s['mes_anterior']:
+            otro_mes = s['dias_otro'][0].month
+            otro_anio = s['dias_otro'][0].year
+        elif s['mes_siguiente']:
+            otro_mes = s['dias_otro'][0].month
+            otro_anio = s['dias_otro'][0].year
+        else:
+            otro_mes = None
+            otro_anio = None
+
+        semanas_json.append({
+            'key':               s['key'],
+            'label':             s['label'],
+            'lunes':             s['lunes'].isoformat(),
+            'domingo':           s['domingo'].isoformat(),
+            'compartida':        s['compartida'],
+            # ✅ Con mes_fijo, semanas compartidas se tratan como "solo_mes" automáticamente
+            'mes_fijo':          mes_fijo,
+            'mes_anterior':      s['mes_anterior'],
+            'mes_siguiente':     s['mes_siguiente'],
+            'otro_mes_nombre':   MESES[otro_mes] if otro_mes else None,
+            'mes_nombre':        MESES[mes],
+            'dias_mes':          [d.isoformat() for d in s['dias_mes']],
+            'dias_otro':         [d.isoformat() for d in s['dias_otro']],
+            'dias_mes_con_sesion':  dias_mes_con_sesion,
+            'dias_otro_con_sesion': dias_otro_con_sesion,
+        })
+
+    MESES_PREV = mes - 1 if mes > 1 else 12
+    ANIO_PREV  = anio if mes > 1 else anio - 1
+    MESES_NEXT = mes + 1 if mes < 12 else 1
+    ANIO_NEXT  = anio if mes < 12 else anio + 1
+
+    return JsonResponse({
+        'semanas':       semanas_json,
+        'mes_display':   f"{MESES[mes]} {anio}",
+        'mes':           mes,
+        'anio':          anio,
+        'mes_fijo':      mes_fijo,
+        'prev_mes':      MESES_PREV,
+        'prev_anio':     ANIO_PREV,
+        'next_mes':      MESES_NEXT,
+        'next_anio':     ANIO_NEXT,
+    })
+
+
+@login_required
+def api_preview_patron(request):
+    """
+    Recibe la semana tipo + la selección de semanas + decisiones sobre semanas
+    compartidas y devuelve el preview expandido de todos los días a crear.
+
+    POST JSON:
+    {
+        paciente_id: int,
+        semana_tipo: [ {weekday, hora_inicio, duracion, servicio_id, profesional_id} ],
+        semanas_seleccionadas: [
+            {
+                key: "2026-10",
+                decision: "todo" | "solo_mes" | "solo_otro" | "omitir",
+                dias_incluir: ["2026-03-02", ...]   // fechas concretas a incluir
+            }
+        ],
+        permitir_grupales: bool
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    paciente_id  = data.get('paciente_id')
+    semana_tipo  = data.get('semana_tipo', [])
+    semanas_sel  = data.get('semanas_seleccionadas', [])
+    perm_grupales = data.get('permitir_grupales', False)
+
+    if not paciente_id or not semana_tipo or not semanas_sel:
+        return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    # Construir patron_wd
+    patron_wd = _collections.defaultdict(list)
+    for slot in semana_tipo:
+        try:
+            wd  = int(slot['weekday'])
+            h   = datetime.strptime(slot['hora_inicio'], '%H:%M').time()
+            dur = int(slot.get('duracion', 45))
+            sid = int(slot['servicio_id'])
+            pid = int(slot['profesional_id'])
+        except (KeyError, ValueError):
+            continue
+        patron_wd[wd].append({'hora_inicio': h, 'duracion': dur,
+                               'servicio_id': sid, 'profesional_id': pid})
+
+    # Resolver nombres
+    from servicios.models import TipoServicio as _TS
+    from profesionales.models import Profesional as _Prof
+    servicios_map     = {s.id: s for s in _TS.objects.all()}
+    profesionales_map = {p.id: p for p in _Prof.objects.all()}
+
+    DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+
+    # Expandir fechas a crear
+    fechas_a_crear = set()
+    for sem in semanas_sel:
+        decision    = sem.get('decision', 'todo')
+        dias_incluir = sem.get('dias_incluir', [])
+        if decision == 'omitir':
+            continue
+        for d_iso in dias_incluir:
+            fechas_a_crear.add(date.fromisoformat(d_iso))
+
+    # Para cada fecha, generar slots y verificar conflictos
+    dias_preview = []
+    total_conflictos = 0
+    total_con_sesiones_previas = 0
+
+    for fecha in sorted(fechas_a_crear):
+        wd = fecha.weekday()
+        if wd not in patron_wd:
+            continue
+
+        slots_dia = []
+        for slot in patron_wd[wd]:
+            hora_inicio = slot['hora_inicio']
+            duracion    = slot['duracion']
+            hora_fin    = (datetime.combine(fecha, hora_inicio)
+                           + timedelta(minutes=duracion)).time()
+
+            serv = servicios_map.get(slot['servicio_id'])
+            prof = profesionales_map.get(slot['profesional_id'])
+
+            # Verificar conflicto igual que al crear (paciente + profesional)
+            if prof:
+                disponible, msg_conflicto = Sesion.validar_disponibilidad_con_grupales(
+                    paciente, prof, fecha, hora_inicio, hora_fin,
+                    permitir_sesiones_grupales=perm_grupales
+                )
+                conflicto = not disponible
+            else:
+                conflicto, msg_conflicto = False, ''
+
+            if conflicto:
+                total_conflictos += 1
+
+            # Sesiones previas ese día (cualquier hora)
+            sesiones_previas_dia = Sesion.objects.filter(
+                paciente   = paciente,
+                fecha      = fecha,
+                estado__in = ['programada', 'realizada', 'realizada_retraso']
+            ).exists()
+
+            slots_dia.append({
+                'hora':        hora_inicio.strftime('%H:%M'),
+                'hora_fin':    hora_fin.strftime('%H:%M'),
+                'duracion':    duracion,
+                'servicio':    serv.nombre if serv else f"#{slot['servicio_id']}",
+                'profesional': f"{prof.nombre} {prof.apellido}" if prof else f"#{slot['profesional_id']}",
+                'servicio_id':    slot['servicio_id'],
+                'profesional_id': slot['profesional_id'],
+                'conflicto':      conflicto,
+                'conflicto_msg':  msg_conflicto if conflicto else '',
+            })
+
+        tiene_sesiones_previas = Sesion.objects.filter(
+            paciente=paciente, fecha=fecha,
+            estado__in=['programada','realizada','realizada_retraso']
+        ).exists()
+
+        if tiene_sesiones_previas:
+            total_con_sesiones_previas += 1
+
+        dias_preview.append({
+            'fecha_iso':            fecha.isoformat(),
+            'fecha_display':        fecha.strftime('%d/%m/%Y'),
+            'dia_nombre':           DIAS_SEMANA[wd],
+            'tiene_conflicto':      any(s['conflicto'] for s in slots_dia),
+            'tiene_sesiones_previas': tiene_sesiones_previas,
+            'slots':                slots_dia,
+        })
+
+    return JsonResponse({
+        'dias':                    dias_preview,
+        'total_conflictos':        total_conflictos,
+        'total_con_sesiones_previas': total_con_sesiones_previas,
+        'total_sesiones':          sum(len(d['slots']) for d in dias_preview),
+    })
+
+
+@login_required
+@solo_sus_sucursales
+def procesar_patron_semanal(request):
+    """
+    Crea todas las sesiones a partir del patrón semanal confirmado.
+    POST JSON: { paciente_id, sucursal_id, semana_tipo, fechas, permitir_grupales,
+                 tipo_agenda, vinculo_id }
+    Siempre devuelve JSON, nunca HTML de error.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    # ── Parsear body ────────────────────────────────────────────────
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    # ── Todo el procesamiento dentro de un try global → siempre JSON ─
+    try:
+        paciente_id   = data.get('paciente_id')
+        sucursal_id   = data.get('sucursal_id')
+        semana_tipo   = data.get('semana_tipo', [])
+        fechas_iso    = data.get('fechas', [])
+        perm_grupales = data.get('permitir_grupales', False)
+        tipo_agenda   = data.get('tipo_agenda', 'normal')   # 'normal'|'mensualidad'|'proyecto'
+        vinculo_id    = data.get('vinculo_id')
+
+        if not all([paciente_id, sucursal_id, semana_tipo, fechas_iso]):
+            return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+        paciente = get_object_or_404(Paciente, id=paciente_id)
+        sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+
+        # Verificar permisos de sucursal (el decorator inyecta sucursales_usuario)
+        sucursales_usuario = request.sucursales_usuario
+        if sucursales_usuario is not None:
+            if not sucursales_usuario.filter(id=sucursal.id).exists():
+                return JsonResponse({'error': 'Sin permiso para esta sucursal'}, status=403)
+
+        # ── Construir patron_wd ────────────────────────────────────
+        import collections as _col
+        patron_wd = _col.defaultdict(list)
+        for slot in semana_tipo:
+            try:
+                wd  = int(slot['weekday'])
+                h   = datetime.strptime(slot['hora_inicio'], '%H:%M').time()
+                dur = int(slot.get('duracion', 45))
+                sid = int(slot['servicio_id'])
+                pid = int(slot['profesional_id'])
+            except (KeyError, ValueError):
+                continue
+            patron_wd[wd].append({'hora_inicio': h, 'duracion': dur,
+                                   'servicio_id': sid, 'profesional_id': pid})
+
+        from servicios.models import TipoServicio as _TS
+        from profesionales.models import Profesional as _Prof
+        servicios_map     = {s.id: s for s in _TS.objects.all()}
+        profesionales_map = {p.id: p for p in _Prof.objects.all()}
+
+        from django.db import transaction as _tx
+        creadas  = 0
+        omitidas = 0
+        errores  = []
+
+        with _tx.atomic():
+            for fecha_iso in fechas_iso:
+                try:
+                    fecha = date.fromisoformat(fecha_iso)
+                except ValueError:
+                    continue
+
+                wd = fecha.weekday()
+                if wd not in patron_wd:
+                    continue
+
+                for slot in patron_wd[wd]:
+                    servicio    = servicios_map.get(slot['servicio_id'])
+                    profesional = profesionales_map.get(slot['profesional_id'])
+
+                    if not servicio or not profesional:
+                        omitidas += 1
+                        continue
+
+                    hora_inicio = slot['hora_inicio']
+                    duracion    = slot['duracion']
+                    hora_fin    = (datetime.combine(fecha, hora_inicio)
+                                   + timedelta(minutes=duracion)).time()
+
+                    try:
+                        disponible, msg = Sesion.validar_disponibilidad_con_grupales(
+                            paciente, profesional, fecha, hora_inicio, hora_fin,
+                            permitir_sesiones_grupales=perm_grupales
+                        )
+                    except Exception:
+                        disponible, msg = True, ''
+
+                    if not disponible:
+                        omitidas += 1
+                        errores.append(
+                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} — {msg}"
+                        )
+                        continue
+
+                    # ── Resolver vínculo ───────────────────────────
+                    mensualidad_obj = None
+                    proyecto_obj    = None
+                    if tipo_agenda == 'mensualidad' and vinculo_id:
+                        mensualidad_obj = Mensualidad.objects.filter(id=vinculo_id).first()
+                    elif tipo_agenda == 'proyecto' and vinculo_id:
+                        proyecto_obj = Proyecto.objects.filter(id=vinculo_id).first()
+
+                    # ── Determinar monto ───────────────────────────
+                    # Mensualidad / Proyecto → 0 (el pago es del vínculo)
+                    # Normal → costo_sesion del PacienteServicio del paciente
+                    if tipo_agenda in ('mensualidad', 'proyecto'):
+                        monto_sesion = Decimal('0.00')
+                    else:
+                        try:
+                            ps = PacienteServicio.objects.get(
+                                paciente=paciente,
+                                servicio=servicio,
+                            )
+                            monto_sesion = ps.costo_sesion or Decimal('0.00')
+                        except PacienteServicio.DoesNotExist:
+                            monto_sesion = Decimal('0.00')
+
+                    try:
+                        sesion = Sesion(
+                            paciente         = paciente,
+                            servicio         = servicio,
+                            profesional      = profesional,
+                            sucursal         = sucursal,
+                            mensualidad      = mensualidad_obj,
+                            proyecto         = proyecto_obj if hasattr(Sesion, 'proyecto') else None,
+                            fecha            = fecha,
+                            hora_inicio      = hora_inicio,
+                            hora_fin         = hora_fin,
+                            duracion_minutos = duracion,
+                            estado           = 'programada',
+                            monto_cobrado    = monto_sesion,
+                            creada_por       = request.user,
+                            modificada_por   = request.user,
+                        )
+                        if perm_grupales:
+                            sesion._permitir_sesiones_grupales = True
+                        sesion.save()
+                        creadas += 1
+                    except (ValidationError, Exception) as e:
+                        omitidas += 1
+                        errores.append(
+                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} "
+                            f"— Error al guardar: {str(e)[:80]}"
+                        )
+
+        return JsonResponse({
+            'success':  True,
+            'creadas':  creadas,
+            'omitidas': omitidas,
+            'errores':  errores[:10],
+            'redirect': f"/agenda/?paciente={paciente_id}",
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+@login_required
+def api_pacientes_sucursal_json(request):
+    """
+    API JSON: devuelve pacientes activos de una sucursal.
+    Usado por el formulario de patrón semanal.
+    GET param: sucursal (id)
+    """
+    sucursal_id = request.GET.get('sucursal', '').strip()
+    if not sucursal_id:
+        return JsonResponse({'pacientes': []})
+    try:
+        pacientes = (
+            Paciente.objects
+            .filter(sucursales__id=sucursal_id, estado='activo')
+            .distinct()
+            .order_by('nombre', 'apellido')
+            .values('id', 'nombre', 'apellido')
+        )
+        data = [{'id': p['id'], 'nombre': f"{p['nombre']} {p['apellido']}".strip()}
+                for p in pacientes]
+        return JsonResponse({'pacientes': data})
+    except Exception as e:
+        return JsonResponse({'pacientes': [], 'error': str(e)})
+
+
+@login_required
+def api_vinculos_paciente(request):
+    """
+    API JSON: devuelve mensualidades o proyectos activos del paciente.
+    GET params: paciente (id), tipo ('mensualidad' | 'proyecto')
+    """
+    paciente_id = request.GET.get('paciente','').strip()
+    tipo        = request.GET.get('tipo','').strip()
+    if not paciente_id or tipo not in ('mensualidad','proyecto'):
+        return JsonResponse({'items':[]})
+    try:
+        paciente = get_object_or_404(Paciente, id=paciente_id)
+        if tipo == 'mensualidad':
+            qs = Mensualidad.objects.filter(
+                paciente=paciente, estado='activa'
+            ).order_by('-anio','-mes')
+            MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+            items = [{'id':m.id, 'label':f"{MESES[m.mes]} {m.anio} — {m.codigo}", 'mes':m.mes, 'anio':m.anio} for m in qs]
+        else:
+            qs = Proyecto.objects.filter(
+                paciente=paciente, estado__in=['planificado','en_progreso']
+            ).order_by('-fecha_inicio')
+            items = [{'id':p.id, 'label':f"{p.codigo} — {p.nombre}"} for p in qs]
+        return JsonResponse({'items': items})
+    except Exception as e:
+        return JsonResponse({'items':[], 'error':str(e)})
+
+# ============================================================
+# AGREGAR AL FINAL DE agenda/views.py
+# ============================================================
+
+
+@login_required
+@solo_sus_sucursales
+def agregar_servicio_mensualidad(request, mensualidad_id):
+    """
+    Agrega un nuevo ServicioProfesionalMensualidad a una mensualidad existente.
+
+    Servicios disponibles  → PacienteServicio activos del paciente
+    Profesionales disp.    → Profesional activo + tiene el servicio + está en la sucursal
+    """
+    mensualidad = get_object_or_404(
+        Mensualidad.objects.select_related('paciente', 'sucursal'),
+        id=mensualidad_id
+    )
+
+    # Verificar permisos de sucursal
+    sucursales_usuario = request.sucursales_usuario
+    if sucursales_usuario is not None:
+        if not sucursales_usuario.filter(id=mensualidad.sucursal.id).exists():
+            messages.error(request, '❌ No tienes permiso para modificar esta mensualidad')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+    # Solo mensualidades activas o pausadas pueden modificarse
+    if mensualidad.estado in ('completada', 'cancelada'):
+        messages.error(request, '❌ No se puede modificar una mensualidad completada o cancelada')
+        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+    if request.method != 'POST':
+        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+    servicio_id    = request.POST.get('servicio_id', '').strip()
+    profesional_id = request.POST.get('profesional_id', '').strip()
+
+    if not servicio_id or not profesional_id:
+        messages.error(request, '❌ Debes seleccionar un servicio y un profesional')
+        return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+    try:
+        # 1. Validar que el servicio pertenece al paciente (está en PacienteServicio activo)
+        paciente_servicio = PacienteServicio.objects.filter(
+            paciente=mensualidad.paciente,
+            servicio_id=servicio_id,
+            activo=True
+        ).select_related('servicio').first()
+
+        if not paciente_servicio:
+            messages.error(request, '❌ El servicio seleccionado no está asignado a este paciente')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+        # 2. Validar que el profesional atiende ese servicio en esa sucursal
+        profesional_valido = Profesional.objects.filter(
+            id=profesional_id,
+            activo=True,
+            sucursales=mensualidad.sucursal,
+            servicios__id=servicio_id
+        ).exists()
+
+        if not profesional_valido:
+            messages.error(request, '❌ El profesional seleccionado no está disponible para este servicio en esta sucursal')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+        # 3. Verificar que no existe ya ese servicio en la mensualidad
+        ya_existe = ServicioProfesionalMensualidad.objects.filter(
+            mensualidad=mensualidad,
+            servicio_id=servicio_id
+        ).exists()
+
+        if ya_existe:
+            messages.warning(request, '⚠️ Ese servicio ya está incluido en esta mensualidad')
+            return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+        # 4. Crear
+        ServicioProfesionalMensualidad.objects.create(
+            mensualidad=mensualidad,
+            servicio_id=servicio_id,
+            profesional_id=profesional_id,
+        )
+
+        profesional_obj    = Profesional.objects.get(id=profesional_id)
+        profesional_nombre = f"{profesional_obj.nombre} {profesional_obj.apellido}".strip()
+        servicio_nombre    = paciente_servicio.servicio.nombre
+
+        messages.success(
+            request,
+            f'✅ Servicio "{servicio_nombre}" con {profesional_nombre} agregado correctamente'
+        )
+
+    except Exception as e:
+        messages.error(request, f'❌ Error al agregar el servicio: {str(e)}')
+
+    return redirect('agenda:detalle_mensualidad', mensualidad_id=mensualidad_id)
+
+
+@login_required
+def api_servicios_disponibles_mensualidad(request):
+    """
+    API JSON: Retorna los servicios que el paciente tiene en PacienteServicio (activos)
+    que todavía NO están en la mensualidad, junto con los profesionales disponibles
+    para cada uno en la sucursal de la mensualidad.
+
+    GET params:
+        paciente_id    : ID del paciente
+        mensualidad_id : ID de la mensualidad
+
+    Respuesta:
+        {
+          "servicios": [
+            {
+              "id": 3,
+              "nombre": "Terapia Ocupacional",
+              "profesionales": [
+                { "id": 7, "nombre": "Ana López" }
+              ]
+            }
+          ]
+        }
+    """
+    paciente_id    = request.GET.get('paciente_id', '').strip()
+    mensualidad_id = request.GET.get('mensualidad_id', '').strip()
+
+    sucursal_id = request.GET.get('sucursal_id', '').strip()
+
+    # Necesita paciente Y (mensualidad_id O sucursal_id)
+    if not paciente_id or (not mensualidad_id and not sucursal_id):
+        return JsonResponse({'servicios': [], 'error': 'Faltan parámetros requeridos (paciente_id + mensualidad_id o sucursal_id)'}, status=400)
+
+    try:
+        # Resolver sucursal
+        if mensualidad_id:
+            mensualidad = get_object_or_404(Mensualidad, id=mensualidad_id)
+            sucursal    = mensualidad.sucursal
+        else:
+            from servicios.models import Sucursal as _Sucursal
+            sucursal    = get_object_or_404(_Sucursal, id=sucursal_id)
+            mensualidad = None
+
+        # IDs de servicios que ya están en la mensualidad (excluirlos)
+        # Solo excluir servicios ya en mensualidad si se pasó mensualidad_id
+        servicios_ya_agregados = set()
+        if mensualidad_id and mensualidad:
+            servicios_ya_agregados = set(
+                ServicioProfesionalMensualidad.objects.filter(
+                    mensualidad=mensualidad
+                ).values_list('servicio_id', flat=True)
+            )
+
+        # Servicios activos del paciente que NO están ya en la mensualidad
+        paciente_servicios = PacienteServicio.objects.filter(
+            paciente_id=paciente_id,
+            activo=True,
+        ).select_related('servicio').filter(
+            servicio__activo=True
+        ).exclude(
+            servicio_id__in=servicios_ya_agregados
+        ).order_by('servicio__nombre')
+
+        servicios_lista = []
+        for ps in paciente_servicios:
+            # Profesionales que atienden este servicio en la sucursal de la mensualidad
+            profesionales = Profesional.objects.filter(
+                activo=True,
+                sucursales=sucursal,
+                servicios=ps.servicio
+            ).distinct().order_by('nombre', 'apellido')
+
+            # Solo incluir el servicio si tiene al menos un profesional disponible
+            if profesionales.exists():
+                servicios_lista.append({
+                    'id': ps.servicio.id,
+                    'nombre': ps.servicio.nombre,
+                    'profesionales': [
+                        {
+                            'id': p.id,
+                            'nombre': f"{p.nombre} {p.apellido}".strip()
+                        }
+                        for p in profesionales
+                    ]
+                })
+
+        return JsonResponse({'servicios': servicios_lista})
+
+    except Exception as e:
+        return JsonResponse({'servicios': [], 'error': str(e)}, status=500)

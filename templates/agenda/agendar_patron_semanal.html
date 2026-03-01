@@ -1,0 +1,816 @@
+{% extends "base.html" %}
+{% block title %}Agendar por Patrón Semanal{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- HEADER -->
+    <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600
+                    flex items-center justify-center text-white text-xl shadow-md">🔁</div>
+        <div>
+            <h1 class="text-xl font-black text-slate-800">Agendar por Patrón Semanal</h1>
+            <p class="text-sm text-slate-500">Define una semana tipo y aplícala a las semanas que necesites</p>
+        </div>
+    </div>
+
+    <!-- INDICADOR DE PASOS -->
+    <div class="flex items-center gap-2 mb-6 text-xs font-bold flex-wrap">
+        <div id="paso-indicator-1" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-violet-600 text-white">
+            <span class="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-black">1</span>
+            Paciente
+        </div>
+        <span class="text-slate-300">→</span>
+        <div id="paso-indicator-2" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-slate-100 text-slate-400">
+            <span class="w-4 h-4 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] font-black">2</span>
+            Semana tipo
+        </div>
+        <span class="text-slate-300">→</span>
+        <div id="paso-indicator-3" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-slate-100 text-slate-400">
+            <span class="w-4 h-4 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] font-black">3</span>
+            Semanas
+        </div>
+        <span class="text-slate-300">→</span>
+        <div id="paso-indicator-4" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all bg-slate-100 text-slate-400">
+            <span class="w-4 h-4 rounded-full border-2 border-slate-300 flex items-center justify-center text-[10px] font-black">4</span>
+            Preview
+        </div>
+    </div>
+
+    <!-- PASO 1 -->
+    <div id="paso1" class="card-paso">
+        <h2 class="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-black">1</span>
+            Paciente y tipo de agendamiento
+        </h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Sucursal</label>
+                <select id="sel-sucursal" onchange="cargarPacientesSucursal(this.value)"
+                        class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+                    <option value="">— Seleccionar —</option>
+                    {% for s in sucursales %}<option value="{{ s.id }}">{{ s.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Paciente</label>
+                <select id="sel-paciente" onchange="onPacienteChange()"
+                        class="w-full px-3 py-2 border-2 border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-violet-400 bg-white">
+                    <option value="">— Primero elige sucursal —</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Tipo de agendamiento -->
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-600 mb-2">¿Cómo se registrarán las sesiones?</label>
+            <div class="grid grid-cols-3 gap-2">
+                <label class="cursor-pointer" onclick="onTipoAgendaChange('normal')">
+                    <input type="radio" name="tipo_agenda" value="normal" checked class="sr-only">
+                    <div id="card-normal" class="border-2 border-violet-400 bg-violet-50 rounded-xl p-3 text-center transition-all">
+                        <div class="text-2xl mb-1">🗒️</div>
+                        <div class="text-xs font-black text-violet-800">Sesión Normal</div>
+                        <div class="text-[10px] text-violet-600 mt-0.5">Pago por sesión</div>
+                    </div>
+                </label>
+                <label class="cursor-pointer" onclick="onTipoAgendaChange('mensualidad')">
+                    <input type="radio" name="tipo_agenda" value="mensualidad" class="sr-only">
+                    <div id="card-mensualidad" class="border-2 border-slate-200 bg-white rounded-xl p-3 text-center transition-all hover:border-emerald-300">
+                        <div class="text-2xl mb-1">💳</div>
+                        <div class="text-xs font-black text-slate-700">Mensualidad</div>
+                        <div class="text-[10px] text-slate-500 mt-0.5">Vincular a mensualidad</div>
+                    </div>
+                </label>
+                <label class="cursor-pointer" onclick="onTipoAgendaChange('proyecto')">
+                    <input type="radio" name="tipo_agenda" value="proyecto" class="sr-only">
+                    <div id="card-proyecto" class="border-2 border-slate-200 bg-white rounded-xl p-3 text-center transition-all hover:border-purple-300">
+                        <div class="text-2xl mb-1">📦</div>
+                        <div class="text-xs font-black text-slate-700">Proyecto</div>
+                        <div class="text-[10px] text-slate-500 mt-0.5">Vincular a proyecto</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Selector mensualidad -->
+        <div id="bloque-mensualidad" class="hidden mb-4">
+            <label class="block text-xs font-bold text-slate-600 mb-1">Mensualidad activa del paciente</label>
+            <select id="sel-mensualidad"
+                    class="w-full px-3 py-2 border-2 border-emerald-300 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                <option value="">— Selecciona el paciente primero —</option>
+            </select>
+        </div>
+
+        <!-- Selector proyecto -->
+        <div id="bloque-proyecto" class="hidden mb-4">
+            <label class="block text-xs font-bold text-slate-600 mb-1">Proyecto activo del paciente</label>
+            <select id="sel-proyecto"
+                    class="w-full px-3 py-2 border-2 border-purple-300 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                <option value="">— Selecciona el paciente primero —</option>
+            </select>
+        </div>
+
+        <div class="flex justify-end">
+            <button onclick="irPaso2()"
+                    class="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
+                Siguiente → Semana tipo
+            </button>
+        </div>
+    </div>
+
+    <!-- PASO 2 -->
+    <div id="paso2" class="card-paso hidden">
+        <h2 class="text-sm font-black text-slate-800 mb-1 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-black">2</span>
+            Semana tipo
+        </h2>
+        <p class="text-xs text-slate-500 mb-3 ml-8">Elige una semana reciente como base o define desde cero</p>
+
+        <div class="mb-4">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-500 mb-2">
+                <span>🕐</span> Semanas recientes del paciente
+                <span id="loading-semanas" class="hidden w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin inline-block"></span>
+            </div>
+            <div id="lista-semanas-recientes" class="flex flex-wrap gap-2">
+                <p class="text-xs text-slate-400 italic">Selecciona un paciente primero</p>
+            </div>
+        </div>
+
+        <button type="button" onclick="definirDesdeCero()"
+                class="mb-4 flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 transition-colors">
+            ✏️ Definir semana desde cero
+        </button>
+
+        <div id="tabla-semana-tipo" class="hidden">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-black text-slate-700">Slots de la semana tipo</h3>
+                <button type="button" onclick="agregarSlotPatron()"
+                        class="flex items-center gap-1 text-[11px] font-black text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-300 px-2.5 py-1 rounded-lg transition-colors">
+                    + Añadir slot
+                </button>
+            </div>
+            <div class="border border-slate-200 rounded-xl overflow-hidden text-[11px]">
+                <div class="grid bg-slate-100 border-b border-slate-200 px-2 py-1.5 font-black uppercase text-[10px] text-slate-500 gap-1"
+                     style="grid-template-columns:7rem 4.5rem 3.5rem 1fr 1fr 1.5rem;">
+                    <span>Día</span><span>Hora</span><span>Min</span><span>Servicio</span><span>Profesional</span><span></span>
+                </div>
+                <div id="lista-slots-patron" class="divide-y divide-slate-100"></div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex justify-between">
+            <button onclick="irPaso(1)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl">← Atrás</button>
+            <button onclick="irPaso3()" class="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl shadow-sm">Siguiente → Semanas</button>
+        </div>
+    </div>
+
+    <!-- PASO 3 -->
+    <div id="paso3" class="card-paso hidden">
+        <h2 class="text-sm font-black text-slate-800 mb-1 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-black">3</span>
+            Elegir semanas a aplicar
+        </h2>
+        <p class="text-xs text-slate-500 mb-3 ml-8">
+            Puedes elegir <strong>cualquier semana</strong>, pasada o futura.
+            Si ya tiene sesiones, las nuevas se <strong>añadirán</strong> sin reemplazar.
+        </p>
+
+        <div class="flex items-center justify-between mb-3">
+            <button type="button" onclick="navegarMes(-1)"
+                    class="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 transition-colors">
+                ← <span id="label-mes-prev">anterior</span>
+            </button>
+            <h3 id="label-mes-actual" class="text-sm font-black text-slate-800">—</h3>
+            <button type="button" onclick="navegarMes(1)"
+                    class="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 transition-colors">
+                <span id="label-mes-next">siguiente</span> →
+            </button>
+        </div>
+
+        <div id="lista-semanas-mes" class="space-y-2">
+            <div class="flex justify-center py-6">
+                <span class="animate-spin w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full"></span>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-2 text-[10px] text-slate-500">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-violet-500 inline-block"></span> Seleccionada</span>
+            <span class="flex items-center gap-1"><span>⚠️</span> Compartida entre meses</span>
+            <span class="flex items-center gap-1"><span>📅</span> Ya tiene sesiones del paciente</span>
+        </div>
+
+        <div id="resumen-seleccion" class="hidden mt-3 bg-violet-50 border border-violet-200 rounded-xl p-3">
+            <p class="text-xs font-black text-violet-800">✓ <span id="count-semanas-sel">0</span> semana(s) seleccionada(s)</p>
+        </div>
+
+        <div class="mt-4 flex justify-between">
+            <button onclick="irPaso(2)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl">← Atrás</button>
+            <button onclick="irPaso4()" class="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl shadow-sm">Siguiente → Preview</button>
+        </div>
+    </div>
+
+    <!-- PASO 4 -->
+    <div id="paso4" class="card-paso hidden">
+        <h2 class="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-violet-600 text-white text-xs flex items-center justify-center font-black">4</span>
+            Preview y confirmar
+        </h2>
+
+        <div id="info-tipo-agenda" class="mb-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-600"></div>
+
+        <div class="mb-3 flex flex-wrap gap-2 text-xs font-bold">
+            <span class="bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full">📅 <span id="count-dias-preview">0</span> días</span>
+            <span class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">🗓 <span id="count-sesiones-preview">0</span> sesiones</span>
+            <span id="badge-conflictos" class="hidden bg-red-100 text-red-700 px-2.5 py-1 rounded-full">⚠️ <span id="count-conflictos-preview">0</span> conflicto(s)</span>
+            <span id="badge-existentes" class="hidden bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">📅 <span id="count-existentes-preview">0</span> día(s) con sesiones previas</span>
+        </div>
+
+        <!-- Sesiones grupales -->
+        <div class="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-3">
+            <label class="flex items-start gap-2 cursor-pointer select-none">
+                <input type="checkbox" id="chk-grupales" value="1"
+                       onchange="onGrupalesChange()"
+                       class="mt-0.5 rounded text-purple-600 border-gray-300">
+                <div>
+                    <span class="text-xs font-semibold text-purple-900">👥 Permitir sesiones grupales</span>
+                    <p class="text-[10px] text-purple-700 mt-0.5">
+                        Activa si el profesional atiende varios pacientes a la misma hora.
+                        Los conflictos marcados en rojo se crearán igualmente —
+                        solo se bloquea si el <strong>paciente</strong> tiene otro turno exacto.
+                    </p>
+                </div>
+            </label>
+        </div>
+
+        <div class="mb-3 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-[11px] text-blue-800">
+            <strong>Azul</strong>: el día ya tiene sesiones — las nuevas se añaden sin reemplazar. ·
+            <strong>Rojo</strong>: conflicto exacto de horario del paciente — se omitirá salvo que actives sesiones grupales.
+        </div>
+
+        <div id="lista-preview" class="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto text-[11px]">
+            <div class="flex justify-center py-8">
+                <span class="animate-spin w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full"></span>
+            </div>
+        </div>
+
+        <div class="mt-4 flex justify-between gap-2">
+            <button onclick="irPaso(3)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl">← Atrás</button>
+            <button id="btn-confirmar-patron" onclick="confirmarPatron()"
+                    class="flex-1 py-2.5 px-4 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700
+                           text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
+                ✅ Crear sesiones
+            </button>
+        </div>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="resultado-final" class="hidden card-paso text-center py-8">
+        <div id="resultado-icono" class="text-5xl mb-3">✅</div>
+        <p id="resultado-mensaje" class="text-base font-black text-slate-800"></p>
+        <p id="resultado-detalle" class="text-xs text-slate-500 mt-1"></p>
+        <div class="mt-5 flex flex-wrap gap-2 justify-center">
+            <a href="{% url 'agenda:calendario' %}" class="px-4 py-2 bg-violet-600 text-white font-bold text-sm rounded-xl hover:bg-violet-700">Ver calendario</a>
+            <button onclick="reiniciar()" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-200">Agendar otro</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL SEMANA COMPARTIDA -->
+<div id="modal-compartida" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+        <h3 class="text-sm font-black text-slate-800 mb-1">⚠️ Semana compartida</h3>
+        <p id="modal-compartida-label" class="text-xs text-slate-500 mb-4"></p>
+        <div class="space-y-2" id="modal-opciones"></div>
+        <div class="mt-4 flex gap-2">
+            <button onclick="cerrarModalCompartida()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl">Cancelar</button>
+            <button onclick="confirmarDecisionCompartida()" class="flex-1 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-paso { background:white; border:1px solid #e2e8f0; border-radius:1rem; padding:1.25rem; margin-bottom:1rem; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+</style>
+
+<script>
+// ── ESTADO GLOBAL ──────────────────────────────────────────────
+const estado = {
+    paciente_id:null, paciente_nombre:'', sucursal_id:null,
+    tipo_agenda:'normal', vinculo_id:null, vinculo_label:'',
+    // ✅ mes/año del vínculo (mensualidad): null cuando tipo_agenda!='mensualidad'
+    mes_vinculo:null, anio_vinculo:null,
+    permitir_grupales:false, semana_tipo:[], semanas_seleccionadas:{},
+    semanas_mes_data:{}, mes_actual:{{ mes_actual }}, anio_actual:{{ anio_actual }},
+    semana_compartida_pendiente:null, _fechas_preview:[],
+};
+
+const DIAS_SEMANA   = {{ DIAS_SEMANA|safe }};
+// Servicios y profesionales del paciente — se cargan dinámicamente al elegir paciente+sucursal
+let SERVICIOS     = [];   // [{id, nombre, profesionales:[{id,nombre}]}]
+let PROFESIONALES = [];   // lista plana acumulada (para compatibilidad)
+const MESES_NOMBRES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// ── URLs (resueltas por Django en el servidor) ─────────────────
+// ✅ CORREGIDO: eliminada la autorreferencia a URLS.preview y URLS.procesar
+//    que causaba ReferenceError al inicializar la constante,
+//    dejando el select de paciente atascado en "Cargando..." para siempre.
+const URLS = {
+    pacientes:  "{% url 'agenda:api_pacientes_sucursal_json' %}",
+    vinculos:   "{% url 'agenda:api_vinculos_paciente' %}",
+    semanasPac: "{% url 'agenda:api_semanas_paciente' 0 %}",
+    semanasMes: "{% url 'agenda:api_semanas_mes' %}",
+    preview:    "{% url 'agenda:api_preview_patron' %}",       // ✅ antes: URLS.preview  (self-reference → ReferenceError)
+    procesar:   "{% url 'agenda:procesar_patron_semanal' %}",  // ✅ antes: URLS.procesar (self-reference → ReferenceError)
+};
+
+// ── CASCADA SUCURSAL → PACIENTE ────────────────────────────────
+function cargarPacientesSucursal(sucursalId) {
+    const sel = document.getElementById('sel-paciente');
+    sel.innerHTML = '<option value="">Cargando...</option>';
+    sel.disabled = true;
+    if (!sucursalId) {
+        sel.innerHTML = '<option value="">— Primero elige sucursal —</option>';
+        sel.disabled = false; return;
+    }
+    const urlPacientes = URLS.pacientes + '?sucursal=' + sucursalId;
+    fetch(urlPacientes)
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+        sel.innerHTML = '<option value="">— Seleccionar paciente —</option>';
+        (data.pacientes || []).forEach(p => {
+            const o = document.createElement('option');
+            o.value = p.id;
+            o.textContent = p.nombre;
+            sel.appendChild(o);
+        });
+        if (sel.options.length <= 1) {
+            sel.innerHTML = '<option value="">Sin pacientes en esta sucursal</option>';
+        }
+        sel.disabled = false;
+    })
+    .catch(err => {
+        sel.innerHTML = '<option value="">Error: ' + err.message + '</option>';
+        sel.disabled = false;
+    });
+}
+
+function onPacienteChange() {
+    const pacId = document.getElementById('sel-paciente').value;
+    const sucId = document.getElementById('sel-sucursal').value;
+    if (!pacId) return;
+    if (estado.tipo_agenda==='mensualidad') cargarVinculos(pacId,'mensualidad');
+    if (estado.tipo_agenda==='proyecto')    cargarVinculos(pacId,'proyecto');
+    // Cargar servicios y profesionales filtrados por paciente+sucursal
+    cargarServiciosPaciente(pacId, sucId);
+}
+
+function cargarServiciosPaciente(pacId, sucId) {
+    if (!pacId || !sucId) return;
+    // Reutilizamos la API que ya existe: servicios del paciente con sus profesionales por sucursal
+    // No pasamos mensualidad_id para no excluir nada
+    fetch(`/agenda/api/servicios-disponibles-mensualidad/?paciente_id=${pacId}&sucursal_id=${sucId}`, {
+        credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        SERVICIOS = data.servicios || [];
+        // Construir lista plana de profesionales únicos
+        const profMap = {};
+        SERVICIOS.forEach(s => s.profesionales.forEach(p => { profMap[p.id] = p; }));
+        PROFESIONALES = Object.values(profMap);
+        // Re-renderizar slots existentes con los nuevos datos
+        renderizarTablaSemana();
+    })
+    .catch(err => console.warn('Error cargando servicios del paciente:', err));
+}
+
+// ── TIPO DE AGENDAMIENTO ───────────────────────────────────────
+function onTipoAgendaChange(tipo) {
+    estado.tipo_agenda = tipo;
+    // Resetear estilos de tarjetas
+    const estilos = {
+        normal:      {card:'card-normal',      on:'border-violet-400 bg-violet-50',  off:'border-slate-200 bg-white'},
+        mensualidad: {card:'card-mensualidad', on:'border-emerald-400 bg-emerald-50',off:'border-slate-200 bg-white'},
+        proyecto:    {card:'card-proyecto',    on:'border-purple-400 bg-purple-50',  off:'border-slate-200 bg-white'},
+    };
+    Object.entries(estilos).forEach(([t, e]) => {
+        const card = document.getElementById(e.card);
+        if (!card) return;
+        card.className = card.className.replace(/border-\S+|bg-\S+/g, '').trim();
+        const cls = (t === tipo ? e.on : e.off).split(' ');
+        card.classList.add('border-2','rounded-xl','p-3','text-center','transition-all','hover:border-violet-300',...cls);
+    });
+    document.getElementById('bloque-mensualidad').classList.toggle('hidden', tipo !== 'mensualidad');
+    document.getElementById('bloque-proyecto').classList.toggle('hidden', tipo !== 'proyecto');
+    const id = document.getElementById('sel-paciente').value;
+    if (id && tipo !== 'normal') cargarVinculos(id, tipo);
+}
+
+function cargarVinculos(pacienteId, tipo) {
+    const selId = tipo === 'mensualidad' ? 'sel-mensualidad' : 'sel-proyecto';
+    const sel   = document.getElementById(selId);
+    sel.innerHTML = '<option value="">Cargando...</option>';
+    fetch(URLS.vinculos + '?paciente=' + pacienteId + '&tipo=' + tipo)
+    .then(r=>r.json()).then(data=>{
+        sel.innerHTML = `<option value="">— Seleccionar ${tipo} —</option>`;
+        // ✅ Guardar mes/año en data-* para mensualidades
+        (data.items||[]).forEach(item=>{
+            const o = document.createElement('option');
+            o.value = item.id;
+            o.textContent = item.label;
+            if (tipo === 'mensualidad' && item.mes && item.anio) {
+                o.dataset.mes  = item.mes;
+                o.dataset.anio = item.anio;
+            }
+            sel.appendChild(o);
+        });
+        if (!data.items?.length) sel.innerHTML = `<option value="">Sin ${tipo}s activos</option>`;
+    });
+}
+
+// ── NAVEGACIÓN DE PASOS ────────────────────────────────────────
+function irPaso(n) {
+    document.querySelectorAll('.card-paso').forEach(el=>el.classList.add('hidden'));
+    document.getElementById(`paso${n}`)?.classList.remove('hidden');
+    for (let i=1;i<=4;i++) {
+        const ind = document.getElementById(`paso-indicator-${i}`);
+        if (!ind) continue;
+        ind.classList.remove('bg-violet-600','text-white','bg-slate-100','text-slate-400');
+        ind.classList.add(i===n?'bg-violet-600':'bg-slate-100', i===n?'text-white':'text-slate-400');
+    }
+}
+
+function irPaso2() {
+    const pac = document.getElementById('sel-paciente').value;
+    const suc = document.getElementById('sel-sucursal').value;
+    if (!pac||!suc) { alert('⚠️ Selecciona sucursal y paciente.'); return; }
+    if (estado.tipo_agenda==='mensualidad' && !document.getElementById('sel-mensualidad').value) { alert('⚠️ Selecciona una mensualidad.'); return; }
+    if (estado.tipo_agenda==='proyecto'    && !document.getElementById('sel-proyecto').value)    { alert('⚠️ Selecciona un proyecto.'); return; }
+    estado.paciente_id     = parseInt(pac);
+    estado.paciente_nombre = document.getElementById('sel-paciente').options[document.getElementById('sel-paciente').selectedIndex].text;
+    estado.sucursal_id     = parseInt(suc);
+    if (estado.tipo_agenda==='mensualidad') {
+        const s=document.getElementById('sel-mensualidad');
+        estado.vinculo_id=parseInt(s.value); estado.vinculo_label=s.options[s.selectedIndex].text;
+        // ✅ Leer mes y año del option seleccionado (vienen del API)
+        const opt = s.options[s.selectedIndex];
+        estado.mes_vinculo  = opt.dataset.mes  ? parseInt(opt.dataset.mes)  : null;
+        estado.anio_vinculo = opt.dataset.anio ? parseInt(opt.dataset.anio) : null;
+        // Fallback: parsear del label "Febrero 2026 — MEN-XXX"
+        if (!estado.mes_vinculo) {
+            const match = estado.vinculo_label.match(/(\w+)\s+(\d{4})/);
+            if (match) {
+                estado.mes_vinculo  = MESES_NOMBRES.indexOf(match[1]);
+                estado.anio_vinculo = parseInt(match[2]);
+            }
+        }
+    } else if (estado.tipo_agenda==='proyecto') {
+        const s=document.getElementById('sel-proyecto'); estado.vinculo_id=parseInt(s.value); estado.vinculo_label=s.options[s.selectedIndex].text;
+        estado.mes_vinculo=null; estado.anio_vinculo=null;
+    } else { estado.vinculo_id=null; estado.vinculo_label=''; estado.mes_vinculo=null; estado.anio_vinculo=null; }
+    cargarSemanasRecientes();
+    irPaso(2);
+}
+
+function irPaso3() {
+    if (!estado.semana_tipo.length) { alert('⚠️ Define al menos un slot.'); return; }
+    // ✅ Si hay mensualidad, ir directo al mes del vínculo y limpiar selección previa
+    if (estado.tipo_agenda === 'mensualidad' && estado.mes_vinculo && estado.anio_vinculo) {
+        estado.mes_actual  = estado.mes_vinculo;
+        estado.anio_actual = estado.anio_vinculo;
+        estado.semanas_seleccionadas = {};
+        actualizarResumenSeleccion();
+    }
+    cargarSemanasMes(estado.mes_actual, estado.anio_actual);
+    irPaso(3);
+}
+
+function irPaso4() {
+    if (!Object.keys(estado.semanas_seleccionadas).length) { alert('⚠️ Selecciona al menos una semana.'); return; }
+    actualizarInfoTipoAgenda();
+    generarPreview();
+    irPaso(4);
+}
+
+// ── PASO 2: SEMANA TIPO ────────────────────────────────────────
+function cargarSemanasRecientes() {
+    document.getElementById('loading-semanas').classList.remove('hidden');
+    document.getElementById('lista-semanas-recientes').innerHTML = '<p class="text-xs text-slate-400 italic">Cargando...</p>';
+    fetch(URLS.semanasPac.replace('/0/', '/' + estado.paciente_id + '/'))
+    .then(r=>r.json()).then(data=>{
+        document.getElementById('loading-semanas').classList.add('hidden');
+        const cont = document.getElementById('lista-semanas-recientes');
+        if (!data.semanas?.length) { cont.innerHTML='<p class="text-xs text-slate-400 italic">Sin sesiones recientes</p>'; definirDesdeCero(); return; }
+        cont.innerHTML = '';
+        data.semanas.forEach(sem=>{
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'text-left px-3 py-2 bg-white border-2 border-slate-200 hover:border-violet-400 rounded-xl text-[11px] transition-all';
+            const dias = [...new Set(sem.slots.map(s=>DIAS_SEMANA[s.weekday]))];
+            btn.innerHTML = `<div class="font-black text-slate-700 mb-1">📅 ${sem.label}</div><div class="text-slate-500">${dias.join(' · ')}</div><div class="text-violet-600 font-bold mt-0.5">${sem.slots.length} slot(s)</div>`;
+            btn.onclick = ()=>{
+                cont.querySelectorAll('button').forEach(b=>{ b.classList.remove('border-violet-600','bg-violet-50'); b.classList.add('border-slate-200'); });
+                btn.classList.add('border-violet-600','bg-violet-50'); btn.classList.remove('border-slate-200');
+                usarSemanaComoBase(sem);
+            };
+            cont.appendChild(btn);
+        });
+    }).catch(()=>{ document.getElementById('loading-semanas').classList.add('hidden'); definirDesdeCero(); });
+}
+
+function usarSemanaComoBase(sem) {
+    estado.semana_tipo = sem.slots.map(s=>({weekday:s.weekday,hora_inicio:s.hora_inicio,duracion:s.duracion,servicio_id:s.servicio_id,profesional_id:s.profesional_id}));
+    renderizarTablaSemana(); document.getElementById('tabla-semana-tipo').classList.remove('hidden');
+}
+
+function definirDesdeCero() { estado.semana_tipo=[]; renderizarTablaSemana(); document.getElementById('tabla-semana-tipo').classList.remove('hidden'); }
+
+function renderizarTablaSemana() { const l=document.getElementById('lista-slots-patron'); l.innerHTML=''; estado.semana_tipo.forEach((s,i)=>agregarFilaSlot(s,i)); }
+
+function agregarSlotPatron() {
+    const primerServicio   = SERVICIOS[0];
+    const primerProfesional = primerServicio?.profesionales?.[0];
+    const s = {
+        weekday: 0,
+        hora_inicio: '09:00',
+        duracion: 45,
+        servicio_id:    primerServicio?.id    || 0,
+        profesional_id: primerProfesional?.id || 0
+    };
+    estado.semana_tipo.push(s);
+    agregarFilaSlot(s, estado.semana_tipo.length - 1);
+}
+
+function agregarFilaSlot(slot, idx) {
+    const lista = document.getElementById('lista-slots-patron');
+    const fila  = document.createElement('div');
+    fila.className = 'slot-fila grid items-center gap-1 px-2 py-1.5 hover:bg-slate-50';
+    fila.style.gridTemplateColumns = '7rem 4.5rem 3.5rem 1fr 1fr 1.5rem';
+
+    // Construir opciones de servicio
+    const optsServicio = SERVICIOS.length
+        ? SERVICIOS.map(s => `<option value="${s.id}"${slot.servicio_id==s.id?' selected':''}>${s.nombre}</option>`).join('')
+        : `<option value="${slot.servicio_id || 0}">— elige paciente primero —</option>`;
+
+    // Profesionales del servicio seleccionado
+    const servicioActual = SERVICIOS.find(s => s.id == slot.servicio_id) || SERVICIOS[0];
+    const profsActuales  = servicioActual?.profesionales || [];
+    const optsProfesional = profsActuales.length
+        ? profsActuales.map(p => `<option value="${p.id}"${slot.profesional_id==p.id?' selected':''}>${p.nombre}</option>`).join('')
+        : `<option value="${slot.profesional_id || 0}">— elige servicio primero —</option>`;
+
+    fila.innerHTML = `
+        <select onchange="actualizarSlot(${idx},'weekday',this.value)"
+                class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:ring-1 focus:ring-violet-400 bg-white">
+            ${DIAS_SEMANA.map((d,i)=>`<option value="${i}"${slot.weekday==i?' selected':''}>${d}</option>`).join('')}
+        </select>
+        <input type="time" value="${slot.hora_inicio}"
+               onchange="actualizarSlot(${idx},'hora_inicio',this.value)"
+               class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] outline-none focus:ring-1 focus:ring-violet-400">
+        <input type="number" value="${slot.duracion}" min="5" max="480" step="5"
+               onchange="actualizarSlot(${idx},'duracion',this.value)"
+               class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] outline-none focus:ring-1 focus:ring-violet-400 text-center">
+        <select data-slot-idx="${idx}" data-role="servicio"
+                onchange="onServicioSlotChange(this, ${idx})"
+                class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:ring-1 focus:ring-violet-400 bg-white">
+            ${optsServicio}
+        </select>
+        <select data-slot-idx="${idx}" data-role="profesional"
+                onchange="actualizarSlot(${idx},'profesional_id',this.value)"
+                class="w-full px-1.5 py-1 border border-slate-200 rounded-lg text-[11px] font-bold outline-none focus:ring-1 focus:ring-violet-400 bg-white">
+            ${optsProfesional}
+        </select>
+        <button type="button" onclick="eliminarSlotPatron(${idx})"
+                class="w-5 h-5 rounded bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center text-xs font-black">×</button>`;
+    lista.appendChild(fila);
+}
+
+/**
+ * Cuando cambia el servicio de un slot:
+ * 1. Actualiza servicio_id en el estado
+ * 2. Recarga el select de profesional con los del nuevo servicio
+ * 3. Auto-selecciona el primero si solo hay uno
+ */
+function onServicioSlotChange(selServicio, idx) {
+    const servicioId = parseInt(selServicio.value);
+    actualizarSlot(idx, 'servicio_id', servicioId);
+
+    const servicio     = SERVICIOS.find(s => s.id === servicioId);
+    const profs        = servicio?.profesionales || [];
+    const fila         = selServicio.closest('.slot-fila');
+    const selProf      = fila?.querySelector('[data-role="profesional"]');
+    if (!selProf) return;
+
+    selProf.innerHTML = profs.length
+        ? profs.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('')
+        : `<option value="0">Sin profesionales</option>`;
+
+    const primerProfId = profs[0]?.id || 0;
+    selProf.value = primerProfId;
+    actualizarSlot(idx, 'profesional_id', primerProfId);
+}
+
+function actualizarSlot(idx,campo,valor) { if (!estado.semana_tipo[idx]) return; estado.semana_tipo[idx][campo]=['weekday','duracion','servicio_id','profesional_id'].includes(campo)?parseInt(valor):valor; }
+function eliminarSlotPatron(idx) { estado.semana_tipo.splice(idx,1); renderizarTablaSemana(); }
+
+// ── PASO 3: SEMANAS DEL MES ────────────────────────────────────
+function navegarMes(delta) {
+    let m=estado.mes_actual+delta, a=estado.anio_actual;
+    if(m>12){m=1;a++;} if(m<1){m=12;a--;} estado.mes_actual=m; estado.anio_actual=a; cargarSemanasMes(m,a);
+}
+
+function cargarSemanasMes(mes,anio) {
+    document.getElementById('lista-semanas-mes').innerHTML='<div class="flex justify-center py-4"><span class="animate-spin w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full"></span></div>';
+    // ✅ mes_fijo=1 cuando la mensualidad tiene mes definido
+    const mesFijo = (estado.tipo_agenda === 'mensualidad' && estado.mes_vinculo && estado.anio_vinculo) ? 1 : 0;
+    fetch(URLS.semanasMes + '?mes=' + mes + '&anio=' + anio + '&paciente_id=' + estado.paciente_id + '&mes_fijo=' + mesFijo)
+    .then(r=>r.json()).then(data=>{
+        document.getElementById('label-mes-actual').textContent = data.mes_display;
+        // ✅ Ocultar/mostrar botones de navegación según mes_fijo
+        const btnPrev = document.querySelector('button[onclick="navegarMes(-1)"]');
+        const btnNext = document.querySelector('button[onclick="navegarMes(1)"]');
+        if (data.mes_fijo) {
+            if (btnPrev) btnPrev.classList.add('invisible');
+            if (btnNext) btnNext.classList.add('invisible');
+        } else {
+            if (btnPrev) { btnPrev.classList.remove('invisible'); btnPrev.querySelector('span').textContent = MESES_NOMBRES[data.prev_mes]||'←'; }
+            if (btnNext) { btnNext.classList.remove('invisible'); btnNext.querySelector('span').textContent = MESES_NOMBRES[data.next_mes]||'→'; }
+            document.getElementById('label-mes-prev').textContent = MESES_NOMBRES[data.prev_mes]||'←';
+            document.getElementById('label-mes-next').textContent = MESES_NOMBRES[data.next_mes]||'→';
+        }
+        renderizarSemanasMes(data.semanas);
+    });
+}
+
+function renderizarSemanasMes(semanas) {
+    const cont=document.getElementById('lista-semanas-mes'); cont.innerHTML='';
+    semanas.forEach(sem=>{
+        estado.semanas_mes_data[sem.key]=sem;
+        const sel=!!estado.semanas_seleccionadas[sem.key];
+        const tieneSesiones=sem.dias_mes_con_sesion.length>0;
+        const div=document.createElement('div');
+        div.className=`rounded-xl border-2 transition-all p-3 cursor-pointer ${sel?'border-violet-500 bg-violet-50':'border-slate-200 bg-white hover:border-violet-300'}`;
+        let badges='';
+        if(sem.compartida) badges+=`<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">⚠️ Compartida con ${sem.otro_mes_nombre}</span>`;
+        if(tieneSesiones)  badges+=`<span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold">📅 ${sem.dias_mes_con_sesion.length} día(s) con sesiones</span>`;
+        let decLabel='';
+        if(sel&&estado.semanas_seleccionadas[sem.key]){
+            const dec=estado.semanas_seleccionadas[sem.key].decision;
+            const etiq={todo:'✓ Toda la semana',solo_mes:`✓ Solo ${sem.mes_nombre}`,solo_otro:`✓ Solo ${sem.otro_mes_nombre}`,omitir:'✗ Omitida'};
+            decLabel=`<span class="text-[10px] text-violet-700 font-bold">${etiq[dec]||''}</span>`;
+        }
+        div.innerHTML=`<div class="flex items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5 flex-1">
+                <span class="text-xs font-black text-slate-800">${sem.label}</span>${badges}${decLabel}
+            </div>
+            <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel?'bg-violet-600 border-violet-600':'border-slate-300'}">
+                ${sel?'<span class="text-white text-[10px] font-black">✓</span>':''}
+            </div></div>`;
+        div.onclick=()=>toggleSemana(sem); cont.appendChild(div);
+    });
+}
+
+function toggleSemana(sem) {
+    if(estado.semanas_seleccionadas[sem.key]){ delete estado.semanas_seleccionadas[sem.key]; actualizarResumenSeleccion(); cargarSemanasMes(estado.mes_actual,estado.anio_actual); return; }
+    // ✅ Con mes_fijo (mensualidad): semanas compartidas → auto solo_mes, sin modal
+    if(sem.compartida && sem.mes_fijo) {
+        estado.semanas_seleccionadas[sem.key]={key:sem.key,decision:'solo_mes',dias_incluir:sem.dias_mes};
+        actualizarResumenSeleccion(); cargarSemanasMes(estado.mes_actual,estado.anio_actual); return;
+    }
+    if(sem.compartida) mostrarModalCompartida(sem);
+    else { estado.semanas_seleccionadas[sem.key]={key:sem.key,decision:'todo',dias_incluir:sem.dias_mes}; actualizarResumenSeleccion(); cargarSemanasMes(estado.mes_actual,estado.anio_actual); }
+}
+
+function actualizarResumenSeleccion() {
+    const n=Object.keys(estado.semanas_seleccionadas).length;
+    document.getElementById('count-semanas-sel').textContent=n;
+    document.getElementById('resumen-seleccion').classList.toggle('hidden',n===0);
+}
+
+// ── MODAL SEMANA COMPARTIDA ────────────────────────────────────
+function mostrarModalCompartida(sem) {
+    estado.semana_compartida_pendiente=sem;
+    document.getElementById('modal-compartida-label').textContent=`Semana ${sem.label} — días en ${sem.mes_nombre} y en ${sem.otro_mes_nombre}`;
+    const cont=document.getElementById('modal-opciones'); cont.innerHTML='';
+    [{value:'solo_mes',label:`Solo días de ${sem.mes_nombre}`,info:sem.dias_mes_con_sesion.length?`⚠️ ${sem.dias_mes_con_sesion.length} día(s) con sesiones`:`${sem.dias_mes.length} día(s)`,dias:sem.dias_mes},
+     {value:'solo_otro',label:`Solo días de ${sem.otro_mes_nombre}`,info:sem.dias_otro_con_sesion.length?`⚠️ ${sem.dias_otro_con_sesion.length} día(s) con sesiones`:`${sem.dias_otro.length} día(s)`,dias:sem.dias_otro},
+     {value:'todo',label:'Toda la semana',info:`${sem.dias_mes.length+sem.dias_otro.length} día(s)`,dias:[...sem.dias_mes,...sem.dias_otro]},
+     {value:'omitir',label:'Omitir esta semana',info:'No se agendarán sesiones',dias:[]}
+    ].forEach((op,i)=>{
+        const lbl=document.createElement('label');
+        lbl.className='flex items-start gap-2 p-2.5 rounded-xl border-2 border-slate-200 hover:border-violet-400 cursor-pointer transition-colors';
+        lbl.innerHTML=`<input type="radio" name="decision-compartida" value="${op.value}" ${i===0?'checked':''} class="mt-0.5 text-violet-600"><div><span class="text-xs font-black text-slate-800">${op.label}</span><p class="text-[10px] text-slate-500 mt-0.5">${op.info}</p></div>`;
+        cont.appendChild(lbl);
+    });
+    document.getElementById('modal-compartida').classList.remove('hidden');
+}
+
+function cerrarModalCompartida() { document.getElementById('modal-compartida').classList.add('hidden'); estado.semana_compartida_pendiente=null; }
+
+function confirmarDecisionCompartida() {
+    const sem=estado.semana_compartida_pendiente;
+    const dec=document.querySelector('input[name="decision-compartida"]:checked')?.value;
+    if(!sem||!dec) return;
+    const diasMap={solo_mes:sem.dias_mes,solo_otro:sem.dias_otro,todo:[...sem.dias_mes,...sem.dias_otro],omitir:[]};
+    estado.semanas_seleccionadas[sem.key]={key:sem.key,decision:dec,dias_incluir:diasMap[dec]};
+    cerrarModalCompartida(); actualizarResumenSeleccion(); cargarSemanasMes(estado.mes_actual,estado.anio_actual);
+}
+
+// ── PASO 4: PREVIEW ────────────────────────────────────────────
+function actualizarInfoTipoAgenda() {
+    const iconos={normal:'🗒️',mensualidad:'💳',proyecto:'📦'};
+    const labels={normal:'Sesión normal (pago por sesión)',mensualidad:`Mensualidad: ${estado.vinculo_label}`,proyecto:`Proyecto: ${estado.vinculo_label}`};
+    document.getElementById('info-tipo-agenda').innerHTML=`${iconos[estado.tipo_agenda]} <strong>${labels[estado.tipo_agenda]}</strong>${estado.permitir_grupales?' · <span class="text-purple-700">👥 Sesiones grupales</span>':''}`;
+}
+
+function generarPreview() {
+    document.getElementById('lista-preview').innerHTML='<div class="flex justify-center py-6"><span class="animate-spin w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full"></span></div>';
+    fetch(URLS.preview, {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+        body:JSON.stringify({paciente_id:estado.paciente_id,semana_tipo:estado.semana_tipo,semanas_seleccionadas:Object.values(estado.semanas_seleccionadas),permitir_grupales:estado.permitir_grupales}),
+    }).then(r=>r.json()).then(data=>{
+        document.getElementById('count-dias-preview').textContent     = data.dias.length;
+        document.getElementById('count-sesiones-preview').textContent = data.total_sesiones;
+        document.getElementById('count-conflictos-preview').textContent= data.total_conflictos;
+        document.getElementById('count-existentes-preview').textContent= data.total_con_sesiones_previas||0;
+        document.getElementById('badge-conflictos').classList.toggle('hidden',data.total_conflictos===0);
+        document.getElementById('badge-existentes').classList.toggle('hidden',!data.total_con_sesiones_previas);
+        const cont=document.getElementById('lista-preview'); cont.innerHTML='';
+        if(!data.dias.length){cont.innerHTML='<p class="text-center text-sm text-slate-400 py-6">Sin sesiones para crear</p>';return;}
+        data.dias.forEach(dia=>{
+            const row=document.createElement('div');
+            row.className=`flex items-start gap-2 px-3 py-2 text-[11px] border-b border-slate-100 last:border-0 ${dia.tiene_conflicto?'bg-red-50':dia.tiene_sesiones_previas?'bg-blue-50':'hover:bg-slate-50'}`;
+            row.innerHTML=`<div class="flex-shrink-0 w-32"><span class="font-black text-slate-800">${dia.dia_nombre}</span><span class="text-slate-500 ml-1">${dia.fecha_display}</span>${dia.tiene_sesiones_previas?'<span class="text-blue-500 text-[9px] block">📅 ya tiene sesiones</span>':''}</div>
+                <div class="flex flex-wrap gap-1 flex-1">${dia.slots.map(s=>{
+                    const icon = s.conflicto ? (s.conflicto_tipo==='profesional' ? '👨‍⚕️⚠️' : '⚠️') : '';
+                    const cls  = s.conflicto ? 'bg-red-100 border-red-300 text-red-800' : 'bg-white border-slate-200 text-slate-700';
+                    const title = s.conflicto ? (s.conflicto_detalle || 'Conflicto de horario') : '';
+                    return `<div class="px-2 py-0.5 rounded-lg border text-[10px] ${cls}" title="${title}">${icon?icon+' ':''}<strong>${s.hora}</strong> · ${s.servicio}${s.conflicto&&s.conflicto_tipo==='profesional'?'<span class="block text-[9px] opacity-75">'+s.conflicto_detalle+'</span>':''}</div>`;
+                }).join('')}</div>`;
+            cont.appendChild(row);
+        });
+        estado._fechas_preview=[...new Set(data.dias.map(d=>d.fecha_iso))];
+    });
+}
+
+// ── GRUPALES: regenerar preview al cambiar ────────────────────
+function onGrupalesChange() {
+    estado.permitir_grupales = document.getElementById('chk-grupales').checked;
+    actualizarInfoTipoAgenda();
+    generarPreview();
+}
+
+// ── CONFIRMAR ──────────────────────────────────────────────────
+function confirmarPatron() {
+    if(!estado._fechas_preview?.length){alert('⚠️ Sin fechas.'); return;}
+    const btn=document.getElementById('btn-confirmar-patron');
+    // ✅ CORREGIDO: try/catch síncrono para que el botón nunca quede pegado
+    try {
+        btn.disabled=true; btn.innerHTML='⏳ Creando sesiones...';
+        fetch(URLS.procesar, {
+            method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+            body:JSON.stringify({paciente_id:estado.paciente_id,sucursal_id:estado.sucursal_id,semana_tipo:estado.semana_tipo,fechas:estado._fechas_preview,permitir_grupales:document.getElementById('chk-grupales')?.checked||false,tipo_agenda:estado.tipo_agenda,vinculo_id:estado.vinculo_id}),
+        }).then(r=>{
+            if(!r.ok && r.headers.get('content-type')?.includes('text/html')) {
+                throw new Error('El servidor devolvió un error (' + r.status + '). Revisa la consola del servidor.');
+            }
+            return r.json();
+        }).then(data=>{
+            document.querySelectorAll('.card-paso').forEach(el=>el.classList.add('hidden'));
+            document.getElementById('resultado-final').classList.remove('hidden');
+            document.getElementById('resultado-icono').textContent   = data.success?'✅':'❌';
+            document.getElementById('resultado-mensaje').textContent = data.success?`${data.creadas} sesión(es) creadas para ${estado.paciente_nombre}`:'Error al crear sesiones';
+            const detalle = data.success
+                ? (data.omitidas > 0
+                    ? data.omitidas + ' omitida(s) por conflicto:\n' + (data.errores||[]).join('\n')
+                    : 'Sin conflictos ✓')
+                : (data.error || '');
+            const detalleEl = document.getElementById('resultado-detalle');
+            detalleEl.style.whiteSpace = 'pre-line';
+            detalleEl.textContent = detalle;
+            btn.disabled=false; btn.innerHTML='✅ Crear sesiones';
+        }).catch(err=>{ btn.disabled=false; btn.innerHTML='✅ Crear sesiones'; alert('❌ Error: ' + err.message); });
+    } catch(err) {
+        btn.disabled=false; btn.innerHTML='✅ Crear sesiones';
+        alert('❌ Error inesperado: ' + err.message);
+    }
+}
+
+function reiniciar() {
+    const btn = document.getElementById('btn-confirmar-patron');
+    if (btn) { btn.disabled = false; btn.innerHTML = '✅ Crear sesiones'; }
+    Object.assign(estado,{paciente_id:null,paciente_nombre:'',sucursal_id:null,tipo_agenda:'normal',vinculo_id:null,vinculo_label:'',mes_vinculo:null,anio_vinculo:null,permitir_grupales:false,semana_tipo:[],semanas_seleccionadas:{},semanas_mes_data:{},_fechas_preview:[]});
+    document.getElementById('sel-paciente').value=''; document.getElementById('sel-sucursal').value='';
+    document.getElementById('lista-slots-patron').innerHTML=''; document.getElementById('tabla-semana-tipo').classList.add('hidden');
+    document.getElementById('resultado-final').classList.add('hidden'); onTipoAgendaChange('normal'); irPaso(1);
+}
+
+function getCookie(name){const v=document.cookie.match('(^|;) ?'+name+'=([^;]*)(;|$)');return v?v[2]:null;}
+</script>
+{% endblock %}
