@@ -2329,7 +2329,8 @@ def editar_sesion(request, sesion_id):
     
     if not es_admin:
         if es_profesional:
-            # 🔒 RESTRICCIÓN 1: Profesionales solo editan sesiones de HOY
+            # 🔒 RESTRICCIÓN: Profesionales solo editan sesiones de HOY
+            # Pueden editar múltiples veces durante el día para corregir errores
             if sesion.fecha != hoy:
                 puede_editar = False
                 puede_editar_pago = False
@@ -2337,12 +2338,6 @@ def editar_sesion(request, sesion_id):
                     mensaje_bloqueo = "Solo lectura - Sesión pasada (Profesionales solo editan hoy)"
                 else:
                     mensaje_bloqueo = "Solo lectura - Sesión futura (Profesionales solo editan hoy)"
-            
-            # 🔒 RESTRICCIÓN 2: Profesionales solo editan una vez
-            elif sesion.editada_por_profesional:
-                puede_editar = False
-                puede_editar_pago = False
-                mensaje_bloqueo = "Solo lectura - Ya fue editada por ti"
         
         elif es_recepcionista:
             # 🔒 RESTRICCIÓN: No editar si profesional ya editó
@@ -2394,7 +2389,19 @@ def editar_sesion(request, sesion_id):
                 pagos_activos = sesion.pagos.filter(anulado=False)
                 
                 if pagos_activos.exists():
-                    # ✅ AJAX: Devolver JSON indicando que necesita confirmación
+                    # 🔒 PROFESIONALES: No pueden gestionar pagos — derivar a recepción/admin
+                    if es_profesional:
+                        total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
+                        return JsonResponse({
+                            'error': True,
+                            'mensaje': (
+                                f'❌ Esta sesión tiene un pago registrado de Bs. {total_pagado}. '
+                                f'Para cambiar el estado a "{estado_nuevo}" debes comunicarte '
+                                f'con recepción o administración para que gestionen el pago.'
+                            )
+                        }, status=403)
+                    
+                    # ✅ RECEPCIONISTAS / ADMINS: Modal de confirmación con opciones de pago
                     pagos_activos_list = pagos_activos.select_related('metodo_pago')
                     total_pagado = pagos_activos_list.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
                     
@@ -2429,8 +2436,9 @@ def editar_sesion(request, sesion_id):
                     # Actualizar estado
                     sesion.estado = estado_nuevo
                     
-                    # Aplicar políticas de cobro según estado (SOLO para NO profesionales)
-                    if not es_profesional and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+                    # Aplicar políticas de cobro según estado (todos los roles)
+                    # Si llegó aquí con es_profesional=True, ya se validó que NO hay pagos activos
+                    if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                         sesion.monto_cobrado = Decimal('0.00')
                     
                     # Observaciones y notas
