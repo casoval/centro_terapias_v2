@@ -110,4 +110,18 @@ urlpatterns = [
     path('informe-evolucion/<int:paciente_id>/pdf/', 
          views.generar_pdf_informe_evolucion, 
          name='pdf_informe_evolucion'),
+
+    # PERMISOS DE EDICIÓN (solo administradores)
+    path('permisos-edicion/',
+         views.lista_permisos_edicion,
+         name='lista_permisos_edicion'),
+    path('permisos-edicion/crear/',
+         views.crear_permiso_edicion,
+         name='crear_permiso_edicion'),
+    path('permisos-edicion/<int:permiso_id>/editar/',
+         views.editar_permiso_edicion,
+         name='editar_permiso_edicion'),
+    path('permisos-edicion/<int:permiso_id>/revocar/',
+         views.revocar_permiso_edicion,
+         name='revocar_permiso_edicion'),
 ]

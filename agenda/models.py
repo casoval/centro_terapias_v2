@@ -1108,3 +1108,81 @@ class Mensualidad(models.Model):
         self.full_clean()
         
         super().save(*args, **kwargs)
+
+# ══════════════════════════════════════════════════════════════
+# MODELO: PermisoEdicionSesion
+# Permite al administrador autorizar ediciones fuera del día actual
+# ══════════════════════════════════════════════════════════════
+
+from django.utils import timezone as tz_util
+from django.conf import settings
+
+class PermisoEdicionSesion(models.Model):
+    """
+    Permite a un profesional editar sesiones fuera del día actual.
+    El administrador define exactamente QUÉ sesiones puede editar y POR CUÁNTO TIEMPO.
+    """
+
+    profesional = models.ForeignKey(
+        Profesional,
+        on_delete=models.CASCADE,
+        related_name='permisos_edicion',
+        verbose_name="Profesional"
+    )
+
+    # ── Qué sesiones puede editar ──
+    fecha_sesion_desde = models.DateField(verbose_name="Sesiones desde")
+    fecha_sesion_hasta = models.DateField(verbose_name="Sesiones hasta")
+
+    # ── Ventana temporal del permiso ──
+    valido_desde = models.DateTimeField(
+        verbose_name="Válido desde",
+        default=tz_util.now
+    )
+    valido_hasta = models.DateTimeField(verbose_name="Válido hasta")
+
+    # ── Qué campos puede modificar ──
+    puede_editar_estado       = models.BooleanField(default=True,  verbose_name="Puede editar estado")
+    puede_editar_notas        = models.BooleanField(default=True,  verbose_name="Puede editar notas")
+    puede_editar_otros_campos = models.BooleanField(default=False, verbose_name="Puede editar otros campos")
+
+    # ── Auditoría ──
+    motivo = models.TextField(blank=True, verbose_name="Motivo del permiso")
+    otorgado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='permisos_otorgados',
+        verbose_name="Otorgado por"
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    usado          = models.BooleanField(default=False, verbose_name="Fue usado")
+    fecha_uso      = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de uso")
+
+    class Meta:
+        verbose_name = "Permiso de Edición"
+        verbose_name_plural = "Permisos de Edición"
+        ordering = ['-fecha_creacion']
+
+    @property
+    def esta_activo(self):
+        ahora = tz_util.now()
+        return self.valido_desde <= ahora <= self.valido_hasta and not self.usado
+
+    @property
+    def es_pendiente(self):
+        return tz_util.now() < self.valido_desde
+
+    @property
+    def esta_expirado(self):
+        return tz_util.now() > self.valido_hasta and not self.usado
+
+    def cubre_sesion(self, fecha_sesion):
+        return self.fecha_sesion_desde <= fecha_sesion <= self.fecha_sesion_hasta
+
+    def __str__(self):
+        return (
+            f"{self.profesional} | "
+            f"{self.fecha_sesion_desde}→{self.fecha_sesion_hasta} | "
+            f"válido hasta {self.valido_hasta:%d/%m/%Y %H:%M}"
+        )

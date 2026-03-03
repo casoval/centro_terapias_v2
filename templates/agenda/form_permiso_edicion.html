@@ -1,0 +1,511 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if permiso %}Editar Permiso{% else %}Nuevo Permiso{% endif %} — Agenda{% endblock %}
+
+{% block content %}
+<style>
+    .field-group {
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field-group:focus-within {
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+
+    .checkbox-card input[type="checkbox"]:checked ~ .card-body {
+        background: #fef9c3;
+        border-color: #f59e0b;
+    }
+    .checkbox-card input[type="checkbox"]:checked ~ .card-body .check-icon {
+        background: #f59e0b;
+        color: white;
+    }
+</style>
+
+<div class="min-h-screen pb-12 max-w-2xl mx-auto">
+
+    <!-- ══════════════ HEADER ══════════════ -->
+    <div class="mb-5 flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 mb-0.5">
+                <div class="w-7 h-7 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center shadow-sm text-white">
+                    <span class="text-sm">{% if permiso %}✏️{% else %}➕{% endif %}</span>
+                </div>
+                <h1 class="text-lg font-black text-slate-800 tracking-tight">
+                    {% if permiso %}Editar Permiso{% else %}Nuevo Permiso de Edición{% endif %}
+                </h1>
+            </div>
+            <p class="text-xs text-slate-500 font-medium ml-9">
+                {% if permiso %}
+                    Modifica el permiso de <strong>{{ permiso.profesional.nombre }} {{ permiso.profesional.apellido }}</strong>
+                {% else %}
+                    Autoriza a un profesional a editar sesiones fuera del día actual
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'agenda:lista_permisos_edicion' %}"
+           class="group bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold text-[11px] shadow-sm">
+            <span class="group-hover:-translate-x-0.5 transition-transform">←</span>
+            Volver
+        </a>
+    </div>
+
+    <!-- ══════════════ FORMULARIO ══════════════ -->
+    <form method="post" id="form-permiso">
+        {% csrf_token %}
+
+        <div class="space-y-4">
+
+            <!-- ────── PROFESIONAL ────── -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
+                    <span>👨‍⚕️</span> Profesional
+                </h2>
+
+                <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                    <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                        Selecciona el profesional
+                    </label>
+                    <select name="profesional" id="id_profesional" required
+                            class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none">
+                        <option value="">— Seleccionar —</option>
+                        {% for prof in profesionales %}
+                        <option value="{{ prof.id }}"
+                                data-nombre="{{ prof.nombre }} {{ prof.apellido }}"
+                                {% if form.profesional.value == prof.id|stringformat:"s" or permiso.profesional_id == prof.id %}selected{% endif %}>
+                            {{ prof.nombre }} {{ prof.apellido }}{% if prof.especialidad %} · {{ prof.especialidad }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if form.profesional.errors %}
+                <p class="text-red-500 text-xs font-semibold mt-1">{{ form.profesional.errors|join:", " }}</p>
+                {% endif %}
+
+                <!-- Preview del profesional seleccionado -->
+                <div id="preview-profesional" class="mt-3 hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 flex items-center gap-2.5">
+                        <div id="avatar-profesional" class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                        </div>
+                        <div>
+                            <p id="nombre-profesional" class="font-bold text-blue-800 text-sm"></p>
+                            <p class="text-[10px] text-blue-500 font-medium">Profesional seleccionado</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ────── RANGO DE SESIONES ────── -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
+                    <span>📅</span> Sesiones que puede editar
+                </h2>
+                <p class="text-[11px] text-slate-400 mb-3">Define el rango de fechas de las sesiones afectadas.</p>
+
+                <div class="grid grid-cols-2 gap-3">
+
+                    <div>
+                        <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                            <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                                Desde
+                            </label>
+                            <input type="date" name="fecha_sesion_desde" id="id_fecha_desde"
+                                   value="{{ form.fecha_sesion_desde.value|default:'' }}"
+                                   required
+                                   class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none">
+                        </div>
+                        {% if form.fecha_sesion_desde.errors %}
+                        <p class="text-red-500 text-xs font-semibold mt-1">{{ form.fecha_sesion_desde.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                            <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                                Hasta
+                            </label>
+                            <input type="date" name="fecha_sesion_hasta" id="id_fecha_hasta"
+                                   value="{{ form.fecha_sesion_hasta.value|default:'' }}"
+                                   required
+                                   class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none">
+                        </div>
+                        {% if form.fecha_sesion_hasta.errors %}
+                        <p class="text-red-500 text-xs font-semibold mt-1">{{ form.fecha_sesion_hasta.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+
+                </div>
+
+                <!-- Atajos rápidos -->
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    <span class="text-[10px] text-slate-400 font-medium self-center">Atajos:</span>
+                    <button type="button" onclick="setFechasSesion('ayer')"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        📅 Ayer
+                    </button>
+                    <button type="button" onclick="setFechasSesion('anteayer')"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        📅 Anteayer
+                    </button>
+                    <button type="button" onclick="setFechasSesion('semana')"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        🗓️ Última semana
+                    </button>
+                    <button type="button" onclick="setFechasSesion('mes')"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        📆 Este mes
+                    </button>
+                </div>
+
+                <!-- Resumen de rango -->
+                <div id="resumen-rango" class="mt-3 hidden bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-800 font-semibold">
+                </div>
+            </div>
+
+            <!-- ────── VALIDEZ DEL PERMISO ────── -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
+                    <span>⏱️</span> Ventana de validez
+                </h2>
+                <p class="text-[11px] text-slate-400 mb-3">¿Hasta cuándo puede ejercer este permiso el profesional?</p>
+
+                <div class="grid grid-cols-2 gap-3">
+
+                    <div>
+                        <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                            <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                                Válido desde
+                            </label>
+                            <input type="datetime-local" name="valido_desde" id="id_valido_desde"
+                                   value="{{ form.valido_desde.value|default:'' }}"
+                                   required
+                                   class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                            <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                                Válido hasta
+                            </label>
+                            <input type="datetime-local" name="valido_hasta" id="id_valido_hasta"
+                                   value="{{ form.valido_hasta.value|default:'' }}"
+                                   required
+                                   class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none">
+                        </div>
+                        {% if form.valido_hasta.errors %}
+                        <p class="text-red-500 text-xs font-semibold mt-1">{{ form.valido_hasta.errors|join:", " }}</p>
+                        {% endif %}
+                    </div>
+
+                </div>
+
+                <!-- Atajos de validez -->
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    <span class="text-[10px] text-slate-400 font-medium self-center">Expira en:</span>
+                    <button type="button" onclick="setValidez(1)"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        1 hora
+                    </button>
+                    <button type="button" onclick="setValidez(4)"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        4 horas
+                    </button>
+                    <button type="button" onclick="setValidez(24)"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        24 horas
+                    </button>
+                    <button type="button" onclick="setValidez(72)"
+                            class="bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors border border-slate-200 hover:border-amber-300">
+                        3 días
+                    </button>
+                </div>
+            </div>
+
+            <!-- ────── QUÉ PUEDE EDITAR ────── -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
+                    <span>✏️</span> ¿Qué puede editar?
+                </h2>
+                <p class="text-[11px] text-slate-400 mb-3">Selecciona los campos que el profesional podrá modificar.</p>
+
+                <div class="space-y-2">
+
+                    <!-- Estado -->
+                    <label class="checkbox-card flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-300 transition-colors bg-slate-50/50">
+                        <input type="checkbox" name="puede_editar_estado"
+                               class="mt-0.5 accent-amber-500"
+                               {% if form.puede_editar_estado.value or not permiso %}checked{% endif %}>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 text-sm">📊 Estado de la sesión</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                Puede cambiar el estado: Realizada, Cancelada, Reprogramada, etc.
+                            </p>
+                        </div>
+                        <span class="text-emerald-600 text-lg mt-0.5">🔄</span>
+                    </label>
+
+                    <!-- Notas -->
+                    <label class="checkbox-card flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-300 transition-colors bg-slate-50/50">
+                        <input type="checkbox" name="puede_editar_notas"
+                               class="mt-0.5 accent-amber-500"
+                               {% if form.puede_editar_notas.value or not permiso %}checked{% endif %}>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 text-sm">📝 Notas de evolución</p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                Puede escribir o modificar las notas clínicas de la sesión.
+                            </p>
+                        </div>
+                        <span class="text-blue-500 text-lg mt-0.5">📋</span>
+                    </label>
+
+                    <!-- Otros campos -->
+                    <label class="checkbox-card flex items-start gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-300 transition-colors bg-slate-50/50">
+                        <input type="checkbox" name="puede_editar_otros_campos"
+                               class="mt-0.5 accent-amber-500"
+                               {% if form.puede_editar_otros_campos.value %}checked{% endif %}>
+                        <div class="flex-1">
+                            <p class="font-bold text-slate-800 text-sm">⚙️ Otros campos <span class="text-[10px] text-orange-600 font-bold bg-orange-100 px-1.5 py-0.5 rounded-full ml-1">Avanzado</span></p>
+                            <p class="text-[11px] text-slate-500 mt-0.5">
+                                Incluye hora de inicio/fin, observaciones y datos adicionales. Usar con precaución.
+                            </p>
+                        </div>
+                        <span class="text-orange-500 text-lg mt-0.5">⚠️</span>
+                    </label>
+
+                </div>
+            </div>
+
+            <!-- ────── MOTIVO ────── -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
+                    <span>💬</span> Motivo (opcional)
+                </h2>
+
+                <div class="field-group border border-slate-200 rounded-xl overflow-hidden">
+                    <label class="block text-[10px] uppercase tracking-wider font-bold text-slate-500 px-3 pt-2.5 pb-0.5">
+                        Razón del permiso
+                    </label>
+                    <textarea name="motivo" id="id_motivo" rows="3"
+                              placeholder="Ej: El profesional estuvo de viaje y no tuvo acceso al sistema durante el 28 y 29 de febrero."
+                              class="w-full px-3 pb-2.5 pt-1 bg-transparent text-sm text-slate-800 focus:outline-none resize-none placeholder:text-slate-300">{{ form.motivo.value|default:'' }}</textarea>
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">
+                    Queda registrado en el historial de auditoría para justificar el acceso excepcional.
+                </p>
+            </div>
+
+            <!-- ────── RESUMEN FINAL ────── -->
+            <div id="resumen-final" class="hidden bg-amber-50 border border-amber-300 rounded-2xl p-4">
+                <h3 class="font-black text-amber-800 text-sm mb-2 flex items-center gap-2">
+                    <span>📋</span> Resumen del permiso
+                </h3>
+                <div id="contenido-resumen" class="text-xs text-amber-900 space-y-1.5 font-medium">
+                </div>
+            </div>
+
+            <!-- ────── ACCIONES ────── -->
+            <div class="flex gap-3">
+                <a href="{% url 'agenda:lista_permisos_edicion' %}"
+                   class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold text-sm transition-colors border border-slate-200">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="flex-2 w-full bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md shadow-amber-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                    {% if permiso %}
+                        ✅ Guardar Cambios
+                    {% else %}
+                        🔓 Crear Permiso
+                    {% endif %}
+                </button>
+            </div>
+
+        </div>
+    </form>
+
+</div>
+
+<script>
+// ═══════════ PREVIEW PROFESIONAL ═══════════
+const selectProfesional = document.getElementById('id_profesional');
+
+function actualizarPreview() {
+    const option = selectProfesional.options[selectProfesional.selectedIndex];
+    const preview = document.getElementById('preview-profesional');
+    const nombre = option.dataset.nombre || '';
+
+    if (nombre) {
+        const partes = nombre.split(' ');
+        const iniciales = (partes[0]?.[0] || '') + (partes[1]?.[0] || '');
+        document.getElementById('avatar-profesional').textContent = iniciales.toUpperCase();
+        document.getElementById('nombre-profesional').textContent = nombre;
+        preview.classList.remove('hidden');
+    } else {
+        preview.classList.add('hidden');
+    }
+    actualizarResumenFinal();
+}
+
+selectProfesional.addEventListener('change', actualizarPreview);
+actualizarPreview();  // Trigger on load if editing
+
+// ═══════════ ATAJOS FECHAS SESIONES ═══════════
+// Resta días usando solo año/mes/día para evitar desfases de zona horaria (UTC-4 Bolivia)
+function restarDias(dias) {
+    const hoy = new Date();
+    return new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - dias);
+}
+
+function setFechasSesion(tipo) {
+    let desde, hasta;
+    const hoy = new Date();
+
+    switch(tipo) {
+        case 'ayer':
+            desde = hasta = restarDias(1);
+            break;
+        case 'anteayer':
+            desde = hasta = restarDias(2);
+            break;
+        case 'semana':
+            desde = restarDias(7);
+            hasta = restarDias(1);
+            break;
+        case 'mes':
+            desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            hasta = restarDias(1);
+            break;
+    }
+
+    document.getElementById('id_fecha_desde').value = formatDate(desde);
+    document.getElementById('id_fecha_hasta').value = formatDate(hasta);
+    actualizarResumenRango();
+    actualizarResumenFinal();
+}
+
+// ═══════════ ATAJOS VALIDEZ ═══════════
+function setValidez(horas) {
+    const ahora = new Date();
+    const hasta = new Date(ahora.getTime() + horas * 3600000);
+
+    // Setear "válido desde" = ahora
+    document.getElementById('id_valido_desde').value = formatDateTimeLocal(ahora);
+    document.getElementById('id_valido_hasta').value = formatDateTimeLocal(hasta);
+    actualizarResumenFinal();
+}
+
+// ═══════════ RESUMEN DE RANGO ═══════════
+// Convierte 'YYYY-MM-DD' a 'DD/MM/YYYY' sin crear objetos Date (evita desfase UTC)
+function formatDateDisplay(isoStr) {
+    if (!isoStr) return '';
+    const [y, m, d] = isoStr.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+function actualizarResumenRango() {
+    const desde = document.getElementById('id_fecha_desde').value;
+    const hasta = document.getElementById('id_fecha_hasta').value;
+    const resumen = document.getElementById('resumen-rango');
+
+    if (desde && hasta) {
+        const d1 = new Date(desde + 'T00:00:00');
+        const d2 = new Date(hasta + 'T00:00:00');
+        const diff = Math.round((d2 - d1) / 86400000);
+
+        if (d1 > d2) {
+            resumen.textContent = '⚠️ La fecha "Hasta" debe ser posterior a "Desde".';
+            resumen.classList.remove('hidden');
+            resumen.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+            resumen.classList.remove('bg-amber-50', 'border-amber-200', 'text-amber-800');
+        } else {
+            const dias = diff === 0 ? 'Solo ese día' : `${diff + 1} día(s)`;
+            resumen.textContent = `📅 Abarca ${dias}: del ${formatDateDisplay(desde)} al ${formatDateDisplay(hasta)}.`;
+            resumen.classList.remove('hidden');
+            resumen.classList.remove('bg-red-50', 'border-red-200', 'text-red-800');
+            resumen.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+        }
+    } else {
+        resumen.classList.add('hidden');
+    }
+}
+
+document.getElementById('id_fecha_desde').addEventListener('change', () => { actualizarResumenRango(); actualizarResumenFinal(); });
+document.getElementById('id_fecha_hasta').addEventListener('change', () => { actualizarResumenRango(); actualizarResumenFinal(); });
+document.getElementById('id_valido_hasta').addEventListener('change', actualizarResumenFinal);
+
+// ═══════════ RESUMEN FINAL ═══════════
+function actualizarResumenFinal() {
+    const profOption = selectProfesional.options[selectProfesional.selectedIndex];
+    const profNombre = profOption?.dataset?.nombre;
+    const desde = document.getElementById('id_fecha_desde').value;
+    const hasta = document.getElementById('id_fecha_hasta').value;
+    const validoHasta = document.getElementById('id_valido_hasta').value;
+
+    const resumen = document.getElementById('resumen-final');
+    const contenido = document.getElementById('contenido-resumen');
+
+    if (profNombre && desde && hasta && validoHasta) {
+        const d1 = new Date(desde);
+        const d2 = new Date(hasta);
+        const vh = new Date(validoHasta);
+
+        const camposChecked = [];
+        if (document.querySelector('[name="puede_editar_estado"]')?.checked) camposChecked.push('Estado');
+        if (document.querySelector('[name="puede_editar_notas"]')?.checked)  camposChecked.push('Notas de evolución');
+        if (document.querySelector('[name="puede_editar_otros_campos"]')?.checked) camposChecked.push('Otros campos');
+
+        contenido.innerHTML = `
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <p class="text-amber-600 font-bold uppercase tracking-wider text-[9px]">Profesional</p>
+                    <p>${profNombre}</p>
+                </div>
+                <div>
+                    <p class="text-amber-600 font-bold uppercase tracking-wider text-[9px]">Sesiones</p>
+                    <p>${formatDateDisplay(desde)} → ${formatDateDisplay(hasta)}</p>
+                </div>
+                <div>
+                    <p class="text-amber-600 font-bold uppercase tracking-wider text-[9px]">Válido hasta</p>
+                    <p>${vh.toLocaleDateString('es-BO')} ${vh.toLocaleTimeString('es-BO', {hour:'2-digit', minute:'2-digit'})}</p>
+                </div>
+                <div>
+                    <p class="text-amber-600 font-bold uppercase tracking-wider text-[9px]">Puede editar</p>
+                    <p>${camposChecked.length ? camposChecked.join(', ') : '—'}</p>
+                </div>
+            </div>
+        `;
+        resumen.classList.remove('hidden');
+    } else {
+        resumen.classList.add('hidden');
+    }
+}
+
+// Escuchar checkboxes
+document.querySelectorAll('[name="puede_editar_estado"], [name="puede_editar_notas"], [name="puede_editar_otros_campos"]')
+    .forEach(cb => cb.addEventListener('change', actualizarResumenFinal));
+
+// ═══════════ UTILS ═══════════
+function formatDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatDateTimeLocal(d) {
+    return `${formatDate(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ═══════════ INIT ═══════════
+// Pre-cargar "válido desde" = ahora si es nuevo permiso
+{% if not permiso %}
+const ahora = new Date();
+document.getElementById('id_valido_desde').value = formatDateTimeLocal(ahora);
+// Por defecto: validez de 24h
+const manana = new Date(ahora.getTime() + 24 * 3600000);
+document.getElementById('id_valido_hasta').value = formatDateTimeLocal(manana);
+{% endif %}
+
+// Actualizar resumen inicial
+actualizarResumenRango();
+actualizarResumenFinal();
+</script>
+
+{% endblock %}

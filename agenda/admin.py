@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad
+from .models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad, PermisoEdicionSesion
 
 
 # ✅ NUEVO: Inline para gestionar servicios-profesionales
@@ -327,4 +327,39 @@ class SesionAdmin(admin.ModelAdmin):
         if not change:
             obj.creada_por = request.user
         obj.modificada_por = request.user
+        super().save_model(request, obj, form, change)
+
+@admin.register(PermisoEdicionSesion)
+class PermisoEdicionAdmin(admin.ModelAdmin):
+    list_display = [
+        'profesional',
+        'fecha_sesion_desde',
+        'fecha_sesion_hasta',
+        'valido_hasta',
+        'puede_editar_estado',
+        'puede_editar_notas',
+        'puede_editar_otros_campos',
+        'estado_display',
+        'usado',
+        'otorgado_por',
+        'fecha_creacion',
+    ]
+    list_filter  = ['usado', 'puede_editar_estado', 'puede_editar_notas', 'puede_editar_otros_campos']
+    search_fields = ['profesional__nombre', 'profesional__apellido', 'motivo']
+    readonly_fields = ['fecha_creacion', 'fecha_uso', 'usado', 'otorgado_por']
+
+    def estado_display(self, obj):
+        if obj.usado:
+            return '📋 Usado'
+        elif obj.esta_activo:
+            return '✅ Activo'
+        elif obj.es_pendiente:
+            return '⏳ Pendiente'
+        else:
+            return '⏰ Expirado'
+    estado_display.short_description = 'Estado'
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            obj.otorgado_por = request.user
         super().save_model(request, obj, form, change)

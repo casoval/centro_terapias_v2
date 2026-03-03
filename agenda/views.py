@@ -11,7 +11,8 @@ from calendar import monthrange, Calendar
 from decimal import Decimal
 from itertools import groupby
 
-from agenda.models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad
+from agenda.models import Sesion, Proyecto, Mensualidad, ServicioProfesionalMensualidad, PermisoEdicionSesion
+from django.contrib.auth.decorators import user_passes_test
 from pacientes.models import Paciente, PacienteServicio
 from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
@@ -1095,6 +1096,11 @@ def calendario(request):
         'page_obj': page_obj,
         'por_pagina': request.GET.get('por_pagina', '50'),
         'es_profesional': es_profesional,
+        'permisos_activos_count': PermisoEdicionSesion.objects.filter(
+            valido_desde__lte=date.today(),
+            valido_hasta__gte=date.today(),
+            usado=False,
+        ).count() if (request.user.is_staff or request.user.is_superuser) else 0,
     }
     
     return render(request, 'agenda/calendario.html', context)
@@ -4929,3 +4935,193 @@ def api_servicios_disponibles_mensualidad(request):
 
     except Exception as e:
         return JsonResponse({'servicios': [], 'error': str(e)}, status=500)
+
+# ══════════════════════════════════════════════════════════════
+# PERMISOS DE EDICIÓN — Vistas y funciones de servicio
+# ══════════════════════════════════════════════════════════════
+
+_staff_required = user_passes_test(lambda u: u.is_staff or u.is_superuser)
+
+
+@login_required
+@_staff_required
+def lista_permisos_edicion(request):
+    """Lista todos los permisos con filtros y estadísticas."""
+    from django.utils import timezone
+
+    qs = PermisoEdicionSesion.objects.select_related('profesional', 'otorgado_por').all()
+
+    filtro_profesional = request.GET.get('profesional', '')
+    filtro_estado      = request.GET.get('estado', '')
+    filtro_mes         = request.GET.get('mes', '')
+
+    if filtro_profesional:
+        qs = qs.filter(profesional_id=filtro_profesional)
+
+    if filtro_estado == 'activo':
+        ahora = timezone.now()
+        qs = qs.filter(valido_desde__lte=ahora, valido_hasta__gte=ahora, usado=False)
+    elif filtro_estado == 'pendiente':
+        qs = qs.filter(valido_desde__gt=timezone.now())
+    elif filtro_estado == 'expirado':
+        qs = qs.filter(valido_hasta__lt=timezone.now(), usado=False)
+    elif filtro_estado == 'usado':
+        qs = qs.filter(usado=True)
+
+    if filtro_mes:
+        try:
+            anio, mes = filtro_mes.split('-')
+            qs = qs.filter(fecha_creacion__year=anio, fecha_creacion__month=mes)
+        except ValueError:
+            pass
+
+    # Estadísticas globales (sin filtros)
+    ahora = timezone.now()
+    todos = PermisoEdicionSesion.objects.all()
+    stats = {
+        'activos':    todos.filter(valido_desde__lte=ahora, valido_hasta__gte=ahora, usado=False).count(),
+        'pendientes': todos.filter(valido_desde__gt=ahora).count(),
+        'usados':     todos.filter(usado=True).count(),
+        'expirados':  todos.filter(valido_hasta__lt=ahora, usado=False).count(),
+    }
+
+    paginator = Paginator(qs, 20)
+    page      = request.GET.get('page', 1)
+    permisos  = paginator.get_page(page)
+
+    profesionales = Profesional.objects.filter(activo=True).order_by('nombre')
+
+    return render(request, 'agenda/permisos_edicion.html', {
+        'permisos':           permisos,
+        'stats':              stats,
+        'profesionales':      profesionales,
+        'filtro_profesional': filtro_profesional,
+        'filtro_estado':      filtro_estado,
+        'filtro_mes':         filtro_mes,
+    })
+
+
+@login_required
+@_staff_required
+def crear_permiso_edicion(request):
+    """Crea un nuevo permiso de edición."""
+    from .forms import PermisoEdicionForm
+
+    if request.method == 'POST':
+        form = PermisoEdicionForm(request.POST)
+        if form.is_valid():
+            permiso = form.save(commit=False)
+            permiso.otorgado_por = request.user
+            permiso.save()
+            messages.success(
+                request,
+                f"✅ Permiso creado para {permiso.profesional.nombre} "
+                f"{permiso.profesional.apellido} — válido hasta "
+                f"{permiso.valido_hasta.strftime('%d/%m/%Y %H:%M')}."
+            )
+            return redirect('agenda:lista_permisos_edicion')
+    else:
+        form = PermisoEdicionForm()
+
+    profesionales = Profesional.objects.filter(activo=True).order_by('nombre')
+    return render(request, 'agenda/form_permiso_edicion.html', {
+        'form':           form,
+        'profesionales':  profesionales,
+        'permiso':        None,
+    })
+
+
+@login_required
+@_staff_required
+def editar_permiso_edicion(request, permiso_id):
+    """Edita un permiso existente (solo si no fue usado todavía)."""
+    from .forms import PermisoEdicionForm
+
+    permiso = get_object_or_404(PermisoEdicionSesion, id=permiso_id)
+
+    if permiso.usado:
+        messages.error(request, "❌ No se puede editar un permiso que ya fue utilizado.")
+        return redirect('agenda:lista_permisos_edicion')
+
+    if request.method == 'POST':
+        form = PermisoEdicionForm(request.POST, instance=permiso)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "✅ Permiso actualizado correctamente.")
+            return redirect('agenda:lista_permisos_edicion')
+    else:
+        form = PermisoEdicionForm(instance=permiso)
+
+    profesionales = Profesional.objects.filter(activo=True).order_by('nombre')
+    return render(request, 'agenda/form_permiso_edicion.html', {
+        'form':          form,
+        'profesionales': profesionales,
+        'permiso':       permiso,
+    })
+
+
+@login_required
+@_staff_required
+def revocar_permiso_edicion(request, permiso_id):
+    """Elimina (revoca) un permiso."""
+    if request.method == 'POST':
+        permiso = get_object_or_404(PermisoEdicionSesion, id=permiso_id)
+        nombre = f"{permiso.profesional.nombre} {permiso.profesional.apellido}"
+        permiso.delete()
+        messages.success(request, f"🗑️ Permiso de {nombre} revocado correctamente.")
+    return redirect('agenda:lista_permisos_edicion')
+
+
+# ── Funciones de servicio reutilizables ──
+
+def profesional_puede_editar_sesion(profesional, sesion):
+    """
+    Verifica si un profesional puede editar una sesión específica.
+    Retorna: (puede: bool, campos_permitidos: list, motivo: str)
+    """
+    from django.utils import timezone as tz
+
+    hoy = date.today()
+
+    # Siempre puede editar sesiones del día actual
+    if sesion.fecha == hoy:
+        return True, ['estado', 'notas_sesion', 'observaciones', 'hora_inicio', 'hora_fin'], "Sesión del día actual"
+
+    permiso = PermisoEdicionSesion.objects.filter(
+        profesional=profesional,
+        fecha_sesion_desde__lte=sesion.fecha,
+        fecha_sesion_hasta__gte=sesion.fecha,
+        valido_desde__lte=tz.now(),
+        valido_hasta__gte=tz.now(),
+        usado=False,
+    ).first()
+
+    if not permiso:
+        return False, [], "Sin permiso para editar sesiones de otra fecha"
+
+    campos = []
+    if permiso.puede_editar_estado: campos.append('estado')
+    if permiso.puede_editar_notas:  campos.append('notas_sesion')
+    if permiso.puede_editar_otros_campos:
+        campos += ['observaciones', 'hora_inicio', 'hora_fin']
+
+    return True, campos, f"Permiso otorgado por {permiso.otorgado_por}"
+
+
+def registrar_uso_permiso(profesional, sesion):
+    """Marca el permiso como usado una vez que el profesional edita la sesión."""
+    from django.utils import timezone as tz
+
+    permiso = PermisoEdicionSesion.objects.filter(
+        profesional=profesional,
+        fecha_sesion_desde__lte=sesion.fecha,
+        fecha_sesion_hasta__gte=sesion.fecha,
+        valido_desde__lte=tz.now(),
+        valido_hasta__gte=tz.now(),
+        usado=False,
+    ).first()
+
+    if permiso:
+        permiso.usado     = True
+        permiso.fecha_uso = tz.now()
+        permiso.save(update_fields=['usado', 'fecha_uso'])

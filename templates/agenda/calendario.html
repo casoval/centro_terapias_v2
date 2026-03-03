@@ -90,6 +90,19 @@
                         <span class="text-sm group-hover:scale-110 transition-transform">🔁</span>
                         <span>Patrón Semanal</span>
                     </a>
+
+                    {% if user.is_staff or user.is_superuser %}
+                    <a href="{% url 'agenda:lista_permisos_edicion' %}"
+                       class="group bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold text-[11px] shadow-sm hover:shadow-md relative">
+                        <span class="text-sm group-hover:scale-110 transition-transform">🔓</span>
+                        <span>Permisos</span>
+                        {% if permisos_activos_count > 0 %}
+                        <span class="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                            {{ permisos_activos_count }}
+                        </span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>

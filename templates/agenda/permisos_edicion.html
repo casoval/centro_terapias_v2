@@ -1,0 +1,413 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Permisos de Edición — Agenda{% endblock %}
+
+{% block content %}
+<style>
+    .badge-activo    { background: #dcfce7; color: #166534; }
+    .badge-expirado  { background: #fee2e2; color: #991b1b; }
+    .badge-pendiente { background: #fef9c3; color: #854d0e; }
+    .badge-usado     { background: #f1f5f9; color: #475569; }
+
+    .row-enter {
+        animation: fadeInRow 0.3s ease-out;
+    }
+    @keyframes fadeInRow {
+        from { opacity: 0; transform: translateY(-6px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<div class="min-h-screen pb-12">
+
+    <!-- ══════════════ HEADER ══════════════ -->
+    <div class="mb-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+
+            <!-- Título -->
+            <div>
+                <div class="flex items-center gap-2 mb-0.5">
+                    <div class="w-7 h-7 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center shadow-sm text-white">
+                        <span class="text-sm">🔓</span>
+                    </div>
+                    <h1 class="text-lg font-black text-slate-800 tracking-tight">
+                        Permisos de Edición
+                    </h1>
+                </div>
+                <p class="text-xs text-slate-500 font-medium ml-9">
+                    Autoriza a profesionales a editar sesiones fuera del día actual
+                </p>
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{% url 'agenda:calendario' %}"
+                   class="group bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold text-[11px] shadow-sm">
+                    <span class="group-hover:-translate-x-0.5 transition-transform">←</span>
+                    Volver al Calendario
+                </a>
+
+                <a href="{% url 'agenda:crear_permiso_edicion' %}"
+                   class="group bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/30 font-bold text-[11px]">
+                    <span class="text-sm group-hover:scale-110 transition-transform">➕</span>
+                    Nuevo Permiso
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════ MENSAJES ══════════════ -->
+    {% if messages %}
+    <div class="mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border
+            {% if message.tags == 'success' %}bg-emerald-50 text-emerald-800 border-emerald-200
+            {% elif message.tags == 'error' %}bg-red-50 text-red-800 border-red-200
+            {% else %}bg-blue-50 text-blue-800 border-blue-200{% endif %}">
+            {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% else %}ℹ️{% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ══════════════ STATS ══════════════ -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center text-lg">✅</div>
+            <div>
+                <p class="text-xl font-black text-slate-800">{{ stats.activos }}</p>
+                <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Activos</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-lg">⏳</div>
+            <div>
+                <p class="text-xl font-black text-slate-800">{{ stats.pendientes }}</p>
+                <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Pendientes</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-lg">📋</div>
+            <div>
+                <p class="text-xl font-black text-slate-800">{{ stats.usados }}</p>
+                <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Usados</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-3 shadow-sm flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center text-lg">⏰</div>
+            <div>
+                <p class="text-xl font-black text-slate-800">{{ stats.expirados }}</p>
+                <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Expirados</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════ FILTROS ══════════════ -->
+    <form method="get"
+          class="bg-white/70 backdrop-blur-sm border border-slate-200 rounded-xl p-3 mb-4 shadow-sm">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+
+            <div class="space-y-0.5">
+                <label class="text-[10px] uppercase tracking-wider font-bold text-slate-500">👨‍⚕️ Profesional</label>
+                <select name="profesional"
+                        class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 h-8"
+                        onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for prof in profesionales %}
+                    <option value="{{ prof.id }}" {% if filtro_profesional == prof.id|stringformat:"s" %}selected{% endif %}>
+                        {{ prof.nombre }} {{ prof.apellido }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="space-y-0.5">
+                <label class="text-[10px] uppercase tracking-wider font-bold text-slate-500">📊 Estado</label>
+                <select name="estado"
+                        class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 h-8"
+                        onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="activo"    {% if filtro_estado == 'activo' %}selected{% endif %}>✅ Activos</option>
+                    <option value="pendiente" {% if filtro_estado == 'pendiente' %}selected{% endif %}>⏳ Pendientes</option>
+                    <option value="expirado"  {% if filtro_estado == 'expirado' %}selected{% endif %}>⏰ Expirados</option>
+                    <option value="usado"     {% if filtro_estado == 'usado' %}selected{% endif %}>📋 Usados</option>
+                </select>
+            </div>
+
+            <div class="space-y-0.5">
+                <label class="text-[10px] uppercase tracking-wider font-bold text-slate-500">📅 Mes</label>
+                <input type="month" name="mes"
+                       value="{{ filtro_mes }}"
+                       class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 h-8"
+                       onchange="this.form.submit()">
+            </div>
+
+            <div class="flex items-end">
+                <a href="{% url 'agenda:lista_permisos_edicion' %}"
+                   class="w-full text-center bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 border border-slate-200 px-2 py-1.5 rounded-lg text-xs font-bold transition-colors h-8 flex items-center justify-center gap-1">
+                    <span>🔄</span> Limpiar
+                </a>
+            </div>
+
+        </div>
+    </form>
+
+    <!-- ══════════════ TABLA ══════════════ -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+        {% if permisos %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Profesional</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Sesiones</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Válido hasta</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Puede editar</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Estado</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Otorgado por</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Motivo</th>
+                        <th class="px-4 py-2.5 text-center font-bold text-slate-600 uppercase tracking-wider text-[10px]">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for permiso in permisos %}
+                    <tr class="hover:bg-amber-50/40 transition-colors row-enter group">
+
+                        <!-- Profesional -->
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
+                                    {{ permiso.profesional.nombre|first }}{{ permiso.profesional.apellido|first }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-800">{{ permiso.profesional.nombre }} {{ permiso.profesional.apellido }}</p>
+                                    {% if permiso.profesional.especialidad %}
+                                    <p class="text-[10px] text-slate-400">{{ permiso.profesional.especialidad }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Rango de sesiones -->
+                        <td class="px-4 py-3">
+                            <div class="bg-slate-50 rounded-lg px-2 py-1 inline-block">
+                                <p class="font-bold text-slate-700">
+                                    {{ permiso.fecha_sesion_desde|date:"d/m/Y" }}
+                                </p>
+                                {% if permiso.fecha_sesion_desde != permiso.fecha_sesion_hasta %}
+                                <p class="text-[10px] text-slate-400 font-medium">→ {{ permiso.fecha_sesion_hasta|date:"d/m/Y" }}</p>
+                                {% else %}
+                                <p class="text-[10px] text-slate-400 font-medium">Solo ese día</p>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Validez -->
+                        <td class="px-4 py-3">
+                            <p class="font-semibold text-slate-700">{{ permiso.valido_hasta|date:"d/m/Y" }}</p>
+                            <p class="text-[10px] text-slate-400">{{ permiso.valido_hasta|date:"H:i" }}</p>
+                        </td>
+
+                        <!-- Puede editar -->
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col gap-0.5">
+                                {% if permiso.puede_editar_estado %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Estado
+                                </span>
+                                {% endif %}
+                                {% if permiso.puede_editar_notas %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Notas
+                                </span>
+                                {% endif %}
+                                {% if permiso.puede_editar_otros_campos %}
+                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Otros campos
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Badge de estado -->
+                        <td class="px-4 py-3">
+                            {% if permiso.usado %}
+                            <span class="badge-usado px-2 py-0.5 rounded-full text-[10px] font-bold">📋 Usado</span>
+                            {% elif permiso.esta_activo %}
+                            <span class="badge-activo px-2 py-0.5 rounded-full text-[10px] font-bold">✅ Activo</span>
+                            {% elif permiso.es_pendiente %}
+                            <span class="badge-pendiente px-2 py-0.5 rounded-full text-[10px] font-bold">⏳ Pendiente</span>
+                            {% else %}
+                            <span class="badge-expirado px-2 py-0.5 rounded-full text-[10px] font-bold">⏰ Expirado</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Otorgado por -->
+                        <td class="px-4 py-3">
+                            <p class="font-semibold text-slate-700 text-[11px]">{{ permiso.otorgado_por.get_full_name|default:permiso.otorgado_por.username }}</p>
+                            <p class="text-[10px] text-slate-400">{{ permiso.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                        </td>
+
+                        <!-- Motivo -->
+                        <td class="px-4 py-3 max-w-[160px]">
+                            {% if permiso.motivo %}
+                            <p class="text-slate-600 truncate" title="{{ permiso.motivo }}">{{ permiso.motivo|truncatechars:50 }}</p>
+                            {% else %}
+                            <span class="text-slate-300">—</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Acciones -->
+                        <td class="px-4 py-3">
+                            <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {% if not permiso.usado %}
+                                <a href="{% url 'agenda:editar_permiso_edicion' permiso.id %}"
+                                   class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                                   title="Editar permiso">
+                                    ✏️ Editar
+                                </a>
+                                {% endif %}
+
+                                <button onclick="confirmarRevocar({{ permiso.id }}, '{{ permiso.profesional.nombre }} {{ permiso.profesional.apellido }}')"
+                                        class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"
+                                        title="Revocar permiso">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if permisos.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+            <p class="text-xs text-slate-500 font-medium">
+                Mostrando {{ permisos.start_index }}–{{ permisos.end_index }} de {{ permisos.paginator.count }} permisos
+            </p>
+            <div class="flex gap-1">
+                {% if permisos.has_previous %}
+                <a href="?page={{ permisos.previous_page_number }}{% if filtro_profesional %}&profesional={{ filtro_profesional }}{% endif %}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_mes %}&mes={{ filtro_mes }}{% endif %}"
+                   class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:border-amber-300 transition-colors">← Anterior</a>
+                {% endif %}
+                {% if permisos.has_next %}
+                <a href="?page={{ permisos.next_page_number }}{% if filtro_profesional %}&profesional={{ filtro_profesional }}{% endif %}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_mes %}&mes={{ filtro_mes }}{% endif %}"
+                   class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:border-amber-300 transition-colors">Siguiente →</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Empty state -->
+        <div class="text-center py-16">
+            <div class="text-6xl mb-3">🔓</div>
+            <p class="text-slate-600 font-bold text-base mb-1">No hay permisos registrados</p>
+            <p class="text-slate-400 text-sm mb-5">
+                {% if filtro_profesional or filtro_estado or filtro_mes %}
+                    No se encontraron permisos con los filtros aplicados.
+                {% else %}
+                    Crea el primer permiso para permitir que un profesional edite sesiones de otro día.
+                {% endif %}
+            </p>
+            {% if not filtro_profesional and not filtro_estado and not filtro_mes %}
+            <a href="{% url 'agenda:crear_permiso_edicion' %}"
+               class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md shadow-amber-500/30 transition-colors">
+                ➕ Crear Primer Permiso
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ══════════════ INFO BOX ══════════════ -->
+    <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="flex items-start gap-3">
+            <span class="text-xl mt-0.5">💡</span>
+            <div class="text-xs text-amber-800 space-y-1.5">
+                <p class="font-bold text-sm">¿Cómo funcionan los permisos?</p>
+                <p>
+                    Por defecto, los profesionales solo pueden editar el <strong>estado</strong> y las <strong>notas de evolución</strong> de sesiones del <strong>día actual</strong>. 
+                    Si necesitan editar sesiones de otro día (por ausencia, falla técnica, etc.), el administrador puede otorgar un permiso temporal.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+                    <div class="bg-white/70 rounded-lg p-2.5 border border-amber-200">
+                        <p class="font-bold text-amber-900 mb-1">📅 Sesiones</p>
+                        <p>Define el rango de fechas de las sesiones que el profesional puede editar.</p>
+                    </div>
+                    <div class="bg-white/70 rounded-lg p-2.5 border border-amber-200">
+                        <p class="font-bold text-amber-900 mb-1">⏱️ Validez</p>
+                        <p>Indica hasta cuándo puede ejercer ese permiso. Se desactiva automáticamente al vencer.</p>
+                    </div>
+                    <div class="bg-white/70 rounded-lg p-2.5 border border-amber-200">
+                        <p class="font-bold text-amber-900 mb-1">📋 Auditoría</p>
+                        <p>El sistema registra quién otorgó el permiso, cuándo se usó y qué cambios se hicieron.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══════════════ MODAL REVOCAR ══════════════ -->
+<div id="modal-revocar" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-100">
+        <div class="text-center mb-4">
+            <div class="text-4xl mb-2">⚠️</div>
+            <h3 class="text-base font-black text-slate-800">¿Revocar permiso?</h3>
+            <p class="text-sm text-slate-500 mt-1" id="texto-revocar">Esta acción no se puede deshacer.</p>
+        </div>
+        <form method="post" id="form-revocar" action="">
+            {% csrf_token %}
+            <input type="hidden" name="_method" value="delete">
+            <div class="flex gap-2">
+                <button type="button"
+                        onclick="document.getElementById('modal-revocar').classList.add('hidden')"
+                        class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl font-bold text-sm transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md shadow-red-500/30 transition-colors">
+                    🗑️ Revocar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function confirmarRevocar(permisoId, nombreProfesional) {
+    document.getElementById('texto-revocar').textContent =
+        `Se revocará el permiso de ${nombreProfesional}. Esta acción no se puede deshacer.`;
+    document.getElementById('form-revocar').action =
+        `/agenda/permisos-edicion/${permisoId}/revocar/`;
+    document.getElementById('modal-revocar').classList.remove('hidden');
+}
+
+// Cerrar modal al hacer clic fuera
+document.getElementById('modal-revocar').addEventListener('click', function(e) {
+    if (e.target.id === 'modal-revocar') {
+        this.classList.add('hidden');
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.getElementById('modal-revocar').classList.add('hidden');
+    }
+});
+</script>
+
+{% endblock %}
