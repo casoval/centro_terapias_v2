@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}🌈 Mi Calendario Mágico — {{ paciente.nombre_completo }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --pink:#f472b6; --purple:#a855f7; --indigo:#6366f1; --sky:#38bdf8;
+  --green:#34d399; --yellow:#fbbf24; --red:#f87171;
+  --done-bg:#d1fae5;    --done-fg:#065f46;
+  --pending-bg:#dbeafe; --pending-fg:#1e40af;
+  --cancel-bg:#fee2e2;  --cancel-fg:#991b1b;
+  --permit-bg:#fce7f3;  --permit-fg:#9d174d;
+  --retraso-bg:#fef3c7; --retraso-fg:#92400e;
+  --falta-bg:#fce7f3;   --falta-fg:#9d174d;
+  --reprog-bg:#e0e7ff;  --reprog-fg:#3730a3;
+  --shadow:0 4px 24px rgba(168,85,247,.13);
+  --radius:1.4rem;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:#fdf4ff;overflow-x:hidden}
+
+/* FONDO */
+.magic-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 60% at 20% 10%,#fce7f344,transparent 60%),
+             radial-gradient(ellipse 60% 50% at 80% 90%,#e0e7ff44,transparent 60%),#fdf4ff}
+.bb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.18;
+  animation:bdrift var(--d,10s) ease-in-out infinite var(--dl,0s) alternate}
+@keyframes bdrift{from{transform:translate(0,0) scale(1)}to{transform:translate(var(--tx,20px),var(--ty,-30px)) scale(1.1)}}
+
+/* HEADER */
+.hdr{position:relative;z-index:10;
+  background:linear-gradient(135deg,#f472b6,#a855f7 40%,#6366f1 70%,#38bdf8);
+  background-size:300% 300%;animation:hshift 7s ease infinite;
+  padding:1.4rem 1rem 2.4rem;text-align:center;
+  clip-path:ellipse(100% 88% at 50% 12%);
+  box-shadow:0 8px 32px rgba(168,85,247,.4)}
+@keyframes hshift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.hdr h1{font-family:'Fredoka One',cursive;font-size:clamp(1.7rem,5vw,2.6rem);color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.25)}
+.hdr-sub{font-size:.88rem;font-weight:700;color:rgba(255,255,255,.88);margin-top:.25rem}
+.hdr-stars{display:flex;justify-content:center;gap:.5rem;margin-bottom:.4rem}
+.hdr-stars span{font-size:1.3rem;display:inline-block;animation:sspin 3s linear infinite}
+.hdr-stars span:nth-child(2){animation-duration:4s;animation-delay:.5s}
+.hdr-stars span:nth-child(3){animation-duration:2.5s;animation-delay:1s}
+@keyframes sspin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* STATS */
+.stats{position:relative;z-index:10;display:flex;gap:.6rem;padding:1rem .8rem .2rem;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.stats::-webkit-scrollbar{display:none}
+.stat{flex:0 0 auto;background:#fff;border-radius:1.2rem;padding:.6rem 1rem;text-align:center;box-shadow:var(--shadow);min-width:86px;
+  animation:popin .5s cubic-bezier(.2,1.4,.4,1) both}
+.stat:nth-child(2){animation-delay:.08s}.stat:nth-child(3){animation-delay:.16s}.stat:nth-child(4){animation-delay:.24s}
+@keyframes popin{from{transform:scale(.6) translateY(10px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.snum{font-family:'Fredoka One',cursive;font-size:1.7rem;line-height:1}
+.slbl{font-size:.6rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+
+/* RACHA */
+.streak{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#fef9c3,#fef3c7);border-radius:var(--radius);padding:.75rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 4px 14px rgba(251,191,36,.28)}
+.fire{font-size:2rem;animation:fwiggle .45s ease-in-out infinite alternate}
+@keyframes fwiggle{from{transform:rotate(-6deg) scale(1)}to{transform:rotate(6deg) scale(1.1)}}
+.snum2{font-family:'Fredoka One',cursive;font-size:2.2rem;color:#b45309;line-height:1}
+
+/* PROGRESO */
+.prog-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:#fff;border-radius:var(--radius);padding:.85rem 1rem;box-shadow:var(--shadow)}
+.prog-hdr{display:flex;justify-content:space-between;font-size:.72rem;font-weight:800;color:#374151;margin-bottom:.4rem}
+.prog-track{background:#ede9fe;border-radius:99px;height:16px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--sky));background-size:200% 100%;animation:pshine 2s linear infinite;border-radius:99px;transition:width 1.2s cubic-bezier(.2,1,.4,1)}
+@keyframes pshine{0%{background-position:100%}100%{background-position:-100%}}
+
+/* PRÓXIMA + CONSEJO */
+.next-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:2px solid #a5b4fc;border-radius:var(--radius);padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem}
+.npulse{font-size:2.2rem;animation:npls 1.4s ease-in-out infinite}
+@keyframes npls{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.tip-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px dashed var(--yellow);border-radius:var(--radius);padding:.8rem 1rem;display:flex;gap:.8rem;align-items:flex-start}
+.twobble{font-size:2rem;animation:wob 2s ease-in-out infinite;flex-shrink:0}
+@keyframes wob{0%,100%{transform:rotate(0)}30%{transform:rotate(-10deg)}70%{transform:rotate(10deg)}}
+
+/* LEYENDA */
+.legend{position:relative;z-index:10;margin:.6rem .8rem 0;display:flex;gap:.4rem;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:.25rem;font-size:.65rem;font-weight:800;padding:.25rem .6rem;border-radius:99px}
+
+/* TABS */
+.vtabs{position:relative;z-index:10;display:flex;gap:.5rem;margin:.8rem .8rem 0}
+.vtab{flex:1;padding:.6rem .5rem;border:none;border-radius:1rem;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer;transition:all .25s cubic-bezier(.2,1,.4,1);background:#e5e7eb;color:#6b7280}
+.vtab.active{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;transform:translateY(-2px);box-shadow:0 5px 16px rgba(99,102,241,.4)}
+
+/* CONTENEDOR */
+.view-wrap{position:relative;z-index:10;margin:.8rem .8rem 6rem;perspective:1200px}
+.page-l{animation:pageleft .5s cubic-bezier(.4,0,.2,1) both}
+.page-r{animation:pageright .5s cubic-bezier(.4,0,.2,1) both}
+@keyframes pageleft{0%{transform:rotateY(0) translateX(0);opacity:1}40%{transform:rotateY(-28deg) translateX(-4%);opacity:.65}100%{transform:rotateY(0) translateX(0);opacity:1}}
+@keyframes pageright{0%{transform:rotateY(0) translateX(0);opacity:1}40%{transform:rotateY(28deg) translateX(4%);opacity:.65}100%{transform:rotateY(0) translateX(0);opacity:1}}
+
+/* NAV */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:var(--radius);padding:.65rem .9rem;margin-bottom:.7rem;box-shadow:var(--shadow)}
+.nbtn{width:40px;height:40px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;font-weight:900;transition:transform .15s,box-shadow .15s}
+.nbtn.pur{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;box-shadow:0 3px 10px rgba(99,102,241,.4)}
+.nbtn.pnk{background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;box-shadow:0 3px 10px rgba(244,114,182,.4)}
+.nbtn:hover{transform:scale(1.12)}.nbtn:active{transform:scale(.95)}
+.nav-title{font-family:'Fredoka One',cursive;font-size:1.15rem;color:#4c1d95}
+
+/* MENSUAL */
+.cal-month{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.cal-wdays{display:grid;grid-template-columns:repeat(7,1fr);background:linear-gradient(135deg,var(--purple),var(--indigo))}
+.cal-wday{text-align:center;padding:.6rem .2rem;font-size:.65rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#f3f4f6}
+.cal-cell{background:#fff;min-height:82px;padding:.35rem .3rem;position:relative;transition:background .15s}
+.cal-cell:hover{background:#fdf4ff}
+.cal-cell.other{background:#fafafa}
+.cal-cell.other .dnum{opacity:.22}
+.cal-cell.today{background:linear-gradient(135deg,#fdf4ff,#eff6ff)}
+.dnum{font-size:.72rem;font-weight:800;color:#374151;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+.cal-cell.today .dnum{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;border-radius:50%;font-size:.65rem}
+.today-sun{position:absolute;top:2px;right:4px;font-size:.85rem;animation:sspin 4s linear infinite}
+.chips{display:flex;flex-direction:column;gap:2px;margin-top:2px}
+.chip{font-size:.52rem;font-weight:800;border-radius:5px;padding:2px 4px;cursor:pointer;transition:transform .1s,filter .1s;display:flex;align-items:center;gap:2px;overflow:hidden}
+.chip:hover{transform:scale(1.06);filter:brightness(.95)}
+/* Chips mensual — todos los estados */
+.cd  {background:var(--done-bg);    color:var(--done-fg)}
+.cp  {background:var(--pending-bg); color:var(--pending-fg)}
+.cc  {background:var(--cancel-bg);  color:var(--cancel-fg)}
+.cpe {background:var(--permit-bg);  color:var(--permit-fg)}
+.cr  {background:var(--retraso-bg); color:var(--retraso-fg)}
+.cf  {background:var(--falta-bg);   color:var(--falta-fg)}
+.crep{background:var(--reprog-bg);  color:var(--reprog-fg)}
+.cmore{font-size:.5rem;font-weight:900;color:var(--purple);background:#ede9fe;border-radius:5px;padding:2px 4px;cursor:pointer}
+
+/* SEMANAL EN COLUMNAS */
+.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+@media(max-width:600px){.week-grid{grid-template-columns:repeat(7,minmax(92px,1fr));overflow-x:auto;scrollbar-width:none;padding-bottom:.3rem}.week-grid::-webkit-scrollbar{display:none}}
+.wk-col{background:#fff;border-radius:1.1rem;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:260px}
+.wk-head{padding:.5rem .3rem;text-align:center}
+.wkday{font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.4px;opacity:.75}
+.wkdate{font-family:'Fredoka One',cursive;font-size:1.35rem;line-height:1.1}
+.wk-col:nth-child(1) .wk-head{background:linear-gradient(135deg,#fbcfe8,#fce7f3);color:#9d174d}
+.wk-col:nth-child(2) .wk-head{background:linear-gradient(135deg,#ddd6fe,#ede9fe);color:#5b21b6}
+.wk-col:nth-child(3) .wk-head{background:linear-gradient(135deg,#bfdbfe,#dbeafe);color:#1e40af}
+.wk-col:nth-child(4) .wk-head{background:linear-gradient(135deg,#a7f3d0,#d1fae5);color:#065f46}
+.wk-col:nth-child(5) .wk-head{background:linear-gradient(135deg,#fde68a,#fef3c7);color:#92400e}
+.wk-col:nth-child(6) .wk-head{background:linear-gradient(135deg,#fed7aa,#ffedd5);color:#9a3412}
+.wk-col:nth-child(7) .wk-head{background:linear-gradient(135deg,#f9a8d4,#fce7f3);color:#9d174d}
+.wk-col.today-col .wk-head{background:linear-gradient(135deg,var(--purple),var(--indigo)) !important;color:#fff !important;box-shadow:0 4px 12px rgba(99,102,241,.4)}
+.wk-col.today-col{outline:2px solid var(--purple);outline-offset:-1px}
+.wk-body{flex:1;padding:.3rem .25rem;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:320px;scrollbar-width:thin;scrollbar-color:#ddd6fe transparent}
+.wk-body::-webkit-scrollbar{width:3px}.wk-body::-webkit-scrollbar-thumb{background:#ddd6fe;border-radius:99px}
+.wk-ses{border-radius:.55rem;padding:.35rem .3rem;cursor:pointer;transition:transform .15s,filter .15s;border-left:3px solid transparent;font-size:.62rem}
+.wk-ses:hover{transform:scale(1.04);filter:brightness(.96)}
+/* Semanal — todos los estados */
+.wd  {background:var(--done-bg);    border-color:#34d399}
+.wp  {background:var(--pending-bg); border-color:#60a5fa}
+.wc  {background:var(--cancel-bg);  border-color:#f87171}
+.wpe {background:var(--permit-bg);  border-color:#f472b6}
+.wr  {background:var(--retraso-bg); border-color:#f59e0b}
+.wf  {background:var(--falta-bg);   border-color:#ec4899}
+.wrep{background:var(--reprog-bg);  border-color:#818cf8}
+.wk-hora{font-weight:900;font-size:.7rem;line-height:1}
+.wk-svc{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.wk-prof{font-weight:600;color:#6b7280;font-size:.58rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:.3;padding:.6rem 0}
+
+/* POPUP */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.overlay.open{opacity:1;pointer-events:all}
+.sheet{background:#fff;width:100%;max-width:500px;border-radius:1.8rem 1.8rem 0 0;padding:1.2rem 1.1rem 2.2rem;transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.9,.3,1);max-height:88vh;overflow-y:auto}
+.overlay.open .sheet{transform:translateY(0)}
+.sh-handle{width:44px;height:4px;background:#e5e7eb;border-radius:99px;margin:0 auto 1rem}
+.sh-banner{border-radius:1rem;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;font-family:'Fredoka One',cursive;font-size:1.3rem}
+.sh-row{display:flex;align-items:center;gap:.75rem;padding:.45rem 0;border-bottom:1px solid #f3f4f6}
+.sh-row:last-child{border:none}
+.sh-ico{font-size:1.2rem;flex-shrink:0}
+.sh-lbl{font-size:.62rem;font-weight:900;color:#9ca3af;text-transform:uppercase}
+.sh-val{font-size:.87rem;font-weight:800;color:#111827}
+
+/* BACK */
+.back-fab{position:fixed;bottom:1.3rem;right:1rem;z-index:100;background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;border:none;border-radius:1.6rem;padding:.7rem 1.3rem;font-family:'Nunito',sans-serif;font-weight:900;font-size:.84rem;cursor:pointer;box-shadow:0 6px 22px rgba(99,102,241,.48);display:flex;align-items:center;gap:.4rem;text-decoration:none;transition:transform .15s}
+.back-fab:hover{transform:translateY(-2px)}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="magic-bg">
+  <div class="bb" style="width:260px;height:260px;background:#f472b6;top:-80px;left:-80px;--d:8s;--tx:20px;--ty:30px;"></div>
+  <div class="bb" style="width:200px;height:200px;background:#6366f1;top:35%;right:-60px;--d:11s;--dl:1s;--tx:-30px;--ty:-40px;"></div>
+  <div class="bb" style="width:160px;height:160px;background:#38bdf8;bottom:25%;left:-40px;--d:9s;--dl:2s;--tx:25px;--ty:-20px;"></div>
+</div>
+
+<div class="hdr">
+  <div class="hdr-stars"><span>✨</span><span>⭐</span><span>🌟</span></div>
+  <h1>🌈 Mi Calendario Mágico</h1>
+  <p class="hdr-sub">{{ paciente.nombre_completo }} 🌟</p>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="snum" style="color:#34d399;">{{ sesiones_realizadas_count }}</div><div class="slbl">✅ Realizadas</div></div>
+  <div class="stat"><div class="snum" style="color:#f59e0b;">{{ sesiones_retraso_count }}</div><div class="slbl">⏰ Con retraso</div></div>
+  <div class="stat"><div class="snum" style="color:#60a5fa;">{{ sesiones_proximas_count }}</div><div class="slbl">📅 Próximas</div></div>
+  <div class="stat"><div class="snum" style="color:#ec4899;">{{ sesiones_falta_count }}</div><div class="slbl">🚫 Faltas</div></div>
+  <div class="stat"><div class="snum" style="color:#f87171;">{{ sesiones_canceladas_count }}</div><div class="slbl">❌ Canceladas</div></div>
+  <div class="stat"><div class="snum" style="color:#818cf8;">{{ sesiones_reprog_count }}</div><div class="slbl">🔄 Reprog.</div></div>
+  <div class="stat"><div class="snum" style="color:#f472b6;">{{ sesiones_permiso_count }}</div><div class="slbl">📋 Permisos</div></div>
+  <div class="stat"><div class="snum" style="color:#a855f7;">{{ total_sesiones }}</div><div class="slbl">🌟 Total</div></div>
+</div>
+
+{% if racha_semanas and racha_semanas > 0 %}
+<div class="streak">
+  <span class="fire">🔥</span>
+  <span class="snum2">{{ racha_semanas }}</span>
+  <div>
+    <div style="font-size:.82rem;font-weight:800;color:#92400e;">¡Semana{{ racha_semanas|pluralize }}s seguidas!</div>
+    <div style="font-size:.66rem;color:#b45309;font-weight:700;">🏆 ¡Eres increíble! 💪</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="prog-card">
+  <div class="prog-hdr">
+    <span>🏆 Progreso del mes</span>
+    <span style="color:var(--purple);">{{ sesiones_mes_realizadas }} / {{ sesiones_mes_total }}</span>
+  </div>
+  <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+  <p style="font-size:.65rem;color:#6b7280;font-weight:700;margin-top:.3rem;text-align:right;">
+    {% if sesiones_mes_total > 0 %}{{ pct_mes }}% completado 🎉{% else %}Sin sesiones este mes{% endif %}
+  </p>
+</div>
+
+{% if proxima_sesion %}
+<div class="next-card">
+  <span class="npulse">⏰</span>
+  <div>
+    <div style="font-size:.62rem;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;">⚡ Próxima sesión</div>
+    <div style="font-size:.92rem;font-weight:900;color:#1e1b4b;">{{ proxima_sesion.fecha|date:"l d \d\e F" }}</div>
+    <div style="font-size:.72rem;font-weight:700;color:#4338ca;">🕐 {{ proxima_sesion.hora_inicio|time:"g:i A" }} &nbsp;·&nbsp; {{ proxima_sesion.servicio.nombre }} &nbsp;·&nbsp; {{ proxima_sesion.profesional.nombre }}</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="tip-card">
+  <span class="twobble" id="tipIcon">💡</span>
+  <div>
+    <div style="font-size:.62rem;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.15rem;">🦄 Consejo del día</div>
+    <div style="font-size:.82rem;font-weight:700;color:#92400e;line-height:1.45;" id="tipText">…</div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="leg" style="background:var(--done-bg);color:var(--done-fg);">✅ Realizada</div>
+  <div class="leg" style="background:var(--retraso-bg);color:var(--retraso-fg);">⏰ Con retraso</div>
+  <div class="leg" style="background:var(--pending-bg);color:var(--pending-fg);">🔵 Programada</div>
+  <div class="leg" style="background:var(--permit-bg);color:var(--permit-fg);">📋 Permiso</div>
+  <div class="leg" style="background:var(--falta-bg);color:var(--falta-fg);">🚫 Falta s/aviso</div>
+  <div class="leg" style="background:var(--cancel-bg);color:var(--cancel-fg);">❌ Cancelada</div>
+  <div class="leg" style="background:var(--reprog-bg);color:var(--reprog-fg);">🔄 Reprogramada</div>
+</div>
+
+<div class="vtabs">
+  <button class="vtab active" id="tabM" onclick="switchView('mes')">📅 Mensual</button>
+  <button class="vtab"        id="tabS" onclick="switchView('semana')">📆 Semanal</button>
+</div>
+
+<div class="view-wrap" id="mainView">
+
+  <!-- MENSUAL -->
+  <div id="viewMes">
+    <div class="cal-nav">
+      <button class="nbtn pur" onclick="prevMes()">‹</button>
+      <span class="nav-title" id="titleMes"></span>
+      <button class="nbtn pur" onclick="nextMes()">›</button>
+    </div>
+    <div class="cal-month">
+      <div class="cal-wdays">
+        <div class="cal-wday">Dom</div><div class="cal-wday">Lun</div>
+        <div class="cal-wday">Mar</div><div class="cal-wday">Mié</div>
+        <div class="cal-wday">Jue</div><div class="cal-wday">Vie</div>
+        <div class="cal-wday">Sáb</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <!-- SEMANAL -->
+  <div id="viewSemana" style="display:none;">
+    <div class="cal-nav">
+      <button class="nbtn pnk" onclick="prevSemana()">‹</button>
+      <span class="nav-title" id="titleSemana"></span>
+      <button class="nbtn pnk" onclick="nextSemana()">›</button>
+    </div>
+    <div class="week-grid" id="weekGrid"></div>
+  </div>
+
+</div>
+
+<!-- DETALLE -->
+<div class="overlay" id="overlay" onclick="closeSheet(event)">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div id="sheetContent"></div>
+  </div>
+</div>
+
+<a href="{% url 'pacientes:mis_sesiones' %}" class="back-fab">← Mis Sesiones</a>
+
+<script>
+const SESSIONS=[{% for s in todas_sesiones %}{
+  id:{{s.id}},
+  fecha:"{{s.fecha|date:'Y-m-d'}}",
+  hora:"{{s.hora_inicio|time:'H:i'}}",
+  horaFin:"{{s.hora_fin|time:'H:i'|default:''}}",
+  dur:{{s.duracion_minutos|default:"0"}},
+  retraso:{{s.minutos_retraso|default:"0"}},
+  svc:"{{s.servicio.nombre|escapejs}}",
+  prof:"{{s.profesional.nombre_completo|escapejs}}",
+  suc:"{{s.sucursal.nombre|escapejs}}",
+  estado:"{{s.estado}}",
+  obs:"{{s.observaciones_profesional|default:''|escapejs|truncatechars:90}}",
+  tipo:"{% if s.mensualidad %}Mensualidad{% elif s.proyecto %}Proyecto{% else %}Individual{% endif %}"
+}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+const PCT={{pct_mes|default:"0"}};
+const MES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const DIA3=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+const TIPS=[
+  {i:"🌟",t:"¡Cada sesión es un paso hacia ser la mejor versión de ti! Celebra cada logro por pequeño que sea."},
+  {i:"🧠",t:"Practicar en casa lo aprendido en terapia ayuda mucho. ¡5 minutitos al día hacen la diferencia!"},
+  {i:"💧",t:"Tomar agua antes de la sesión ayuda al cerebro a estar más despierto y listo para aprender."},
+  {i:"😴",t:"Dormir bien la noche anterior hace que todo sea más fácil y divertido en la sesión."},
+  {i:"🎯",t:"Si tienes una tarea pendiente del profesional, ¡tráela! Así aprovechamos mejor el tiempo."},
+  {i:"🥗",t:"Un snack saludable antes de la sesión (fruta, yogur) da energía para concentrarse mejor."},
+  {i:"📝",t:"Anota si notaste algo diferente esta semana. ¡Tu profesional quiere saber cómo te fue!"},
+  {i:"🎉",t:"¡Llegar a tiempo es un superpoder! Así aprovechamos cada minuto de nuestra sesión."},
+  {i:"🤗",t:"Si algo no quedó claro, ¡pregunta sin miedo! No hay preguntas tontas."},
+  {i:"💪",t:"El progreso no siempre es visible al instante. ¡Confía en el proceso y sé constante!"},
+  {i:"🌈",t:"Cada niño aprende a su ritmo. Compara solo con tu versión de ayer, ¡no con los demás!"},
+  {i:"🎮",t:"Cuéntale a tu terapeuta tus juegos favoritos, ¡puede usarlos en la sesión!"},
+  {i:"🏃",t:"Un poco de ejercicio antes de la sesión ayuda a liberar energía y concentrarse mejor."},
+  {i:"🎵",t:"La música ayuda a los niños a aprender más rápido. ¡Pregúntale a tu profesional!"},
+  {i:"🌺",t:"Un abrazo antes de entrar a sesión puede reducir el nerviosismo. ¡Los papás también ayudan!"},
+  {i:"📚",t:"Leer cuentos juntos en casa refuerza muchísimo el trabajo que hacemos en cada sesión."},
+  {i:"🦋",t:"Los cambios pequeños acumulados generan grandes transformaciones. ¡Paciencia y confianza!"},
+  {i:"🎨",t:"El dibujo libre es una forma excelente de expresar cómo te sientes. ¡Anímate a dibujar!"},
+];
+
+const today=new Date();
+const todayStr=fmt(today);
+const ti=(today.getDate()+today.getMonth()*3)%TIPS.length;
+document.getElementById('tipIcon').textContent=TIPS[ti].i;
+document.getElementById('tipText').textContent=TIPS[ti].t;
+setTimeout(()=>{ document.getElementById('progFill').style.width=PCT+'%'; },400);
+
+let viewMode='mes';
+let curMonth=new Date(today.getFullYear(),today.getMonth(),1);
+let weekStart=getWS(today);
+
+function fmt(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function getWS(d){ const r=new Date(d);r.setDate(r.getDate()-r.getDay());r.setHours(0,0,0,0);return r; }
+function ses(ds){ return SESSIONS.filter(s=>s.fecha===ds); }
+
+function cc(e){
+  return e==='realizada'?'cd':
+         e==='realizada_retraso'?'cr':
+         e==='cancelada'?'cc':
+         e==='permiso'?'cpe':
+         e==='falta'?'cf':
+         e==='reprogramada'?'crep':'cp';
+}
+function wc(e){
+  return e==='realizada'?'wd':
+         e==='realizada_retraso'?'wr':
+         e==='cancelada'?'wc':
+         e==='permiso'?'wpe':
+         e==='falta'?'wf':
+         e==='reprogramada'?'wrep':'wp';
+}
+function bc(e){
+  const m={
+    realizada:         {bg:'#d1fae5',fg:'#065f46'},
+    realizada_retraso: {bg:'#fef3c7',fg:'#92400e'},
+    cancelada:         {bg:'#fee2e2',fg:'#991b1b'},
+    permiso:           {bg:'#fce7f3',fg:'#9d174d'},
+    falta:             {bg:'#fce7f3',fg:'#9d174d'},
+    reprogramada:      {bg:'#e0e7ff',fg:'#3730a3'},
+    programada:        {bg:'#dbeafe',fg:'#1e40af'},
+  };
+  return m[e]||{bg:'#dbeafe',fg:'#1e40af'};
+}
+function el(e){
+  return {
+    realizada:         '✅ Realizada',
+    realizada_retraso: '⏰ Con Retraso',
+    pendiente:         '🔵 Pendiente',
+    programada:        '🔵 Programada',
+    agendada:          '🔵 Agendada',
+    cancelada:         '❌ Cancelada',
+    permiso:           '📋 Permiso',
+    falta:             '🚫 Falta sin Aviso',
+    reprogramada:      '🔄 Reprogramada',
+  }[e]||e;
+}
+function ico(e){
+  return e==='realizada'?'✅':
+         e==='realizada_retraso'?'⏰':
+         e==='cancelada'?'❌':
+         e==='permiso'?'📋':
+         e==='falta'?'🚫':
+         e==='reprogramada'?'🔄':'🔵';
+}
+
+function bookAnim(dir){
+  const v=document.getElementById('mainView');
+  v.classList.remove('page-l','page-r');
+  void v.offsetWidth;
+  v.classList.add(dir==='next'?'page-r':'page-l');
+  setTimeout(()=>v.classList.remove('page-l','page-r'),520);
+}
+
+/* MENSUAL */
+function renderMes(){
+  const y=curMonth.getFullYear(),m=curMonth.getMonth();
+  document.getElementById('titleMes').textContent=`${MES[m]} ${y}`;
+  const first=new Date(y,m,1).getDay();
+  const last=new Date(y,m+1,0).getDate();
+  const prevL=new Date(y,m,0).getDate();
+  let h='';
+  for(let i=first-1;i>=0;i--) h+=`<div class="cal-cell other"><div class="dnum">${prevL-i}</div></div>`;
+  for(let d=1;d<=last;d++){
+    const ds=fmt(new Date(y,m,d));
+    const ss=ses(ds);
+    const isT=ds===todayStr;
+    let chips=ss.map(s=>`
+      <div class="chip ${cc(s.estado)}" onclick="openDetail(${s.id})" style="flex-direction:column;align-items:flex-start;gap:1px;padding:3px 4px;height:auto;white-space:normal;">
+        <span style="font-weight:900;font-size:.54rem;">${ico(s.estado)} ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</span>
+        <span style="font-size:.5rem;font-weight:700;opacity:.85;">${s.svc.slice(0,13)}</span>
+      </div>`).join('');
+    h+=`<div class="cal-cell ${isT?'today':''}">${isT?'<div class="today-sun">☀️</div>':''}<div class="dnum">${d}</div><div class="chips">${chips}</div></div>`;
+  }
+  const tot=Math.ceil((first+last)/7)*7;
+  for(let n=1;n<=tot-(first+last);n++) h+=`<div class="cal-cell other"><div class="dnum">${n}</div></div>`;
+  document.getElementById('calGrid').innerHTML=h;
+}
+function prevMes(){ bookAnim('prev');curMonth.setMonth(curMonth.getMonth()-1);renderMes(); }
+function nextMes(){ bookAnim('next');curMonth.setMonth(curMonth.getMonth()+1);renderMes(); }
+
+/* SEMANAL */
+function renderSemana(){
+  const end=new Date(weekStart);end.setDate(end.getDate()+6);
+  const f=d=>`${d.getDate()} ${MES[d.getMonth()].slice(0,3)}`;
+  document.getElementById('titleSemana').textContent=`${f(weekStart)} – ${f(end)}`;
+  let h='';
+  for(let i=0;i<7;i++){
+    const day=new Date(weekStart);day.setDate(day.getDate()+i);
+    const ds=fmt(day);
+    const ss=ses(ds);
+    const isT=ds===todayStr;
+    let sh=ss.length
+      ? ss.map(s=>`
+          <div class="wk-ses ${wc(s.estado)}" onclick="openDetail(${s.id})">
+            <div class="wk-hora">${ico(s.estado)} ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</div>
+            <div class="wk-svc">${s.svc}</div>
+            <div class="wk-prof">👨‍⚕️ ${s.prof.split(' ')[0]}</div>
+          </div>`).join('')
+      : '<div class="wk-empty">😴</div>';
+    h+=`<div class="wk-col ${isT?'today-col':''}">
+      <div class="wk-head"><div class="wkday">${DIA3[day.getDay()]}</div><div class="wkdate">${day.getDate()}</div></div>
+      <div class="wk-body">${sh}</div>
+    </div>`;
+  }
+  document.getElementById('weekGrid').innerHTML=h;
+}
+function prevSemana(){ bookAnim('prev');weekStart.setDate(weekStart.getDate()-7);renderSemana(); }
+function nextSemana(){ bookAnim('next');weekStart.setDate(weekStart.getDate()+7);renderSemana(); }
+
+/* DETALLE */
+function openDetail(id){
+  const s=SESSIONS.find(x=>x.id===id);if(!s)return;
+  const c=bc(s.estado);
+  const fd=s.fecha.split('-').reverse().join('/');
+  document.getElementById('sheetContent').innerHTML=`
+    <div class="sh-banner" style="background:${c.bg};color:${c.fg};">${el(s.estado)}</div>
+    <div class="sh-row">
+      <span class="sh-ico">🕐</span>
+      <div style="flex:1;">
+        <div class="sh-lbl">Hora inicio → Hora fin</div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <span class="sh-val" style="font-size:1.1rem;">${s.hora.slice(0,5)}</span>
+          ${s.horaFin?`<span style="font-size:.8rem;color:#9ca3af;font-weight:700;">→</span><span class="sh-val" style="font-size:1.1rem;">${s.horaFin.slice(0,5)}</span>`:''}
+          ${s.dur>0?`<span style="font-size:.68rem;background:#ede9fe;color:#7c3aed;padding:2px 7px;border-radius:99px;font-weight:800;">⏱ ${s.dur} min</span>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="sh-row"><span class="sh-ico">🎯</span><div><div class="sh-lbl">Servicio</div><div class="sh-val">${s.svc}</div></div></div>
+    <div class="sh-row"><span class="sh-ico">👨‍⚕️</span><div><div class="sh-lbl">Profesional</div><div class="sh-val">${s.prof}</div></div></div>
+    <div class="sh-row"><span class="sh-ico">📅</span><div><div class="sh-lbl">Fecha</div><div class="sh-val">${fd}</div></div></div>
+    ${s.retraso>0?`<div class="sh-row"><span class="sh-ico">⏰</span><div><div class="sh-lbl">Retraso</div><div class="sh-val" style="color:#b45309;">Llegó ${s.retraso} min tarde</div></div></div>`:''}
+    <div class="sh-row"><span class="sh-ico">🏥</span><div><div class="sh-lbl">Sucursal</div><div class="sh-val">${s.suc}</div></div></div>
+    <div class="sh-row"><span class="sh-ico">📦</span><div><div class="sh-lbl">Tipo</div><div class="sh-val">${s.tipo}</div></div></div>
+    ${s.obs?`<div class="sh-row"><span class="sh-ico">📝</span><div><div class="sh-lbl">Notas</div><div class="sh-val" style="font-size:.8rem;font-weight:600;">${s.obs}</div></div></div>`:''}
+  `;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function openDay(ds){
+  const ss=ses(ds);
+  const fd=ds.split('-').reverse().join('/');
+  document.getElementById('sheetContent').innerHTML=`
+    <div class="sh-banner" style="background:#ede9fe;color:#4c1d95;">📅 ${fd} — ${ss.length} sesión${ss.length>1?'es':''}</div>
+    ${ss.map(s=>{ const c=bc(s.estado); return `
+      <div style="background:${c.bg};color:${c.fg};border-radius:.8rem;padding:.6rem .8rem;margin-bottom:.4rem;cursor:pointer;" onclick="openDetail(${s.id})">
+        <div style="font-weight:900;font-size:.86rem;">${el(s.estado)} · ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</div>
+        <div style="font-size:.78rem;font-weight:700;margin-top:2px;">${s.svc} · ${s.prof.split(' ')[0]}</div>
+      </div>`; }).join('')}
+  `;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeSheet(e){
+  if(e.target===document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
+}
+
+/* SWIPE */
+let tx=0;
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx;
+  if(Math.abs(dx)<50)return;
+  if(viewMode==='mes'){ dx<0?nextMes():prevMes(); }
+  else{ dx<0?nextSemana():prevSemana(); }
+});
+
+/* SWITCH */
+function switchView(v){
+  viewMode=v;
+  document.getElementById('viewMes').style.display=v==='mes'?'block':'none';
+  document.getElementById('viewSemana').style.display=v==='semana'?'block':'none';
+  document.getElementById('tabM').classList.toggle('active',v==='mes');
+  document.getElementById('tabS').classList.toggle('active',v==='semana');
+}
+
+renderMes();
+renderSemana();
+</script>
+{% endblock %}

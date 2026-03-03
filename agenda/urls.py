@@ -124,4 +124,6 @@ urlpatterns = [
     path('permisos-edicion/<int:permiso_id>/revocar/',
          views.revocar_permiso_edicion,
          name='revocar_permiso_edicion'),
+
+    path('mi-calendario/<int:paciente_id>/', views.mi_calendario_magico, name='mi_calendario_magico'),
 ]

@@ -5132,3 +5132,73 @@ def registrar_uso_permiso(profesional, sesion):
         permiso.usado     = True
         permiso.fecha_uso = tz.now()
         permiso.save(update_fields=['usado', 'fecha_uso'])
+
+def calcular_racha_semanas(paciente):
+    """Cuenta semanas consecutivas hacia atrás con al menos 1 sesión realizada."""
+    from datetime import date, timedelta
+    hoy = date.today()
+    semana_actual = hoy - timedelta(days=hoy.weekday())  # lunes de esta semana
+    racha = 0
+    for i in range(52):
+        inicio = semana_actual - timedelta(weeks=i)
+        fin = inicio + timedelta(days=6)
+        tiene = Sesion.objects.filter(
+            paciente=paciente,
+            fecha__range=(inicio, fin),
+            estado='realizada'
+        ).exists()
+        if tiene:
+            racha += 1
+        else:
+            break
+    return racha
+
+def mi_calendario_magico(request, paciente_id):
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+    todas_sesiones = Sesion.objects.filter(
+        paciente=paciente
+    ).select_related('servicio', 'profesional', 'sucursal', 'mensualidad', 'proyecto'
+    ).order_by('fecha', 'hora_inicio')
+
+    today = date.today()
+    mes_actual = todas_sesiones.filter(fecha__year=today.year, fecha__month=today.month)
+
+    # Conteos por estado
+    realizadas_count      = todas_sesiones.filter(estado='realizada').count()
+    retraso_count         = todas_sesiones.filter(estado='realizada_retraso').count()
+    falta_count           = todas_sesiones.filter(estado='falta').count()
+    permiso_count         = todas_sesiones.filter(estado='permiso').count()
+    cancelada_count       = todas_sesiones.filter(estado='cancelada').count()
+    reprogramada_count    = todas_sesiones.filter(estado='reprogramada').count()
+    proximas_count        = todas_sesiones.filter(fecha__gte=today, estado__in=['programada', 'agendada', 'pendiente']).count()
+
+    # Progreso del mes (realizada + realizada_retraso cuentan como completadas)
+    mes_realizadas = mes_actual.filter(estado__in=['realizada', 'realizada_retraso']).count()
+    mes_total      = mes_actual.count()
+    pct            = int((mes_realizadas / mes_total * 100) if mes_total > 0 else 0)
+
+    # Próxima sesión
+    proxima = todas_sesiones.filter(
+        fecha__gte=today,
+        estado__in=['programada', 'agendada', 'pendiente']
+    ).first()
+
+    return render(request, 'agenda/mi_calendario_magico.html', {
+        'paciente':                  paciente,
+        'todas_sesiones':            todas_sesiones,
+        'total_sesiones':            todas_sesiones.count(),
+        # Stats individuales
+        'sesiones_realizadas_count': realizadas_count,
+        'sesiones_retraso_count':    retraso_count,
+        'sesiones_falta_count':      falta_count,
+        'sesiones_permiso_count':    permiso_count,
+        'sesiones_canceladas_count': cancelada_count,
+        'sesiones_reprog_count':     reprogramada_count,
+        'sesiones_proximas_count':   proximas_count,
+        # Progreso mes
+        'sesiones_mes_realizadas':   mes_realizadas,
+        'sesiones_mes_total':        mes_total,
+        'pct_mes':                   pct,
+        'proxima_sesion':            proxima,
+        'racha_semanas':             calcular_racha_semanas(paciente),
+    })
