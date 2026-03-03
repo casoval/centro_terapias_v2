@@ -2305,69 +2305,76 @@ def vista_previa_mensualidad(request):
 
 @login_required
 def editar_sesion(request, sesion_id):
-    """
-    Editar sesión con validación de pagos y permisos por rol
-    ✅ CORREGIDO: Manejo robusto de errores y validaciones
-    """
     sesion = get_object_or_404(Sesion, id=sesion_id)
     
-    # 🆕 Verificar permisos según rol
-    es_profesional = hasattr(request.user, 'perfil') and request.user.perfil.es_profesional
-    es_admin = request.user.is_superuser or (hasattr(request.user, 'perfil') and request.user.perfil.rol in ['gerente', 'administrador'])
-    
-    # Obtener el objeto Profesional si es profesional
+    # ✅ BUG FIX: Llamar al método con paréntesis
+    es_profesional = hasattr(request.user, 'perfil') and request.user.perfil.es_profesional()
+    es_admin = request.user.is_superuser or (
+        hasattr(request.user, 'perfil') and 
+        request.user.perfil.rol in ['gerente', 'administrador']
+    )
+    es_recepcionista = hasattr(request.user, 'perfil') and request.user.perfil.es_recepcionista()
+
     profesional_actual = None
     if es_profesional:
         try:
-            from core.utils import get_profesional_usuario
             profesional_actual = get_profesional_usuario(request.user)
         except:
             pass
-    
-    # Validaciones de permisos
+
     hoy = date.today()
     puede_editar = True
     puede_editar_pago = True
     mensaje_bloqueo = None
-    
-    # 🆕 Identificar si es recepcionista
-    es_recepcionista = hasattr(request.user, 'perfil') and request.user.perfil.es_recepcionista()
-    
+    campos_permitidos = ['estado', 'notas_sesion', 'observaciones', 'hora_inicio', 'hora_fin']
+
     if not es_admin:
         if es_profesional:
-            # 🔒 RESTRICCIÓN: Profesionales solo editan sesiones de HOY
-            # Pueden editar múltiples veces durante el día para corregir errores
-            if sesion.fecha != hoy:
-                puede_editar = False
-                puede_editar_pago = False
-                if sesion.fecha < hoy:
-                    mensaje_bloqueo = "Solo lectura - Sesión pasada (Profesionales solo editan hoy)"
+            if sesion.fecha == hoy:
+                # ✅ Siempre puede editar sesiones del día actual
+                puede_editar = True
+            else:
+                # ✅ BUG FIX: Consultar permisos antes de bloquear
+                if profesional_actual:
+                    puede, campos, motivo = profesional_puede_editar_sesion(
+                        profesional_actual, sesion
+                    )
                 else:
-                    mensaje_bloqueo = "Solo lectura - Sesión futura (Profesionales solo editan hoy)"
-        
+                    puede, campos, motivo = False, [], "Sin registro de profesional"
+                
+                if puede:
+                    puede_editar = True
+                    puede_editar_pago = False
+                    campos_permitidos = campos
+                    mensaje_bloqueo = None
+                    # ✅ Registrar uso del permiso al guardar (se hace en POST)
+                else:
+                    puede_editar = False
+                    puede_editar_pago = False
+                    if sesion.fecha < hoy:
+                        mensaje_bloqueo = "Solo lectura - Sesión pasada (sin permiso de edición)"
+                    else:
+                        mensaje_bloqueo = "Solo lectura - Sesión futura"
+
         elif es_recepcionista:
-            # 🔒 RESTRICCIÓN: No editar si profesional ya editó
             if sesion.editada_por_profesional:
                 puede_editar = False
                 mensaje_bloqueo = "Solo lectura - Ya editada por profesional"
-            
-            # ✅ RECEPCIONISTAS: Acceso completo a pagos sin restricciones
             puede_editar_pago = True
-    
-    # ✅ OVERRIDE FINAL: Recepcionistas SIEMPRE gestionan pagos.
-    # Si el perfil tiene es_profesional=True Y es_recepcionista=True,
-    # el bloque `if es_profesional` pone puede_editar_pago=False antes
-    # de que llegue al `elif es_recepcionista`. Este override lo corrige.
+
     if es_recepcionista:
         puede_editar_pago = True
 
     if request.method == 'POST':
-        # ✅ CRÍTICO: Verificar permisos antes de procesar
         if not puede_editar and not puede_editar_pago:
             return JsonResponse({
                 'error': True,
                 'mensaje': f'❌ {mensaje_bloqueo}. No tienes permisos para editar esta sesión.'
             }, status=403)
+        
+        # ✅ Registrar uso del permiso si el profesional editó con permiso
+        if puede_editar and es_profesional and profesional_actual and sesion.fecha != hoy:
+            registrar_uso_permiso(profesional_actual, sesion)
         
         try:
             # ✅ NUEVO: Importar aquí para evitar errores de importación circular
