@@ -3,6 +3,34 @@
 
 {% block title %}Mis Profesionales - {{ paciente.nombre_completo }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .chat-btn {
+        transition: transform .2s ease, box-shadow .2s ease;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, .4);
+        text-decoration: none;
+    }
+    .chat-btn:hover {
+        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 8px 24px rgba(79, 70, 229, .55);
+    }
+    .chat-btn:active { transform: scale(.98); }
+    .chat-btn-shimmer {
+        position: absolute;
+        top: 0; left: -75%;
+        width: 50%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
+        transform: skewX(-20deg);
+        animation: chatShimmer 2.4s ease-in-out infinite;
+    }
+    @keyframes chatShimmer { 0%{left:-75%} 100%{left:150%} }
+    @keyframes chatBounce {
+        from { transform: scale(1) rotate(-5deg); }
+        to   { transform: scale(1.18) rotate(5deg); }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-3 sm:px-4">
     <!-- Header -->
@@ -146,6 +174,25 @@
                     <div class="bg-gray-50 rounded-lg p-3 text-center">
                         <p class="text-xs text-gray-500">Sin sesiones programadas</p>
                     </div>
+                </div>
+                {% endif %}
+
+                <!-- Botón Chat -->
+                {% if item.profesional.user %}
+                <div class="pt-3 border-t">
+                    <a href="{% url 'chat:iniciar_conversacion' item.profesional.user.id %}"
+                       class="chat-btn group relative flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl font-black text-white text-sm overflow-hidden"
+                       style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 50%, #2563eb 100%);">
+                        <!-- shimmer -->
+                        <span class="chat-btn-shimmer"></span>
+                        <!-- Icono burbuja animado -->
+                        <span class="relative z-10 text-lg" style="animation: chatBounce 1.2s ease-in-out infinite alternate;">💬</span>
+                        <span class="relative z-10 tracking-wide" style="text-shadow: 0 1px 6px rgba(0,0,0,.25);">Enviar Mensaje</span>
+                        <!-- Flecha -->
+                        <svg class="relative z-10 w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                        </svg>
+                    </a>
                 </div>
                 {% endif %}
             </div>

@@ -1,4 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+import json
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
@@ -5185,6 +5188,8 @@ def mi_calendario_magico(request, paciente_id):
 
     return render(request, 'agenda/mi_calendario_magico.html', {
         'paciente':                  paciente,
+        'user_id':                   request.user.id,
+        'tema_calendario':           getattr(getattr(request.user, 'perfil', None), 'tema_calendario', ''),
         'todas_sesiones':            todas_sesiones,
         'total_sesiones':            todas_sesiones.count(),
         # Stats individuales
@@ -5202,3 +5207,25 @@ def mi_calendario_magico(request, paciente_id):
         'proxima_sesion':            proxima,
         'racha_semanas':             calcular_racha_semanas(paciente),
     })
+
+@login_required
+@require_POST
+def guardar_tema_calendario(request):
+    """Guarda el tema del calendario mágico en el perfil del usuario."""
+    try:
+        data = json.loads(request.body)
+        tema = data.get('tema', '').strip()
+        temas_validos = [
+            'dino', 'space', 'ocean', 'hero', 'fantasy',
+            'magic', 'sunny', 'nature', 'candy', 'sky'
+        ]
+        if tema not in temas_validos:
+            return JsonResponse({'ok': False, 'error': 'Tema no válido'}, status=400)
+
+        if hasattr(request.user, 'perfil'):
+            request.user.perfil.tema_calendario = tema
+            request.user.perfil.save(update_fields=['tema_calendario'])
+
+        return JsonResponse({'ok': True})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)

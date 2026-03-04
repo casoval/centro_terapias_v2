@@ -1,312 +1,285 @@
-{% extends "base.html" %}
 {% load static %}
-
-{% block title %}🌈 Mi Calendario Mágico — {{ paciente.nombre_completo }}{% endblock %}
-
-{% block extra_css %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a0a2e">
+<title>🌈 Mi Calendario Mágico — {{ paciente.nombre_completo }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root {
-  --pink:#f472b6; --purple:#a855f7; --indigo:#6366f1; --sky:#38bdf8;
-  --green:#34d399; --yellow:#fbbf24; --red:#f87171;
-  --done-bg:#d1fae5;    --done-fg:#065f46;
-  --pending-bg:#dbeafe; --pending-fg:#1e40af;
-  --cancel-bg:#fee2e2;  --cancel-fg:#991b1b;
-  --permit-bg:#fce7f3;  --permit-fg:#9d174d;
-  --retraso-bg:#fef3c7; --retraso-fg:#92400e;
-  --falta-bg:#fce7f3;   --falta-fg:#9d174d;
-  --reprog-bg:#e0e7ff;  --reprog-fg:#3730a3;
-  --shadow:0 4px 24px rgba(168,85,247,.13);
-  --radius:1.4rem;
-}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Nunito',sans-serif;background:#fdf4ff;overflow-x:hidden}
+body{font-family:'Nunito',sans-serif;overflow-x:hidden;min-height:100vh;transition:background .6s}
 
-/* FONDO */
-.magic-bg{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 80% 60% at 20% 10%,#fce7f344,transparent 60%),
-             radial-gradient(ellipse 60% 50% at 80% 90%,#e0e7ff44,transparent 60%),#fdf4ff}
-.bb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.18;
-  animation:bdrift var(--d,10s) ease-in-out infinite var(--dl,0s) alternate}
-@keyframes bdrift{from{transform:translate(0,0) scale(1)}to{transform:translate(var(--tx,20px),var(--ty,-30px)) scale(1.1)}}
+/* ══ PICKER ══ */
+#themePicker{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:1.2rem .8rem 2rem}
+.picker-bg{position:fixed;inset:0;z-index:-1;background:linear-gradient(135deg,#1a0a2e,#0a1628,#0d2010)}
+.picker-stars{position:fixed;inset:0;z-index:-1;pointer-events:none}
+.pstar{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:psTwink var(--d,2s) ease-in-out infinite var(--dl,0s)}
+@keyframes psTwink{0%,100%{opacity:.1}50%{opacity:.7}}
+#themePicker h1{font-family:'Fredoka One',cursive;font-size:clamp(1.4rem,5vw,2.2rem);color:#fff;text-align:center;margin-bottom:.15rem;text-shadow:0 0 30px rgba(255,255,255,.3)}
+#themePicker>p{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.55);margin-bottom:1rem;text-align:center}
+.section-label{width:100%;max-width:460px;font-size:.65rem;font-weight:900;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem;padding-left:.2rem;display:flex;align-items:center;gap:.5rem}
+.section-label::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.1)}
+.theme-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;width:100%;max-width:460px;margin-bottom:1rem}
+.theme-grid.wide .theme-card:last-child:nth-child(odd){grid-column:span 2}
+.theme-card{border-radius:1.2rem;padding:1rem .7rem .9rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.35rem;border:2px solid transparent;transition:transform .2s cubic-bezier(.2,1.4,.4,1),box-shadow .2s,border-color .2s;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;min-height:110px}
+.theme-card:active{transform:scale(.97)}
+.theme-card .t-emoji{font-size:2.2rem;line-height:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,.3));animation:tFloat 3s ease-in-out infinite}
+.theme-card:nth-child(2) .t-emoji{animation-delay:.4s}
+.theme-card:nth-child(3) .t-emoji{animation-delay:.8s}
+.theme-card:nth-child(4) .t-emoji{animation-delay:1.2s}
+@keyframes tFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.theme-card .t-name{font-family:'Fredoka One',cursive;font-size:.95rem;text-shadow:0 1px 6px rgba(0,0,0,.25)}
+.theme-card .t-sub{font-size:.58rem;font-weight:800;text-align:center;opacity:.75}
+.theme-card .t-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.18),transparent 60%);pointer-events:none}
+.theme-card .t-mode{position:absolute;top:.45rem;right:.55rem;font-size:.5rem;font-weight:900;padding:.12rem .4rem;border-radius:99px;opacity:.8}
+/* dark cards */
+.tk-dino{background:linear-gradient(135deg,#0a2a0a,#1a4a1a);color:#4ade80}
+.tk-space{background:linear-gradient(135deg,#0a0a2a,#1a1a4a);color:#818cf8}
+.tk-ocean{background:linear-gradient(135deg,#0a1a3a,#0a3a5a);color:#38bdf8}
+.tk-hero{background:linear-gradient(135deg,#2a0a0a,#4a1a0a);color:#f87171}
+.tk-fantasy{background:linear-gradient(135deg,#1a0a2a,#2a0a4a);color:#e879f9}
+/* light cards */
+.tk-magic{background:linear-gradient(135deg,#fdf4ff,#fce7f3);color:#a855f7;border-color:#e9d5ff}
+.tk-sunny{background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#d97706;border-color:#fde68a}
+.tk-nature{background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#16a34a;border-color:#bbf7d0}
+.tk-candy{background:linear-gradient(135deg,#fff0f6,#fce7f3);color:#db2777;border-color:#fbcfe8}
+.tk-sky{background:linear-gradient(135deg,#f0f9ff,#dbeafe);color:#0284c7;border-color:#bae6fd}
+.tk-magic .t-sub,.tk-sunny .t-sub,.tk-nature .t-sub,.tk-candy .t-sub,.tk-sky .t-sub{opacity:.6}
 
-/* HEADER */
-.hdr{position:relative;z-index:10;
-  background:linear-gradient(135deg,#f472b6,#a855f7 40%,#6366f1 70%,#38bdf8);
-  background-size:300% 300%;animation:hshift 7s ease infinite;
-  padding:1.4rem 1rem 2.4rem;text-align:center;
-  clip-path:ellipse(100% 88% at 50% 12%);
-  box-shadow:0 8px 32px rgba(168,85,247,.4)}
-@keyframes hshift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-.hdr h1{font-family:'Fredoka One',cursive;font-size:clamp(1.7rem,5vw,2.6rem);color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.25)}
-.hdr-sub{font-size:.88rem;font-weight:700;color:rgba(255,255,255,.88);margin-top:.25rem}
-.hdr-stars{display:flex;justify-content:center;gap:.5rem;margin-bottom:.4rem}
-.hdr-stars span{font-size:1.3rem;display:inline-block;animation:sspin 3s linear infinite}
-.hdr-stars span:nth-child(2){animation-duration:4s;animation-delay:.5s}
-.hdr-stars span:nth-child(3){animation-duration:2.5s;animation-delay:1s}
-@keyframes sspin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-
-/* STATS */
-.stats{position:relative;z-index:10;display:flex;gap:.6rem;padding:1rem .8rem .2rem;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.stats::-webkit-scrollbar{display:none}
-.stat{flex:0 0 auto;background:#fff;border-radius:1.2rem;padding:.6rem 1rem;text-align:center;box-shadow:var(--shadow);min-width:86px;
-  animation:popin .5s cubic-bezier(.2,1.4,.4,1) both}
-.stat:nth-child(2){animation-delay:.08s}.stat:nth-child(3){animation-delay:.16s}.stat:nth-child(4){animation-delay:.24s}
+/* ══ SHARED — mobile-first ══ */
+.stats{position:relative;z-index:10;display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;padding:.7rem .6rem .2rem}
+@media(min-width:480px){.stats{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:.5rem;padding:1rem .8rem .2rem}}
+.stat{border-radius:1.1rem;padding:.5rem .4rem;text-align:center;animation:popin .5s cubic-bezier(.2,1.4,.4,1) both}
+.stat:nth-child(2){animation-delay:.07s}.stat:nth-child(3){animation-delay:.14s}
 @keyframes popin{from{transform:scale(.6) translateY(10px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
-.snum{font-family:'Fredoka One',cursive;font-size:1.7rem;line-height:1}
-.slbl{font-size:.6rem;font-weight:800;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
-
-/* RACHA */
-.streak{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#fef9c3,#fef3c7);border-radius:var(--radius);padding:.75rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 4px 14px rgba(251,191,36,.28)}
-.fire{font-size:2rem;animation:fwiggle .45s ease-in-out infinite alternate}
-@keyframes fwiggle{from{transform:rotate(-6deg) scale(1)}to{transform:rotate(6deg) scale(1.1)}}
-.snum2{font-family:'Fredoka One',cursive;font-size:2.2rem;color:#b45309;line-height:1}
-
-/* PROGRESO */
-.prog-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:#fff;border-radius:var(--radius);padding:.85rem 1rem;box-shadow:var(--shadow)}
-.prog-hdr{display:flex;justify-content:space-between;font-size:.72rem;font-weight:800;color:#374151;margin-bottom:.4rem}
-.prog-track{background:#ede9fe;border-radius:99px;height:16px;overflow:hidden}
-.prog-fill{height:100%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--sky));background-size:200% 100%;animation:pshine 2s linear infinite;border-radius:99px;transition:width 1.2s cubic-bezier(.2,1,.4,1)}
+.snum{font-family:'Fredoka One',cursive;font-size:1.3rem;line-height:1}
+@media(min-width:380px){.snum{font-size:1.5rem}}
+.slbl{font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-top:1px}
+.streak{position:relative;z-index:10;margin:.5rem .6rem 0;border-radius:1.2rem;padding:.6rem .85rem;display:flex;align-items:center;gap:.65rem}
+.fire{font-size:1.7rem;animation:fwiggle .45s ease-in-out infinite alternate}
+@keyframes fwiggle{from{transform:rotate(-6deg)}to{transform:rotate(6deg) scale(1.1)}}
+.snum2{font-family:'Fredoka One',cursive;font-size:1.9rem;line-height:1}
+.prog-card{position:relative;z-index:10;margin:.5rem .6rem 0;border-radius:1.2rem;padding:.7rem .85rem}
+.prog-hdr{display:flex;justify-content:space-between;font-size:.68rem;font-weight:800;margin-bottom:.35rem}
+.prog-track{border-radius:99px;height:13px;overflow:hidden}
+.prog-fill{height:100%;background-size:200%;animation:pshine 2s linear infinite;border-radius:99px;transition:width 1.2s cubic-bezier(.2,1,.4,1)}
 @keyframes pshine{0%{background-position:100%}100%{background-position:-100%}}
-
-/* PRÓXIMA + CONSEJO */
-.next-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#dbeafe,#ede9fe);border:2px solid #a5b4fc;border-radius:var(--radius);padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem}
-.npulse{font-size:2.2rem;animation:npls 1.4s ease-in-out infinite}
+.next-card{position:relative;z-index:10;margin:.5rem .6rem 0;border-radius:1.2rem;padding:.65rem .85rem;display:flex;align-items:center;gap:.6rem}
+.npulse{font-size:1.9rem;animation:npls 1.4s ease-in-out infinite}
 @keyframes npls{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
-.tip-card{position:relative;z-index:10;margin:.7rem .8rem 0;background:linear-gradient(135deg,#fefce8,#fef9c3);border:2px dashed var(--yellow);border-radius:var(--radius);padding:.8rem 1rem;display:flex;gap:.8rem;align-items:flex-start}
-.twobble{font-size:2rem;animation:wob 2s ease-in-out infinite;flex-shrink:0}
+.tip-card{position:relative;z-index:10;margin:.5rem .6rem 0;border-radius:1.2rem;padding:.65rem .85rem;display:flex;gap:.6rem;align-items:flex-start}
+.twobble{font-size:1.7rem;animation:wob 2s ease-in-out infinite;flex-shrink:0}
 @keyframes wob{0%,100%{transform:rotate(0)}30%{transform:rotate(-10deg)}70%{transform:rotate(10deg)}}
-
-/* LEYENDA */
-.legend{position:relative;z-index:10;margin:.6rem .8rem 0;display:flex;gap:.4rem;flex-wrap:wrap}
-.leg{display:flex;align-items:center;gap:.25rem;font-size:.65rem;font-weight:800;padding:.25rem .6rem;border-radius:99px}
-
-/* TABS */
-.vtabs{position:relative;z-index:10;display:flex;gap:.5rem;margin:.8rem .8rem 0}
-.vtab{flex:1;padding:.6rem .5rem;border:none;border-radius:1rem;font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer;transition:all .25s cubic-bezier(.2,1,.4,1);background:#e5e7eb;color:#6b7280}
-.vtab.active{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;transform:translateY(-2px);box-shadow:0 5px 16px rgba(99,102,241,.4)}
-
-/* CONTENEDOR */
-.view-wrap{position:relative;z-index:10;margin:.8rem .8rem 6rem;perspective:1200px}
-.page-l{animation:pageleft .5s cubic-bezier(.4,0,.2,1) both}
-.page-r{animation:pageright .5s cubic-bezier(.4,0,.2,1) both}
-@keyframes pageleft{0%{transform:rotateY(0) translateX(0);opacity:1}40%{transform:rotateY(-28deg) translateX(-4%);opacity:.65}100%{transform:rotateY(0) translateX(0);opacity:1}}
-@keyframes pageright{0%{transform:rotateY(0) translateX(0);opacity:1}40%{transform:rotateY(28deg) translateX(4%);opacity:.65}100%{transform:rotateY(0) translateX(0);opacity:1}}
-
-/* NAV */
-.cal-nav{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:var(--radius);padding:.65rem .9rem;margin-bottom:.7rem;box-shadow:var(--shadow)}
-.nbtn{width:40px;height:40px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;font-weight:900;transition:transform .15s,box-shadow .15s}
-.nbtn.pur{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;box-shadow:0 3px 10px rgba(99,102,241,.4)}
-.nbtn.pnk{background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;box-shadow:0 3px 10px rgba(244,114,182,.4)}
-.nbtn:hover{transform:scale(1.12)}.nbtn:active{transform:scale(.95)}
-.nav-title{font-family:'Fredoka One',cursive;font-size:1.15rem;color:#4c1d95}
-
-/* MENSUAL */
-.cal-month{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.cal-wdays{display:grid;grid-template-columns:repeat(7,1fr);background:linear-gradient(135deg,var(--purple),var(--indigo))}
-.cal-wday{text-align:center;padding:.6rem .2rem;font-size:.65rem;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.4px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#f3f4f6}
-.cal-cell{background:#fff;min-height:82px;padding:.35rem .3rem;position:relative;transition:background .15s}
-.cal-cell:hover{background:#fdf4ff}
-.cal-cell.other{background:#fafafa}
-.cal-cell.other .dnum{opacity:.22}
-.cal-cell.today{background:linear-gradient(135deg,#fdf4ff,#eff6ff)}
-.dnum{font-size:.72rem;font-weight:800;color:#374151;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
-.cal-cell.today .dnum{background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;border-radius:50%;font-size:.65rem}
-.today-sun{position:absolute;top:2px;right:4px;font-size:.85rem;animation:sspin 4s linear infinite}
-.chips{display:flex;flex-direction:column;gap:2px;margin-top:2px}
-.chip{font-size:.52rem;font-weight:800;border-radius:5px;padding:2px 4px;cursor:pointer;transition:transform .1s,filter .1s;display:flex;align-items:center;gap:2px;overflow:hidden}
-.chip:hover{transform:scale(1.06);filter:brightness(.95)}
-/* Chips mensual — todos los estados */
-.cd  {background:var(--done-bg);    color:var(--done-fg)}
-.cp  {background:var(--pending-bg); color:var(--pending-fg)}
-.cc  {background:var(--cancel-bg);  color:var(--cancel-fg)}
-.cpe {background:var(--permit-bg);  color:var(--permit-fg)}
-.cr  {background:var(--retraso-bg); color:var(--retraso-fg)}
-.cf  {background:var(--falta-bg);   color:var(--falta-fg)}
-.crep{background:var(--reprog-bg);  color:var(--reprog-fg)}
-.cmore{font-size:.5rem;font-weight:900;color:var(--purple);background:#ede9fe;border-radius:5px;padding:2px 4px;cursor:pointer}
-
-/* SEMANAL EN COLUMNAS */
-.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
-@media(max-width:600px){.week-grid{grid-template-columns:repeat(7,minmax(92px,1fr));overflow-x:auto;scrollbar-width:none;padding-bottom:.3rem}.week-grid::-webkit-scrollbar{display:none}}
-.wk-col{background:#fff;border-radius:1.1rem;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;min-height:260px}
-.wk-head{padding:.5rem .3rem;text-align:center}
-.wkday{font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:.4px;opacity:.75}
-.wkdate{font-family:'Fredoka One',cursive;font-size:1.35rem;line-height:1.1}
-.wk-col:nth-child(1) .wk-head{background:linear-gradient(135deg,#fbcfe8,#fce7f3);color:#9d174d}
-.wk-col:nth-child(2) .wk-head{background:linear-gradient(135deg,#ddd6fe,#ede9fe);color:#5b21b6}
-.wk-col:nth-child(3) .wk-head{background:linear-gradient(135deg,#bfdbfe,#dbeafe);color:#1e40af}
-.wk-col:nth-child(4) .wk-head{background:linear-gradient(135deg,#a7f3d0,#d1fae5);color:#065f46}
-.wk-col:nth-child(5) .wk-head{background:linear-gradient(135deg,#fde68a,#fef3c7);color:#92400e}
-.wk-col:nth-child(6) .wk-head{background:linear-gradient(135deg,#fed7aa,#ffedd5);color:#9a3412}
-.wk-col:nth-child(7) .wk-head{background:linear-gradient(135deg,#f9a8d4,#fce7f3);color:#9d174d}
-.wk-col.today-col .wk-head{background:linear-gradient(135deg,var(--purple),var(--indigo)) !important;color:#fff !important;box-shadow:0 4px 12px rgba(99,102,241,.4)}
-.wk-col.today-col{outline:2px solid var(--purple);outline-offset:-1px}
-.wk-body{flex:1;padding:.3rem .25rem;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:320px;scrollbar-width:thin;scrollbar-color:#ddd6fe transparent}
-.wk-body::-webkit-scrollbar{width:3px}.wk-body::-webkit-scrollbar-thumb{background:#ddd6fe;border-radius:99px}
-.wk-ses{border-radius:.55rem;padding:.35rem .3rem;cursor:pointer;transition:transform .15s,filter .15s;border-left:3px solid transparent;font-size:.62rem}
-.wk-ses:hover{transform:scale(1.04);filter:brightness(.96)}
-/* Semanal — todos los estados */
-.wd  {background:var(--done-bg);    border-color:#34d399}
-.wp  {background:var(--pending-bg); border-color:#60a5fa}
-.wc  {background:var(--cancel-bg);  border-color:#f87171}
-.wpe {background:var(--permit-bg);  border-color:#f472b6}
-.wr  {background:var(--retraso-bg); border-color:#f59e0b}
-.wf  {background:var(--falta-bg);   border-color:#ec4899}
-.wrep{background:var(--reprog-bg);  border-color:#818cf8}
-.wk-hora{font-weight:900;font-size:.7rem;line-height:1}
-.wk-svc{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.wk-prof{font-weight:600;color:#6b7280;font-size:.58rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wk-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:.3;padding:.6rem 0}
-
-/* POPUP */
-.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.legend{position:relative;z-index:10;margin:.5rem .6rem 0;display:flex;gap:.3rem;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:.2rem;font-size:.58rem;font-weight:800;padding:.2rem .45rem;border-radius:99px}
+.vtabs{position:relative;z-index:10;display:flex;gap:.3rem;margin:.6rem .6rem 0}
+.vtab{flex:1;padding:.55rem .2rem;border-radius:.9rem;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer;transition:all .25s cubic-bezier(.2,1,.4,1);-webkit-tap-highlight-color:transparent}
+.view-wrap{position:relative;z-index:10;margin:.6rem .6rem 5.5rem;perspective:1200px}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;border-radius:1.2rem;padding:.55rem .7rem;margin-bottom:.55rem}
+.nbtn{width:44px;height:44px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;font-weight:900;transition:transform .15s;-webkit-tap-highlight-color:transparent}
+.nbtn:active{transform:scale(.9)}
+.nav-title{font-family:'Fredoka One',cursive;font-size:1rem}
+.cal-wdays{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-wday{text-align:center;padding:.4rem .1rem;font-size:.55rem;font-weight:900;text-transform:uppercase;letter-spacing:.2px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.cal-cell{min-height:60px;padding:.25rem .18rem;position:relative;transition:background .15s;cursor:pointer;-webkit-tap-highlight-color:transparent}
+@media(min-width:380px){.cal-cell{min-height:70px;padding:.28rem .22rem}}
+@media(min-width:480px){.cal-cell{min-height:82px;padding:.35rem .3rem}}
+.dnum{font-size:.65rem;font-weight:800;width:19px;height:19px;display:flex;align-items:center;justify-content:center}
+.today-icon{position:absolute;top:1px;right:2px;font-size:.75rem;animation:iconSpin 4s linear infinite}
+@keyframes iconSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.chips{display:flex;flex-direction:column;gap:1px;margin-top:2px}
+.chip{font-size:.45rem;font-weight:800;border-radius:3px;padding:1px 3px;cursor:pointer;transition:transform .1s;display:flex;flex-direction:column;align-items:flex-start;gap:1px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+@media(min-width:380px){.chip{font-size:.48rem}}
+.chip:active{transform:scale(.95)}
+.cd{background:#d1fae5;color:#065f46}.cp{background:#dbeafe;color:#1e40af}
+.cc{background:#fee2e2;color:#991b1b}.cpe{background:#fce7f3;color:#9d174d}
+.cr{background:#fef3c7;color:#92400e}.cf{background:#fce7f3;color:#9d174d}
+.crep{background:#e0e7ff;color:#3730a3}
+.week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+@media(max-width:479px){.week-grid{grid-template-columns:repeat(7,minmax(76px,1fr));overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.4rem;scrollbar-width:none}
+.week-grid::-webkit-scrollbar{display:none}}
+.wk-col{border-radius:.9rem;overflow:hidden;display:flex;flex-direction:column;min-height:220px}
+@media(min-width:480px){.wk-col{min-height:260px}}
+.wk-head{padding:.4rem .25rem;text-align:center}
+.wkday{font-size:.55rem;font-weight:900;text-transform:uppercase;letter-spacing:.3px}
+.wkdate{font-family:'Fredoka One',cursive;font-size:1.2rem;line-height:1.1}
+.wk-body{flex:1;padding:.3rem .25rem;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:320px}
+.wk-ses{border-radius:.55rem;padding:.35rem .3rem;cursor:pointer;transition:transform .15s;border-left:3px solid transparent;font-size:.62rem}
+.wk-ses:hover{transform:scale(1.04)}
+.wd{background:#d1fae5;border-color:#34d399}.wp{background:#dbeafe;border-color:#60a5fa}
+.wc{background:#fee2e2;border-color:#f87171}.wpe{background:#fce7f3;border-color:#f472b6}
+.wr{background:#fef3c7;border-color:#f59e0b}.wf{background:#fce7f3;border-color:#ec4899}
+.wrep{background:#e0e7ff;border-color:#818cf8}
+.wk-hora{font-weight:900;font-size:.7rem;line-height:1;color:#111}
+.wk-svc{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;color:#222}
+.wk-prof{font-weight:600;color:#6b7280;font-size:.58rem}
+.wk-empty{flex:1;display:flex;align-items:center;justify-content:center;font-size:1.5rem;opacity:.35;padding:.6rem 0}
+/* cuento */
+.cuento-wrap{display:flex;flex-direction:column;gap:1rem}
+.book-cover{border-radius:1.8rem;overflow:hidden;position:relative;min-height:210px}
+.cover-stars{position:absolute;inset:0;pointer-events:none}
+.cstar{position:absolute;border-radius:50%;animation:csTwink var(--d,2s) ease-in-out infinite var(--dl,0s)}
+@keyframes csTwink{0%,100%{opacity:.1}50%{opacity:.9}}
+.cover-main-emoji{position:absolute;right:-5px;bottom:20px;font-size:5rem;line-height:1;animation:coverBob 3s ease-in-out infinite;filter:drop-shadow(0 8px 24px rgba(0,0,0,.25))}
+@keyframes coverBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-10px) rotate(3deg)}}
+.cover-content{position:relative;z-index:2;padding:1.2rem 1.2rem 1rem}
+.cover-era-badge{display:inline-flex;align-items:center;gap:.4rem;font-size:.62rem;font-weight:900;padding:.25rem .8rem;border-radius:99px;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.8px}
+.cover-era-badge::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.6);opacity:.4}}
+.cover-title{font-family:'Fredoka One',cursive;font-size:clamp(1.2rem,4vw,1.8rem);line-height:1.15;margin-bottom:.3rem}
+.cover-subtitle{font-size:.78rem;font-weight:700}
+.cover-divider{margin:.6rem 0;border:none;border-top:1px solid rgba(0,0,0,.08)}
+.cover-meta{display:flex;gap:1.2rem;font-size:.68rem;font-weight:800;opacity:.65}
+.cover-deco-strip{position:absolute;bottom:0;left:0;right:0;height:64px;display:flex;align-items:flex-end;padding:0 1rem .45rem;gap:.3rem;font-size:1.5rem}
+.chapter-timeline-card{border-radius:1.5rem;padding:1rem}
+.timeline-wrap{position:relative;padding:0 .8rem}
+.timeline-line{position:absolute;left:1.8rem;top:0;bottom:0;width:2px}
+.chapter-item{position:relative;padding:.55rem 0 .55rem 3.2rem}
+.chapter-item::before{content:'';position:absolute;left:1.1rem;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;border:2px solid transparent;z-index:1}
+.chapter-item.active::before{width:20px;height:20px;left:.9rem}
+.chapter-num{font-size:.57rem;font-weight:900;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.1rem;opacity:.6}
+.chapter-name{font-family:'Fredoka One',cursive;font-size:.95rem;line-height:1.2}
+.chapter-desc{font-size:.7rem;font-weight:700;margin-top:.12rem;opacity:.55}
+.mascot-row{display:flex;justify-content:center;margin:.2rem 0}
+.mascot{width:96px;height:96px;position:relative;cursor:pointer;user-select:none}
+.mascot svg{width:100%;height:100%;overflow:visible}
+.mascot-bubble{position:absolute;top:-16px;left:50%;transform:translateX(-50%);border-radius:1rem;padding:.28rem .65rem;white-space:nowrap;font-size:.65rem;font-weight:800;box-shadow:0 4px 18px rgba(0,0,0,.15);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20}
+.mascot-bubble::after{content:'';position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);border:5px solid transparent}
+.mascot-bubble.show{opacity:1}
+.footprints{display:flex;gap:.25rem;justify-content:center;margin-top:-.3rem;animation:footAnim 3s linear infinite}
+@keyframes footAnim{0%,100%{opacity:.35}50%{opacity:.8}}
+.mood-btn{width:46px;height:46px;border-radius:50%;border:2px solid transparent;font-size:1.35rem;cursor:pointer;transition:all .2s cubic-bezier(.2,1.4,.4,1);display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.mood-btn:active{transform:scale(1.15) translateY(-3px)}
+.story-page{border-radius:1.8rem;overflow:hidden;position:relative}
+.page-sidebar{position:absolute;left:0;top:0;bottom:0;width:7px}
+.story-inner{padding:1.1rem 1rem 1.1rem 1.4rem}
+.story-era-tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.58rem;font-weight:900;padding:.2rem .7rem;border-radius:99px;margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.5px}
+.story-title{font-family:'Fredoka One',cursive;font-size:1.25rem;line-height:1.2;margin-bottom:.55rem}
+.story-body{font-size:.87rem;font-weight:700;line-height:1.8}
+.story-highlight{border-radius:0 .5rem .5rem 0;padding:.4rem .7rem;margin:.5rem 0;display:block;font-size:.82rem;border-left:3px solid}
+.roar-text{font-family:'Fredoka One',cursive;font-size:1.5rem;text-align:center;letter-spacing:3px;animation:roarPulse 1.5s ease-in-out infinite;margin:.5rem 0;display:block}
+@keyframes roarPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.mood-card{border-radius:1.5rem;padding:1rem}
+.mood-card-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.6rem;text-align:center}
+.mood-grid{display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap}
+.mood-btn{width:50px;height:50px;border-radius:50%;border:2px solid transparent;font-size:1.45rem;cursor:pointer;transition:all .2s cubic-bezier(.2,1.4,.4,1);display:flex;align-items:center;justify-content:center}
+.mood-btn:hover{transform:scale(1.2) translateY(-4px)}
+.mood-note{margin-top:.55rem;width:100%;border:2px solid transparent;border-radius:.9rem;padding:.45rem .65rem;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;resize:none;outline:none;transition:border-color .2s}
+.mood-save-btn{display:block;width:100%;margin-top:.5rem;padding:.65rem;border:none;border-radius:1rem;color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:.84rem;cursor:pointer;transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent;min-height:48px}
+.mood-ok{text-align:center;font-size:.76rem;font-weight:800;margin-top:.35rem;opacity:0;transition:opacity .3s}
+.adv-card{border-radius:1.5rem;padding:1rem}
+.adv-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.6rem}
+.adv-row{display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem}
+.adv-ico{font-size:1rem;width:26px;text-align:center;flex-shrink:0}
+.adv-bar-wrap{flex:1;border-radius:99px;height:11px;overflow:hidden}
+.adv-bar{height:100%;border-radius:99px;transition:width 1.4s cubic-bezier(.2,1,.4,1)}
+.adv-cnt{font-size:.68rem;font-weight:900;min-width:24px;text-align:right}
+.badges-card{border-radius:1.5rem;padding:1rem}
+.badges-title{font-family:'Fredoka One',cursive;font-size:1rem;margin-bottom:.6rem}
+.badges-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem}
+.badge-item{display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.45rem .1rem;border-radius:.9rem;transition:transform .15s}
+.badge-item.unlocked:hover{transform:scale(1.07)}
+.badge-item.locked{opacity:.35;filter:grayscale(1)}
+.badge-ico{font-size:1.6rem;line-height:1}
+.badge-lbl{font-size:.5rem;font-weight:900;text-align:center;line-height:1.2}
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
 .overlay.open{opacity:1;pointer-events:all}
-.sheet{background:#fff;width:100%;max-width:500px;border-radius:1.8rem 1.8rem 0 0;padding:1.2rem 1.1rem 2.2rem;transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.9,.3,1);max-height:88vh;overflow-y:auto}
+.sheet{width:100%;max-width:500px;border-radius:1.6rem 1.6rem 0 0;padding:1rem 1rem 2.4rem;transform:translateY(100%);transition:transform .35s cubic-bezier(.2,.9,.3,1);max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .overlay.open .sheet{transform:translateY(0)}
-.sh-handle{width:44px;height:4px;background:#e5e7eb;border-radius:99px;margin:0 auto 1rem}
-.sh-banner{border-radius:1rem;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;font-family:'Fredoka One',cursive;font-size:1.3rem}
-.sh-row{display:flex;align-items:center;gap:.75rem;padding:.45rem 0;border-bottom:1px solid #f3f4f6}
+.sh-handle{width:40px;height:5px;border-radius:99px;margin:0 auto .9rem}
+.sh-banner{border-radius:.9rem;padding:.65rem 1rem;text-align:center;margin-bottom:.9rem;font-family:'Fredoka One',cursive;font-size:1.2rem}
+.sh-row{display:flex;align-items:center;gap:.65rem;padding:.45rem 0;border-bottom:1px solid rgba(128,128,128,.15)}
 .sh-row:last-child{border:none}
-.sh-ico{font-size:1.2rem;flex-shrink:0}
-.sh-lbl{font-size:.62rem;font-weight:900;color:#9ca3af;text-transform:uppercase}
-.sh-val{font-size:.87rem;font-weight:800;color:#111827}
-
-/* BACK */
-.back-fab{position:fixed;bottom:1.3rem;right:1rem;z-index:100;background:linear-gradient(135deg,var(--purple),var(--indigo));color:#fff;border:none;border-radius:1.6rem;padding:.7rem 1.3rem;font-family:'Nunito',sans-serif;font-weight:900;font-size:.84rem;cursor:pointer;box-shadow:0 6px 22px rgba(99,102,241,.48);display:flex;align-items:center;gap:.4rem;text-decoration:none;transition:transform .15s}
-.back-fab:hover{transform:translateY(-2px)}
+.sh-ico{font-size:1.1rem;flex-shrink:0}
+.sh-lbl{font-size:.6rem;font-weight:900;text-transform:uppercase}
+.sh-val{font-size:.84rem;font-weight:800}
+.back-fab{position:fixed;bottom:1rem;right:.75rem;z-index:100;color:#fff;border:none;border-radius:1.4rem;padding:.75rem 1.1rem;font-family:'Nunito',sans-serif;font-weight:900;font-size:.82rem;cursor:pointer;display:none;align-items:center;gap:.4rem;transition:transform .15s;text-decoration:none;width:auto;min-height:48px;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.back-fab:active{transform:scale(.96)}
+#themeChangeBtn{position:fixed;bottom:1rem;left:.75rem;z-index:100;border:none;border-radius:1.2rem;padding:.65rem .85rem;font-family:'Nunito',sans-serif;font-weight:900;font-size:.76rem;cursor:pointer;display:flex;align-items:center;gap:.3rem;transition:transform .15s;min-height:48px;-webkit-tap-highlight-color:transparent;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+#themeChangeBtn:active{transform:scale(.96)}
+@keyframes m-roar{0%{transform:scale(1)}15%{transform:scale(1.3) rotate(-8deg)}30%{transform:scale(1.25) rotate(8deg)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+@keyframes m-walk{0%,100%{transform:translateX(0)}25%{transform:translateX(6px) rotate(3deg)}75%{transform:translateX(-6px) rotate(-3deg)}}
+@keyframes m-sad{0%,100%{transform:translateY(0)}50%{transform:translateY(5px) rotate(-5deg)}}
+@keyframes m-think{0%,100%{transform:rotate(0)}50%{transform:rotate(-8deg) translateY(-4px)}}
+@keyframes m-sleep{0%,100%{transform:scale(1)}50%{transform:rotate(-4deg) scale(.97)}}
+@keyframes m-bounce{0%,100%{transform:translateY(0)}35%{transform:translateY(-14px)}65%{transform:translateY(-5px)}}
+@keyframes pgLeft{0%{transform:rotateY(0);opacity:1}40%{transform:rotateY(-28deg) translateX(-4%);opacity:.6}100%{transform:rotateY(0);opacity:1}}
+@keyframes pgRight{0%{transform:rotateY(0);opacity:1}40%{transform:rotateY(28deg) translateX(4%);opacity:.6}100%{transform:rotateY(0);opacity:1}}
+.page-l{animation:pgLeft .5s cubic-bezier(.4,0,.2,1) both}
+.page-r{animation:pgRight .5s cubic-bezier(.4,0,.2,1) both}
+#meteorCanvas{position:fixed;inset:0;z-index:1;pointer-events:none}
+.spore{position:absolute;border-radius:50%;pointer-events:none;animation:sporeDrift var(--d,8s) ease-in-out infinite var(--dl,0s)}
+@keyframes sporeDrift{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:.5}80%{opacity:.25}100%{transform:translateY(-100px) rotate(720deg) scale(.3);opacity:0}}
+@keyframes sporeBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}
 </style>
-{% endblock %}
+</head>
+<body>
+<canvas id="meteorCanvas"></canvas>
+<div id="bgLayer" style="position:fixed;inset:0;z-index:0;pointer-events:none"></div>
+<div id="particleLayer" style="position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden"></div>
 
-{% block content %}
-<div class="magic-bg">
-  <div class="bb" style="width:260px;height:260px;background:#f472b6;top:-80px;left:-80px;--d:8s;--tx:20px;--ty:30px;"></div>
-  <div class="bb" style="width:200px;height:200px;background:#6366f1;top:35%;right:-60px;--d:11s;--dl:1s;--tx:-30px;--ty:-40px;"></div>
-  <div class="bb" style="width:160px;height:160px;background:#38bdf8;bottom:25%;left:-40px;--d:9s;--dl:2s;--tx:25px;--ty:-20px;"></div>
-</div>
+<!-- ══ PICKER ══ -->
+<div id="themePicker">
+  <div class="picker-bg"></div>
+  <div class="picker-stars" id="pickerStars"></div>
+  <h1 style="margin-top:1rem">🌈 Elige Tu Mundo</h1>
+  <p>Selecciona el tema de tu calendario mágico</p>
 
-<div class="hdr">
-  <div class="hdr-stars"><span>✨</span><span>⭐</span><span>🌟</span></div>
-  <h1>🌈 Mi Calendario Mágico</h1>
-  <p class="hdr-sub">{{ paciente.nombre_completo }} 🌟</p>
-</div>
-
-<div class="stats">
-  <div class="stat"><div class="snum" style="color:#34d399;">{{ sesiones_realizadas_count }}</div><div class="slbl">✅ Realizadas</div></div>
-  <div class="stat"><div class="snum" style="color:#f59e0b;">{{ sesiones_retraso_count }}</div><div class="slbl">⏰ Con retraso</div></div>
-  <div class="stat"><div class="snum" style="color:#60a5fa;">{{ sesiones_proximas_count }}</div><div class="slbl">📅 Próximas</div></div>
-  <div class="stat"><div class="snum" style="color:#ec4899;">{{ sesiones_falta_count }}</div><div class="slbl">🚫 Faltas</div></div>
-  <div class="stat"><div class="snum" style="color:#f87171;">{{ sesiones_canceladas_count }}</div><div class="slbl">❌ Canceladas</div></div>
-  <div class="stat"><div class="snum" style="color:#818cf8;">{{ sesiones_reprog_count }}</div><div class="slbl">🔄 Reprog.</div></div>
-  <div class="stat"><div class="snum" style="color:#f472b6;">{{ sesiones_permiso_count }}</div><div class="slbl">📋 Permisos</div></div>
-  <div class="stat"><div class="snum" style="color:#a855f7;">{{ total_sesiones }}</div><div class="slbl">🌟 Total</div></div>
-</div>
-
-{% if racha_semanas and racha_semanas > 0 %}
-<div class="streak">
-  <span class="fire">🔥</span>
-  <span class="snum2">{{ racha_semanas }}</span>
-  <div>
-    <div style="font-size:.82rem;font-weight:800;color:#92400e;">¡Semana{{ racha_semanas|pluralize }}s seguidas!</div>
-    <div style="font-size:.66rem;color:#b45309;font-weight:700;">🏆 ¡Eres increíble! 💪</div>
+  <div class="section-label">🌙 Mundos Oscuros</div>
+  <div class="theme-grid wide" id="darkGrid">
+    <div class="theme-card tk-dino"    onclick="applyTheme('dino')">   <div class="t-shine"></div><div class="t-mode" style="background:rgba(0,0,0,.3);color:#4ade80">🌙 Oscuro</div><div class="t-emoji">🦕</div><div class="t-name" style="color:#4ade80">Jurásico</div><div class="t-sub" style="color:#86efac">Explorador de dinos</div></div>
+    <div class="theme-card tk-space"   onclick="applyTheme('space')">  <div class="t-shine"></div><div class="t-mode" style="background:rgba(0,0,0,.3);color:#818cf8">🌙 Oscuro</div><div class="t-emoji">🚀</div><div class="t-name" style="color:#818cf8">Espacio</div><div class="t-sub" style="color:#c7d2fe">Astronauta galáctico</div></div>
+    <div class="theme-card tk-ocean"   onclick="applyTheme('ocean')">  <div class="t-shine"></div><div class="t-mode" style="background:rgba(0,0,0,.3);color:#38bdf8">🌙 Oscuro</div><div class="t-emoji">🌊</div><div class="t-name" style="color:#38bdf8">Océano</div><div class="t-sub" style="color:#bae6fd">Capitán pirata</div></div>
+    <div class="theme-card tk-hero"    onclick="applyTheme('hero')">   <div class="t-shine"></div><div class="t-mode" style="background:rgba(0,0,0,.3);color:#f87171">🌙 Oscuro</div><div class="t-emoji">🦸</div><div class="t-name" style="color:#f87171">Superhéroe</div><div class="t-sub" style="color:#fca5a5">Guardián ciudad</div></div>
+    <div class="theme-card tk-fantasy" onclick="applyTheme('fantasy')"><div class="t-shine"></div><div class="t-mode" style="background:rgba(0,0,0,.3);color:#e879f9">🌙 Oscuro</div><div class="t-emoji">🐉</div><div class="t-name" style="color:#e879f9">Fantasía</div><div class="t-sub" style="color:#f0abfc">Caballero del reino</div></div>
   </div>
-</div>
-{% endif %}
 
-<div class="prog-card">
-  <div class="prog-hdr">
-    <span>🏆 Progreso del mes</span>
-    <span style="color:var(--purple);">{{ sesiones_mes_realizadas }} / {{ sesiones_mes_total }}</span>
-  </div>
-  <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
-  <p style="font-size:.65rem;color:#6b7280;font-weight:700;margin-top:.3rem;text-align:right;">
-    {% if sesiones_mes_total > 0 %}{{ pct_mes }}% completado 🎉{% else %}Sin sesiones este mes{% endif %}
-  </p>
-</div>
-
-{% if proxima_sesion %}
-<div class="next-card">
-  <span class="npulse">⏰</span>
-  <div>
-    <div style="font-size:.62rem;font-weight:900;color:#4338ca;text-transform:uppercase;letter-spacing:.5px;">⚡ Próxima sesión</div>
-    <div style="font-size:.92rem;font-weight:900;color:#1e1b4b;">{{ proxima_sesion.fecha|date:"l d \d\e F" }}</div>
-    <div style="font-size:.72rem;font-weight:700;color:#4338ca;">🕐 {{ proxima_sesion.hora_inicio|time:"g:i A" }} &nbsp;·&nbsp; {{ proxima_sesion.servicio.nombre }} &nbsp;·&nbsp; {{ proxima_sesion.profesional.nombre }}</div>
-  </div>
-</div>
-{% endif %}
-
-<div class="tip-card">
-  <span class="twobble" id="tipIcon">💡</span>
-  <div>
-    <div style="font-size:.62rem;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.15rem;">🦄 Consejo del día</div>
-    <div style="font-size:.82rem;font-weight:700;color:#92400e;line-height:1.45;" id="tipText">…</div>
+  <div class="section-label">☀️ Mundos Claros</div>
+  <div class="theme-grid wide" id="lightGrid">
+    <div class="theme-card tk-magic"  onclick="applyTheme('magic')"> <div class="t-mode" style="background:rgba(168,85,247,.15);color:#a855f7">☀️ Claro</div><div class="t-emoji">🌈</div><div class="t-name" style="color:#7c3aed">Mágico</div><div class="t-sub" style="color:#9333ea">Hechicero del arcoíris</div></div>
+    <div class="theme-card tk-sunny"  onclick="applyTheme('sunny')"> <div class="t-mode" style="background:rgba(217,119,6,.15);color:#d97706">☀️ Claro</div><div class="t-emoji">☀️</div><div class="t-name" style="color:#b45309">Soleado</div><div class="t-sub" style="color:#92400e">Explorador del sol</div></div>
+    <div class="theme-card tk-nature" onclick="applyTheme('nature')"><div class="t-mode" style="background:rgba(22,163,74,.15);color:#16a34a">☀️ Claro</div><div class="t-emoji">🌸</div><div class="t-name" style="color:#15803d">Naturaleza</div><div class="t-sub" style="color:#166534">Guardián del bosque</div></div>
+    <div class="theme-card tk-candy"  onclick="applyTheme('candy')"> <div class="t-mode" style="background:rgba(219,39,119,.15);color:#db2777">☀️ Claro</div><div class="t-emoji">🍭</div><div class="t-name" style="color:#be185d">Dulces</div><div class="t-sub" style="color:#9d174d">Maestro repostero</div></div>
+    <div class="theme-card tk-sky"    onclick="applyTheme('sky')">   <div class="t-mode" style="background:rgba(2,132,199,.15);color:#0284c7">☀️ Claro</div><div class="t-emoji">🦋</div><div class="t-name" style="color:#0369a1">Cielo</div><div class="t-sub" style="color:#075985">Explorador de nubes</div></div>
   </div>
 </div>
 
-<div class="legend">
-  <div class="leg" style="background:var(--done-bg);color:var(--done-fg);">✅ Realizada</div>
-  <div class="leg" style="background:var(--retraso-bg);color:var(--retraso-fg);">⏰ Con retraso</div>
-  <div class="leg" style="background:var(--pending-bg);color:var(--pending-fg);">🔵 Programada</div>
-  <div class="leg" style="background:var(--permit-bg);color:var(--permit-fg);">📋 Permiso</div>
-  <div class="leg" style="background:var(--falta-bg);color:var(--falta-fg);">🚫 Falta s/aviso</div>
-  <div class="leg" style="background:var(--cancel-bg);color:var(--cancel-fg);">❌ Cancelada</div>
-  <div class="leg" style="background:var(--reprog-bg);color:var(--reprog-fg);">🔄 Reprogramada</div>
-</div>
-
-<div class="vtabs">
-  <button class="vtab active" id="tabM" onclick="switchView('mes')">📅 Mensual</button>
-  <button class="vtab"        id="tabS" onclick="switchView('semana')">📆 Semanal</button>
-</div>
-
-<div class="view-wrap" id="mainView">
-
-  <!-- MENSUAL -->
-  <div id="viewMes">
-    <div class="cal-nav">
-      <button class="nbtn pur" onclick="prevMes()">‹</button>
-      <span class="nav-title" id="titleMes"></span>
-      <button class="nbtn pur" onclick="nextMes()">›</button>
-    </div>
-    <div class="cal-month">
-      <div class="cal-wdays">
-        <div class="cal-wday">Dom</div><div class="cal-wday">Lun</div>
-        <div class="cal-wday">Mar</div><div class="cal-wday">Mié</div>
-        <div class="cal-wday">Jue</div><div class="cal-wday">Vie</div>
-        <div class="cal-wday">Sáb</div>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-    </div>
+<!-- ══ APP ══ -->
+<div id="app" style="display:none">
+  <div id="hdr"></div>
+  <div class="stats" id="statsBar"></div>
+  <div id="streakBar"></div>
+  <div id="progCard"></div>
+  <div id="nextCard"></div>
+  <div id="tipCard"></div>
+  <div class="legend" id="legendBar"></div>
+  <div class="vtabs" id="vtabs"></div>
+  <div class="view-wrap" id="mainView">
+    <div id="viewMes"></div>
+    <div id="viewSemana" style="display:none"></div>
+    <div id="viewCuento" style="display:none"></div>
   </div>
-
-  <!-- SEMANAL -->
-  <div id="viewSemana" style="display:none;">
-    <div class="cal-nav">
-      <button class="nbtn pnk" onclick="prevSemana()">‹</button>
-      <span class="nav-title" id="titleSemana"></span>
-      <button class="nbtn pnk" onclick="nextSemana()">›</button>
-    </div>
-    <div class="week-grid" id="weekGrid"></div>
-  </div>
-
 </div>
 
-<!-- DETALLE -->
+<button id="themeChangeBtn" onclick="showPicker()" style="display:none">🎨 Cambiar mundo</button>
 <div class="overlay" id="overlay" onclick="closeSheet(event)">
-  <div class="sheet">
-    <div class="sh-handle"></div>
-    <div id="sheetContent"></div>
-  </div>
+  <div class="sheet" id="sheetEl"><div class="sh-handle" id="shHandle"></div><div id="sheetContent"></div></div>
 </div>
-
-<a href="{% url 'pacientes:mis_sesiones' %}" class="back-fab">← Mis Sesiones</a>
+<a href="{% url 'pacientes:mis_sesiones' %}" class="back-fab" id="backFab">← Mis Sesiones</a>
 
 <script>
+// ══ DATOS DEL PACIENTE (Django) ══
 const SESSIONS=[{% for s in todas_sesiones %}{
   id:{{s.id}},
   fecha:"{{s.fecha|date:'Y-m-d'}}",
-  hora:"{{s.hora_inicio|time:'H:i'}}",
-  horaFin:"{{s.hora_fin|time:'H:i'|default:''}}",
+  hora:"{{s.hora_inicio|default:''|time:'H:i'}}",
+  horaFin:"{{s.hora_fin|default:''|time:'H:i'}}",
   dur:{{s.duracion_minutos|default:"0"}},
   retraso:{{s.minutos_retraso|default:"0"}},
   svc:"{{s.servicio.nombre|escapejs}}",
@@ -316,229 +289,391 @@ const SESSIONS=[{% for s in todas_sesiones %}{
   obs:"{{s.observaciones_profesional|default:''|escapejs|truncatechars:90}}",
   tipo:"{% if s.mensualidad %}Mensualidad{% elif s.proyecto %}Proyecto{% else %}Individual{% endif %}"
 }{% if not forloop.last %},{% endif %}{% endfor %}];
+const PCT          = {{ pct_mes|default:"0" }};
+const TOTAL_SES    = {{ total_sesiones|default:"0" }};
+const RACHA        = {{ racha_semanas|default:"0" }};
+const CNT_REAL     = {{ sesiones_realizadas_count|default:"0" }};
+const CNT_RETRASO  = {{ sesiones_retraso_count|default:"0" }};
+const CNT_PROX     = {{ sesiones_proximas_count|default:"0" }};
+const CNT_CANCEL   = {{ sesiones_canceladas_count|default:"0" }};
+const CNT_FALTA    = {{ sesiones_falta_count|default:"0" }};
+const CNT_REPROG   = {{ sesiones_reprog_count|default:"0" }};
+const CNT_PERMISO  = {{ sesiones_permiso_count|default:"0" }};
 
-const PCT={{pct_mes|default:"0"}};
-const MES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-const DIA3=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+// ══ PICKER STARS ══
+const ps=document.getElementById('pickerStars');
+for(let i=0;i<60;i++){const s=document.createElement('div');s.className='pstar';s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;--d:${1.5+Math.random()*3}s;--dl:${Math.random()*3}s`;ps.appendChild(s);}
 
-const TIPS=[
-  {i:"🌟",t:"¡Cada sesión es un paso hacia ser la mejor versión de ti! Celebra cada logro por pequeño que sea."},
-  {i:"🧠",t:"Practicar en casa lo aprendido en terapia ayuda mucho. ¡5 minutitos al día hacen la diferencia!"},
-  {i:"💧",t:"Tomar agua antes de la sesión ayuda al cerebro a estar más despierto y listo para aprender."},
-  {i:"😴",t:"Dormir bien la noche anterior hace que todo sea más fácil y divertido en la sesión."},
-  {i:"🎯",t:"Si tienes una tarea pendiente del profesional, ¡tráela! Así aprovechamos mejor el tiempo."},
-  {i:"🥗",t:"Un snack saludable antes de la sesión (fruta, yogur) da energía para concentrarse mejor."},
-  {i:"📝",t:"Anota si notaste algo diferente esta semana. ¡Tu profesional quiere saber cómo te fue!"},
-  {i:"🎉",t:"¡Llegar a tiempo es un superpoder! Así aprovechamos cada minuto de nuestra sesión."},
-  {i:"🤗",t:"Si algo no quedó claro, ¡pregunta sin miedo! No hay preguntas tontas."},
-  {i:"💪",t:"El progreso no siempre es visible al instante. ¡Confía en el proceso y sé constante!"},
-  {i:"🌈",t:"Cada niño aprende a su ritmo. Compara solo con tu versión de ayer, ¡no con los demás!"},
-  {i:"🎮",t:"Cuéntale a tu terapeuta tus juegos favoritos, ¡puede usarlos en la sesión!"},
-  {i:"🏃",t:"Un poco de ejercicio antes de la sesión ayuda a liberar energía y concentrarse mejor."},
-  {i:"🎵",t:"La música ayuda a los niños a aprender más rápido. ¡Pregúntale a tu profesional!"},
-  {i:"🌺",t:"Un abrazo antes de entrar a sesión puede reducir el nerviosismo. ¡Los papás también ayudan!"},
-  {i:"📚",t:"Leer cuentos juntos en casa refuerza muchísimo el trabajo que hacemos en cada sesión."},
-  {i:"🦋",t:"Los cambios pequeños acumulados generan grandes transformaciones. ¡Paciencia y confianza!"},
-  {i:"🎨",t:"El dibujo libre es una forma excelente de expresar cómo te sientes. ¡Anímate a dibujar!"},
-];
+// ══ THEME DEFINITIONS ══
+const THEMES={
+  // ──────────── DARK ────────────
+  dino:{dark:true,name:'Jurásico',bodyBg:'#0a1a0a',c1:'#4ade80',c2:'#16a34a',c3:'#166534',hdrGrad:'linear-gradient(135deg,#166534,#15803d 40%,#16a34a 70%,#4ade80)',hdrClip:'polygon(0 0,100% 0,100% 78%,85% 88%,70% 78%,55% 90%,40% 78%,25% 90%,10% 78%,0 88%)',statBg:'rgba(20,40,20,.85)',statBorder:'#16a34a44',statLbl:'#86efac',streakBg:'linear-gradient(135deg,#1c2a10,#14401e)',streakBorder:'#4ade80',streakC:'#4ade80',progBg:'rgba(20,40,20,.85)',progFill:'linear-gradient(90deg,#4ade80,#16a34a,#fbbf24)',progTrack:'#0a1a0a',nextBg:'rgba(14,30,14,.9)',nextBorder:'#4ade8066',nextAccent:'#4ade80',nextC:'#d1fae5',tipBg:'rgba(20,20,5,.85)',tipBorder:'#fbbf24',navBg:'rgba(20,40,20,.85)',navBorder:'#16a34a44',navTitle:'#4ade80',calBg:'rgba(14,30,14,.9)',calBorder:'#16a34a33',calWdayBg:'linear-gradient(135deg,#166534,#15803d)',calCellBg:'rgba(14,30,14,.8)',calTodayBg:'linear-gradient(135deg,rgba(22,101,52,.4),rgba(16,185,129,.1))',dnumC:'#86efac',wkHeadBg:'linear-gradient(135deg,#0a2a0a,#1a4a1a)',wkTodayBg:'linear-gradient(135deg,#16a34a,#166534)',wkColBg:'rgba(14,30,14,.85)',wkColBorder:'#16a34a22',tabBg:'rgba(20,40,20,.7)',tabC:'#86efac',tabActiveBg:'linear-gradient(135deg,#16a34a,#166534)',tabBorder:'#16a34a44',covBg:'linear-gradient(135deg,#0a2a0a,#1a4a1a 40%,#166534 70%,#0d3320)',tlCardBg:'rgba(10,20,10,.9)',tlCardBorder:'#16a34a33',tlLine:'linear-gradient(180deg,#4ade80,#166534,transparent)',storyBg:'rgba(10,20,10,.92)',storyBorder:'#16a34a33',storySidebar:'linear-gradient(180deg,#4ade80,#16a34a,#166534)',storyTagBg:'rgba(74,222,128,.1)',storyTagBorder:'#4ade8044',storyTagC:'#4ade80',storyBodyC:'#d1fae5',storyEmC:'#4ade80',storyHighBg:'rgba(74,222,128,.12)',storyHighBorder:'#4ade80',moodBg:'rgba(10,20,10,.9)',moodBorder:'#16a34a33',moodTitle:'#4ade80',moodBtnBg:'rgba(20,40,20,.8)',moodBtnBorder:'#16a34a44',moodBtnSel:'rgba(74,222,128,.15)',moodBtnSelBorder:'#4ade80',moodNoteBg:'rgba(10,20,10,.8)',moodNoteC:'#d1fae5',moodNoteB:'#16a34a44',moodNoteFoc:'#4ade80',moodSaveBg:'linear-gradient(135deg,#16a34a,#166534)',moodOkC:'#4ade80',advBg:'rgba(10,20,10,.9)',advBorder:'#16a34a33',advTitle:'#4ade80',advTrack:'#0a1a0a',advTrackB:'#16a34a22',advCnt:'#86efac',badgeBg:'rgba(10,20,10,.9)',badgeBorder:'#16a34a33',badgeTitle:'#4ade80',badgeUnlBg:'linear-gradient(135deg,rgba(22,101,52,.4),rgba(74,222,128,.15))',badgeUnlBorder:'#4ade8044',badgeLblC:'#86efac',sheetBg:'rgba(14,30,14,.98)',sheetBorder:'#4ade80',shHandleBg:'#16a34a',shLblC:'#4ade8077',shValC:'#d1fae5',fabBg:'linear-gradient(135deg,#16a34a,#166534)',changeBg:'rgba(20,40,20,.9)',changeC:'#4ade80',changeBorder:'1px solid #4ade8044',particleColors:['#4ade80','#86efac','#166534'],particleEmojis:['🌿','🦴','🌱','🍃','🦕'],coverDecor:['🌿','🌴','🌾','🍃','🌿','🌱'],coverMainEmoji:'🦕',coverBadge:'🦴 Período Jurásico · Expedición Activa',chapterNames:['El Huevo Despertó','La Selva Jurásica','El Volcán de Fuego','El Valle Escondido','La Cima del T-Rex','El Fósil Legendario'],hdrEmojis:['🦕','🦖','🦕'],hdrTitle:'🦕 Mi Calendario Jurásico',hdrSub:'¡Explorador del Jurásico! 🌿',tips:[{i:'🦕',t:'Los grandes dinos no llegaron al tamaño épico de un día. ¡Cada sesión es un paso gigante!'},{i:'🌿',t:'Los exploradores más sabios practican en casa. ¡5 min al día hacen la diferencia!'}],streakLabel:'¡Semanas en la selva!',streakSub:'🦕 ¡Eres un explorador legendario! 💪',progLabel:'Territorios explorados',progSuffix:'del mapa descubierto 🗺️',todayIcon:'🦕',emptyWeek:'🥚',sessionProf:'🦕',sessionBranch:'🏕️',sessionBranchLabel:'Campamento Base',sessionNoteLabel:'Diario del Explorador',sessionType:'Expedición',storyDone:{title:'🏆 ¡Territorio Conquistado!',tag:'🌟 Victoria Jurásica Épica',roar:'🦕 ¡ROOOOAAR! 🦕',mood:'roar'},storyLate:{title:'✅ ¡Expedición Completa! (sendero tardío)',tag:'⏰ Llegada Tardía',mood:'walk'},storyCancel:{title:'😔 La Expedición fue Pospuesta',tag:'🦴 Pausa en la Aventura',mood:'sad'},storyWaiting:{title:'🚀 ¡La Expedición Jurásica Comienza!',tag:'⚡ Misión Activa',mood:'bounce'},storyRest:{title:'🌿 Un Día de Recarga en la Jungla',tag:'🦴 Período de Descanso',mood:'think'},badges:[{ico:'🥚',lbl:'Nació el explorador'},{ico:'🦕',lbl:'3 semanas dino'},{ico:'🦴',lbl:'10 expediciones'},{ico:'🌋',lbl:'Mes completo'},{ico:'🌿',lbl:'Sin faltas'},{ico:'🗺️',lbl:'5 en fila'},{ico:'🦖',lbl:'Súper puntual'},{ico:'⚗️',lbl:'3 servicios'}],advIcos:['🌿','🌋','🏔️','🦴'],moodTitle:'🦕 ¿Cómo está tu dino hoy?',moodPlaceholder:'🌿 ¿Algo que contarle a tu explorador guía?',moodSaveLabel:'🦕 Guardar en el diario jurásico',moodOkLabel:'✅ ¡Diario actualizado! El explorador guía lo verá 🌿',tapMsgs:['¡ROOOOAAR! ¡Eres el dino más poderoso! 🦕','¡Sigue explorando, campeón jurásico! 🌿','¡Cada sesión es un territorio conquistado! 🗺️','¡El T-Rex se inclina ante ti! 🦖'],footprint:'🐾',mascotSvg:`<ellipse cx="50" cy="65" rx="24" ry="22" fill="#16a34a"/><ellipse cx="50" cy="68" rx="16" ry="14" fill="#22c55e"/><rect x="43" y="42" width="14" height="18" rx="7" fill="#16a34a"/><ellipse cx="50" cy="36" rx="22" ry="18" fill="#16a34a"/><ellipse cx="60" cy="38" rx="12" ry="8" fill="#22c55e"/><circle cx="57" cy="36" r="2" fill="#166534"/><circle cx="63" cy="36" r="2" fill="#166534"/><circle cx="43" cy="30" r="6" fill="#fff"/><circle cx="43" cy="30" r="4" fill="#1e1b4b"/><circle cx="44" cy="29" r="2.5" fill="#fbbf24"/><circle cx="44.5" cy="28.5" r="1" fill="#fff" opacity=".8"/><path d="M54 41 L57 38 L60 41 L63 38 L66 41" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M74 62 Q92 55 88 72 Q100 65 94 80" stroke="#16a34a" stroke-width="6" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="86" rx="7" ry="5" fill="#15803d"/><ellipse cx="62" cy="86" rx="7" ry="5" fill="#15803d"/><path d="M46 44 L50 37 L54 44" fill="#4ade80" opacity=".6"/>`},
+  space:{dark:true,name:'Espacio',bodyBg:'#030310',c1:'#818cf8',c2:'#6366f1',c3:'#4338ca',hdrGrad:'linear-gradient(135deg,#1e1b4b,#312e81 40%,#4f46e5 70%,#818cf8)',hdrClip:'polygon(0 0,100% 0,100% 85%,90% 100%,80% 85%,70% 100%,60% 85%,50% 100%,40% 85%,30% 100%,20% 85%,10% 100%,0 85%)',statBg:'rgba(14,14,40,.85)',statBorder:'#4f46e544',statLbl:'#c7d2fe',streakBg:'linear-gradient(135deg,#1e1b4b,#1e193a)',streakBorder:'#818cf8',streakC:'#818cf8',progBg:'rgba(14,14,40,.85)',progFill:'linear-gradient(90deg,#818cf8,#6366f1,#38bdf8)',progTrack:'#030310',nextBg:'rgba(10,10,35,.9)',nextBorder:'#818cf866',nextAccent:'#818cf8',nextC:'#e0e7ff',tipBg:'rgba(14,14,30,.85)',tipBorder:'#fbbf24',navBg:'rgba(14,14,40,.85)',navBorder:'#4f46e544',navTitle:'#818cf8',calBg:'rgba(10,10,35,.9)',calBorder:'#4f46e533',calWdayBg:'linear-gradient(135deg,#1e1b4b,#3730a3)',calCellBg:'rgba(10,10,35,.8)',calTodayBg:'linear-gradient(135deg,rgba(67,56,202,.4),rgba(99,102,241,.15))',dnumC:'#c7d2fe',wkHeadBg:'linear-gradient(135deg,#0a0a2a,#1e1b4b)',wkTodayBg:'linear-gradient(135deg,#4f46e5,#3730a3)',wkColBg:'rgba(10,10,35,.85)',wkColBorder:'#4f46e522',tabBg:'rgba(14,14,40,.7)',tabC:'#c7d2fe',tabActiveBg:'linear-gradient(135deg,#4f46e5,#3730a3)',tabBorder:'#4f46e544',covBg:'linear-gradient(135deg,#030318,#0f0f3a 40%,#1e1b4b 70%,#0a0a25)',tlCardBg:'rgba(5,5,25,.9)',tlCardBorder:'#4f46e533',tlLine:'linear-gradient(180deg,#818cf8,#4338ca,transparent)',storyBg:'rgba(5,5,25,.92)',storyBorder:'#4f46e533',storySidebar:'linear-gradient(180deg,#818cf8,#6366f1,#4338ca)',storyTagBg:'rgba(129,140,248,.1)',storyTagBorder:'#818cf844',storyTagC:'#818cf8',storyBodyC:'#e0e7ff',storyEmC:'#818cf8',storyHighBg:'rgba(129,140,248,.12)',storyHighBorder:'#818cf8',moodBg:'rgba(5,5,25,.9)',moodBorder:'#4f46e533',moodTitle:'#818cf8',moodBtnBg:'rgba(14,14,40,.8)',moodBtnBorder:'#4f46e544',moodBtnSel:'rgba(129,140,248,.15)',moodBtnSelBorder:'#818cf8',moodNoteBg:'rgba(5,5,25,.8)',moodNoteC:'#e0e7ff',moodNoteB:'#4f46e544',moodNoteFoc:'#818cf8',moodSaveBg:'linear-gradient(135deg,#4f46e5,#3730a3)',moodOkC:'#818cf8',advBg:'rgba(5,5,25,.9)',advBorder:'#4f46e533',advTitle:'#818cf8',advTrack:'#030310',advTrackB:'#4f46e522',advCnt:'#c7d2fe',badgeBg:'rgba(5,5,25,.9)',badgeBorder:'#4f46e533',badgeTitle:'#818cf8',badgeUnlBg:'linear-gradient(135deg,rgba(67,56,202,.4),rgba(129,140,248,.15))',badgeUnlBorder:'#818cf844',badgeLblC:'#c7d2fe',sheetBg:'rgba(5,5,25,.98)',sheetBorder:'#818cf8',shHandleBg:'#4f46e5',shLblC:'#818cf877',shValC:'#e0e7ff',fabBg:'linear-gradient(135deg,#4f46e5,#3730a3)',changeBg:'rgba(14,14,40,.9)',changeC:'#818cf8',changeBorder:'1px solid #818cf844',particleColors:['#818cf8','#c7d2fe','#38bdf8'],particleEmojis:['⭐','💫','✨','🚀','🪐'],coverDecor:['🪐','⭐','🌙','💫','🌟','✨'],coverMainEmoji:'🚀',coverBadge:'🛸 Galaxia Activa · Misión en Curso',chapterNames:['Despegue Inicial','La Órbita Secreta','El Cinturón de Asteroides','Planeta Desconocido','El Sol del Sistema','La Estrella Legendaria'],hdrEmojis:['🚀','⭐','🛸'],hdrTitle:'🚀 Mi Calendario Galáctico',hdrSub:'¡Astronauta de élite! ✨',tips:[{i:'🚀',t:'Todo gran astronauta practica en tierra antes de ir al espacio. ¡5 minutos de repaso al día!'},{i:'🌙',t:'Las estrellas brillan más cuando descansaste bien. ¡Duerme tus 9 horas, astronauta!'}],streakLabel:'¡Semanas en órbita!',streakSub:'🚀 ¡Eres un astronauta legendario! ✨',progLabel:'Planetas explorados',progSuffix:'del universo descubierto 🌌',todayIcon:'⭐',emptyWeek:'🪐',sessionProf:'🚀',sessionBranch:'🛸',sessionBranchLabel:'Base Orbital',sessionNoteLabel:'Bitácora Espacial',sessionType:'Misión',storyDone:{title:'🏆 ¡Planeta Conquistado!',tag:'🌟 Victoria Galáctica',roar:'🚀 ¡¡WHOOOOSH!! 🚀',mood:'roar'},storyLate:{title:'✅ ¡Misión Completa! (órbita tardía)',tag:'⏰ Llegada Tardía a la Base',mood:'walk'},storyCancel:{title:'😔 La Misión fue Abortada',tag:'🛸 Pausa en la Expedición',mood:'sad'},storyWaiting:{title:'🚀 ¡Cuenta Regresiva Iniciada!',tag:'⚡ Misión Activa · Astronauta Listo',mood:'bounce'},storyRest:{title:'🌙 Un Día de Flotación Espacial',tag:'🪐 Descanso Orbital',mood:'think'},badges:[{ico:'🛸',lbl:'Primer despegue'},{ico:'🔥',lbl:'3 semanas en órbita'},{ico:'🌙',lbl:'10 misiones'},{ico:'🪐',lbl:'Mes completo'},{ico:'⭐',lbl:'Sin faltas'},{ico:'🌌',lbl:'5 en fila'},{ico:'🚀',lbl:'Súper puntual'},{ico:'🌟',lbl:'3 servicios'}],advIcos:['⭐','🌋','🪐','💫'],moodTitle:'🚀 ¿Cómo está tu astronauta hoy?',moodPlaceholder:'🌙 ¿Algo que reportar a tu comandante?',moodSaveLabel:'🚀 Guardar en la bitácora espacial',moodOkLabel:'✅ ¡Bitácora actualizada! Tu comandante la verá 🌟',tapMsgs:['¡3, 2, 1... DESPEGUE! 🚀','¡Eres el astronauta más valiente de la galaxia! ⭐','¡Misión tras misión, eres una leyenda! 🌌','¡La NASA debería contratarte! 🛸'],footprint:'🚀',mascotSvg:`<ellipse cx="50" cy="70" rx="20" ry="18" fill="#c7d2fe"/><ellipse cx="50" cy="72" rx="13" ry="11" fill="#e0e7ff"/><circle cx="50" cy="34" r="22" fill="#4f46e5"/><circle cx="50" cy="35" r="18" fill="#c7d2fe"/><circle cx="43" cy="31" r="5" fill="#4f46e5"/><circle cx="57" cy="31" r="5" fill="#4f46e5"/><circle cx="44" cy="30" r="3" fill="#818cf8"/><circle cx="44.5" cy="29.5" r="1" fill="#fff" opacity=".8"/><path d="M43 42 Q50 47 57 42" stroke="#3730a3" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="30" y="52" width="40" height="25" rx="8" fill="#6366f1"/><rect x="34" y="56" width="32" height="17" rx="6" fill="#818cf8"/><rect x="20" y="55" width="12" height="8" rx="4" fill="#4f46e5"/><rect x="68" y="55" width="12" height="8" rx="4" fill="#4f46e5"/><ellipse cx="38" cy="88" rx="7" ry="5" fill="#4338ca"/><ellipse cx="62" cy="88" rx="7" ry="5" fill="#4338ca"/><circle cx="65" cy="25" r="8" fill="#fbbf24" opacity=".9"/><text x="62" y="29" font-size="9" text-anchor="middle">⭐</text>`},
+  ocean:{dark:true,name:'Océano',bodyBg:'#020d18',c1:'#38bdf8',c2:'#0284c7',c3:'#075985',hdrGrad:'linear-gradient(135deg,#082f49,#0c4a6e 40%,#0369a1 70%,#38bdf8)',hdrClip:'ellipse(100% 88% at 50% 12%)',statBg:'rgba(8,47,73,.85)',statBorder:'#0284c744',statLbl:'#bae6fd',streakBg:'linear-gradient(135deg,#082f49,#083344)',streakBorder:'#38bdf8',streakC:'#38bdf8',progBg:'rgba(8,47,73,.85)',progFill:'linear-gradient(90deg,#38bdf8,#0284c7,#22d3ee)',progTrack:'#020d18',nextBg:'rgba(4,28,45,.9)',nextBorder:'#38bdf866',nextAccent:'#38bdf8',nextC:'#e0f2fe',tipBg:'rgba(8,32,50,.85)',tipBorder:'#fbbf24',navBg:'rgba(8,47,73,.85)',navBorder:'#0284c744',navTitle:'#38bdf8',calBg:'rgba(4,28,45,.9)',calBorder:'#0284c733',calWdayBg:'linear-gradient(135deg,#075985,#0369a1)',calCellBg:'rgba(4,28,45,.8)',calTodayBg:'linear-gradient(135deg,rgba(2,132,199,.4),rgba(56,189,248,.15))',dnumC:'#bae6fd',wkHeadBg:'linear-gradient(135deg,#03101e,#082f49)',wkTodayBg:'linear-gradient(135deg,#0284c7,#075985)',wkColBg:'rgba(4,28,45,.85)',wkColBorder:'#0284c722',tabBg:'rgba(8,47,73,.7)',tabC:'#bae6fd',tabActiveBg:'linear-gradient(135deg,#0284c7,#075985)',tabBorder:'#0284c744',covBg:'linear-gradient(135deg,#020d18,#082f49 40%,#0c4a6e 70%,#031525)',tlCardBg:'rgba(2,14,25,.9)',tlCardBorder:'#0284c733',tlLine:'linear-gradient(180deg,#38bdf8,#075985,transparent)',storyBg:'rgba(2,14,25,.92)',storyBorder:'#0284c733',storySidebar:'linear-gradient(180deg,#38bdf8,#0284c7,#075985)',storyTagBg:'rgba(56,189,248,.1)',storyTagBorder:'#38bdf844',storyTagC:'#38bdf8',storyBodyC:'#e0f2fe',storyEmC:'#38bdf8',storyHighBg:'rgba(56,189,248,.12)',storyHighBorder:'#38bdf8',moodBg:'rgba(2,14,25,.9)',moodBorder:'#0284c733',moodTitle:'#38bdf8',moodBtnBg:'rgba(8,47,73,.8)',moodBtnBorder:'#0284c744',moodBtnSel:'rgba(56,189,248,.15)',moodBtnSelBorder:'#38bdf8',moodNoteBg:'rgba(2,14,25,.8)',moodNoteC:'#e0f2fe',moodNoteB:'#0284c744',moodNoteFoc:'#38bdf8',moodSaveBg:'linear-gradient(135deg,#0284c7,#075985)',moodOkC:'#38bdf8',advBg:'rgba(2,14,25,.9)',advBorder:'#0284c733',advTitle:'#38bdf8',advTrack:'#020d18',advTrackB:'#0284c722',advCnt:'#bae6fd',badgeBg:'rgba(2,14,25,.9)',badgeBorder:'#0284c733',badgeTitle:'#38bdf8',badgeUnlBg:'linear-gradient(135deg,rgba(7,89,133,.4),rgba(56,189,248,.15))',badgeUnlBorder:'#38bdf844',badgeLblC:'#bae6fd',sheetBg:'rgba(2,14,25,.98)',sheetBorder:'#38bdf8',shHandleBg:'#0284c7',shLblC:'#38bdf877',shValC:'#e0f2fe',fabBg:'linear-gradient(135deg,#0284c7,#075985)',changeBg:'rgba(8,47,73,.9)',changeC:'#38bdf8',changeBorder:'1px solid #38bdf844',particleColors:['#38bdf8','#bae6fd','#0284c7'],particleEmojis:['🌊','🐠','💧','🐚','⚓'],coverDecor:['🌊','🐚','⚓','🐠','🌊','🐋'],coverMainEmoji:'🏴‍☠️',coverBadge:'⚓ Mar Abierto · Expedición en Curso',chapterNames:['Zarpando del Puerto','El Arrecife Misterioso','La Tormenta del Caribe','La Isla del Tesoro','El Kraken Dormido','El Faro Legendario'],hdrEmojis:['🌊','🏴‍☠️','⚓'],hdrTitle:'🌊 Mi Calendario Pirata',hdrSub:'¡Capitán de los Mares! ⚓',tips:[{i:'⚓',t:'Todo gran capitán llega puntual a zarpar. ¡10 minutos antes y el barco te espera!'},{i:'🌊',t:'Las olas del océano nunca se rinden. ¡Practica en casa y conquista nuevos mares!'}],streakLabel:'¡Semanas surcando los mares!',streakSub:'⚓ ¡Eres un capitán legendario! 🌊',progLabel:'Islas conquistadas',progSuffix:'del mapa pirata descubierto 🗺️',todayIcon:'⚓',emptyWeek:'🐚',sessionProf:'🏴‍☠️',sessionBranch:'⚓',sessionBranchLabel:'Puerto Base',sessionNoteLabel:'Diario de Bitácora',sessionType:'Travesía',storyDone:{title:'🏆 ¡Tesoro Encontrado!',tag:'⚓ Victoria en Alta Mar',roar:'🌊 ¡ARRR, CAPITÁN! 🏴‍☠️',mood:'roar'},storyLate:{title:'✅ ¡Llegaste a Puerto! (marea tardía)',tag:'⏰ Puerto con Retraso',mood:'walk'},storyCancel:{title:'😔 La Travesía fue Abortada',tag:'🌊 Tormenta en el Horizonte',mood:'sad'},storyWaiting:{title:'⚓ ¡Las Velas Están Listas!',tag:'🏴‍☠️ Navegación Activa',mood:'bounce'},storyRest:{title:'🌊 Un Día de Calma Chicha',tag:'🐚 Descanso en el Camarote',mood:'think'},badges:[{ico:'⚓',lbl:'Primer zarpe'},{ico:'🌊',lbl:'3 semanas en mar'},{ico:'🗺️',lbl:'10 travesías'},{ico:'🏝️',lbl:'Mes completo'},{ico:'🐚',lbl:'Sin faltas'},{ico:'🏴‍☠️',lbl:'5 en fila'},{ico:'🧭',lbl:'Súper puntual'},{ico:'🐠',lbl:'3 servicios'}],advIcos:['🌊','🌋','⚓','🦈'],moodTitle:'🏴‍☠️ ¿Cómo está tu marinero hoy?',moodPlaceholder:'🌊 ¿Algo que reportar al capitán?',moodSaveLabel:'⚓ Guardar en la bitácora pirata',moodOkLabel:'✅ ¡Bitácora actualizada! Tu capitán la verá 🌊',tapMsgs:['¡ARRRRR! ¡El mar te pertenece! 🏴‍☠️','¡Eres el pirata más valiente del Caribe! ⚓','¡Cada sesión es una isla conquistada! 🗺️','¡Los monstruos del mar huyen de ti! 🌊'],footprint:'🐚',mascotSvg:`<ellipse cx="50" cy="68" rx="22" ry="20" fill="#0369a1"/><ellipse cx="50" cy="71" rx="14" ry="12" fill="#0284c7"/><circle cx="50" cy="34" r="22" fill="#0369a1"/><circle cx="43" cy="31" r="5" fill="#fff"/><circle cx="57" cy="31" r="5" fill="#fff"/><circle cx="44" cy="30" r="3.5" fill="#075985"/><circle cx="44.5" cy="29.5" r="1.2" fill="#fff" opacity=".8"/><path d="M43 41 Q50 47 57 41" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="28" y="12" width="44" height="8" rx="3" fill="#7c3aed"/><ellipse cx="50" cy="14" rx="8" ry="6" fill="#fbbf24" opacity=".8"/><path d="M26 62 Q12 68 16 80" stroke="#0369a1" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M74 62 Q88 68 84 80" stroke="#0369a1" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="88" rx="7" ry="5" fill="#075985"/><ellipse cx="62" cy="88" rx="7" ry="5" fill="#075985"/>`},
+  hero:{dark:true,name:'Superhéroe',bodyBg:'#0a0005',c1:'#f87171',c2:'#dc2626',c3:'#991b1b',hdrGrad:'linear-gradient(135deg,#450a0a,#7f1d1d 40%,#dc2626 70%,#f87171)',hdrClip:'polygon(0 0,100% 0,100% 75%,92% 88%,84% 75%,76% 88%,68% 75%,60% 88%,52% 75%,44% 88%,36% 75%,28% 88%,20% 75%,12% 88%,4% 75%,0 88%)',statBg:'rgba(30,5,5,.85)',statBorder:'#dc262644',statLbl:'#fca5a5',streakBg:'linear-gradient(135deg,#3b0909,#450a0a)',streakBorder:'#f87171',streakC:'#f87171',progBg:'rgba(30,5,5,.85)',progFill:'linear-gradient(90deg,#f87171,#dc2626,#fbbf24)',progTrack:'#0a0005',nextBg:'rgba(20,3,3,.9)',nextBorder:'#f8717166',nextAccent:'#f87171',nextC:'#fee2e2',tipBg:'rgba(25,8,8,.85)',tipBorder:'#fbbf24',navBg:'rgba(30,5,5,.85)',navBorder:'#dc262644',navTitle:'#f87171',calBg:'rgba(20,3,3,.9)',calBorder:'#dc262633',calWdayBg:'linear-gradient(135deg,#7f1d1d,#991b1b)',calCellBg:'rgba(20,3,3,.8)',calTodayBg:'linear-gradient(135deg,rgba(153,27,27,.4),rgba(248,113,113,.15))',dnumC:'#fca5a5',wkHeadBg:'linear-gradient(135deg,#1a0202,#3b0909)',wkTodayBg:'linear-gradient(135deg,#dc2626,#991b1b)',wkColBg:'rgba(20,3,3,.85)',wkColBorder:'#dc262622',tabBg:'rgba(30,5,5,.7)',tabC:'#fca5a5',tabActiveBg:'linear-gradient(135deg,#dc2626,#991b1b)',tabBorder:'#dc262644',covBg:'linear-gradient(135deg,#0a0005,#3b0909 40%,#7f1d1d 70%,#0f0108)',tlCardBg:'rgba(8,1,1,.9)',tlCardBorder:'#dc262633',tlLine:'linear-gradient(180deg,#f87171,#991b1b,transparent)',storyBg:'rgba(8,1,1,.92)',storyBorder:'#dc262633',storySidebar:'linear-gradient(180deg,#f87171,#dc2626,#991b1b)',storyTagBg:'rgba(248,113,113,.1)',storyTagBorder:'#f8717144',storyTagC:'#f87171',storyBodyC:'#fee2e2',storyEmC:'#f87171',storyHighBg:'rgba(248,113,113,.12)',storyHighBorder:'#f87171',moodBg:'rgba(8,1,1,.9)',moodBorder:'#dc262633',moodTitle:'#f87171',moodBtnBg:'rgba(30,5,5,.8)',moodBtnBorder:'#dc262644',moodBtnSel:'rgba(248,113,113,.15)',moodBtnSelBorder:'#f87171',moodNoteBg:'rgba(8,1,1,.8)',moodNoteC:'#fee2e2',moodNoteB:'#dc262644',moodNoteFoc:'#f87171',moodSaveBg:'linear-gradient(135deg,#dc2626,#991b1b)',moodOkC:'#f87171',advBg:'rgba(8,1,1,.9)',advBorder:'#dc262633',advTitle:'#f87171',advTrack:'#0a0005',advTrackB:'#dc262622',advCnt:'#fca5a5',badgeBg:'rgba(8,1,1,.9)',badgeBorder:'#dc262633',badgeTitle:'#f87171',badgeUnlBg:'linear-gradient(135deg,rgba(153,27,27,.4),rgba(248,113,113,.15))',badgeUnlBorder:'#f8717144',badgeLblC:'#fca5a5',sheetBg:'rgba(8,1,1,.98)',sheetBorder:'#f87171',shHandleBg:'#dc2626',shLblC:'#f8717177',shValC:'#fee2e2',fabBg:'linear-gradient(135deg,#dc2626,#991b1b)',changeBg:'rgba(30,5,5,.9)',changeC:'#f87171',changeBorder:'1px solid #f8717144',particleColors:['#f87171','#fca5a5','#fbbf24'],particleEmojis:['⚡','💥','🌟','🦸','🔴'],coverDecor:['⚡','💥','🌟','🦸','⚡','💫'],coverMainEmoji:'🦸',coverBadge:'⚡ Ciudad en Alerta · Héroe Activo',chapterNames:['El Origen del Poder','La Primera Misión','El Villano Inesperado','El Escudo Inquebrantable','La Batalla Final','El Héroe Legendario'],hdrEmojis:['🦸','⚡','💥'],hdrTitle:'🦸 Mi Calendario Heroico',hdrSub:'¡Guardián de la Ciudad! ⚡',tips:[{i:'⚡',t:'Los superhéroes más poderosos entrenan cada día. ¡5 minutos de práctica y tus poderes crecen!'},{i:'🦸',t:'Incluso Superman se preparaba antes de cada misión. ¡Llega puntual y listo para la acción!'}],streakLabel:'¡Semanas de entrenamiento heroico!',streakSub:'⚡ ¡Eres un superhéroe legendario! 💥',progLabel:'Misiones completadas',progSuffix:'de la ciudad protegida 🌆',todayIcon:'⚡',emptyWeek:'🦹',sessionProf:'🦸',sessionBranch:'🏙️',sessionBranchLabel:'Base Heroica',sessionNoteLabel:'Informe del Héroe',sessionType:'Misión',storyDone:{title:'🏆 ¡Misión Cumplida, Héroe!',tag:'⚡ Victoria Heroica Épica',roar:'⚡ ¡¡POW!! 💥 ¡BOOM! ⚡',mood:'roar'},storyLate:{title:'✅ ¡Misión Completada! (llegada tardía)',tag:'⏰ Héroe Llegó Tarde a la Base',mood:'walk'},storyCancel:{title:'😔 El Villano Ganó Este Asalto',tag:'💥 Misión Cancelada',mood:'sad'},storyWaiting:{title:'🦸 ¡La Ciudad Te Necesita Ahora!',tag:'⚡ Alerta Máxima · Héroe Convocado',mood:'bounce'},storyRest:{title:'💤 El Héroe Recarga Sus Poderes',tag:'🦸 Día de Entrenamiento Secreto',mood:'think'},badges:[{ico:'⚡',lbl:'Primer poder'},{ico:'🔴',lbl:'3 semanas heroicas'},{ico:'💥',lbl:'10 misiones'},{ico:'🌆',lbl:'Mes completo'},{ico:'🦸',lbl:'Sin faltas'},{ico:'🌟',lbl:'5 en fila'},{ico:'🏆',lbl:'Súper puntual'},{ico:'🛡️',lbl:'3 servicios'}],advIcos:['⚡','💥','🌆','🦹'],moodTitle:'🦸 ¿Cómo están tus poderes hoy?',moodPlaceholder:'⚡ ¿Algo que reportar al cuartel general?',moodSaveLabel:'🦸 Guardar en el informe heroico',moodOkLabel:'✅ ¡Informe enviado! Tu coordinador lo verá ⚡',tapMsgs:['¡POW! ¡BOOM! ¡Eres imparable, héroe! ⚡','¡La ciudad está segura contigo! 🦸','¡Cada sesión desbloquea un superpoder! 💥','¡Los villanos no tienen chance contra ti! 🌟'],footprint:'⚡',mascotSvg:`<ellipse cx="50" cy="68" rx="22" ry="20" fill="#dc2626"/><ellipse cx="50" cy="71" rx="14" ry="12" fill="#ef4444"/><circle cx="50" cy="34" r="22" fill="#dc2626"/><circle cx="43" cy="31" r="5" fill="#fff"/><circle cx="57" cy="31" r="5" fill="#fff"/><circle cx="44" cy="30" r="3.5" fill="#7f1d1d"/><circle cx="44.5" cy="29.5" r="1.2" fill="#fff" opacity=".8"/><path d="M43 41 Q50 47 57 41" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M28 16 L50 4 L72 16 L66 30 L50 24 L34 30 Z" fill="#fbbf24"/><path d="M34 30 L50 24 L66 30 L62 42 L50 36 L38 42 Z" fill="#f59e0b"/><path d="M42 60 L50 52 L58 60 L55 75 L50 72 L45 75 Z" fill="#fbbf24" opacity=".8"/><path d="M26 62 Q12 68 16 82" stroke="#dc2626" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M74 62 Q88 68 84 82" stroke="#dc2626" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="88" rx="7" ry="5" fill="#991b1b"/><ellipse cx="62" cy="88" rx="7" ry="5" fill="#991b1b"/>`},
+  fantasy:{dark:true,name:'Fantasía',bodyBg:'#080312',c1:'#e879f9',c2:'#a21caf',c3:'#701a75',hdrGrad:'linear-gradient(135deg,#2e1065,#5b21b6 40%,#a21caf 70%,#e879f9)',hdrClip:'polygon(0 0,100% 0,100% 80%,94% 94%,88% 80%,82% 94%,76% 80%,70% 94%,64% 80%,58% 94%,52% 80%,46% 94%,40% 80%,34% 94%,28% 80%,22% 94%,16% 80%,10% 94%,4% 80%,0 94%)',statBg:'rgba(14,3,30,.85)',statBorder:'#a21caf44',statLbl:'#f0abfc',streakBg:'linear-gradient(135deg,#1a0535,#2e1065)',streakBorder:'#e879f9',streakC:'#e879f9',progBg:'rgba(14,3,30,.85)',progFill:'linear-gradient(90deg,#e879f9,#a21caf,#fbbf24)',progTrack:'#080312',nextBg:'rgba(8,2,20,.9)',nextBorder:'#e879f966',nextAccent:'#e879f9',nextC:'#fae8ff',tipBg:'rgba(14,6,28,.85)',tipBorder:'#fbbf24',navBg:'rgba(14,3,30,.85)',navBorder:'#a21caf44',navTitle:'#e879f9',calBg:'rgba(8,2,20,.9)',calBorder:'#a21caf33',calWdayBg:'linear-gradient(135deg,#5b21b6,#701a75)',calCellBg:'rgba(8,2,20,.8)',calTodayBg:'linear-gradient(135deg,rgba(112,26,117,.4),rgba(232,121,249,.15))',dnumC:'#f0abfc',wkHeadBg:'linear-gradient(135deg,#0d0120,#2e1065)',wkTodayBg:'linear-gradient(135deg,#a21caf,#701a75)',wkColBg:'rgba(8,2,20,.85)',wkColBorder:'#a21caf22',tabBg:'rgba(14,3,30,.7)',tabC:'#f0abfc',tabActiveBg:'linear-gradient(135deg,#a21caf,#701a75)',tabBorder:'#a21caf44',covBg:'linear-gradient(135deg,#080312,#2e1065 40%,#5b21b6 70%,#0d0120)',tlCardBg:'rgba(5,1,15,.9)',tlCardBorder:'#a21caf33',tlLine:'linear-gradient(180deg,#e879f9,#701a75,transparent)',storyBg:'rgba(5,1,15,.92)',storyBorder:'#a21caf33',storySidebar:'linear-gradient(180deg,#e879f9,#a21caf,#701a75)',storyTagBg:'rgba(232,121,249,.1)',storyTagBorder:'#e879f944',storyTagC:'#e879f9',storyBodyC:'#fae8ff',storyEmC:'#e879f9',storyHighBg:'rgba(232,121,249,.12)',storyHighBorder:'#e879f9',moodBg:'rgba(5,1,15,.9)',moodBorder:'#a21caf33',moodTitle:'#e879f9',moodBtnBg:'rgba(14,3,30,.8)',moodBtnBorder:'#a21caf44',moodBtnSel:'rgba(232,121,249,.15)',moodBtnSelBorder:'#e879f9',moodNoteBg:'rgba(5,1,15,.8)',moodNoteC:'#fae8ff',moodNoteB:'#a21caf44',moodNoteFoc:'#e879f9',moodSaveBg:'linear-gradient(135deg,#a21caf,#701a75)',moodOkC:'#e879f9',advBg:'rgba(5,1,15,.9)',advBorder:'#a21caf33',advTitle:'#e879f9',advTrack:'#080312',advTrackB:'#a21caf22',advCnt:'#f0abfc',badgeBg:'rgba(5,1,15,.9)',badgeBorder:'#a21caf33',badgeTitle:'#e879f9',badgeUnlBg:'linear-gradient(135deg,rgba(112,26,117,.4),rgba(232,121,249,.15))',badgeUnlBorder:'#e879f944',badgeLblC:'#f0abfc',sheetBg:'rgba(5,1,15,.98)',sheetBorder:'#e879f9',shHandleBg:'#a21caf',shLblC:'#e879f977',shValC:'#fae8ff',fabBg:'linear-gradient(135deg,#a21caf,#701a75)',changeBg:'rgba(14,3,30,.9)',changeC:'#e879f9',changeBorder:'1px solid #e879f944',particleColors:['#e879f9','#f0abfc','#fbbf24'],particleEmojis:['✨','🌟','🔮','🪄','🐉'],coverDecor:['✨','🔮','🌟','🪄','💫','🌙'],coverMainEmoji:'🐉',coverBadge:'🔮 Reino Mágico · Misión Encantada',chapterNames:['El Pergamino del Destino','El Bosque Encantado','La Torre del Mago','El Dragón Dormido','La Espada Legendaria','El Héroe del Reino'],hdrEmojis:['🐉','✨','🔮'],hdrTitle:'🐉 Mi Calendario del Reino',hdrSub:'¡Caballero del Reino Mágico! ✨',tips:[{i:'🔮',t:'Los magos más poderosos practican sus hechizos cada día. ¡5 minutos y tu magia crece!'},{i:'🐉',t:'Hasta los dragones más grandes empezaron siendo huevos. ¡Tú también estás creciendo!'}],streakLabel:'¡Semanas en el reino mágico!',streakSub:'🐉 ¡Eres un caballero legendario! ✨',progLabel:'Reinos explorados',progSuffix:'del mapa mágico descubierto 🗺️',todayIcon:'✨',emptyWeek:'🔮',sessionProf:'🔮',sessionBranch:'🏰',sessionBranchLabel:'Castillo Mágico',sessionNoteLabel:'Pergamino del Caballero',sessionType:'Misión Mágica',storyDone:{title:'🏆 ¡Misión Mágica Cumplida!',tag:'✨ Victoria en el Reino',roar:'🐉 ¡¡RAAAWR MÁGICO!! ✨',mood:'roar'},storyLate:{title:'✅ ¡Misión Completada! (bosque largo)',tag:'⏰ Caballero Llegó Tarde',mood:'walk'},storyCancel:{title:'😔 El Dragón Bloqueó el Camino',tag:'🔮 Misión Pospuesta por Encantamiento',mood:'sad'},storyWaiting:{title:'🔮 ¡El Castillo Te Aguarda!',tag:'✨ Misión Activa · Caballero Preparado',mood:'bounce'},storyRest:{title:'🌙 El Caballero Descansa en el Bosque',tag:'🔮 Restauración de Magia',mood:'think'},badges:[{ico:'🔮',lbl:'Primer hechizo'},{ico:'🐉',lbl:'3 semanas mágicas'},{ico:'✨',lbl:'10 misiones'},{ico:'🏰',lbl:'Mes completo'},{ico:'🌟',lbl:'Sin faltas'},{ico:'🪄',lbl:'5 en fila'},{ico:'⚔️',lbl:'Súper puntual'},{ico:'🧙',lbl:'3 servicios'}],advIcos:['✨','🐉','🏰','🔮'],moodTitle:'🐉 ¿Cómo está tu magia hoy?',moodPlaceholder:'🔮 ¿Algo que contarle al mago sabio?',moodSaveLabel:'🔮 Guardar en el pergamino mágico',moodOkLabel:'✅ ¡Pergamino actualizado! El mago lo verá ✨',tapMsgs:['¡Por los poderes del reino mágico! 🐉','¡Eres el caballero más valiente del reino! ✨','¡Cada sesión desbloquea un hechizo nuevo! 🔮','¡El dragón se inclina ante tu valentía! 🌟'],footprint:'✨',mascotSvg:`<ellipse cx="50" cy="68" rx="22" ry="20" fill="#7c3aed"/><ellipse cx="50" cy="71" rx="14" ry="12" fill="#8b5cf6"/><circle cx="50" cy="34" r="22" fill="#7c3aed"/><circle cx="43" cy="31" r="5" fill="#fff"/><circle cx="57" cy="31" r="5" fill="#fff"/><circle cx="44" cy="30" r="3.5" fill="#4c1d95"/><circle cx="44.5" cy="29.5" r="1.2" fill="#fff" opacity=".8"/><path d="M43 41 Q50 47 57 41" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M30 18 L50 2 L70 18 L63 14 L50 24 L37 14 Z" fill="#fbbf24"/><ellipse cx="50" cy="14" rx="8" ry="6" fill="#e879f9" opacity=".8"/><circle cx="50" cy="12" r="4" fill="#fbbf24"/><path d="M26 62 Q12 68 16 82" stroke="#7c3aed" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M74 62 Q88 68 84 82" stroke="#7c3aed" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="88" rx="7" ry="5" fill="#5b21b6"/><ellipse cx="62" cy="88" rx="7" ry="5" fill="#5b21b6"/><text x="50" y="68" text-anchor="middle" font-size="12">⭐</text>`},
 
-const today=new Date();
-const todayStr=fmt(today);
-const ti=(today.getDate()+today.getMonth()*3)%TIPS.length;
-document.getElementById('tipIcon').textContent=TIPS[ti].i;
-document.getElementById('tipText').textContent=TIPS[ti].t;
-setTimeout(()=>{ document.getElementById('progFill').style.width=PCT+'%'; },400);
+  // ──────────── LIGHT ────────────
+  magic:{dark:false,name:'Mágico',bodyBg:'#fdf4ff',c1:'#a855f7',c2:'#9333ea',c3:'#7c3aed',hdrGrad:'linear-gradient(135deg,#f472b6,#a855f7 40%,#6366f1 70%,#38bdf8)',hdrClip:'ellipse(100% 88% at 50% 12%)',statBg:'#fff',statBorder:'#e9d5ff',statLbl:'#6b7280',streakBg:'linear-gradient(135deg,#fef9c3,#fef3c7)',streakBorder:'#fbbf24',streakC:'#b45309',progBg:'#fff',progFill:'linear-gradient(90deg,#f472b6,#a855f7,#38bdf8)',progTrack:'#ede9fe',nextBg:'linear-gradient(135deg,#dbeafe,#ede9fe)',nextBorder:'#a5b4fc',nextAccent:'#4338ca',nextC:'#1e1b4b',tipBg:'linear-gradient(135deg,#fefce8,#fef9c3)',tipBorder:'#fbbf24',navBg:'#fff',navBorder:'#e9d5ff',navTitle:'#7c3aed',calBg:'#fff',calBorder:'#f3f4f6',calWdayBg:'linear-gradient(135deg,#a855f7,#6366f1)',calCellBg:'#fff',calTodayBg:'linear-gradient(135deg,#fdf4ff,#eff6ff)',dnumC:'#374151',wkHeadBg:'#f3f4f6',wkTodayBg:'linear-gradient(135deg,#a855f7,#6366f1)',wkColBg:'#fff',wkColBorder:'#f3f4f6',tabBg:'#e5e7eb',tabC:'#6b7280',tabActiveBg:'linear-gradient(135deg,#a855f7,#6366f1)',tabBorder:'transparent',covBg:'linear-gradient(135deg,#f472b6,#a855f7 40%,#6366f1 70%,#38bdf8)',tlCardBg:'#fff',tlCardBorder:'#e9d5ff',tlLine:'linear-gradient(180deg,#a855f7,#6366f1,transparent)',storyBg:'#fff',storyBorder:'#f3e8ff',storySidebar:'linear-gradient(180deg,#f472b6,#a855f7,#6366f1)',storyTagBg:'#f3e8ff',storyTagBorder:'#d8b4fe',storyTagC:'#7c3aed',storyBodyC:'#374151',storyEmC:'#9333ea',storyHighBg:'#f3e8ff',storyHighBorder:'#a855f7',moodBg:'#fff',moodBorder:'#e9d5ff',moodTitle:'#7c3aed',moodBtnBg:'#f3f4f6',moodBtnBorder:'#e5e7eb',moodBtnSel:'#ede9fe',moodBtnSelBorder:'#a855f7',moodNoteBg:'#fafafa',moodNoteC:'#374151',moodNoteB:'#e5e7eb',moodNoteFoc:'#a855f7',moodSaveBg:'linear-gradient(135deg,#a855f7,#6366f1)',moodOkC:'#065f46',advBg:'#fff',advBorder:'#e9d5ff',advTitle:'#7c3aed',advTrack:'#ede9fe',advTrackB:'#e9d5ff',advCnt:'#374151',badgeBg:'#fff',badgeBorder:'#e9d5ff',badgeTitle:'#7c3aed',badgeUnlBg:'linear-gradient(135deg,#fef3c7,#fce7f3)',badgeUnlBorder:'#fde68a',badgeLblC:'#92400e',sheetBg:'#fff',sheetBorder:'#a855f7',shHandleBg:'#e5e7eb',shLblC:'#9ca3af',shValC:'#111827',fabBg:'linear-gradient(135deg,#a855f7,#6366f1)',changeBg:'#fff',changeC:'#7c3aed',changeBorder:'1px solid #e9d5ff',particleColors:['#f472b6','#a855f7','#38bdf8'],particleEmojis:['✨','🌟','🦄','🌈','💫'],coverDecor:['🌸','✨','🦄','🌈','💫','⭐'],coverMainEmoji:'🦄',coverBadge:'✨ Reino del Arcoíris · Misión Mágica',chapterNames:['El Primer Hechizo','El Bosque de Colores','La Nube Mágica','El Río de Estrellas','El Arcoíris Eterno','La Corona de Luz'],hdrEmojis:['🌈','✨','🦄'],hdrTitle:'🌈 Mi Calendario Mágico',hdrSub:'¡Hechicero del Arcoíris! ✨',tips:[{i:'🦄',t:'Los unicornios más mágicos practican su brillo cada día. ¡5 minutos al día y tu magia crece!'},{i:'✨',t:'Cada sesión es una estrella nueva en tu cielo mágico. ¡Sigue brillando!'}],streakLabel:'¡Semanas de magia pura!',streakSub:'🦄 ¡Eres el ser más mágico del reino! ✨',progLabel:'Hechizos completados',progSuffix:'del libro mágico descubierto ✨',todayIcon:'⭐',emptyWeek:'🌸',sessionProf:'✨',sessionBranch:'🏰',sessionBranchLabel:'Torre Mágica',sessionNoteLabel:'Diario Mágico',sessionType:'Hechizo',storyDone:{title:'🏆 ¡Hechizo Completado!',tag:'✨ Victoria Mágica',roar:'🌈 ¡¡MAGIA MÁXIMA!! ✨🦄',mood:'roar'},storyLate:{title:'✅ ¡Hechizo Completado! (con tardanza)',tag:'⏰ Llegada Tardía a la Torre',mood:'walk'},storyCancel:{title:'😔 El Hechizo no Pudo Lanzarse',tag:'🔮 Magia Pospuesta',mood:'sad'},storyWaiting:{title:'🌈 ¡Tu Varita Está Lista!',tag:'✨ Hechizo Activo · Mago Preparado',mood:'bounce'},storyRest:{title:'🌸 Un Día de Brillo Interior',tag:'💫 Día de Recarga Mágica',mood:'think'},badges:[{ico:'🌟',lbl:'Primera sesión'},{ico:'🔥',lbl:'Racha 3 semanas'},{ico:'💎',lbl:'10 sesiones'},{ico:'🏆',lbl:'Mes completo'},{ico:'⚡',lbl:'Sin faltas'},{ico:'🎯',lbl:'5 en fila'},{ico:'🦸',lbl:'Súper puntual'},{ico:'🌈',lbl:'3 servicios'}],advIcos:['✨','🌈','💎','🌸'],moodTitle:'🦄 ¿Cómo brilla tu magia hoy?',moodPlaceholder:'✨ ¿Algo que contarle a tu guía mágico?',moodSaveLabel:'🌈 Guardar en el diario mágico',moodOkLabel:'✅ ¡Guardado! Tu guía mágico lo verá 🌟',tapMsgs:['¡MAGIA MÁXIMA! ¡Eres increíblemente mágico! 🌈','¡Los unicornios te envidian, eres único! 🦄','¡Cada sesión hace tu magia más brillante! ✨','¡El arcoíris te pertenece! 🌈'],footprint:'🌸',mascotSvg:`<ellipse cx="50" cy="66" rx="22" ry="20" fill="#a855f7"/><ellipse cx="50" cy="69" rx="15" ry="13" fill="#c084fc"/><circle cx="50" cy="34" r="22" fill="#a855f7"/><ellipse cx="36" cy="42" rx="7" ry="5" fill="#f9a8d4" opacity=".7"/><ellipse cx="64" cy="42" rx="7" ry="5" fill="#f9a8d4" opacity=".7"/><circle cx="43" cy="31" r="5.5" fill="#fff"/><circle cx="57" cy="31" r="5.5" fill="#fff"/><circle cx="44" cy="30" r="3.5" fill="#7c3aed"/><circle cx="44.5" cy="29.5" r="1.2" fill="#fff" opacity=".8"/><path d="M43 41 Q50 47 57 41" stroke="#4c1d95" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="31" cy="14" rx="6" ry="9" fill="#7c3aed" transform="rotate(-18,31,14)"/><ellipse cx="69" cy="14" rx="6" ry="9" fill="#7c3aed" transform="rotate(18,69,14)"/><ellipse cx="31" cy="14" rx="3" ry="5" fill="#f472b6" transform="rotate(-18,31,14)"/><ellipse cx="69" cy="14" rx="3" ry="5" fill="#f472b6" transform="rotate(18,69,14)"/><path d="M72 70 Q85 60 80 75 Q90 68 84 82" stroke="#7c3aed" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="86" rx="7" ry="5" fill="#9333ea"/><ellipse cx="62" cy="86" rx="7" ry="5" fill="#9333ea"/><text x="50" y="70" text-anchor="middle" font-size="10" fill="#fbbf24">⭐</text>`},
 
-let viewMode='mes';
-let curMonth=new Date(today.getFullYear(),today.getMonth(),1);
-let weekStart=getWS(today);
+  sunny:{dark:false,name:'Soleado',bodyBg:'#fffbeb',c1:'#f59e0b',c2:'#d97706',c3:'#b45309',hdrGrad:'linear-gradient(135deg,#f59e0b,#fbbf24 40%,#fcd34d 70%,#fde68a)',hdrClip:'polygon(0 0,100% 0,100% 78%,85% 90%,70% 78%,55% 90%,40% 78%,25% 90%,10% 78%,0 90%)',statBg:'#fff',statBorder:'#fde68a',statLbl:'#6b7280',streakBg:'linear-gradient(135deg,#fef3c7,#fde68a)',streakBorder:'#f59e0b',streakC:'#b45309',progBg:'#fff',progFill:'linear-gradient(90deg,#f59e0b,#fbbf24,#fcd34d)',progTrack:'#fef3c7',nextBg:'#fff7ed',nextBorder:'#fed7aa',nextAccent:'#ea580c',nextC:'#431407',tipBg:'linear-gradient(135deg,#fffbeb,#fef3c7)',tipBorder:'#f59e0b',navBg:'#fff',navBorder:'#fde68a',navTitle:'#b45309',calBg:'#fff',calBorder:'#fef3c7',calWdayBg:'linear-gradient(135deg,#f59e0b,#d97706)',calCellBg:'#fff',calTodayBg:'linear-gradient(135deg,#fffbeb,#fef3c7)',dnumC:'#374151',wkHeadBg:'#fef3c7',wkTodayBg:'linear-gradient(135deg,#f59e0b,#d97706)',wkColBg:'#fff',wkColBorder:'#fef3c7',tabBg:'#f3f4f6',tabC:'#6b7280',tabActiveBg:'linear-gradient(135deg,#f59e0b,#d97706)',tabBorder:'transparent',covBg:'linear-gradient(135deg,#f59e0b,#fbbf24 40%,#fcd34d 70%,#fde68a)',tlCardBg:'#fff',tlCardBorder:'#fde68a',tlLine:'linear-gradient(180deg,#f59e0b,#d97706,transparent)',storyBg:'#fff',storyBorder:'#fef3c7',storySidebar:'linear-gradient(180deg,#fbbf24,#f59e0b,#d97706)',storyTagBg:'#fef9c3',storyTagBorder:'#fde68a',storyTagC:'#b45309',storyBodyC:'#374151',storyEmC:'#d97706',storyHighBg:'#fef9c3',storyHighBorder:'#fbbf24',moodBg:'#fff',moodBorder:'#fde68a',moodTitle:'#b45309',moodBtnBg:'#fef9c3',moodBtnBorder:'#fde68a',moodBtnSel:'#fef3c7',moodBtnSelBorder:'#f59e0b',moodNoteBg:'#fffbeb',moodNoteC:'#374151',moodNoteB:'#fde68a',moodNoteFoc:'#f59e0b',moodSaveBg:'linear-gradient(135deg,#f59e0b,#d97706)',moodOkC:'#065f46',advBg:'#fff',advBorder:'#fde68a',advTitle:'#b45309',advTrack:'#fef3c7',advTrackB:'#fde68a',advCnt:'#374151',badgeBg:'#fff',badgeBorder:'#fde68a',badgeTitle:'#b45309',badgeUnlBg:'linear-gradient(135deg,#fef3c7,#fde68a)',badgeUnlBorder:'#fbbf24',badgeLblC:'#92400e',sheetBg:'#fff',sheetBorder:'#fbbf24',shHandleBg:'#e5e7eb',shLblC:'#9ca3af',shValC:'#111827',fabBg:'linear-gradient(135deg,#f59e0b,#d97706)',changeBg:'#fff',changeC:'#b45309',changeBorder:'1px solid #fde68a',particleColors:['#fbbf24','#fcd34d','#f59e0b'],particleEmojis:['☀️','🌻','⭐','🌟','✨'],coverDecor:['🌻','☀️','🌈','⭐','🌸','🦋'],coverMainEmoji:'☀️',coverBadge:'☀️ Día Soleado · Aventura en Marcha',chapterNames:['El Amanecer del Héroe','El Jardín Misterioso','La Tormenta de Verano','El Arco del Sol','La Cima Dorada','La Estrella de Oro'],hdrEmojis:['☀️','🌻','⭐'],hdrTitle:'☀️ Mi Calendario Soleado',hdrSub:'¡Explorador del Sol Brillante! 🌻',tips:[{i:'☀️',t:'Los girasoles siempre miran al sol. ¡Tú también mira hacia adelante en cada sesión!'},{i:'🌻',t:'Cada día soleado es una nueva oportunidad. ¡Practica un poco en casa y brilla más!'}],streakLabel:'¡Semanas de sol y energía!',streakSub:'☀️ ¡Eres una estrella resplandeciente! 🌟',progLabel:'Rayos de sol conquistados',progSuffix:'del cielo soleado descubierto ☀️',todayIcon:'☀️',emptyWeek:'🌸',sessionProf:'🌻',sessionBranch:'🏡',sessionBranchLabel:'Casa del Sol',sessionNoteLabel:'Diario Soleado',sessionType:'Aventura Solar',storyDone:{title:'🏆 ¡Rayo de Sol Conquistado!',tag:'☀️ Victoria Brillante del Día',roar:'☀️ ¡¡EL SOL BRILLA POR TI!! 🌟',mood:'roar'},storyLate:{title:'✅ ¡Aventura Completada! (con el sol en lo alto)',tag:'⏰ Llegada con el Sol de Mediodía',mood:'walk'},storyCancel:{title:'😔 Las Nubes Cubrieron el Sol',tag:'⛅ Día Nublado Temporalmente',mood:'sad'},storyWaiting:{title:'🌅 ¡El Sol Te Espera!',tag:'☀️ Aventura Solar Activa',mood:'bounce'},storyRest:{title:'🌸 Un Día de Brisa Suave',tag:'🌻 Día de Recarga Solar',mood:'think'},badges:[{ico:'🌅',lbl:'Primer amanecer'},{ico:'🔥',lbl:'3 semanas brillando'},{ico:'⭐',lbl:'10 aventuras'},{ico:'🌞',lbl:'Mes completo'},{ico:'🌸',lbl:'Sin faltas'},{ico:'🌈',lbl:'5 en fila'},{ico:'☀️',lbl:'Súper puntual'},{ico:'🦋',lbl:'3 servicios'}],advIcos:['☀️','🌻','🌈','⭐'],moodTitle:'☀️ ¿Cómo brilla tu sol hoy?',moodPlaceholder:'🌻 ¿Algo que contarle a tu guía solar?',moodSaveLabel:'☀️ Guardar en el diario soleado',moodOkLabel:'✅ ¡Diario soleado guardado! Tu guía lo verá 🌟',tapMsgs:['¡EL SOL BRILLA POR TI! ☀️','¡Eres la estrella más brillante del día! 🌟','¡Cada sesión es un rayo de sol más! 🌻','¡El cielo te pertenece, explorador solar! 🌈'],footprint:'🌸',mascotSvg:`<circle cx="50" cy="50" r="32" fill="#fbbf24"/><circle cx="50" cy="50" r="26" fill="#fcd34d"/><circle cx="43" cy="44" r="5" fill="#fff"/><circle cx="57" cy="44" r="5" fill="#fff"/><circle cx="44" cy="43" r="3" fill="#92400e"/><circle cx="44.5" cy="42.5" r="1" fill="#fff" opacity=".8"/><path d="M43 56 Q50 62 57 56" stroke="#92400e" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="37" cy="54" rx="6" ry="4" fill="#f59e0b" opacity=".5"/><ellipse cx="63" cy="54" rx="6" ry="4" fill="#f59e0b" opacity=".5"/><line x1="50" y1="15" x2="50" y2="10" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="50" y1="85" x2="50" y2="90" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="15" y1="50" x2="10" y2="50" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="85" y1="50" x2="90" y2="50" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="24" y1="24" x2="20" y2="20" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="76" y1="24" x2="80" y2="20" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="24" y1="76" x2="20" y2="80" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="76" y1="76" x2="80" y2="80" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>`},
 
-function fmt(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function getWS(d){ const r=new Date(d);r.setDate(r.getDate()-r.getDay());r.setHours(0,0,0,0);return r; }
-function ses(ds){ return SESSIONS.filter(s=>s.fecha===ds); }
+  nature:{dark:false,name:'Naturaleza',bodyBg:'#f0fdf4',c1:'#22c55e',c2:'#16a34a',c3:'#15803d',hdrGrad:'linear-gradient(135deg,#86efac,#4ade80 40%,#22c55e 70%,#16a34a)',hdrClip:'polygon(0 0,100% 0,100% 80%,90% 95%,80% 80%,70% 95%,60% 80%,50% 95%,40% 80%,30% 95%,20% 80%,10% 95%,0 80%)',statBg:'#fff',statBorder:'#bbf7d0',statLbl:'#6b7280',streakBg:'linear-gradient(135deg,#dcfce7,#bbf7d0)',streakBorder:'#22c55e',streakC:'#15803d',progBg:'#fff',progFill:'linear-gradient(90deg,#4ade80,#22c55e,#86efac)',progTrack:'#dcfce7',nextBg:'#f0fdf4',nextBorder:'#86efac',nextAccent:'#15803d',nextC:'#14532d',tipBg:'linear-gradient(135deg,#f0fdf4,#dcfce7)',tipBorder:'#4ade80',navBg:'#fff',navBorder:'#bbf7d0',navTitle:'#15803d',calBg:'#fff',calBorder:'#dcfce7',calWdayBg:'linear-gradient(135deg,#22c55e,#16a34a)',calCellBg:'#fff',calTodayBg:'linear-gradient(135deg,#f0fdf4,#dcfce7)',dnumC:'#374151',wkHeadBg:'#dcfce7',wkTodayBg:'linear-gradient(135deg,#22c55e,#16a34a)',wkColBg:'#fff',wkColBorder:'#dcfce7',tabBg:'#f3f4f6',tabC:'#6b7280',tabActiveBg:'linear-gradient(135deg,#22c55e,#16a34a)',tabBorder:'transparent',covBg:'linear-gradient(135deg,#86efac,#4ade80 40%,#22c55e 70%,#16a34a)',tlCardBg:'#fff',tlCardBorder:'#bbf7d0',tlLine:'linear-gradient(180deg,#4ade80,#16a34a,transparent)',storyBg:'#fff',storyBorder:'#dcfce7',storySidebar:'linear-gradient(180deg,#4ade80,#22c55e,#16a34a)',storyTagBg:'#dcfce7',storyTagBorder:'#86efac',storyTagC:'#15803d',storyBodyC:'#374151',storyEmC:'#16a34a',storyHighBg:'#dcfce7',storyHighBorder:'#4ade80',moodBg:'#fff',moodBorder:'#bbf7d0',moodTitle:'#15803d',moodBtnBg:'#f0fdf4',moodBtnBorder:'#bbf7d0',moodBtnSel:'#dcfce7',moodBtnSelBorder:'#22c55e',moodNoteBg:'#f9fafb',moodNoteC:'#374151',moodNoteB:'#bbf7d0',moodNoteFoc:'#22c55e',moodSaveBg:'linear-gradient(135deg,#22c55e,#16a34a)',moodOkC:'#065f46',advBg:'#fff',advBorder:'#bbf7d0',advTitle:'#15803d',advTrack:'#dcfce7',advTrackB:'#bbf7d0',advCnt:'#374151',badgeBg:'#fff',badgeBorder:'#bbf7d0',badgeTitle:'#15803d',badgeUnlBg:'linear-gradient(135deg,#dcfce7,#bbf7d0)',badgeUnlBorder:'#86efac',badgeLblC:'#166534',sheetBg:'#fff',sheetBorder:'#4ade80',shHandleBg:'#e5e7eb',shLblC:'#9ca3af',shValC:'#111827',fabBg:'linear-gradient(135deg,#22c55e,#16a34a)',changeBg:'#fff',changeC:'#15803d',changeBorder:'1px solid #bbf7d0',particleColors:['#4ade80','#86efac','#22c55e'],particleEmojis:['🌸','🍃','🌺','🦋','🌼'],coverDecor:['🌸','🍃','🌺','🦋','🌼','🌿'],coverMainEmoji:'🦋',coverBadge:'🌸 Bosque Encantado · Exploración Activa',chapterNames:['La Semilla Plantada','El Río del Bosque','La Cascada Mágica','El Claro de Luna','La Cima Florida','El Árbol Legendario'],hdrEmojis:['🌸','🦋','🌺'],hdrTitle:'🌸 Mi Calendario Natural',hdrSub:'¡Guardián del Bosque Encantado! 🍃',tips:[{i:'🌸',t:'Las flores más hermosas crecen poco a poco. ¡Cada sesión es un pétalo más en tu flor!'},{i:'🦋',t:'Las mariposas no nacen voladoras. ¡Tú también estás en proceso de volar!'}],streakLabel:'¡Semanas floreciendo!',streakSub:'🌸 ¡Eres el guardián más brillante del bosque! 🍃',progLabel:'Flores cultivadas',progSuffix:'del jardín encantado descubierto 🌸',todayIcon:'🌸',emptyWeek:'🌼',sessionProf:'🌸',sessionBranch:'🌿',sessionBranchLabel:'Cabaña del Bosque',sessionNoteLabel:'Diario del Bosque',sessionType:'Exploración',storyDone:{title:'🏆 ¡Flor Cultivada con Éxito!',tag:'🌸 Victoria en el Jardín Encantado',roar:'🌸 ¡¡EL BOSQUE CELEBRA!! 🦋',mood:'roar'},storyLate:{title:'✅ ¡Exploración Completada! (llegada tardía)',tag:'⏰ El Guardián Llegó Tarde',mood:'walk'},storyCancel:{title:'😔 La Tormenta Paró la Exploración',tag:'🌧️ Exploración Pospuesta',mood:'sad'},storyWaiting:{title:'🌿 ¡El Bosque Te Llama!',tag:'🌸 Exploración Activa · Guardián Listo',mood:'bounce'},storyRest:{title:'🌼 Un Día de Descanso en el Prado',tag:'🍃 Día de Recarga Natural',mood:'think'},badges:[{ico:'🌱',lbl:'Primera semilla'},{ico:'🔥',lbl:'3 semanas floreciendo'},{ico:'🌺',lbl:'10 exploraciones'},{ico:'🌳',lbl:'Mes completo'},{ico:'🌸',lbl:'Sin faltas'},{ico:'🦋',lbl:'5 en fila'},{ico:'🌿',lbl:'Súper puntual'},{ico:'🌼',lbl:'3 servicios'}],advIcos:['🌸','🌺','🍃','🦋'],moodTitle:'🌸 ¿Cómo florece tu espíritu hoy?',moodPlaceholder:'🍃 ¿Algo que contarle a tu guardián del bosque?',moodSaveLabel:'🌿 Guardar en el diario del bosque',moodOkLabel:'✅ ¡Diario del bosque guardado! Tu guardián lo verá 🌸',tapMsgs:['¡EL BOSQUE CELEBRA POR TI! 🌸','¡Eres la flor más brillante del jardín! 🌺','¡Cada sesión hace crecer tu árbol! 🌳','¡Las mariposas bailan para ti! 🦋'],footprint:'🌸',mascotSvg:`<ellipse cx="50" cy="66" rx="22" ry="20" fill="#22c55e"/><ellipse cx="50" cy="69" rx="15" ry="13" fill="#4ade80"/><circle cx="50" cy="34" r="22" fill="#22c55e"/><ellipse cx="36" cy="40" rx="7" ry="5" fill="#86efac" opacity=".6"/><ellipse cx="64" cy="40" rx="7" ry="5" fill="#86efac" opacity=".6"/><circle cx="43" cy="30" r="5" fill="#fff"/><circle cx="57" cy="30" r="5" fill="#fff"/><circle cx="44" cy="29" r="3" fill="#166534"/><circle cx="44.5" cy="28.5" r="1" fill="#fff" opacity=".8"/><path d="M43 40 Q50 46 57 40" stroke="#166534" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M35 16 Q50 5 65 16 Q60 28 50 24 Q40 28 35 16Z" fill="#4ade80"/><circle cx="50" cy="15" r="5" fill="#fbbf24"/><path d="M74 62 Q90 56 86 72 Q98 65 92 80" stroke="#22c55e" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="86" rx="7" ry="5" fill="#16a34a"/><ellipse cx="62" cy="86" rx="7" ry="5" fill="#16a34a"/><text x="50" y="69" text-anchor="middle" font-size="10">🌸</text>`},
 
-function cc(e){
-  return e==='realizada'?'cd':
-         e==='realizada_retraso'?'cr':
-         e==='cancelada'?'cc':
-         e==='permiso'?'cpe':
-         e==='falta'?'cf':
-         e==='reprogramada'?'crep':'cp';
+  candy:{dark:false,name:'Dulces',bodyBg:'#fff0f6',c1:'#ec4899',c2:'#db2777',c3:'#be185d',hdrGrad:'linear-gradient(135deg,#f9a8d4,#ec4899 40%,#db2777 70%,#be185d)',hdrClip:'ellipse(100% 88% at 50% 12%)',statBg:'#fff',statBorder:'#fbcfe8',statLbl:'#6b7280',streakBg:'linear-gradient(135deg,#fce7f3,#fbcfe8)',streakBorder:'#ec4899',streakC:'#be185d',progBg:'#fff',progFill:'linear-gradient(90deg,#f472b6,#ec4899,#a21caf)',progTrack:'#fce7f3',nextBg:'#fff0f6',nextBorder:'#f9a8d4',nextAccent:'#be185d',nextC:'#500724',tipBg:'linear-gradient(135deg,#fff0f6,#fce7f3)',tipBorder:'#f9a8d4',navBg:'#fff',navBorder:'#fbcfe8',navTitle:'#be185d',calBg:'#fff',calBorder:'#fce7f3',calWdayBg:'linear-gradient(135deg,#ec4899,#db2777)',calCellBg:'#fff',calTodayBg:'linear-gradient(135deg,#fff0f6,#fce7f3)',dnumC:'#374151',wkHeadBg:'#fce7f3',wkTodayBg:'linear-gradient(135deg,#ec4899,#db2777)',wkColBg:'#fff',wkColBorder:'#fce7f3',tabBg:'#f3f4f6',tabC:'#6b7280',tabActiveBg:'linear-gradient(135deg,#ec4899,#db2777)',tabBorder:'transparent',covBg:'linear-gradient(135deg,#f9a8d4,#ec4899 40%,#db2777 70%,#be185d)',tlCardBg:'#fff',tlCardBorder:'#fbcfe8',tlLine:'linear-gradient(180deg,#ec4899,#db2777,transparent)',storyBg:'#fff',storyBorder:'#fce7f3',storySidebar:'linear-gradient(180deg,#f472b6,#ec4899,#db2777)',storyTagBg:'#fce7f3',storyTagBorder:'#f9a8d4',storyTagC:'#be185d',storyBodyC:'#374151',storyEmC:'#db2777',storyHighBg:'#fce7f3',storyHighBorder:'#ec4899',moodBg:'#fff',moodBorder:'#fbcfe8',moodTitle:'#be185d',moodBtnBg:'#fce7f3',moodBtnBorder:'#fbcfe8',moodBtnSel:'#fbcfe8',moodBtnSelBorder:'#ec4899',moodNoteBg:'#fff5f9',moodNoteC:'#374151',moodNoteB:'#fbcfe8',moodNoteFoc:'#ec4899',moodSaveBg:'linear-gradient(135deg,#ec4899,#db2777)',moodOkC:'#065f46',advBg:'#fff',advBorder:'#fbcfe8',advTitle:'#be185d',advTrack:'#fce7f3',advTrackB:'#fbcfe8',advCnt:'#374151',badgeBg:'#fff',badgeBorder:'#fbcfe8',badgeTitle:'#be185d',badgeUnlBg:'linear-gradient(135deg,#fce7f3,#fbcfe8)',badgeUnlBorder:'#f9a8d4',badgeLblC:'#9d174d',sheetBg:'#fff',sheetBorder:'#ec4899',shHandleBg:'#e5e7eb',shLblC:'#9ca3af',shValC:'#111827',fabBg:'linear-gradient(135deg,#ec4899,#db2777)',changeBg:'#fff',changeC:'#be185d',changeBorder:'1px solid #fbcfe8',particleColors:['#f472b6','#ec4899','#fbbf24'],particleEmojis:['🍭','🍬','🍰','🧁','✨'],coverDecor:['🍭','🍬','🧁','🍰','🍡','🍩'],coverMainEmoji:'🍭',coverBadge:'🍬 Fábrica Mágica · Receta Activa',chapterNames:['El Primer Caramelo','La Fábrica de Sueños','La Tormenta de Azúcar','El Río de Chocolate','La Montaña de Gomitas','La Corona de Dulces'],hdrEmojis:['🍭','🧁','🍬'],hdrTitle:'🍭 Mi Calendario Dulce',hdrSub:'¡Maestro Repostero del Azúcar! 🧁',tips:[{i:'🍭',t:'Los dulces más ricos se hacen con paciencia y cariño. ¡Cada sesión es un ingrediente especial!'},{i:'🧁',t:'Un pastelero de élite practica sus recetas todos los días. ¡5 minutos al día y mejoras!'}],streakLabel:'¡Semanas endulzando el mundo!',streakSub:'🍭 ¡Eres el maestro repostero más épico! 🧁',progLabel:'Recetas completadas',progSuffix:'del libro de recetas descubierto 🍰',todayIcon:'🍭',emptyWeek:'🧁',sessionProf:'🍰',sessionBranch:'🏪',sessionBranchLabel:'Pastelería Mágica',sessionNoteLabel:'Libro de Recetas',sessionType:'Receta',storyDone:{title:'🏆 ¡Receta Maestra Completada!',tag:'🍭 Victoria Dulce del Día',roar:'🍭 ¡¡QUÉ DELICIA!! 🧁✨',mood:'roar'},storyLate:{title:'✅ ¡Receta Lista! (con un toque tardío)',tag:'⏰ El Chef Llegó un Poco Tarde',mood:'walk'},storyCancel:{title:'😔 El Horno se Apagó Hoy',tag:'🍬 Receta Pospuesta',mood:'sad'},storyWaiting:{title:'🧁 ¡El Horno Está Listo!',tag:'🍭 Receta Activa · Chef Preparado',mood:'bounce'},storyRest:{title:'🍩 Un Día de Sabores Tranquilos',tag:'🍬 Día de Inspiración Repostera',mood:'think'},badges:[{ico:'🍬',lbl:'Primera receta'},{ico:'🔥',lbl:'3 semanas cocinando'},{ico:'🍰',lbl:'10 recetas'},{ico:'🎂',lbl:'Mes completo'},{ico:'🍭',lbl:'Sin faltas'},{ico:'🧁',lbl:'5 en fila'},{ico:'⏰',lbl:'Súper puntual'},{ico:'🍩',lbl:'3 servicios'}],advIcos:['🍭','🍰','🧁','🍬'],moodTitle:'🍭 ¿Cómo está tu dulzura hoy?',moodPlaceholder:'🍬 ¿Algo que contarle a tu chef maestro?',moodSaveLabel:'🧁 Guardar en el libro de recetas',moodOkLabel:'✅ ¡Libro de recetas actualizado! Tu chef lo verá 🍭',tapMsgs:['¡QUÉ DULCE ERES! ¡El mejor chef del mundo! 🍭','¡Tus recetas son increíblemente deliciosas! 🧁','¡Cada sesión es un ingrediente especial! 🍬','¡Tu pastelería es la mejor del universo! 🍰'],footprint:'🍬',mascotSvg:`<ellipse cx="50" cy="66" rx="22" ry="20" fill="#ec4899"/><ellipse cx="50" cy="69" rx="15" ry="13" fill="#f472b6"/><circle cx="50" cy="34" r="22" fill="#ec4899"/><ellipse cx="36" cy="42" rx="7" ry="5" fill="#f9a8d4" opacity=".7"/><ellipse cx="64" cy="42" rx="7" ry="5" fill="#f9a8d4" opacity=".7"/><circle cx="43" cy="31" r="5.5" fill="#fff"/><circle cx="57" cy="31" r="5.5" fill="#fff"/><circle cx="44" cy="30" r="3" fill="#9d174d"/><circle cx="44.5" cy="29.5" r="1" fill="#fff" opacity=".8"/><path d="M43 42 Q50 48 57 42" stroke="#9d174d" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="32" y="8" width="36" height="16" rx="8" fill="#fbbf24"/><text x="50" y="20" text-anchor="middle" font-size="10">🍭</text><path d="M74 62 Q88 58 86 72 Q96 64 92 78" stroke="#ec4899" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="86" rx="7" ry="5" fill="#db2777"/><ellipse cx="62" cy="86" rx="7" ry="5" fill="#db2777"/><text x="50" y="69" text-anchor="middle" font-size="9">🍬</text>`},
+
+  sky:{dark:false,name:'Cielo',bodyBg:'#f0f9ff',c1:'#0ea5e9',c2:'#0284c7',c3:'#0369a1',hdrGrad:'linear-gradient(135deg,#38bdf8,#0ea5e9 40%,#0284c7 70%,#bae6fd)',hdrClip:'ellipse(100% 88% at 50% 12%)',statBg:'#fff',statBorder:'#bae6fd',statLbl:'#6b7280',streakBg:'linear-gradient(135deg,#e0f2fe,#bae6fd)',streakBorder:'#0ea5e9',streakC:'#0369a1',progBg:'#fff',progFill:'linear-gradient(90deg,#38bdf8,#0ea5e9,#7dd3fc)',progTrack:'#e0f2fe',nextBg:'#f0f9ff',nextBorder:'#7dd3fc',nextAccent:'#0369a1',nextC:'#082f49',tipBg:'linear-gradient(135deg,#f0f9ff,#e0f2fe)',tipBorder:'#38bdf8',navBg:'#fff',navBorder:'#bae6fd',navTitle:'#0369a1',calBg:'#fff',calBorder:'#e0f2fe',calWdayBg:'linear-gradient(135deg,#0ea5e9,#0284c7)',calCellBg:'#fff',calTodayBg:'linear-gradient(135deg,#f0f9ff,#e0f2fe)',dnumC:'#374151',wkHeadBg:'#e0f2fe',wkTodayBg:'linear-gradient(135deg,#0ea5e9,#0284c7)',wkColBg:'#fff',wkColBorder:'#e0f2fe',tabBg:'#f3f4f6',tabC:'#6b7280',tabActiveBg:'linear-gradient(135deg,#0ea5e9,#0284c7)',tabBorder:'transparent',covBg:'linear-gradient(135deg,#38bdf8,#0ea5e9 40%,#0284c7 70%,#7dd3fc)',tlCardBg:'#fff',tlCardBorder:'#bae6fd',tlLine:'linear-gradient(180deg,#38bdf8,#0284c7,transparent)',storyBg:'#fff',storyBorder:'#e0f2fe',storySidebar:'linear-gradient(180deg,#38bdf8,#0ea5e9,#0284c7)',storyTagBg:'#e0f2fe',storyTagBorder:'#7dd3fc',storyTagC:'#0369a1',storyBodyC:'#374151',storyEmC:'#0284c7',storyHighBg:'#e0f2fe',storyHighBorder:'#38bdf8',moodBg:'#fff',moodBorder:'#bae6fd',moodTitle:'#0369a1',moodBtnBg:'#f0f9ff',moodBtnBorder:'#bae6fd',moodBtnSel:'#e0f2fe',moodBtnSelBorder:'#0ea5e9',moodNoteBg:'#f8feff',moodNoteC:'#374151',moodNoteB:'#bae6fd',moodNoteFoc:'#0ea5e9',moodSaveBg:'linear-gradient(135deg,#0ea5e9,#0284c7)',moodOkC:'#065f46',advBg:'#fff',advBorder:'#bae6fd',advTitle:'#0369a1',advTrack:'#e0f2fe',advTrackB:'#bae6fd',advCnt:'#374151',badgeBg:'#fff',badgeBorder:'#bae6fd',badgeTitle:'#0369a1',badgeUnlBg:'linear-gradient(135deg,#e0f2fe,#bae6fd)',badgeUnlBorder:'#7dd3fc',badgeLblC:'#075985',sheetBg:'#fff',sheetBorder:'#38bdf8',shHandleBg:'#e5e7eb',shLblC:'#9ca3af',shValC:'#111827',fabBg:'linear-gradient(135deg,#0ea5e9,#0284c7)',changeBg:'#fff',changeC:'#0369a1',changeBorder:'1px solid #bae6fd',particleColors:['#38bdf8','#7dd3fc','#0ea5e9'],particleEmojis:['🦋','☁️','🌤️','✨','🌈'],coverDecor:['☁️','🦋','🌤️','✨','🌈','🕊️'],coverMainEmoji:'🦋',coverBadge:'🌤️ Cielo Despejado · Vuelo Activo',chapterNames:['El Primer Vuelo','Las Nubes de Algodón','La Tormenta Arcoíris','El Viento del Norte','La Cima de las Nubes','La Estrella del Cielo'],hdrEmojis:['🌤️','🦋','☁️'],hdrTitle:'🌤️ Mi Calendario del Cielo',hdrSub:'¡Explorador de las Nubes! 🦋',tips:[{i:'🌤️',t:'Las mariposas vuelan más alto cuando practican sus alas. ¡5 minutos al día y vuelas más!'},{i:'☁️',t:'El cielo más despejado llegó después de la lluvia. ¡Sigue adelante siempre!'}],streakLabel:'¡Semanas volando por las nubes!',streakSub:'🦋 ¡Eres el explorador más alto del cielo! ✨',progLabel:'Nubes exploradas',progSuffix:'del cielo descubierto 🌤️',todayIcon:'🌤️',emptyWeek:'☁️',sessionProf:'🌤️',sessionBranch:'🏔️',sessionBranchLabel:'Nube Base',sessionNoteLabel:'Diario del Cielo',sessionType:'Vuelo',storyDone:{title:'🏆 ¡Vuelo Completado!',tag:'🌤️ Victoria en las Alturas',roar:'🦋 ¡¡LIBRE COMO EL VIENTO!! 🌈',mood:'roar'},storyLate:{title:'✅ ¡Vuelo Completado! (con viento en contra)',tag:'⏰ Piloto Llegó con Retraso',mood:'walk'},storyCancel:{title:'😔 Las Nubes No Dejaron Volar Hoy',tag:'⛅ Vuelo Pospuesto por Tormenta',mood:'sad'},storyWaiting:{title:'🌤️ ¡El Cielo Te Espera!',tag:'🦋 Vuelo Activo · Piloto Preparado',mood:'bounce'},storyRest:{title:'☁️ Un Día de Nubes Suaves',tag:'🌤️ Día de Recarga en las Alturas',mood:'think'},badges:[{ico:'🌤️',lbl:'Primer vuelo'},{ico:'🔥',lbl:'3 semanas volando'},{ico:'🌈',lbl:'10 vuelos'},{ico:'☀️',lbl:'Mes completo'},{ico:'🦋',lbl:'Sin faltas'},{ico:'☁️',lbl:'5 en fila'},{ico:'✈️',lbl:'Súper puntual'},{ico:'🕊️',lbl:'3 servicios'}],advIcos:['🌤️','🌈','☁️','🦋'],moodTitle:'🌤️ ¿Cómo vuela tu espíritu hoy?',moodPlaceholder:'☁️ ¿Algo que contarle a tu piloto guía?',moodSaveLabel:'🌤️ Guardar en el diario del cielo',moodOkLabel:'✅ ¡Diario del cielo actualizado! Tu guía lo verá 🦋',tapMsgs:['¡LIBRE COMO EL VIENTO! 🦋','¡Eres el explorador más alto del cielo! 🌤️','¡Cada sesión te lleva más arriba! 🌈','¡Las nubes te abren camino, piloto! ☁️'],footprint:'🦋',mascotSvg:`<ellipse cx="50" cy="66" rx="22" ry="20" fill="#0ea5e9"/><ellipse cx="50" cy="69" rx="15" ry="13" fill="#38bdf8"/><circle cx="50" cy="34" r="22" fill="#0ea5e9"/><ellipse cx="36" cy="40" rx="7" ry="5" fill="#7dd3fc" opacity=".6"/><ellipse cx="64" cy="40" rx="7" ry="5" fill="#7dd3fc" opacity=".6"/><circle cx="43" cy="30" r="5" fill="#fff"/><circle cx="57" cy="30" r="5" fill="#fff"/><circle cx="44" cy="29" r="3" fill="#075985"/><circle cx="44.5" cy="28.5" r="1" fill="#fff" opacity=".8"/><path d="M43 40 Q50 46 57 40" stroke="#075985" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M22 30 Q32 10 50 28 Q68 10 78 30 Q68 38 50 32 Q32 38 22 30Z" fill="#bae6fd" opacity=".7"/><ellipse cx="38" cy="86" rx="7" ry="5" fill="#0284c7"/><ellipse cx="62" cy="86" rx="7" ry="5" fill="#0284c7"/><path d="M74 62 Q88 58 85 72 Q95 65 90 78" stroke="#0ea5e9" stroke-width="4" fill="none" stroke-linecap="round"/><text x="50" y="20" text-anchor="middle" font-size="10">☁️</text>`},
+};
+
+// ══ GLOBALS ══
+const MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIA3=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const now=new Date(),todayStr=fmt(now);
+let curMonth=new Date(now.getFullYear(),now.getMonth(),1);
+let weekStart=getWS(now);
+let viewMode='mes',selectedMood=null,T=null;
+
+// canvas
+const cvs=document.getElementById('meteorCanvas'),ctx2=cvs.getContext('2d');
+let W,H,meteors=[];
+function resizeCvs(){W=cvs.width=innerWidth;H=cvs.height=innerHeight}
+resizeCvs();addEventListener('resize',resizeCvs);
+function drawMeteors(){
+  ctx2.clearRect(0,0,W,H);
+  if(!T){requestAnimationFrame(drawMeteors);return;}
+  if(Math.random()<.004&&T.dark) meteors.push({x:Math.random()*W,y:-20,len:40+Math.random()*80,speed:2+Math.random()*3,angle:Math.PI/4+Math.random()*.3,life:1,color:T.particleColors[0]});
+  meteors=meteors.filter(m=>{
+    m.x+=Math.cos(m.angle)*m.speed;m.y+=Math.sin(m.angle)*m.speed;m.life-=.012;
+    if(m.x>W||m.y>H||m.life<=0)return false;
+    const g=ctx2.createLinearGradient(m.x,m.y,m.x-Math.cos(m.angle)*m.len,m.y-Math.sin(m.angle)*m.len);
+    g.addColorStop(0,m.color+(Math.floor(m.life*100).toString(16).padStart(2,'0')));g.addColorStop(1,'transparent');
+    ctx2.beginPath();ctx2.moveTo(m.x,m.y);ctx2.lineTo(m.x-Math.cos(m.angle)*m.len,m.y-Math.sin(m.angle)*m.len);
+    ctx2.strokeStyle=g;ctx2.lineWidth=1.5;ctx2.stroke();return true;
+  });
+  requestAnimationFrame(drawMeteors);
 }
-function wc(e){
-  return e==='realizada'?'wd':
-         e==='realizada_retraso'?'wr':
-         e==='cancelada'?'wc':
-         e==='permiso'?'wpe':
-         e==='falta'?'wf':
-         e==='reprogramada'?'wrep':'wp';
-}
-function bc(e){
-  const m={
-    realizada:         {bg:'#d1fae5',fg:'#065f46'},
-    realizada_retraso: {bg:'#fef3c7',fg:'#92400e'},
-    cancelada:         {bg:'#fee2e2',fg:'#991b1b'},
-    permiso:           {bg:'#fce7f3',fg:'#9d174d'},
-    falta:             {bg:'#fce7f3',fg:'#9d174d'},
-    reprogramada:      {bg:'#e0e7ff',fg:'#3730a3'},
-    programada:        {bg:'#dbeafe',fg:'#1e40af'},
-  };
-  return m[e]||{bg:'#dbeafe',fg:'#1e40af'};
-}
-function el(e){
-  return {
-    realizada:         '✅ Realizada',
-    realizada_retraso: '⏰ Con Retraso',
-    pendiente:         '🔵 Pendiente',
-    programada:        '🔵 Programada',
-    agendada:          '🔵 Agendada',
-    cancelada:         '❌ Cancelada',
-    permiso:           '📋 Permiso',
-    falta:             '🚫 Falta sin Aviso',
-    reprogramada:      '🔄 Reprogramada',
-  }[e]||e;
-}
-function ico(e){
-  return e==='realizada'?'✅':
-         e==='realizada_retraso'?'⏰':
-         e==='cancelada'?'❌':
-         e==='permiso'?'📋':
-         e==='falta'?'🚫':
-         e==='reprogramada'?'🔄':'🔵';
+drawMeteors();
+
+// burst css
+const bS=document.createElement('style');
+bS.textContent='@keyframes sporeBurst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}';
+document.head.appendChild(bS);
+
+function fmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function getWS(d){const r=new Date(d);r.setDate(r.getDate()-r.getDay());r.setHours(0,0,0,0);return r}
+function ses(ds){return SESSIONS.filter(s=>s.fecha===ds)}
+function cc(e){return e==='realizada'?'cd':e==='realizada_retraso'?'cr':e==='cancelada'?'cc':e==='permiso'?'cpe':e==='falta'?'cf':e==='reprogramada'?'crep':'cp'}
+function wc(e){return e==='realizada'?'wd':e==='realizada_retraso'?'wr':e==='cancelada'?'wc':e==='permiso'?'wpe':e==='falta'?'wf':e==='reprogramada'?'wrep':'wp'}
+function bc(e){const m={realizada:{bg:'#d1fae5',fg:'#065f46'},realizada_retraso:{bg:'#fef3c7',fg:'#92400e'},cancelada:{bg:'#fee2e2',fg:'#991b1b'},permiso:{bg:'#fce7f3',fg:'#9d174d'},falta:{bg:'#fce7f3',fg:'#9d174d'},reprogramada:{bg:'#e0e7ff',fg:'#3730a3'},programada:{bg:'#dbeafe',fg:'#1e40af'},agendada:{bg:'#dbeafe',fg:'#1e40af'}};return m[e]||{bg:'#dbeafe',fg:'#1e40af'}}
+function el(e){return {realizada:'✅ Realizada',realizada_retraso:'⏰ Con Retraso',pendiente:'🔵 Pendiente',programada:'🔵 Programada',agendada:'🔵 Agendada',cancelada:'❌ Cancelada',permiso:'📋 Permiso',falta:'🚫 Falta',reprogramada:'🔄 Reprogramada'}[e]||e}
+function ico(e){return e==='realizada'?'✅':e==='realizada_retraso'?'⏰':e==='cancelada'?'❌':e==='permiso'?'📋':e==='falta'?'🚫':e==='reprogramada'?'🔄':'🔵'}
+function estLbl(e){return e==='realizada'?'Realizada':e==='realizada_retraso'?'Con retraso':e==='cancelada'?'Cancelada':e==='permiso'?'Permiso':e==='falta'?'Falta':e==='reprogramada'?'Reprogramada':e==='programada'?'Programada':e==='agendada'?'Agendada':'Pendiente'}
+function estColor(e){return e==='realizada'?'#22c55e':e==='realizada_retraso'?'#f59e0b':e==='cancelada'?'#ef4444':e==='permiso'?'#a78bfa':e==='falta'?'#f87171':e==='reprogramada'?'#818cf8':e==='programada'?'#60a5fa':e==='agendada'?'#34d399':'#94a3b8'}
+function bookAnim(dir){const v=document.getElementById('mainView');v.classList.remove('page-l','page-r');void v.offsetWidth;v.classList.add(dir==='next'?'page-r':'page-l');setTimeout(()=>v.classList.remove('page-l','page-r'),520)}
+
+// ══ APPLY THEME ══
+function applyTheme(key){
+  T=THEMES[key];
+  fetch("{% url 'agenda:guardar_tema_calendario' %}", {
+    method: "POST",
+    headers: {"X-CSRFToken": "{{ csrf_token }}", "Content-Type": "application/json"},
+    body: JSON.stringify({tema: key})
+  });
+  document.getElementById('themePicker').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('themeChangeBtn').style.display='flex';
+  document.getElementById('backFab').style.display='flex';
+  document.body.style.background=T.bodyBg;
+
+  // particles (light themes: floating emojis on top, dark: spores)
+  const pl=document.getElementById('particleLayer');pl.innerHTML='';
+  if(T.dark){
+    for(let i=0;i<16;i++){const s=document.createElement('div');s.className='spore';const sz=3+Math.random()*5;s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${T.particleColors[i%T.particleColors.length]};--d:${6+Math.random()*10}s;--dl:${Math.random()*8}s`;pl.appendChild(s);}
+  }
+
+  const cb=document.getElementById('themeChangeBtn');
+  cb.style.background=T.changeBg;cb.style.color=T.changeC;cb.style.border=T.changeBorder;
+  cb.style.boxShadow=T.dark?'0 4px 14px rgba(0,0,0,.3)':'0 4px 14px rgba(0,0,0,.1)';
+  document.getElementById('backFab').style.background=T.fabBg;
+  const sh=document.getElementById('sheetEl');sh.style.background=T.sheetBg;sh.style.borderTop=`3px solid ${T.sheetBorder}`;
+  document.getElementById('shHandle').style.background=T.shHandleBg;
+
+  buildHeader();buildStats();buildStreak();buildProg();buildNext();buildTip();buildLegend();buildTabs();
+  renderMes();renderSemana();
+  setTimeout(()=>{const pf=document.getElementById('progFill');if(pf)pf.style.width=PCT+'%'},400);
 }
 
-function bookAnim(dir){
-  const v=document.getElementById('mainView');
-  v.classList.remove('page-l','page-r');
-  void v.offsetWidth;
-  v.classList.add(dir==='next'?'page-r':'page-l');
-  setTimeout(()=>v.classList.remove('page-l','page-r'),520);
+function showPicker(){
+  document.getElementById('themePicker').style.display='flex';
+  document.getElementById('app').style.display='none';
+  document.getElementById('themeChangeBtn').style.display='none';
+  document.getElementById('backFab').style.display='none';
 }
 
-/* MENSUAL */
+function s(id){return document.getElementById(id)}
+
+function buildHeader(){
+  s('hdr').innerHTML=`<div style="position:relative;z-index:10;background:${T.hdrGrad};background-size:300% 300%;animation:hshift 7s ease infinite;padding:1.4rem 1rem 2.8rem;text-align:center;clip-path:${T.hdrClip};box-shadow:0 8px 32px rgba(0,0,0,.3)"><div style="display:flex;justify-content:center;gap:.6rem;margin-bottom:.4rem">${T.hdrEmojis.map((e,i)=>`<span style="display:inline-block;font-size:1.4rem;animation:dinoWalk ${1.6+i*.4}s ease-in-out infinite ${i*.3}s">${e}</span>`).join('')}</div><h1 style="font-family:'Fredoka One',cursive;font-size:clamp(1.7rem,5vw,2.6rem);color:#fff;text-shadow:0 3px 16px rgba(0,0,0,.3)">${T.hdrTitle}</h1><p style="font-size:.88rem;font-weight:700;color:rgba(255,255,255,.92);margin-top:.25rem">${T.hdrSub}</p></div><style>@keyframes hshift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}@keyframes dinoWalk{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}</style>`;
+}
+
+function buildStats(){
+  const vs=[{n:CNT_REAL,c:'#22c55e',l:'✅ Realizadas'},{n:CNT_RETRASO,c:'#f59e0b',l:'⏰ Retraso'},{n:CNT_PROX,c:'#60a5fa',l:'📅 Próximas'},{n:CNT_FALTA,c:'#f87171',l:'🚫 Faltas'},{n:CNT_CANCEL,c:'#fb923c',l:'❌ Canceladas'},{n:CNT_REPROG,c:'#818cf8',l:'🔄 Reprog.'},{n:CNT_PERMISO,c:'#f472b6',l:'📋 Permisos'},{n:TOTAL_SES,c:T.c1,l:'⭐ Total'}];
+  s('statsBar').innerHTML=vs.map(v=>`<div class="stat" style="background:${T.statBg};border:1px solid ${T.statBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="snum" style="color:${v.c}">${v.n}</div><div class="slbl" style="color:${T.statLbl}">${v.l}</div></div>`).join('');
+}
+
+function buildStreak(){
+  s('streakBar').style.cssText=`position:relative;z-index:10;margin:.7rem .8rem 0;background:${T.streakBg};border:2px solid ${T.streakBorder};border-radius:1.4rem;padding:.75rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 4px 14px rgba(0,0,0,${T.dark?.2:.08})`;
+  s('streakBar').innerHTML=`<span class="fire">🔥</span><span class="snum2" style="color:${T.streakC}">${RACHA}</span><div><div style="font-size:.82rem;font-weight:800;color:${T.streakC}">${T.streakLabel}</div><div style="font-size:.66rem;color:${T.c1};font-weight:700">${T.streakSub}</div></div>`;
+}
+
+function buildProg(){
+  s('progCard').style.cssText=`position:relative;z-index:10;margin:.7rem .8rem 0;background:${T.progBg};border:1px solid ${T.statBorder};border-radius:1.4rem;padding:.85rem 1rem;box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})`;
+  s('progCard').innerHTML=`<div class="prog-hdr" style="color:${T.dark?T.c1:T.c3}"><span>🏆 ${T.progLabel}</span><span>${CNT_REAL} / ${TOTAL_SES}</span></div><div class="prog-track" style="background:${T.progTrack}"><div class="prog-fill" id="progFill" style="width:0%;background:${T.progFill}"></div></div><p style="font-size:.65rem;color:${T.dark?T.c1:T.c3};font-weight:700;margin-top:.3rem;text-align:right">${PCT}% ${T.progSuffix}</p>`;
+}
+
+function buildNext(){
+  s('nextCard').style.cssText=`position:relative;z-index:10;margin:.7rem .8rem 0;background:${T.nextBg};border:2px solid ${T.nextBorder};border-radius:1.4rem;padding:.8rem 1rem;display:flex;align-items:center;gap:.8rem;box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})`;
+  {% if proxima_sesion %}
+  s('nextCard').innerHTML=`<span class="npulse">⏰</span><div><div style="font-size:.62rem;font-weight:900;color:${T.nextAccent};text-transform:uppercase;letter-spacing:.5px">${T.coverMainEmoji} Próxima sesión</div><div style="font-size:.92rem;font-weight:900;color:${T.nextC}">{{ proxima_sesion.fecha|date:"l j F" }}</div><div style="font-size:.72rem;font-weight:700;color:${T.nextAccent}">🕐 {{ proxima_sesion.hora_inicio|default:""|time:"H:i" }} &nbsp;·&nbsp; {{ proxima_sesion.servicio.nombre }} &nbsp;·&nbsp; {{ proxima_sesion.profesional.nombre }}</div></div>`;
+  {% else %}
+  s('nextCard').innerHTML=`<span class="npulse">🌟</span><div><div style="font-size:.62rem;font-weight:900;color:${T.nextAccent};text-transform:uppercase;letter-spacing:.5px">${T.coverMainEmoji} Próxima sesión</div><div style="font-size:.92rem;font-weight:900;color:${T.nextC}">Sin sesiones próximas</div><div style="font-size:.72rem;font-weight:700;color:${T.nextAccent}">¡Al día con todo! 🎉</div></div>`;
+  {% endif %}
+}
+
+function buildTip(){
+  const ti=(now.getDate()+now.getMonth()*3)%T.tips.length;
+  s('tipCard').style.cssText=`position:relative;z-index:10;margin:.7rem .8rem 0;background:${T.tipBg};border:2px dashed ${T.tipBorder};border-radius:1.4rem;padding:.8rem 1rem;display:flex;gap:.8rem;align-items:flex-start`;
+  s('tipCard').innerHTML=`<span class="twobble">${T.tips[ti].i}</span><div><div style="font-size:.62rem;font-weight:900;color:#b45309;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.15rem">💡 Consejo del día</div><div style="font-size:.82rem;font-weight:700;color:#92400e;line-height:1.45">${T.tips[ti].t}</div></div>`;
+}
+
+function buildLegend(){
+  s('legendBar').innerHTML=`<div class="leg" style="background:#d1fae5;color:#065f46">✅ Realizada</div><div class="leg" style="background:#fef3c7;color:#92400e">⏰ Retraso</div><div class="leg" style="background:#dbeafe;color:#1e40af">🔵 Programada</div><div class="leg" style="background:#fce7f3;color:#9d174d">📋 Permiso</div><div class="leg" style="background:#fce7f3;color:#9d174d">🚫 Falta</div><div class="leg" style="background:#fee2e2;color:#991b1b">❌ Cancelada</div><div class="leg" style="background:#e0e7ff;color:#3730a3">🔄 Reprog.</div>`;
+}
+
+function buildTabs(){
+  s('vtabs').innerHTML=`<button class="vtab active" id="tabM" style="background:${T.tabActiveBg};color:#fff;border:none;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.2)" onclick="switchView('mes')">📅 Mensual</button><button class="vtab" id="tabS" style="background:${T.tabBg};color:${T.tabC};border:1px solid ${T.tabBorder}" onclick="switchView('semana')">📆 Semanal</button><button class="vtab" id="tabC" style="background:${T.tabBg};color:${T.tabC};border:1px solid ${T.tabBorder}" onclick="switchView('cuento')">${T.coverMainEmoji} Hoy</button>`;
+}
+
 function renderMes(){
+  if(!T)return;
   const y=curMonth.getFullYear(),m=curMonth.getMonth();
-  document.getElementById('titleMes').textContent=`${MES[m]} ${y}`;
-  const first=new Date(y,m,1).getDay();
-  const last=new Date(y,m+1,0).getDate();
-  const prevL=new Date(y,m,0).getDate();
-  let h='';
-  for(let i=first-1;i>=0;i--) h+=`<div class="cal-cell other"><div class="dnum">${prevL-i}</div></div>`;
+  const navH=`<div class="cal-nav" style="background:${T.navBg};border:1px solid ${T.navBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="prevMes()">‹</button><span class="nav-title" style="color:${T.navTitle}">${MES[m]} ${y}</span><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="nextMes()">›</button></div>`;
+  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevL=new Date(y,m,0).getDate();
+  let g='';
+  for(let i=first-1;i>=0;i--) g+=`<div class="cal-cell" style="background:${T.dark?'rgba(0,0,0,.3)':'#f9fafb'}"><div class="dnum" style="color:${T.dnumC};opacity:.2">${prevL-i}</div></div>`;
   for(let d=1;d<=last;d++){
-    const ds=fmt(new Date(y,m,d));
-    const ss=ses(ds);
-    const isT=ds===todayStr;
-    let chips=ss.map(s=>`
-      <div class="chip ${cc(s.estado)}" onclick="openDetail(${s.id})" style="flex-direction:column;align-items:flex-start;gap:1px;padding:3px 4px;height:auto;white-space:normal;">
-        <span style="font-weight:900;font-size:.54rem;">${ico(s.estado)} ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</span>
-        <span style="font-size:.5rem;font-weight:700;opacity:.85;">${s.svc.slice(0,13)}</span>
-      </div>`).join('');
-    h+=`<div class="cal-cell ${isT?'today':''}">${isT?'<div class="today-sun">☀️</div>':''}<div class="dnum">${d}</div><div class="chips">${chips}</div></div>`;
+    const ds=fmt(new Date(y,m,d)),ss=ses(ds),isT=ds===todayStr;
+    const chips=ss.map(sv=>{
+      const hf=sv.horaFin?` – ${sv.horaFin.slice(0,5)}`:'';
+      const col=estColor(sv.estado);
+      return `<div class="chip ${cc(sv.estado)}" onclick="openDetail(${sv.id})" style="border-left:2px solid ${col}">
+        <span style="font-weight:900;font-size:.54rem">${ico(sv.estado)} ${sv.hora.slice(0,5)}${hf}</span>
+        <span style="font-size:.5rem;opacity:.85">${sv.svc.slice(0,12)}</span>
+        <span style="font-size:.46rem;font-weight:800;color:${col};line-height:1">${estLbl(sv.estado)}</span>
+      </div>`;
+    }).join('');
+    g+=`<div class="cal-cell" style="background:${isT?T.calTodayBg:T.calCellBg}" onmouseenter="this.style.background='${T.dark?'rgba(255,255,255,.05)':T.calTodayBg}'" onmouseleave="this.style.background='${isT?T.calTodayBg:T.calCellBg}'">${isT?`<div class="today-icon">${T.todayIcon}</div>`:''}<div class="dnum" style="${isT?`background:${T.tabActiveBg};border-radius:50%;color:#fff;font-size:.65rem`:`color:${T.dnumC}`}">${d}</div><div class="chips">${chips}</div></div>`;
   }
   const tot=Math.ceil((first+last)/7)*7;
-  for(let n=1;n<=tot-(first+last);n++) h+=`<div class="cal-cell other"><div class="dnum">${n}</div></div>`;
-  document.getElementById('calGrid').innerHTML=h;
+  for(let n=1;n<=tot-(first+last);n++) g+=`<div class="cal-cell" style="background:${T.dark?'rgba(0,0,0,.3)':'#f9fafb'}"><div class="dnum" style="color:${T.dnumC};opacity:.2">${n}</div></div>`;
+  s('viewMes').innerHTML=`${navH}<div style="background:${T.calBg};border-radius:1.4rem;border:1px solid ${T.calBorder};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="cal-wdays" style="background:${T.calWdayBg}">${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d=>`<div class="cal-wday" style="color:#fff">${d}</div>`).join('')}</div><div class="cal-grid" style="background:${T.dark?T.bodyBg:'#e5e7eb'}">${g}</div></div>`;
 }
-function prevMes(){ bookAnim('prev');curMonth.setMonth(curMonth.getMonth()-1);renderMes(); }
-function nextMes(){ bookAnim('next');curMonth.setMonth(curMonth.getMonth()+1);renderMes(); }
+function prevMes(){bookAnim('prev');curMonth.setMonth(curMonth.getMonth()-1);renderMes()}
+function nextMes(){bookAnim('next');curMonth.setMonth(curMonth.getMonth()+1);renderMes()}
 
-/* SEMANAL */
 function renderSemana(){
+  if(!T)return;
   const end=new Date(weekStart);end.setDate(end.getDate()+6);
   const f=d=>`${d.getDate()} ${MES[d.getMonth()].slice(0,3)}`;
-  document.getElementById('titleSemana').textContent=`${f(weekStart)} – ${f(end)}`;
-  let h='';
+  const navH=`<div class="cal-nav" style="background:${T.navBg};border:1px solid ${T.navBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="prevSemana()">‹</button><span class="nav-title" style="color:${T.navTitle}">${f(weekStart)} – ${f(end)}</span><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="nextSemana()">›</button></div>`;
+  let cols='';
   for(let i=0;i<7;i++){
     const day=new Date(weekStart);day.setDate(day.getDate()+i);
-    const ds=fmt(day);
-    const ss=ses(ds);
-    const isT=ds===todayStr;
-    let sh=ss.length
-      ? ss.map(s=>`
-          <div class="wk-ses ${wc(s.estado)}" onclick="openDetail(${s.id})">
-            <div class="wk-hora">${ico(s.estado)} ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</div>
-            <div class="wk-svc">${s.svc}</div>
-            <div class="wk-prof">👨‍⚕️ ${s.prof.split(' ')[0]}</div>
-          </div>`).join('')
-      : '<div class="wk-empty">😴</div>';
-    h+=`<div class="wk-col ${isT?'today-col':''}">
-      <div class="wk-head"><div class="wkday">${DIA3[day.getDay()]}</div><div class="wkdate">${day.getDate()}</div></div>
-      <div class="wk-body">${sh}</div>
-    </div>`;
+    const ds=fmt(day),ss=ses(ds),isT=ds===todayStr;
+    const sh=ss.length?ss.map(sv=>{
+      const hf=sv.horaFin?`<span style="opacity:.7"> – ${sv.horaFin.slice(0,5)}</span>`:'';
+      const col=estColor(sv.estado);
+      return `<div class="wk-ses ${wc(sv.estado)}" onclick="openDetail(${sv.id})" style="border-left:3px solid ${col}">
+        <div class="wk-hora">${ico(sv.estado)} ${sv.hora.slice(0,5)}${hf}</div>
+        <div class="wk-svc">${sv.svc}</div>
+        <div class="wk-prof">${T.sessionProf} ${sv.prof.split(' ')[0]}</div>
+        <div style="font-size:.56rem;font-weight:800;color:${col};margin-top:2px">${estLbl(sv.estado)}</div>
+      </div>`;
+    }).join(''):`<div class="wk-empty">${T.emptyWeek}</div>`;
+    cols+=`<div class="wk-col" style="background:${T.wkColBg};border:1px solid ${T.wkColBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="wk-head" style="background:${isT?T.wkTodayBg:T.wkHeadBg}"><div class="wkday" style="color:${isT?'#fff':T.c1}">${DIA3[day.getDay()]}</div><div class="wkdate" style="color:${isT?'#fff':T.dark?T.c1:T.c3}">${day.getDate()}</div></div><div class="wk-body">${sh}</div></div>`;
   }
-  document.getElementById('weekGrid').innerHTML=h;
+  s('viewSemana').innerHTML=`${navH}<div class="week-grid">${cols}</div>`;
 }
-function prevSemana(){ bookAnim('prev');weekStart.setDate(weekStart.getDate()-7);renderSemana(); }
-function nextSemana(){ bookAnim('next');weekStart.setDate(weekStart.getDate()+7);renderSemana(); }
+function prevSemana(){bookAnim('prev');weekStart.setDate(weekStart.getDate()-7);renderSemana()}
+function nextSemana(){bookAnim('next');weekStart.setDate(weekStart.getDate()+7);renderSemana()}
 
-/* DETALLE */
-function openDetail(id){
-  const s=SESSIONS.find(x=>x.id===id);if(!s)return;
-  const c=bc(s.estado);
-  const fd=s.fecha.split('-').reverse().join('/');
-  document.getElementById('sheetContent').innerHTML=`
-    <div class="sh-banner" style="background:${c.bg};color:${c.fg};">${el(s.estado)}</div>
-    <div class="sh-row">
-      <span class="sh-ico">🕐</span>
-      <div style="flex:1;">
-        <div class="sh-lbl">Hora inicio → Hora fin</div>
-        <div style="display:flex;align-items:center;gap:.5rem;">
-          <span class="sh-val" style="font-size:1.1rem;">${s.hora.slice(0,5)}</span>
-          ${s.horaFin?`<span style="font-size:.8rem;color:#9ca3af;font-weight:700;">→</span><span class="sh-val" style="font-size:1.1rem;">${s.horaFin.slice(0,5)}</span>`:''}
-          ${s.dur>0?`<span style="font-size:.68rem;background:#ede9fe;color:#7c3aed;padding:2px 7px;border-radius:99px;font-weight:800;">⏱ ${s.dur} min</span>`:''}
-        </div>
+function buildCuento(){
+  if(!T)return;
+  const dow=DIAS[now.getDay()],dom=now.getDate(),mon=MES[now.getMonth()];
+  const hour=now.getHours();
+  const greeting=hour<12?'¡Buenos días, aventurero!':hour<19?'¡Buenas tardes, héroe!':'¡Buenas noches, campeón!';
+  const todaySes=ses(todayStr);
+
+  // portada stars
+  let cStars='';
+  if(T.dark){for(let i=0;i<30;i++) cStars+=`<div class="cstar" style="width:3px;height:3px;left:${Math.random()*100}%;top:${Math.random()*70}%;background:${T.particleColors[i%T.particleColors.length]};--d:${1.5+Math.random()*3}s;--dl:${Math.random()*2}s"></div>`;}
+
+  // capítulos
+  const sesOrd=[...SESSIONS].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  let chHTML=`<div class="timeline-line" style="background:${T.tlLine}"></div>`;
+  T.chapterNames.forEach((name,i)=>{
+    const sv=sesOrd[i];let stIco='🔒',cls='';
+    if(sv){if(sv.estado==='realizada'||sv.estado==='realizada_retraso'){stIco='✅';cls='done';}else if(sv.fecha===todayStr){stIco='⚡';cls='active';}else stIco='🔵';}
+    chHTML+=`<div class="chapter-item ${cls}"><div class="chapter-num" style="color:${T.c1}77">Cap. ${i+1} ${stIco}</div><div class="chapter-name" style="color:${cls==='active'?T.c1:(T.dark?T.statLbl:T.c3)}">${name}</div><div class="chapter-desc">${sv?`${sv.svc} · ${sv.fecha.split('-').reverse().join('/')}`:name}</div></div>`;
+  });
+  const tlStyle=`<style>.chapter-item::before{background:${T.dark?T.bodyBg:'#f9fafb'};border-color:${T.c2}}.chapter-item.active::before{background:${T.c1};box-shadow:0 0 12px ${T.c1}88;width:20px;height:20px;left:.9rem}.chapter-item.done::before{background:${T.c3}}</style>`;
+
+  // narrativa
+  let title,body,eraTag,mascotMood;
+  const sv=todaySes[0];
+  if(!todaySes.length){const r=T.storyRest;title=r.title;eraTag=r.tag;mascotMood=r.mood;body=`${greeting} Hoy no tienes sesión. ¡Un gran día para <em>practicar lo aprendido</em> y recargar energías!<br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">💡 Los mejores aventureros usan sus días libres para prepararse para la próxima misión.</span>`;}
+  else{
+    const isPast=sv.hora<`${String(hour).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    if(sv.estado==='realizada'){const r=T.storyDone;title=r.title;eraTag=r.tag;mascotMood=r.mood;body=`${greeting} ¡<strong>Lo lograste</strong>! Completaste tu sesión de <em>${sv.svc}</em>. 🏆<br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">🌟 Cada sesión completada es un logro legendario grabado en tu historia para siempre.</span><br><span class="roar-text" style="color:${T.c1};text-shadow:0 0 20px ${T.c1}66">${r.roar}</span>`;}
+    else if(sv.estado==='realizada_retraso'){const r=T.storyLate;title=r.title;eraTag=r.tag;mascotMood=r.mood;body=`${greeting} ¡Bien que llegaste! Completaste tu sesión de <em>${sv.svc}</em>. <br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">⏰ Pro tip: Salir 10 minutos antes ayuda a llegar puntual y aprovechar cada minuto.</span>`;}
+    else if(sv.estado==='cancelada'||sv.estado==='falta'){const r=T.storyCancel;title=r.title;eraTag=r.tag;mascotMood=r.mood;body=`${greeting} Hoy la sesión de <em>${sv.svc}</em> no pudo realizarse. <strong>¡No te rindas!</strong><br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">💪 Los grandes aventureros se levantan después de cada obstáculo. ¡La próxima será épica!</span>`;}
+    else if(isPast){title='🔍 ¿Cómo fue la sesión?';eraTag='🗺️ Registro Post-Aventura';mascotMood='think';body=`${greeting} Tu sesión de <em>${sv.svc}</em> estaba a las <em>${sv.hora}</em>. <strong>¡Esperamos que haya sido increíble!</strong><br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">📜 Cuéntale a tu guía qué fue lo más épico de hoy.</span>`;}
+    else{const r=T.storyWaiting;title=r.title;eraTag=r.tag;mascotMood=r.mood;body=`${greeting} ¡Hoy tienes sesión de <em>${sv.svc}</em> con <em>${sv.prof.split(' ')[0]}</em> a las <em>${sv.hora}</em>! 🎯<br><br><span class="story-highlight" style="background:${T.storyHighBg};border-left-color:${T.storyHighBorder}">⚡ Prepárate con toda tu energía. ¡Este capítulo de tu historia va a ser ÉPICO!</span>`;}
+  }
+
+  const sesCards=todaySes.map(sv=>{const col=bc(sv.estado);return `<div style="border-radius:1.2rem;padding:.9rem 1rem;margin-top:.75rem;background:${col.bg};border:1px solid ${col.fg}33;position:relative;overflow:hidden"><div style="position:absolute;right:-.5rem;bottom:-.5rem;font-size:3.5rem;opacity:.07;line-height:1">${T.coverMainEmoji}</div><div style="display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:900;padding:.2rem .7rem;border-radius:99px;margin-bottom:.5rem;background:${col.fg}20;color:${col.fg}">${el(sv.estado)}</div><div style="font-family:'Fredoka One',cursive;font-size:1.45rem;color:#111;line-height:1">${sv.hora.slice(0,5)}${sv.horaFin?' → '+sv.horaFin.slice(0,5):''} ${sv.dur?`<span style="font-size:.8rem;opacity:.45">(${sv.dur}min)</span>`:''}</div><div style="font-size:.75rem;font-weight:700;color:#374151;margin-top:.25rem;line-height:1.7">🎯 ${sv.svc}<br>${T.sessionProf} ${sv.prof}<br>${T.sessionBranch} ${sv.suc}${sv.retraso>0?`<br><span style="color:#b45309">⏰ Llegó ${sv.retraso} min tarde</span>`:''}${sv.obs?`<br><span style="font-size:.7rem;color:#6b7280">📜 ${sv.obs}</span>`:''}</div></div>`}).join('');
+
+  const advBars=T.advIcos.map((ic,i)=>{const cnts=[CNT_REAL,CNT_RETRASO,CNT_PROX,CNT_CANCEL];const cols=['linear-gradient(90deg,#22c55e,#16a34a)','linear-gradient(90deg,#fbbf24,#f59e0b)','linear-gradient(90deg,#60a5fa,#3b82f6)','linear-gradient(90deg,#f87171,#ef4444)'];return `<div class="adv-row"><div class="adv-ico">${ic}</div><div class="adv-bar-wrap" style="background:${T.advTrack};border:1px solid ${T.advTrackB}"><div class="adv-bar" id="ab${i+1}" style="width:0%;background:${cols[i]}"></div></div><div class="adv-cnt" style="color:${T.advCnt}">${cnts[i]}</div></div>`}).join('');
+
+  const badgeHtml=T.badges.map((b,i)=>{const ok=[CNT_REAL>=1,RACHA>=3,CNT_REAL>=10,false,CNT_FALTA===0,false,CNT_RETRASO===0,false][i];return `<div class="badge-item ${ok?'unlocked':'locked'}" style="${ok?`background:${T.badgeUnlBg};border:1px solid ${T.badgeUnlBorder}`:`border:1px solid ${T.dark?'#ffffff11':'#e5e7eb'}`}"><div class="badge-ico">${b.ico}</div><div class="badge-lbl" style="color:${ok?T.badgeLblC:'#9ca3af'}">${b.lbl}</div></div>`}).join('');
+
+  s('viewCuento').innerHTML=`<div class="cuento-wrap">
+    <!-- portada -->
+    <div class="book-cover" style="background:${T.covBg};box-shadow:0 12px 48px rgba(0,0,0,${T.dark?.5:.25});border:2px solid ${T.dark?T.c1+'33':'rgba(255,255,255,.4)'}">
+      <div class="cover-stars">${cStars}</div>
+      <div class="cover-content">
+        <div class="cover-era-badge" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)">${T.coverBadge}</div>
+        <div class="cover-title" style="color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.3)">${title}</div>
+        <div class="cover-subtitle" style="color:rgba(255,255,255,.85)">${dow}, ${dom} de ${mon}</div>
+        <hr class="cover-divider"><div class="cover-meta" style="color:rgba(255,255,255,.6)"><span>🗓️ Cap. ${dom}</span><span>${T.coverMainEmoji} ${CNT_REAL} logros</span><span>🗺️ ${RACHA} semanas</span></div>
+      </div>
+      <div class="cover-main-emoji">${T.coverMainEmoji}</div>
+      <div class="cover-deco-strip">${T.coverDecor.map(e=>`<span>${e}</span>`).join('')}</div>
+    </div>
+    <!-- timeline -->
+    <div class="chapter-timeline-card" style="background:${T.tlCardBg};border:1px solid ${T.tlCardBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})">
+      ${tlStyle}
+      <div style="font-family:'Fredoka One',cursive;font-size:1rem;color:${T.dark?T.c1:T.c3};margin-bottom:.8rem">📜 Mapa de la Aventura</div>
+      <div class="timeline-wrap">${chHTML}</div>
+    </div>
+    <!-- mascota -->
+    <div class="mascot-row"><div>
+      <div class="mascot" id="mascot" onclick="mascotTap()">
+        <div class="mascot-bubble" id="bubble" style="background:${T.dark?'rgba(5,5,20,.95)':'#fff'};border:2px solid ${T.c1};color:${T.dark?T.c1:T.c3}"></div>
+        <svg viewBox="0 0 100 100" id="mascotSvg" style="filter:drop-shadow(0 8px 24px ${T.c1}44)">${T.mascotSvg}</svg>
+      </div>
+      <div class="footprints">${T.footprint}${T.footprint}${T.footprint}</div>
+    </div></div>
+    <!-- página -->
+    <div class="story-page" style="background:${T.storyBg};border:2px solid ${T.storyBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})">
+      <div class="page-sidebar" style="background:${T.storySidebar}"></div>
+      <div class="story-inner">
+        <div class="story-era-tag" style="background:${T.storyTagBg};border:1px solid ${T.storyTagBorder};color:${T.storyTagC}">${eraTag}</div>
+        <div class="story-title" style="color:${T.dark?'#fff':T.c3}">${title}</div>
+        <div class="story-body" style="color:${T.storyBodyC}">${body.replace(/<em>/g,`<em style="font-style:normal;color:${T.storyEmC};font-weight:900">`).replace(/<strong>/g,`<strong style="color:${T.dark?'#fbbf24':T.c2}">`)}</div>
+        ${sesCards}
       </div>
     </div>
-    <div class="sh-row"><span class="sh-ico">🎯</span><div><div class="sh-lbl">Servicio</div><div class="sh-val">${s.svc}</div></div></div>
-    <div class="sh-row"><span class="sh-ico">👨‍⚕️</span><div><div class="sh-lbl">Profesional</div><div class="sh-val">${s.prof}</div></div></div>
-    <div class="sh-row"><span class="sh-ico">📅</span><div><div class="sh-lbl">Fecha</div><div class="sh-val">${fd}</div></div></div>
-    ${s.retraso>0?`<div class="sh-row"><span class="sh-ico">⏰</span><div><div class="sh-lbl">Retraso</div><div class="sh-val" style="color:#b45309;">Llegó ${s.retraso} min tarde</div></div></div>`:''}
-    <div class="sh-row"><span class="sh-ico">🏥</span><div><div class="sh-lbl">Sucursal</div><div class="sh-val">${s.suc}</div></div></div>
-    <div class="sh-row"><span class="sh-ico">📦</span><div><div class="sh-lbl">Tipo</div><div class="sh-val">${s.tipo}</div></div></div>
-    ${s.obs?`<div class="sh-row"><span class="sh-ico">📝</span><div><div class="sh-lbl">Notas</div><div class="sh-val" style="font-size:.8rem;font-weight:600;">${s.obs}</div></div></div>`:''}
-  `;
+    <!-- mood -->
+    <div class="mood-card" style="background:${T.moodBg};border:1px solid ${T.moodBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})">
+      <div class="mood-card-title" style="color:${T.dark?T.c1:T.c3}">${T.moodTitle}</div>
+      <div class="mood-grid">${['😄','🙂','😐','😴','😬','😢'].map((e,i)=>`<button class="mood-btn" data-mood="${['feliz','bien','normal','cansado','nervioso','triste'][i]}" style="background:${T.moodBtnBg};border-color:${T.moodBtnBorder}" onclick="selectMood(this)">${e}</button>`).join('')}</div>
+      <textarea class="mood-note" id="moodNote" rows="2" placeholder="${T.moodPlaceholder}" style="background:${T.moodNoteBg};color:${T.moodNoteC};border-color:${T.moodNoteB}"></textarea>
+      <button class="mood-save-btn" style="background:${T.moodSaveBg}" onclick="saveMood()">${T.moodSaveLabel}</button>
+      <div class="mood-ok" id="moodOk" style="color:${T.moodOkC}">${T.moodOkLabel}</div>
+    </div>
+    <!-- progreso -->
+    <div class="adv-card" style="background:${T.advBg};border:1px solid ${T.advBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})">
+      <div class="adv-title" style="color:${T.dark?T.c1:T.c3}">🏆 Progreso de la Aventura</div>${advBars}
+    </div>
+    <!-- badges -->
+    <div class="badges-card" style="background:${T.badgeBg};border:1px solid ${T.badgeBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})">
+      <div class="badges-title" style="color:${T.dark?T.c1:T.c3}">🎖️ Mis Medallas Épicas</div>
+      <div class="badges-grid">${badgeHtml}</div>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{[1,2,3,4].forEach(i=>{const b=document.getElementById('ab'+i);if(b)b.style.width=([CNT_REAL,CNT_RETRASO,CNT_PROX,CNT_CANCEL][i-1]/(TOTAL_SES||1)*100)+'%'})},400);
+  setTimeout(()=>setMascotMood(mascotMood),700);
+}
+
+function setMascotMood(mood){
+  const a={roar:'m-roar .9s ease 1',walk:'m-walk 1.5s ease infinite',sad:'m-sad 2s ease infinite',think:'m-think 2s ease infinite',sleep:'m-sleep 2s ease infinite',bounce:'m-bounce 1.1s ease infinite'};
+  const m2={roar:`¡${T.tapMsgs[0]}`,walk:'¡A explorar nuevos territorios! 🌟',sad:'No pasa nada, ¡seguimos adelante! 💪',think:'Hmm... 🤔 analizando la aventura',sleep:'Zzz... recargando poderes...',bounce:`¡${T.tapMsgs[1]}`};
+  const svg=document.getElementById('mascotSvg');if(!svg)return;
+  svg.style.animation='none';void svg.offsetWidth;svg.style.animation=a[mood]||a.walk;
+  showBubble(m2[mood]||m2.walk);
+}
+function showBubble(txt){const b=document.getElementById('bubble');if(!b)return;b.textContent=txt;b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),3500)}
+function mascotTap(){
+  if(!T)return;
+  showBubble(T.tapMsgs[Math.floor(Math.random()*T.tapMsgs.length)]);
+  const svg=document.getElementById('mascotSvg');if(!svg)return;
+  svg.style.animation='none';void svg.offsetWidth;svg.style.animation='m-roar .9s ease 1';
+  for(let i=0;i<8;i++){
+    const el2=document.createElement('div');
+    el2.style.cssText=`position:fixed;pointer-events:none;z-index:50;font-size:${.8+Math.random()*.8}rem;left:50%;top:55%;animation:sporeBurst .8s ease forwards;--tx:${(Math.random()-.5)*200}px;--ty:${-50-Math.random()*120}px`;
+    el2.textContent=T.particleEmojis[Math.floor(Math.random()*T.particleEmojis.length)];
+    document.body.appendChild(el2);setTimeout(()=>el2.remove(),900);
+  }
+}
+function selectMood(btn){
+  document.querySelectorAll('.mood-btn').forEach(b=>{b.style.background=T.moodBtnBg;b.style.borderColor=T.moodBtnBorder;b.classList.remove('selected')});
+  btn.style.background=T.moodBtnSel;btn.style.borderColor=T.moodBtnSelBorder;btn.classList.add('selected');
+  selectedMood=btn.dataset.mood;
+  const map={feliz:'roar',bien:'bounce',normal:'think',cansado:'sleep',nervioso:'think',triste:'sad'};
+  setMascotMood(map[selectedMood]||'walk');
+}
+function saveMood(){
+  if(!selectedMood){showBubble('¡Elige cómo te sientes primero! 😊');return;}
+  const ok=document.getElementById('moodOk');if(!ok)return;
+  ok.style.opacity='1';setMascotMood('roar');mascotTap();
+  setTimeout(()=>ok.style.opacity='0',4000);
+}
+function openDetail(id){
+  if(!T)return;
+  const sv=SESSIONS.find(x=>x.id===id);if(!sv)return;
+  const col=bc(sv.estado),fd=sv.fecha.split('-').reverse().join('/');
+  document.getElementById('sheetContent').innerHTML=`<div class="sh-banner" style="background:${col.bg};color:${col.fg}">${el(sv.estado)}</div><div class="sh-row"><span class="sh-ico">🕐</span><div style="flex:1"><div class="sh-lbl" style="color:${T.shLblC}">Hora</div><div style="display:flex;align-items:center;gap:.5rem"><span class="sh-val" style="color:${T.shValC};font-size:1.1rem">${sv.hora.slice(0,5)}</span>${sv.horaFin?`<span style="color:${T.c1}77">→</span><span class="sh-val" style="color:${T.shValC};font-size:1.1rem">${sv.horaFin.slice(0,5)}</span>`:''} ${sv.dur>0?`<span style="font-size:.68rem;background:${T.storyTagBg};color:${T.storyTagC};padding:2px 7px;border-radius:99px;font-weight:800">⏱ ${sv.dur} min</span>`:''}</div></div></div><div class="sh-row"><span class="sh-ico">🎯</span><div><div class="sh-lbl" style="color:${T.shLblC}">Servicio</div><div class="sh-val" style="color:${T.shValC}">${sv.svc}</div></div></div><div class="sh-row"><span class="sh-ico">${T.sessionProf}</span><div><div class="sh-lbl" style="color:${T.shLblC}">Guía</div><div class="sh-val" style="color:${T.shValC}">${sv.prof}</div></div></div><div class="sh-row"><span class="sh-ico">📅</span><div><div class="sh-lbl" style="color:${T.shLblC}">Fecha</div><div class="sh-val" style="color:${T.shValC}">${fd}</div></div></div>${sv.retraso>0?`<div class="sh-row"><span class="sh-ico">⏰</span><div><div class="sh-lbl" style="color:${T.shLblC}">Retraso</div><div class="sh-val" style="color:#f59e0b">Llegó ${sv.retraso} min tarde</div></div></div>`:''}<div class="sh-row"><span class="sh-ico">${T.sessionBranch}</span><div><div class="sh-lbl" style="color:${T.shLblC}">${T.sessionBranchLabel}</div><div class="sh-val" style="color:${T.shValC}">${sv.suc}</div></div></div>${sv.obs?`<div class="sh-row"><span class="sh-ico">📜</span><div><div class="sh-lbl" style="color:${T.shLblC}">${T.sessionNoteLabel}</div><div class="sh-val" style="color:${T.shValC};font-size:.8rem;font-weight:600">${sv.obs}</div></div></div>`:''}`;
   document.getElementById('overlay').classList.add('open');
 }
-
-function openDay(ds){
-  const ss=ses(ds);
-  const fd=ds.split('-').reverse().join('/');
-  document.getElementById('sheetContent').innerHTML=`
-    <div class="sh-banner" style="background:#ede9fe;color:#4c1d95;">📅 ${fd} — ${ss.length} sesión${ss.length>1?'es':''}</div>
-    ${ss.map(s=>{ const c=bc(s.estado); return `
-      <div style="background:${c.bg};color:${c.fg};border-radius:.8rem;padding:.6rem .8rem;margin-bottom:.4rem;cursor:pointer;" onclick="openDetail(${s.id})">
-        <div style="font-weight:900;font-size:.86rem;">${el(s.estado)} · ${s.hora.slice(0,5)}${s.horaFin?' → '+s.horaFin.slice(0,5):''}</div>
-        <div style="font-size:.78rem;font-weight:700;margin-top:2px;">${s.svc} · ${s.prof.split(' ')[0]}</div>
-      </div>`; }).join('')}
-  `;
-  document.getElementById('overlay').classList.add('open');
-}
-
-function closeSheet(e){
-  if(e.target===document.getElementById('overlay'))
-    document.getElementById('overlay').classList.remove('open');
-}
-
-/* SWIPE */
-let tx=0;
-document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
-document.addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-tx;
-  if(Math.abs(dx)<50)return;
-  if(viewMode==='mes'){ dx<0?nextMes():prevMes(); }
-  else{ dx<0?nextSemana():prevSemana(); }
-});
-
-/* SWITCH */
+function closeSheet(e){if(e.target===document.getElementById('overlay'))document.getElementById('overlay').classList.remove('open')}
 function switchView(v){
   viewMode=v;
-  document.getElementById('viewMes').style.display=v==='mes'?'block':'none';
-  document.getElementById('viewSemana').style.display=v==='semana'?'block':'none';
-  document.getElementById('tabM').classList.toggle('active',v==='mes');
-  document.getElementById('tabS').classList.toggle('active',v==='semana');
+  s('viewMes').style.display=v==='mes'?'block':'none';
+  s('viewSemana').style.display=v==='semana'?'block':'none';
+  s('viewCuento').style.display=v==='cuento'?'block':'none';
+  ['tabM','tabS','tabC'].forEach((id,i)=>{
+    const btn=s(id);if(!btn)return;
+    const act=i===['mes','semana','cuento'].indexOf(v);
+    btn.style.background=act?T.tabActiveBg:T.tabBg;
+    btn.style.color=act?'#fff':T.tabC;
+    btn.style.border=act?'none':`1px solid ${T.tabBorder}`;
+    btn.style.transform=act?'translateY(-2px)':'none';
+    btn.style.boxShadow=act?'0 4px 12px rgba(0,0,0,.2)':'none';
+  });
+  if(v==='cuento')buildCuento();
 }
+let tx=0;
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)<50)return;if(viewMode==='mes'){dx<0?nextMes():prevMes();}else if(viewMode==='semana'){dx<0?nextSemana():prevSemana();}});
 
-renderMes();
-renderSemana();
+// ══ AUTO-CARGA TEMA GUARDADO ══
+(function(){
+  const saved = "{{ tema_calendario|escapejs }}";
+  if(saved && THEMES[saved]){ applyTheme(saved); }
+})();
 </script>
-{% endblock %}
+</body>
+</html>

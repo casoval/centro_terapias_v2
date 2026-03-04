@@ -50,6 +50,14 @@ class PerfilUsuario(models.Model):
         default='default',
         help_text='Tema visual del chat (aplica a todos los roles)'
     )
+
+    # Tema del calendario mágico por usuario
+    tema_calendario = models.CharField(
+        max_length=20,
+        default='',
+        blank=True,
+        help_text='Tema visual del calendario mágico elegido por el usuario'
+    )
     
     # Relación con Profesional (si aplica)
     profesional = models.OneToOneField(
