@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis Informes de Evolución{% endblock %}
+
+{% block content %}
+<style>
+    .paciente-card {
+        transition: transform .18s, box-shadow .18s;
+    }
+    .paciente-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 32px -6px rgba(99,102,241,.18);
+    }
+    .avatar-ring {
+        background: conic-gradient(from 180deg, #6366f1, #06b6d4, #10b981, #6366f1);
+        padding: 3px;
+        border-radius: 9999px;
+    }
+</style>
+
+<div class="max-w-5xl mx-auto px-3 py-4">
+
+    {# ── ENCABEZADO ─────────────────────────────────────────── #}
+    <div class="bg-gradient-to-r from-violet-700 via-indigo-600 to-cyan-600 rounded-2xl p-4 shadow-xl mb-5">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div>
+                <p class="text-violet-200 text-[10px] font-bold uppercase tracking-widest mb-0.5">
+                    Rol Profesional
+                </p>
+                <h1 class="text-xl font-black text-white flex items-center gap-2">
+                    📋 Mis Informes de Evolución
+                </h1>
+                <p class="text-violet-200 text-xs mt-0.5">
+                    {{ profesional.nombre }} {{ profesional.apellido }}
+                    {% if profesional.especialidad %} · {{ profesional.especialidad }}{% endif %}
+                </p>
+            </div>
+            <a href="{% url 'agenda:calendario' %}"
+               class="bg-white/15 hover:bg-white hover:text-indigo-700 text-white px-4 py-1.5 rounded-lg
+                      font-bold text-xs transition-all border border-white/25 flex items-center gap-1.5">
+                ← Mi Agenda
+            </a>
+        </div>
+    </div>
+
+    {# ── BUSCADOR ───────────────────────────────────────────── #}
+    <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-4 mb-5">
+        <div class="flex items-center gap-3">
+            <span class="text-xl">🔍</span>
+            <input type="text"
+                   id="buscador-paciente"
+                   placeholder="Buscar paciente por nombre..."
+                   class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700
+                          focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-gray-50 outline-none
+                          transition-all"
+                   oninput="filtrarPacientes(this.value)">
+            <span id="contador-pacientes"
+                  class="text-xs font-bold text-gray-400 whitespace-nowrap">
+                {{ pacientes|length }} paciente{{ pacientes|length|pluralize }}
+            </span>
+        </div>
+    </div>
+
+    {# ── GRILLA DE PACIENTES ────────────────────────────────── #}
+    {% if pacientes %}
+    <div id="grilla-pacientes"
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {% for paciente in pacientes %}
+        <div class="paciente-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden
+                    cursor-pointer"
+             data-nombre="{{ paciente.nombre|lower }} {{ paciente.apellido|lower }}"
+             onclick="window.location.href='{% url 'agenda:informe_evolucion_profesional' paciente.id %}'">
+
+            {# Franja superior con color dinámico #}
+            <div class="h-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-cyan-400"></div>
+
+            <div class="p-4 flex items-center gap-3">
+
+                {# Avatar #}
+                <div class="avatar-ring flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-cyan-100
+                                flex items-center justify-center overflow-hidden">
+                        {% if paciente.foto %}
+                            <img src="{{ paciente.foto.url }}"
+                                 alt="{{ paciente.nombre_completo }}"
+                                 class="w-full h-full object-cover rounded-full">
+                        {% else %}
+                            <span class="text-xl font-black text-indigo-400">
+                                {{ paciente.nombre|first|upper }}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Datos #}
+                <div class="flex-1 min-w-0">
+                    <p class="font-black text-gray-800 text-sm truncate">
+                        {{ paciente.nombre }} {{ paciente.apellido }}
+                    </p>
+                    {% if paciente.fecha_nacimiento %}
+                    <p class="text-[11px] text-gray-400 font-medium">
+                        🎂 {{ paciente.fecha_nacimiento|date:"d/m/Y" }}
+                    </p>
+                    {% endif %}
+                    <p class="text-[11px] text-indigo-500 font-bold mt-0.5">
+                        {{ paciente.sesiones_count }} sesión{{ paciente.sesiones_count|pluralize:"es" }} registrada{{ paciente.sesiones_count|pluralize:"s" }}
+                    </p>
+                </div>
+
+                {# Flecha #}
+                <span class="text-gray-300 text-lg flex-shrink-0">›</span>
+            </div>
+
+            {# Footer con CTA #}
+            <div class="px-4 pb-3">
+                <a href="{% url 'agenda:informe_evolucion_profesional' paciente.id %}"
+                   onclick="event.stopPropagation()"
+                   class="w-full flex items-center justify-center gap-1.5 bg-indigo-50 hover:bg-indigo-600
+                          text-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600
+                          rounded-xl py-1.5 text-xs font-bold transition-all">
+                    📋 Ver Informe de Evolución
+                </a>
+            </div>
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+    {# Mensaje vacío después de filtrar #}
+    <div id="sin-resultados" class="hidden text-center py-12">
+        <p class="text-4xl mb-3">🔍</p>
+        <p class="text-gray-500 font-medium text-sm">No se encontraron pacientes con ese nombre.</p>
+    </div>
+
+    {% else %}
+    {# Sin pacientes asignados #}
+    <div class="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center">
+        <p class="text-5xl mb-4">👶</p>
+        <p class="text-gray-600 font-bold text-base mb-1">Aún no tenés pacientes asignados</p>
+        <p class="text-gray-400 text-sm">
+            Cuando atiendas sesiones, tus pacientes aparecerán aquí.
+        </p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function filtrarPacientes(texto) {
+    const termino = texto.toLowerCase().trim();
+    const cards = document.querySelectorAll('#grilla-pacientes .paciente-card');
+    let visibles = 0;
+
+    cards.forEach(card => {
+        const nombre = card.dataset.nombre || '';
+        if (!termino || nombre.includes(termino)) {
+            card.style.display = '';
+            visibles++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const contador = document.getElementById('contador-pacientes');
+    if (contador) {
+        contador.textContent = visibles + ' paciente' + (visibles !== 1 ? 's' : '');
+    }
+
+    const sinResultados = document.getElementById('sin-resultados');
+    if (sinResultados) {
+        sinResultados.classList.toggle('hidden', visibles > 0);
+    }
+}
+</script>
+{% endblock %}

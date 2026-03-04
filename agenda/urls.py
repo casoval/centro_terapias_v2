@@ -111,6 +111,17 @@ urlpatterns = [
          views.generar_pdf_informe_evolucion, 
          name='pdf_informe_evolucion'),
 
+    # INFORMES DE EVOLUCIÓN — ROL PROFESIONAL
+    path('mis-informes-evolucion/',
+         views.mis_informes_evolucion,
+         name='mis_informes_evolucion'),
+    path('mis-informes-evolucion/<int:paciente_id>/',
+         views.informe_evolucion_profesional,
+         name='informe_evolucion_profesional'),
+    path('mis-informes-evolucion/<int:paciente_id>/pdf/',
+         views.generar_pdf_informe_evolucion_profesional,
+         name='pdf_informe_evolucion_profesional'),
+
     # PERMISOS DE EDICIÓN (solo administradores)
     path('permisos-edicion/',
          views.lista_permisos_edicion,

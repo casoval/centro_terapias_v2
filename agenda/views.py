@@ -5229,3 +5229,239 @@ def guardar_tema_calendario(request):
         return JsonResponse({'ok': True})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+@login_required
+def mis_informes_evolucion(request):
+    """
+    Vista del ROL PROFESIONAL: lista los pacientes propios
+    para que el profesional elija a cuál ver el informe de evolución.
+
+    Solo accesible para usuarios con perfil profesional.
+    Redirige a la agenda si no se encuentra el profesional.
+    """
+    profesional = get_profesional_usuario(request.user)
+    if not profesional:
+        messages.error(request, '❌ No se encontró tu perfil de profesional.')
+        return redirect('agenda:calendario')
+
+    # Pacientes que han tenido al menos 1 sesión con este profesional
+    from django.db.models import Count as _Count
+    pacientes = (
+        Paciente.objects
+        .filter(sesiones__profesional=profesional)
+        .distinct()
+        .order_by('nombre', 'apellido')
+        .annotate(
+            sesiones_count=_Count(
+                'sesiones',
+                filter=Q(sesiones__profesional=profesional)
+            )
+        )
+    )
+
+    return render(request, 'agenda/mis_informes_evolucion.html', {
+        'profesional': profesional,
+        'pacientes':   pacientes,
+    })
+
+
+@login_required
+def informe_evolucion_profesional(request, paciente_id):
+    """
+    Vista del ROL PROFESIONAL: informe de evolución de UN paciente,
+    filtrando automáticamente solo las sesiones del profesional logueado.
+
+    GET  → muestra el formulario (sin filtro de profesional, ya está fijo)
+    POST → aplica filtros de servicio/fechas/estados y muestra resultados
+    """
+    profesional = get_profesional_usuario(request.user)
+    if not profesional:
+        messages.error(request, '❌ No se encontró tu perfil de profesional.')
+        return redirect('agenda:calendario')
+
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    # Verificar que este profesional tenga al menos 1 sesión con el paciente
+    tiene_sesiones = Sesion.objects.filter(
+        paciente=paciente,
+        profesional=profesional
+    ).exists()
+    if not tiene_sesiones:
+        messages.error(
+            request,
+            f'❌ No tenés sesiones registradas con {paciente.nombre_completo}.'
+        )
+        return redirect('agenda:mis_informes_evolucion')
+
+    # Servicios que este profesional brindó a este paciente
+    servicios = TipoServicio.objects.filter(
+        sesiones__paciente=paciente,
+        sesiones__profesional=profesional
+    ).distinct().order_by('nombre')
+
+    ESTADOS = [
+        ('programada',        'Programada'),
+        ('realizada',         'Realizada'),
+        ('realizada_retraso', 'Realizada con Retraso'),
+        ('falta',             'Falta sin Aviso'),
+        ('permiso',           'Permiso (con aviso)'),
+        ('cancelada',         'Cancelada'),
+        ('reprogramada',      'Reprogramada'),
+    ]
+
+    grupos = None
+    filtros = {}
+    total_sesiones = 0
+
+    if request.method == 'POST':
+        servicio_id     = request.POST.get('servicio', '').strip()
+        fecha_desde_str = request.POST.get('fecha_desde', '').strip()
+        fecha_hasta_str = request.POST.get('fecha_hasta', '').strip()
+        estados_sel     = request.POST.getlist('estados')
+
+        filtros = {
+            'servicio_id':  servicio_id,
+            'fecha_desde':  fecha_desde_str,
+            'fecha_hasta':  fecha_hasta_str,
+            'estados':      estados_sel,
+        }
+
+        # Base: solo sesiones de este profesional con este paciente
+        qs = Sesion.objects.filter(
+            paciente=paciente,
+            profesional=profesional
+        ).select_related('profesional', 'servicio', 'sucursal')
+
+        if servicio_id:
+            qs = qs.filter(servicio_id=servicio_id)
+
+        if fecha_desde_str:
+            try:
+                fd = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                qs = qs.filter(fecha__gte=fd)
+                filtros['fecha_desde_obj'] = fd
+            except ValueError:
+                pass
+
+        if fecha_hasta_str:
+            try:
+                fh = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                qs = qs.filter(fecha__lte=fh)
+                filtros['fecha_hasta_obj'] = fh
+            except ValueError:
+                pass
+
+        if estados_sel:
+            qs = qs.filter(estado__in=estados_sel)
+
+        # Ordenar por servicio → fecha → hora
+        qs = qs.order_by('servicio__nombre', 'fecha', 'hora_inicio')
+
+        # Agrupar solo por servicio (el profesional ya está fijo)
+        grupos = []
+        for serv, sesiones_serv in groupby(qs, key=lambda s: s.servicio):
+            lista = list(sesiones_serv)
+            total_sesiones += len(lista)
+            grupos.append({
+                'servicio': serv,
+                'sesiones': lista,
+            })
+
+    return render(request, 'agenda/informe_evolucion_profesional.html', {
+        'paciente':       paciente,
+        'profesional':    profesional,
+        'servicios':      servicios,
+        'estados':        ESTADOS,
+        'grupos':         grupos,
+        'filtros':        filtros,
+        'total_sesiones': total_sesiones,
+    })
+
+
+@login_required
+def generar_pdf_informe_evolucion_profesional(request, paciente_id):
+    """
+    Genera el PDF del informe de evolución para el rol profesional.
+    Usa la firma real de generar_informe_evolucion_pdf:
+        (paciente, sesiones, profesional_nombre, servicio_nombre,
+         fecha_desde, fecha_hasta, estados_filtro)
+    """
+    from agenda.informe_evolucion_pdf import generar_informe_evolucion_pdf
+
+    profesional = get_profesional_usuario(request.user)
+    if not profesional:
+        messages.error(request, '❌ No se encontró tu perfil de profesional.')
+        return redirect('agenda:calendario')
+
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    # ── Leer filtros desde GET ────────────────────────────────
+    servicio_id     = request.GET.get('servicio', '').strip()
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+    estados_sel     = request.GET.getlist('estados')
+
+    # ── Construir queryset ────────────────────────────────────
+    qs = Sesion.objects.filter(
+        paciente=paciente,
+        profesional=profesional
+    ).select_related('profesional', 'servicio', 'sucursal')
+
+    if servicio_id:
+        qs = qs.filter(servicio_id=servicio_id)
+
+    fecha_desde = None
+    if fecha_desde_str:
+        try:
+            fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            qs = qs.filter(fecha__gte=fecha_desde)
+        except ValueError:
+            pass
+
+    fecha_hasta = None
+    if fecha_hasta_str:
+        try:
+            fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            qs = qs.filter(fecha__lte=fecha_hasta)
+        except ValueError:
+            pass
+
+    if estados_sel:
+        qs = qs.filter(estado__in=estados_sel)
+
+    # El planificador interno ordena por profesional→servicio→fecha
+    qs = qs.order_by(
+        'profesional__nombre', 'profesional__apellido',
+        'servicio__nombre',
+        'fecha', 'hora_inicio'
+    )
+
+    # ── Nombres para el encabezado del PDF ───────────────────
+    profesional_nombre = f"{profesional.nombre} {profesional.apellido}".strip()
+
+    # Si se filtró por un servicio específico, mostrarlo; si no, vacío
+    servicio_nombre = ""
+    if servicio_id:
+        try:
+            servicio_nombre = TipoServicio.objects.get(pk=servicio_id).nombre
+        except TipoServicio.DoesNotExist:
+            pass
+
+    # ── Generar PDF ───────────────────────────────────────────
+    buffer = generar_informe_evolucion_pdf(
+        paciente=paciente,
+        sesiones=qs,
+        profesional_nombre=profesional_nombre,
+        servicio_nombre=servicio_nombre,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        estados_filtro=estados_sel,
+    )
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = (
+        f'inline; filename="informe_evolucion_'
+        f'{paciente.apellido}_{paciente.nombre}_'
+        f'{profesional.apellido}.pdf"'
+    )
+    return response
