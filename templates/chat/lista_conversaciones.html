@@ -4,53 +4,53 @@
 {% block title %}Mensajes{% endblock %}
 
 {% block content %}
-<div class="min-h-screen py-4 px-2 sm:py-6 sm:px-4 overflow-x-hidden">
+<div class="min-h-screen py-2 px-2 sm:py-6 sm:px-4 overflow-x-hidden">
     <div class="max-w-4xl mx-auto w-full">
 
         <!-- Header -->
-        <div class="bg-white rounded-xl shadow-lg p-3 sm:p-4 mb-3 sm:mb-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 sm:p-4 mb-2 sm:mb-4">
             <div class="flex items-center justify-between gap-2 min-w-0">
                 <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                    <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-xl sm:text-2xl shadow-lg flex-shrink-0">
+                    <!-- Ícono más pequeño en móvil -->
+                    <div class="w-9 h-9 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-lg sm:text-2xl shadow-md flex-shrink-0">
                         💬
                     </div>
                     <div class="min-w-0 flex-1">
-                        <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent truncate">
+                        <h1 class="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">
                             Mensajes
                         </h1>
-                        <p class="text-slate-500 text-xs sm:text-sm truncate">
+                        <p class="text-slate-400 text-[11px] sm:text-sm leading-tight">
                             {{ total_conversaciones }} conversación{{ total_conversaciones|pluralize:"es" }}
                         </p>
                     </div>
                 </div>
 
-                <!-- Botón Nuevo Mensaje -->
+                <!-- Botón Nuevo Mensaje — icónico en móvil, texto en desktop -->
                 <a href="{% url 'chat:seleccionar_destinatario' %}"
-                   class="px-3 py-2 sm:px-5 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-2 text-sm sm:text-base flex-shrink-0">
-                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                   class="w-9 h-9 sm:w-auto sm:h-auto sm:px-5 sm:py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold active:scale-95 hover:shadow-lg transition-all duration-200 flex items-center justify-center sm:gap-2 text-sm flex-shrink-0 shadow-md">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                     </svg>
                     <span class="hidden sm:inline">Nuevo</span>
-                    <span class="sm:hidden">+</span>
                 </a>
             </div>
         </div>
 
         <!-- ============================================================
-             BOTÓN ASISTENTE IA (siempre visible, primero en la lista)
+             BOTÓN ASISTENTE IA
         ============================================================ -->
         <a href="{% url 'chat:chat_con_ia' %}"
-           class="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 mb-3 sm:mb-4 bg-gradient-to-r from-violet-50 to-blue-50 border-2 border-violet-200 hover:border-violet-400 rounded-xl shadow-md hover:shadow-lg hover:scale-[1.01] transition-all duration-300 block">
+           class="group flex items-center gap-3 p-3 sm:p-4 mb-2 sm:mb-4 bg-gradient-to-r from-violet-50 to-blue-50 border border-violet-200 active:border-violet-400 hover:border-violet-400 rounded-xl shadow-sm active:scale-[0.99] hover:scale-[1.01] transition-all duration-200 block">
 
             <!-- Avatar IA -->
             <div class="relative flex-shrink-0">
-                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xl sm:text-2xl shadow-md">
+                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xl sm:text-2xl shadow-sm">
                     🤖
                 </div>
-                <!-- Badge online (siempre activo) -->
-                <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full"></span>
+                <!-- Badge online -->
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></span>
                 {% if mensajes_no_leidos_ia > 0 %}
-                <span class="absolute -top-1 -right-1 min-w-[20px] h-5 bg-violet-600 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-lg border-2 border-white">
+                <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-violet-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold px-1 shadow border-2 border-white">
                     {{ mensajes_no_leidos_ia }}
                 </span>
                 {% endif %}
@@ -58,24 +58,25 @@
 
             <!-- Info -->
             <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-0.5">
-                    <h3 class="font-bold text-violet-800 text-sm sm:text-base group-hover:text-violet-600 transition-colors truncate">
+                <div class="flex items-center gap-1.5 mb-0.5">
+                    <h3 class="font-bold text-violet-800 text-sm sm:text-base leading-tight truncate">
                         Asistente IA
                     </h3>
-                    <span class="flex-shrink-0 inline-flex items-center gap-1 bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <span class="flex-shrink-0 inline-flex items-center bg-gradient-to-r from-violet-500 to-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                         ✨ IA
                     </span>
                 </div>
-                <p class="text-xs sm:text-sm text-violet-600/80 truncate">
-                    Consulta datos, informes, agenda, facturación y más
+                <p class="text-[11px] sm:text-sm text-violet-600/80 truncate leading-tight">
+                    Consulta datos, informes, agenda, facturación…
                 </p>
-                <p class="text-xs text-slate-400 mt-0.5 truncate">
-                    🎤 Soporta voz · 🔊 Responde hablando · ⚡ Tiempo real
+                <!-- Chips compactos solo en ≥ sm, texto resumido en xs -->
+                <p class="text-[10px] text-slate-400 mt-0.5 truncate hidden xs:block sm:block">
+                    🎤 Voz · 🔊 Habla · ⚡ Tiempo real
                 </p>
             </div>
 
             <!-- Flecha -->
-            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-violet-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all flex-shrink-0"
+            <svg class="w-4 h-4 text-violet-300 group-hover:text-violet-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
@@ -85,72 +86,70 @@
              LISTA DE CONVERSACIONES NORMALES
         ============================================================ -->
         {% if conversaciones_data %}
-        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="divide-y divide-slate-100">
                 {% for data in conversaciones_data %}
                 <a href="{% url 'chat:chat_conversacion' data.conversacion.id %}"
-                   class="block hover:bg-blue-50 transition-all duration-200 group">
-                    <div class="p-3 sm:p-4 flex items-start gap-2 sm:gap-3 min-w-0">
+                   class="flex items-center gap-2.5 sm:gap-3 p-3 sm:p-4 active:bg-blue-50 hover:bg-blue-50 transition-colors duration-150 group min-w-0">
 
-                        <!-- Avatar -->
-                        <div class="relative flex-shrink-0">
-                            {% if data.foto_url %}
-                            <img src="{{ data.foto_url }}"
-                                 alt="{{ data.nombre_completo }}"
-                                 class="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover shadow-md border-2 border-white">
-                            {% else %}
-                            <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-md">
-                                {{ data.nombre_completo|first|upper }}
-                            </div>
-                            {% endif %}
+                    <!-- Avatar -->
+                    <div class="relative flex-shrink-0">
+                        {% if data.foto_url %}
+                        <img src="{{ data.foto_url }}"
+                             alt="{{ data.nombre_completo }}"
+                             class="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-sm border-2 border-white">
+                        {% else %}
+                        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm sm:text-base font-bold shadow-sm">
+                            {{ data.nombre_completo|first|upper }}
+                        </div>
+                        {% endif %}
 
-                            {% if data.mensajes_no_leidos > 0 %}
-                            <span class="absolute -top-1 -right-1 min-w-[20px] h-5 sm:min-w-[22px] sm:h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1 shadow-lg border-2 border-white">
-                                {{ data.mensajes_no_leidos }}
+                        {% if data.mensajes_no_leidos > 0 %}
+                        <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold px-1 shadow border-2 border-white leading-none">
+                            {{ data.mensajes_no_leidos }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Contenido principal -->
+                    <div class="flex-1 min-w-0">
+
+                        <!-- Fila: nombre + hora -->
+                        <div class="flex items-baseline justify-between gap-1 mb-0.5 min-w-0">
+                            <h3 class="font-semibold text-slate-800 text-sm leading-tight truncate group-hover:text-blue-600 transition-colors">
+                                {{ data.nombre_completo }}
+                            </h3>
+                            {% if data.ultimo_mensaje %}
+                            <span class="text-[10px] text-slate-400 whitespace-nowrap flex-shrink-0">
+                                {{ data.ultimo_mensaje.fecha_envio|date:"d/m H:i" }}
                             </span>
                             {% endif %}
                         </div>
 
-                        <!-- Contenido -->
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-start justify-between gap-2 mb-0.5 sm:mb-1 min-w-0">
-                                <div class="min-w-0 flex-1">
-                                    <h3 class="font-semibold text-slate-800 text-sm sm:text-base group-hover:text-blue-600 transition-colors line-clamp-2 sm:truncate">
-                                        {{ data.nombre_completo }}
-                                    </h3>
-                                </div>
-                                {% if data.ultimo_mensaje %}
-                                <span class="text-xs text-slate-500 whitespace-nowrap flex-shrink-0 mt-0.5">
-                                    {{ data.ultimo_mensaje.fecha_envio|date:"d/m H:i" }}
-                                </span>
-                                {% endif %}
-                            </div>
-
-                            <p class="text-xs text-slate-500 line-clamp-2 sm:truncate">
-                                {% if data.info_adicional %}
-                                    {% if data.rol == "Profesional" %}Profesional • {{ data.info_adicional }}
-                                    {% elif data.rol == "Paciente" %}Paciente • {{ data.info_adicional }}
-                                    {% else %}{{ data.rol }}<span class="text-slate-400"> • {{ data.info_adicional }}</span>{% endif %}
-                                {% else %}{{ data.rol }}{% endif %}
-                            </p>
-
-                            {% if data.ultimo_mensaje %}
-                            <p class="text-xs sm:text-sm text-slate-600 truncate {% if data.mensajes_no_leidos > 0 %}font-semibold{% endif %}">
-                                {% if data.ultimo_mensaje.remitente == user %}
-                                <span class="text-blue-600">Tú:</span>
-                                {% endif %}
-                                {{ data.ultimo_mensaje.contenido }}
-                            </p>
+                        <!-- Rol / info adicional en una sola línea compacta -->
+                        <p class="text-[10px] text-slate-400 truncate leading-tight mb-0.5">
+                            {% if data.info_adicional %}
+                                {{ data.rol }} · {{ data.info_adicional }}
                             {% else %}
-                            <p class="text-xs sm:text-sm text-slate-400 italic truncate">Sin mensajes aún</p>
+                                {{ data.rol }}
                             {% endif %}
-                        </div>
+                        </p>
 
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex-shrink-0"
-                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
+                        <!-- Último mensaje -->
+                        {% if data.ultimo_mensaje %}
+                        <p class="text-xs text-slate-500 truncate {% if data.mensajes_no_leidos > 0 %}font-semibold text-slate-700{% endif %} leading-tight">
+                            {% if data.ultimo_mensaje.remitente == user %}<span class="text-blue-500">Tú: </span>{% endif %}{{ data.ultimo_mensaje.contenido }}
+                        </p>
+                        {% else %}
+                        <p class="text-xs text-slate-300 italic truncate leading-tight">Sin mensajes aún</p>
+                        {% endif %}
                     </div>
+
+                    <!-- Flecha derecha — visible solo si hay msg no leídos o en hover -->
+                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all flex-shrink-0 {% if data.mensajes_no_leidos > 0 %}text-blue-400{% endif %}"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
                 </a>
                 {% endfor %}
             </div>
@@ -158,21 +157,21 @@
 
         {% else %}
         <!-- Estado vacío -->
-        <div class="bg-white rounded-xl shadow-lg p-8 sm:p-12 text-center">
-            <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                <svg class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-8 sm:p-12 text-center">
+            <div class="w-14 h-14 sm:w-20 sm:h-20 mx-auto mb-4 bg-gradient-to-br from-blue-50 to-purple-100 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 sm:w-10 sm:h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                           d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                 </svg>
             </div>
-            <h3 class="text-lg sm:text-xl font-semibold text-slate-700 mb-2">No tienes conversaciones</h3>
-            <p class="text-sm sm:text-base text-slate-500 mb-4 sm:mb-6">
-                Usa el Asistente IA o inicia una conversación con alguien
+            <h3 class="text-base sm:text-xl font-semibold text-slate-700 mb-1.5">Sin conversaciones</h3>
+            <p class="text-sm text-slate-400 mb-5">
+                Usa el Asistente IA o inicia un chat
             </p>
             <a href="{% url 'chat:seleccionar_destinatario' %}"
-               class="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 text-sm sm:text-base">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+               class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-semibold active:scale-95 hover:shadow-lg transition-all duration-200 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
                 </svg>
                 Nuevo Mensaje
             </a>
