@@ -102,8 +102,11 @@ body{font-family:'Nunito',sans-serif;overflow-x:hidden;min-height:100vh;transiti
 .cr{background:#fef3c7;color:#92400e}.cf{background:#fce7f3;color:#9d174d}
 .crep{background:#e0e7ff;color:#3730a3}
 .week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
-@media(max-width:479px){.week-grid{grid-template-columns:repeat(7,minmax(76px,1fr));overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.4rem;scrollbar-width:none}
-.week-grid::-webkit-scrollbar{display:none}}
+@media(max-width:479px){
+  .week-grid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.4rem;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-x}
+  .week-grid-wrap::-webkit-scrollbar{display:none}
+  .week-grid{grid-template-columns:repeat(7,minmax(80px,1fr));min-width:560px}
+}
 .wk-col{border-radius:.9rem;overflow:hidden;display:flex;flex-direction:column;min-height:220px}
 @media(min-width:480px){.wk-col{min-height:260px}}
 .wk-head{padding:.4rem .25rem;text-align:center}
@@ -361,7 +364,7 @@ bS.textContent='@keyframes sporeBurst{0%{transform:translate(0,0) scale(1);opaci
 document.head.appendChild(bS);
 
 function fmt(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-function getWS(d){const r=new Date(d);r.setDate(r.getDate()-r.getDay());r.setHours(0,0,0,0);return r}
+function getWS(d){const r=new Date(d);const day=r.getDay();const diff=day===0?-6:1-day;r.setDate(r.getDate()+diff);r.setHours(0,0,0,0);return r}
 function ses(ds){return SESSIONS.filter(s=>s.fecha===ds)}
 function cc(e){return e==='realizada'?'cd':e==='realizada_retraso'?'cr':e==='cancelada'?'cc':e==='permiso'?'cpe':e==='falta'?'cf':e==='reprogramada'?'crep':'cp'}
 function wc(e){return e==='realizada'?'wd':e==='realizada_retraso'?'wr':e==='cancelada'?'wc':e==='permiso'?'wpe':e==='falta'?'wf':e==='reprogramada'?'wrep':'wp'}
@@ -459,7 +462,9 @@ function renderMes(){
   if(!T)return;
   const y=curMonth.getFullYear(),m=curMonth.getMonth();
   const navH=`<div class="cal-nav" style="background:${T.navBg};border:1px solid ${T.navBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="prevMes()">‹</button><span class="nav-title" style="color:${T.navTitle}">${MES[m]} ${y}</span><button class="nbtn" style="background:${T.tabActiveBg};color:#fff" onclick="nextMes()">›</button></div>`;
-  const first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevL=new Date(y,m,0).getDate();
+  const firstRaw=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate(),prevL=new Date(y,m,0).getDate();
+  // Convertir a lunes=0: Dom(0)→6, Lun(1)→0, Mar(2)→1 ... Sáb(6)→5
+  const first=firstRaw===0?6:firstRaw-1;
   let g='';
   for(let i=first-1;i>=0;i--) g+=`<div class="cal-cell" style="background:${T.dark?'rgba(0,0,0,.3)':'#f9fafb'}"><div class="dnum" style="color:${T.dnumC};opacity:.2">${prevL-i}</div></div>`;
   for(let d=1;d<=last;d++){
@@ -477,7 +482,7 @@ function renderMes(){
   }
   const tot=Math.ceil((first+last)/7)*7;
   for(let n=1;n<=tot-(first+last);n++) g+=`<div class="cal-cell" style="background:${T.dark?'rgba(0,0,0,.3)':'#f9fafb'}"><div class="dnum" style="color:${T.dnumC};opacity:.2">${n}</div></div>`;
-  s('viewMes').innerHTML=`${navH}<div style="background:${T.calBg};border-radius:1.4rem;border:1px solid ${T.calBorder};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="cal-wdays" style="background:${T.calWdayBg}">${['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d=>`<div class="cal-wday" style="color:#fff">${d}</div>`).join('')}</div><div class="cal-grid" style="background:${T.dark?T.bodyBg:'#e5e7eb'}">${g}</div></div>`;
+  s('viewMes').innerHTML=`${navH}<div style="background:${T.calBg};border-radius:1.4rem;border:1px solid ${T.calBorder};overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="cal-wdays" style="background:${T.calWdayBg}">${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div class="cal-wday" style="color:#fff">${d}</div>`).join('')}</div><div class="cal-grid" style="background:${T.dark?T.bodyBg:'#e5e7eb'}">${g}</div></div>`;
 }
 function prevMes(){bookAnim('prev');curMonth.setMonth(curMonth.getMonth()-1);renderMes()}
 function nextMes(){bookAnim('next');curMonth.setMonth(curMonth.getMonth()+1);renderMes()}
@@ -503,7 +508,7 @@ function renderSemana(){
     }).join(''):`<div class="wk-empty">${T.emptyWeek}</div>`;
     cols+=`<div class="wk-col" style="background:${T.wkColBg};border:1px solid ${T.wkColBorder};box-shadow:0 2px 8px rgba(0,0,0,${T.dark?.15:.07})"><div class="wk-head" style="background:${isT?T.wkTodayBg:T.wkHeadBg}"><div class="wkday" style="color:${isT?'#fff':T.c1}">${DIA3[day.getDay()]}</div><div class="wkdate" style="color:${isT?'#fff':T.dark?T.c1:T.c3}">${day.getDate()}</div></div><div class="wk-body">${sh}</div></div>`;
   }
-  s('viewSemana').innerHTML=`${navH}<div class="week-grid">${cols}</div>`;
+  s('viewSemana').innerHTML=`${navH}<div class="week-grid-wrap"><div class="week-grid">${cols}</div></div>`;
 }
 function prevSemana(){bookAnim('prev');weekStart.setDate(weekStart.getDate()-7);renderSemana()}
 function nextSemana(){bookAnim('next');weekStart.setDate(weekStart.getDate()+7);renderSemana()}
@@ -665,9 +670,16 @@ function switchView(v){
   });
   if(v==='cuento')buildCuento();
 }
-let tx=0;
-document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX},{passive:true});
-document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)<50)return;if(viewMode==='mes'){dx<0?nextMes():prevMes();}else if(viewMode==='semana'){dx<0?nextSemana():prevSemana();}});
+let tx=0,txTarget=null;
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;txTarget=e.target},{passive:true});
+document.addEventListener('touchend',e=>{
+  // No cambiar vista si el swipe empezó dentro del scroll horizontal de la semana
+  if(txTarget&&txTarget.closest('.week-grid-wrap'))return;
+  const dx=e.changedTouches[0].clientX-tx;
+  if(Math.abs(dx)<50)return;
+  if(viewMode==='mes'){dx<0?nextMes():prevMes();}
+  else if(viewMode==='semana'){dx<0?nextSemana():prevSemana();}
+});
 
 // ══ AUTO-CARGA TEMA GUARDADO ══
 (function(){
