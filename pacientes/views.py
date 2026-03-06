@@ -44,8 +44,23 @@ def lista_pacientes(request):
         pacientes = Paciente.objects.none()
         sucursales_disponibles = Paciente.objects.none()
     
-    # Ordenamiento: Primero por nombre, luego apellido
-    pacientes = pacientes.order_by('nombre', 'apellido')
+    # Limpiar vinculaciones rotas: pacientes cuyo User no tiene PerfilUsuario valido
+    # Cubre dos casos: User eliminado (FK dangling) o User sin perfil (huerfano)
+    from django.contrib.auth.models import User as AuthUser
+    from core.models import PerfilUsuario
+    # IDs de Users que SI tienen perfil valido con rol paciente
+    ids_users_con_perfil = PerfilUsuario.objects.filter(
+        rol='paciente'
+    ).values_list('user_id', flat=True)
+    # Limpiar en toda la tabla (no solo el queryset filtrado por rol)
+    Paciente.objects.filter(
+        user__isnull=False
+    ).exclude(
+        user_id__in=ids_users_con_perfil
+    ).update(user=None)
+
+    # select_related('user') para JOIN eficiente y datos frescos en template
+    pacientes = pacientes.select_related('user').order_by('nombre', 'apellido')
     
     # Lógica de Búsqueda
     buscar = request.GET.get('q', '')
@@ -161,19 +176,30 @@ def agregar_paciente(request):
             # ✅ SINCRONIZACIÓN: Si tiene usuario, crear/actualizar perfil
             if paciente.user:
                 from core.models import PerfilUsuario
-                
-                perfil, created = PerfilUsuario.objects.get_or_create(
-                    user=paciente.user,
-                    defaults={'rol': 'paciente', 'activo': True}
-                )
-                
-                # Vincular el paciente con el perfil
+
+                # ✅ FIX: Si otro paciente tenía este usuario, limpiar ese vínculo primero
+                # (evita conflicto de OneToOneField)
+                PerfilUsuario.objects.filter(
+                    paciente__isnull=False
+                ).exclude(
+                    paciente=paciente
+                ).filter(
+                    user=paciente.user
+                ).update(paciente=None, rol=None)
+
+                try:
+                    perfil = PerfilUsuario.objects.get(user=paciente.user)
+                except PerfilUsuario.DoesNotExist:
+                    perfil = PerfilUsuario(user=paciente.user, activo=True)
+
+                # Siempre forzar la actualización de los campos clave
                 perfil.paciente = paciente
                 perfil.rol = 'paciente'
-                perfil.save()
-                
+                perfil.activo = True
+                perfil.save(update_fields=['paciente', 'rol', 'activo'] if perfil.pk else None)
+
                 messages.success(
-                    request, 
+                    request,
                     f'✅ ¡Paciente {paciente.nombre_completo} registrado y vinculado con usuario "{paciente.user.username}"!'
                 )
             else:
@@ -237,6 +263,7 @@ def editar_paciente(request, pk):
         
         if form.is_valid():
             # Guardar paciente (sin commit aún para verificaciones)
+            paciente_previo_user = paciente.user  # guardar user anterior antes de modificar
             paciente = form.save(commit=False)
             
             # ✅ VALIDACIÓN: Verificar que las nuevas sucursales sean permitidas
@@ -267,15 +294,38 @@ def editar_paciente(request, pk):
             # ✅ SINCRONIZACIÓN: Actualizar perfil si cambió el usuario
             if paciente.user:
                 from core.models import PerfilUsuario
-                
-                perfil, created = PerfilUsuario.objects.get_or_create(
+
+                # ✅ FIX 1: Si el usuario cambió, limpiar perfil del usuario ANTERIOR
+                if paciente_previo_user and paciente_previo_user != paciente.user:
+                    PerfilUsuario.objects.filter(
+                        user=paciente_previo_user
+                    ).update(paciente=None, rol=None)
+
+                # ✅ FIX 2: Si el nuevo usuario tenía otro paciente vinculado, limpiar ese vínculo
+                PerfilUsuario.objects.filter(
                     user=paciente.user,
-                    defaults={'rol': 'paciente', 'activo': True}
-                )
-                
+                    paciente__isnull=False
+                ).exclude(
+                    paciente=paciente
+                ).update(paciente=None, rol=None)
+
+                try:
+                    perfil = PerfilUsuario.objects.get(user=paciente.user)
+                except PerfilUsuario.DoesNotExist:
+                    perfil = PerfilUsuario(user=paciente.user, activo=True)
+
+                # Siempre forzar la actualización de los campos clave
                 perfil.paciente = paciente
                 perfil.rol = 'paciente'
-                perfil.save()
+                perfil.activo = True
+                perfil.save(update_fields=['paciente', 'rol', 'activo'] if perfil.pk else None)
+
+            elif paciente_previo_user:
+                # Se quitó el usuario — limpiar perfil anterior
+                from core.models import PerfilUsuario as PU
+                PU.objects.filter(
+                    user=paciente_previo_user
+                ).update(paciente=None, rol=None)
             
             # ✅ MANEJO DE SERVICIOS: NO marcar todo como inactivo primero
             # Solo actualizar los que se enviaron en el formulario

@@ -11,6 +11,7 @@ urlpatterns = [
     # Gestión de Usuarios
     path('usuarios/', views.lista_usuarios, name='lista_usuarios'),
     path('usuarios/nuevo/', views.agregar_usuario, name='agregar_usuario'),
+    path('usuarios/pacientes/masivo/', views.crear_usuarios_pacientes_masivo, name='crear_usuarios_pacientes_masivo'),
     path('usuarios/<int:pk>/editar/', views.editar_usuario, name='editar_usuario'),
     path('usuarios/<int:pk>/eliminar/', views.eliminar_usuario, name='eliminar_usuario'),
 ]

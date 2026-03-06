@@ -1,0 +1,597 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear Usuarios Masivo - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .fila-paciente { transition: background 0.15s; }
+    .fila-paciente:hover { background: #f5f3ff; }
+    .fila-paciente.seleccionada { background: #ede9fe; }
+    .btn-accion { transition: all 0.2s ease; }
+    .btn-accion:hover { transform: scale(1.02); }
+    .input-cred {
+        font-family: 'Courier New', monospace;
+        font-size: 11px; font-weight: 700;
+        padding: 4px 8px; border-radius: 8px; border: 2px solid;
+        width: 100%; outline: none; transition: border-color 0.15s;
+    }
+    .input-user  { background: #f5f3ff; border-color: #ddd6fe; color: #5b21b6; }
+    .input-user:focus  { border-color: #7c3aed; }
+    .input-pass  { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    .input-pass:focus  { border-color: #059669; }
+    .input-editado { border-style: solid !important; }
+    .input-user.input-editado  { border-color: #7c3aed; background: #ede9fe; }
+    .input-pass.input-editado  { border-color: #059669; background: #d1fae5; }
+    .preview-tag {
+        display: inline-flex; align-items: center;
+        padding: 2px 7px; border-radius: 6px; font-size: 11px;
+        font-family: monospace; font-weight: 700;
+    }
+    .preview-nombre   { background: #ede9fe; color: #6d28d9; }
+    .preview-apellido { background: #dbeafe; color: #1d4ed8; }
+    .preview-palabra-u { background: #fef3c7; color: #92400e; }
+    .preview-palabra-p { background: #d1fae5; color: #065f46; }
+    .formula-box { background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 10px 14px; }
+</style>
+
+{% comment %} ── HEADER ── {% endcomment %}
+<div class="mb-6">
+    <div class="relative bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-700 rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden">
+        <div class="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white opacity-10 blur-2xl"></div>
+        <div class="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-white opacity-10 blur-xl"></div>
+        <div class="relative flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                    <span class="bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-inner">👶</span>
+                    Creación Masiva de Cuentas
+                </h1>
+                <p class="text-purple-100 text-sm mt-2 font-medium">
+                    Pacientes activos sin acceso al sistema
+                </p>
+            </div>
+            <a href="{% url 'core:lista_usuarios' %}"
+               class="bg-white/20 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg hover:bg-white hover:text-violet-700 transition-all backdrop-blur-md border border-white/30">
+                ← Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+{% comment %} ════ RESULTADOS ════ {% endcomment %}
+{% if mostrar_resultados %}
+<div class="max-w-3xl mx-auto space-y-6">
+
+    {% if resultados.creados %}
+    <div class="bg-white rounded-3xl shadow-xl border border-emerald-100 overflow-hidden">
+        <div class="bg-emerald-50 px-6 py-4 border-b border-emerald-100 flex items-center gap-3">
+            <span class="text-3xl">✅</span>
+            <div>
+                <h2 class="text-lg font-black text-emerald-800">{{ resultados.creados|length }} cuenta(s) creada(s)</h2>
+                <p class="text-sm text-emerald-600">Guarda estas credenciales — no se mostrarán nuevamente</p>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex gap-3">
+                <span class="text-2xl">⚠️</span>
+                <p class="text-sm text-amber-800 font-semibold">
+                    Anota, copia o imprime estas credenciales ahora. Por seguridad las contraseñas no quedan visibles después de salir de esta página.
+                </p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="tablaResultados">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="px-4 py-3 font-bold text-gray-600 rounded-tl-xl">#</th>
+                            <th class="px-4 py-3 font-bold text-gray-600">Paciente</th>
+                            <th class="px-4 py-3 font-bold text-gray-600">Usuario</th>
+                            <th class="px-4 py-3 font-bold text-gray-600 rounded-tr-xl">Contraseña</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in resultados.creados %}
+                        <tr class="hover:bg-emerald-50/40 transition-colors">
+                            <td class="px-4 py-3 text-gray-400 font-bold">{{ forloop.counter }}</td>
+                            <td class="px-4 py-3 font-bold text-gray-800">👶 {{ item.nombre }}</td>
+                            <td class="px-4 py-3">
+                                <code class="bg-violet-50 text-violet-700 px-2 py-1 rounded-lg text-xs font-bold border border-violet-100 select-all">{{ item.username }}</code>
+                            </td>
+                            <td class="px-4 py-3">
+                                <code class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-100 select-all">{{ item.password }}</code>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-5 flex gap-3 flex-wrap">
+                <button onclick="copiarCredenciales()"
+                        class="btn-accion bg-violet-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow hover:bg-violet-700 flex items-center gap-2">
+                    📋 Copiar todo
+                </button>
+                <button onclick="window.print()"
+                        class="btn-accion bg-gray-100 text-gray-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-200 flex items-center gap-2">
+                    🖨️ Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if resultados.errores %}
+    <div class="bg-white rounded-3xl shadow-xl border border-red-100 overflow-hidden">
+        <div class="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-3">
+            <span class="text-3xl">❌</span>
+            <div>
+                <h2 class="text-lg font-black text-red-800">{{ resultados.errores|length }} error(es)</h2>
+                <p class="text-sm text-red-600">Estos pacientes no pudieron procesarse</p>
+            </div>
+        </div>
+        <div class="p-6 space-y-3">
+            {% for err in resultados.errores %}
+            <div class="bg-red-50 rounded-xl p-3 border border-red-100 flex gap-3">
+                <span>⚠️</span>
+                <div>
+                    <p class="font-bold text-red-800 text-sm">{{ err.nombre }}</p>
+                    <p class="text-xs text-red-600 mt-0.5">{{ err.error }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="flex gap-3 justify-center flex-wrap">
+        <a href="{% url 'core:crear_usuarios_pacientes_masivo' %}"
+           class="btn-accion bg-violet-600 text-white px-6 py-3 rounded-xl font-bold shadow hover:bg-violet-700 flex items-center gap-2">
+            👶 Crear más cuentas
+        </a>
+        <a href="{% url 'core:lista_usuarios' %}"
+           class="btn-accion bg-white border-2 border-gray-200 text-gray-700 px-6 py-3 rounded-xl font-bold hover:border-violet-300 flex items-center gap-2">
+            👥 Ver todos los usuarios
+        </a>
+    </div>
+</div>
+
+{% else %}
+{% comment %} ════ FORMULARIO ════ {% endcomment %}
+
+{% if total_sin_cuenta == 0 %}
+<div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl border border-gray-100 p-10 text-center">
+    <div class="text-6xl mb-4">🎉</div>
+    <h2 class="text-xl font-black text-gray-800 mb-2">¡Todo al día!</h2>
+    <p class="text-gray-500 text-sm mb-6">Todos los pacientes activos ya tienen cuenta de usuario.</p>
+    <a href="{% url 'core:lista_usuarios' %}" class="inline-flex items-center gap-2 bg-violet-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-violet-700 transition-colors">
+        ← Ver usuarios
+    </a>
+</div>
+
+{% else %}
+
+<div class="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-violet-100 flex items-center gap-4">
+        <div class="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center text-2xl">👶</div>
+        <div>
+            <p class="text-2xl font-black text-violet-700">{{ total_sin_cuenta }}</p>
+            <p class="text-xs text-gray-500 font-bold uppercase">Sin cuenta</p>
+        </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-amber-100 flex items-center gap-4">
+        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-2xl">✏️</div>
+        <div>
+            <p class="text-sm font-black text-amber-700">Edición por fila</p>
+            <p class="text-xs text-gray-500 font-bold uppercase">Usuario y contraseña</p>
+        </div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-emerald-100 flex items-center gap-4">
+        <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-2xl">⚡</div>
+        <div>
+            <p class="text-sm font-black text-emerald-700">Creación instantánea</p>
+            <p class="text-xs text-gray-500 font-bold uppercase">Todos a la vez</p>
+        </div>
+    </div>
+</div>
+
+<form method="post" id="formMasivo">
+{% csrf_token %}
+{# palabras clave ocultas — se leen en JS para rellenar la tabla #}
+<input type="hidden" name="palabra_usuario"  id="palabraUsuarioHidden">
+<input type="hidden" name="palabra_password" id="palabraPasswordHidden">
+
+{% comment %} ── PALABRAS CLAVE ── {% endcomment %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
+    <h3 class="font-black text-gray-700 text-sm uppercase tracking-wider mb-5 flex items-center gap-2">
+        <span>🔑</span> Define las palabras clave
+        <span class="ml-2 text-[10px] font-bold text-gray-400 normal-case tracking-normal border border-gray-200 px-2 py-0.5 rounded-full">
+            Se auto-rellenan en cada fila · puedes editar fila por fila
+        </span>
+    </h3>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+        <div>
+            <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">
+                Palabra para el <span class="text-violet-600">usuario</span>
+            </label>
+            <input type="text" id="palabraUsuario"
+                   placeholder="Ej: 2025, MISAEL, CI..."
+                   oninput="sincronizarHidden(); rellenarTabla()"
+                   maxlength="30"
+                   class="w-full px-3 py-2.5 border-2 border-violet-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-violet-400 bg-violet-50 uppercase tracking-wider">
+            <p class="text-xs text-gray-400 mt-1.5">👆 NOMBRE + <strong>palabra</strong> <span class="text-gray-300">(opcional)</span></p>
+        </div>
+        <div>
+            <label class="block text-xs font-black text-gray-600 uppercase tracking-wider mb-2">
+                Palabra para la <span class="text-emerald-600">contraseña</span>
+            </label>
+            <input type="text" id="palabraPassword"
+                   placeholder="Ej: 2025, CI, CENTRO..."
+                   oninput="sincronizarHidden(); rellenarTabla()"
+                   maxlength="30"
+                   class="w-full px-3 py-2.5 border-2 border-emerald-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-400 bg-emerald-50 uppercase tracking-wider">
+            <p class="text-xs text-gray-400 mt-1.5">👆 APELLIDO + <strong>palabra</strong> <span class="text-gray-300">(opcional)</span></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="formula-box">
+            <p class="text-xs font-black text-gray-500 uppercase mb-2">📋 Usuario</p>
+            <div class="flex items-center gap-1 flex-wrap">
+                <span class="preview-tag preview-nombre">NOMBRE</span>
+                <span class="text-gray-400 font-black">+</span>
+                <span class="preview-tag preview-palabra-u" id="etiquetaU">PALABRA</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5 font-mono">
+                Ej: <span id="ejemploU"><span class="text-violet-700 font-black">JUANCARLOS</span><span class="text-amber-600 font-black">PALABRA</span></span>
+            </p>
+        </div>
+        <div class="formula-box">
+            <p class="text-xs font-black text-gray-500 uppercase mb-2">🔒 Contraseña</p>
+            <div class="flex items-center gap-1 flex-wrap">
+                <span class="preview-tag preview-apellido">APELLIDO(S)</span>
+                <span class="text-gray-400 font-black">+</span>
+                <span class="preview-tag preview-palabra-p" id="etiquetaP">PALABRA</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5 font-mono">
+                Ej: <span id="ejemploP"><span class="text-blue-700 font-black">PEREZGARCIA</span><span class="text-emerald-600 font-black">PALABRA</span></span>
+            </p>
+        </div>
+    </div>
+</div>
+
+{% comment %} ── TABLA DE PACIENTES ── {% endcomment %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+
+    <div class="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="font-black text-gray-700 text-sm uppercase tracking-wider">
+                Pacientes sin cuenta ({{ total_sin_cuenta }})
+            </h3>
+            <div class="flex gap-2">
+                <button type="button" onclick="seleccionarTodos(true)"
+                        class="text-xs font-bold text-violet-600 px-2 py-0.5 bg-violet-50 rounded-lg border border-violet-100 hover:bg-violet-100 transition-colors">
+                    ✔ Todos
+                </button>
+                <button type="button" onclick="seleccionarTodos(false)"
+                        class="text-xs font-bold text-gray-500 px-2 py-0.5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                    ✗ Ninguno
+                </button>
+                <button type="button" onclick="restaurarTodo()"
+                        class="text-xs font-bold text-orange-500 px-2 py-0.5 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 transition-colors">
+                    ↺ Restaurar fórmulas
+                </button>
+            </div>
+        </div>
+        <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+            <input type="text" placeholder="Filtrar pacientes..."
+                   oninput="filtrarFilas(this.value)"
+                   class="pl-8 pr-3 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-400 w-full sm:w-52">
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-left">
+                    <th class="px-3 py-3 w-10">
+                        <input type="checkbox" id="checkAll" onchange="seleccionarTodos(this.checked)"
+                               class="w-4 h-4 rounded text-violet-600 border-gray-300 focus:ring-violet-400">
+                    </th>
+                    <th class="px-3 py-3 font-bold text-gray-600">Paciente</th>
+                    <th class="px-3 py-3 font-bold text-gray-600 hidden sm:table-cell w-24">Edad</th>
+                    <th class="px-3 py-3 font-bold text-gray-600">
+                        <span class="text-violet-600">Usuario</span>
+                        <span class="block text-[10px] font-normal text-gray-400 normal-case">editable</span>
+                    </th>
+                    <th class="px-3 py-3 font-bold text-gray-600">
+                        <span class="text-emerald-600">Contraseña</span>
+                        <span class="block text-[10px] font-normal text-gray-400 normal-case">editable</span>
+                    </th>
+                    <th class="px-3 py-3 w-8"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100" id="tablaPacientes">
+                {% for item in preview_pacientes %}
+                <tr class="fila-paciente"
+                    data-nombre="{{ item.paciente.nombre|lower }} {{ item.paciente.apellido|lower }}"
+                    data-nombre-base="{{ item.nombre_base }}"
+                    data-apellido-base="{{ item.apellido_base }}"
+                    data-id="{{ item.paciente.id }}">
+
+                    <td class="px-3 py-2.5">
+                        <input type="checkbox"
+                               name="pacientes_ids"
+                               value="{{ item.paciente.id }}"
+                               class="check-individual w-4 h-4 rounded text-violet-600 border-gray-300 focus:ring-violet-400"
+                               onchange="actualizarFila(this)">
+                    </td>
+
+                    <td class="px-3 py-2.5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-base flex-shrink-0">👶</div>
+                            <div>
+                                <p class="font-bold text-gray-800 text-xs">{{ item.paciente.nombre }} {{ item.paciente.apellido }}</p>
+                                <p class="text-[10px] text-gray-400">ID #{{ item.paciente.id }}</p>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td class="px-3 py-2.5 hidden sm:table-cell">
+                        <p class="text-gray-600 font-semibold text-xs">{{ item.paciente.edad }} años</p>
+                    </td>
+
+                    <td class="px-3 py-2.5">
+                        <input type="text"
+                               name="username_{{ item.paciente.id }}"
+                               id="user_{{ item.paciente.id }}"
+                               data-auto=""
+                               placeholder="se llenará automáticamente"
+                               oninput="marcarEditado(this, 'user')"
+                               class="input-cred input-user"
+                               maxlength="150">
+                    </td>
+
+                    <td class="px-3 py-2.5">
+                        <input type="text"
+                               name="password_{{ item.paciente.id }}"
+                               id="pass_{{ item.paciente.id }}"
+                               data-auto=""
+                               placeholder="se llenará automáticamente"
+                               oninput="marcarEditado(this, 'pass')"
+                               class="input-cred input-pass"
+                               maxlength="150">
+                    </td>
+
+                    <td class="px-3 py-2.5">
+                        {# botón restaurar fila individual #}
+                        <button type="button"
+                                onclick="restaurarFila({{ item.paciente.id }})"
+                                title="Restaurar fórmula"
+                                class="w-6 h-6 rounded-lg bg-gray-100 text-gray-400 hover:bg-orange-100 hover:text-orange-500 transition-colors text-xs flex items-center justify-center">
+                            ↺
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% comment %} ── BOTONES ── {% endcomment %}
+<div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-xl">📊</div>
+        <div>
+            <p class="font-black text-gray-800">
+                <span id="contadorSeleccionados" class="text-violet-700">0</span>
+                de {{ total_sin_cuenta }} seleccionados
+            </p>
+            <p class="text-xs text-gray-500">Los campos en <span class="text-violet-600 font-bold">morado</span> tienen usuario personalizado · <span class="text-emerald-600 font-bold">verde</span> contraseña</p>
+        </div>
+    </div>
+    <div class="flex gap-3">
+        <a href="{% url 'core:lista_usuarios' %}"
+           class="px-5 py-2.5 rounded-xl font-bold text-sm text-gray-600 border-2 border-gray-200 hover:border-gray-300 transition-colors">
+            Cancelar
+        </a>
+        <button type="submit"
+                onclick="return confirmarCreacion()"
+                class="btn-accion bg-gradient-to-r from-violet-600 to-purple-700 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-lg hover:shadow-xl flex items-center gap-2">
+            <span>⚡</span> Crear Cuentas Seleccionadas
+        </button>
+    </div>
+</div>
+
+</form>
+
+{% comment %} ── OVERLAY CARGANDO ── {% endcomment %}
+<div id="loadingOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="bg-white rounded-3xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 max-w-xs w-full mx-4">
+        <div class="w-14 h-14 rounded-full bg-violet-100 flex items-center justify-center">
+            <svg class="animate-spin w-8 h-8 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </div>
+        <div class="text-center">
+            <p class="text-base font-black text-gray-800">Procesando cuentas</p>
+            <p id="loadingMsg" class="text-sm text-violet-600 font-semibold mt-1">Espere un momento…</p>
+        </div>
+        <div class="flex gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style="animation-delay:0ms"></span>
+            <span class="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style="animation-delay:150ms"></span>
+            <span class="w-2 h-2 rounded-full bg-violet-600 animate-bounce" style="animation-delay:300ms"></span>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endif %}
+
+<script>
+// ── Utilidades ────────────────────────────────────────────────────────────
+function quitarAcentos(t) {
+    return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+function limpiar(t) {
+    // Quita acentos y espacios, mayúsculas, conserva @ . + - _ (válidos en username Django)
+    return quitarAcentos(t || '').toUpperCase().replace(/ /g, '').replace(/[^A-Z0-9@.+\-_]/g, '');
+}
+
+// ── Sincronizar inputs visibles → hiddens del form ───────────────────────
+function sincronizarHidden() {
+    document.getElementById('palabraUsuarioHidden').value  = limpiar(document.getElementById('palabraUsuario').value);
+    document.getElementById('palabraPasswordHidden').value = limpiar(document.getElementById('palabraPassword').value);
+}
+
+// ── Recalcular y rellenar la tabla ───────────────────────────────────────
+function rellenarTabla() {
+    const pu = limpiar(document.getElementById('palabraUsuario').value);
+    const pp = limpiar(document.getElementById('palabraPassword').value);
+
+    // Etiquetas de fórmula
+    document.getElementById('etiquetaU').textContent = pu || 'PALABRA';
+    document.getElementById('etiquetaP').textContent = pp || 'PALABRA';
+    document.getElementById('ejemploU').innerHTML =
+        `<span style="color:#6d28d9;font-weight:900">JUANCARLOS</span><span style="color:#92400e;font-weight:900">${pu || 'PALABRA'}</span>`;
+    document.getElementById('ejemploP').innerHTML =
+        `<span style="color:#1d4ed8;font-weight:900">PEREZGARCIA</span><span style="color:#065f46;font-weight:900">${pp || 'PALABRA'}</span>`;
+
+    document.querySelectorAll('#tablaPacientes tr').forEach(fila => {
+        const id           = fila.dataset.id;
+        const nombreBase   = fila.dataset.nombreBase  || '';
+        const apellidoBase = fila.dataset.apellidoBase || '';
+        if (!id) return;
+
+        const inputUser = document.getElementById(`user_${id}`);
+        const inputPass = document.getElementById(`pass_${id}`);
+        if (!inputUser || !inputPass) return;
+
+        const autoUser = nombreBase   + pu;
+        const autoPass = apellidoBase + pp;
+
+        // Solo rellenar si NO fue editado manualmente
+        if (!inputUser.dataset.editado) {
+            inputUser.value        = autoUser;
+            inputUser.dataset.auto = autoUser;
+        }
+        if (!inputPass.dataset.editado) {
+            inputPass.value        = autoPass;
+            inputPass.dataset.auto = autoPass;
+        }
+    });
+}
+
+// ── Marcar como editado manualmente ─────────────────────────────────────
+function marcarEditado(input, tipo) {
+    const auto = input.dataset.auto || '';
+    if (input.value !== auto) {
+        input.dataset.editado = '1';
+        input.classList.add('input-editado');
+    } else {
+        delete input.dataset.editado;
+        input.classList.remove('input-editado');
+    }
+}
+
+// ── Restaurar fila individual a la fórmula ───────────────────────────────
+function restaurarFila(id) {
+    const pu = limpiar(document.getElementById('palabraUsuario').value);
+    const pp = limpiar(document.getElementById('palabraPassword').value);
+    const fila = document.querySelector(`tr[data-id="${id}"]`);
+    if (!fila) return;
+
+    const autoUser = (fila.dataset.nombreBase   || '') + pu;
+    const autoPass = (fila.dataset.apellidoBase || '') + pp;
+
+    const inputUser = document.getElementById(`user_${id}`);
+    const inputPass = document.getElementById(`pass_${id}`);
+
+    inputUser.value = autoUser; inputUser.dataset.auto = autoUser;
+    inputPass.value = autoPass; inputPass.dataset.auto = autoPass;
+    delete inputUser.dataset.editado; inputUser.classList.remove('input-editado');
+    delete inputPass.dataset.editado; inputPass.classList.remove('input-editado');
+}
+
+// ── Restaurar TODA la tabla ───────────────────────────────────────────────
+function restaurarTodo() {
+    document.querySelectorAll('#tablaPacientes tr[data-id]').forEach(fila => {
+        restaurarFila(fila.dataset.id);
+    });
+}
+
+// ── Selección ─────────────────────────────────────────────────────────────
+function seleccionarTodos(estado) {
+    document.querySelectorAll('.check-individual').forEach(cb => {
+        cb.checked = estado;
+        cb.closest('tr').classList.toggle('seleccionada', estado);
+    });
+    document.getElementById('checkAll').checked = estado;
+    actualizarContador();
+}
+
+function actualizarFila(checkbox) {
+    checkbox.closest('tr').classList.toggle('seleccionada', checkbox.checked);
+    actualizarContador();
+    const total   = document.querySelectorAll('.check-individual').length;
+    const marcados = document.querySelectorAll('.check-individual:checked').length;
+    document.getElementById('checkAll').checked = total === marcados;
+}
+
+function actualizarContador() {
+    const n    = document.querySelectorAll('.check-individual:checked').length;
+    const span = document.getElementById('contadorSeleccionados');
+    if (span) { span.textContent = n; span.style.color = n > 0 ? '#6d28d9' : '#9ca3af'; }
+}
+
+function filtrarFilas(texto) {
+    const lower = texto.toLowerCase();
+    document.querySelectorAll('#tablaPacientes tr').forEach(fila => {
+        fila.style.display = (fila.dataset.nombre || '').includes(lower) ? '' : 'none';
+    });
+}
+
+// ── Confirmación y envío ──────────────────────────────────────────────────
+function confirmarCreacion() {
+    const n  = document.querySelectorAll('.check-individual:checked').length;
+    if (n === 0) { alert('⚠️ Selecciona al menos un paciente.'); return false; }
+    sincronizarHidden();
+    const ok = confirm(
+        `✅ CONFIRMAR CREACIÓN\n\n` +
+        `Se crearán ${n} cuenta(s).\n` +
+        `Los campos que editaste manualmente se usarán tal como los escribiste.\n\n` +
+        `¿Continuar?`
+    );
+    if (ok) {
+        const overlay = document.getElementById('loadingOverlay');
+        const msg     = document.getElementById('loadingMsg');
+        if (overlay) {
+            msg.textContent = n === 1
+                ? 'Creando 1 cuenta, espere un momento\u2026'
+                : `Creando ${n} cuentas, espere un momento\u2026`;
+            overlay.classList.remove('hidden');
+        }
+    }
+    return ok;
+}
+
+// ── Copiar credenciales resultado ─────────────────────────────────────────
+function copiarCredenciales() {
+    const filas = document.querySelectorAll('#tablaResultados tbody tr');
+    let texto = 'CREDENCIALES — Centro Infantil Misael\n' + '='.repeat(50) + '\n';
+    filas.forEach(fila => {
+        const cols = fila.querySelectorAll('td');
+        if (cols.length >= 4) {
+            texto += `Paciente : ${cols[1].textContent.trim()}\n`;
+            texto += `Usuario  : ${cols[2].textContent.trim()}\n`;
+            texto += `Password : ${cols[3].textContent.trim()}\n`;
+            texto += '─'.repeat(40) + '\n';
+        }
+    });
+    navigator.clipboard.writeText(texto).then(() => alert('✅ Credenciales copiadas al portapapeles'));
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+actualizarContador();
+</script>
+{% endblock %}

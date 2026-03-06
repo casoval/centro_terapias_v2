@@ -20,8 +20,57 @@
         </div>
     </div>
 
-    <!-- 📊 ESTADÍSTICAS — se cargan automáticamente al abrir la página -->
-    <div id="estadisticas-container" class="mb-2 sm:mb-3">
+    <!-- 🔒 TOGGLE ESTADÍSTICAS -->
+    <div class="mb-2 sm:mb-3">
+        <button id="btn-toggle-estadisticas"
+                onclick="toggleEstadisticas()"
+                class="btn-stats-toggle group relative overflow-hidden flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-all duration-300 select-none">
+            <span class="btn-stats-shimmer"></span>
+            <span id="btn-icon-estadisticas" class="relative z-10 text-base leading-none transition-transform duration-300 group-hover:scale-110">📊</span>
+            <span id="btn-texto-estadisticas" class="relative z-10 tracking-wide">Mostrar estadísticas</span>
+            <span id="btn-chevron" class="relative z-10 transition-transform duration-300 opacity-70">▾</span>
+        </button>
+    </div>
+
+    <style>
+    .btn-stats-toggle {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: #fff;
+        border: none;
+    }
+    .btn-stats-toggle:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(17,153,142,0.45);
+    }
+    .btn-stats-toggle:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(17,153,142,0.3);
+    }
+    .btn-stats-toggle.visible {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        box-shadow: 0 4px 14px rgba(245,87,108,0.35);
+    }
+    .btn-stats-toggle.visible:hover {
+        box-shadow: 0 8px 20px rgba(245,87,108,0.45);
+    }
+    .btn-stats-shimmer {
+        position: absolute;
+        top: 0; left: -75%;
+        width: 50%; height: 100%;
+        background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+        transform: skewX(-20deg);
+        animation: shimmer 2.8s infinite;
+    }
+    @keyframes shimmer {
+        0%   { left: -75%; }
+        60%  { left: 125%; }
+        100% { left: 125%; }
+    }
+    #btn-chevron.rotated { transform: rotate(180deg); }
+    </style>
+
+    <!-- 📊 ESTADÍSTICAS — se cargan bajo demanda al mostrar -->
+    <div id="estadisticas-container" class="mb-2 sm:mb-3 hidden">
         <!-- Spinner de carga inicial -->
         <div id="loading-estadisticas" class="bg-white border rounded-lg p-4 text-center">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
@@ -798,9 +847,39 @@ function renderizarEstadisticas(stats, todos, container) {
     container.innerHTML = html;
 }
 
-// ── Carga estadísticas al abrir la página (con los filtros ya aplicados en la URL) ──
+// ── Toggle estadísticas (ocultas por defecto, carga bajo demanda) ──
+let estadisticasCargadas = false;
+
+function toggleEstadisticas() {
+    const container = document.getElementById('estadisticas-container');
+    const btn = document.getElementById('btn-toggle-estadisticas');
+    const btnTexto = document.getElementById('btn-texto-estadisticas');
+    const btnIcono = document.getElementById('btn-icon-estadisticas');
+    const chevron = document.getElementById('btn-chevron');
+    const visible = !container.classList.contains('hidden');
+
+    if (visible) {
+        container.classList.add('hidden');
+        btn.classList.remove('visible');
+        btnTexto.textContent = 'Mostrar estadísticas';
+        btnIcono.textContent = '📊';
+        chevron.classList.remove('rotated');
+    } else {
+        container.classList.remove('hidden');
+        btn.classList.add('visible');
+        btnTexto.textContent = 'Ocultar estadísticas';
+        btnIcono.textContent = '🙈';
+        chevron.classList.add('rotated');
+        if (!estadisticasCargadas) {
+            estadisticasCargadas = true;
+            cargarEstadisticasPagos();
+        }
+    }
+}
+
+// ── Inicialización: estadísticas ocultas por defecto ──
 document.addEventListener('DOMContentLoaded', () => {
-    cargarEstadisticasPagos();
+    // Las estadísticas se cargan solo cuando el usuario presiona "Mostrar estadísticas"
 });
 
 // ==================== FUNCIONES PARA ANULAR RECIBO ====================

@@ -138,4 +138,5 @@ urlpatterns = [
 
     path('mi-calendario/<int:paciente_id>/', views.mi_calendario_magico, name='mi_calendario_magico'),
     path('guardar-tema-calendario/', views.guardar_tema_calendario, name='guardar_tema_calendario'),
+    path('sesiones-sucursal/', views.sesiones_sucursal_profesional, name='sesiones_sucursal_profesional'),
 ]

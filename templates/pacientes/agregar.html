@@ -17,8 +17,8 @@
     input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="tel"], select, textarea {
         border-radius: 0.75rem; /* rounded-xl */
         border-color: #e5e7eb;
-        padding-top: 0.625rem;
-        padding-bottom: 0.625rem;
+        padding-top: 0.3rem;
+        padding-bottom: 0.3rem;
         transition: all 0.2s;
     }
     input:focus, select:focus, textarea:focus {
@@ -50,7 +50,7 @@
     </div>
 </div>
 
-<form method="post" enctype="multipart/form-data" class="space-y-6 pb-10">
+<form method="post" enctype="multipart/form-data" class="space-y-3 pb-6">
     {% csrf_token %}
     
     {% if form.non_field_errors %}
@@ -66,23 +66,41 @@
     </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-2 flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-1.5 text-violet-600 shrink-0">
+            <span class="text-sm">🔐</span>
+            <span class="text-xs font-bold text-gray-700 whitespace-nowrap">Usuario del Sistema</span>
+        </div>
+        <div class="flex-1 min-w-[160px]">
+            {{ form.user }}
+            {% if form.user.errors %}<p class="text-red-500 text-[10px] font-bold mt-0.5">{{ form.user.errors.0 }}</p>{% endif %}
+        </div>
+        {% if usuario_seleccionado %}
+        <span class="text-[10px] text-green-700 font-bold bg-green-50 border border-green-200 px-2 py-1 rounded-lg whitespace-nowrap">✅ {{ usuario_seleccionado.username }}</span>
+        {% endif %}
+        <button type="button" id="btn-agregar-usuario"
+            class="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-bold text-[10px] shadow-sm hover:scale-105 transition-transform flex items-center gap-1 shrink-0">
+            <span>👤</span> Añadir Nuevo
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
         
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-3 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-16 h-16 bg-orange-50 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
             <div class="relative z-10">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-xl text-orange-600 shadow-sm">🏢</div>
+                    <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center text-base text-orange-600 shadow-sm">🏢</div>
                     <div>
                         <h2 class="text-base font-bold text-gray-800">Sucursales</h2>
                         <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Ubicación de atención</p>
                     </div>
                 </div>
                 <div class="campo-requerido">
-                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.sucursales.label }}</label>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.sucursales.label }}</label>
                     <div class="space-y-2">
                         {% for checkbox in form.sucursales %}
-                        <label class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-orange-50/50 hover:border-orange-200 cursor-pointer transition-all bg-gray-50/50">
+                        <label class="flex items-center gap-2 p-1.5 border border-gray-100 rounded-lg hover:bg-orange-50/50 hover:border-orange-200 cursor-pointer transition-all bg-gray-50/50">
                             {{ checkbox.tag }}
                             <span class="text-sm font-medium text-gray-700">{{ checkbox.choice_label }}</span>
                         </label>
@@ -95,18 +113,18 @@
             </div>
         </div>
 
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-3 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
             <div class="relative z-10">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-xl text-blue-600 shadow-sm">📸</div>
+                    <div class="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center text-base text-blue-600 shadow-sm">📸</div>
                     <div>
                         <h2 class="text-base font-bold text-gray-800">Foto del Paciente</h2>
                         <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Opcional</p>
                     </div>
                 </div>
-                <div class="space-y-3">
-                    <div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs">
+                <div class="space-y-2">
+                    <div class="bg-gray-50 p-2 rounded-xl border border-gray-100 text-xs">
                         {{ form.foto }}
                     </div>
                     <p class="text-[10px] text-gray-400 flex items-center gap-1">📌 Formatos: JPG, PNG, WebP</p>
@@ -121,18 +139,18 @@
             </div>
         </div>
 
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 relative overflow-hidden">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-3 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-16 h-16 bg-gray-100 rounded-bl-3xl -mr-4 -mt-4 z-0"></div>
             <div class="relative z-10">
                 <div class="flex items-center gap-3 mb-4">
-                    <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xl text-gray-600 shadow-sm">📊</div>
+                    <div class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-base text-gray-600 shadow-sm">📊</div>
                     <div>
                         <h2 class="text-base font-bold text-gray-800">Estado</h2>
                         <p class="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Situación Actual</p>
                     </div>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.estado.label }}</label>
+                <div class="bg-gray-50 p-2 rounded-xl border border-gray-100">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.estado.label }}</label>
                     <div class="w-full">
                         {{ form.estado }}
                     </div>
@@ -144,76 +162,76 @@
         </div>
     </div>
 
-    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-indigo-50">
-            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl text-indigo-600 shadow-sm">👤</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5">
+        <div class="flex items-center gap-3 mb-3 pb-2 border-b border-indigo-50">
+            <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-base text-indigo-600 shadow-sm">👤</div>
             <div>
                 <h2 class="text-lg font-bold text-gray-800">Datos Personales</h2>
                 <p class="text-xs text-gray-500 font-medium">Información básica del menor</p>
             </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.nombre.label }}</label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre.label }}</label>
                 {{ form.nombre }}
                 {% if form.nombre.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.nombre.errors.0 }}</p>{% endif %}
             </div>
             <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.apellido.label }}</label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.apellido.label }}</label>
                 {{ form.apellido }}
                 {% if form.apellido.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.apellido.errors.0 }}</p>{% endif %}
             </div>
             <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.fecha_nacimiento.label }}</label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.fecha_nacimiento.label }}</label>
                 {{ form.fecha_nacimiento }}
                 {% if form.fecha_nacimiento.errors %}<p class="text-red-500 text-[10px] font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.fecha_nacimiento.errors.0 }}</p>{% endif %}
                 <p class="text-[10px] text-indigo-400 mt-1 font-medium">📌 La edad se calcula automáticamente</p>
             </div>
             <div class="campo-requerido">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.genero.label }}</label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.genero.label }}</label>
                 {{ form.genero }}
                 {% if form.genero.errors %}<p class="text-[10px] text-red-500 font-bold mt-1 bg-red-50 px-2 py-1 rounded">{{ form.genero.errors.0 }}</p>{% endif %}
             </div>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
         
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-20 h-20 bg-purple-50 rounded-bl-full -mr-6 -mt-6 z-0"></div>
             <div class="relative z-10">
                 <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-xl text-purple-600 shadow-sm">👨‍👩‍👧</div>
+                    <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center text-base text-purple-600 shadow-sm">👨‍👩‍👧</div>
                     <div>
                         <h2 class="text-lg font-bold text-gray-800">Tutor Principal</h2>
                         <p class="text-xs text-gray-500 font-medium">Responsable legal y contacto</p>
                     </div>
                 </div>
-                <div class="space-y-4">
+                <div class="space-y-2">
                     <div class="campo-requerido">
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.nombre_tutor.label }}</label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor.label }}</label>
                         {{ form.nombre_tutor }}
                         {% if form.nombre_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor.errors.0 }}</p>{% endif %}
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-2">
                         <div class="campo-requerido">
-                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.parentesco.label }}</label>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco.label }}</label>
                             {{ form.parentesco }}
                             {% if form.parentesco.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco.errors.0 }}</p>{% endif %}
                         </div>
                         <div class="campo-requerido">
-                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.telefono_tutor.label }}</label>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor.label }}</label>
                             {{ form.telefono_tutor }}
                             {% if form.telefono_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor.errors.0 }}</p>{% endif %}
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.email_tutor.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                         {{ form.email_tutor }}
                         {% if form.email_tutor.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor.errors.0 }}</p>{% endif %}
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.direccion.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.direccion.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                         {{ form.direccion }}
                         {% if form.direccion.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.direccion.errors.0 }}</p>{% endif %}
                     </div>
@@ -221,36 +239,36 @@
             </div>
         </div>
 
-        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+        <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-20 h-20 bg-green-50 rounded-bl-full -mr-6 -mt-6 z-0"></div>
             <div class="relative z-10">
                 <div class="flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-xl text-green-600 shadow-sm">👥</div>
+                    <div class="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center text-base text-green-600 shadow-sm">👥</div>
                     <div>
                         <h2 class="text-lg font-bold text-gray-800">Segundo Contacto</h2>
                         <p class="text-xs text-gray-500 font-medium">Tutor secundario o emergencia</p>
                     </div>
                 </div>
-                <div class="space-y-4">
+                <div class="space-y-2">
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.nombre_tutor_2.label }}</label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_tutor_2.label }}</label>
                         {{ form.nombre_tutor_2 }}
                         {% if form.nombre_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_tutor_2.errors.0 }}</p>{% endif %}
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.parentesco_2.label }}</label>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.parentesco_2.label }}</label>
                             {{ form.parentesco_2 }}
                             {% if form.parentesco_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.parentesco_2.errors.0 }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.telefono_tutor_2.label }}</label>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_tutor_2.label }}</label>
                             {{ form.telefono_tutor_2 }}
                             {% if form.telefono_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_tutor_2.errors.0 }}</p>{% endif %}
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">{{ form.email_tutor_2.label }}</label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_tutor_2.label }}</label>
                         {{ form.email_tutor_2 }}
                         {% if form.email_tutor_2.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_tutor_2.errors.0 }}</p>{% endif %}
                     </div>
@@ -259,45 +277,45 @@
         </div>
     </div>
 
-    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-red-50">
-            <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-xl text-red-600 shadow-sm">🩺</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5">
+        <div class="flex items-center gap-3 mb-3 pb-2 border-b border-red-50">
+            <div class="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center text-base text-red-600 shadow-sm">🩺</div>
             <div>
                 <h2 class="text-lg font-bold text-gray-800">Información Clínica</h2>
                 <p class="text-xs text-gray-500 font-medium">Diagnóstico y observaciones médicas</p>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div class="lg:col-span-1">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.diagnostico.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.diagnostico.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.diagnostico }}
                 {% if form.diagnostico.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.diagnostico.errors.0 }}</p>{% endif %}
             </div>
             <div class="lg:col-span-1">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.observaciones_medicas.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.observaciones_medicas.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.observaciones_medicas }}
                 {% if form.observaciones_medicas.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.observaciones_medicas.errors.0 }}</p>{% endif %}
             </div>
             <div class="lg:col-span-1">
-                <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.alergias.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.alergias.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
                 {{ form.alergias }}
                 {% if form.alergias.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.alergias.errors.0 }}</p>{% endif %}
             </div>
         </div>
     </div>
 
-    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-indigo-50">
-            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-xl text-indigo-600 shadow-sm">🎯</div>
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5">
+        <div class="flex items-center gap-3 mb-3 pb-2 border-b border-indigo-50">
+            <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-base text-indigo-600 shadow-sm">🎯</div>
             <div>
                 <h2 class="text-lg font-bold text-gray-800">Servicios a Contratar</h2>
                 <p class="text-xs text-gray-500 font-medium">Selecciona y personaliza los servicios</p>
             </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {% for servicio in servicios %}
-            <div class="border border-gray-100 bg-gray-50/50 rounded-2xl p-4 hover:border-indigo-300 hover:bg-white hover:shadow-md transition-all servicio-item group">
-                <div class="flex items-center gap-3 mb-3">
+            <div class="border border-gray-100 bg-gray-50/50 rounded-xl p-2.5 hover:border-indigo-300 hover:bg-white hover:shadow-md transition-all servicio-item group">
+                <div class="flex items-center gap-2 mb-1.5">
                     <div class="relative flex items-center justify-center">
                          <input type="checkbox" name="servicio_{{ servicio.id }}" id="id_servicio_{{ servicio.id }}"
                            class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 transition-colors">
@@ -330,47 +348,7 @@
         </p>
     </div>
         
-    <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-6 sm:p-8">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-indigo-50">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-xl text-violet-600 shadow-sm">🔐</div>
-                <div>
-                    <h2 class="text-lg font-bold text-gray-800">Usuario del Sistema</h2>
-                    <p class="text-xs text-gray-500 font-medium">Acceso para padres (opcional)</p>
-                </div>
-            </div>
-            
-            <a href="{% url 'core:agregar_usuario' %}?from=paciente" 
-            class="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-xs shadow-md hover:scale-105 transition-transform flex items-center justify-center gap-2">
-                <span>👤</span> Añadir Usuario Nuevo
-            </a>
-        </div>
-        
-        {% if usuario_seleccionado %}
-        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3">
-            <span class="text-xl bg-white rounded-full p-1 shadow-sm">✅</span>
-            <div>
-                <p class="text-sm font-bold text-green-800">Usuario creado correctamente</p>
-                <p class="text-xs text-green-700 mt-1">
-                    El usuario <span class="font-black underline">{{ usuario_seleccionado.username }}</span> se vinculará automáticamente.
-                </p>
-            </div>
-        </div>
-        {% endif %}
-        
-        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
-            <label class="block text-xs font-bold text-gray-700 mb-2">{{ form.user.label }}</label>
-            {{ form.user }}
-            {% if form.user.errors %}
-            <p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>
-            {% endif %}
-            <p class="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
-                🔐 Selecciona un usuario existente si ya está registrado en el sistema.
-            </p>
-        </div>
-    </div>
-
-    <div class="sticky bottom-4 z-50 bg-white/80 backdrop-blur-md p-4 rounded-3xl shadow-2xl border border-gray-200 mt-6 max-w-4xl mx-auto">
+    <div class="sticky bottom-4 z-50 bg-white/80 backdrop-blur-md p-4 rounded-3xl shadow-2xl border border-gray-200 mt-3 max-w-4xl mx-auto">
         <div class="flex gap-4">
             <button type="submit" 
                     class="flex-1 bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 text-white py-3 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2">
@@ -383,6 +361,96 @@
         </div>
     </div>
 </form>
+
+<script>
+    // ============================================================
+    // GUARDAR / RESTAURAR FORMULARIO con sessionStorage
+    // Permite ir a crear usuario y volver sin perder los datos
+    // ============================================================
+    const STORAGE_KEY = 'paciente_form_draft';
+
+    const CAMPOS_TEXTO = [
+        'id_nombre','id_apellido','id_fecha_nacimiento','id_genero',
+        'id_nombre_tutor','id_parentesco','id_telefono_tutor',
+        'id_email_tutor','id_direccion',
+        'id_nombre_tutor_2','id_parentesco_2','id_telefono_tutor_2','id_email_tutor_2',
+        'id_diagnostico','id_observaciones_medicas','id_alergias',
+        'id_estado','id_user'
+    ];
+
+    function guardarFormulario() {
+        const data = {};
+        CAMPOS_TEXTO.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) data[id] = el.value;
+        });
+        document.querySelectorAll('input[name="sucursales"]').forEach(cb => {
+            data['sucursal_' + cb.value] = cb.checked;
+        });
+        document.querySelectorAll('input[type="checkbox"][name^="servicio_"]').forEach(cb => {
+            data[cb.name] = cb.checked;
+            const sid = cb.name.replace('servicio_', '');
+            const precio = document.getElementById('id_precio_' + sid);
+            const obs    = document.getElementById('id_obs_'    + sid);
+            if (precio) data['precio_' + sid] = precio.value;
+            if (obs)    data['obs_'    + sid] = obs.value;
+        });
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function restaurarFormulario() {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        let data;
+        try { data = JSON.parse(raw); } catch(e) { return; }
+
+        // Solo restaurar si el formulario esta vacio
+        const nombreEl = document.getElementById('id_nombre');
+        if (nombreEl && nombreEl.value.trim() !== '') return;
+
+        CAMPOS_TEXTO.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && data[id] !== undefined) el.value = data[id];
+        });
+        document.querySelectorAll('input[name="sucursales"]').forEach(cb => {
+            const key = 'sucursal_' + cb.value;
+            if (data[key] !== undefined) cb.checked = data[key];
+        });
+        document.querySelectorAll('input[type="checkbox"][name^="servicio_"]').forEach(cb => {
+            if (data[cb.name] === undefined) return;
+            cb.checked = data[cb.name];
+            if (cb.checked) {
+                const container = cb.closest('.servicio-item');
+                const details   = container ? container.querySelector('.servicio-details') : null;
+                if (details) {
+                    details.style.display = 'block';
+                    details.style.opacity = '1';
+                    container.classList.add('bg-white','border-indigo-200','shadow-sm');
+                    container.classList.remove('bg-gray-50/50');
+                }
+                const sid = cb.name.replace('servicio_', '');
+                const precio = document.getElementById('id_precio_' + sid);
+                const obs    = document.getElementById('id_obs_'    + sid);
+                if (precio && data['precio_' + sid] !== undefined) precio.value = data['precio_' + sid];
+                if (obs    && data['obs_'    + sid] !== undefined) obs.value    = data['obs_'    + sid];
+            }
+        });
+        sessionStorage.removeItem(STORAGE_KEY);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Interceptar boton "Anadir Usuario Nuevo"
+        const btn = document.getElementById('btn-agregar-usuario');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                guardarFormulario();
+                window.location.href = "{% url 'core:agregar_usuario' %}?from=paciente";
+            });
+        }
+        // Restaurar si hay datos guardados (al volver de crear usuario)
+        restaurarFormulario();
+    });
+</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

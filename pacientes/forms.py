@@ -43,27 +43,27 @@ class PacienteForm(forms.ModelForm):
             # Sin usuario: Todas las sucursales (fallback para compatibilidad)
             self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
         
-        # ✅ FILTRAR: Solo usuarios con rol "paciente" que NO estén vinculados
+        # Filtrar: Solo usuarios con rol 'paciente', con perfil valido, sin superuser
         from core.models import PerfilUsuario
         from django.contrib.auth.models import User
-        
-        # Paso 1: Obtener usuarios base con rol paciente (excluir superusuarios)
+
+        # Base: usuarios con perfil valido de rol paciente (excluye Users huerfanos sin perfil)
         usuarios_base = User.objects.filter(
-            perfil__rol='paciente'
+            perfil__rol='paciente',
+            perfil__isnull=False  # excluye Users huerfanos sin PerfilUsuario
         ).exclude(is_superuser=True)
-        
-        # Paso 2: Filtrar según si estamos creando o editando
-        if self.instance and self.instance.pk and self.instance.user:
-            # EDITANDO un paciente que tiene user vinculado
-            # Mostrar SOLO: usuarios sin paciente + el usuario actual de este paciente
+
+        # Filtrar segun si estamos creando o editando
+        if self.instance and self.instance.pk and self.instance.user_id:
+            # EDITANDO: mostrar usuarios libres + el usuario actual del paciente
+            # Usar user_id (no self.instance.user) para evitar DoesNotExist si fue eliminado
             usuarios_disponibles = usuarios_base.filter(
-                paciente__isnull=True  # Usuarios sin paciente vinculado
-            ) | User.objects.filter(
-                id=self.instance.user.id  # MÁS el usuario actual
+                paciente__isnull=True
+            ) | usuarios_base.filter(
+                id=self.instance.user_id
             )
         else:
             # CREANDO nuevo paciente O editando uno sin user
-            # Mostrar SOLO usuarios sin paciente vinculado
             usuarios_disponibles = usuarios_base.filter(
                 paciente__isnull=True
             )

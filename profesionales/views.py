@@ -46,6 +46,21 @@ def lista_profesionales(request):
         except ValueError:
             pass
 
+    # Limpiar user_id huerfanos en Profesional: Users sin PerfilUsuario valido
+    from core.models import PerfilUsuario
+    ids_users_con_perfil = PerfilUsuario.objects.filter(
+        rol='profesional'
+    ).values_list('user_id', flat=True)
+    from .models import Profesional as ProfModel
+    ProfModel.objects.filter(
+        user__isnull=False
+    ).exclude(
+        user_id__in=ids_users_con_perfil
+    ).update(user=None)
+
+    # select_related('user') para datos frescos en template
+    profesionales = profesionales.select_related('user')
+
     # Agregar estadísticas (se mantiene igual)
     hoy = date.today()
     inicio_semana = hoy - timedelta(days=hoy.weekday())

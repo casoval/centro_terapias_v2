@@ -5465,3 +5465,86 @@ def generar_pdf_informe_evolucion_profesional(request, paciente_id):
         f'{profesional.apellido}.pdf"'
     )
     return response
+
+@login_required
+def sesiones_sucursal_profesional(request):
+    """
+    Vista para el rol profesional.
+    Muestra las sesiones del día en su(s) sucursal(es).
+    Permite navegar entre días con flechas.
+    Solo muestra: paciente, servicio, profesional, hora inicio/fin y duración.
+    """
+    from datetime import date, timedelta
+
+    # ── 1. Verificar que el usuario sea profesional ──
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_profesional():
+        messages.error(request, '⚠️ Esta sección es solo para profesionales.')
+        return redirect('agenda:calendario')
+
+    # ── 2. Obtener el profesional vinculado al usuario ──
+    try:
+        profesional = Profesional.objects.get(user=request.user)
+    except Profesional.DoesNotExist:
+        messages.error(request, '❌ No hay un profesional vinculado a tu cuenta. Contacta al administrador.')
+        return redirect('agenda:calendario')
+
+    # ── 3. Obtener sucursales del profesional ──
+    sucursales = profesional.sucursales.all()
+    if not sucursales.exists():
+        messages.warning(request, '⚠️ No tienes sucursales asignadas. Contacta al administrador.')
+        return redirect('agenda:calendario')
+
+    sucursal_nombre = (
+        sucursales.first().nombre
+        if sucursales.count() == 1
+        else ", ".join(s.nombre for s in sucursales)
+    )
+
+    # ── 4. Fecha del día a visualizar ──
+    fecha_str = request.GET.get('fecha', '')
+    if fecha_str:
+        try:
+            fecha_actual = date.fromisoformat(fecha_str)
+        except ValueError:
+            fecha_actual = date.today()
+    else:
+        fecha_actual = date.today()
+
+    fecha_anterior = fecha_actual - timedelta(days=1)
+    fecha_siguiente = fecha_actual + timedelta(days=1)
+    es_hoy = (fecha_actual == date.today())
+
+    # ── 5. Sesiones del día en las sucursales del profesional ──
+    sesiones = (
+        Sesion.objects
+        .filter(fecha=fecha_actual, sucursal__in=sucursales)
+        .select_related('paciente', 'servicio', 'profesional', 'sucursal')
+        .order_by('hora_inicio')
+    )
+
+    # ── 6. Estadísticas ──
+    total_sesiones = sesiones.count()
+    total_minutos = sum(s.duracion_minutos for s in sesiones)
+    total_profesionales = sesiones.values('profesional_id').distinct().count()
+
+    # ── 7. Fecha en español ──
+    DIAS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    MESES_ES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    fecha_display = f"{DIAS_ES[fecha_actual.weekday()]} {fecha_actual.day} de {MESES_ES[fecha_actual.month]} de {fecha_actual.year}"
+
+    context = {
+        'sesiones': sesiones,
+        'profesional': profesional,
+        'fecha_actual': fecha_actual,
+        'fecha_anterior': fecha_anterior.isoformat(),
+        'fecha_siguiente': fecha_siguiente.isoformat(),
+        'fecha_display': fecha_display,
+        'es_hoy': es_hoy,
+        'sucursal_nombre': sucursal_nombre,
+        'total_sesiones': total_sesiones,
+        'total_minutos': total_minutos,
+        'total_profesionales': total_profesionales,
+    }
+    return render(request, 'agenda/sesiones_sucursal_profesional.html', context)

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db.models import Count, Sum, Q
 from datetime import date, timedelta, datetime, time
 from decimal import Decimal
+from calendar import monthrange
 from core.utils import solo_sus_sucursales
 
 
@@ -36,6 +37,9 @@ def dashboard(request):
         hora_actual = ahora.time()
         inicio_semana = hoy - timedelta(days=hoy.weekday())
         fin_semana = inicio_semana + timedelta(days=6)
+        inicio_mes = hoy.replace(day=1)
+        _, ultimo_dia = monthrange(hoy.year, hoy.month)
+        fin_mes = hoy.replace(day=ultimo_dia)
         
         # ✅ OBTENER SUCURSALES DEL USUARIO (ya viene del decorator)
         sucursales_usuario = request.sucursales_usuario
@@ -74,19 +78,11 @@ def dashboard(request):
             fecha__lte=fin_semana
         ).count()
         
-        # ✅ Pendientes de pago (solo de sus sucursales)
-        sesiones_pendientes = sesiones_base.filter(
-            estado__in=['realizada', 'realizada_retraso', 'falta'],
-            proyecto__isnull=True,
-            monto_cobrado__gt=0
-        ).select_related('paciente')
-        
-        total_pendiente = Decimal('0.00')
-        for sesion in sesiones_pendientes:
-            if sesion.saldo_pendiente > 0:
-                total_pendiente += sesion.saldo_pendiente
-        
-        pendientes_pago = total_pendiente
+        # Sesiones del mes actual
+        sesiones_mes = sesiones_base.filter(
+            fecha__gte=inicio_mes,
+            fecha__lte=fin_mes
+        ).count()
         
         # ===== NUEVAS ESTADÍSTICAS (FILTRADAS) =====
         
@@ -108,43 +104,47 @@ def dashboard(request):
         
         # Top 5 Sucursales (solo las asignadas)
         top_sucursales = sucursales_para_top.annotate(
-            sesiones_semana=Count('sesiones', filter=Q(
-                sesiones__fecha__gte=inicio_semana,
-                sesiones__fecha__lte=fin_semana
+            sesiones_mes=Count('sesiones', filter=Q(
+                sesiones__fecha__gte=inicio_mes,
+                sesiones__fecha__lte=fin_mes
             ))
-        ).order_by('-sesiones_semana')[:5]
+        ).order_by('-sesiones_mes')[:5]
         
         # Top 5 Profesionales (solo de sus sucursales)
+        # ✅ FIX: cuando sucursales_usuario is None (superadmin) no se filtra por sucursal
+        prof_filter = Q(
+            sesiones__fecha__gte=inicio_mes,
+            sesiones__fecha__lte=fin_mes,
+        )
+        if sucursales_usuario is not None:
+            prof_filter &= Q(sesiones__sucursal__in=sucursales_para_top)
+
         top_profesionales = profesionales_base.filter(
             activo=True
         ).annotate(
-            sesiones_semana=Count('sesiones', filter=Q(
-                sesiones__fecha__gte=inicio_semana,
-                sesiones__fecha__lte=fin_semana,
-                sesiones__sucursal__in=sucursales_para_top if sucursales_usuario is not None else []
-            ))
-        ).order_by('-sesiones_semana')[:5]
+            sesiones_mes=Count('sesiones', filter=prof_filter)
+        ).order_by('-sesiones_mes')[:5]
         
         # Top 5 Servicios (filtrado por sesiones de sus sucursales)
         if sucursales_usuario is not None and sucursales_usuario.exists():
             top_servicios = servicios_base.filter(
                 activo=True
             ).annotate(
-                sesiones_semana=Count('sesiones', filter=Q(
-                    sesiones__fecha__gte=inicio_semana,
-                    sesiones__fecha__lte=fin_semana,
+                sesiones_mes=Count('sesiones', filter=Q(
+                    sesiones__fecha__gte=inicio_mes,
+                    sesiones__fecha__lte=fin_mes,
                     sesiones__sucursal__in=sucursales_usuario
                 ))
-            ).order_by('-sesiones_semana')[:5]
+            ).order_by('-sesiones_mes')[:5]
         else:
             top_servicios = servicios_base.filter(
                 activo=True
             ).annotate(
-                sesiones_semana=Count('sesiones', filter=Q(
-                    sesiones__fecha__gte=inicio_semana,
-                    sesiones__fecha__lte=fin_semana
+                sesiones_mes=Count('sesiones', filter=Q(
+                    sesiones__fecha__gte=inicio_mes,
+                    sesiones__fecha__lte=fin_mes
                 ))
-            ).order_by('-sesiones_semana')[:5]
+            ).order_by('-sesiones_mes')[:5]
         
         # ===== PRÓXIMAS SESIONES (FILTRADAS) =====
         
@@ -184,7 +184,7 @@ def dashboard(request):
             'sesiones_hoy': sesiones_hoy,
             'pacientes_activos': pacientes_activos,
             'sesiones_semana': sesiones_semana,
-            'pendientes_pago': pendientes_pago,
+            'sesiones_mes': sesiones_mes,
             
             # Nuevas estadísticas
             'sucursales_activas': sucursales_activas,
@@ -215,7 +215,7 @@ def dashboard(request):
             'sesiones_hoy': 0,
             'pacientes_activos': 0,
             'sesiones_semana': 0,
-            'pendientes_pago': Decimal('0.00'),
+            'sesiones_mes': 0,
             'sucursales_activas': 0,
             'profesionales_activos': 0,
             'servicios_activos': 0,
@@ -261,13 +261,14 @@ def lista_usuarios(request):
     from django.contrib.auth.models import User
     from .models import PerfilUsuario
 
-    # ✅ Cambio: Ordenar por username (Alfabético)
-    usuarios = User.objects.filter(is_superuser=False).select_related('perfil').order_by('username')
-    
-    # Obtener todos los usuarios excepto superusuarios
-    usuarios = User.objects.filter(is_superuser=False).select_related('perfil').order_by('-is_active', 'username')
-    
-    # Búsqueda
+    # Solo usuarios no-superuser que tengan perfil creado.
+    # perfil__isnull=False excluye Users huerfanos (sin PerfilUsuario)
+    usuarios = User.objects.filter(
+        is_superuser=False,
+        perfil__isnull=False
+    ).select_related('perfil').order_by('-is_active', 'username')
+
+    # Busqueda
     buscar = request.GET.get('q', '')
     if buscar:
         usuarios = usuarios.filter(
@@ -276,21 +277,12 @@ def lista_usuarios(request):
             Q(last_name__icontains=buscar) |
             Q(email__icontains=buscar)
         )
-    
+
     # Filtro por rol
     rol_filtro = request.GET.get('rol', '')
     if rol_filtro:
         usuarios = usuarios.filter(perfil__rol=rol_filtro)
-    
-    # Agregar información adicional
-    for usuario in usuarios:
-        # Asegurar que tiene perfil
-        if not hasattr(usuario, 'perfil'):
-            PerfilUsuario.objects.get_or_create(
-                user=usuario,
-                defaults={'activo': True}
-            )
-    
+
     context = {
         'usuarios': usuarios,
         'buscar': buscar,
@@ -335,7 +327,26 @@ def agregar_usuario(request):
                     perfil.rol = 'paciente'
                 
                 perfil.save()
-                
+                perfil.refresh_from_db()  # forzar lectura real desde la BD
+
+                # ✅ SINCRONIZACIÓN BIDIRECCIONAL usando perfil ya guardado
+                from pacientes.models import Paciente as PacienteModel
+                from profesionales.models import Profesional as ProfModel
+
+                if perfil.paciente_id:
+                    PacienteModel.objects.filter(
+                        id=perfil.paciente_id
+                    ).update(user=usuario)
+                else:
+                    PacienteModel.objects.filter(user=usuario).update(user=None)
+
+                if perfil.profesional_id:
+                    ProfModel.objects.filter(
+                        id=perfil.profesional_id
+                    ).update(user=usuario)
+                else:
+                    ProfModel.objects.filter(user=usuario).update(user=None)
+
                 # Guardar relaciones many-to-many
                 perfil_form.save_m2m()
                 
@@ -382,14 +393,15 @@ def editar_usuario(request, pk):
     from .models import PerfilUsuario
     import core.models as core_models
     
-    usuario = get_object_or_404(User, pk=pk)
-    
-    # Asegurar que tiene perfil
-    perfil, created = PerfilUsuario.objects.get_or_create(
-        user=usuario,
-        defaults={'activo': True}
-    )
-    
+    # Solo editar usuarios que tengan perfil (los huerfanos no deben ser editables)
+    usuario = get_object_or_404(User, pk=pk, is_superuser=False)
+
+    try:
+        perfil = usuario.perfil
+    except PerfilUsuario.DoesNotExist:
+        messages.error(request, '⚠️ Este usuario no tiene perfil válido. Elimínalo desde el admin de Django.')
+        return redirect('core:lista_usuarios')
+
     if request.method == 'POST':
         usuario_form = UsuarioForm(request.POST, instance=usuario)
         perfil_form = PerfilUsuarioForm(request.POST, instance=perfil)
@@ -401,10 +413,37 @@ def editar_usuario(request, pk):
             try:
                 # Guardar usuario
                 usuario = usuario_form.save()
-                
+
                 # Guardar perfil
                 perfil = perfil_form.save()
-                
+
+                # ✅ SINCRONIZACIÓN BIDIRECCIONAL usando perfil ya guardado
+                from pacientes.models import Paciente as PacienteModel
+                from profesionales.models import Profesional as ProfModel
+                perfil.refresh_from_db()  # forzar lectura real desde la BD
+
+                # Sync paciente
+                if perfil.paciente_id:
+                    PacienteModel.objects.filter(
+                        id=perfil.paciente_id
+                    ).update(user=usuario)
+                    PacienteModel.objects.filter(
+                        user=usuario
+                    ).exclude(id=perfil.paciente_id).update(user=None)
+                else:
+                    PacienteModel.objects.filter(user=usuario).update(user=None)
+
+                # Sync profesional
+                if perfil.profesional_id:
+                    ProfModel.objects.filter(
+                        id=perfil.profesional_id
+                    ).update(user=usuario)
+                    ProfModel.objects.filter(
+                        user=usuario
+                    ).exclude(id=perfil.profesional_id).update(user=None)
+                else:
+                    ProfModel.objects.filter(user=usuario).update(user=None)
+
                 messages.success(request, f'✅ Usuario "{usuario.username}" actualizado exitosamente.')
                 return redirect('core:lista_usuarios')
             
@@ -503,20 +542,43 @@ def eliminar_usuario(request, pk):
                 return redirect('core:eliminar_usuario', pk=pk)
             
             try:
+                import core.models as core_models
                 username = usuario.username
-                usuario.delete()
+
+                # Desactivar signals para evitar que se recree el perfil
+                core_models._disable_signals = True
+                try:
+                    # Limpiar vinculaciones bidireccionales ANTES de eliminar
+                    if hasattr(usuario, 'perfil'):
+                        perfil = usuario.perfil
+                        if perfil.paciente:
+                            try:
+                                from pacientes.models import Paciente as PacienteModel
+                                PacienteModel.objects.filter(user=usuario).update(user=None)
+                            except Exception:
+                                pass
+                        if perfil.profesional:
+                            try:
+                                from profesionales.models import Profesional as ProfModel
+                                ProfModel.objects.filter(user=usuario).update(user=None)
+                            except Exception:
+                                pass
+                        perfil.delete()  # Eliminar perfil primero
+                    usuario.delete()
+                finally:
+                    core_models._disable_signals = False
+
                 messages.success(request, f'✅ Usuario "{username}" eliminado exitosamente.')
                 return redirect('core:lista_usuarios')
-            
-            except ProtectedError as e:
-                # Por si acaso alguna protección que no detectamos
+
+            except ProtectedError:
                 messages.error(
                     request,
                     f'❌ No se puede eliminar el usuario porque tiene datos protegidos. '
                     f'Usa la opción de DESACTIVAR en su lugar.'
                 )
                 return redirect('core:eliminar_usuario', pk=pk)
-            
+
             except Exception as e:
                 messages.error(request, f'❌ Error al eliminar usuario: {str(e)}')
                 return redirect('core:eliminar_usuario', pk=pk)
@@ -529,3 +591,185 @@ def eliminar_usuario(request, pk):
         'tiene_paciente': tiene_paciente,
     }
     return render(request, 'core/usuarios/eliminar.html', context)
+
+# =====================================================================
+# REEMPLAZAR la función crear_usuarios_pacientes_masivo en views.py
+# =====================================================================
+
+@login_required
+def crear_usuarios_pacientes_masivo(request):
+    """
+    Crea cuentas masivamente para pacientes sin acceso.
+
+    - Usuario:    NOMBRE + palabra  (editable por fila)
+    - Contraseña: APELLIDO + palabra (editable por fila)
+
+    Si el admin edita el campo en la tabla, se usa ese valor.
+    Si lo deja como está, se usa el valor auto-generado.
+    """
+    import unicodedata
+    from pacientes.models import Paciente
+    from .models import PerfilUsuario
+    from django.contrib.auth.models import User
+    import core.models as core_models
+
+    # Solo superadmin y gerentes
+    if not request.user.is_superuser:
+        if not (hasattr(request.user, 'perfil') and request.user.perfil.es_gerente()):
+            messages.error(request, '⚠️ No tienes permisos para esta acción.')
+            return redirect('core:lista_usuarios')
+
+    # ─── Helpers ───────────────────────────────────────────────────────────
+    def quitar_acentos(texto):
+        texto = unicodedata.normalize('NFKD', texto)
+        return ''.join(c for c in texto if not unicodedata.combining(c))
+
+    def solo_alfanum_mayus(texto):
+        """Solo alfanumérico en mayúsculas — para la BASE (nombre/apellido)."""
+        return ''.join(c for c in quitar_acentos(texto).upper() if c.isalnum())
+
+    def limpiar_palabra(texto):
+        """
+        Para la palabra añadida por el usuario:
+        permite letras, números y los caracteres válidos en usernames de Django: @ . + - _
+        """
+        if not texto:
+            return ''
+        texto = quitar_acentos(texto).upper().replace(' ', '')
+        return ''.join(c for c in texto if c.isalnum() or c in '@.+-_')
+
+    def gen_username(paciente, palabra):
+        return solo_alfanum_mayus(paciente.nombre or '') + limpiar_palabra(palabra)
+
+    def gen_password(paciente, palabra):
+        return solo_alfanum_mayus(paciente.apellido or '') + limpiar_palabra(palabra)
+
+    # ─── Pacientes SIN cuenta vinculada ────────────────────────────────────
+    pacientes_sin_cuenta = Paciente.objects.filter(
+        estado='activo',
+        perfil_usuario__isnull=True
+    ).order_by('nombre', 'apellido')
+
+    # ─── POST ───────────────────────────────────────────────────────────────
+    if request.method == 'POST':
+        ids_seleccionados = request.POST.getlist('pacientes_ids')
+        palabra_usuario  = request.POST.get('palabra_usuario', '').strip()
+        palabra_password = request.POST.get('palabra_password', '').strip()
+
+        if not ids_seleccionados:
+            messages.warning(request, '⚠️ No seleccionaste ningún paciente.')
+            return redirect('core:crear_usuarios_pacientes_masivo')
+
+        # Palabras clave son opcionales — si están vacías, la base es solo nombre/apellido
+        resultados = {'creados': [], 'errores': []}
+        usernames_en_lote = set()
+
+        core_models._disable_signals = True
+        try:
+            for paciente_id in ids_seleccionados:
+                try:
+                    paciente = Paciente.objects.get(id=paciente_id, perfil_usuario__isnull=True)
+                except Paciente.DoesNotExist:
+                    resultados['errores'].append({
+                        'nombre': f'Paciente #{paciente_id}',
+                        'error': 'Ya tiene cuenta o no existe'
+                    })
+                    continue
+
+                # ── Leer valores del form (el admin pudo editarlos) ──
+                username_raw = request.POST.get(f'username_{paciente_id}', '').strip()
+                password_raw = request.POST.get(f'password_{paciente_id}', '').strip()
+
+                # Si fueron editados manualmente usar ese valor; si no, fórmula automática
+                username_base = limpiar_palabra(username_raw) if username_raw else gen_username(paciente, palabra_usuario)
+                pwd           = password_raw if password_raw else gen_password(paciente, palabra_password)
+
+                if not username_base or not pwd:
+                    resultados['errores'].append({
+                        'nombre': f'{paciente.nombre} {paciente.apellido}',
+                        'error': 'Usuario o contraseña vacíos'
+                    })
+                    continue
+
+                # Resolver duplicados con sufijo numérico
+                username = username_base
+                contador = 2
+                while (User.objects.filter(username=username).exists() or
+                       username in usernames_en_lote):
+                    username = f"{username_base}{contador}"
+                    contador += 1
+                usernames_en_lote.add(username)
+
+                try:
+                    user = User.objects.create_user(
+                        username=username,
+                        first_name=paciente.nombre or '',
+                        last_name=paciente.apellido or '',
+                        password=pwd,
+                        is_active=True,
+                    )
+
+                    perfil, _ = PerfilUsuario.objects.get_or_create(
+                        user=user,
+                        defaults={'activo': True}
+                    )
+                    perfil.rol      = 'paciente'
+                    perfil.paciente = paciente
+                    perfil.activo   = True
+                    perfil.save()
+
+                    # ✅ SINCRONIZACIÓN BIDIRECCIONAL: paciente.user debe apuntar
+                    # al usuario recién creado. Sin esto, cuando el paciente inicie
+                    # sesión, request.user.perfil.paciente devuelve None porque
+                    # paciente.user quedaba vacío.
+                    paciente.user = user
+                    paciente.save(update_fields=['user'])
+
+                    resultados['creados'].append({
+                        'nombre':   f'{paciente.nombre} {paciente.apellido}',
+                        'username': username,
+                        'password': pwd,
+                    })
+
+                except Exception as e:
+                    try:
+                        User.objects.filter(username=username).delete()
+                    except Exception:
+                        pass
+                    resultados['errores'].append({
+                        'nombre': f'{paciente.nombre} {paciente.apellido}',
+                        'error': str(e)
+                    })
+
+        finally:
+            core_models._disable_signals = False
+
+        total   = len(resultados['creados'])
+        errores = len(resultados['errores'])
+
+        if total > 0:
+            messages.success(request, f'✅ {total} cuenta(s) creada(s) exitosamente.')
+        if errores > 0:
+            messages.warning(request, f'⚠️ {errores} paciente(s) no pudieron procesarse.')
+
+        context = {
+            'resultados':         resultados,
+            'mostrar_resultados': True,
+        }
+        return render(request, 'core/usuarios/masivo_pacientes.html', context)
+
+    # ─── GET: preview ───────────────────────────────────────────────────────
+    preview_pacientes = []
+    for p in pacientes_sin_cuenta:
+        preview_pacientes.append({
+            'paciente':      p,
+            'nombre_base':   solo_alfanum_mayus(p.nombre or ''),
+            'apellido_base': solo_alfanum_mayus(p.apellido or ''),
+        })
+
+    context = {
+        'preview_pacientes':  preview_pacientes,
+        'total_sin_cuenta':   len(preview_pacientes),
+        'mostrar_resultados': False,
+    }
+    return render(request, 'core/usuarios/masivo_pacientes.html', context)

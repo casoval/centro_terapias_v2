@@ -243,10 +243,10 @@
                             <div class="flex-1">
                                 {{ form.user }}
                             </div>
-                            <a href="{% url 'core:agregar_usuario' %}?from=profesional" 
+                            <button type="button" id="btn-agregar-usuario"
                                class="px-3 py-2 bg-violet-600 text-white rounded-xl font-bold text-xs hover:bg-violet-700 transition-colors flex items-center justify-center shadow-md">
                                 ➕
-                            </a>
+                            </button>
                         </div>
                         {% if form.user.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.user.errors.0 }}</p>{% endif %}
                         <p class="text-[10px] text-gray-400">👤 Vincula un usuario para que pueda acceder.</p>
@@ -290,7 +290,78 @@
 
         </div>
     </div>
-</form> <script>
+</form>
+<script>
+    // ============================================================
+    // GUARDAR / RESTAURAR FORMULARIO con sessionStorage
+    // ============================================================
+    const STORAGE_KEY = 'profesional_form_draft';
+
+    const CAMPOS_TEXTO = [
+        'id_nombre','id_apellido','id_especialidad',
+        'id_telefono','id_email','id_user'
+    ];
+
+    function guardarFormulario() {
+        const data = {};
+        CAMPOS_TEXTO.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) data[id] = el.value;
+        });
+        // Checkbox activo
+        const activo = document.getElementById('id_activo');
+        if (activo) data['id_activo'] = activo.checked;
+        // Sucursales
+        document.querySelectorAll('input[name="sucursales"]').forEach(cb => {
+            data['sucursal_' + cb.value] = cb.checked;
+        });
+        // Servicios
+        document.querySelectorAll('input[name="servicios"]').forEach(cb => {
+            data['servicio_' + cb.value] = cb.checked;
+        });
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function restaurarFormulario() {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        let data;
+        try { data = JSON.parse(raw); } catch(e) { return; }
+
+        // Solo restaurar si el formulario esta vacio
+        const nombreEl = document.getElementById('id_nombre');
+        if (nombreEl && nombreEl.value.trim() !== '') return;
+
+        CAMPOS_TEXTO.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && data[id] !== undefined) el.value = data[id];
+        });
+        const activo = document.getElementById('id_activo');
+        if (activo && data['id_activo'] !== undefined) activo.checked = data['id_activo'];
+        document.querySelectorAll('input[name="sucursales"]').forEach(cb => {
+            const key = 'sucursal_' + cb.value;
+            if (data[key] !== undefined) cb.checked = data[key];
+        });
+        document.querySelectorAll('input[name="servicios"]').forEach(cb => {
+            const key = 'servicio_' + cb.value;
+            if (data[key] !== undefined) cb.checked = data[key];
+        });
+        sessionStorage.removeItem(STORAGE_KEY);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const btn = document.getElementById('btn-agregar-usuario');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                guardarFormulario();
+                window.location.href = "{% url 'core:agregar_usuario' %}?from=profesional";
+            });
+        }
+        restaurarFormulario();
+    });
+</script>
+
+<script>
     document.addEventListener('DOMContentLoaded', function() {
         // Elementos
         const nombreInput = document.getElementById('id_nombre');

@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+
+{% block title %}📅 Sesiones — {{ fecha_display }}{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+    body, .kids-page * { font-family: 'Nunito', sans-serif; }
+
+    .kids-page { padding: 0.75rem 0.5rem 3rem; }
+
+    /* ── Burbujas ── */
+    .bubbles-container {
+        position:fixed; top:0; left:0; width:100%; height:100%;
+        pointer-events:none; z-index:0; overflow:hidden;
+    }
+    .bubble {
+        position:absolute; border-radius:50%; opacity:0.12;
+        animation: floatBubble linear infinite;
+    }
+    @keyframes floatBubble {
+        0%   { transform:translateY(110vh); opacity:0; }
+        10%  { opacity:0.12; }
+        90%  { opacity:0.12; }
+        100% { transform:translateY(-20vh); opacity:0; }
+    }
+
+    /* ── Card contenedor ── */
+    .kids-card {
+        background:rgba(255,255,255,0.93);
+        backdrop-filter:blur(12px);
+        border-radius:1.25rem;
+        box-shadow:0 6px 24px rgba(0,0,0,0.11), 0 0 0 3px rgba(255,200,100,0.4);
+        position:relative; z-index:1; overflow:hidden;
+    }
+    .kids-card::before {
+        content:''; position:absolute; top:0; left:0; right:0; height:5px;
+        background:linear-gradient(90deg,#FF6B6B,#FFD93D,#6BCB77,#4D96FF,#C77DFF,#FF6B6B);
+        background-size:400%;
+        animation:rainbowBorder 4s linear infinite;
+    }
+    @keyframes rainbowBorder { 0%{background-position:0%} 100%{background-position:400%} }
+
+    /* ── Header compacto ── */
+    .day-header {
+        background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+        padding:0.6rem 0.85rem;
+        display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+    }
+    .day-nav-btn {
+        background:rgba(255,255,255,0.2); border:2px solid rgba(255,255,255,0.35);
+        color:white; border-radius:50%; width:34px; height:34px;
+        display:flex; align-items:center; justify-content:center;
+        font-size:1rem; font-weight:900; text-decoration:none; flex-shrink:0;
+        transition:all 0.2s;
+    }
+    .day-nav-btn:hover { background:rgba(255,255,255,0.35); transform:scale(1.1); color:white; }
+    .day-title { text-align:center; flex:1; }
+    .day-title h1 {
+        font-family:'Fredoka One',cursive; font-size:0.95rem;
+        color:white; text-shadow:1px 1px 4px rgba(0,0,0,0.2); margin:0; line-height:1.2;
+    }
+    .day-sub { color:rgba(255,255,255,0.8); font-size:0.65rem; font-weight:700; text-transform:uppercase; }
+    .today-badge {
+        background:#FFD93D; color:#7B4F00; font-size:0.58rem; font-weight:800;
+        padding:0.08rem 0.5rem; border-radius:1rem; display:inline-block; margin-top:0.1rem;
+    }
+
+    /* ── Stats ── */
+    .day-stats {
+        display:flex; gap:0.35rem; padding:0.45rem 0.65rem;
+        flex-wrap:wrap; border-bottom:1px dashed #e2e8f0;
+    }
+    .stat-chip {
+        background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
+        border:1.5px solid #7dd3fc; border-radius:1rem;
+        padding:0.18rem 0.55rem;
+        display:flex; align-items:center; gap:0.2rem;
+        font-size:0.68rem; font-weight:800; color:#0369a1; white-space:nowrap;
+    }
+
+    /* ══════════════════════════════════
+       SESIÓN — TARJETA COMPACTA
+    ══════════════════════════════════ */
+    .sessions-list {
+        padding:0.4rem 0.45rem 0.6rem;
+        display:flex; flex-direction:column; gap:0.3rem;
+    }
+
+    .session-card {
+        background:white;
+        border-radius:0.7rem;
+        box-shadow:0 1px 5px rgba(0,0,0,0.07);
+        border-left:4px solid var(--accent,#6BCB77);
+        display:flex; align-items:center; gap:0.5rem;
+        padding:0.38rem 0.55rem 0.38rem 0.5rem;
+        transition:transform 0.15s, box-shadow 0.15s;
+        animation:slideIn 0.3s ease-out backwards;
+    }
+    .session-card:active { transform:scale(0.99); }
+    @keyframes slideIn {
+        from{opacity:0;transform:translateX(-8px)}
+        to{opacity:1;transform:translateX(0)}
+    }
+
+    /* Acento por colores */
+    .ac0{--accent:#FF6B6B} .ac1{--accent:#FFD93D} .ac2{--accent:#6BCB77}
+    .ac3{--accent:#4D96FF} .ac4{--accent:#C77DFF} .ac5{--accent:#FF9F1C}
+    .ac6{--accent:#2EC4B6} .ac7{--accent:#E84393} .ac8{--accent:#A7C957}
+    .ac9{--accent:#FF6B6B}
+
+    /* ── Hora ── */
+    .sc-time {
+        display:flex; flex-direction:column; align-items:center;
+        min-width:40px; flex-shrink:0;
+    }
+    .sc-h1 { font-family:'Fredoka One',cursive; font-size:0.95rem; color:#1d4ed8; line-height:1; }
+    .sc-h2 { font-size:0.6rem; color:#94a3b8; font-weight:700; }
+    .sc-dur {
+        font-size:0.55rem; background:#fef3c7; color:#92400e;
+        font-weight:800; padding:0.05rem 0.28rem; border-radius:0.4rem; margin-top:0.08rem;
+    }
+
+    /* ── Info central ── */
+    .sc-info { flex:1; min-width:0; }
+    .sc-pac {
+        font-weight:800; font-size:0.8rem; color:#1e1b4b;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .sc-svc {
+        font-size:0.65rem; color:#5b21b6; font-weight:700;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .sc-pro {
+        font-size:0.62rem; color:#0f766e; font-weight:600;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    /* ── Avatar ── */
+    .sc-av {
+        width:28px; height:28px; border-radius:50%;
+        background:linear-gradient(135deg,#a78bfa,#7c3aed);
+        color:white; display:flex; align-items:center; justify-content:center;
+        font-size:0.62rem; font-weight:900; flex-shrink:0;
+    }
+
+    /* ── Vacío ── */
+    .empty-state { text-align:center; padding:2rem 1rem; }
+    .empty-emoji { font-size:3rem; display:block; margin-bottom:0.6rem; animation:bounce 2s ease-in-out infinite; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    .empty-title { font-family:'Fredoka One',cursive; font-size:1.2rem; color:#7c3aed; }
+    .empty-sub { color:#94a3b8; font-size:0.78rem; font-weight:600; margin-top:0.3rem; }
+
+    /* ── Footer ── */
+    .kids-footer {
+        padding:0.45rem; background:linear-gradient(135deg,#f5f3ff,#ede9fe);
+        border-top:1.5px dashed #c4b5fd;
+        display:flex; align-items:center; justify-content:center;
+        gap:0.35rem; font-size:0.65rem; font-weight:700; color:#7c3aed;
+    }
+
+    /* ══════════════════════════════════
+       TABLET / DESKTOP ≥640px
+       Agrega columnas separadas
+    ══════════════════════════════════ */
+    @media (min-width: 640px) {
+        .kids-page { padding:1rem 1rem 3rem; }
+        .day-title h1 { font-size:1.2rem; }
+        .day-nav-btn { width:40px; height:40px; font-size:1.1rem; }
+        .day-header { padding:0.85rem 1.4rem; }
+
+        .session-card {
+            display:grid;
+            grid-template-columns: 50px 1fr 140px 160px 30px;
+            align-items:center; gap:0.65rem;
+            padding:0.42rem 0.85rem;
+        }
+        /* En desktop ocultar las líneas secundarias dentro de sc-info
+           ya que servicio y profesional son columnas propias */
+        .sc-info .sc-svc,
+        .sc-info .sc-pro { display:none; }
+
+        /* Servicio y profesional pasan a ser columnas independientes */
+        .sc-svc-col, .sc-pro-col { display:flex; align-items:center; }
+        .sc-svc-col { font-size:0.72rem; color:#5b21b6; font-weight:700; }
+        .sc-pro-col { font-size:0.68rem; color:#0f766e; font-weight:600; gap:0.2rem; }
+
+        .col-header {
+            display:grid;
+            grid-template-columns:50px 1fr 140px 160px 30px;
+            gap:0.65rem; padding:0.3rem 0.85rem;
+            font-family:'Fredoka One',cursive; font-size:0.72rem;
+            color:#7c3aed; text-transform:uppercase; letter-spacing:0.04em;
+            border-bottom:2px dashed #ddd6fe; margin-bottom:0.2rem;
+        }
+    }
+    @media (max-width: 639px) {
+        .sc-svc-col, .sc-pro-col, .col-header { display:none; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="bubbles-container" aria-hidden="true">
+    <div class="bubble" style="width:65px;height:65px;background:#FF6B6B;left:5%;animation-duration:14s;animation-delay:0s;"></div>
+    <div class="bubble" style="width:42px;height:42px;background:#FFD93D;left:23%;animation-duration:10s;animation-delay:2s;"></div>
+    <div class="bubble" style="width:80px;height:80px;background:#6BCB77;left:44%;animation-duration:17s;animation-delay:1s;"></div>
+    <div class="bubble" style="width:50px;height:50px;background:#4D96FF;left:62%;animation-duration:12s;animation-delay:3s;"></div>
+    <div class="bubble" style="width:70px;height:70px;background:#C77DFF;left:80%;animation-duration:13s;animation-delay:5s;"></div>
+    <div class="bubble" style="width:38px;height:38px;background:#2EC4B6;left:90%;animation-duration:9s;animation-delay:7s;"></div>
+</div>
+
+<div class="kids-page">
+<div class="kids-card max-w-4xl mx-auto">
+
+    <!-- HEADER -->
+    <div class="day-header">
+        <a href="?fecha={{ fecha_anterior }}" class="day-nav-btn" title="Anterior">←</a>
+        <div class="day-title">
+            <h1>🌈 {{ fecha_display }}</h1>
+            <div class="day-sub">{{ sucursal_nombre }}</div>
+            {% if es_hoy %}<span class="today-badge">⭐ Hoy</span>{% endif %}
+        </div>
+        <a href="?fecha={{ fecha_siguiente }}" class="day-nav-btn" title="Siguiente">→</a>
+    </div>
+
+    <!-- STATS -->
+    <div class="day-stats">
+        <div class="stat-chip">🗓️ {{ total_sesiones }} sesión{{ total_sesiones|pluralize:"es" }}</div>
+        <div class="stat-chip" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac;color:#166534;">
+            ⏱️ {{ total_minutos }} min
+        </div>
+        <div class="stat-chip" style="background:linear-gradient(135deg,#fdf4ff,#fae8ff);border-color:#e879f9;color:#701a75;">
+            👨‍⚕️ {{ total_profesionales }} prof.
+        </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="sessions-list">
+        {% if sesiones %}
+
+        <!-- Encabezado desktop -->
+        <div class="col-header">
+            <span>🕐 Hora</span>
+            <span>👦 Paciente</span>
+            <span>🧩 Servicio</span>
+            <span>🩺 Profesional</span>
+            <span></span>
+        </div>
+
+        {% for sesion in sesiones %}
+        {% cycle 'ac0' 'ac1' 'ac2' 'ac3' 'ac4' 'ac5' 'ac6' 'ac7' 'ac8' 'ac9' as accent silent %}
+        <div class="session-card {{ accent }}" style="animation-delay:{{ forloop.counter0 }}0ms;">
+
+            <!-- HORA -->
+            <div class="sc-time">
+                <span class="sc-h1">{{ sesion.hora_inicio|time:"H:i" }}</span>
+                <span class="sc-h2">{{ sesion.hora_fin|time:"H:i" }}</span>
+                <span class="sc-dur">{{ sesion.duracion_minutos }}m</span>
+            </div>
+
+            <!-- PACIENTE (+ servicio/prof en móvil) -->
+            <div class="sc-info">
+                <div class="sc-pac">{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}</div>
+                <div class="sc-svc">{{ sesion.servicio.nombre }}</div>
+                <div class="sc-pro">🩺 {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</div>
+            </div>
+
+            <!-- SERVICIO columna desktop -->
+            <div class="sc-svc-col">{{ sesion.servicio.nombre }}</div>
+
+            <!-- PROFESIONAL columna desktop -->
+            <div class="sc-pro-col">
+                <span>🩺</span>
+                {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+            </div>
+
+            <!-- AVATAR -->
+            <div class="sc-av">
+                {{ sesion.paciente.nombre|slice:":1"|upper }}{{ sesion.paciente.apellido|slice:":1"|upper }}
+            </div>
+
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-emoji">🌙</span>
+            <div class="empty-title">¡Sin sesiones!</div>
+            <p class="empty-sub">No hay sesiones en <strong>{{ fecha_display }}</strong></p>
+            <div style="margin-top:0.6rem;font-size:1.4rem;">🌟 ✨ 🎈</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- FOOTER -->
+    <div class="kids-footer">🌈 Solo lectura 🌈</div>
+
+</div>
+</div>
+{% endblock %}
