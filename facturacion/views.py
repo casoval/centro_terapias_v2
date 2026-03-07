@@ -347,8 +347,20 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             
             total_pagado = total_pagado_bruto - total_devuelto
             
-            # --------------------------------------------------
-            # TOTAL CONSUMIDO del período
+            # 🆕 Profesionales externos en el período
+            from servicios.models import ComisionSesion
+            comisiones_qs = ComisionSesion.objects.filter(
+                sesion__paciente_id__in=paciente_ids,
+                sesion__estado__in=['realizada', 'realizada_retraso'],
+            )
+            if fecha_desde:
+                comisiones_qs = comisiones_qs.filter(sesion__fecha__gte=fecha_desde)
+            if fecha_hasta:
+                comisiones_qs = comisiones_qs.filter(sesion__fecha__lte=fecha_hasta)
+            total_profesionales_periodo = (
+                comisiones_qs.aggregate(t=Sum('monto_profesional'))['t'] or Decimal('0')
+            )
+            ingreso_neto_centro_periodo = total_pagado - total_profesionales_periodo
             # Igual que AccountService.total_consumido_actual:
             #   sesiones normales realizadas  (proyecto=None, mensualidad=None)
             # + costo de mensualidades del período
@@ -466,6 +478,9 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
                 'total_debe_proyeccion': total_debe,
                 'total_favor_proyeccion': total_favor,
                 'filtro_fechas_activo': True,
+                # 🆕
+                'total_profesionales': total_profesionales_periodo,
+                'ingreso_neto_centro': ingreso_neto_centro_periodo,
             }
         
         # ====================================================
@@ -476,11 +491,16 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
         estadisticas_actual = cuentas_activas.aggregate(
             total_consumido=Sum('total_consumido_actual'),
             total_pagado=Sum('total_pagado'),
-            total_balance=Sum('saldo_actual')
+            total_balance=Sum('saldo_actual'),
+            # 🆕
+            total_profesionales=Sum('total_profesionales'),
         )
-        total_consumido = estadisticas_actual['total_consumido'] or Decimal('0.00')
-        total_pagado    = estadisticas_actual['total_pagado']    or Decimal('0.00')
-        total_balance   = estadisticas_actual['total_balance']   or Decimal('0.00')
+        total_consumido     = estadisticas_actual['total_consumido']     or Decimal('0.00')
+        total_pagado        = estadisticas_actual['total_pagado']        or Decimal('0.00')
+        total_balance       = estadisticas_actual['total_balance']       or Decimal('0.00')
+        total_profesionales = estadisticas_actual['total_profesionales'] or Decimal('0.00')
+        # Calcular aquí, no desde BD, para que cuadre con los totales globales
+        ingreso_neto_centro = total_pagado - total_profesionales
         
         estadisticas_proyeccion = cuentas_activas.aggregate(
             total_proyectado=Sum('total_consumido_real'),
@@ -522,6 +542,9 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             'total_debe_proyeccion': total_debe_proyeccion,
             'total_favor_proyeccion': total_favor_proyeccion,
             'filtro_fechas_activo': False,
+            # 🆕
+            'total_profesionales': total_profesionales,
+            'ingreso_neto_centro': ingreso_neto_centro,
         }
         
     except Exception as e:
@@ -682,6 +705,10 @@ def cargar_estadisticas_ajax(request):
                 'a_favor_proyeccion': estadisticas['a_favor_proyeccion'],
                 'total_debe_proyeccion': float(estadisticas['total_debe_proyeccion']),
                 'total_favor_proyeccion': float(estadisticas['total_favor_proyeccion']),
+
+                # 🆕 Profesionales externos
+                'total_profesionales': float(estadisticas.get('total_profesionales', 0)),
+                'ingreso_neto_centro': float(estadisticas.get('ingreso_neto_centro', 0)),
             }
         })
     except Exception as e:
@@ -1614,6 +1641,9 @@ def detalle_cuenta_corriente(request, paciente_id):
         'suma_total_validos': suma_total_validos,
         'suma_pagos_validos': suma_pagos_validos,
         'suma_devoluciones': suma_devoluciones,
+        # 🆕 Profesionales externos (desde cuenta pre-calculada)
+        'total_profesionales': cuenta.total_profesionales,
+        'ingreso_neto_centro': cuenta.ingreso_neto_centro,
         'suma_total_credito': suma_total_credito,
         'suma_total_anulados': suma_total_anulados,
         # Filtros de fechas
@@ -1764,6 +1794,17 @@ def registrar_pago(request):
             # pero esta linea lo deja explicito como segunda linea de defensa.
             monto_total = monto_efectivo + (monto_credito if usar_credito else Decimal('0'))
             
+            # 🆕 Leer % de comisión si es servicio externo (el precio = monto_total real)
+            datos_externos = {}
+            porcentaje_centro_ext = request.POST.get('porcentaje_centro')
+            if porcentaje_centro_ext:
+                try:
+                    datos_externos = {
+                        'porcentaje_centro': Decimal(porcentaje_centro_ext),
+                    }
+                except Exception:
+                    datos_externos = {}
+
             # Procesar Pago con Servicio (actualizado para mensualidad)
             resultado = PaymentService.process_payment(
                 user=request.user,
@@ -1777,7 +1818,8 @@ def registrar_pago(request):
                 monto_credito=monto_credito,
                 es_pago_completo=es_pago_completo,
                 observaciones=observaciones,
-                numero_transaccion=numero_transaccion
+                numero_transaccion=numero_transaccion,
+                datos_externos=datos_externos,  # 🆕
             )
             
             # Preparar datos para session (Confirmación)
@@ -2829,6 +2871,15 @@ def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filt
         total_devoluciones = 0
         monto_devoluciones = Decimal('0.00')
 
+    # 🆕 PROFESIONALES EXTERNOS: sesiones vinculadas a los pagos reales
+    from servicios.models import ComisionSesion
+    sesion_ids = pagos_reales.exclude(sesion__isnull=True).values_list('sesion_id', flat=True)
+    monto_profesionales = (
+        ComisionSesion.objects
+        .filter(sesion_id__in=sesion_ids)
+        .aggregate(t=Sum('monto_profesional'))['t'] or Decimal('0.00')
+    )
+
     return {
         # Contadores generales
         'total_pagos': total_pagos_all,
@@ -2855,6 +2906,9 @@ def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filt
 
         # Desglose
         'desglose_metodos': list(desglose_metodos),
+
+        # 🆕 Profesionales externos
+        'monto_profesionales': monto_profesionales,
     }
 
 
@@ -2953,6 +3007,8 @@ def cargar_estadisticas_pagos_ajax(request):
             'total_pagos_validos':  s['total_pagos_reales'],
             'promedio_transaccion': float(s['promedio_transaccion']),
             'total_metodos':        s['total_metodos'],
+            # 🆕
+            'monto_profesionales':  float(s.get('monto_profesionales', 0)),
             'desglose_metodos': [
                 {
                     'metodo':   item['metodo_pago__nombre'],
@@ -4522,6 +4578,25 @@ def reporte_financiero(request):
     total_devoluciones = devoluciones.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
     total_anulaciones = pagos_anulados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
 
+    # 🆕 PROFESIONALES EXTERNOS
+    from servicios.models import ComisionSesion
+    total_profesionales = ComisionSesion.objects.filter(
+        sesion__fecha__gte=fecha_desde_obj,
+        sesion__fecha__lte=fecha_hasta_obj,
+        sesion__estado__in=['realizada', 'realizada_retraso'],
+    ).aggregate(
+        total=Coalesce(Sum('monto_profesional'), Decimal('0.00'))
+    )['total']
+    if sucursal_id:
+        total_profesionales = ComisionSesion.objects.filter(
+            sesion__fecha__gte=fecha_desde_obj,
+            sesion__fecha__lte=fecha_hasta_obj,
+            sesion__estado__in=['realizada', 'realizada_retraso'],
+            sesion__sucursal_id=sucursal_id,
+        ).aggregate(
+            total=Coalesce(Sum('monto_profesional'), Decimal('0.00'))
+        )['total']
+
     devoluciones_por_metodo = devoluciones.values('metodo_devolucion__nombre').annotate(
         cantidad=Count('id'),
         monto=Sum('monto')
@@ -4548,6 +4623,8 @@ def reporte_financiero(request):
         .aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     )
     total_cobrado_neto = total_cobrado_bruto - total_devoluciones
+    # 🆕 Ingreso neto real del centro (después de profesionales y devoluciones)
+    ingreso_neto_centro = total_cobrado_neto - total_profesionales
 
     # Por Cobrar Real = Total Ingresos Real - Recaudado Neto
     total_pendiente_real = max(total_generado_real - total_cobrado_neto, Decimal('0.00'))
@@ -4566,6 +4643,9 @@ def reporte_financiero(request):
         'total_cobrado_neto': total_cobrado_neto,
         'total_devoluciones': total_devoluciones,
         'total_anulaciones': total_anulaciones,
+        # 🆕 Profesionales externos
+        'total_profesionales': total_profesionales,
+        'ingreso_neto_centro': ingreso_neto_centro,
         'total_pendiente': total_pendiente_real,
         'total_pendiente_proyectado': total_pendiente_proyectado,
         # Sub-stats por categoría
@@ -5089,6 +5169,7 @@ def api_detalle_sesion(request, sesion_id):
     """
     API: Obtener detalles completos de una sesión (para modal)
     ✅ ACTUALIZADO: Incluye pagos masivos
+    🆕 ACTUALIZADO: Incluye datos de servicio externo para comisión
     """
     from agenda.models import Sesion
     
@@ -5115,11 +5196,31 @@ def api_detalle_sesion(request, sesion_id):
     ).prefetch_related(
         'pago__detalles_masivos'  # Para poder usar pago.cantidad_detalles
     )
+
+    # 🆕 Datos para comisión de servicio externo
+    tipo_servicio = sesion.servicio
+    es_externo = getattr(tipo_servicio, 'es_servicio_externo', False) if tipo_servicio else False
+    tiene_comision = hasattr(sesion, 'comision')
+
+    extra_context = {
+        'es_servicio_externo': es_externo,
+        'precio_cobrado': (
+            str(sesion.comision.precio_cobrado)
+            if tiene_comision
+            else str(tipo_servicio.costo_base if tipo_servicio else '')
+        ),
+        'porcentaje_centro': (
+            str(sesion.comision.porcentaje_centro)
+            if tiene_comision
+            else str(getattr(tipo_servicio, 'porcentaje_centro', '') or '')
+        ),
+    }
     
     return render(request, 'facturacion/partials/detalle_sesion.html', {
         'sesion': sesion,
         'pagos': pagos,
-        'pagos_masivos': pagos_masivos,  # ✅ Nueva variable
+        'pagos_masivos': pagos_masivos,
+        **extra_context,  # 🆕
     })
 
 

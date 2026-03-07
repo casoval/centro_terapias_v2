@@ -137,6 +137,10 @@ class CuentaCorrienteAdmin(admin.ModelAdmin):
         'total_devoluciones',
         'total_pagado',
         
+        # 🆕 Profesionales externos
+        'total_profesionales',
+        'ingreso_neto_centro',
+        
         # Saldos
         'saldo_real',
         'saldo_actual',
@@ -182,6 +186,13 @@ class CuentaCorrienteAdmin(admin.ModelAdmin):
                 'total_pagado',
             ),
             'classes': ('collapse',)
+        }),
+        # 🆕 Profesionales externos
+        ('Distribución de Ingresos', {
+            'fields': (
+                'total_profesionales',
+                'ingreso_neto_centro',
+            ),
         }),
         ('Desglose Crédito Disponible (Validación)', {
             'fields': (

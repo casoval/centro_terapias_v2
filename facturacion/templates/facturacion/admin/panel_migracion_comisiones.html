@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Panel — Migración de Comisiones Externas{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-3 py-4">
+
+    <!-- Encabezado -->
+    <div class="bg-gradient-to-r from-emerald-600 to-green-700 rounded-2xl p-4 mb-4 shadow-lg">
+        <div class="flex items-center gap-3">
+            <span class="text-3xl">👤</span>
+            <div>
+                <h1 class="text-lg font-black text-white">Migración de Comisiones — Profesional Externo</h1>
+                <p class="text-emerald-100 text-xs mt-0.5">
+                    Asigna distribución centro/profesional a sesiones históricas ya pagadas.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ RESULTADO DE LA MIGRACIÓN -->
+    {% if resultado %}
+        {% if resultado.ok %}
+        <div class="bg-emerald-50 border-2 border-emerald-400 rounded-xl p-4 mb-4">
+            <h2 class="text-sm font-black text-emerald-800 mb-3 flex items-center gap-2">
+                ✅ Migración completada — {{ resultado.servicio }}
+            </h2>
+            <div class="grid grid-cols-3 gap-3 mb-3">
+                <div class="bg-white border border-emerald-200 rounded-lg p-2.5 text-center">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Comisiones creadas</p>
+                    <p class="text-2xl font-black text-emerald-700">{{ resultado.creadas }}</p>
+                </div>
+                <div class="bg-white border border-emerald-200 rounded-lg p-2.5 text-center">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-0.5">% aplicado</p>
+                    <p class="text-2xl font-black text-emerald-700">{{ resultado.porcentaje }}%</p>
+                </div>
+                <div class="bg-white border border-emerald-200 rounded-lg p-2.5 text-center">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Cuentas recalculadas</p>
+                    <p class="text-2xl font-black text-blue-700">{{ resultado.recalculados }}</p>
+                </div>
+            </div>
+
+            {% if resultado.sin_pago_ids %}
+            <div class="bg-amber-50 border border-amber-300 rounded-lg p-2.5 mb-3">
+                <p class="text-[10px] font-bold text-amber-700 uppercase mb-1">
+                    ⚠️ {{ resultado.sin_pago_ids|length }} sesión(es) sin pago registrado — se usó monto_cobrado como referencia
+                </p>
+                <p class="text-[10px] text-amber-600">IDs: {{ resultado.sin_pago_ids|join:", " }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Detalle por sesión -->
+            {% if resultado.detalles %}
+            <div class="bg-white border border-emerald-200 rounded-lg overflow-hidden">
+                <div class="bg-emerald-100 px-3 py-1.5">
+                    <p class="text-[10px] font-bold text-emerald-800 uppercase">Detalle por sesión</p>
+                </div>
+                <div class="overflow-x-auto max-h-64 overflow-y-auto">
+                    <table class="min-w-full text-xs">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase">ID</th>
+                                <th class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase">Paciente</th>
+                                <th class="px-3 py-1.5 text-left text-[10px] font-bold text-gray-600 uppercase">Fecha</th>
+                                <th class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-600 uppercase">Cobrado</th>
+                                <th class="px-3 py-1.5 text-right text-[10px] font-bold text-emerald-700 uppercase">Centro</th>
+                                <th class="px-3 py-1.5 text-right text-[10px] font-bold text-gray-600 uppercase">Profesional</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for d in resultado.detalles %}
+                            <tr class="{% if d.ok %}hover:bg-emerald-50{% else %}bg-red-50{% endif %}">
+                                <td class="px-3 py-1 text-gray-500">#{{ d.sesion_id }}</td>
+                                <td class="px-3 py-1 font-medium text-gray-900">{{ d.paciente }}</td>
+                                <td class="px-3 py-1 text-gray-600">{{ d.fecha }}</td>
+                                {% if d.ok %}
+                                <td class="px-3 py-1 text-right font-bold text-gray-800">Bs. {{ d.precio }}</td>
+                                <td class="px-3 py-1 text-right font-bold text-emerald-700">Bs. {{ d.monto_centro }}</td>
+                                <td class="px-3 py-1 text-right font-bold text-gray-600">Bs. {{ d.monto_prof }}</td>
+                                {% else %}
+                                <td colspan="3" class="px-3 py-1 text-right text-red-600 font-bold">❌ {{ d.error }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <div class="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-4">
+            <h2 class="text-sm font-black text-red-800 mb-2">❌ Error en la migración</h2>
+            {% for error in resultado.errores %}
+            <p class="text-xs text-red-700 mb-1">• {{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endif %}
+
+    <!-- DIAGNÓSTICO -->
+    <div class="bg-white border-2 border-gray-200 rounded-xl p-4 mb-4">
+        <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            📋 Diagnóstico — Servicios Externos
+        </h2>
+
+        {% if diagnostico %}
+        <div class="space-y-2">
+            {% for d in diagnostico %}
+            <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-3 py-2 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 rounded-full" style="background-color: {{ d.servicio.color|default:'#6b7280' }}"></span>
+                        <span class="font-bold text-sm text-gray-800">{{ d.servicio.nombre }}</span>
+                        <span class="text-[10px] text-gray-500">— {{ d.servicio.porcentaje_centro }}% centro</span>
+                    </div>
+                    <span class="text-[10px] font-bold {% if d.sin_comision > 0 %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                        {% if d.sin_comision > 0 %}
+                            ⚠️ {{ d.sin_comision }} pendiente{{ d.sin_comision|pluralize }}
+                        {% else %}
+                            ✅ Todo migrado
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="grid grid-cols-4 divide-x text-center text-[10px]">
+                    <div class="p-2">
+                        <p class="text-gray-400 uppercase font-bold mb-0.5">Total sesiones</p>
+                        <p class="font-black text-gray-800 text-sm">{{ d.total }}</p>
+                    </div>
+                    <div class="p-2 bg-emerald-50">
+                        <p class="text-emerald-600 uppercase font-bold mb-0.5">✅ Con comisión</p>
+                        <p class="font-black text-emerald-700 text-sm">{{ d.con_comision }}</p>
+                    </div>
+                    <div class="p-2 {% if d.sin_comision > 0 %}bg-amber-50{% endif %}">
+                        <p class="text-amber-600 uppercase font-bold mb-0.5">⚠️ Sin comisión</p>
+                        <p class="font-black text-amber-700 text-sm">{{ d.sin_comision }}</p>
+                    </div>
+                    <div class="p-2">
+                        <p class="text-gray-400 uppercase font-bold mb-0.5">Con pago</p>
+                        <p class="font-black text-gray-700 text-sm">{{ d.con_pago }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+            <p class="text-sm text-amber-700 font-bold">⚠️ No hay servicios marcados como externos aún.</p>
+            <p class="text-xs text-amber-600 mt-1">
+                Ve a <strong>Servicios → Editar servicio</strong> y marca "Es servicio externo" con el % del centro.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- FORMULARIO DE MIGRACIÓN -->
+    {% if servicios_externos %}
+    <div class="bg-white border-2 border-emerald-300 rounded-xl p-4">
+        <h2 class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            🚀 Ejecutar Migración
+        </h2>
+        <p class="text-xs text-gray-600 mb-4">
+            Esto crea las <strong>ComisionSesion</strong> para todas las sesiones realizadas que aún no tienen distribución registrada.
+            No modifica los pagos existentes.
+        </p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="space-y-4">
+
+                <!-- Servicio -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                        Servicio a migrar
+                    </label>
+                    <select name="servicio_id" id="select-servicio" required
+                        onchange="preLlenarPorcentaje(this)"
+                        class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
+                        <option value="">— Selecciona un servicio —</option>
+                        {% for srv in servicios_externos %}
+                        <option value="{{ srv.id }}" data-pct="{{ srv.porcentaje_centro }}">
+                            {{ srv.nombre }} (% predeterminado: {{ srv.porcentaje_centro }}%)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Porcentaje -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                        % que retiene el centro
+                    </label>
+                    <input type="number" name="porcentaje" id="input-porcentaje" step="0.01" min="1" max="100"
+                        placeholder="Se completa al seleccionar el servicio"
+                        class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
+                        required>
+                    <p class="text-[10px] text-gray-500 mt-1">
+                        Pre-llenado con el % del servicio. Cámbialo solo si quieres aplicar un % diferente para esta migración.
+                    </p>
+                </div>
+
+                <script>
+                function preLlenarPorcentaje(select) {
+                    const opt = select.options[select.selectedIndex];
+                    const pct = opt.getAttribute('data-pct');
+                    if (pct) document.getElementById('input-porcentaje').value = pct;
+                }
+                window.addEventListener('load', function() {
+                    setTimeout(function() {
+                        const select = document.getElementById('select-servicio');
+                        if (select) preLlenarPorcentaje(select);
+                    }, 100);
+                });
+                </script>
+
+                <!-- Opciones -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" name="usar_pago" value="si" checked
+                                class="mt-0.5 rounded text-emerald-600">
+                            <div>
+                                <p class="text-xs font-bold text-gray-800">Usar monto del pago real</p>
+                                <p class="text-[10px] text-gray-500 mt-0.5">
+                                    Recomendado. Usa el monto que realmente pagó el paciente. Si no tiene pago, usa monto_cobrado de la sesión.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" name="recalcular" value="si" checked
+                                class="mt-0.5 rounded text-emerald-600">
+                            <div>
+                                <p class="text-xs font-bold text-gray-800">Recalcular cuentas corrientes</p>
+                                <p class="text-[10px] text-gray-500 mt-0.5">
+                                    Actualiza total_profesionales e ingreso_neto_centro en las cuentas de los pacientes afectados.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Advertencia -->
+                <div class="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                    <p class="text-[10px] text-amber-700 font-bold uppercase mb-1">⚠️ Antes de ejecutar</p>
+                    <ul class="text-[10px] text-amber-700 space-y-0.5 list-disc list-inside">
+                        <li>Solo afecta sesiones <strong>sin distribución registrada</strong> — no sobreescribe nada existente.</li>
+                        <li>Los pagos del paciente <strong>no se modifican</strong>.</li>
+                        <li>Puedes ejecutarlo múltiples veces de forma segura.</li>
+                        <li>Si algo sale mal, borra las ComisionSesion desde el admin de Django y vuelve a ejecutar.</li>
+                    </ul>
+                </div>
+
+                <button type="submit"
+                    onclick="return confirm('¿Confirmas la migración? Se crearán las comisiones para todas las sesiones pendientes del servicio seleccionado.')"
+                    class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-black py-3 px-4 rounded-xl text-sm shadow-lg transition-all">
+                    🚀 Ejecutar Migración
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -425,6 +425,24 @@ class AccountService:
         #    - pagos_sesiones (incluye sesiones programadas)
         #    - pagos_proyectos (incluye proyectos planificados)
         #    Solo sumamos pagos_sin_asignar (lo que NO está en las anteriores)
+
+        # ========================================
+        # 🆕 3.6 PROFESIONALES EXTERNOS
+        # ========================================
+        # Similar a devoluciones: se resta del total para obtener el ingreso real del centro.
+        # Usa el campo monto_profesional guardado en BD (no @property) para poder hacer Sum.
+        from servicios.models import ComisionSesion
+        total_profesionales = ComisionSesion.objects.filter(
+            sesion__paciente=paciente,
+            sesion__estado__in=['realizada', 'realizada_retraso'],
+        ).aggregate(
+            total=Coalesce(Sum('monto_profesional'), Decimal('0'))
+        )['total']
+
+        cuenta.total_profesionales = total_profesionales
+
+        # Ingreso neto del centro = Total pagado - Devoluciones - Profesionales
+        cuenta.ingreso_neto_centro = cuenta.total_pagado - total_profesionales
         
         # ========================================
         # 4. CALCULAR SALDOS
@@ -465,6 +483,8 @@ class AccountService:
             f"💰 Cuenta actualizada para {paciente}:\n"
             f"   Consumido Actual: Bs.{cuenta.total_consumido_actual}\n"
             f"   Total Pagado: Bs.{cuenta.total_pagado}\n"
+            f"   Profesionales: Bs.{cuenta.total_profesionales}\n"
+            f"   Ingreso Neto Centro: Bs.{cuenta.ingreso_neto_centro}\n"
             f"   Saldo Actual: Bs.{cuenta.saldo_actual}\n"
             f"   Crédito Disponible: Bs.{cuenta.pagos_adelantados}"
         )
@@ -512,7 +532,8 @@ class AccountService:
     @transaction.atomic
     def process_payment(user, paciente, monto_total, metodo_pago_id, fecha_pago,
                        tipo_pago, referencia_id=None, usar_credito=False,
-                       monto_credito=0, es_pago_completo=False, observaciones='', numero_transaccion=''):
+                       monto_credito=0, es_pago_completo=False, observaciones='', numero_transaccion='',
+                       datos_externos=None):
         """
         Procesa un pago (efectivo + opcional crédito) para sesión/proyecto/mensualidad/adelantado
         
@@ -743,7 +764,26 @@ class AccountService:
         
         # 4. Actualizar cuenta corriente
         AccountService.update_balance(paciente)
-        
+
+        # 🆕 5. Registrar comisión si es sesión de servicio externo (solo informativo)
+        # ⚠️ Este bloque NO afecta pagos, créditos ni cuenta corriente.
+        # Solo guarda el desglose centro/profesional para reportes internos.
+        if sesion and sesion.servicio.es_servicio_externo:
+            from servicios.models import ComisionSesion
+            datos_externos = datos_externos or {}
+            # El precio cobrado ES el monto real del pago (lo que manda)
+            precio_real = monto_total
+            # El % puede venir del formulario; si no, usar el predeterminado del servicio
+            porcentaje_real = datos_externos.get('porcentaje_centro') or sesion.servicio.porcentaje_centro
+            if precio_real and porcentaje_real:
+                ComisionSesion.objects.update_or_create(
+                    sesion=sesion,
+                    defaults={
+                        'precio_cobrado': precio_real,
+                        'porcentaje_centro': porcentaje_real,
+                    }
+                )
+
         # ✅ Mensaje personalizado según el monto
         if monto_total == 0:
             mensaje = "Sesión registrada sin cobro (beca/cortesía/razón social)"
@@ -931,7 +971,8 @@ class PaymentService:
     @transaction.atomic
     def process_payment(user, paciente, monto_total, metodo_pago_id, fecha_pago,
                        tipo_pago, referencia_id=None, usar_credito=False,
-                       monto_credito=0, es_pago_completo=False, observaciones='', numero_transaccion=''):
+                       monto_credito=0, es_pago_completo=False, observaciones='', numero_transaccion='',
+                       datos_externos=None):
         """
         Procesa un pago - delega a AccountService para evitar duplicación
         """
@@ -947,7 +988,8 @@ class PaymentService:
             monto_credito=monto_credito,
             es_pago_completo=es_pago_completo,
             observaciones=observaciones,
-            numero_transaccion=numero_transaccion
+            numero_transaccion=numero_transaccion,
+            datos_externos=datos_externos,
         )
     
     @staticmethod

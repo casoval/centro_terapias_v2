@@ -307,6 +307,23 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- 🆕 INGRESO NETO CENTRO (solo si hay comisiones) -->
+            {% if paciente.cuenta_corriente.total_profesionales > 0 %}
+            <div class="bg-orange-50 border border-orange-200 rounded-lg p-2 mb-1.5">
+                <p class="text-[8px] text-orange-600 font-bold uppercase mb-1">👤 Distribución Externo</p>
+                <div class="grid grid-cols-2 gap-1 text-center text-[9px]">
+                    <div>
+                        <p class="text-gray-500">Al profesional</p>
+                        <p class="font-bold text-gray-700">Bs. {{ paciente.cuenta_corriente.total_profesionales|floatformat:0 }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Ingreso neto</p>
+                        <p class="font-bold text-orange-700">Bs. {{ paciente.cuenta_corriente.ingreso_neto_centro|floatformat:0 }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             
             {% if paciente.estado == 'inactivo' %}
                 <div class="flex gap-1.5">
@@ -350,6 +367,9 @@
                         </th>
                         <th rowspan="2" class="px-2 py-2 text-center font-bold text-green-700 uppercase tracking-wider bg-green-50 border-r-2 border-gray-300">
                             💰 Crédito
+                        </th>
+                        <th rowspan="2" class="px-2 py-2 text-center font-bold text-orange-600 uppercase tracking-wider bg-orange-50 border-r-2 border-gray-300">
+                            👤 Neto Centro
                         </th>
                         <th rowspan="2" class="px-2 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">
                             Acciones
@@ -438,6 +458,16 @@
                             {% endif %}
                         </td>
                         
+                        <!-- 🆕 INGRESO NETO CENTRO -->
+                        <td class="px-2 py-2 text-center bg-orange-50/30 border-r-2 border-gray-200">
+                            {% if paciente.cuenta_corriente.total_profesionales > 0 %}
+                                <span class="font-black text-orange-700">Bs. {{ paciente.cuenta_corriente.ingreso_neto_centro|floatformat:0 }}</span>
+                                <span class="block text-[9px] text-orange-500 font-bold">NETO</span>
+                            {% else %}
+                                <span class="text-gray-400 text-[10px]">—</span>
+                            {% endif %}
+                        </td>
+
                         <!-- Acciones -->
                         <td class="px-2 py-2 text-center">
                             {% if paciente.estado == 'inactivo' %}
@@ -571,6 +601,10 @@ function cargarEstadisticas() {
                 const pctAFavor = totalPacientes > 0 ? (stats.a_favor / totalPacientes * 100) : 0;
                 const pctAlDia = totalPacientes > 0 ? (stats.al_dia / totalPacientes * 100) : 0;
                 
+                // 🆕 Profesionales externos
+                const totalProfesionales = stats.total_profesionales || 0;
+                const ingresoNetoCentro  = stats.ingreso_neto_centro  || 0;
+                
                 // ✅ Calcular porcentajes PROYECCIÓN TOTAL
                 const pctDeudoresProyeccion = totalPacientes > 0 ? (stats.deudores_proyeccion / totalPacientes * 100) : 0;
                 const pctAFavorProyeccion = totalPacientes > 0 ? (stats.a_favor_proyeccion / totalPacientes * 100) : 0;
@@ -586,6 +620,29 @@ function cargarEstadisticas() {
                          📊 ESTADO ACTUAL / PERÍODO
                          ======================================== -->
                     <div class="mb-3">
+
+                        <!-- 🆕 Distribución profesionales externos — PRIMERO (solo si hay) -->
+                        ${totalProfesionales > 0 ? `
+                        <div class="bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 rounded-xl p-2.5 sm:p-3 mb-2 shadow-md border border-emerald-400">
+                            <p class="text-[9px] sm:text-[10px] text-white/90 font-bold uppercase mb-2 flex items-center gap-1.5 tracking-wider">
+                                <span>👤</span> Distribución — Profesional Externo
+                            </p>
+                            <div class="grid grid-cols-3 gap-px bg-emerald-400/40 rounded-lg overflow-hidden">
+                                <div class="bg-white/15 p-2 text-center">
+                                    <p class="text-[8px] text-white/70 uppercase font-bold mb-0.5">Total pagado</p>
+                                    <p class="text-sm sm:text-lg font-black text-white">Bs. ${stats.total_pagado.toLocaleString('es-BO', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                                </div>
+                                <div class="bg-white/10 p-2 text-center">
+                                    <p class="text-[8px] text-emerald-200 uppercase font-bold mb-0.5">Al profesional</p>
+                                    <p class="text-sm sm:text-lg font-black text-emerald-100">− Bs. ${totalProfesionales.toLocaleString('es-BO', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                                </div>
+                                <div class="bg-white/20 p-2 text-center">
+                                    <p class="text-[8px] text-green-200 uppercase font-bold mb-0.5">Neto centro</p>
+                                    <p class="text-sm sm:text-lg font-black text-white">Bs. ${ingresoNetoCentro.toLocaleString('es-BO', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</p>
+                                </div>
+                            </div>
+                        </div>` : ''}
+
                         <h2 class="text-xs sm:text-sm font-bold ${filtroFechasActivo ? 'text-orange-700' : 'text-blue-700'} mb-2 px-1">${tituloEstadActual}</h2>
                         
                         <!-- Estadísticas principales -->

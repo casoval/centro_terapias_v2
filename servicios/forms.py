@@ -1,6 +1,7 @@
 from django import forms
 from .models import TipoServicio, Sucursal
 
+
 class SucursalForm(forms.ModelForm):
     """Formulario para crear/editar sucursales"""
     
@@ -38,14 +39,20 @@ class SucursalForm(forms.ModelForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Teléfono y email son opcionales
         self.fields['telefono'].required = False
         self.fields['email'].required = False
+
 
 class TipoServicioForm(forms.ModelForm):
     class Meta:
         model = TipoServicio
-        fields = ['nombre', 'descripcion', 'duracion_minutos', 'costo_base', 'precio_mensual', 'precio_proyecto', 'color', 'activo']
+        fields = [
+            'nombre', 'descripcion', 'duracion_minutos',
+            'costo_base', 'precio_mensual', 'precio_proyecto',
+            'color', 'activo',
+            # 🆕 Campos nuevos para servicio externo
+            'es_servicio_externo', 'porcentaje_centro',
+        ]
         widgets = {
             'nombre': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',
@@ -87,6 +94,21 @@ class TipoServicioForm(forms.ModelForm):
             'activo': forms.CheckboxInput(attrs={
                 'class': 'w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500'
             }),
+            # 🆕 Widgets para servicio externo
+            'es_servicio_externo': forms.CheckboxInput(attrs={
+                'class': 'w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500',
+                'id': 'id_es_servicio_externo',
+                # Al cambiar el checkbox, mostrar/ocultar el campo de porcentaje
+                'onchange': 'togglePorcentajeCentro(this)',
+            }),
+            'porcentaje_centro': forms.NumberInput(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold',
+                'placeholder': 'Ej: 10.00',
+                'step': '0.01',
+                'min': '0',
+                'max': '100',
+                'id': 'id_porcentaje_centro',
+            }),
         }
         labels = {
             'nombre': 'Nombre del Servicio',
@@ -97,16 +119,35 @@ class TipoServicioForm(forms.ModelForm):
             'precio_proyecto': 'Precio Proyecto/Evaluación (Bs.)',
             'color': 'Color',
             'activo': 'Servicio Activo',
+            # 🆕
+            'es_servicio_externo': 'Servicio de Profesional Externo',
+            'porcentaje_centro': '% que retiene el Centro',
         }
         help_texts = {
             'costo_base': 'Costo base por sesión individual',
             'precio_mensual': 'Precio sugerido para mensualidades (opcional)',
             'precio_proyecto': 'Precio para proyecto o evaluación (opcional)',
             'color': 'Color para identificar en el calendario',
+            # 🆕
+            'es_servicio_externo': 'El profesional cobra su propio precio; el centro retiene solo un porcentaje',
+            'porcentaje_centro': 'Porcentaje del precio que queda en el centro (ej: 10 = 10%). Se puede ajustar al momento del pago.',
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Precio mensual es opcional
         self.fields['precio_mensual'].required = False
         self.fields['precio_proyecto'].required = False
+        # 🆕 El porcentaje solo es obligatorio si es servicio externo (validado en el modelo)
+        self.fields['porcentaje_centro'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        es_externo = cleaned_data.get('es_servicio_externo')
+        porcentaje = cleaned_data.get('porcentaje_centro')
+
+        if es_externo and not porcentaje:
+            self.add_error(
+                'porcentaje_centro',
+                'Debe especificar el porcentaje del centro para servicios externos.'
+            )
+        return cleaned_data

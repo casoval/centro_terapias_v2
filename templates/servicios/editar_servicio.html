@@ -152,6 +152,43 @@
                         <p class="text-xs text-gray-400 mt-1">Para proyectos/evaluación</p>
                     </div>
                 </div>
+
+                <!-- 🆕 PROFESIONAL EXTERNO -->
+                <div class="mt-5 pt-5 border-t border-gray-100">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 text-sm">👤</div>
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-700">Profesional Externo</h3>
+                            <p class="text-[10px] text-gray-400">El profesional cobra su propio precio; el centro retiene un porcentaje</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-bold text-orange-600 uppercase tracking-wide mb-2">{{ form.es_servicio_externo.label }}</label>
+                            <div class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-all h-[46px]">
+                                {{ form.es_servicio_externo }}
+                                <span class="text-sm font-bold text-gray-700">Servicio de profesional externo</span>
+                            </div>
+                        </div>
+                        <div id="campo-porcentaje" class="{% if not servicio.es_servicio_externo %}hidden{% endif %}">
+                            <label class="block text-xs font-bold text-orange-600 uppercase tracking-wide mb-2">{{ form.porcentaje_centro.label }}</label>
+                            {{ form.porcentaje_centro }}
+                            {% if form.porcentaje_centro.errors %}
+                            <p class="text-red-500 text-xs font-bold mt-1">{{ form.porcentaje_centro.errors.0 }}</p>
+                            {% endif %}
+                            <p class="text-xs text-gray-400 mt-1">% que retiene el centro (ej: 10 = 10%)</p>
+                        </div>
+                    </div>
+                    {% if servicio.es_servicio_externo and servicio.porcentaje_centro %}
+                    <div class="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center gap-3">
+                        <span class="text-orange-500 text-lg">ℹ️</span>
+                        <p class="text-xs text-orange-700 font-medium">
+                            El centro retiene el <strong>{{ servicio.porcentaje_centro }}%</strong> de cada sesión.
+                            El profesional recibe el <strong>{% widthratio servicio.porcentaje_centro 1 1 as pct %}{{ 100|add:"-"|add:servicio.porcentaje_centro|floatformat:0 }}%</strong> restante.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
@@ -225,6 +262,19 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Toggle campo porcentaje
+        const checkExterno = document.getElementById('id_es_servicio_externo');
+        const campoPorcentaje = document.getElementById('campo-porcentaje');
+        if (checkExterno && campoPorcentaje) {
+            checkExterno.addEventListener('change', function() {
+                campoPorcentaje.classList.toggle('hidden', !this.checked);
+                if (!this.checked) {
+                    const inp = document.getElementById('id_porcentaje_centro');
+                    if (inp) inp.value = '';
+                }
+            });
+        }
+
         const colorInput = document.getElementById('id_color');
         const colorPreview = document.getElementById('color-preview');
         

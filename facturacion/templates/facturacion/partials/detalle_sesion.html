@@ -74,6 +74,41 @@
         </div>
     </div>
 
+    <!-- 🆕 Distribución profesional externo (si aplica) -->
+    {% if sesion.servicio.es_servicio_externo %}
+    {% with comision=sesion.comision %}
+    <div class="bg-emerald-50 border-2 border-emerald-300 rounded-lg p-2 sm:p-3">
+        <p class="text-[10px] font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+            <span>👤</span> Distribución — Profesional Externo
+        </p>
+        {% if comision %}
+        <div class="grid grid-cols-3 gap-px bg-emerald-200 rounded-lg overflow-hidden mb-2">
+            <div class="bg-white p-2 sm:p-3 text-center">
+                <p class="text-[9px] text-gray-500 uppercase font-bold mb-0.5">Cobrado</p>
+                <p class="text-base sm:text-lg font-black text-gray-800">Bs. {{ comision.precio_cobrado|floatformat:2 }}</p>
+            </div>
+            <div class="bg-emerald-50 p-2 sm:p-3 text-center">
+                <p class="text-[9px] text-emerald-600 uppercase font-bold mb-0.5">Centro ({{ comision.porcentaje_centro }}%)</p>
+                <p class="text-base sm:text-lg font-black text-emerald-700">Bs. {{ comision.monto_centro|floatformat:2 }}</p>
+            </div>
+            <div class="bg-white p-2 sm:p-3 text-center">
+                <p class="text-[9px] text-gray-500 uppercase font-bold mb-0.5">Profesional</p>
+                <p class="text-base sm:text-lg font-black text-gray-700">Bs. {{ comision.monto_profesional|floatformat:2 }}</p>
+            </div>
+        </div>
+        <p class="text-[9px] text-emerald-600 text-center">
+            % predeterminado del servicio: {{ sesion.servicio.porcentaje_centro }}%
+        </p>
+        {% else %}
+        <div class="text-center py-2">
+            <p class="text-[10px] text-emerald-600 italic">Sin distribución registrada — se generará al registrar el pago</p>
+            <p class="text-[9px] text-emerald-500 mt-0.5">% predeterminado: {{ sesion.servicio.porcentaje_centro }}%</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endwith %}
+    {% endif %}
+
     <!-- Proyecto (si aplica) -->
     {% if sesion.proyecto %}
     <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-2 sm:p-3">

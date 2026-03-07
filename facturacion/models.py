@@ -190,7 +190,21 @@ class CuentaCorriente(models.Model):
         default=0,
         help_text="Devoluciones realizadas (se restan del total pagado)"
     )
-    
+
+    # 🆕 PROFESIONALES EXTERNOS
+    total_profesionales = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=0,
+        help_text="Total a pagar a profesionales externos (suma de ComisionSesion.monto_profesional)"
+    )
+    ingreso_neto_centro = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=0,
+        help_text="Ingreso real del centro = total_pagado - total_devoluciones - total_profesionales"
+    )
+
     # Total Pagado (mismo para ambas perspectivas)
     total_pagado = models.DecimalField(
         max_digits=10,

@@ -2,6 +2,7 @@
 
 from django.urls import path
 from . import views
+from . import views_migracion
 
 app_name = 'facturacion'
 
@@ -91,6 +92,11 @@ urlpatterns = [
     path('admin/recalcular-cuenta/<int:paciente_id>/', 
          views.recalcular_cuenta_individual, 
          name='recalcular_cuenta_individual'),
+
+    # ==================== MIGRACIÓN COMISIONES EXTERNAS (ADMIN) ====================
+    path('admin/migrar-comisiones/',
+         views_migracion.panel_migracion_comisiones,
+         name='panel_migracion_comisiones'),
     
     # API AJAX para recálculo
     path('api/recalcular-cuenta/<int:paciente_id>/', 
