@@ -104,15 +104,30 @@ def panel_migracion_comisiones(request):
             detalles     = []
 
             for s in sesiones_pendientes:
+                precio = None
                 if usar_pago:
-                    pago = s.pagos.filter(anulado=False).exclude(
+                    pago = s.pagos.filter(anulado=False, monto__gt=0).exclude(
                         metodo_pago__nombre='Uso de Crédito'
                     ).first()
-                    precio = pago.monto if pago else s.monto_cobrado
-                    if not pago:
+                    if pago:
+                        precio = pago.monto
+                    elif s.monto_cobrado and s.monto_cobrado > 0:
+                        precio = s.monto_cobrado
                         sin_pago_ids.append(s.id)
                 else:
-                    precio = s.monto_cobrado
+                    if s.monto_cobrado and s.monto_cobrado > 0:
+                        precio = s.monto_cobrado
+
+                # Omitir sesiones sin monto válido
+                if not precio:
+                    detalles.append({
+                        'sesion_id': s.id,
+                        'paciente':  str(s.paciente),
+                        'fecha':     s.fecha,
+                        'ok':        False,
+                        'error':     'Monto = 0 o sin pago registrado — omitida',
+                    })
+                    continue
 
                 try:
                     comision = ComisionSesion.objects.create(
