@@ -757,8 +757,21 @@ function renderizarEstadisticas(stats, todos, container) {
         : 0;
 
     // ── TARJETAS PRINCIPALES ────────────────────────────────────────────────
-    const totalProfesionales = stats.monto_profesionales || 0;
-    const ingresoNetoCentro  = totalRecaudado - totalProfesionales;
+    const totalProfesionales  = stats.monto_profesionales || 0;
+    const montoCentroExterno  = stats.monto_centro_externo || 0;
+    // montoExternoTotal = precio_cobrado total de sesiones externas
+    const montoExternoTotal   = totalProfesionales + montoCentroExterno;
+    // ingreso neto = (recaudado de sesiones normales) + (solo la parte del centro en sesiones externas)
+    // = totalRecaudado - montoExternoTotal + montoCentroExterno
+    // = totalRecaudado - totalProfesionales
+    // PERO si hay pagos mixtos (crédito+efectivo), totalRecaudado puede ser menor que montoExternoTotal
+    // Por eso usamos directamente: recaudado sin externo + parte centro del externo
+    const ingresoNetoCentro   = (totalRecaudado - montoExternoTotal) + montoCentroExterno;
+    // Para "incl. inactivos":
+    const totalProfesionalesTodos = todos.monto_profesionales || 0;
+    const montoCentroExternoTodos = todos.monto_centro_externo || 0;
+    const montoExternoTotalTodos  = totalProfesionalesTodos + montoCentroExternoTodos;
+    const ingresoNetoCentroTodos  = (totalRecaudadoTodos - montoExternoTotalTodos) + montoCentroExternoTodos;
     let html = `
         ${totalProfesionales > 0 ? `
         <div class="mb-2">
@@ -776,7 +789,7 @@ function renderizarEstadisticas(stats, todos, container) {
                         <p class="text-3xl sm:text-4xl font-black text-white drop-shadow-md">
                             Bs. ${ingresoNetoCentro.toFixed(2)}
                         </p>
-                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${(totalRecaudadoTodos - (todos.monto_profesionales || 0)).toFixed(2)}</p>
+                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${ingresoNetoCentroTodos.toFixed(2)}</p>
                         <p class="text-white/80 text-[10px] mt-0.5">Lo que queda en el centro después de profesionales externos</p>
                     </div>
                     <div class="flex gap-3 sm:flex-col sm:text-right text-white/80 text-[10px] sm:text-xs">

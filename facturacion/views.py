@@ -2876,15 +2876,23 @@ def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filt
         total_devoluciones = 0
         monto_devoluciones = Decimal('0.00')
 
-    # 🆕 PROFESIONALES EXTERNOS: todas las sesiones pagadas (incluye crédito)
-    # Se usa pagos_no_anulados porque la ComisionSesion se crea para cualquier
-    # pago válido, incluyendo los pagados con crédito.
+    # 🆕 PROFESIONALES EXTERNOS
+    # Usamos sesiones únicas de TODOS los pagos no anulados (incluye crédito)
+    # porque la ComisionSesion refleja el total de la sesión sin importar cómo se pagó.
+    # distinct() evita contar la misma sesión dos veces si tiene múltiples pagos.
     from servicios.models import ComisionSesion
-    sesion_ids = pagos_no_anulados.exclude(sesion__isnull=True).values_list('sesion_id', flat=True)
+    sesion_ids = pagos_no_anulados.exclude(sesion__isnull=True).values_list(
+        'sesion_id', flat=True
+    ).distinct()
     monto_profesionales = (
         ComisionSesion.objects
         .filter(sesion_id__in=sesion_ids)
         .aggregate(t=Sum('monto_profesional'))['t'] or Decimal('0.00')
+    )
+    monto_centro_externo = (
+        ComisionSesion.objects
+        .filter(sesion_id__in=sesion_ids)
+        .aggregate(t=Sum('monto_centro'))['t'] or Decimal('0.00')
     )
 
     return {
@@ -2916,6 +2924,7 @@ def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filt
 
         # 🆕 Profesionales externos
         'monto_profesionales': monto_profesionales,
+        'monto_centro_externo': monto_centro_externo,
     }
 
 
@@ -3016,6 +3025,7 @@ def cargar_estadisticas_pagos_ajax(request):
             'total_metodos':        s['total_metodos'],
             # 🆕
             'monto_profesionales':  float(s.get('monto_profesionales', 0)),
+            'monto_centro_externo': float(s.get('monto_centro_externo', 0)),
             'desglose_metodos': [
                 {
                     'metodo':   item['metodo_pago__nombre'],
