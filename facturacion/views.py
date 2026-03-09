@@ -2697,6 +2697,11 @@ def historial_pagos(request):
         pagos = pagos.filter(anulado=False)
     elif tipo_filtro == 'anulado':
         pagos = pagos.filter(anulado=True)
+    elif tipo_filtro == 'externo':
+        pagos = pagos.filter(
+            anulado=False,
+            sesion__servicio__es_servicio_externo=True
+        )
     # 'devolucion' → pagos se excluyen completamente abajo
     
     # ==================== QUERY DE DEVOLUCIONES ====================
@@ -2729,7 +2734,7 @@ def historial_pagos(request):
     items_combinados = []
 
     incluir_pagos = tipo_filtro != 'devolucion'
-    incluir_devoluciones = tipo_filtro in ('', 'devolucion')
+    incluir_devoluciones = tipo_filtro in ('', 'devolucion') and tipo_filtro != 'externo'
 
     if incluir_pagos:
         for pago in pagos:
@@ -2871,9 +2876,11 @@ def calcular_estadisticas_pagos(pagos_queryset, devoluciones_queryset=None, filt
         total_devoluciones = 0
         monto_devoluciones = Decimal('0.00')
 
-    # 🆕 PROFESIONALES EXTERNOS: sesiones vinculadas a los pagos reales
+    # 🆕 PROFESIONALES EXTERNOS: todas las sesiones pagadas (incluye crédito)
+    # Se usa pagos_no_anulados porque la ComisionSesion se crea para cualquier
+    # pago válido, incluyendo los pagados con crédito.
     from servicios.models import ComisionSesion
-    sesion_ids = pagos_reales.exclude(sesion__isnull=True).values_list('sesion_id', flat=True)
+    sesion_ids = pagos_no_anulados.exclude(sesion__isnull=True).values_list('sesion_id', flat=True)
     monto_profesionales = (
         ComisionSesion.objects
         .filter(sesion_id__in=sesion_ids)
