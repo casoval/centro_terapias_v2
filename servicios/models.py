@@ -151,6 +151,6 @@ class ComisionSesion(models.Model):
         return (
             f"{self.sesion} | "
             f"Total: Bs.{self.precio_cobrado} | "
-            f"Centro ({self.porcentaje_centro}%): Bs.{self.ingreso_centro} | "
+            f"Centro ({self.porcentaje_centro}%): Bs.{self.monto_centro} | "
             f"Profesional: Bs.{self.monto_profesional}"
         )
