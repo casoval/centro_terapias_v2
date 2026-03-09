@@ -770,9 +770,13 @@ class AccountService:
         # Solo guarda el desglose centro/profesional para reportes internos.
         if sesion and sesion.servicio.es_servicio_externo:
             from servicios.models import ComisionSesion
+            from django.db.models import Sum as _Sum
             datos_externos = datos_externos or {}
-            # El precio cobrado ES el monto real del pago (lo que manda)
-            precio_real = monto_total
+            # El precio cobrado es la SUMA de todos los pagos válidos de esta sesión
+            # (incluye pagos parciales y pagos con crédito)
+            precio_real = sesion.pagos.filter(anulado=False).aggregate(
+                t=_Sum('monto')
+            )['t'] or monto_total
             # El % puede venir del formulario; si no, usar el predeterminado del servicio
             porcentaje_real = datos_externos.get('porcentaje_centro') or sesion.servicio.porcentaje_centro
             if precio_real and porcentaje_real:
