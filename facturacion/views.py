@@ -348,9 +348,26 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             total_pagado = total_pagado_bruto - total_devuelto
             
             # 🆕 Profesionales externos en el período
+            # ⚠️ IMPORTANTE: Las comisiones se calculan sobre TODOS los pacientes
+            # (activos e inactivos) que coincidan con los demás filtros (búsqueda,
+            # sucursal), ignorando el modo_paciente. Un paciente inactivo puede
+            # haber generado sesiones y comisiones que deben reflejarse en el total
+            # financiero del centro.
             from servicios.models import ComisionSesion
+            # Obtener IDs de todos los pacientes con los filtros base (sin modo_paciente)
+            pacientes_todos_qs = Paciente.objects.all()
+            if buscar:
+                pacientes_todos_qs = pacientes_todos_qs.filter(
+                    Q(nombre__icontains=buscar) |
+                    Q(apellido__icontains=buscar) |
+                    Q(nombre_tutor__icontains=buscar)
+                )
+            if sucursal_id:
+                pacientes_todos_qs = pacientes_todos_qs.filter(sucursales__id=sucursal_id)
+            paciente_ids_todos = list(pacientes_todos_qs.values_list('id', flat=True).distinct())
+
             comisiones_qs = ComisionSesion.objects.filter(
-                sesion__paciente_id__in=paciente_ids,
+                sesion__paciente_id__in=paciente_ids_todos,
                 sesion__estado__in=['realizada', 'realizada_retraso'],
             )
             if fecha_desde:
@@ -492,13 +509,32 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
             total_consumido=Sum('total_consumido_actual'),
             total_pagado=Sum('total_pagado'),
             total_balance=Sum('saldo_actual'),
-            # 🆕
-            total_profesionales=Sum('total_profesionales'),
         )
         total_consumido     = estadisticas_actual['total_consumido']     or Decimal('0.00')
         total_pagado        = estadisticas_actual['total_pagado']        or Decimal('0.00')
         total_balance       = estadisticas_actual['total_balance']       or Decimal('0.00')
-        total_profesionales = estadisticas_actual['total_profesionales'] or Decimal('0.00')
+
+        # 🆕 Profesionales externos: se suman sobre TODOS los pacientes (activos
+        # e inactivos) que coincidan con los filtros base (búsqueda, sucursal),
+        # ignorando el modo_paciente. Las comisiones son datos financieros reales
+        # del centro y no deben depender del estado actual del paciente.
+        from servicios.models import ComisionSesion
+        pacientes_todos_qs = Paciente.objects.all()
+        if buscar:
+            pacientes_todos_qs = pacientes_todos_qs.filter(
+                Q(nombre__icontains=buscar) |
+                Q(apellido__icontains=buscar) |
+                Q(nombre_tutor__icontains=buscar)
+            )
+        if sucursal_id:
+            pacientes_todos_qs = pacientes_todos_qs.filter(sucursales__id=sucursal_id)
+        paciente_ids_todos = list(pacientes_todos_qs.values_list('id', flat=True).distinct())
+
+        total_profesionales = (
+            CuentaCorriente.objects
+            .filter(paciente_id__in=paciente_ids_todos)
+            .aggregate(t=Sum('total_profesionales'))['t'] or Decimal('0.00')
+        )
         # Calcular aquí, no desde BD, para que cuadre con los totales globales
         ingreso_neto_centro = total_pagado - total_profesionales
         
