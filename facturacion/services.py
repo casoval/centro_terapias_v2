@@ -762,16 +762,22 @@ class AccountService:
                     mensualidad.costo_mensual = total_pagado
                     mensualidad.save()
         
-        # 🆕 4. Registrar/actualizar comisión ANTES de recalcular cuenta corriente
-        # Así AccountService ya lee el monto_profesional correcto (suma de todos los pagos)
+        # 4. Actualizar cuenta corriente
+        AccountService.update_balance(paciente)
+
+        # 🆕 5. Registrar comisión si es sesión de servicio externo (solo informativo)
+        # ⚠️ Este bloque NO afecta pagos, créditos ni cuenta corriente.
+        # Solo guarda el desglose centro/profesional para reportes internos.
         if sesion and sesion.servicio.es_servicio_externo:
             from servicios.models import ComisionSesion
             from django.db.models import Sum as _Sum
             datos_externos = datos_externos or {}
-            # Sumar TODOS los pagos válidos de esta sesión (incluye parciales y crédito)
+            # El precio cobrado es la SUMA de todos los pagos válidos de esta sesión
+            # (incluye pagos parciales y pagos con crédito)
             precio_real = sesion.pagos.filter(anulado=False).aggregate(
                 t=_Sum('monto')
             )['t'] or monto_total
+            # El % puede venir del formulario; si no, usar el predeterminado del servicio
             porcentaje_real = datos_externos.get('porcentaje_centro') or sesion.servicio.porcentaje_centro
             if precio_real and porcentaje_real:
                 ComisionSesion.objects.update_or_create(
@@ -781,9 +787,6 @@ class AccountService:
                         'porcentaje_centro': porcentaje_real,
                     }
                 )
-
-        # 5. Actualizar cuenta corriente (ya con ComisionSesion actualizada)
-        AccountService.update_balance(paciente)
 
         # ✅ Mensaje personalizado según el monto
         if monto_total == 0:

@@ -779,12 +779,12 @@ function renderizarEstadisticas(stats, todos, container) {
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-2xl">🏆</span>
                             <p class="text-white/90 text-xs sm:text-sm font-bold uppercase tracking-widest">Ingreso Neto Centro</p>
-                            <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Solo pacientes activos</span>
+                            <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Todos (incl. inactivos)</span>
                         </div>
                         <p class="text-3xl sm:text-4xl font-black text-white drop-shadow-md">
-                            Bs. ${ingresoNetoCentro.toFixed(2)}
+                            Bs. ${(totalRecaudadoTodos - (todos.monto_profesionales || 0)).toFixed(2)}
                         </p>
-                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${(totalRecaudadoTodos - (todos.monto_profesionales || 0)).toFixed(2)}</p>
+                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Solo activos: Bs. ${ingresoNetoCentro.toFixed(2)}</p>
                         <p class="text-white/80 text-[10px] mt-0.5">Lo que queda en el centro después de profesionales externos</p>
                     </div>
                     <div class="flex gap-3 sm:flex-col sm:text-right text-white/80 text-[10px] sm:text-xs">
@@ -813,12 +813,12 @@ function renderizarEstadisticas(stats, todos, container) {
                         <div class="flex items-center gap-2 mb-1">
                             <span class="text-2xl">${totalProfesionales > 0 ? '💵' : '🏆'}</span>
                             <p class="text-white/90 text-xs sm:text-sm font-bold uppercase tracking-widest">Total Recaudado</p>
-                            <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Solo pacientes activos</span>
+                            <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">Todos (incl. inactivos)</span>
                         </div>
                         <p class="text-3xl sm:text-4xl font-black text-white drop-shadow-md">
-                            Bs. ${totalRecaudado.toFixed(2)}
+                            Bs. ${totalRecaudadoTodos.toFixed(2)}
                         </p>
-                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${totalRecaudadoTodos.toFixed(2)}</p>
+                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Solo activos: Bs. ${totalRecaudado.toFixed(2)}</p>
                     </div>
                     <div class="flex gap-3 sm:flex-col sm:text-right text-white/80 text-[10px] sm:text-xs">
                         <div>
@@ -843,9 +843,9 @@ function renderizarEstadisticas(stats, todos, container) {
                     <p class="text-[9px] sm:text-[10px] text-green-700 font-bold uppercase tracking-wide">💵 Pagos Reales</p>
                     <span class="bg-green-200 text-green-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_reales}</span>
                 </div>
-                <p class="text-lg sm:text-xl font-black text-green-700 mb-0.5">Bs. ${stats.monto_pagos_reales.toFixed(2)}</p>
+                <p class="text-lg sm:text-xl font-black text-green-700 mb-0.5">Bs. ${todos.monto_pagos_reales.toFixed(2)}</p>
                 <p class="text-[8px] sm:text-[9px] text-green-600">Promedio: Bs. ${promedioTransaccion.toFixed(2)}</p>
-                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Incl. inactivos: Bs. ${todos.monto_pagos_reales.toFixed(2)}</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Solo activos: Bs. ${stats.monto_pagos_reales.toFixed(2)}</p>
             </div>
             
             <!-- 🎫 Uso de Crédito -->
@@ -854,9 +854,9 @@ function renderizarEstadisticas(stats, todos, container) {
                     <p class="text-[9px] sm:text-[10px] text-purple-700 font-bold uppercase tracking-wide">🎫 Uso Crédito</p>
                     <span class="bg-purple-200 text-purple-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_pagos_credito}</span>
                 </div>
-                <p class="text-lg sm:text-xl font-black text-purple-700 mb-0.5">Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
+                <p class="text-lg sm:text-xl font-black text-purple-700 mb-0.5">Bs. ${todos.monto_pagos_credito.toFixed(2)}</p>
                 <p class="text-[8px] sm:text-[9px] text-purple-600">pagos con saldo disponible</p>
-                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Incl. inactivos: Bs. ${todos.monto_pagos_credito.toFixed(2)}</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Solo activos: Bs. ${stats.monto_pagos_credito.toFixed(2)}</p>
             </div>
             
             <!-- ⏩ Pagos Adelantados -->
@@ -865,9 +865,9 @@ function renderizarEstadisticas(stats, todos, container) {
                     <p class="text-[9px] sm:text-[10px] text-blue-700 font-bold uppercase tracking-wide">⏩ Adelantados</p>
                     <span class="bg-blue-200 text-blue-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_adelantados}</span>
                 </div>
-                <p class="text-lg sm:text-xl font-black text-blue-700 mb-0.5">Bs. ${stats.monto_adelantados.toFixed(2)}</p>
+                <p class="text-lg sm:text-xl font-black text-blue-700 mb-0.5">Bs. ${todos.monto_adelantados.toFixed(2)}</p>
                 <p class="text-[8px] sm:text-[9px] text-blue-600">pagos sin asignar a servicio</p>
-                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Incl. inactivos: Bs. ${todos.monto_adelantados.toFixed(2)}</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Solo activos: Bs. ${stats.monto_adelantados.toFixed(2)}</p>
             </div>
             
             <!-- 🔙 Devoluciones -->
@@ -876,9 +876,9 @@ function renderizarEstadisticas(stats, todos, container) {
                     <p class="text-[9px] sm:text-[10px] text-red-700 font-bold uppercase tracking-wide">🔙 Devoluciones</p>
                     <span class="bg-red-200 text-red-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_devoluciones}</span>
                 </div>
-                <p class="text-lg sm:text-xl font-black text-red-700 mb-0.5">Bs. ${stats.monto_devoluciones.toFixed(2)}</p>
+                <p class="text-lg sm:text-xl font-black text-red-700 mb-0.5">Bs. ${todos.monto_devoluciones.toFixed(2)}</p>
                 <p class="text-[8px] sm:text-[9px] text-red-600">montos devueltos</p>
-                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Incl. inactivos: Bs. ${todos.monto_devoluciones.toFixed(2)}</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Solo activos: Bs. ${stats.monto_devoluciones.toFixed(2)}</p>
             </div>
             
             <!-- ❌ Anulados -->
@@ -887,15 +887,15 @@ function renderizarEstadisticas(stats, todos, container) {
                     <p class="text-[9px] sm:text-[10px] text-gray-600 font-bold uppercase tracking-wide">❌ Anulados</p>
                     <span class="bg-gray-200 text-gray-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full">${stats.total_anulados}</span>
                 </div>
-                <p class="text-lg sm:text-xl font-black text-gray-500 mb-0.5">Bs. ${stats.monto_anulados.toFixed(2)}</p>
+                <p class="text-lg sm:text-xl font-black text-gray-500 mb-0.5">Bs. ${todos.monto_anulados.toFixed(2)}</p>
                 <p class="text-[8px] sm:text-[9px] text-gray-500">recibos anulados</p>
-                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Incl. inactivos: Bs. ${todos.monto_anulados.toFixed(2)}</p>
+                <p class="text-[10px] sm:text-xs text-gray-600 mt-1 font-medium">Solo activos: Bs. ${stats.monto_anulados.toFixed(2)}</p>
             </div>
         </div>
     `;
 
-    // Desglose por método (solo si hay datos)
-    if (stats.desglose_metodos && stats.desglose_metodos.length > 0) {
+    // Desglose por método (solo si hay datos) — incluye inactivos
+    if (todos.desglose_metodos && todos.desglose_metodos.length > 0) {
         const colores = [
             { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', bar: 'bg-gradient-to-r from-green-500 to-emerald-500' },
             { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', bar: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
@@ -909,16 +909,16 @@ function renderizarEstadisticas(stats, todos, container) {
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-xs sm:text-sm font-bold text-gray-800 flex items-center gap-1.5">
                         <span class="text-base">💳</span>
-                        Desglose por Método de Pago <span class="text-[9px] text-gray-400 font-normal">(pagos reales)</span>
+                        Desglose por Método de Pago <span class="text-[9px] text-gray-400 font-normal">(todos incl. inactivos)</span>
                     </h3>
-                    <span class="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">${stats.desglose_metodos.length} métodos</span>
+                    <span class="text-[9px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">${todos.desglose_metodos.length} métodos</span>
                 </div>
                 <div class="space-y-2">
         `;
 
-        stats.desglose_metodos.forEach((metodo, index) => {
-            const porcentaje = stats.monto_pagos_reales > 0
-                ? ((metodo.total / stats.monto_pagos_reales) * 100).toFixed(1)
+        todos.desglose_metodos.forEach((metodo, index) => {
+            const porcentaje = todos.monto_pagos_reales > 0
+                ? ((metodo.total / todos.monto_pagos_reales) * 100).toFixed(1)
                 : 0;
             const color = colores[index % colores.length];
 

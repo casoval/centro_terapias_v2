@@ -133,10 +133,10 @@ def lista_cuentas_corrientes(request):
     buscar = request.GET.get('q', '').strip()
     estado = request.GET.get('estado', '')
     sucursal_id = request.GET.get('sucursal', '')
-    # ✅ SUPER FILTRO: activo (default) | inactivo | todos
-    modo_paciente = request.GET.get('modo_paciente', 'activo')
+    # ✅ SUPER FILTRO: todos (default) | activo | inactivo
+    modo_paciente = request.GET.get('modo_paciente', 'todos')
     if modo_paciente not in ('activo', 'inactivo', 'todos'):
-        modo_paciente = 'activo'
+        modo_paciente = 'todos'
     
     # ==================== QUERY BASE OPTIMIZADA ====================
     pacientes = Paciente.objects.select_related(
@@ -216,7 +216,7 @@ def lista_cuentas_corrientes(request):
     return render(request, 'facturacion/cuentas_corrientes.html', context)
 
 
-def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, modo_paciente='activo',
+def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, modo_paciente='todos',
                                    fecha_desde=None, fecha_hasta=None):
     """
     Calcula estadísticas globales de todas las cuentas corrientes.
@@ -583,9 +583,9 @@ def cargar_estadisticas_ajax(request):
         buscar = request.GET.get('q', '')
         estado = request.GET.get('estado', '')
         sucursal_id = request.GET.get('sucursal', '')
-        modo_paciente = request.GET.get('modo_paciente', 'activo')
+        modo_paciente = request.GET.get('modo_paciente', 'todos')
         if modo_paciente not in ('activo', 'inactivo', 'todos'):
-            modo_paciente = 'activo'
+            modo_paciente = 'todos'
         
         # ✅ NUEVO: Leer rango de fechas
         fecha_desde_str = request.GET.get('fecha_desde', '').strip()
