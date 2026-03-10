@@ -214,8 +214,11 @@
                     {% if comision %}
                     <div class="grid grid-cols-3 gap-1 text-[9px] text-center">
                         <div>
-                            <p class="text-gray-400 font-bold">Cobrado</p>
-                            <p class="font-black text-gray-700">Bs. {{ comision.precio_cobrado|floatformat:0 }}</p>
+                            <p class="text-gray-400 font-bold">Este pago</p>
+                            <p class="font-black text-gray-700">Bs. {{ item.objeto.monto|floatformat:0 }}</p>
+                            {% if comision.precio_cobrado != item.objeto.monto %}
+                            <p class="text-gray-400" style="font-size:8px">Total: Bs. {{ comision.precio_cobrado|floatformat:0 }}</p>
+                            {% endif %}
                         </div>
                         <div class="border-x border-emerald-200">
                             <p class="text-emerald-600 font-bold">Centro {{ comision.porcentaje_centro }}%</p>
@@ -500,7 +503,12 @@
                             </span>
                             {% if comision %}
                             <div class="flex items-center gap-3 text-[10px]">
-                                <span class="text-gray-500">Cobrado: <strong class="text-gray-800">Bs. {{ comision.precio_cobrado|floatformat:0 }}</strong></span>
+                                <span class="text-gray-500">
+                                    Este pago: <strong class="text-gray-800">Bs. {{ item.objeto.monto|floatformat:0 }}</strong>
+                                    {% if comision.precio_cobrado != item.objeto.monto %}
+                                    <span class="text-gray-400 ml-1">(Total sesión: Bs. {{ comision.precio_cobrado|floatformat:0 }})</span>
+                                    {% endif %}
+                                </span>
                                 <span class="text-gray-400">→</span>
                                 <span class="text-emerald-700">Centro <strong>({{ comision.porcentaje_centro }}%): Bs. {{ comision.monto_centro|floatformat:0 }}</strong></span>
                                 <span class="text-gray-400">+</span>
@@ -757,21 +765,8 @@ function renderizarEstadisticas(stats, todos, container) {
         : 0;
 
     // ── TARJETAS PRINCIPALES ────────────────────────────────────────────────
-    const totalProfesionales  = stats.monto_profesionales || 0;
-    const montoCentroExterno  = stats.monto_centro_externo || 0;
-    // montoExternoTotal = precio_cobrado total de sesiones externas
-    const montoExternoTotal   = totalProfesionales + montoCentroExterno;
-    // ingreso neto = (recaudado de sesiones normales) + (solo la parte del centro en sesiones externas)
-    // = totalRecaudado - montoExternoTotal + montoCentroExterno
-    // = totalRecaudado - totalProfesionales
-    // PERO si hay pagos mixtos (crédito+efectivo), totalRecaudado puede ser menor que montoExternoTotal
-    // Por eso usamos directamente: recaudado sin externo + parte centro del externo
-    const ingresoNetoCentro   = (totalRecaudado - montoExternoTotal) + montoCentroExterno;
-    // Para "incl. inactivos":
-    const totalProfesionalesTodos = todos.monto_profesionales || 0;
-    const montoCentroExternoTodos = todos.monto_centro_externo || 0;
-    const montoExternoTotalTodos  = totalProfesionalesTodos + montoCentroExternoTodos;
-    const ingresoNetoCentroTodos  = (totalRecaudadoTodos - montoExternoTotalTodos) + montoCentroExternoTodos;
+    const totalProfesionales = stats.monto_profesionales || 0;
+    const ingresoNetoCentro  = totalRecaudado - totalProfesionales;
     let html = `
         ${totalProfesionales > 0 ? `
         <div class="mb-2">
@@ -789,7 +784,7 @@ function renderizarEstadisticas(stats, todos, container) {
                         <p class="text-3xl sm:text-4xl font-black text-white drop-shadow-md">
                             Bs. ${ingresoNetoCentro.toFixed(2)}
                         </p>
-                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${ingresoNetoCentroTodos.toFixed(2)}</p>
+                        <p class="text-white/90 text-sm sm:text-base mt-1 font-semibold">Incl. inactivos: Bs. ${(totalRecaudadoTodos - (todos.monto_profesionales || 0)).toFixed(2)}</p>
                         <p class="text-white/80 text-[10px] mt-0.5">Lo que queda en el centro después de profesionales externos</p>
                     </div>
                     <div class="flex gap-3 sm:flex-col sm:text-right text-white/80 text-[10px] sm:text-xs">
