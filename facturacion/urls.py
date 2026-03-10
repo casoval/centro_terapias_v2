@@ -106,4 +106,6 @@ urlpatterns = [
     path('api/estado-recalculo/', 
          views.api_estado_recalculo, 
          name='api_estado_recalculo'),
+
+    path('api/lista-cuentas/', views.api_lista_cuentas, name='api_lista_cuentas'),
 ]

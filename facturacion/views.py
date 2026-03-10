@@ -7238,3 +7238,36 @@ def generar_devolucion_pdf(request, devolucion_id):
         
         messages.error(request, f'❌ Error al generar PDF: {str(e)}')
         return redirect('facturacion:historial_pagos')
+
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+
+
+@staff_member_required
+@require_GET
+def api_lista_cuentas(request):
+    """
+    Devuelve JSON con la lista de todos los pacientes y sus datos
+    de cuenta corriente para el panel de recálculo.
+
+    GET /facturacion/api/lista-cuentas/
+    """
+    from pacientes.models import Paciente
+    from facturacion.models import CuentaCorriente
+
+    # Traer pacientes con su cuenta en una sola query
+    pacientes = Paciente.objects.prefetch_related('cuentacorriente').order_by('apellido', 'nombre')
+
+    cuentas = []
+    for p in pacientes:
+        cuenta = getattr(p, 'cuentacorriente', None)
+        cuentas.append({
+            'id':                   p.id,
+            'nombre':               str(p),  # usa __str__ del modelo
+            'saldo_actual':         float(cuenta.saldo_actual)       if cuenta else 0.0,
+            'saldo_real':           float(cuenta.saldo_real)         if cuenta else 0.0,
+            'ultima_actualizacion': cuenta.ultima_actualizacion.isoformat() if cuenta and cuenta.ultima_actualizacion else None,
+        })
+
+    return JsonResponse({'cuentas': cuentas})
