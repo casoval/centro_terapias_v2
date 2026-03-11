@@ -3384,6 +3384,288 @@ def dashboard_reportes(request):
 
     return render(request, 'facturacion/reportes/dashboard.html', {'kpis': kpis})
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HELPERS FINANCIEROS POR SUCURSAL
+# Reglas de negocio acordadas:
+#   • Sesiones normales (sin proyecto/mensualidad) → sesion.sucursal_id
+#   • Mensualidades   → mensualidad.sucursal_id  (el objeto completo)
+#   • Proyectos       → proyecto.sucursal_id     (el objeto completo)
+#   • Pagos adelantados (sin objeto) → globales, se muestran separados
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _calcular_financiero_paciente_por_sucursal(paciente, fecha_desde_obj=None, fecha_hasta_obj=None):
+    """
+    Devuelve una lista de dicts — uno por sucursal del paciente con datos —
+    con consumido, pagado, saldo y contadores por tipo.
+    Solo se retorna la lista si el paciente tiene datos en MÁS DE UNA sucursal.
+    Los pagos adelantados (sin sesión/mensualidad/proyecto) no se incluyen aquí.
+    """
+    sucursales = paciente.sucursales.filter(activa=True).order_by('nombre')
+
+    # Filtros de fecha reutilizables
+    q_ses  = Q(paciente=paciente)
+    q_mens = Q(paciente=paciente)
+    q_proy = Q(paciente=paciente)
+    q_pago = Q(paciente=paciente)
+    q_dev  = Q(paciente=paciente)
+
+    if fecha_desde_obj:
+        q_ses  &= Q(fecha__gte=fecha_desde_obj)
+        q_mens &= Q(anio__gt=fecha_desde_obj.year) | Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+        q_proy &= Q(fecha_inicio__gte=fecha_desde_obj)
+        q_pago &= Q(fecha_pago__gte=fecha_desde_obj)
+        q_dev  &= Q(fecha_devolucion__gte=fecha_desde_obj)
+    if fecha_hasta_obj:
+        q_ses  &= Q(fecha__lte=fecha_hasta_obj)
+        q_mens &= Q(anio__lt=fecha_hasta_obj.year) | Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+        q_proy &= Q(fecha_inicio__lte=fecha_hasta_obj)
+        q_pago &= Q(fecha_pago__lte=fecha_hasta_obj)
+        q_dev  &= Q(fecha_devolucion__lte=fecha_hasta_obj)
+
+    resultado = []
+
+    for sucursal in sucursales:
+        sid = sucursal.id
+
+        # ── CONSUMIDO ────────────────────────────────────────────────
+        ses_qs = Sesion.objects.filter(
+            q_ses, sucursal_id=sid,
+            proyecto__isnull=True, mensualidad__isnull=True,
+            estado__in=['realizada', 'realizada_retraso', 'falta'],
+        )
+        consumido_sesiones = ses_qs.aggregate(t=Coalesce(Sum('monto_cobrado'), Decimal('0')))['t']
+        num_sesiones = ses_qs.count()
+
+        mens_qs = Mensualidad.objects.filter(
+            q_mens, sucursal_id=sid,
+            estado__in=['activa', 'pausada', 'completada'],
+        )
+        consumido_mensualidades = mens_qs.aggregate(t=Coalesce(Sum('costo_mensual'), Decimal('0')))['t']
+        num_mensualidades = mens_qs.count()
+
+        proy_qs = Proyecto.objects.filter(
+            q_proy, sucursal_id=sid,
+            estado__in=['en_progreso', 'finalizado'],
+        )
+        consumido_proyectos = proy_qs.aggregate(t=Coalesce(Sum('costo_total'), Decimal('0')))['t']
+        num_proyectos = proy_qs.count()
+
+        if (num_sesiones + num_mensualidades + num_proyectos) == 0:
+            continue  # sucursal sin actividad en el período
+
+        consumido = consumido_sesiones + consumido_mensualidades + consumido_proyectos
+
+        # ── PAGOS DIRECTOS ───────────────────────────────────────────
+        _excl = {'metodo_pago__nombre': 'Uso de Crédito'}
+
+        pagos_ses = (
+            Pago.objects.filter(q_pago, sesion__sucursal_id=sid,
+                                sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True,
+                                anulado=False).exclude(**_excl)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        ) + (
+            DetallePagoMasivo.objects.filter(
+                tipo='sesion', sesion__sucursal_id=sid,
+                sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True,
+                pago__paciente=paciente, pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito')
+            .filter(pago__fecha_pago__gte=fecha_desde_obj) if fecha_desde_obj else
+            DetallePagoMasivo.objects.filter(
+                tipo='sesion', sesion__sucursal_id=sid,
+                sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True,
+                pago__paciente=paciente, pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito')
+        ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+        pagos_mens = (
+            Pago.objects.filter(q_pago, mensualidad__sucursal_id=sid, anulado=False).exclude(**_excl)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        ) + (
+            DetallePagoMasivo.objects.filter(
+                tipo='mensualidad', mensualidad__sucursal_id=sid,
+                pago__paciente=paciente, pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito')
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+
+        pagos_proy = (
+            Pago.objects.filter(q_pago, proyecto__sucursal_id=sid, anulado=False).exclude(**_excl)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        ) + (
+            DetallePagoMasivo.objects.filter(
+                tipo='proyecto', proyecto__sucursal_id=sid,
+                pago__paciente=paciente, pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito')
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+
+        # ── DEVOLUCIONES ─────────────────────────────────────────────
+        devoluciones = (
+            Devolucion.objects.filter(q_dev, mensualidad__sucursal_id=sid)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        ) + (
+            Devolucion.objects.filter(q_dev, proyecto__sucursal_id=sid)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+
+        pagado = pagos_ses + pagos_mens + pagos_proy - devoluciones
+
+        resultado.append({
+            'sucursal_id':             sid,
+            'sucursal_nombre':         sucursal.nombre,
+            'consumido':               consumido,
+            'pagado':                  pagado,
+            'saldo':                   pagado - consumido,
+            'consumido_sesiones':      consumido_sesiones,
+            'consumido_mensualidades': consumido_mensualidades,
+            'consumido_proyectos':     consumido_proyectos,
+            'pagos_sesiones':          pagos_ses,
+            'pagos_mensualidades':     pagos_mens,
+            'pagos_proyectos':         pagos_proy,
+            'devoluciones':            devoluciones,
+            'num_sesiones':            num_sesiones,
+            'num_mensualidades':       num_mensualidades,
+            'num_proyectos':           num_proyectos,
+        })
+
+    # Bloque solo útil si el paciente opera en más de una sucursal
+    return resultado if len(resultado) > 1 else []
+
+
+def _calcular_financiero_sucursal(sucursal_id, paciente_ids, fecha_desde_obj=None, fecha_hasta_obj=None):
+    """
+    Devuelve un dict con el resumen financiero real de una sucursal:
+    consumido (ses+mens+proy), pagado directo, saldo y crédito adelantado global.
+    """
+    sid = int(sucursal_id)
+
+    q_ses  = Q()
+    q_mens = Q()
+    q_proy = Q()
+    q_pago = Q()
+    q_dev  = Q()
+
+    if fecha_desde_obj:
+        q_ses  &= Q(fecha__gte=fecha_desde_obj)
+        q_mens &= Q(anio__gt=fecha_desde_obj.year) | Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+        q_proy &= Q(fecha_inicio__gte=fecha_desde_obj)
+        q_pago &= Q(fecha_pago__gte=fecha_desde_obj)
+        q_dev  &= Q(fecha_devolucion__gte=fecha_desde_obj)
+    if fecha_hasta_obj:
+        q_ses  &= Q(fecha__lte=fecha_hasta_obj)
+        q_mens &= Q(anio__lt=fecha_hasta_obj.year) | Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+        q_proy &= Q(fecha_inicio__lte=fecha_hasta_obj)
+        q_pago &= Q(fecha_pago__lte=fecha_hasta_obj)
+        q_dev  &= Q(fecha_devolucion__lte=fecha_hasta_obj)
+
+    _excl = {'metodo_pago__nombre': 'Uso de Crédito'}
+    _excl_det = {'pago__metodo_pago__nombre': 'Uso de Crédito'}
+
+    # ── CONSUMIDO ────────────────────────────────────────────────────
+    consumido_sesiones = (
+        Sesion.objects.filter(q_ses, paciente_id__in=paciente_ids, sucursal_id=sid,
+                              proyecto__isnull=True, mensualidad__isnull=True,
+                              estado__in=['realizada', 'realizada_retraso', 'falta'])
+        .aggregate(t=Coalesce(Sum('monto_cobrado'), Decimal('0')))['t']
+    )
+    consumido_mensualidades = (
+        Mensualidad.objects.filter(q_mens, paciente_id__in=paciente_ids, sucursal_id=sid,
+                                   estado__in=['activa', 'pausada', 'completada'])
+        .aggregate(t=Coalesce(Sum('costo_mensual'), Decimal('0')))['t']
+    )
+    consumido_proyectos = (
+        Proyecto.objects.filter(q_proy, paciente_id__in=paciente_ids, sucursal_id=sid,
+                                estado__in=['en_progreso', 'finalizado'])
+        .aggregate(t=Coalesce(Sum('costo_total'), Decimal('0')))['t']
+    )
+    total_consumido = consumido_sesiones + consumido_mensualidades + consumido_proyectos
+
+    # ── PAGOS DIRECTOS ───────────────────────────────────────────────
+    pagos_ses = (
+        Pago.objects.filter(q_pago, paciente_id__in=paciente_ids, anulado=False,
+                            sesion__sucursal_id=sid, sesion__proyecto__isnull=True,
+                            sesion__mensualidad__isnull=True).exclude(**_excl)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    ) + (
+        DetallePagoMasivo.objects.filter(
+            tipo='sesion', sesion__sucursal_id=sid,
+            sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True,
+            pago__paciente_id__in=paciente_ids, pago__anulado=False,
+        ).exclude(**_excl_det).filter(pago__fecha_pago__gte=fecha_desde_obj if fecha_desde_obj else date.min)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+
+    pagos_mens = (
+        Pago.objects.filter(q_pago, paciente_id__in=paciente_ids, anulado=False,
+                            mensualidad__sucursal_id=sid).exclude(**_excl)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    ) + (
+        DetallePagoMasivo.objects.filter(
+            tipo='mensualidad', mensualidad__sucursal_id=sid,
+            pago__paciente_id__in=paciente_ids, pago__anulado=False,
+        ).exclude(**_excl_det)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+
+    pagos_proy = (
+        Pago.objects.filter(q_pago, paciente_id__in=paciente_ids, anulado=False,
+                            proyecto__sucursal_id=sid).exclude(**_excl)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    ) + (
+        DetallePagoMasivo.objects.filter(
+            tipo='proyecto', proyecto__sucursal_id=sid,
+            pago__paciente_id__in=paciente_ids, pago__anulado=False,
+        ).exclude(**_excl_det)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+
+    # ── DEVOLUCIONES ─────────────────────────────────────────────────
+    devoluciones = (
+        Devolucion.objects.filter(q_dev, paciente_id__in=paciente_ids, mensualidad__sucursal_id=sid)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    ) + (
+        Devolucion.objects.filter(q_dev, paciente_id__in=paciente_ids, proyecto__sucursal_id=sid)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+
+    total_pagado_directo = pagos_ses + pagos_mens + pagos_proy - devoluciones
+
+    # ── CRÉDITO ADELANTADO GLOBAL de estos pacientes ─────────────────
+    credito_bruto = (
+        Pago.objects.filter(
+            q_pago, paciente_id__in=paciente_ids, anulado=False,
+            sesion__isnull=True, mensualidad__isnull=True, proyecto__isnull=True,
+        ).exclude(**_excl).exclude(detalles_masivos__isnull=False)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+    uso_credito = (
+        Pago.objects.filter(paciente_id__in=paciente_ids, anulado=False,
+                            metodo_pago__nombre='Uso de Crédito')
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+    devoluciones_credito = (
+        Devolucion.objects.filter(paciente_id__in=paciente_ids,
+                                  proyecto__isnull=True, mensualidad__isnull=True)
+        .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+    )
+    credito_neto = max(Decimal('0'), credito_bruto - uso_credito - devoluciones_credito)
+
+    return {
+        'total_consumido':               total_consumido,
+        'consumido_sesiones':            consumido_sesiones,
+        'consumido_mensualidades':       consumido_mensualidades,
+        'consumido_proyectos':           consumido_proyectos,
+        'total_pagado_directo':          total_pagado_directo,
+        'pagos_sesiones':                pagos_ses,
+        'pagos_mensualidades':           pagos_mens,
+        'pagos_proyectos':               pagos_proy,
+        'devoluciones_sucursal':         devoluciones,
+        'saldo_sucursal':                total_pagado_directo - total_consumido,
+        'credito_adelantado_disponible': credito_neto,
+    }
+
+
 @login_required
 def reporte_paciente(request):
     """
@@ -3547,7 +3829,15 @@ def reporte_paciente(request):
             'activas': mensualidades_paciente.filter(estado='activa').count(),
             'monto_total': mensualidades_paciente.aggregate(Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00'),
         }
-        
+
+        # Desglose financiero por sucursal — solo se muestra en el template
+        # si el paciente tiene actividad en más de una sede en el período.
+        financiero_por_sucursal = _calcular_financiero_paciente_por_sucursal(
+            paciente,
+            fecha_desde_obj=fecha_desde_obj,
+            fecha_hasta_obj=fecha_hasta_obj,
+        )
+
         datos = {
             'stats': stats,
             'tasa_asistencia': round(tasa_asistencia, 1),
@@ -3560,8 +3850,9 @@ def reporte_paciente(request):
             'mensualidades_stats': mensualidades_stats,
             'mensualidades': mensualidades_paciente[:5],
             'sesiones_recientes': sesiones.order_by('-fecha', '-hora_inicio')[:15],
+            'financiero_por_sucursal': financiero_por_sucursal,
         }
-    
+
     # Lista de pacientes para selector
     pacientes = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
     
@@ -4052,12 +4343,28 @@ def reporte_sucursal(request):
             'realizadas': [m['realizadas'] for m in por_mes],
             'ingresos': [float(m['ingresos'] or 0) for m in por_mes],
         }
-        
+
+        # IDs de pacientes con actividad en esta sucursal (para el helper financiero)
+        paciente_ids_sucursal = list(
+            Paciente.objects.filter(sucursales__id=sucursal.id)
+            .values_list('id', flat=True).distinct()
+        )
+
+        # Desglose financiero real de la sucursal: consumido por tipo,
+        # pagos directos y crédito adelantado global separado.
+        financiero_sucursal = _calcular_financiero_sucursal(
+            sucursal_id=sucursal.id,
+            paciente_ids=paciente_ids_sucursal,
+            fecha_desde_obj=fecha_desde_obj,
+            fecha_hasta_obj=fecha_hasta_obj,
+        )
+
         datos = {
             'stats': stats,
             'por_servicio': por_servicio,
             'top_profesionales': top_profesionales,
             'top_pacientes': top_pacientes,
+            'financiero_sucursal': financiero_sucursal,
         }
         
         # Comparativa con otras sucursales

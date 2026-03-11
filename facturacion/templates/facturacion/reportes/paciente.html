@@ -319,6 +319,90 @@
   {% endif %}
   {% endwith %}
 
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- DESGLOSE FINANCIERO POR SUCURSAL                         -->
+  <!-- Solo visible si el paciente tiene más de una sucursal.   -->
+  <!-- Muestra consumido+pagado por cada sede, y el crédito     -->
+  <!-- adelantado global separado (no pertenece a ninguna sede) -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  {% if datos.financiero_por_sucursal %}
+  <div class="section-title">🏢 Desglose Financiero por Sucursal</div>
+
+  <div style="background:var(--blue-l);border:1px solid #93c5fd;border-radius:10px;
+              padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
+    <span style="font-size:1.2rem;flex-shrink:0">ℹ️</span>
+    <p style="margin:0;font-size:.75rem;color:#1e40af;line-height:1.5">
+      Cada fila muestra el consumo y pagos directos <strong>registrados en esa sucursal</strong>
+      (sesiones normales, mensualidades y proyectos de esa sede).
+      El <strong>crédito adelantado</strong> es global y no pertenece a ninguna sucursal específica.
+    </p>
+  </div>
+
+  {% for sf in datos.financiero_por_sucursal %}
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+              padding:14px;margin-bottom:10px;border-left:4px solid var(--blue)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="font-size:.88rem;font-weight:800;color:var(--ink)">🏢 {{ sf.sucursal_nombre }}</div>
+      {% if sf.saldo >= 0 %}
+      <span style="font-size:.7rem;font-weight:700;background:var(--teal-l);color:var(--teal);padding:3px 10px;border-radius:20px">
+        ✅ A favor: Bs. {{ sf.saldo|floatformat:0 }}
+      </span>
+      {% else %}
+      <span style="font-size:.7rem;font-weight:700;background:var(--red-l);color:var(--red);padding:3px 10px;border-radius:20px">
+        ⚠️ Debe: Bs. {{ sf.saldo|floatformat:0|slice:"1:" }}
+      </span>
+      {% endif %}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px">
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Consumido</div>
+        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace">Bs. {{ sf.consumido|floatformat:0 }}</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">ses + mens + proy</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Pagado</div>
+        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--green)">Bs. {{ sf.pagado|floatformat:0 }}</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">pagos directos</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Sesiones</div>
+        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--blue)">{{ sf.num_sesiones }}</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">normales</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Mensualidades</div>
+        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--purple)">{{ sf.num_mensualidades }}</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">registradas</div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Proyectos</div>
+        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--teal)">{{ sf.num_proyectos }}</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">registrados</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Crédito adelantado global (sin sucursal) -->
+  {% with cc=paciente.cuenta_corriente %}
+  {% if cc and cc.pagos_adelantados > 0 %}
+  <div style="background:var(--purple-l);border:2px dashed rgba(124,58,237,.4);border-radius:var(--r);
+              padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:.82rem;font-weight:800;color:var(--purple)">💳 Crédito Adelantado Global</div>
+      <div style="font-size:.7rem;color:#6d28d9;margin-top:2px">
+        No asignado a ninguna sucursal — disponible para cualquier pago pendiente
+      </div>
+    </div>
+    <div style="font-size:1.1rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--purple)">
+      Bs. {{ cc.pagos_adelantados|floatformat:0 }}
+    </div>
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  {% endif %}{# end financiero_por_sucursal #}
+
   <!-- KPIs Asistencia -->
   <div class="section-title">📊 Estadísticas del Período</div>
   <div class="kpi-grid">
