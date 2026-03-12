@@ -216,18 +216,6 @@
       <div class="sub">cobrado hoy</div>
     </div>
     <div class="kpi-card">
-      <div class="accent" style="background:var(--amber)"></div>
-      <div class="label">Este Mes</div>
-      <div class="value" style="font-size:1.1rem">Bs. {{ kpis.ingresos_mes|default:"—" }}</div>
-      <div class="sub">ingreso mensual</div>
-    </div>
-    <div class="kpi-card">
-      <div class="accent" style="background:var(--red)"></div>
-      <div class="label">Pendiente</div>
-      <div class="value" style="font-size:1.1rem">Bs. {{ kpis.saldo_pendiente|default:"—" }}</div>
-      <div class="sub">por cobrar</div>
-    </div>
-    <div class="kpi-card">
       <div class="accent" style="background:var(--purple)"></div>
       <div class="label">Pacientes Activos</div>
       <div class="value">{{ kpis.pacientes_activos|default:"—" }}</div>
@@ -240,6 +228,235 @@
       <div class="sub">tasa del mes</div>
     </div>
   </div>
+
+  <!-- ========================================================
+       💳 RESUMEN GLOBAL DE CUENTAS CORRIENTES
+       ======================================================== -->
+  <div class="section-title">💳 Resumen Global — Cuentas Corrientes</div>
+
+  <div id="cc-stats-container" style="margin-bottom:24px">
+    <!-- Spinner inicial -->
+    <div id="cc-loading" style="
+      background:var(--white); border:1px solid var(--border); border-radius:12px;
+      padding:20px; text-align:center; color:var(--muted); font-size:0.78rem;
+    ">
+      <div style="display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:cc-spin .7s linear infinite;margin-bottom:8px"></div>
+      <p>Cargando estadísticas…</p>
+    </div>
+  </div>
+
+  <style>
+    @keyframes cc-spin { to { transform: rotate(360deg); } }
+
+    .cc-group-title {
+      font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.08em; margin: 0 0 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cc-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .cc-mini-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cc-mini-card .cc-accent {
+      position: absolute; top:0; left:0; width:3px; height:100%;
+      border-radius: 10px 0 0 10px;
+    }
+    .cc-mini-card .cc-label {
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--muted); margin-bottom: 4px;
+    }
+    .cc-mini-card .cc-val {
+      font-size: 1rem; font-weight: 900; color: var(--ink);
+      font-family: 'JetBrains Mono', monospace; line-height: 1.1;
+    }
+    .cc-mini-card .cc-sub {
+      font-size: 0.62rem; color: var(--muted); margin-top: 3px; line-height: 1.3;
+    }
+    .cc-mini-card .cc-badge {
+      display: inline-block; font-size: 0.55rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 20px; margin-top: 3px;
+    }
+    /* Colores de fondo suaves por tipo */
+    .cc-bg-red    { background: #fff5f5; border-color: #fecaca; }
+    .cc-bg-green  { background: #f0fdf4; border-color: #bbf7d0; }
+    .cc-bg-blue   { background: #eff6ff; border-color: #bfdbfe; }
+    .cc-bg-amber  { background: #fffbeb; border-color: #fde68a; }
+    .cc-bg-purple { background: #faf5ff; border-color: #e9d5ff; }
+    .cc-bg-teal   { background: #f0fdfa; border-color: #99f6e4; }
+    .cc-bg-slate  { background: #f8fafc; border-color: #e2e8f0; }
+    .cc-bg-emerald{ background: #ecfdf5; border-color: #a7f3d0; }
+
+    .cc-section-wrap {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 0;
+    }
+    .cc-link-bar {
+      display: flex; align-items: center; justify-content: flex-end; margin-top: 6px;
+    }
+    .cc-link-bar a {
+      font-size: 0.68rem; font-weight: 700; color: var(--blue);
+      text-decoration: none; padding: 3px 10px; border-radius: 8px;
+      background: var(--blue-light); transition: background .15s;
+    }
+    .cc-link-bar a:hover { background: #bfdbfe; }
+  </style>
+
+  <script>
+  (function() {
+    function fmt(n) {
+      return 'Bs. ' + Number(n).toLocaleString('es-BO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    function fmtN(n) {
+      return Number(n).toLocaleString('es-BO');
+    }
+    function pct(part, total) {
+      return total > 0 ? ((part / total) * 100).toFixed(1) + '%' : '—';
+    }
+    function colorBal(v) {
+      if (v < 0) return '#dc2626';
+      if (v > 0) return '#16a34a';
+      return '#64748b';
+    }
+    function labelBal(v) {
+      if (v < 0) return 'Déficit';
+      if (v > 0) return 'Superávit';
+      return 'Equilibrado';
+    }
+    function cobro(pagado, consumido) {
+      if (!consumido || consumido <= 0) return '—';
+      return ((pagado / consumido) * 100).toFixed(1) + '%';
+    }
+
+    function renderCC(data) {
+      const s = data.estadisticas;
+      const tot = data.total_pacientes || 0;
+
+      const html = `
+      <div class="cc-section-wrap">
+
+        <!-- BLOQUE 1: Financiero Global -->
+        <p class="cc-group-title" style="color:var(--green)">✅ Situación Financiera Actual</p>
+        <div class="cc-mini-grid">
+          <div class="cc-mini-card cc-bg-slate">
+            <div class="cc-accent" style="background:var(--muted)"></div>
+            <div class="cc-label">Total Consumido</div>
+            <div class="cc-val" style="font-size:.85rem">${fmt(s.total_consumido)}</div>
+            <div class="cc-sub">Sesiones realizadas + mensualidades + proyectos</div>
+          </div>
+          <div class="cc-mini-card cc-bg-green">
+            <div class="cc-accent" style="background:var(--green)"></div>
+            <div class="cc-label">Total Cobrado</div>
+            <div class="cc-val" style="font-size:.85rem;color:var(--green)">${fmt(s.total_pagado)}</div>
+            <div class="cc-sub">Pagos recibidos (descontando devoluciones)</div>
+          </div>
+          <div class="cc-mini-card ${s.total_balance < 0 ? 'cc-bg-red' : s.total_balance > 0 ? 'cc-bg-blue' : 'cc-bg-slate'}">
+            <div class="cc-accent" style="background:${colorBal(s.total_balance)}"></div>
+            <div class="cc-label">Balance Actual</div>
+            <div class="cc-val" style="font-size:.85rem;color:${colorBal(s.total_balance)}">${fmt(s.total_balance)}</div>
+            <div class="cc-sub">${labelBal(s.total_balance)} — cobrado vs consumido</div>
+          </div>
+          <div class="cc-mini-card cc-bg-teal">
+            <div class="cc-accent" style="background:var(--teal)"></div>
+            <div class="cc-label">Tasa de Cobro</div>
+            <div class="cc-val" style="color:var(--teal)">${cobro(s.total_pagado, s.total_consumido)}</div>
+            <div class="cc-sub">% cobrado sobre lo consumido</div>
+          </div>
+        </div>
+
+        <!-- BLOQUE 2: Estado de pacientes -->
+        <p class="cc-group-title" style="color:var(--ink-2);margin-top:4px">👥 Estado de Pacientes (${fmtN(tot)} en total)</p>
+        <div class="cc-mini-grid">
+          <div class="cc-mini-card cc-bg-red">
+            <div class="cc-accent" style="background:var(--red)"></div>
+            <div class="cc-label">⚠️ Deudores</div>
+            <div class="cc-val" style="color:var(--red)">${fmtN(s.deudores)}</div>
+            <div class="cc-sub">${pct(s.deudores, tot)} del total</div>
+            <span class="cc-badge" style="background:#fee2e2;color:var(--red)">Deben ${fmt(s.total_debe)}</span>
+          </div>
+          <div class="cc-mini-card cc-bg-slate">
+            <div class="cc-accent" style="background:var(--muted)"></div>
+            <div class="cc-label">😊 Al Día</div>
+            <div class="cc-val" style="color:var(--ink-2)">${fmtN(s.al_dia)}</div>
+            <div class="cc-sub">${pct(s.al_dia, tot)} del total</div>
+            <span class="cc-badge" style="background:#f1f5f9;color:var(--muted)">Saldo cero</span>
+          </div>
+          <div class="cc-mini-card cc-bg-blue">
+            <div class="cc-accent" style="background:var(--blue)"></div>
+            <div class="cc-label">🎁 A Favor</div>
+            <div class="cc-val" style="color:var(--blue)">${fmtN(s.a_favor)}</div>
+            <div class="cc-sub">${pct(s.a_favor, tot)} del total</div>
+            <span class="cc-badge" style="background:var(--blue-light);color:var(--blue)">Crédito ${fmt(s.total_favor)}</span>
+          </div>
+        </div>
+
+        <!-- BLOQUE 3: Proyección Total -->
+        <p class="cc-group-title" style="color:#7c3aed;margin-top:4px">🔮 Proyección Total (incluye sesiones pendientes)</p>
+        <div class="cc-mini-grid">
+          <div class="cc-mini-card cc-bg-purple">
+            <div class="cc-accent" style="background:var(--purple)"></div>
+            <div class="cc-label">Total Proyectado</div>
+            <div class="cc-val" style="font-size:.85rem;color:var(--purple)">${fmt(s.total_proyectado)}</div>
+            <div class="cc-sub">Todas las sesiones programadas</div>
+          </div>
+          <div class="cc-mini-card ${s.total_balance_proyeccion < 0 ? 'cc-bg-red' : s.total_balance_proyeccion > 0 ? 'cc-bg-blue' : 'cc-bg-slate'}">
+            <div class="cc-accent" style="background:${colorBal(s.total_balance_proyeccion)}"></div>
+            <div class="cc-label">Balance Proyectado</div>
+            <div class="cc-val" style="font-size:.85rem;color:${colorBal(s.total_balance_proyeccion)}">${fmt(s.total_balance_proyeccion)}</div>
+            <div class="cc-sub">${labelBal(s.total_balance_proyeccion)} al finalizar todas las sesiones</div>
+          </div>
+          <div class="cc-mini-card cc-bg-red">
+            <div class="cc-accent" style="background:var(--red)"></div>
+            <div class="cc-label">Deberán</div>
+            <div class="cc-val" style="color:var(--red)">${fmtN(s.deudores_proyeccion)}</div>
+            <div class="cc-sub">Pacientes con saldo negativo proyectado</div>
+            <span class="cc-badge" style="background:#fee2e2;color:var(--red)">${fmt(s.total_debe_proyeccion)}</span>
+          </div>
+          <div class="cc-mini-card cc-bg-blue">
+            <div class="cc-accent" style="background:var(--blue)"></div>
+            <div class="cc-label">A Favor (Proy.)</div>
+            <div class="cc-val" style="color:var(--blue)">${fmtN(s.a_favor_proyeccion)}</div>
+            <div class="cc-sub">Pacientes con saldo positivo proyectado</div>
+            <span class="cc-badge" style="background:var(--blue-light);color:var(--blue)">${fmt(s.total_favor_proyeccion)}</span>
+          </div>
+        </div>
+
+        <div class="cc-link-bar">
+          <a href="{% url 'facturacion:cuentas_corrientes' %}">Ver Cuentas Corrientes →</a>
+        </div>
+      </div>`;
+
+      document.getElementById('cc-stats-container').innerHTML = html;
+    }
+
+    // Cargar al iniciar
+    fetch('{% url "facturacion:cargar_estadisticas_ajax" %}?modo_paciente=todos')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) renderCC(data);
+        else throw new Error(data.error || 'Error');
+      })
+      .catch(err => {
+        document.getElementById('cc-stats-container').innerHTML = `
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;text-align:center;font-size:.78rem;color:#dc2626">
+            ❌ No se pudieron cargar las estadísticas de cuentas corrientes.
+            <button onclick="location.reload()" style="margin-left:8px;background:#dc2626;color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:.72rem;cursor:pointer">Reintentar</button>
+          </div>`;
+      });
+  })();
+  </script>
 
   <!-- Section: Reportes Principales -->
   <div class="section-title">📋 Reportes Analíticos</div>
