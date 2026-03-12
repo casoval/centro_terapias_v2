@@ -231,23 +231,26 @@
         gap: 14px;
         align-items: flex-start;
     ">
-        <span style="font-size: 1.6rem; flex-shrink: 0; line-height: 1;">⚠️</span>
+        <span style="font-size: 1.6rem; flex-shrink: 0; line-height: 1;">ℹ️</span>
         <div style="flex: 1;">
-            <p style="margin: 0 0 4px; font-size: .82rem; font-weight: 800; color: #92400e; letter-spacing: -.01em;">
-                Estás filtrando por sucursal — los saldos mostrados son globales por paciente
+            <p style="margin: 0 0 6px; font-size: .82rem; font-weight: 800; color: #92400e; letter-spacing: -.01em;">
+                Filtro por sucursal activo — así se asignan los pacientes y sus movimientos
             </p>
-            <p style="margin: 0; font-size: .75rem; color: #b45309; line-height: 1.5;">
-                Los pacientes con <strong>más de una sucursal</strong> aparecen aquí con su saldo <strong>total</strong>,
-                que incluye consumos y pagos de <em>todas</em> sus sucursales asignadas, no solo de la seleccionada.
-                Este filtro sirve para localizar pacientes por sede, pero la información financiera concreta (desglosada por sucursal)
-                está disponible en
-                <a href="{% url 'facturacion:reporte_sucursal' %}" style="color: #92400e; font-weight: 800; text-decoration: underline;">
-                    📊 Informe de Sucursal
-                </a>
-                y en
-                <a href="{% url 'facturacion:reporte_paciente' %}" style="color: #92400e; font-weight: 800; text-decoration: underline;">
-                    👤 Informe de Paciente
-                </a>.
+            <p style="margin: 0 0 5px; font-size: .75rem; color: #b45309; line-height: 1.6;">
+                <strong>Pacientes con una sola sucursal:</strong>
+                se incluyen directamente si pertenecen a esta sede. Sin cambios respecto al comportamiento anterior.
+            </p>
+            <p style="margin: 0 0 5px; font-size: .75rem; color: #b45309; line-height: 1.6;">
+                <strong>Pacientes con más de una sucursal:</strong>
+                el sistema los asigna automáticamente a su <em>sucursal principal</em>,
+                definida como aquella donde el paciente registra la mayor cantidad de sesiones realizadas en toda su historia.
+                Solo aparecen en la sucursal donde más asistieron — no se duplican entre sedes.
+            </p>
+            <p style="margin: 0; font-size: .75rem; color: #b45309; line-height: 1.6;">
+                <strong>Pagos adelantados y devoluciones sin sesión asociada:</strong>
+                también se asignan a la sucursal principal del paciente por la misma lógica.
+                En la práctica esto afecta a una pequeña porción de los movimientos y siempre refleja correctamente la sede habitual del paciente.
+                El saldo mostrado es el saldo total del paciente, ya que las cuentas corrientes no se desglozan por sucursal.
             </p>
         </div>
         <a href="?modo_paciente={{ modo_paciente|default:'todos' }}{% if buscar %}&q={{ buscar }}{% endif %}{% if estado %}&estado={{ estado }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"

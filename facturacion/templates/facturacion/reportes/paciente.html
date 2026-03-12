@@ -332,9 +332,9 @@
               padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
     <span style="font-size:1.2rem;flex-shrink:0">ℹ️</span>
     <p style="margin:0;font-size:.75rem;color:#1e40af;line-height:1.5">
-      Cada fila muestra el consumo y pagos directos <strong>registrados en esa sucursal</strong>
-      (sesiones normales, mensualidades y proyectos de esa sede).
-      El <strong>crédito adelantado</strong> es global y no pertenece a ninguna sucursal específica.
+      Cada fila muestra el consumo y pagos de esa sucursal. Los <strong>pagos adelantados y devoluciones
+      sin ítem asignado</strong> se suman a la <strong>sucursal principal</strong> del paciente,
+      determinada automáticamente como aquella donde registra la mayor cantidad de sesiones realizadas.
     </p>
   </div>
 
@@ -362,7 +362,7 @@
       <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
         <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Pagado</div>
         <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--green)">Bs. {{ sf.pagado|floatformat:0 }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">pagos directos</div>
+        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">directos + adelantados</div>
       </div>
       <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
         <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Sesiones</div>
@@ -383,23 +383,17 @@
   </div>
   {% endfor %}
 
-  <!-- Crédito adelantado global (sin sucursal) -->
-  {% with cc=paciente.cuenta_corriente %}
-  {% if cc and cc.pagos_adelantados > 0 %}
-  <div style="background:var(--purple-l);border:2px dashed rgba(124,58,237,.4);border-radius:var(--r);
-              padding:14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div>
-      <div style="font-size:.82rem;font-weight:800;color:var(--purple)">💳 Crédito Adelantado Global</div>
-      <div style="font-size:.7rem;color:#6d28d9;margin-top:2px">
-        No asignado a ninguna sucursal — disponible para cualquier pago pendiente
-      </div>
+  <!-- Nota: pagos adelantados ya incluidos en la sucursal principal -->
+  {% for sf in datos.financiero_por_sucursal %}
+    {% if sf.pagos_adelantados %}
+    <div style="background:var(--purple-l);border:1px solid rgba(124,58,237,.25);border-radius:8px;
+                padding:10px 14px;margin-bottom:8px;font-size:.72rem;color:#6d28d9">
+      💳 <strong>Bs. {{ sf.pagos_adelantados|floatformat:0 }} de crédito adelantado</strong>
+      incluido en el total de <strong>{{ sf.sucursal_nombre }}</strong> (sucursal principal)
     </div>
-    <div style="font-size:1.1rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--purple)">
-      Bs. {{ cc.pagos_adelantados|floatformat:0 }}
-    </div>
-  </div>
-  {% endif %}
-  {% endwith %}
+    {% endif %}
+  {% endfor %}
+
 
   {% endif %}{# end financiero_por_sucursal #}
 

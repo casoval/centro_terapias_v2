@@ -3542,6 +3542,80 @@ def _calcular_financiero_paciente_por_sucursal(paciente, fecha_desde_obj=None, f
             'num_proyectos':           num_proyectos,
         })
 
+    # ── PAGOS ADELANTADOS y DEVOLUCIONES LIBRES → sucursal principal ──
+    # Se agregan a la fila de la sucursal donde el paciente tiene más sesiones.
+    if resultado:
+        # Determinar sucursal principal por sesiones históricas
+        from django.db.models import Count
+        top = (
+            Sesion.objects.filter(
+                paciente=paciente,
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('sucursal_id')
+            .annotate(total=Count('id'))
+            .order_by('-total')
+            .first()
+        )
+        sid_principal = top['sucursal_id'] if top else (resultado[0]['sucursal_id'] if resultado else None)
+
+        _excl = {'metodo_pago__nombre': 'Uso de Crédito'}
+
+        pagos_adelantados = (
+            Pago.objects.filter(
+                q_pago, paciente=paciente, anulado=False,
+                sesion__isnull=True, mensualidad__isnull=True, proyecto__isnull=True,
+            ).exclude(**_excl).exclude(detalles_masivos__isnull=False)
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+        uso_credito_p = (
+            Pago.objects.filter(paciente=paciente, anulado=False,
+                                metodo_pago__nombre='Uso de Crédito')
+            .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+        devoluciones_libres = (
+            Devolucion.objects.filter(
+                q_dev, paciente=paciente,
+                proyecto__isnull=True, mensualidad__isnull=True
+            ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+        )
+        credito_neto = max(Decimal('0'), pagos_adelantados - uso_credito_p - devoluciones_libres)
+
+        # Sumar a la fila de la sucursal principal
+        if credito_neto > 0 and sid_principal:
+            for fila in resultado:
+                if fila['sucursal_id'] == sid_principal:
+                    fila['pagado']             += credito_neto
+                    fila['saldo']              = fila['pagado'] - fila['consumido']
+                    fila['pagos_adelantados']  = credito_neto
+                    break
+            else:
+                # La sucursal principal no aparece en resultado (sin actividad en el período)
+                # se registra igual para que el usuario vea el crédito
+                from servicios.models import Sucursal as _Suc
+                try:
+                    nombre_p = _Suc.objects.get(id=sid_principal).nombre
+                except Exception:
+                    nombre_p = str(sid_principal)
+                resultado.append({
+                    'sucursal_id':             sid_principal,
+                    'sucursal_nombre':         nombre_p,
+                    'consumido':               Decimal('0'),
+                    'pagado':                  credito_neto,
+                    'saldo':                   credito_neto,
+                    'consumido_sesiones':      Decimal('0'),
+                    'consumido_mensualidades': Decimal('0'),
+                    'consumido_proyectos':     Decimal('0'),
+                    'pagos_sesiones':          Decimal('0'),
+                    'pagos_mensualidades':     Decimal('0'),
+                    'pagos_proyectos':         Decimal('0'),
+                    'devoluciones':            Decimal('0'),
+                    'pagos_adelantados':       credito_neto,
+                    'num_sesiones':            0,
+                    'num_mensualidades':       0,
+                    'num_proyectos':           0,
+                })
+
     # Bloque solo útil si el paciente opera en más de una sucursal
     return resultado if len(resultado) > 1 else []
 
@@ -3644,22 +3718,32 @@ def _calcular_financiero_sucursal(sucursal_id, paciente_ids, fecha_desde_obj=Non
 
     total_pagado_directo = pagos_ses + pagos_mens + pagos_proy - devoluciones
 
-    # ── CRÉDITO ADELANTADO GLOBAL de estos pacientes ─────────────────
+    # ── CRÉDITO ADELANTADO y DEVOLUCIONES LIBRES ───────────────────
+    # Solo se cuentan los pacientes cuya sucursal PRINCIPAL es esta.
+    # Pacientes con 1 sucursal → ya son de esta sede por definición.
+    # Pacientes multi-sucursal → se asignan a la de más sesiones históricas.
+    suc_map_fs = _build_sucursal_map(paciente_ids)
+    paciente_ids_principal = [
+        pid for pid in paciente_ids
+        if str(suc_map_fs.get(pid, sid)) == str(sid)
+    ]
+
     credito_bruto = (
         Pago.objects.filter(
-            q_pago, paciente_id__in=paciente_ids, anulado=False,
+            q_pago, paciente_id__in=paciente_ids_principal, anulado=False,
             sesion__isnull=True, mensualidad__isnull=True, proyecto__isnull=True,
         ).exclude(**_excl).exclude(detalles_masivos__isnull=False)
         .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
     )
     uso_credito = (
-        Pago.objects.filter(paciente_id__in=paciente_ids, anulado=False,
+        Pago.objects.filter(paciente_id__in=paciente_ids_principal, anulado=False,
                             metodo_pago__nombre='Uso de Crédito')
         .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
     )
     devoluciones_credito = (
-        Devolucion.objects.filter(paciente_id__in=paciente_ids,
+        Devolucion.objects.filter(paciente_id__in=paciente_ids_principal,
                                   proyecto__isnull=True, mensualidad__isnull=True)
+        .filter(q_dev)
         .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
     )
     credito_neto = max(Decimal('0'), credito_bruto - uso_credito - devoluciones_credito)
