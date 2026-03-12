@@ -193,13 +193,36 @@
   <!-- Quick Access Bar -->
   <div class="quick-bar">
     <span class="qlabel">Acceso rápido</span>
-    <a href="{% url 'facturacion:reporte_financiero' %}?rango=hoy" class="quick-chip">💵 Caja Hoy</a>
-    <a href="{% url 'facturacion:reporte_financiero' %}?rango=semana" class="quick-chip">📅 Esta Semana</a>
-    <a href="{% url 'facturacion:reporte_financiero' %}?rango=mes" class="quick-chip">📆 Este Mes</a>
-    <a href="{% url 'facturacion:reporte_asistencia' %}" class="quick-chip">✅ Asistencia Hoy</a>
-    <a href="{% url 'facturacion:reporte_financiero' %}?rango=cierre" class="quick-chip">🔒 Cierre de Caja</a>
+    <a id="chip-caja-hoy"     href="#" class="quick-chip">💵 Caja Hoy</a>
+    <a id="chip-semana"       href="#" class="quick-chip">📅 Esta Semana</a>
+    <a id="chip-mes"          href="#" class="quick-chip">📆 Este Mes</a>
+    <a href="{% url 'facturacion:reporte_asistencia' %}?rango=hoy" class="quick-chip">✅ Asistencia Hoy</a>
+    <a id="chip-cierre"       href="#" class="quick-chip">🔒 Cierre de Caja</a>
     <a href="{% url 'facturacion:exportar_excel' %}?tipo=pagos" class="quick-chip">⬇️ Exportar Excel</a>
   </div>
+  <script>
+  (function(){
+    const hoy   = new Date();
+    const pad   = n => String(n).padStart(2,'0');
+    const fmt   = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const today = fmt(hoy);
+
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - ((hoy.getDay()+6)%7)); // lunes
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+    const base = "{% url 'facturacion:reporte_financiero' %}";
+
+    document.getElementById('chip-caja-hoy').href =
+      `${base}?vista=detalle_pagos&fecha_desde=${today}&fecha_hasta=${today}`;
+    document.getElementById('chip-semana').href =
+      `${base}?vista=mensual&fecha_desde=${fmt(inicioSemana)}&fecha_hasta=${today}`;
+    document.getElementById('chip-mes').href =
+      `${base}?vista=mensual&fecha_desde=${fmt(inicioMes)}&fecha_hasta=${today}`;
+    document.getElementById('chip-cierre').href =
+      `${base}?vista=diaria&fecha_desde=${today}&fecha_hasta=${today}`;
+  })();
+  </script>
 
   <!-- KPI Cards - these would be populated from context in production -->
   <div class="kpi-grid">

@@ -224,8 +224,31 @@
         <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
       </div>
       <button type="submit" class="btn-primary" style="margin-top:20px">🔍 Filtrar</button>
+      <button type="button" onclick="resetFiltros()" 
+              style="margin-top:20px;background:var(--white);border:1px solid var(--border);
+                     color:var(--muted);padding:7px 14px;border-radius:8px;font-size:.78rem;
+                     font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;
+                     transition:all .15s;display:inline-flex;align-items:center;gap:5px"
+              onmouseover="this.style.borderColor='#dc2626';this.style.color='#dc2626';this.style.background='#fff5f5'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';this.style.background='var(--white)'">
+        🔄 Limpiar filtros
+      </button>
     </form>
   </div>
+
+  <script>
+  function resetFiltros() {
+    const hoy = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+    document.querySelector('[name="fecha_desde"]').value = fmt(inicioMes);
+    document.querySelector('[name="fecha_hasta"]').value = fmt(hoy);
+    document.querySelector('[name="sucursal"]').value = '';
+    document.querySelector('form').submit();
+  }
+  </script>
 
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- VISTA: MENSUAL (RESUMEN) -->
