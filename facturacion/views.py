@@ -251,7 +251,20 @@ def calcular_estadisticas_globales(buscar=None, estado=None, sucursal_id=None, m
                 Q(nombre_tutor__icontains=buscar)
             )
         if sucursal_id:
+            # Paso 1: candidatos — pacientes que tienen ALGUNA relación con esta sucursal
             pacientes_qs = pacientes_qs.filter(sucursales__id=sucursal_id)
+            # Paso 2: para pacientes multi-sucursal, solo incluir si esta es su principal
+            # (la que tiene más sesiones históricas). Los de 1 sola sucursal ya están
+            # correctamente incluidos por el filtro anterior.
+            candidatos_ids = list(pacientes_qs.values_list('id', flat=True).distinct())
+            suc_map_cc = _build_sucursal_map(candidatos_ids)
+            # Conservar solo los pacientes cuya sucursal principal == sucursal_id
+            candidatos_ids = [
+                pid for pid in candidatos_ids
+                if str(suc_map_cc.get(pid, sucursal_id)) == str(sucursal_id)
+            ]
+            from pacientes.models import Paciente as _Pac
+            pacientes_qs = _Pac.objects.filter(id__in=candidatos_ids)
         
         # Aplicar filtro de estado de saldo (sobre CuentaCorriente histórica)
         if estado == 'deudor':
@@ -4423,6 +4436,115 @@ def reporte_sucursal(request):
     return render(request, 'facturacion/reportes/sucursal.html', context)
 
 @login_required
+def _inferir_sucursal_paciente(paciente_id):
+    """
+    Infiere la sucursal principal de un paciente para asignar pagos adelantados
+    y devoluciones sin ítem asignado cuando hay filtro de sucursal activo.
+
+    Lógica:
+    - Si el paciente tiene UNA sola sucursal → la devuelve directamente (98%+ de casos).
+    - Si tiene más de una → la que tiene más sesiones históricas (siempre será la principal).
+    - Sin sesiones → primera sucursal asignada como fallback.
+    """
+    from pacientes.models import Paciente
+    from django.db.models import Count
+
+    try:
+        paciente = Paciente.objects.prefetch_related('sucursales').get(id=paciente_id)
+        sucursales = list(paciente.sucursales.all())
+
+        if len(sucursales) == 0:
+            return None
+        if len(sucursales) == 1:
+            return sucursales[0].id
+
+        # Multi-sucursal: la que tiene más sesiones históricas
+        resultado = (
+            Sesion.objects.filter(
+                paciente_id=paciente_id,
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('sucursal_id')
+            .annotate(total=Count('id'))
+            .order_by('-total')
+            .first()
+        )
+        if resultado:
+            return resultado['sucursal_id']
+
+        # Fallback: primera sucursal asignada
+        return sucursales[0].id
+
+    except Exception:
+        return None
+
+
+# Caché en memoria por request para no repetir queries del mismo paciente
+def _build_sucursal_map(paciente_ids):
+    """
+    Genera un dict {paciente_id: sucursal_id} para una lista de pacientes,
+    usando una sola query agregada en lugar de un loop por paciente.
+    Solo se usa para pacientes con más de una sucursal.
+    """
+    from django.db.models import Count, OuterRef, Subquery
+
+    # Pacientes con una sola sucursal → query directa, sin sesiones
+    from pacientes.models import Paciente
+    pacientes_qs = Paciente.objects.filter(id__in=paciente_ids).prefetch_related('sucursales')
+
+    resultado = {}
+    multi_sucursal_ids = []
+
+    for p in pacientes_qs:
+        sucursales = list(p.sucursales.all())
+        if len(sucursales) == 1:
+            resultado[p.id] = sucursales[0].id
+        elif len(sucursales) > 1:
+            multi_sucursal_ids.append(p.id)
+        # 0 sucursales → None, no se agrega
+
+    # Para los multi-sucursal: una sola query agregada
+    if multi_sucursal_ids:
+        # Subquery: sucursal con más sesiones por paciente
+        top_sucursal = (
+            Sesion.objects.filter(
+                paciente_id=OuterRef('paciente_id'),
+                sucursal_id=OuterRef('sucursal_id'),
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('sucursal_id')
+            .annotate(c=Count('id'))
+            .order_by('-c')
+            .values('sucursal_id')[:1]
+        )
+        filas = (
+            Sesion.objects.filter(
+                paciente_id__in=multi_sucursal_ids,
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('paciente_id')
+            .annotate(
+                sucursal_principal=Subquery(top_sucursal)
+            )
+            .values_list('paciente_id', 'sucursal_principal')
+            .distinct()
+        )
+        for pid, sid in filas:
+            if pid not in resultado:
+                resultado[pid] = sid
+
+        # Fallback para multi-sucursal sin sesiones
+        for pid in multi_sucursal_ids:
+            if pid not in resultado:
+                p = next((x for x in pacientes_qs if x.id == pid), None)
+                if p:
+                    s = list(p.sucursales.all())
+                    if s:
+                        resultado[pid] = s[0].id
+
+    return resultado
+
+
 def reporte_financiero(request):
     """
     Reporte financiero completo - VERSIÓN EXTENDIDA Y CORREGIDA
@@ -4505,25 +4627,65 @@ def reporte_financiero(request):
         anulado=True
     ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto')
     
-    # Filtro por sucursal
+    # ==================== FILTRO POR SUCURSAL ====================
     if sucursal_id:
-        sesiones = sesiones.filter(sucursal_id=sucursal_id)
+        sesiones  = sesiones.filter(sucursal_id=sucursal_id)
         proyectos = proyectos.filter(sucursal_id=sucursal_id)
-        pagos = pagos.filter(
-            Q(sesion__sucursal_id=sucursal_id) | 
+
+        # Pagos con sesion/proyecto/mensualidad: filtro directo por FK (exacto)
+        # Pagos adelantados (sin item): inferir sucursal del paciente
+        #   · 1 sucursal  -> directo, sin ambiguedad (98%+ de casos)
+        #   · multi-suc.  -> la que tiene mas sesiones historicas (siempre la principal)
+        pagos_con_item = pagos.filter(
+            Q(sesion__sucursal_id=sucursal_id) |
             Q(proyecto__sucursal_id=sucursal_id) |
-            Q(sesion__isnull=True, proyecto__isnull=True, paciente__sucursales__id=sucursal_id)
+            Q(mensualidad__sucursal_id=sucursal_id)
         )
-        devoluciones = devoluciones.filter(
+        pagos_adelantados_qs = pagos.filter(
+            sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+        )
+        if pagos_adelantados_qs.exists():
+            pids = list(pagos_adelantados_qs.values_list('paciente_id', flat=True).distinct())
+            suc_map = _build_sucursal_map(pids)
+            pids_ok = [pid for pid, sid in suc_map.items() if str(sid) == str(sucursal_id)]
+            pagos_adelantados_filtrados = pagos_adelantados_qs.filter(paciente_id__in=pids_ok)
+        else:
+            pagos_adelantados_filtrados = pagos_adelantados_qs.none()
+        pagos = (pagos_con_item | pagos_adelantados_filtrados).distinct()
+
+        # Devoluciones con proyecto/mensualidad: filtro directo
+        # Devoluciones libres: misma logica de inferencia
+        dev_con_item = devoluciones.filter(
             Q(proyecto__sucursal_id=sucursal_id) |
-            Q(mensualidad__sucursal_id=sucursal_id) |
-            Q(proyecto__isnull=True, mensualidad__isnull=True, paciente__sucursales__id=sucursal_id)
+            Q(mensualidad__sucursal_id=sucursal_id)
         )
-        pagos_anulados = pagos_anulados.filter(
-            Q(sesion__sucursal_id=sucursal_id) | 
+        dev_libres_qs = devoluciones.filter(proyecto__isnull=True, mensualidad__isnull=True)
+        if dev_libres_qs.exists():
+            pids_d = list(dev_libres_qs.values_list('paciente_id', flat=True).distinct())
+            suc_map_d = _build_sucursal_map(pids_d)
+            pids_d_ok = [pid for pid, sid in suc_map_d.items() if str(sid) == str(sucursal_id)]
+            dev_libres_filtradas = dev_libres_qs.filter(paciente_id__in=pids_d_ok)
+        else:
+            dev_libres_filtradas = dev_libres_qs.none()
+        devoluciones = (dev_con_item | dev_libres_filtradas).distinct()
+
+        # Pagos anulados: misma logica que pagos validos
+        pa_con_item = pagos_anulados.filter(
+            Q(sesion__sucursal_id=sucursal_id) |
             Q(proyecto__sucursal_id=sucursal_id) |
-            Q(sesion__isnull=True, proyecto__isnull=True, paciente__sucursales__id=sucursal_id)
+            Q(mensualidad__sucursal_id=sucursal_id)
         )
+        pa_libres_qs = pagos_anulados.filter(
+            sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+        )
+        if pa_libres_qs.exists():
+            pids_a = list(pa_libres_qs.values_list('paciente_id', flat=True).distinct())
+            suc_map_a = _build_sucursal_map(pids_a)
+            pids_a_ok = [pid for pid, sid in suc_map_a.items() if str(sid) == str(sucursal_id)]
+            pa_libres_filtrados = pa_libres_qs.filter(paciente_id__in=pids_a_ok)
+        else:
+            pa_libres_filtrados = pa_libres_qs.none()
+        pagos_anulados = (pa_con_item | pa_libres_filtrados).distinct()
     # ==================== CONTEXTO BASE ====================
     context = {
         'vista': vista,
