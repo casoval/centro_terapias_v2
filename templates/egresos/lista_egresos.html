@@ -1,0 +1,308 @@
+{% extends 'base.html' %}
+
+{% block title %}💸 Egresos del Centro{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+
+    <!-- ===== HEADER ===== -->
+    <div class="flex justify-between items-center mb-3 gap-2">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-red-600 rounded-xl text-white shadow-lg shadow-red-200">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-xl font-bold text-gray-900">💸 Egresos del Centro</h1>
+                <p class="text-xs text-gray-500">Todos los gastos y salidas de dinero</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'egresos:dashboard_financiero' %}"
+               class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition shadow-sm">
+                📊 Dashboard
+            </a>
+            <a href="{% url 'egresos:registrar_egreso' %}"
+               class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition shadow-sm">
+                ➕ Nuevo Egreso
+            </a>
+        </div>
+    </div>
+
+    <!-- ===== TABS DE NAVEGACIÓN ===== -->
+    <div class="flex gap-1 mb-3 bg-white border border-gray-200 rounded-xl p-1 shadow-sm w-fit">
+        <a href="{% url 'egresos:lista_egresos' %}"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-red-500 text-white shadow-sm">
+            💸 Egresos
+        </a>
+        <a href="{% url 'egresos:dashboard_financiero' %}"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-600 hover:bg-gray-100">
+            📊 Dashboard
+        </a>
+    </div>
+
+    <!-- ===== FILTROS ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl p-3 mb-3 shadow-sm">
+        <form method="get" class="space-y-2">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+
+                <!-- Búsqueda texto -->
+                <div class="col-span-2 sm:col-span-3 lg:col-span-2">
+                    <input type="text" name="q" value="{{ filtros.q }}"
+                           placeholder="🔍 Buscar concepto, proveedor, N° egreso..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                </div>
+
+                <!-- Tipo -->
+                <div>
+                    <select name="tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="">📂 Todos los tipos</option>
+                        {% for valor, nombre in tipos %}
+                        <option value="{{ valor }}" {% if filtros.tipo == valor %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Categoría -->
+                <div>
+                    <select name="categoria" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="">🏷️ Todas las categorías</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Estado -->
+                <div>
+                    <select name="estado" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="activos" {% if filtros.estado == 'activos' %}selected{% endif %}>✅ Activos</option>
+                        <option value="anulados" {% if filtros.estado == 'anulados' %}selected{% endif %}>❌ Anulados</option>
+                        <option value="todos" {% if filtros.estado == 'todos' %}selected{% endif %}>🌐 Todos</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                <!-- Fecha desde -->
+                <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Fecha desde</label>
+                    <input type="date" name="fecha_desde" value="{{ filtros.fecha_desde }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                </div>
+
+                <!-- Fecha hasta -->
+                <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Fecha hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ filtros.fecha_hasta }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                </div>
+
+                <!-- Mes -->
+                <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Período - Mes</label>
+                    <select name="mes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="">-- Todos los meses --</option>
+                        <option value="1" {% if filtros.mes == '1' %}selected{% endif %}>Enero</option>
+                        <option value="2" {% if filtros.mes == '2' %}selected{% endif %}>Febrero</option>
+                        <option value="3" {% if filtros.mes == '3' %}selected{% endif %}>Marzo</option>
+                        <option value="4" {% if filtros.mes == '4' %}selected{% endif %}>Abril</option>
+                        <option value="5" {% if filtros.mes == '5' %}selected{% endif %}>Mayo</option>
+                        <option value="6" {% if filtros.mes == '6' %}selected{% endif %}>Junio</option>
+                        <option value="7" {% if filtros.mes == '7' %}selected{% endif %}>Julio</option>
+                        <option value="8" {% if filtros.mes == '8' %}selected{% endif %}>Agosto</option>
+                        <option value="9" {% if filtros.mes == '9' %}selected{% endif %}>Septiembre</option>
+                        <option value="10" {% if filtros.mes == '10' %}selected{% endif %}>Octubre</option>
+                        <option value="11" {% if filtros.mes == '11' %}selected{% endif %}>Noviembre</option>
+                        <option value="12" {% if filtros.mes == '12' %}selected{% endif %}>Diciembre</option>
+                    </select>
+                </div>
+
+                <!-- Año -->
+                <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 mb-0.5">Período - Año</label>
+                    <select name="anio" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="">-- Todos --</option>
+                        {% for anio in anios_disponibles %}
+                        <option value="{{ anio }}" {% if filtros.anio == anio|stringformat:"s" %}selected{% endif %}>{{ anio }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Botones -->
+                <div class="col-span-2 flex items-end gap-2">
+                    <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold transition shadow-sm">
+                        🔍 Filtrar
+                    </button>
+                    <a href="{% url 'egresos:lista_egresos' %}" class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-xs font-bold transition">
+                        ✖ Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===== TOTAL DEL FILTRO ===== -->
+    <div class="flex justify-between items-center mb-2">
+        <p class="text-xs text-gray-500">
+            <span class="font-bold text-gray-700">{{ page_obj.paginator.count }}</span> egreso(s) encontrado(s)
+        </p>
+        <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-1">
+            <span class="text-xs text-gray-500">Total filtrado: </span>
+            <span class="text-sm font-bold text-red-600">Bs. {{ total_filtrado|floatformat:0 }}</span>
+        </div>
+    </div>
+
+    <!-- ===== TABLA DE EGRESOS ===== -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        {% if page_obj %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="bg-gradient-to-r from-red-600 to-red-700 text-white">
+                        <th class="px-3 py-2.5 text-left font-semibold">N° Egreso</th>
+                        <th class="px-3 py-2.5 text-left font-semibold">Fecha</th>
+                        <th class="px-3 py-2.5 text-left font-semibold hidden sm:table-cell">Categoría</th>
+                        <th class="px-3 py-2.5 text-left font-semibold hidden md:table-cell">Proveedor</th>
+                        <th class="px-3 py-2.5 text-left font-semibold">Concepto</th>
+                        <th class="px-3 py-2.5 text-right font-semibold">Monto</th>
+                        <th class="px-3 py-2.5 text-left font-semibold hidden lg:table-cell">Período</th>
+                        <th class="px-3 py-2.5 text-center font-semibold">Estado</th>
+                        <th class="px-3 py-2.5 text-center font-semibold">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for egreso in page_obj %}
+                    <tr class="hover:bg-red-50 transition-colors {% if egreso.anulado %}opacity-50{% endif %}">
+                        <!-- N° Egreso -->
+                        <td class="px-3 py-2.5">
+                            <a href="{% url 'egresos:detalle_egreso' egreso.id %}"
+                               class="font-bold text-red-600 hover:text-red-800 hover:underline">
+                                {{ egreso.numero_egreso }}
+                            </a>
+                        </td>
+
+                        <!-- Fecha -->
+                        <td class="px-3 py-2.5 text-gray-600 whitespace-nowrap">
+                            {{ egreso.fecha|date:"d/m/Y" }}
+                        </td>
+
+                        <!-- Categoría -->
+                        <td class="px-3 py-2.5 hidden sm:table-cell">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold
+                                {% if egreso.categoria.tipo == 'honorarios' %}bg-purple-100 text-purple-700
+                                {% elif egreso.categoria.tipo == 'arriendo' %}bg-blue-100 text-blue-700
+                                {% elif egreso.categoria.tipo == 'servicios_basicos' %}bg-yellow-100 text-yellow-700
+                                {% elif egreso.categoria.tipo == 'personal' %}bg-green-100 text-green-700
+                                {% elif egreso.categoria.tipo == 'equipamiento' %}bg-orange-100 text-orange-700
+                                {% elif egreso.categoria.tipo == 'impuesto' %}bg-red-100 text-red-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ egreso.categoria.nombre }}
+                            </span>
+                        </td>
+
+                        <!-- Proveedor -->
+                        <td class="px-3 py-2.5 text-gray-600 hidden md:table-cell">
+                            {{ egreso.proveedor.nombre|default:"—" }}
+                        </td>
+
+                        <!-- Concepto -->
+                        <td class="px-3 py-2.5 text-gray-700 max-w-xs">
+                            <span title="{{ egreso.concepto }}">
+                                {{ egreso.concepto|truncatechars:50 }}
+                            </span>
+                        </td>
+
+                        <!-- Monto -->
+                        <td class="px-3 py-2.5 text-right font-bold {% if egreso.anulado %}text-gray-400 line-through{% else %}text-red-600{% endif %}">
+                            Bs. {{ egreso.monto|floatformat:0 }}
+                        </td>
+
+                        <!-- Período -->
+                        <td class="px-3 py-2.5 text-gray-500 hidden lg:table-cell text-[10px]">
+                            {{ egreso.periodo_display }}
+                        </td>
+
+                        <!-- Estado -->
+                        <td class="px-3 py-2.5 text-center">
+                            {% if egreso.anulado %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                                ❌ Anulado
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
+                                ✅ Activo
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Acciones -->
+                        <td class="px-3 py-2.5 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                <a href="{% url 'egresos:detalle_egreso' egreso.id %}"
+                                   title="Ver detalle"
+                                   class="p-1 text-blue-600 hover:bg-blue-100 rounded-lg transition">
+                                    👁️
+                                </a>
+                                <a href="{% url 'egresos:egreso_pdf' egreso.id %}"
+                                   target="_blank"
+                                   title="Ver PDF"
+                                   class="p-1 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                                    🧾
+                                </a>
+                                {% if not egreso.anulado %}
+                                <a href="{% url 'egresos:anular_egreso' egreso.id %}"
+                                   title="Anular"
+                                   class="p-1 text-red-600 hover:bg-red-100 rounded-lg transition">
+                                    ❌
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ===== PAGINACIÓN ===== -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+            <p class="text-xs text-gray-500">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </p>
+            <div class="flex gap-1">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}"
+                   class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition">
+                    ← Anterior
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}"
+                   class="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition">
+                    Siguiente →
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- Sin resultados -->
+        <div class="text-center py-16">
+            <div class="text-5xl mb-4">💸</div>
+            <p class="text-gray-500 font-medium">No se encontraron egresos</p>
+            <p class="text-gray-400 text-xs mt-1">Prueba con otros filtros o registra un nuevo egreso</p>
+            <a href="{% url 'egresos:registrar_egreso' %}"
+               class="mt-4 inline-block bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                ➕ Registrar Egreso
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

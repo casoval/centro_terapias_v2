@@ -4783,10 +4783,12 @@ def reporte_financiero(request):
     # VISTA: DETALLE PAGOS
     # ══════════════════════════════════════════════════════════════════
     if vista == 'detalle_pagos':
-        detalle_pagos = pagos.order_by('-fecha_pago', '-fecha_registro')
+        # Excluir 'Uso de Crédito' — se muestra en la pestaña Análisis Créditos
+        pagos_sin_credito = pagos.exclude(metodo_pago__nombre='Uso de Crédito')
+        detalle_pagos = pagos_sin_credito.order_by('-fecha_pago', '-fecha_registro')
         
-        # Totales por método
-        detalle_pagos_metodos = pagos.values('metodo_pago__nombre').annotate(
+        # Totales por método (sin Uso de Crédito)
+        detalle_pagos_metodos = pagos_sin_credito.values('metodo_pago__nombre').annotate(
             cantidad=Count('id'),
             total=Sum('monto')
         ).order_by('-total')
@@ -4795,9 +4797,14 @@ def reporte_financiero(request):
         total_devoluciones = devoluciones.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
         total_anulaciones = pagos_anulados.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
         
+        total_detalle_pagos = pagos_sin_credito.aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+        total_neto_periodo = total_detalle_pagos - total_devoluciones
+
         context.update({
             'detalle_pagos': detalle_pagos,
             'detalle_pagos_metodos': detalle_pagos_metodos,
+            'total_detalle_pagos': total_detalle_pagos,
+            'total_neto_periodo': total_neto_periodo,
             'detalle_devoluciones': devoluciones,
             'detalle_anulaciones': pagos_anulados,
             'total_devoluciones': total_devoluciones,

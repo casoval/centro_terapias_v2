@@ -15,6 +15,7 @@ urlpatterns = [
     path('facturacion/', include('facturacion.urls')),
     # ✅ CORREGIDO: agregado namespace='chat' para que {% url "chat:..." %} funcione
     path('chat/', include('chat.urls', namespace='chat')),
+    path('egresos/', include('egresos.urls', namespace='egresos')),
 ]
 
 # ==================== DEBUG TOOLBAR ====================

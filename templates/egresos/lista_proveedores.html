@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}🏢 Proveedores{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-3 gap-2">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-teal-600 rounded-xl text-white shadow-lg shadow-teal-200">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-xl font-bold text-gray-900">🏢 Proveedores</h1>
+                <p class="text-xs text-gray-500">{{ total }} proveedor(es) registrado(s)</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'egresos:lista_egresos' %}"
+               class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">
+                ← Egresos
+            </a>
+            <a href="{% url 'egresos:crear_proveedor' %}"
+               class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm">
+                ➕ Nuevo Proveedor
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro rápido por tipo -->
+    <div class="flex gap-1.5 mb-3 flex-wrap">
+        <a href="?"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                  {% if not filtro_tipo %}bg-teal-500 border-teal-500 text-white{% else %}bg-white border-gray-300 text-gray-600 hover:border-teal-400{% endif %}">
+            🌐 Todos
+        </a>
+        <a href="?tipo=empresa"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                  {% if filtro_tipo == 'empresa' %}bg-teal-500 border-teal-500 text-white{% else %}bg-white border-gray-300 text-gray-600 hover:border-teal-400{% endif %}">
+            🏢 Empresas
+        </a>
+        <a href="?tipo=profesional"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                  {% if filtro_tipo == 'profesional' %}bg-purple-500 border-purple-500 text-white{% else %}bg-white border-gray-300 text-gray-600 hover:border-purple-400{% endif %}">
+            🩺 Profesionales
+        </a>
+        <a href="?tipo=persona"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                  {% if filtro_tipo == 'persona' %}bg-teal-500 border-teal-500 text-white{% else %}bg-white border-gray-300 text-gray-600 hover:border-teal-400{% endif %}">
+            👤 Personas
+        </a>
+        <a href="?activo=0"
+           class="px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition-all
+                  {% if filtro_activo == '0' %}bg-gray-500 border-gray-500 text-white{% else %}bg-white border-gray-300 text-gray-600 hover:border-gray-400{% endif %}">
+            👻 Inactivos
+        </a>
+    </div>
+
+    <!-- Tabla -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {% if proveedores %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="bg-gradient-to-r from-teal-600 to-teal-700 text-white">
+                        <th class="px-4 py-2.5 text-left font-semibold">Nombre</th>
+                        <th class="px-4 py-2.5 text-left font-semibold">Tipo</th>
+                        <th class="px-4 py-2.5 text-left font-semibold hidden sm:table-cell">NIT / CI</th>
+                        <th class="px-4 py-2.5 text-left font-semibold hidden md:table-cell">Contacto</th>
+                        <th class="px-4 py-2.5 text-center font-semibold hidden lg:table-cell">Vinculado</th>
+                        <th class="px-4 py-2.5 text-center font-semibold">Estado</th>
+                        <th class="px-4 py-2.5 text-center font-semibold">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for prov in proveedores %}
+                    <tr class="hover:bg-teal-50 transition {% if not prov.activo %}opacity-50{% endif %}">
+                        <td class="px-4 py-2.5 font-semibold text-gray-800">{{ prov.nombre }}</td>
+                        <td class="px-4 py-2.5">
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold
+                                {% if prov.tipo == 'empresa' %}bg-blue-100 text-blue-700
+                                {% elif prov.tipo == 'profesional' %}bg-purple-100 text-purple-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {% if prov.tipo == 'empresa' %}🏢{% elif prov.tipo == 'profesional' %}🩺{% else %}👤{% endif %}
+                                {{ prov.get_tipo_display }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ prov.nit_ci|default:"—" }}</td>
+                        <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">
+                            {% if prov.telefono %}📞 {{ prov.telefono }}{% endif %}
+                            {% if prov.email %}<br>✉️ {{ prov.email }}{% endif %}
+                            {% if not prov.telefono and not prov.email %}—{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-center hidden lg:table-cell">
+                            {% if prov.profesional %}
+                            <span class="text-green-600 font-semibold text-[10px]">✅ {{ prov.profesional }}</span>
+                            {% else %}
+                            <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-center">
+                            {% if prov.activo %}
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Activo</span>
+                            {% else %}
+                            <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-center">
+                            <a href="{% url 'egresos:editar_proveedor' prov.id %}"
+                               class="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-semibold hover:bg-teal-100 transition">
+                                ✏️ Editar
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-16">
+            <div class="text-5xl mb-4">🏢</div>
+            <p class="text-gray-500 font-medium">No hay proveedores{% if filtro_tipo %} de este tipo{% endif %}</p>
+            <a href="{% url 'egresos:crear_proveedor' %}"
+               class="mt-4 inline-block bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                ➕ Crear Proveedor
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

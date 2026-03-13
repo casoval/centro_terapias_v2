@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'agenda',
     'profesionales',
     'facturacion.apps.FacturacionConfig',
+    'egresos.apps.EgresosConfig',   # ✅ App de egresos del centro
     'chat',
 ]
 
@@ -260,6 +261,11 @@ LOGGING = {
             'level': 'INFO',
         },
         'facturacion': {
+            'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'egresos': {
             'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
             'level': 'INFO',
             'propagate': False,

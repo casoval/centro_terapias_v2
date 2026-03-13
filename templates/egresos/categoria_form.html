@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if categoria %}✏️ Editar Categoría{% else %}➕ Nueva Categoría{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+            <div class="p-3 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">
+                    {% if categoria %}Editar Categoría{% else %}Nueva Categoría{% endif %}
+                </h1>
+                <p class="text-sm text-gray-500">
+                    {% if categoria %}{{ categoria.nombre }}{% else %}Agregar una nueva categoría de egreso{% endif %}
+                </p>
+            </div>
+        </div>
+        <a href="{% url 'egresos:lista_categorias' %}"
+           class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">
+            ← Volver
+        </a>
+    </div>
+
+    <!-- Mensajes -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="mb-4 p-3 rounded-lg text-sm font-medium
+        {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200
+        {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+
+            <div class="bg-gradient-to-r from-gray-50 to-white px-5 py-3 border-b border-gray-100">
+                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">🏷️ Datos de la Categoría</h3>
+            </div>
+
+            <div class="p-5 space-y-4">
+
+                <!-- Nombre -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Nombre <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="nombre" required maxlength="100"
+                           value="{{ categoria.nombre|default:'' }}"
+                           placeholder="Ej: Luz (CRE/ENDE), Honorarios Psicólogo, Alquiler Local..."
+                           class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition">
+                </div>
+
+                <!-- Tipo -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Tipo <span class="text-red-500">*</span>
+                    </label>
+                    <select name="tipo" required
+                            class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
+                            onchange="actualizarHint(this)">
+                        <option value="">-- Seleccionar tipo --</option>
+                        <option value="arriendo"          {% if categoria.tipo == 'arriendo' %}selected{% endif %}>🏢 Arriendo / Alquiler</option>
+                        <option value="servicios_basicos" {% if categoria.tipo == 'servicios_basicos' %}selected{% endif %}>💡 Servicios Básicos (luz, agua, internet...)</option>
+                        <option value="personal"          {% if categoria.tipo == 'personal' %}selected{% endif %}>👥 Personal Interno (sueldos staff fijo)</option>
+                        <option value="honorarios"        {% if categoria.tipo == 'honorarios' %}selected{% endif %}>🩺 Honorarios Profesionales (externos)</option>
+                        <option value="equipamiento"      {% if categoria.tipo == 'equipamiento' %}selected{% endif %}>🛒 Equipamiento y Materiales</option>
+                        <option value="mantenimiento"     {% if categoria.tipo == 'mantenimiento' %}selected{% endif %}>🔧 Mantenimiento</option>
+                        <option value="marketing"         {% if categoria.tipo == 'marketing' %}selected{% endif %}>📣 Marketing y Publicidad</option>
+                        <option value="impuesto"          {% if categoria.tipo == 'impuesto' %}selected{% endif %}>📋 Impuestos y Tasas</option>
+                        <option value="seguro"            {% if categoria.tipo == 'seguro' %}selected{% endif %}>🛡️ Seguros</option>
+                        <option value="capacitacion"      {% if categoria.tipo == 'capacitacion' %}selected{% endif %}>📚 Capacitación</option>
+                        <option value="otro"              {% if categoria.tipo == 'otro' %}selected{% endif %}>📦 Otro</option>
+                    </select>
+                    <!-- Hint dinámico -->
+                    <p id="tipo-hint" class="text-[10px] text-gray-400 mt-1 hidden"></p>
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">
+                        Descripción <span class="text-gray-400 font-normal">(opcional)</span>
+                    </label>
+                    <textarea name="descripcion" rows="2" maxlength="300"
+                              placeholder="Descripción o aclaración adicional..."
+                              class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition resize-none">{{ categoria.descripcion|default:'' }}</textarea>
+                </div>
+
+                <!-- Checkboxes -->
+                <div class="flex flex-col gap-3 pt-1">
+
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" name="es_honorario_profesional" value="1"
+                               {% if categoria.es_honorario_profesional %}checked{% endif %}
+                               class="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition">
+                                🩺 Es pago de honorarios a profesional externo
+                            </span>
+                            <p class="text-[10px] text-gray-400">
+                                Actívalo si esta categoría corresponde a pago de honorarios. Permite vincular el egreso con sesiones del sistema.
+                            </p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" name="activo" value="1"
+                               {% if categoria.activo or not categoria %}checked{% endif %}
+                               class="mt-0.5 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition">
+                                ✅ Categoría activa
+                            </span>
+                            <p class="text-[10px] text-gray-400">
+                                Solo las categorías activas aparecen al registrar un egreso.
+                            </p>
+                        </div>
+                    </label>
+
+                </div>
+
+            </div>
+
+            <!-- Botones -->
+            <div class="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+                <a href="{% url 'egresos:lista_categorias' %}"
+                   class="px-5 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                    Cancelar
+                </a>
+                <button type="submit"
+                        class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-md shadow-indigo-200 transition transform active:scale-95 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {% if categoria %}Guardar Cambios{% else %}Crear Categoría{% endif %}
+                </button>
+            </div>
+
+        </div>
+    </form>
+
+</div>
+
+<script>
+const hints = {
+    'arriendo':          'Se sumará al campo egresos_arriendo del resumen financiero mensual.',
+    'servicios_basicos': 'Se sumará a egresos_servicios_basicos. Ideal para: luz, agua, gas, internet, teléfono.',
+    'personal':          'Se sumará a egresos_personal. Úsalo para sueldos del staff fijo del centro.',
+    'honorarios':        'Se sumará a egresos_honorarios. Activa también "Es pago de honorarios" abajo.',
+    'equipamiento':      'Se sumará a egresos_equipamiento. Para compras de materiales o equipos.',
+    'mantenimiento':     'Se sumará a egresos_mantenimiento. Para reparaciones y servicios técnicos.',
+    'marketing':         'Se sumará a egresos_marketing. Para publicidad, redes sociales, etc.',
+    'impuesto':          'Se sumará a egresos_impuestos. Para IT, IVA, tasas municipales, etc.',
+    'seguro':            'Se sumará a egresos_seguros. Para pólizas del local o equipos.',
+    'capacitacion':      'Se sumará a egresos_capacitacion. Para cursos y formación del equipo.',
+    'otro':              'Se sumará a egresos_otros. Úsalo solo si no encaja en ningún tipo anterior.',
+};
+
+function actualizarHint(select) {
+    const hint = document.getElementById('tipo-hint');
+    const valor = select.value;
+    if (valor && hints[valor]) {
+        hint.textContent = '💡 ' + hints[valor];
+        hint.classList.remove('hidden');
+    } else {
+        hint.classList.add('hidden');
+    }
+}
+// Mostrar hint si ya hay un tipo seleccionado al cargar (edición)
+document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.querySelector('select[name="tipo"]');
+    if (sel && sel.value) actualizarHint(sel);
+});
+</script>
+{% endblock %}

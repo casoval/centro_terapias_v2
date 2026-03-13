@@ -760,6 +760,7 @@
     <h3>
       💳 Listado Completo de Pagos
       <span class="badge-count">{{ detalle_pagos.count }} registros</span>
+      <span style="font-size:.65rem;font-weight:500;color:var(--muted);margin-left:6px">· excluye Uso de Crédito</span>
     </h3>
     <table>
       <thead>
@@ -804,7 +805,7 @@
             {% endif %}
           </td>
           <td>
-            <span class="tag {% if pago.metodo_pago.nombre == 'Efectivo' %}green{% elif pago.metodo_pago.nombre == 'Uso de Crédito' %}purple{% else %}blue{% endif %}">
+            <span class="tag {% if pago.metodo_pago.nombre == 'Efectivo' %}green{% else %}blue{% endif %}">
               {{ pago.metodo_pago.nombre }}
             </span>
             {% if pago.numero_transaccion %}
@@ -834,6 +835,20 @@
     </table>
   </div>
 
+  <!-- Total general -->
+  <div class="section-hdr"><h2>Total de Pagos</h2></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+              background:var(--surface);border:2px solid var(--green);border-radius:var(--r);
+              padding:16px 20px;margin-bottom:16px">
+    <div>
+      <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em">Total recaudado en el período</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:2px">{{ detalle_pagos.count }} pagos · excluye Uso de Crédito</div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--green)">
+      Bs. {{ total_detalle_pagos|floatformat:2 }}
+    </div>
+  </div>
+
   <!-- Totales por método -->
   <div class="section-hdr"><h2>Resumen por Método de Pago</h2></div>
   <div class="method-grid">
@@ -845,6 +860,85 @@
     </div>
     {% endfor %}
   </div>
+
+  <!-- Devoluciones del período -->
+  {% if detalle_devoluciones %}
+  <div class="section-hdr" style="margin-top:20px"><h2>🔙 Devoluciones del Período</h2></div>
+
+  <!-- Total devoluciones -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+              background:var(--red-l);border:2px solid var(--red);border-radius:var(--r);
+              padding:16px 20px;margin-bottom:16px">
+    <div>
+      <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:var(--red);letter-spacing:.05em">Total devuelto en el período</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:2px">{{ detalle_devoluciones.count }} devoluciones</div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--red)">
+      −Bs. {{ total_devoluciones|floatformat:2 }}
+    </div>
+  </div>
+
+  <!-- Tabla devoluciones -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Paciente</th>
+          <th>Concepto</th>
+          <th>Método</th>
+          <th class="td-right">Monto</th>
+          <th>Registrado por</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dev in detalle_devoluciones %}
+        <tr>
+          <td>{{ dev.fecha_devolucion|date:"d/m/Y" }}</td>
+          <td><strong>{{ dev.paciente.nombre_completo }}</strong></td>
+          <td>
+            {% if dev.proyecto %}
+              <span class="tag purple">PROYECTO</span> {{ dev.proyecto.servicio_base.nombre }}
+            {% elif dev.mensualidad %}
+              <span class="tag teal">MENSUALIDAD</span> {{ dev.mensualidad.servicio.nombre }}
+            {% else %}
+              <span class="tag amber">CRÉDITO</span> Devolución de crédito
+            {% endif %}
+            {% if dev.motivo %}
+            <br><small style="color:var(--muted)">{{ dev.motivo|truncatewords:6 }}</small>
+            {% endif %}
+          </td>
+          <td>
+            <span class="tag red">{{ dev.metodo_devolucion.nombre }}</span>
+          </td>
+          <td class="td-right td-mono" style="color:var(--red);font-weight:800">−Bs. {{ dev.monto|floatformat:2 }}</td>
+          <td><small style="color:var(--muted)">{{ dev.registrado_por.username }}</small></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- NET TOTAL: Pagos − Devoluciones -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+              background:var(--surface);border:3px solid var(--teal);border-radius:var(--r);
+              padding:20px 24px;margin-top:8px">
+    <div>
+      <div style="font-size:.85rem;font-weight:800;color:var(--ink)">Neto del Período</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:3px">
+        Bs. {{ total_detalle_pagos|floatformat:2 }} cobrado
+        {% if total_devoluciones > 0 %}
+        &nbsp;−&nbsp; Bs. {{ total_devoluciones|floatformat:2 }} devuelto
+        {% endif %}
+      </div>
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:2.4rem;font-weight:900;
+                color:{% if total_neto_periodo >= 0 %}var(--teal){% else %}var(--red){% endif %}">
+      Bs. {{ total_neto_periodo|floatformat:2 }}
+    </div>
+  </div>
+
   {% endif %}
 
   <!-- ══════════════════════════════════════════════════════════════════ -->

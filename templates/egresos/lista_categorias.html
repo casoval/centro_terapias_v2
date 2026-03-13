@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}🏷️ Categorías de Egreso{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-3 gap-2">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-xl font-bold text-gray-900">🏷️ Categorías de Egreso</h1>
+                <p class="text-xs text-gray-500">{{ categorias.count }} categoría(s) registrada(s)</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'egresos:lista_egresos' %}"
+               class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">
+                ← Egresos
+            </a>
+            <a href="{% url 'egresos:crear_categoria' %}"
+               class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition shadow-sm">
+                ➕ Nueva Categoría
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabla por tipo -->
+    {% regroup categorias by get_tipo_display as categorias_por_tipo %}
+
+    {% for grupo in categorias_por_tipo %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-3">
+        <div class="bg-gradient-to-r from-indigo-50 to-white px-4 py-2.5 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                {{ grupo.grouper }}
+            </h3>
+            <span class="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-semibold">
+                {{ grupo.list|length }} categoría(s)
+            </span>
+        </div>
+        <table class="w-full text-xs">
+            <thead>
+                <tr class="bg-gray-50 text-gray-500">
+                    <th class="px-4 py-2 text-left font-semibold">Nombre</th>
+                    <th class="px-4 py-2 text-left font-semibold hidden sm:table-cell">Descripción</th>
+                    <th class="px-4 py-2 text-center font-semibold">Honorarios</th>
+                    <th class="px-4 py-2 text-center font-semibold">Estado</th>
+                    <th class="px-4 py-2 text-center font-semibold">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for cat in grupo.list %}
+                <tr class="hover:bg-gray-50 transition {% if not cat.activo %}opacity-50{% endif %}">
+                    <td class="px-4 py-2.5 font-semibold text-gray-800">{{ cat.nombre }}</td>
+                    <td class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ cat.descripcion|default:"—"|truncatechars:60 }}</td>
+                    <td class="px-4 py-2.5 text-center">
+                        {% if cat.es_honorario_profesional %}
+                        <span class="text-purple-600 font-bold">🩺 Sí</span>
+                        {% else %}
+                        <span class="text-gray-300">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-center">
+                        {% if cat.activo %}
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Activa</span>
+                        {% else %}
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">Inactiva</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-center">
+                        <a href="{% url 'egresos:editar_categoria' cat.id %}"
+                           class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-semibold hover:bg-indigo-100 transition">
+                            ✏️ Editar
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-16 text-center">
+        <div class="text-5xl mb-4">🏷️</div>
+        <p class="text-gray-500 font-medium">No hay categorías aún</p>
+        <a href="{% url 'egresos:crear_categoria' %}"
+           class="mt-4 inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+            ➕ Crear primera categoría
+        </a>
+    </div>
+    {% endregroup %}
+
+</div>
+{% endblock %}
