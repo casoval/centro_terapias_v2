@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% block title %}💼 Liquidar Honorarios{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+
+    <div class="flex justify-between items-center mb-3 gap-2">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-purple-600 rounded-xl text-white shadow-lg shadow-purple-200">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-base sm:text-xl font-bold text-gray-900">💼 Liquidar Honorarios</h1>
+                <p class="text-xs text-gray-500">Sesiones de profesionales externos pendientes de pago</p>
+            </div>
+        </div>
+        <a href="{% url 'egresos:lista_egresos' %}" class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm">← Egresos</a>
+    </div>
+
+    {% if messages %}{% for message in messages %}
+    <div class="mb-3 p-3 rounded-lg text-sm font-medium {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">{{ message }}</div>
+    {% endfor %}{% endif %}
+
+    {% if deuda_total > 0 %}
+    <div class="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-4 mb-4 text-white shadow-lg">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+                <p class="text-purple-200 text-xs font-semibold uppercase tracking-wide">Total pendiente</p>
+                <p class="text-4xl font-black mt-1">Bs. {{ deuda_total|floatformat:0 }}</p>
+                <p class="text-purple-200 text-xs mt-1">{{ total_sesiones_pendientes }} sesión(es) · {{ profesionales_con_deuda }} profesional(es)</p>
+            </div>
+            <div class="text-purple-200 text-xs bg-purple-800 bg-opacity-50 rounded-lg p-3 max-w-xs">
+                💡 Marca las sesiones a pagar, ingresa el monto real y usa "Marcar como saldado" si no cuadra exacto.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% for bloque in bloques %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
+        <div class="bg-gradient-to-r from-purple-50 to-white px-4 py-3 border-b border-gray-100">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-black text-sm">{{ bloque.profesional.nombre|first }}{{ bloque.profesional.apellido|first }}</div>
+                    <div>
+                        <p class="font-bold text-gray-800">{{ bloque.profesional.nombre }} {{ bloque.profesional.apellido }}</p>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {% if bloque.sucursal %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">🏢 {{ bloque.sucursal.nombre }}</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">🌐 Sin sucursal</span>
+                            {% endif %}
+                            {% if bloque.proveedor %}
+                            <span class="text-xs text-purple-600 font-medium">{{ bloque.proveedor.nombre }}</span>
+                            {% else %}
+                            <span class="text-amber-600 font-medium text-xs">⚠️ Sin proveedor — <a href="{% url 'egresos:crear_proveedor' %}" class="underline">crear ahora</a></span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400 uppercase">Deuda pendiente</p>
+                    <p class="text-2xl font-black text-purple-600">Bs. {{ bloque.total_pendiente|floatformat:0 }}</p>
+                    <p class="text-[10px] text-gray-400">{{ bloque.sesiones|length }} sesión(es)</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'egresos:liquidar_honorarios' %}">
+            {% csrf_token %}
+            <input type="hidden" name="profesional_id" value="{{ bloque.profesional.id }}">
+            <input type="hidden" name="proveedor_id"   value="{{ bloque.proveedor.id|default:'' }}">
+            <input type="hidden" name="sucursal_id"    value="{{ bloque.sucursal.id|default:'' }}">
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 border-b border-gray-100">
+                            <th class="px-3 py-2 text-center w-8">
+                                <input type="checkbox" class="w-3.5 h-3.5 rounded text-purple-600" onchange="toggleTodas(this, '{{ bloque.form_id }}')">
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">Fecha</th>
+                            <th class="px-3 py-2 text-left font-semibold">Paciente</th>
+                            <th class="px-3 py-2 text-left font-semibold hidden sm:table-cell">Servicio</th>
+                            <th class="px-3 py-2 text-right font-semibold hidden md:table-cell">Cobrado</th>
+                            <th class="px-3 py-2 text-right font-semibold hidden md:table-cell">% Centro</th>
+                            <th class="px-3 py-2 text-right font-semibold">💜 Le corresponde</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for item in bloque.sesiones %}
+                        <tr class="hover:bg-purple-50 transition" data-monto="{{ item.comision.monto_profesional }}">
+                            <td class="px-3 py-2.5 text-center">
+                                <input type="checkbox" name="sesiones_ids" value="{{ item.sesion.id }}"
+                                       class="sesion-cb-{{ bloque.form_id }} w-3.5 h-3.5 rounded text-purple-600"
+                                       onchange="recalcular('{{ bloque.form_id }}')">
+                            </td>
+                            <td class="px-3 py-2.5 text-gray-600 whitespace-nowrap">{{ item.sesion.fecha|date:"d/m/Y" }}</td>
+                            <td class="px-3 py-2.5 font-medium text-gray-800">{{ item.sesion.paciente }}</td>
+                            <td class="px-3 py-2.5 text-gray-500 hidden sm:table-cell">{{ item.sesion.servicio.nombre }}</td>
+                            <td class="px-3 py-2.5 text-right text-gray-400 hidden md:table-cell">Bs. {{ item.comision.precio_cobrado|floatformat:0 }}</td>
+                            <td class="px-3 py-2.5 text-right text-gray-400 hidden md:table-cell">{{ item.comision.porcentaje_centro }}%</td>
+                            <td class="px-3 py-2.5 text-right font-bold text-purple-600">Bs. {{ item.comision.monto_profesional|floatformat:0 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-purple-50 border-t-2 border-purple-100">
+                            <td colspan="6" class="px-3 py-2 text-right text-xs font-semibold text-purple-700 hidden md:table-cell">Deuda de sesiones seleccionadas:</td>
+                            <td colspan="2" class="px-3 py-2 text-right text-xs font-semibold text-purple-700 md:hidden">Deuda seleccionada:</td>
+                            <td class="px-3 py-2 text-right">
+                                <span id="deuda-{{ bloque.form_id }}" class="text-base font-black text-purple-500">Bs. 0</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="px-4 py-4 bg-gray-50 border-t border-gray-100 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Monto a Pagar (Bs.) <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">Bs.</span>
+                            <input type="number" name="monto_pagado" required min="1" step="1"
+                                   id="monto-{{ bloque.form_id }}" placeholder="0"
+                                   oninput="actualizarDiferencia('{{ bloque.form_id }}')"
+                                   class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-bold text-purple-700 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition">
+                        </div>
+                        <p id="dif-{{ bloque.form_id }}" class="text-[10px] mt-0.5 hidden"></p>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Método de Pago <span class="text-red-500">*</span></label>
+                        <select name="metodo_pago" required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition">
+                            <option value="">-- Seleccionar --</option>
+                            {% for mp in metodos_pago %}<option value="{{ mp.id }}">{{ mp.nombre }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Fecha de Pago <span class="text-red-500">*</span></label>
+                        <input type="date" name="fecha_pago" value="{{ hoy|date:'Y-m-d' }}" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Concepto</label>
+                        <input type="text" name="concepto" maxlength="300"
+                               value="Honorarios {{ bloque.profesional.nombre }} {{ bloque.profesional.apellido }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition">
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Observaciones</label>
+                        <input type="text" name="observaciones" maxlength="300" placeholder="Ej: Acuerdo verbal, descuento acordado..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition">
+                    </div>
+                    <label class="flex items-start gap-2 cursor-pointer group p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition flex-shrink-0">
+                        <input type="checkbox" name="saldado" value="1" class="mt-0.5 w-4 h-4 rounded text-amber-600 focus:ring-amber-500">
+                        <div>
+                            <p class="text-xs font-bold text-amber-800">✅ Marcar como saldado</p>
+                            <p class="text-[10px] text-amber-600">Cierra las sesiones aunque el monto no cuadre</p>
+                        </div>
+                    </label>
+                    <div class="flex gap-2 flex-shrink-0">
+                        <button type="button" onclick="seleccionarTodas('{{ bloque.form_id }}')"
+                                class="px-3 py-2 bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold hover:bg-purple-200 transition whitespace-nowrap">
+                            ☑️ Todas
+                        </button>
+                        <button type="submit" {% if not bloque.proveedor %}disabled{% endif %}
+                                class="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg shadow-md shadow-purple-200 transition active:scale-95 whitespace-nowrap flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Pagar → EGR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-16 text-center">
+        <div class="text-5xl mb-3">🎉</div>
+        <p class="text-gray-700 font-bold text-lg">Sin honorarios pendientes</p>
+        <p class="text-gray-400 text-sm mt-1">Todos los profesionales externos están al día</p>
+    </div>
+    {% endfor %}
+
+    {% if historial %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-2">
+        <div class="bg-gradient-to-r from-gray-50 to-white px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">🕐 Últimos pagos de honorarios</h3>
+            <a href="{% url 'egresos:lista_egresos' %}?tipo=honorarios" class="text-xs text-blue-600 hover:underline">Ver todos →</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-500">
+                        <th class="px-4 py-2 text-left font-semibold">EGR</th>
+                        <th class="px-4 py-2 text-left font-semibold">Fecha</th>
+                        <th class="px-4 py-2 text-left font-semibold">Profesional</th>
+                        <th class="px-4 py-2 text-center font-semibold hidden sm:table-cell">Sesiones</th>
+                        <th class="px-4 py-2 text-right font-semibold hidden md:table-cell">Deuda</th>
+                        <th class="px-4 py-2 text-right font-semibold">Pagado</th>
+                        <th class="px-4 py-2 text-right font-semibold hidden md:table-cell">Diferencia</th>
+                        <th class="px-4 py-2 text-center font-semibold">Estado</th>
+                        <th class="px-4 py-2 text-center font-semibold">PDF</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for pago in historial %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-4 py-2.5"><a href="{% url 'egresos:detalle_egreso' pago.egreso.id %}" class="font-bold text-purple-600 hover:underline">{{ pago.egreso.numero_egreso }}</a></td>
+                        <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap">{{ pago.fecha|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-2.5 font-medium text-gray-700">{{ pago.profesional.nombre }} {{ pago.profesional.apellido }}</td>
+                        <td class="px-4 py-2.5 text-center text-gray-500 hidden sm:table-cell">{{ pago.sesiones.count }}</td>
+                        <td class="px-4 py-2.5 text-right text-gray-500 hidden md:table-cell">Bs. {{ pago.monto_deuda|floatformat:0 }}</td>
+                        <td class="px-4 py-2.5 text-right font-bold text-purple-600">Bs. {{ pago.monto_pagado|floatformat:0 }}</td>
+                        <td class="px-4 py-2.5 text-right hidden md:table-cell {% if pago.diferencia > 0 %}text-amber-600{% elif pago.diferencia < 0 %}text-blue-600{% else %}text-gray-400{% endif %}">
+                            {% if pago.diferencia > 0 %}−Bs. {{ pago.diferencia|floatformat:0 }}{% elif pago.diferencia < 0 %}+Bs. {{ pago.diferencia|floatformat:0 }}{% else %}—{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-center">
+                            {% if pago.saldado %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Saldado</span>
+                            {% elif pago.diferencia <= 0 %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Completo</span>
+                            {% else %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">⚠️ Parcial</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-center"><a href="{% url 'egresos:egreso_pdf' pago.egreso.id %}" target="_blank" class="text-gray-400 hover:text-gray-700">🧾</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+<script>
+function recalcular(profId) {
+    let deuda = 0;
+    document.querySelectorAll(`.sesion-cb-${profId}:checked`)
+            .forEach(cb => { deuda += parseFloat(cb.closest('tr').dataset.monto || 0); });
+    const r = Math.round(deuda);
+    document.getElementById(`deuda-${profId}`).textContent = 'Bs. ' + r.toLocaleString();
+    const input = document.getElementById(`monto-${profId}`);
+    input.value = r || ''; input.dataset.deuda = r;
+    actualizarDiferencia(profId);
+}
+function actualizarDiferencia(profId) {
+    const input = document.getElementById(`monto-${profId}`);
+    const deuda = parseFloat(input.dataset.deuda || 0);
+    const pagado = parseFloat(input.value || 0);
+    const dif = deuda - pagado;
+    const el = document.getElementById(`dif-${profId}`);
+    if (!deuda || !pagado) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    if (dif > 0) {
+        el.className = 'text-[10px] mt-0.5 text-amber-600 font-semibold';
+        el.textContent = '⚠️ Faltarán Bs. ' + Math.round(dif).toLocaleString() + ' — activa "Marcar como saldado"';
+    } else if (dif < 0) {
+        el.className = 'text-[10px] mt-0.5 text-blue-600 font-semibold';
+        el.textContent = '💙 Adelanto de Bs. ' + Math.round(Math.abs(dif)).toLocaleString();
+    } else {
+        el.className = 'text-[10px] mt-0.5 text-green-600 font-semibold';
+        el.textContent = '✅ Monto exacto';
+    }
+}
+function toggleTodas(cb, profId) {
+    document.querySelectorAll(`.sesion-cb-${profId}`).forEach(c => { c.checked = cb.checked; });
+    recalcular(profId);
+}
+function seleccionarTodas(profId) {
+    const checks = document.querySelectorAll(`.sesion-cb-${profId}`);
+    const on = Array.from(checks).every(c => c.checked);
+    checks.forEach(c => { c.checked = !on; });
+    recalcular(profId);
+}
+</script>
+{% endblock %}

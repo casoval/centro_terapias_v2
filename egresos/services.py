@@ -86,7 +86,7 @@ class EgresoService:
             sucursal_id=sucursal_id,
             registrado_por=user,
         )
-        egreso.full_clean()
+        egreso.full_clean(exclude=['numero_egreso'])
         egreso.save()
 
         # Vincular sesiones si se trata de un pago de honorarios
@@ -213,64 +213,146 @@ class ResumenFinancieroService:
     @staticmethod
     def recalcular_mes(mes, anio, sucursal=None):
         """
-        Recalcula y persiste el snapshot financiero de un mes específico.
+        Recalcula y persiste el snapshot financiero de un mes.
 
-        Se llama automáticamente desde:
-          - signals.py al guardar/anular un Egreso
-          - signals.py al guardar/anular un Pago (de facturacion)
-          - La acción de admin "Recalcular seleccionados"
-
-        Args:
-            mes:      int 1-12
-            anio:     int
-            sucursal: instancia Sucursal o None (None = global)
+        - sucursal=None  → resumen GLOBAL (todos los ingresos y egresos sin filtro)
+        - sucursal=X     → resumen de la sucursal X:
+            · Ingresos: pagos de sesiones/mensualidades/proyectos de esa sucursal
+            · Egresos:  egresos con sucursal=X  +  honorarios cuyas sesiones
+                        pertenecen a esa sucursal (PagoHonorario)
         """
         from egresos.models import Egreso, ResumenFinanciero
         from facturacion.models import Pago, Devolucion
+        from django.db.models import Q as DQ
 
         fecha_inicio = date(anio, mes, 1)
         fecha_fin    = date(anio, mes, calendar.monthrange(anio, mes)[1])
+        _excl = {'metodo_pago__nombre': 'Uso de Crédito'}
+
+        sid = sucursal.id if sucursal else None
 
         # ── 1. INGRESOS ───────────────────────────────────────────────────────
-        pagos_qs = Pago.objects.filter(
-            fecha_pago__range=(fecha_inicio, fecha_fin),
-            anulado=False,
-        ).exclude(metodo_pago__nombre='Uso de Crédito')
+        if sid is None:
+            # Global: todos los pagos del mes
+            pagos_base = Pago.objects.filter(
+                fecha_pago__range=(fecha_inicio, fecha_fin),
+                anulado=False,
+            ).exclude(**_excl)
 
-        ingresos_brutos = pagos_qs.aggregate(
-            t=Coalesce(Sum('monto'), Decimal('0'))
-        )['t']
+            ingresos_brutos = pagos_base.aggregate(
+                t=Coalesce(Sum('monto'), Decimal('0'))
+            )['t']
 
-        total_devoluciones = Devolucion.objects.filter(
-            fecha_devolucion__range=(fecha_inicio, fecha_fin)
-        ).aggregate(
-            t=Coalesce(Sum('monto'), Decimal('0'))
-        )['t']
+            total_devoluciones = Devolucion.objects.filter(
+                fecha_devolucion__range=(fecha_inicio, fecha_fin)
+            ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+        else:
+            # Por sucursal: pagos vinculados a objetos de esa sucursal
+            from facturacion.models import DetallePagoMasivo
+            from agenda.models import Sesion as Ses, Mensualidad as Men, Proyecto as Pro
+
+            q_pago = DQ(fecha_pago__range=(fecha_inicio, fecha_fin), anulado=False)
+
+            # Sesiones directas de la sucursal
+            p_ses = Pago.objects.filter(
+                q_pago, sesion__sucursal_id=sid,
+                sesion__proyecto__isnull=True,
+                sesion__mensualidad__isnull=True,
+            ).exclude(**_excl).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+            p_ses_masivo = DetallePagoMasivo.objects.filter(
+                tipo='sesion',
+                sesion__sucursal_id=sid,
+                sesion__proyecto__isnull=True,
+                sesion__mensualidad__isnull=True,
+                pago__fecha_pago__range=(fecha_inicio, fecha_fin),
+                pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito').aggregate(
+                t=Coalesce(Sum('monto'), Decimal('0'))
+            )['t']
+
+            # Mensualidades de la sucursal
+            p_mens = Pago.objects.filter(
+                q_pago, mensualidad__sucursal_id=sid,
+            ).exclude(**_excl).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+            p_mens_masivo = DetallePagoMasivo.objects.filter(
+                tipo='mensualidad', mensualidad__sucursal_id=sid,
+                pago__fecha_pago__range=(fecha_inicio, fecha_fin),
+                pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito').aggregate(
+                t=Coalesce(Sum('monto'), Decimal('0'))
+            )['t']
+
+            # Proyectos de la sucursal
+            p_proy = Pago.objects.filter(
+                q_pago, proyecto__sucursal_id=sid,
+            ).exclude(**_excl).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+            p_proy_masivo = DetallePagoMasivo.objects.filter(
+                tipo='proyecto', proyecto__sucursal_id=sid,
+                pago__fecha_pago__range=(fecha_inicio, fecha_fin),
+                pago__anulado=False,
+            ).exclude(pago__metodo_pago__nombre='Uso de Crédito').aggregate(
+                t=Coalesce(Sum('monto'), Decimal('0'))
+            )['t']
+
+            ingresos_brutos = p_ses + p_ses_masivo + p_mens + p_mens_masivo + p_proy + p_proy_masivo
+
+            # Devoluciones vinculadas a esta sucursal
+            total_devoluciones = (
+                Devolucion.objects.filter(
+                    fecha_devolucion__range=(fecha_inicio, fecha_fin),
+                    mensualidad__sucursal_id=sid,
+                ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+                +
+                Devolucion.objects.filter(
+                    fecha_devolucion__range=(fecha_inicio, fecha_fin),
+                    proyecto__sucursal_id=sid,
+                ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+            )
 
         ingresos_netos = ingresos_brutos - total_devoluciones
 
         # ── 2. EGRESOS por tipo ───────────────────────────────────────────────
         def _total_tipo(tipo_nombre):
-            return Egreso.objects.filter(
+            qs = Egreso.objects.filter(
                 periodo_mes=mes,
                 periodo_anio=anio,
                 anulado=False,
                 categoria__tipo=tipo_nombre,
-            ).aggregate(
-                t=Coalesce(Sum('monto'), Decimal('0'))
-            )['t']
+            )
+            if sid is not None:
+                if tipo_nombre == 'honorarios':
+                    # Honorarios de sucursal: PagoHonorario cuyas sesiones
+                    # pertenecen a esta sucursal
+                    from egresos.models import PagoHonorario
+                    egreso_ids = PagoHonorario.objects.filter(
+                        sesiones__sucursal_id=sid,
+                        egreso__periodo_mes=mes,
+                        egreso__periodo_anio=anio,
+                        egreso__anulado=False,
+                    ).values_list('egreso_id', flat=True).distinct()
+                    return Egreso.objects.filter(
+                        id__in=egreso_ids
+                    ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+                else:
+                    # Egresos normales: filtrar por sucursal del egreso
+                    qs = qs.filter(sucursal_id=sid)
+            return qs.aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
 
-        eg_arriendo     = _total_tipo('arriendo')
-        eg_servicios    = _total_tipo('servicios_basicos')
-        eg_personal     = _total_tipo('personal')
-        eg_honorarios   = _total_tipo('honorarios')
-        eg_equipamiento = _total_tipo('equipamiento')
-        eg_mantenimiento= _total_tipo('mantenimiento')
-        eg_marketing    = _total_tipo('marketing')
-        eg_impuestos    = _total_tipo('impuesto')
-        eg_seguros      = _total_tipo('seguro')
-        eg_capacitacion = _total_tipo('capacitacion')
-        eg_otros        = _total_tipo('otro')
+        eg_arriendo      = _total_tipo('arriendo')
+        eg_servicios     = _total_tipo('servicios_basicos')
+        eg_personal      = _total_tipo('personal')
+        eg_honorarios    = _total_tipo('honorarios')
+        eg_equipamiento  = _total_tipo('equipamiento')
+        eg_mantenimiento = _total_tipo('mantenimiento')
+        eg_marketing     = _total_tipo('marketing')
+        eg_impuestos     = _total_tipo('impuesto')
+        eg_seguros       = _total_tipo('seguro')
+        eg_capacitacion  = _total_tipo('capacitacion')
+        eg_otros         = _total_tipo('otro')
 
         total_egresos = (
             eg_arriendo + eg_servicios + eg_personal + eg_honorarios +
@@ -312,8 +394,9 @@ class ResumenFinancieroService:
             }
         )
 
+        sufijo = f'sucursal={sucursal}' if sucursal else 'global'
         logger.info(
-            f'ResumenFinanciero recalculado: {str(mes).zfill(2)}/{anio} — '
+            f'ResumenFinanciero recalculado: {str(mes).zfill(2)}/{anio} [{sufijo}] — '
             f'Ingresos: Bs.{ingresos_netos} | Egresos: Bs.{total_egresos} | '
             f'Resultado: Bs.{resultado_neto}'
         )

@@ -31,4 +31,6 @@ urlpatterns = [
     path('proveedores/',                views.lista_proveedores,     name='lista_proveedores'),
     path('proveedores/nuevo/',          views.crear_proveedor,       name='crear_proveedor'),
     path('proveedores/<int:proveedor_id>/editar/', views.editar_proveedor, name='editar_proveedor'),
+
+    path('liquidar-honorarios/', views.liquidar_honorarios, name='liquidar_honorarios'),
 ]

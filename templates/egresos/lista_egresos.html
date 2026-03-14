@@ -50,7 +50,7 @@
                 <!-- Búsqueda texto -->
                 <div class="col-span-2 sm:col-span-3 lg:col-span-2">
                     <input type="text" name="q" value="{{ filtros.q }}"
-                           placeholder="🔍 Buscar concepto, proveedor, N° egreso..."
+                           placeholder="🔍 Buscar concepto, proveedor, N° egreso, registrado por..."
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
                 </div>
 
@@ -70,6 +70,17 @@
                         <option value="">🏷️ Todas las categorías</option>
                         {% for cat in categorias %}
                         <option value="{{ cat.id }}" {% if filtros.categoria == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Sucursal -->
+                <div>
+                    <select name="sucursal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-red-400 focus:border-red-400 transition">
+                        <option value="">🌐 Todas las sucursales</option>
+                        <option value="global" {% if filtros.sucursal == 'global' %}selected{% endif %}>— Global (sin sucursal)</option>
+                        {% for suc in sucursales %}
+                        <option value="{{ suc.id }}" {% if filtros.sucursal == suc.id|stringformat:"s" %}selected{% endif %}>🏢 {{ suc.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -169,6 +180,8 @@
                         <th class="px-3 py-2.5 text-left font-semibold">Concepto</th>
                         <th class="px-3 py-2.5 text-right font-semibold">Monto</th>
                         <th class="px-3 py-2.5 text-left font-semibold hidden lg:table-cell">Período</th>
+                        <th class="px-3 py-2.5 text-left font-semibold hidden xl:table-cell">Sucursal</th>
+                        <th class="px-3 py-2.5 text-left font-semibold hidden xl:table-cell">Registrado por</th>
                         <th class="px-3 py-2.5 text-center font-semibold">Estado</th>
                         <th class="px-3 py-2.5 text-center font-semibold">Acciones</th>
                     </tr>
@@ -223,6 +236,25 @@
                         <!-- Período -->
                         <td class="px-3 py-2.5 text-gray-500 hidden lg:table-cell text-[10px]">
                             {{ egreso.periodo_display }}
+                        </td>
+
+                        <!-- Sucursal -->
+                        <td class="px-3 py-2.5 hidden xl:table-cell">
+                            {% if egreso.sucursal %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">
+                                🏢 {{ egreso.sucursal.nombre }}
+                            </span>
+                            {% else %}
+                            <span class="text-[10px] text-gray-400">🌐 Global</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Registrado por -->
+                        <td class="px-3 py-2.5 hidden xl:table-cell">
+                            <span class="text-xs text-gray-600">
+                                {{ egreso.registrado_por.get_full_name|default:egreso.registrado_por.username }}
+                            </span>
+                            <p class="text-[10px] text-gray-400">{{ egreso.fecha_registro|date:"d/m/Y H:i" }}</p>
                         </td>
 
                         <!-- Estado -->

@@ -487,3 +487,93 @@ class ResumenFinanciero(models.Model):
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
         ]
         return f"{meses[self.mes]} {self.anio}"
+
+
+class PagoHonorario(models.Model):
+    """
+    Registro de cada pago realizado a un profesional externo.
+
+    La deuda se calcula desde ComisionSesion (monto_profesional de cada sesión).
+    El pago puede ser menor a la deuda — en ese caso se puede marcar como
+    'saldado' para dar el tema por cerrado aunque quede diferencia.
+
+    Cada pago genera un Egreso EGR-XXXX como respaldo contable.
+    """
+
+    profesional     = models.ForeignKey(
+        'profesionales.Profesional',
+        on_delete=models.PROTECT,
+        related_name='pagos_honorarios',
+        verbose_name="Profesional"
+    )
+    # Sesiones que cubre este pago (selección manual)
+    sesiones        = models.ManyToManyField(
+        'agenda.Sesion',
+        related_name='pago_honorario',
+        verbose_name="Sesiones cubiertas"
+    )
+
+    # Montos
+    monto_deuda     = models.DecimalField(
+        max_digits=10, decimal_places=0,
+        verbose_name="Deuda de las sesiones seleccionadas",
+        help_text="Suma de ComisionSesion.monto_profesional de las sesiones elegidas"
+    )
+    monto_pagado    = models.DecimalField(
+        max_digits=10, decimal_places=0,
+        verbose_name="Monto pagado realmente"
+    )
+    diferencia      = models.DecimalField(
+        max_digits=10, decimal_places=0, default=0,
+        verbose_name="Diferencia (deuda − pagado)",
+        help_text="Positivo = faltó pagar. Negativo = se pagó de más (adelanto)."
+    )
+
+    # Saldado: da por cerradas las sesiones aunque quede diferencia
+    saldado         = models.BooleanField(
+        default=False,
+        verbose_name="Marcar como saldado",
+        help_text="Si está activo, las sesiones se consideran pagadas aunque el monto no cuadre."
+    )
+
+    # Pago
+    fecha           = models.DateField(verbose_name="Fecha de pago")
+    metodo_pago     = models.ForeignKey(
+        'facturacion.MetodoPago',
+        on_delete=models.PROTECT,
+        verbose_name="Método de pago"
+    )
+    observaciones   = models.TextField(blank=True, verbose_name="Observaciones")
+
+    # Egreso generado automáticamente
+    egreso          = models.OneToOneField(
+        'egresos.Egreso',
+        on_delete=models.PROTECT,
+        related_name='pago_honorario',
+        verbose_name="Egreso (EGR-XXXX)"
+    )
+
+    # Control
+    registrado_por  = models.ForeignKey(
+        'auth.User',
+        on_delete=models.PROTECT,
+        related_name='pagos_honorarios_registrados',
+        verbose_name="Registrado por"
+    )
+    fecha_registro  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Pago de Honorario"
+        verbose_name_plural = "Pagos de Honorarios"
+        ordering = ['-fecha', '-fecha_registro']
+
+    def __str__(self):
+        return (
+            f"{self.egreso.numero_egreso} — {self.profesional} — "
+            f"Bs. {self.monto_pagado} "
+            f"({'Saldado' if self.saldado else 'Parcial'})"
+        )
+
+    def save(self, *args, **kwargs):
+        self.diferencia = self.monto_deuda - self.monto_pagado
+        super().save(*args, **kwargs)

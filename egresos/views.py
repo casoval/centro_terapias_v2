@@ -29,14 +29,17 @@ from facturacion.models import MetodoPago
 def lista_egresos(request):
     """
     Listado paginado de egresos con filtros por fecha, categoría,
-    proveedor, tipo, estado y período.
+    proveedor, tipo, estado, período y sucursal.
     """
+    from servicios.models import Sucursal
+
     # ── Filtros ───────────────────────────────────────────────────────────────
     buscar       = request.GET.get('q', '').strip()
     tipo         = request.GET.get('tipo', '')
     categoria_id = request.GET.get('categoria', '')
     proveedor_id = request.GET.get('proveedor', '')
-    estado       = request.GET.get('estado', 'activos')   # activos | anulados | todos
+    sucursal_id  = request.GET.get('sucursal', '')
+    estado       = request.GET.get('estado', 'activos')
     fecha_desde  = request.GET.get('fecha_desde', '')
     fecha_hasta  = request.GET.get('fecha_hasta', '')
     mes          = request.GET.get('mes', '')
@@ -46,19 +49,19 @@ def lista_egresos(request):
         'categoria', 'proveedor', 'metodo_pago', 'registrado_por', 'sucursal'
     )
 
-    # Filtro por estado de anulación
     if estado == 'activos':
         qs = qs.filter(anulado=False)
     elif estado == 'anulados':
         qs = qs.filter(anulado=True)
-    # 'todos' → no filtrar
 
     if buscar:
         qs = qs.filter(
             Q(numero_egreso__icontains=buscar) |
             Q(concepto__icontains=buscar) |
             Q(proveedor__nombre__icontains=buscar) |
-            Q(numero_documento_proveedor__icontains=buscar)
+            Q(numero_documento_proveedor__icontains=buscar) |
+            Q(registrado_por__first_name__icontains=buscar) |
+            Q(registrado_por__last_name__icontains=buscar)
         )
     if tipo:
         qs = qs.filter(categoria__tipo=tipo)
@@ -66,6 +69,10 @@ def lista_egresos(request):
         qs = qs.filter(categoria_id=categoria_id)
     if proveedor_id:
         qs = qs.filter(proveedor_id=proveedor_id)
+    if sucursal_id == 'global':
+        qs = qs.filter(sucursal__isnull=True)
+    elif sucursal_id:
+        qs = qs.filter(sucursal_id=sucursal_id)
     if fecha_desde:
         try:
             qs = qs.filter(fecha__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
@@ -82,40 +89,35 @@ def lista_egresos(request):
         qs = qs.filter(periodo_anio=int(anio))
 
     # ── Totales del filtro actual ─────────────────────────────────────────────
-    totales = qs.filter(anulado=False).aggregate(
+    total_filtrado = qs.filter(anulado=False).aggregate(
         total=Coalesce(Sum('monto'), Decimal('0'))
-    )
-    total_filtrado = totales['total']
+    )['total']
 
     # ── Paginación ────────────────────────────────────────────────────────────
-    paginator   = Paginator(qs, 50)
+    paginator   = Paginator(qs.order_by('-fecha', '-fecha_registro'), 50)
     page_number = request.GET.get('page', 1)
     page_obj    = paginator.get_page(page_number)
 
-    # ── Datos para los selectores de filtro ───────────────────────────────────
-    categorias = CategoriaEgreso.objects.filter(activo=True)
-    proveedores = Proveedor.objects.filter(activo=True)
-    tipos       = CategoriaEgreso.TIPO_CHOICES
-
     context = {
-        'page_obj':      page_obj,
-        'total_filtrado': total_filtrado,
-        'categorias':    categorias,
-        'proveedores':   proveedores,
-        'tipos':         tipos,
-        # Filtros activos (para mantener estado del form)
+        'page_obj':          page_obj,
+        'total_filtrado':    total_filtrado,
+        'categorias':        CategoriaEgreso.objects.filter(activo=True),
+        'proveedores':       Proveedor.objects.filter(activo=True),
+        'sucursales':        Sucursal.objects.filter(activa=True).order_by('nombre'),
+        'tipos':             CategoriaEgreso.TIPO_CHOICES,
+        'anios_disponibles': _get_anios_disponibles(),
         'filtros': {
             'q':          buscar,
             'tipo':       tipo,
             'categoria':  categoria_id,
             'proveedor':  proveedor_id,
+            'sucursal':   sucursal_id,
             'estado':     estado,
-            'fecha_desde':fecha_desde,
-            'fecha_hasta':fecha_hasta,
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
             'mes':        mes,
             'anio':       anio,
         },
-        'anios_disponibles': _get_anios_disponibles(),
     }
     return render(request, 'egresos/lista_egresos.html', context)
 
@@ -189,10 +191,12 @@ def registrar_egreso(request):
 
 def _render_form_egreso(request):
     """Helper: renderiza el formulario de registro con los datos necesarios."""
+    from servicios.models import Sucursal
     context = {
         'categorias':   CategoriaEgreso.objects.filter(activo=True).order_by('tipo', 'nombre'),
         'proveedores':  Proveedor.objects.filter(activo=True).order_by('nombre'),
-        'metodos_pago': MetodoPago.objects.filter(activo=True),
+        'metodos_pago': MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'sucursales':   Sucursal.objects.filter(activa=True).order_by('nombre'),
         'hoy':          date.today(),
         'anio_actual':  date.today().year,
         'mes_actual':   date.today().month,
@@ -322,62 +326,85 @@ def generar_egreso_pdf(request, egreso_id):
 @staff_member_required
 def dashboard_financiero(request):
     """
-    Dashboard del estado financiero del centro.
-    Muestra el ResumenFinanciero del mes actual y permite consultar histórico.
+    Dashboard financiero del centro.
+    Soporta filtro por sucursal: global (sucursal=None) o por sede específica.
     """
-    hoy      = date.today()
-    mes      = int(request.GET.get('mes',  hoy.month))
-    anio     = int(request.GET.get('anio', hoy.year))
+    from servicios.models import Sucursal
 
-    # Asegurar que existe el resumen del mes solicitado
+    hoy        = date.today()
+    mes        = int(request.GET.get('mes',  hoy.month))
+    anio       = int(request.GET.get('anio', hoy.year))
+    sucursal_id = request.GET.get('sucursal', '')
+
+    # Resolver sucursal
+    sucursal_obj = None
+    if sucursal_id:
+        try:
+            sucursal_obj = Sucursal.objects.get(id=sucursal_id, activa=True)
+        except Sucursal.DoesNotExist:
+            sucursal_id = ''
+
+    # Recalcular snapshot del mes solicitado (global + sucursal si aplica)
     ResumenFinancieroService.recalcular_mes(mes, anio)
+    if sucursal_obj:
+        ResumenFinancieroService.recalcular_mes(mes, anio, sucursal=sucursal_obj)
 
     try:
-        resumen = ResumenFinanciero.objects.get(mes=mes, anio=anio, sucursal=None)
+        resumen = ResumenFinanciero.objects.get(
+            mes=mes, anio=anio, sucursal=sucursal_obj
+        )
     except ResumenFinanciero.DoesNotExist:
         resumen = None
 
-    # Últimos 12 meses para el gráfico histórico
+    # Histórico 12 meses (mismo filtro de sucursal)
     historico = ResumenFinanciero.objects.filter(
-        sucursal=None
+        sucursal=sucursal_obj
     ).order_by('-anio', '-mes')[:12]
 
-    # Top 5 proveedores del mes (por monto)
-    top_proveedores = (
+    # Top 5 proveedores del mes (filtrado por sucursal si aplica)
+    top_qs = (
         Egreso.objects
         .filter(periodo_mes=mes, periodo_anio=anio, anulado=False)
         .exclude(proveedor__isnull=True)
-        .values('proveedor__nombre')
+    )
+    if sucursal_obj:
+        top_qs = top_qs.filter(sucursal=sucursal_obj)
+    top_proveedores = (
+        top_qs.values('proveedor__nombre')
         .annotate(total=Sum('monto'))
         .order_by('-total')[:5]
     )
 
-    # Egresos del mes por tipo (para la torta)
-    egresos_por_tipo = (
-        Egreso.objects
-        .filter(periodo_mes=mes, periodo_anio=anio, anulado=False)
-        .values('categoria__tipo', 'categoria__nombre')
-        .annotate(total=Sum('monto'))
-        .order_by('-total')
-    )
-
     # Últimos 10 egresos del mes
-    ultimos_egresos = Egreso.objects.filter(
-        periodo_mes=mes,
-        periodo_anio=anio,
-        anulado=False
-    ).select_related('categoria', 'proveedor').order_by('-fecha')[:10]
+    ult_qs = Egreso.objects.filter(
+        periodo_mes=mes, periodo_anio=anio, anulado=False
+    ).select_related('categoria', 'proveedor')
+    if sucursal_obj:
+        # Para sucursal: egresos de esa sucursal + honorarios de esa sucursal
+        from egresos.models import PagoHonorario
+        honorarios_ids = PagoHonorario.objects.filter(
+            sesiones__sucursal_id=sucursal_obj.id,
+            egreso__periodo_mes=mes,
+            egreso__periodo_anio=anio,
+            egreso__anulado=False,
+        ).values_list('egreso_id', flat=True)
+        ult_qs = ult_qs.filter(
+            Q(sucursal=sucursal_obj) | Q(id__in=honorarios_ids)
+        )
+    ultimos_egresos = ult_qs.order_by('-fecha')[:10]
 
     context = {
-        'resumen':          resumen,
-        'historico':        list(historico),
-        'top_proveedores':  list(top_proveedores),
-        'egresos_por_tipo': list(egresos_por_tipo),
-        'ultimos_egresos':  ultimos_egresos,
-        'mes_actual':       mes,
-        'anio_actual':      anio,
-        'mes_display':      resumen.mes_display if resumen else f'{str(mes).zfill(2)}/{anio}',
+        'resumen':           resumen,
+        'historico':         list(historico),
+        'top_proveedores':   list(top_proveedores),
+        'ultimos_egresos':   ultimos_egresos,
+        'mes_actual':        mes,
+        'anio_actual':       anio,
+        'mes_display':       resumen.mes_display if resumen else f'{str(mes).zfill(2)}/{anio}',
         'anios_disponibles': _get_anios_disponibles(),
+        'sucursales':        Sucursal.objects.filter(activa=True).order_by('nombre'),
+        'sucursal_obj':      sucursal_obj,
+        'sucursal_id':       sucursal_id,
     }
     return render(request, 'egresos/dashboard_financiero.html', context)
 
@@ -493,8 +520,17 @@ def _get_anios_disponibles():
 @login_required
 @staff_member_required
 def lista_categorias(request):
-    categorias = CategoriaEgreso.objects.all()
-    return render(request, 'egresos/lista_categorias.html', {'categorias': categorias})
+    from itertools import groupby
+    categorias = CategoriaEgreso.objects.all().order_by('tipo', 'nombre')
+    # Agrupar por tipo en Python — evita usar {% regroup %} en el template
+    grupos = [
+        (tipo_display, list(items))
+        for tipo_display, items in groupby(categorias, key=lambda c: c.get_tipo_display())
+    ]
+    return render(request, 'egresos/lista_categorias.html', {
+        'categorias': categorias,
+        'grupos': grupos,
+    })
 
 
 @login_required
@@ -669,3 +705,405 @@ def editar_proveedor(request, proveedor_id):
         'proveedor':     proveedor,
         'profesionales': profesionales,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LIQUIDACIÓN DE HONORARIOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@staff_member_required
+def liquidar_honorarios(request):
+    """
+    GET:  Muestra todos los profesionales externos con sesiones sin pagar.
+    POST: Registra el egreso EGR-XXXX para las sesiones seleccionadas.
+    """
+    from servicios.models import ComisionSesion
+    from profesionales.models import Profesional
+    from decimal import Decimal
+    from django.db.models import Sum
+
+    if request.method == 'POST':
+        profesional_id = request.POST.get('profesional_id')
+        proveedor_id   = request.POST.get('proveedor_id')
+        sesiones_ids   = request.POST.getlist('sesiones_ids')
+        metodo_pago_id = request.POST.get('metodo_pago')
+        monto_pago     = request.POST.get('monto_pago', '0').strip()
+        concepto       = request.POST.get('concepto', '').strip()
+        fecha_pago_str = request.POST.get('fecha_pago', '')
+        observaciones  = request.POST.get('observaciones', '').strip()
+
+        # Validaciones
+        if not sesiones_ids:
+            messages.error(request, '❌ Debes seleccionar al menos una sesión.')
+            return redirect('egresos:liquidar_honorarios')
+        if not metodo_pago_id:
+            messages.error(request, '❌ Debes seleccionar un método de pago.')
+            return redirect('egresos:liquidar_honorarios')
+        if not proveedor_id:
+            messages.error(request, '❌ El profesional no tiene un proveedor vinculado. Créalo primero.')
+            return redirect('egresos:liquidar_honorarios')
+
+        try:
+            fecha_pago = datetime.strptime(fecha_pago_str, '%Y-%m-%d').date()
+            monto      = Decimal(monto_pago)
+            if monto <= 0:
+                raise ValueError('Monto inválido')
+        except (ValueError, Exception):
+            messages.error(request, '❌ Fecha o monto inválidos.')
+            return redirect('egresos:liquidar_honorarios')
+
+        # Obtener la categoría de honorarios automáticamente
+        categoria = CategoriaEgreso.objects.filter(
+            es_honorario_profesional=True, activo=True
+        ).first()
+        if not categoria:
+            messages.error(
+                request,
+                '❌ No existe una categoría activa de honorarios. '
+                'Créala en Egresos → Categorías con "Es pago de honorarios" activado.'
+            )
+            return redirect('egresos:liquidar_honorarios')
+
+        try:
+            egreso = EgresoService.registrar_egreso(
+                user=request.user,
+                categoria_id=categoria.id,
+                fecha=fecha_pago,
+                concepto=concepto or f'Honorarios profesional externo',
+                monto=monto,
+                metodo_pago_id=int(metodo_pago_id),
+                proveedor_id=int(proveedor_id),
+                sesiones_ids=[int(s) for s in sesiones_ids],
+                observaciones=observaciones,
+            )
+            profesional = Profesional.objects.get(id=profesional_id)
+            messages.success(
+                request,
+                f'✅ {egreso.numero_egreso} registrado — '
+                f'Bs. {egreso.monto:,.0f} a {profesional.nombre} {profesional.apellido} '
+                f'por {len(sesiones_ids)} sesión(es).'
+            )
+        except Exception as e:
+            messages.error(request, f'❌ Error al registrar honorario: {str(e)}')
+
+        return redirect('egresos:liquidar_honorarios')
+
+    # ── GET: construir los bloques por profesional ────────────────────────────
+
+    # Sesiones de servicios externos que tienen ComisionSesion
+    # y que NO están en ningún Egreso no anulado
+    sesiones_pagadas_ids = (
+        Egreso.objects
+        .filter(anulado=False)
+        .values_list('sesiones_cubiertas__id', flat=True)
+    )
+
+    comisiones_pendientes = (
+        ComisionSesion.objects
+        .filter(
+            sesion__estado__in=['realizada', 'realizada_retraso'],
+        )
+        .exclude(sesion__id__in=sesiones_pagadas_ids)
+        .select_related(
+            'sesion__profesional',
+            'sesion__paciente',
+            'sesion__servicio',
+        )
+        .order_by('sesion__profesional', 'sesion__fecha')
+    )
+
+    # Agrupar por profesional en Python
+    from itertools import groupby
+    bloques = []
+    deuda_total = Decimal('0')
+    total_sesiones_pendientes = 0
+
+    for profesional, items in groupby(
+        comisiones_pendientes,
+        key=lambda c: c.sesion.profesional
+    ):
+        sesiones_bloque = [
+            {'sesion': c.sesion, 'comision': c}
+            for c in items
+        ]
+        total_bloque = sum(
+            s['comision'].monto_profesional for s in sesiones_bloque
+        )
+
+        # Buscar proveedor vinculado
+        proveedor = None
+        try:
+            proveedor = profesional.proveedor_egreso
+        except Exception:
+            pass
+
+        bloques.append({
+            'profesional':     profesional,
+            'proveedor':       proveedor,
+            'sesiones':        sesiones_bloque,
+            'total_pendiente': total_bloque,
+        })
+        deuda_total += total_bloque
+        total_sesiones_pendientes += len(sesiones_bloque)
+
+    # Historial últimos 20 egresos de honorarios
+    historial = (
+        Egreso.objects
+        .filter(
+            categoria__es_honorario_profesional=True,
+            anulado=False,
+        )
+        .select_related('proveedor', 'categoria')
+        .prefetch_related('sesiones_cubiertas')
+        .order_by('-fecha', '-fecha_registro')[:20]
+    )
+
+    return render(request, 'egresos/liquidar_honorarios.html', {
+        'bloques':                  bloques,
+        'deuda_total':              deuda_total,
+        'total_sesiones_pendientes': total_sesiones_pendientes,
+        'profesionales_con_deuda':  len(bloques),
+        'metodos_pago':             MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'historial':                historial,
+        'hoy':                      date.today(),
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LIQUIDACIÓN DE HONORARIOS — por sesión con saldo
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@staff_member_required
+def liquidar_honorarios(request):
+    """
+    GET:  Muestra profesionales externos con sesiones pendientes de pago.
+          Cada sesión muestra su deuda (monto_profesional de ComisionSesion).
+    POST: Registra PagoHonorario + Egreso EGR-XXXX.
+          El monto pagado puede ser menor a la deuda.
+          Si saldado=True, las sesiones se dan por cerradas aunque quede diferencia.
+    """
+    from servicios.models import ComisionSesion
+    from profesionales.models import Profesional
+    from .models import PagoHonorario
+    from decimal import Decimal
+    from itertools import groupby
+
+    if request.method == 'POST':
+        return _procesar_pago_honorario(request)
+
+    # ── GET: construir bloques por profesional + sucursal ────────────────────
+
+    # Sesiones ya cerradas — SOLO si el egreso asociado NO está anulado.
+    # Si el egreso fue anulado, las sesiones deben volver a aparecer como pendientes.
+    sesiones_saldadas_ids = set(
+        PagoHonorario.objects
+        .filter(saldado=True, egreso__anulado=False)
+        .values_list('sesiones__id', flat=True)
+    )
+    sesiones_pago_completo_ids = set(
+        PagoHonorario.objects
+        .filter(saldado=False, diferencia__lte=0, egreso__anulado=False)
+        .values_list('sesiones__id', flat=True)
+    )
+    sesiones_cerradas_ids = sesiones_saldadas_ids | sesiones_pago_completo_ids
+
+    comisiones_pendientes = (
+        ComisionSesion.objects
+        .filter(sesion__estado__in=['realizada', 'realizada_retraso'])
+        .exclude(sesion__id__in=sesiones_cerradas_ids)
+        .select_related(
+            'sesion__profesional',
+            'sesion__paciente',
+            'sesion__servicio',
+            'sesion__sucursal',
+        )
+        .order_by(
+            'sesion__profesional__apellido',
+            'sesion__sucursal__nombre',
+            'sesion__fecha',
+        )
+    )
+
+    # Agrupar por (profesional, sucursal)
+    from itertools import groupby
+    bloques = []
+    deuda_total = Decimal('0')
+    total_sesiones_pendientes = 0
+
+    def _key(c):
+        prof = c.sesion.profesional
+        suc  = c.sesion.sucursal
+        return (prof.id if prof else 0, suc.id if suc else 0)
+
+    for (prof_id, suc_id), items in groupby(comisiones_pendientes, key=_key):
+        sesiones_bloque = [{'sesion': c.sesion, 'comision': c} for c in items]
+        if not sesiones_bloque:
+            continue
+
+        profesional = sesiones_bloque[0]['sesion'].profesional
+        sucursal    = sesiones_bloque[0]['sesion'].sucursal
+        total_bloque = sum(s['comision'].monto_profesional for s in sesiones_bloque)
+
+        proveedor = None
+        try:
+            proveedor = profesional.proveedor_egreso
+        except Exception:
+            pass
+
+        bloques.append({
+            'profesional':     profesional,
+            'sucursal':        sucursal,
+            'proveedor':       proveedor,
+            'sesiones':        sesiones_bloque,
+            'total_pendiente': total_bloque,
+            # key única para el form (prof+suc para evitar colisiones en el HTML)
+            'form_id':         f'{prof_id}_{suc_id}',
+        })
+        deuda_total += total_bloque
+        total_sesiones_pendientes += len(sesiones_bloque)
+
+    # Historial últimos 15 pagos de honorarios
+    historial = (
+        PagoHonorario.objects
+        .select_related('profesional', 'egreso', 'metodo_pago')
+        .prefetch_related('sesiones')
+        .order_by('-fecha', '-fecha_registro')[:15]
+    )
+
+    return render(request, 'egresos/liquidar_honorarios.html', {
+        'bloques':                   bloques,
+        'deuda_total':               deuda_total,
+        'total_sesiones_pendientes': total_sesiones_pendientes,
+        'profesionales_con_deuda':   len(bloques),
+        'metodos_pago':              MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'historial':                 historial,
+        'hoy':                       date.today(),
+    })
+
+
+def _procesar_pago_honorario(request):
+    """Helper POST: valida y registra el PagoHonorario + Egreso."""
+    from servicios.models import ComisionSesion
+    from .models import PagoHonorario
+    from decimal import Decimal
+
+    profesional_id = request.POST.get('profesional_id')
+    proveedor_id   = request.POST.get('proveedor_id')
+    sucursal_id    = request.POST.get('sucursal_id', '')
+    sesiones_ids   = request.POST.getlist('sesiones_ids')
+    metodo_pago_id = request.POST.get('metodo_pago')
+    monto_pagado_str = request.POST.get('monto_pagado', '0').strip()
+    saldado        = request.POST.get('saldado') == '1'
+    concepto       = request.POST.get('concepto', '').strip()
+    fecha_str      = request.POST.get('fecha_pago', '')
+    observaciones  = request.POST.get('observaciones', '').strip()
+
+    # Validaciones
+    if not sesiones_ids:
+        messages.error(request, '❌ Selecciona al menos una sesión.')
+        return redirect('egresos:liquidar_honorarios')
+    if not metodo_pago_id:
+        messages.error(request, '❌ Selecciona un método de pago.')
+        return redirect('egresos:liquidar_honorarios')
+    if not proveedor_id:
+        messages.error(request, '❌ El profesional no tiene proveedor vinculado.')
+        return redirect('egresos:liquidar_honorarios')
+
+    try:
+        fecha       = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        monto_pagado = Decimal(monto_pagado_str)
+        if monto_pagado <= 0:
+            raise ValueError
+    except Exception:
+        messages.error(request, '❌ Fecha o monto inválidos.')
+        return redirect('egresos:liquidar_honorarios')
+
+    # Calcular deuda real de las sesiones seleccionadas
+    from profesionales.models import Profesional
+    try:
+        profesional = Profesional.objects.get(id=profesional_id)
+    except Profesional.DoesNotExist:
+        messages.error(request, '❌ Profesional no encontrado.')
+        return redirect('egresos:liquidar_honorarios')
+
+    comisiones = ComisionSesion.objects.filter(
+        sesion__id__in=sesiones_ids
+    )
+    monto_deuda = comisiones.aggregate(
+        total=Sum('monto_profesional')
+    )['total'] or Decimal('0')
+
+    # Obtener categoría de honorarios
+    categoria = CategoriaEgreso.objects.filter(
+        es_honorario_profesional=True, activo=True
+    ).first()
+    if not categoria:
+        messages.error(
+            request,
+            '❌ No existe una categoría de honorarios activa. '
+            'Créala en Egresos → Categorías con "Es pago de honorarios" activado.'
+        )
+        return redirect('egresos:liquidar_honorarios')
+
+    nombre_prof = f"{profesional.nombre} {profesional.apellido}"
+    concepto_final = concepto or f"Honorarios {nombre_prof}"
+
+    try:
+        # Crear Egreso EGR-XXXX
+        egreso = EgresoService.registrar_egreso(
+            user=request.user,
+            categoria_id=categoria.id,
+            fecha=fecha,
+            concepto=concepto_final,
+            monto=monto_pagado,
+            metodo_pago_id=int(metodo_pago_id),
+            proveedor_id=int(proveedor_id),
+            observaciones=observaciones,
+        )
+
+        # Crear PagoHonorario
+        pago = PagoHonorario.objects.create(
+            profesional=profesional,
+            monto_deuda=monto_deuda,
+            monto_pagado=monto_pagado,
+            saldado=saldado,
+            fecha=fecha,
+            metodo_pago_id=int(metodo_pago_id),
+            observaciones=observaciones,
+            egreso=egreso,
+            registrado_por=request.user,
+        )
+        pago.sesiones.set([int(s) for s in sesiones_ids])
+
+        # Recalcular resumen de la sucursal si aplica
+        if sucursal_id:
+            from servicios.models import Sucursal
+            try:
+                suc_obj = Sucursal.objects.get(id=sucursal_id)
+                ResumenFinancieroService.recalcular_mes(
+                    fecha.month, fecha.year, sucursal=suc_obj
+                )
+            except Exception:
+                pass
+
+        n_sesiones = len(sesiones_ids)
+        diferencia = monto_deuda - monto_pagado
+        msg = (
+            f'✅ {egreso.numero_egreso} — Bs. {monto_pagado:,.0f} pagado a {nombre_prof} '
+            f'por {n_sesiones} sesión(es).'
+        )
+        if diferencia > 0 and saldado:
+            msg += f' Diferencia de Bs. {diferencia:,.0f} marcada como saldada.'
+        elif diferencia > 0:
+            msg += f' Quedan Bs. {diferencia:,.0f} pendientes.'
+        elif diferencia < 0:
+            msg += f' Adelanto de Bs. {abs(diferencia):,.0f} incluido.'
+
+        messages.success(request, msg)
+
+    except Exception as e:
+        messages.error(request, f'❌ Error: {str(e)}')
+
+    return redirect('egresos:liquidar_honorarios')
