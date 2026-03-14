@@ -37,12 +37,22 @@
 
     {% for bloque in bloques %}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-4">
-        <div class="bg-gradient-to-r from-purple-50 to-white px-4 py-3 border-b border-gray-100">
+        <!-- Header colapsable -->
+        <div class="bg-gradient-to-r from-purple-50 to-white px-4 py-3 border-b border-gray-100 cursor-pointer select-none hover:bg-purple-50 transition-colors duration-150"
+             onclick="toggleBloque('{{ bloque.form_id }}')"
+             title="Clic para expandir / colapsar">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-black text-sm">{{ bloque.profesional.nombre|first }}{{ bloque.profesional.apellido|first }}</div>
+                    <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-700 font-black text-sm flex-shrink-0">{{ bloque.profesional.nombre|first }}{{ bloque.profesional.apellido|first }}</div>
                     <div>
-                        <p class="font-bold text-gray-800">{{ bloque.profesional.nombre }} {{ bloque.profesional.apellido }}</p>
+                        <div class="flex items-center gap-2">
+                            <p class="font-bold text-gray-800">{{ bloque.profesional.nombre }} {{ bloque.profesional.apellido }}</p>
+                            <svg id="chevron-{{ bloque.form_id }}"
+                                 class="w-4 h-4 text-purple-400 transition-transform duration-200 flex-shrink-0"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
                         <div class="flex items-center gap-2 flex-wrap">
                             {% if bloque.sucursal %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">🏢 {{ bloque.sucursal.nombre }}</span>
@@ -52,18 +62,21 @@
                             {% if bloque.proveedor %}
                             <span class="text-xs text-purple-600 font-medium">{{ bloque.proveedor.nombre }}</span>
                             {% else %}
-                            <span class="text-amber-600 font-medium text-xs">⚠️ Sin proveedor — <a href="{% url 'egresos:crear_proveedor' %}" class="underline">crear ahora</a></span>
+                            <span class="text-amber-600 font-medium text-xs">⚠️ Sin proveedor — <a href="{% url 'egresos:crear_proveedor' %}" class="underline" onclick="event.stopPropagation()">crear ahora</a></span>
                             {% endif %}
                         </div>
                     </div>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex-shrink-0">
                     <p class="text-[10px] text-gray-400 uppercase">Deuda pendiente</p>
                     <p class="text-2xl font-black text-purple-600">Bs. {{ bloque.total_pendiente|floatformat:0 }}</p>
                     <p class="text-[10px] text-gray-400">{{ bloque.sesiones|length }} sesión(es)</p>
                 </div>
             </div>
         </div>
+
+        <!-- Cuerpo colapsable (oculto por defecto) -->
+        <div id="bloque-{{ bloque.form_id }}" class="hidden">
 
         <form method="post" action="{% url 'egresos:liquidar_honorarios' %}">
             {% csrf_token %}
@@ -175,6 +188,7 @@
                 </div>
             </div>
         </form>
+        </div><!-- fin bloque colapsable -->
     </div>
     {% empty %}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-16 text-center">
@@ -207,22 +221,38 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for pago in historial %}
-                    <tr class="hover:bg-gray-50 transition">
-                        <td class="px-4 py-2.5"><a href="{% url 'egresos:detalle_egreso' pago.egreso.id %}" class="font-bold text-purple-600 hover:underline">{{ pago.egreso.numero_egreso }}</a></td>
-                        <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap">{{ pago.fecha|date:"d/m/Y" }}</td>
-                        <td class="px-4 py-2.5 font-medium text-gray-700">{{ pago.profesional.nombre }} {{ pago.profesional.apellido }}</td>
+                    <tr class="transition {% if pago.egreso.anulado %}bg-red-50 opacity-60{% else %}hover:bg-gray-50{% endif %}">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'egresos:detalle_egreso' pago.egreso.id %}"
+                               class="font-bold {% if pago.egreso.anulado %}text-red-400 line-through{% else %}text-purple-600 hover:underline{% endif %}">
+                               {{ pago.egreso.numero_egreso }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap {% if pago.egreso.anulado %}line-through{% endif %}">{{ pago.fecha|date:"d/m/Y" }}</td>
+                        <td class="px-4 py-2.5 font-medium {% if pago.egreso.anulado %}text-gray-400 line-through{% else %}text-gray-700{% endif %}">{{ pago.profesional.nombre }} {{ pago.profesional.apellido }}</td>
                         <td class="px-4 py-2.5 text-center text-gray-500 hidden sm:table-cell">{{ pago.sesiones.count }}</td>
                         <td class="px-4 py-2.5 text-right text-gray-500 hidden md:table-cell">Bs. {{ pago.monto_deuda|floatformat:0 }}</td>
-                        <td class="px-4 py-2.5 text-right font-bold text-purple-600">Bs. {{ pago.monto_pagado|floatformat:0 }}</td>
-                        <td class="px-4 py-2.5 text-right hidden md:table-cell {% if pago.diferencia > 0 %}text-amber-600{% elif pago.diferencia < 0 %}text-blue-600{% else %}text-gray-400{% endif %}">
-                            {% if pago.diferencia > 0 %}−Bs. {{ pago.diferencia|floatformat:0 }}{% elif pago.diferencia < 0 %}+Bs. {{ pago.diferencia|floatformat:0 }}{% else %}—{% endif %}
+                        <td class="px-4 py-2.5 text-right font-bold {% if pago.egreso.anulado %}text-red-400 line-through{% else %}text-purple-600{% endif %}">Bs. {{ pago.monto_pagado|floatformat:0 }}</td>
+                        <td class="px-4 py-2.5 text-right hidden md:table-cell {% if pago.egreso.anulado %}text-gray-300{% elif pago.diferencia > 0 %}text-amber-600{% elif pago.diferencia < 0 %}text-blue-600{% else %}text-gray-400{% endif %}">
+                            {% if not pago.egreso.anulado %}
+                                {% if pago.diferencia > 0 %}−Bs. {{ pago.diferencia|floatformat:0 }}{% elif pago.diferencia < 0 %}+Bs. {{ pago.diferencia|floatformat:0 }}{% else %}—{% endif %}
+                            {% else %}—{% endif %}
                         </td>
                         <td class="px-4 py-2.5 text-center">
-                            {% if pago.saldado %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Saldado</span>
-                            {% elif pago.diferencia <= 0 %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Completo</span>
-                            {% else %}<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">⚠️ Parcial</span>{% endif %}
+                            {% if pago.egreso.anulado %}
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-600 border border-red-200">❌ Anulado</span>
+                            {% elif pago.saldado %}
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Saldado</span>
+                            {% elif pago.diferencia <= 0 %}
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Completo</span>
+                            {% else %}
+                                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">⚠️ Parcial</span>
+                            {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center"><a href="{% url 'egresos:egreso_pdf' pago.egreso.id %}" target="_blank" class="text-gray-400 hover:text-gray-700">🧾</a></td>
+                        <td class="px-4 py-2.5 text-center">
+                            <a href="{% url 'egresos:egreso_pdf' pago.egreso.id %}" target="_blank"
+                               class="{% if pago.egreso.anulado %}text-gray-300 pointer-events-none{% else %}text-gray-400 hover:text-gray-700{% endif %}">🧾</a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -233,6 +263,29 @@
 
 </div>
 <script>
+// ── Toggle colapsar / expandir bloque de profesional ──────────────────────
+function toggleBloque(formId) {
+    const body    = document.getElementById('bloque-' + formId);
+    const chevron = document.getElementById('chevron-' + formId);
+    const abierto = !body.classList.contains('hidden');
+    if (abierto) {
+        body.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    } else {
+        body.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+    }
+}
+
+// Expandir el primero automáticamente si solo hay uno
+document.addEventListener('DOMContentLoaded', function () {
+    const bloques = document.querySelectorAll('[id^="bloque-"]');
+    if (bloques.length === 1) {
+        const id = bloques[0].id.replace('bloque-', '');
+        toggleBloque(id);
+    }
+});
+
 function recalcular(profId) {
     let deuda = 0;
     document.querySelectorAll(`.sesion-cb-${profId}:checked`)
