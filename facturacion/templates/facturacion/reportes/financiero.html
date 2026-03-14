@@ -186,19 +186,19 @@
 
   <!-- View Tabs -->
   <div class="tabs no-print">
-    <a href="?vista=mensual&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=mensual&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'mensual' or not vista %}active{% endif %}">📅 Vista Mensual</a>
-    <a href="?vista=diaria&fecha_desde={{ fecha_hasta }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=diaria&fecha_desde={{ fecha_hasta }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'diaria' %}active{% endif %}">📆 Cierre Diario</a>
-    <a href="?vista=detalle_pagos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=detalle_pagos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'detalle_pagos' %}active{% endif %}">💳 Detalle Pagos</a>
-    <a href="?vista=detalle_sesiones&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=detalle_sesiones&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'detalle_sesiones' %}active{% endif %}">🏥 Detalle Sesiones</a>
-    <a href="?vista=detalle_proyectos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=detalle_proyectos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'detalle_proyectos' %}active{% endif %}">📋 Detalle Proyectos</a>
-    <a href="?vista=detalle_mensualidades&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=detalle_mensualidades&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'detalle_mensualidades' %}active{% endif %}">📅 Detalle Mensualidades</a>
-    <a href="?vista=analisis_creditos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+    <a href="?vista=analisis_creditos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'analisis_creditos' %}active{% endif %}">💎 Análisis Créditos</a>
   </div>
 
@@ -212,6 +212,17 @@
           <option value="">Todas las sucursales</option>
           {% for s in sucursales %}
           <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Registrado por</label>
+        <select name="registrado_por" id="filtro-registrado-por" style="min-width:170px">
+          <option value="">Todos los usuarios</option>
+          {% for u in usuarios_registraron %}
+          <option value="{{ u.id }}" {% if registrado_por_id == u.id|stringformat:"s" %}selected{% endif %}>
+            {% if u.get_full_name %}{{ u.get_full_name }}{% else %}{{ u.username }}{% endif %}
+          </option>
           {% endfor %}
         </select>
       </div>
@@ -234,6 +245,24 @@
         🔄 Limpiar filtros
       </button>
     </form>
+    {% if registrado_por_id %}
+    <div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:.68rem;font-weight:700;color:var(--muted)">Filtro activo:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;
+                   padding:3px 10px;border-radius:20px;background:rgba(37,99,235,.12);
+                   color:var(--blue);border:1px solid rgba(37,99,235,.25)">
+        👤
+        {% for u in usuarios_registraron %}
+          {% if u.id|stringformat:"s" == registrado_por_id %}
+            {% if u.get_full_name %}{{ u.get_full_name }}{% else %}{{ u.username }}{% endif %}
+          {% endif %}
+        {% endfor %}
+        <a href="?vista={{ vista }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+           style="color:var(--blue);margin-left:2px;text-decoration:none;font-weight:900"
+           title="Quitar filtro">✕</a>
+      </span>
+    </div>
+    {% endif %}
   </div>
 
   <script>
@@ -246,6 +275,7 @@
     document.querySelector('[name="fecha_desde"]').value = fmt(inicioMes);
     document.querySelector('[name="fecha_hasta"]').value = fmt(hoy);
     document.querySelector('[name="sucursal"]').value = '';
+    document.querySelector('[name="registrado_por"]').value = '';
     document.querySelector('form').submit();
   }
   </script>

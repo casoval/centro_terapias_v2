@@ -4643,11 +4643,12 @@ def reporte_financiero(request):
     from django.db.models import Q, Sum, Count, DecimalField
     from django.db.models.functions import Coalesce
     
-    sucursal_id = request.GET.get('sucursal', '')
-    fecha_desde = request.GET.get('fecha_desde', '')
-    fecha_hasta = request.GET.get('fecha_hasta', '')
-    vista = request.GET.get('vista', 'mensual')  # mensual, diaria, detalle_pagos, detalle_sesiones, detalle_proyectos, analisis_creditos
-    
+    sucursal_id       = request.GET.get('sucursal', '')
+    fecha_desde       = request.GET.get('fecha_desde', '')
+    fecha_hasta       = request.GET.get('fecha_hasta', '')
+    vista             = request.GET.get('vista', 'mensual')  # mensual, diaria, detalle_pagos, detalle_sesiones, detalle_proyectos, analisis_creditos
+    registrado_por_id = request.GET.get('registrado_por', '')
+
     # Rango de fechas
     if fecha_desde and fecha_hasta:
         fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
@@ -4696,7 +4697,7 @@ def reporte_financiero(request):
         fecha_pago__gte=fecha_desde_obj,
         fecha_pago__lte=fecha_hasta_obj,
         anulado=False  # Solo pagos válidos
-    ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto')
+    ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto', 'registrado_por')
     
     # ==================== DEVOLUCIONES ====================
     devoluciones = Devolucion.objects.filter(
@@ -4770,6 +4771,23 @@ def reporte_financiero(request):
         else:
             pa_libres_filtrados = pa_libres_qs.none()
         pagos_anulados = (pa_con_item | pa_libres_filtrados).distinct()
+    # ==================== FILTRO POR REGISTRADO POR ====================
+    if registrado_por_id:
+        pagos = pagos.filter(registrado_por_id=registrado_por_id)
+
+    # ==================== USUARIOS QUE REGISTRARON PAGOS (para el dropdown) ====================
+    from django.contrib.auth.models import User
+    usuarios_registraron = (
+        User.objects
+        .filter(
+            pago__fecha_pago__gte=fecha_desde_obj,
+            pago__fecha_pago__lte=fecha_hasta_obj,
+            pago__anulado=False,
+        )
+        .distinct()
+        .order_by('first_name', 'last_name', 'username')
+    )
+
     # ==================== CONTEXTO BASE ====================
     context = {
         'vista': vista,
@@ -4777,6 +4795,8 @@ def reporte_financiero(request):
         'sucursales': Sucursal.objects.filter(activa=True),
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
+        'registrado_por_id': registrado_por_id,
+        'usuarios_registraron': usuarios_registraron,
     }
     
     # ══════════════════════════════════════════════════════════════════
