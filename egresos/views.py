@@ -83,9 +83,13 @@ def lista_egresos(request):
             qs = qs.filter(fecha__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
         except ValueError:
             pass
+    # BUG 3 FIX: Si hay mes, siempre anclarlo a un año para evitar mezclar
+    # registros de "marzo 2023" + "marzo 2024" + "marzo 2025" en un solo filtro.
+    # Si no se pasa anio explícito, se usa el año actual como default.
     if mes:
-        qs = qs.filter(periodo_mes=int(mes))
-    if anio:
+        anio_para_filtro = int(anio) if anio else date.today().year
+        qs = qs.filter(periodo_mes=int(mes), periodo_anio=anio_para_filtro)
+    elif anio:
         qs = qs.filter(periodo_anio=int(anio))
 
     # ── Totales del filtro actual ─────────────────────────────────────────────
@@ -419,14 +423,33 @@ def api_resumen_mes(request):
     """
     Retorna el ResumenFinanciero de un mes/año en JSON.
     Usado por el dashboard para actualizar sin recargar la página.
-    """
-    mes  = int(request.GET.get('mes',  date.today().month))
-    anio = int(request.GET.get('anio', date.today().year))
 
+    BUG 1 FIX: Antes tenía sucursal=None hardcodeado, por lo que siempre
+    retornaba el resumen GLOBAL sin importar qué sucursal estuviera filtrada
+    en el dashboard. Ahora lee el parámetro GET 'sucursal' correctamente.
+    """
+    from servicios.models import Sucursal
+
+    mes         = int(request.GET.get('mes',  date.today().month))
+    anio        = int(request.GET.get('anio', date.today().year))
+    sucursal_id = request.GET.get('sucursal', '')
+
+    # Resolver objeto sucursal
+    sucursal_obj = None
+    if sucursal_id:
+        try:
+            sucursal_obj = Sucursal.objects.get(id=sucursal_id, activa=True)
+        except Sucursal.DoesNotExist:
+            sucursal_id = ''
+
+    # Recalcular snapshot con el filtro correcto
     ResumenFinancieroService.recalcular_mes(mes, anio)
+    if sucursal_obj:
+        ResumenFinancieroService.recalcular_mes(mes, anio, sucursal=sucursal_obj)
 
     try:
-        r = ResumenFinanciero.objects.get(mes=mes, anio=anio, sucursal=None)
+        # BUG 1 FIX: usar sucursal_obj (None = global, objeto = sucursal específica)
+        r = ResumenFinanciero.objects.get(mes=mes, anio=anio, sucursal=sucursal_obj)
         data = {
             'mes':                       r.mes,
             'anio':                      r.anio,
@@ -461,10 +484,17 @@ def api_resumen_mes(request):
 def api_egresos_mes(request):
     """
     Retorna los egresos de un mes en JSON para tablas dinámicas.
+
+    BUG 2 FIX: Antes no leía el parámetro 'sucursal' del request, por lo que
+    las tablas dinámicas del dashboard siempre mostraban todos los egresos
+    globales sin importar qué sucursal estuviera seleccionada.
     """
-    mes  = int(request.GET.get('mes',  date.today().month))
-    anio = int(request.GET.get('anio', date.today().year))
-    tipo = request.GET.get('tipo', '')
+    from servicios.models import Sucursal
+
+    mes         = int(request.GET.get('mes',  date.today().month))
+    anio        = int(request.GET.get('anio', date.today().year))
+    tipo        = request.GET.get('tipo', '')
+    sucursal_id = request.GET.get('sucursal', '')  # BUG 2 FIX: leer sucursal
 
     qs = Egreso.objects.filter(
         periodo_mes=mes,
@@ -474,6 +504,29 @@ def api_egresos_mes(request):
 
     if tipo:
         qs = qs.filter(categoria__tipo=tipo)
+
+    # BUG 2 FIX: aplicar filtro de sucursal al queryset
+    if sucursal_id == 'global':
+        qs = qs.filter(sucursal__isnull=True)
+    elif sucursal_id:
+        try:
+            sucursal_obj = Sucursal.objects.get(id=sucursal_id, activa=True)
+            # Para honorarios: incluir egresos cuyas sesiones pertenecen a la sucursal
+            if not tipo or tipo == 'honorarios':
+                from egresos.models import PagoHonorario
+                honorarios_ids = PagoHonorario.objects.filter(
+                    sesiones__sucursal_id=sucursal_obj.id,
+                    egreso__periodo_mes=mes,
+                    egreso__periodo_anio=anio,
+                    egreso__anulado=False,
+                ).values_list('egreso_id', flat=True).distinct()
+                qs = qs.filter(
+                    Q(sucursal=sucursal_obj) | Q(id__in=honorarios_ids)
+                )
+            else:
+                qs = qs.filter(sucursal=sucursal_obj)
+        except Sucursal.DoesNotExist:
+            pass
 
     data = [
         {

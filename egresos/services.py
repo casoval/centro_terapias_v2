@@ -96,7 +96,14 @@ class EgresoService:
             egreso.sesiones_cubiertas.set(sesiones)
 
         # Recalcular snapshot financiero del período
+        # BUG 4 FIX: Antes solo recalculaba el snapshot GLOBAL.
+        # Si el egreso pertenece a una sucursal, ese snapshot también debe
+        # actualizarse para que el dashboard muestre datos correctos al instante.
         ResumenFinancieroService.recalcular_mes(mes_periodo, anio_periodo)
+        if egreso.sucursal_id:
+            ResumenFinancieroService.recalcular_mes(
+                mes_periodo, anio_periodo, sucursal=egreso.sucursal
+            )
 
         logger.info(
             f'Egreso {egreso.numero_egreso} registrado por {user} — '
@@ -137,10 +144,16 @@ class EgresoService:
         egreso.fecha_anulacion  = timezone.now()
         egreso.save()
 
-        # Recalcular snapshot del mes al que pertenecía el egreso
+        # Recalcular snapshot del mes al que pertenecía el egreso.
+        # BUG 5 FIX: Igual que en registrar_egreso, también hay que actualizar
+        # el snapshot de la sucursal si el egreso anulado tenía una asignada.
         ResumenFinancieroService.recalcular_mes(
             egreso.periodo_mes, egreso.periodo_anio
         )
+        if egreso.sucursal_id:
+            ResumenFinancieroService.recalcular_mes(
+                egreso.periodo_mes, egreso.periodo_anio, sucursal=egreso.sucursal
+            )
 
         logger.info(
             f'Egreso {egreso.numero_egreso} ANULADO por {user} — motivo: {motivo}'
@@ -300,7 +313,10 @@ class ResumenFinancieroService:
 
             ingresos_brutos = p_ses + p_ses_masivo + p_mens + p_mens_masivo + p_proy + p_proy_masivo
 
-            # Devoluciones vinculadas a esta sucursal
+            # Devoluciones vinculadas a esta sucursal.
+            # NOTA: el modelo Devolucion no tiene FK a Sesion directa,
+            # solo a mensualidad y proyecto. Las devoluciones de crédito
+            # general (sin proyecto ni mensualidad) no se atribuyen a sucursal.
             total_devoluciones = (
                 Devolucion.objects.filter(
                     fecha_devolucion__range=(fecha_inicio, fecha_fin),
