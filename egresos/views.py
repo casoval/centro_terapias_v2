@@ -195,7 +195,7 @@ def _render_form_egreso(request):
     context = {
         'categorias':   CategoriaEgreso.objects.filter(activo=True).order_by('tipo', 'nombre'),
         'proveedores':  Proveedor.objects.filter(activo=True).order_by('nombre'),
-        'metodos_pago': MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'metodos_pago': MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor', 'Sin Cobro']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
         'sucursales':   Sucursal.objects.filter(activa=True).order_by('nombre'),
         'hoy':          date.today(),
         'anio_actual':  date.today().year,
@@ -864,7 +864,7 @@ def liquidar_honorarios(request):
         'deuda_total':              deuda_total,
         'total_sesiones_pendientes': total_sesiones_pendientes,
         'profesionales_con_deuda':  len(bloques),
-        'metodos_pago':             MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'metodos_pago':             MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor', 'Sin Cobro']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
         'historial':                historial,
         'hoy':                      date.today(),
     })
@@ -977,7 +977,7 @@ def liquidar_honorarios(request):
         'deuda_total':               deuda_total,
         'total_sesiones_pendientes': total_sesiones_pendientes,
         'profesionales_con_deuda':   len(bloques),
-        'metodos_pago':              MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
+        'metodos_pago':              MetodoPago.objects.filter(activo=True).exclude(nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Credito/Saldo a Favor', 'Sin Cobro']).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo'),
         'historial':                 historial,
         'hoy':                       date.today(),
     })
@@ -1107,3 +1107,254 @@ def _procesar_pago_honorario(request):
         messages.error(request, f'❌ Error: {str(e)}')
 
     return redirect('egresos:liquidar_honorarios')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INGRESOS ADICIONALES
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@staff_member_required
+def lista_ingresos_adicionales(request):
+    from servicios.models import Sucursal
+    from egresos.models import IngresoAdicional
+
+    buscar      = request.GET.get('q', '').strip()
+    tipo        = request.GET.get('tipo', '')
+    sucursal_id = request.GET.get('sucursal', '')
+    estado      = request.GET.get('estado', 'activos')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+    mes         = request.GET.get('mes', '')
+    anio        = request.GET.get('anio', '')
+
+    qs = IngresoAdicional.objects.select_related(
+        'sucursal', 'metodo_pago', 'registrado_por'
+    )
+
+    if estado == 'activos':
+        qs = qs.filter(anulado=False)
+    elif estado == 'anulados':
+        qs = qs.filter(anulado=True)
+
+    if buscar:
+        qs = qs.filter(
+            Q(numero_ingreso__icontains=buscar) |
+            Q(concepto__icontains=buscar) |
+            Q(origen__icontains=buscar)
+        )
+    if tipo:
+        qs = qs.filter(tipo=tipo)
+    if sucursal_id == 'global':
+        qs = qs.filter(sucursal__isnull=True)
+    elif sucursal_id:
+        qs = qs.filter(sucursal_id=sucursal_id)
+    if fecha_desde:
+        try:
+            qs = qs.filter(fecha__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            qs = qs.filter(fecha__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if mes:
+        qs = qs.filter(periodo_mes=int(mes))
+    if anio:
+        qs = qs.filter(periodo_anio=int(anio))
+
+    total_filtrado = qs.filter(anulado=False).aggregate(
+        total=Coalesce(Sum('monto'), Decimal('0'))
+    )['total']
+
+    paginator   = Paginator(qs.order_by('-fecha', '-fecha_registro'), 50)
+    page_obj    = paginator.get_page(request.GET.get('page', 1))
+
+    return render(request, 'egresos/lista_ingresos_adicionales.html', {
+        'page_obj':          page_obj,
+        'total_filtrado':    total_filtrado,
+        'tipos':             IngresoAdicional.TIPO_CHOICES,
+        'sucursales':        Sucursal.objects.filter(activa=True).order_by('nombre'),
+        'anios_disponibles': _get_anios_disponibles(),
+        'filtros': {
+            'q': buscar, 'tipo': tipo, 'sucursal': sucursal_id,
+            'estado': estado, 'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta, 'mes': mes, 'anio': anio,
+        },
+    })
+
+
+@login_required
+@staff_member_required
+def registrar_ingreso_adicional(request):
+    from servicios.models import Sucursal
+    from egresos.models import IngresoAdicional
+
+    if request.method == 'POST':
+        tipo            = request.POST.get('tipo', '').strip()
+        concepto        = request.POST.get('concepto', '').strip()
+        monto_str       = request.POST.get('monto', '0').strip()
+        fecha_str       = request.POST.get('fecha', '')
+        origen          = request.POST.get('origen', '').strip()
+        num_doc         = request.POST.get('numero_documento', '').strip()
+        metodo_id       = request.POST.get('metodo_pago', '')
+        sucursal_id     = request.POST.get('sucursal', '') or None
+        periodo_mes     = request.POST.get('periodo_mes', '') or None
+        periodo_anio    = request.POST.get('periodo_anio', '') or None
+        observaciones   = request.POST.get('observaciones', '').strip()
+
+        if not all([tipo, concepto, monto_str, fecha_str, metodo_id]):
+            messages.error(request, '❌ Faltan campos obligatorios.')
+        else:
+            try:
+                monto = Decimal(monto_str)
+                if monto <= 0:
+                    raise ValueError('Monto debe ser mayor a cero')
+                fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+
+                ing = IngresoAdicional(
+                    tipo=tipo,
+                    concepto=concepto,
+                    monto=monto,
+                    fecha=fecha,
+                    origen=origen,
+                    numero_documento=num_doc,
+                    metodo_pago_id=int(metodo_id),
+                    sucursal_id=int(sucursal_id) if sucursal_id else None,
+                    periodo_mes=int(periodo_mes) if periodo_mes else None,
+                    periodo_anio=int(periodo_anio) if periodo_anio else None,
+                    observaciones=observaciones,
+                    registrado_por=request.user,
+                )
+                if request.FILES.get('comprobante'):
+                    ing.comprobante = request.FILES['comprobante']
+                ing.full_clean(exclude=['numero_ingreso'])
+                ing.save()
+
+                # Recalcular resumen financiero
+                ResumenFinancieroService.recalcular_mes(
+                    ing.periodo_mes, ing.periodo_anio
+                )
+                if ing.sucursal:
+                    ResumenFinancieroService.recalcular_mes(
+                        ing.periodo_mes, ing.periodo_anio, sucursal=ing.sucursal
+                    )
+
+                messages.success(
+                    request,
+                    f'✅ {ing.numero_ingreso} registrado — Bs. {ing.monto:,.0f}'
+                )
+                return redirect('egresos:lista_ingresos_adicionales')
+
+            except Exception as e:
+                messages.error(request, f'❌ Error al registrar: {str(e)}')
+
+    sucursales  = Sucursal.objects.filter(activa=True).order_by('nombre')
+    metodos     = MetodoPago.objects.filter(activo=True).exclude(
+        nombre__in=['Uso de Crédito', 'Crédito/Saldo a Favor', 'Sin Cobro']
+    ).exclude(nombre__icontains='crédito').exclude(nombre__icontains='saldo')
+
+    return render(request, 'egresos/registrar_ingreso_adicional.html', {
+        'tipos':        IngresoAdicional.TIPO_CHOICES,
+        'sucursales':   sucursales,
+        'metodos_pago': metodos,
+        'hoy':          date.today(),
+        'mes_actual':   date.today().month,
+        'anio_actual':  date.today().year,
+    })
+
+
+@login_required
+@staff_member_required
+def anular_ingreso_adicional(request, ingreso_id):
+    from egresos.models import IngresoAdicional
+    from django.utils import timezone as tz
+
+    ingreso = get_object_or_404(IngresoAdicional, id=ingreso_id)
+
+    if request.method == 'POST':
+        motivo = request.POST.get('motivo', '').strip()
+        if not motivo:
+            messages.error(request, '❌ El motivo de anulación es obligatorio.')
+        elif ingreso.anulado:
+            messages.error(request, '❌ Este ingreso ya está anulado.')
+        else:
+            ingreso.anulado          = True
+            ingreso.motivo_anulacion = motivo
+            ingreso.anulado_por      = request.user
+            ingreso.fecha_anulacion  = tz.now()
+            ingreso.save()
+            ResumenFinancieroService.recalcular_mes(
+                ingreso.periodo_mes, ingreso.periodo_anio
+            )
+            if ingreso.sucursal:
+                ResumenFinancieroService.recalcular_mes(
+                    ingreso.periodo_mes, ingreso.periodo_anio,
+                    sucursal=ingreso.sucursal
+                )
+            messages.success(request, f'✅ {ingreso.numero_ingreso} anulado.')
+            return redirect('egresos:lista_ingresos_adicionales')
+
+    return render(request, 'egresos/confirmar_anulacion_ingreso.html', {'ingreso': ingreso})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DETALLE + PDF DE INGRESO ADICIONAL
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@staff_member_required
+def detalle_ingreso_adicional(request, ingreso_id):
+    from egresos.models import IngresoAdicional
+    ingreso = get_object_or_404(
+        IngresoAdicional.objects.select_related(
+            'sucursal', 'metodo_pago', 'registrado_por', 'anulado_por'
+        ),
+        id=ingreso_id
+    )
+    return render(request, 'egresos/detalle_ingreso_adicional.html', {'ingreso': ingreso})
+
+
+@login_required
+@staff_member_required
+def generar_ingreso_adicional_pdf(request, ingreso_id):
+    from egresos.models import IngresoAdicional
+    from . import ingreso_pdf_generator
+
+    ingreso = get_object_or_404(
+        IngresoAdicional.objects.select_related(
+            'sucursal', 'metodo_pago', 'registrado_por'
+        ),
+        id=ingreso_id
+    )
+
+    try:
+        cache_key = f'pdf_ingreso_{ingreso.numero_ingreso}'
+        pdf_cached = cache.get(cache_key)
+
+        if pdf_cached and not ingreso.anulado:
+            response = HttpResponse(pdf_cached, content_type='application/pdf')
+            response['Content-Disposition'] = (
+                f'inline; filename="ingreso_{ingreso.numero_ingreso}.pdf"'
+            )
+            return response
+
+        pdf_data = ingreso_pdf_generator.generar_ingreso_adicional_pdf(ingreso)
+
+        if not ingreso.anulado:
+            cache.set(cache_key, pdf_data, 3600)
+
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'inline; filename="ingreso_{ingreso.numero_ingreso}.pdf"'
+        )
+        return response
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(
+            f'Error generando PDF ingreso {ingreso_id}: {e}', exc_info=True
+        )
+        messages.error(request, f'❌ Error al generar PDF: {str(e)}')
+        return redirect('egresos:detalle_ingreso_adicional', ingreso_id=ingreso_id)

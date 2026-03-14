@@ -315,6 +315,19 @@ class ResumenFinancieroService:
 
         ingresos_netos = ingresos_brutos - total_devoluciones
 
+        # ── 2.5. INGRESOS ADICIONALES (reembolsos, donaciones, etc.) ─────────
+        from egresos.models import IngresoAdicional
+        ing_adic_qs = IngresoAdicional.objects.filter(
+            periodo_mes=mes,
+            periodo_anio=anio,
+            anulado=False,
+        )
+        if sid is not None:
+            ing_adic_qs = ing_adic_qs.filter(sucursal_id=sid)
+        ingresos_adicionales = ing_adic_qs.aggregate(
+            t=Coalesce(Sum('monto'), Decimal('0'))
+        )['t']
+
         # ── 2. EGRESOS por tipo ───────────────────────────────────────────────
         def _total_tipo(tipo_nombre):
             qs = Egreso.objects.filter(
@@ -361,10 +374,12 @@ class ResumenFinancieroService:
         )
 
         # ── 3. RESULTADO ──────────────────────────────────────────────────────
-        resultado_neto = ingresos_netos - total_egresos
+        # resultado = ingresos de pacientes + ingresos adicionales - egresos
+        resultado_neto = ingresos_netos + ingresos_adicionales - total_egresos
+        margen_base = ingresos_netos + ingresos_adicionales
         margen = (
-            (resultado_neto / ingresos_netos * Decimal('100')).quantize(Decimal('0.01'))
-            if ingresos_netos > 0
+            (resultado_neto / margen_base * Decimal('100')).quantize(Decimal('0.01'))
+            if margen_base > 0
             else Decimal('0')
         )
 
@@ -377,6 +392,7 @@ class ResumenFinancieroService:
                 'ingresos_brutos':           ingresos_brutos,
                 'total_devoluciones':        total_devoluciones,
                 'ingresos_netos':            ingresos_netos,
+                'ingresos_adicionales':      ingresos_adicionales,
                 'egresos_arriendo':          eg_arriendo,
                 'egresos_servicios_basicos': eg_servicios,
                 'egresos_personal':          eg_personal,

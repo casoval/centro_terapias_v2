@@ -454,6 +454,9 @@ class ResumenFinanciero(models.Model):
                                                        verbose_name="Total egresos")
 
     # ── Resultado ─────────────────────────────────────────────────────────────
+    ingresos_adicionales        = models.DecimalField(max_digits=12, decimal_places=0, default=0,
+                                                       verbose_name="Ingresos adicionales",
+                                                       help_text="Reembolsos, donaciones, alquileres, ajustes")
     resultado_neto              = models.DecimalField(max_digits=12, decimal_places=0, default=0,
                                                        verbose_name="Resultado neto")
     margen_porcentaje           = models.DecimalField(
@@ -577,3 +580,161 @@ class PagoHonorario(models.Model):
     def save(self, *args, **kwargs):
         self.diferencia = self.monto_deuda - self.monto_pagado
         super().save(*args, **kwargs)
+
+
+class IngresoAdicional(models.Model):
+    """
+    Ingresos que entran al centro y NO provienen de pagos de pacientes.
+    Ejemplos: reembolsos de proveedores, donaciones, alquiler de espacio,
+    correcciones contables, subsidios, etc.
+
+    Genera un número ING-XXXX como respaldo contable.
+    Se muestra separado en el ResumenFinanciero como 'ingresos_adicionales'.
+    """
+    TIPO_CHOICES = [
+        ('reembolso',   'Reembolso de Proveedor'),
+        ('donacion',    'Donación / Subsidio'),
+        ('alquiler',    'Alquiler de Espacio'),
+        ('ajuste',      'Corrección / Ajuste Contable'),
+        ('otro',        'Otro'),
+    ]
+
+    # ── Identificación ────────────────────────────────────────────────────────
+    numero_ingreso  = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name="N° Ingreso",
+        help_text="Autogenerado: ING-0001, ING-0002, ..."
+    )
+
+    # ── Clasificación ─────────────────────────────────────────────────────────
+    tipo            = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        verbose_name="Tipo de Ingreso"
+    )
+    sucursal        = models.ForeignKey(
+        'servicios.Sucursal',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name="Sucursal",
+        help_text="Vacío = ingreso global del centro"
+    )
+
+    # ── Datos ─────────────────────────────────────────────────────────────────
+    fecha           = models.DateField(verbose_name="Fecha de recepción")
+    concepto        = models.CharField(max_length=300, verbose_name="Concepto")
+    monto           = models.DecimalField(
+        max_digits=10, decimal_places=0,
+        verbose_name="Monto (Bs.)"
+    )
+    periodo_mes     = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        choices=[(i, str(i).zfill(2)) for i in range(1, 13)],
+        verbose_name="Período - Mes"
+    )
+    periodo_anio    = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name="Período - Año"
+    )
+
+    # ── Origen del ingreso ────────────────────────────────────────────────────
+    origen          = models.CharField(
+        max_length=200, blank=True,
+        verbose_name="Origen / Fuente",
+        help_text="Nombre del proveedor, donante, inquilino, etc."
+    )
+    numero_documento = models.CharField(
+        max_length=50, blank=True,
+        verbose_name="N° Documento",
+        help_text="Número de factura, recibo o documento de respaldo"
+    )
+    comprobante     = models.FileField(
+        upload_to='egresos/ingresos_adicionales/%Y/%m/',
+        blank=True,
+        verbose_name="Comprobante adjunto"
+    )
+
+    # ── Método de recepción ───────────────────────────────────────────────────
+    metodo_pago     = models.ForeignKey(
+        'facturacion.MetodoPago',
+        on_delete=models.PROTECT,
+        verbose_name="Método de Recepción"
+    )
+
+    # ── Control ───────────────────────────────────────────────────────────────
+    observaciones   = models.TextField(blank=True, verbose_name="Observaciones")
+    registrado_por  = models.ForeignKey(
+        'auth.User',
+        on_delete=models.PROTECT,
+        related_name='ingresos_adicionales_registrados',
+        verbose_name="Registrado por"
+    )
+    fecha_registro  = models.DateTimeField(auto_now_add=True)
+
+    # ── Anulación ─────────────────────────────────────────────────────────────
+    anulado         = models.BooleanField(default=False, verbose_name="Anulado")
+    motivo_anulacion = models.TextField(blank=True, verbose_name="Motivo de anulación")
+    anulado_por     = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='ingresos_adicionales_anulados',
+        verbose_name="Anulado por"
+    )
+    fecha_anulacion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Ingreso Adicional"
+        verbose_name_plural = "Ingresos Adicionales"
+        ordering = ['-fecha', '-fecha_registro']
+        indexes = [
+            models.Index(fields=['fecha'],               name='idx_ingadic_fecha'),
+            models.Index(fields=['periodo_mes', 'periodo_anio'], name='idx_ingadic_periodo'),
+            models.Index(fields=['anulado'],             name='idx_ingadic_anulado'),
+        ]
+
+    def __str__(self):
+        return f"{self.numero_ingreso} — {self.concepto} (Bs. {self.monto})"
+
+    def save(self, *args, **kwargs):
+        # Auto-completar período
+        if not self.periodo_mes:
+            self.periodo_mes = self.fecha.month
+        if not self.periodo_anio:
+            self.periodo_anio = self.fecha.year
+
+        # Autogenerar ING-XXXX
+        if not self.numero_ingreso:
+            from django.db import transaction
+            from django.db.models.functions import Cast, Substr
+            from django.db.models import IntegerField
+            prefijo = 'ING'
+            with transaction.atomic():
+                ultimo = (
+                    IngresoAdicional.objects
+                    .filter(numero_ingreso__startswith=f'{prefijo}-')
+                    .select_for_update()
+                    .annotate(
+                        num=Cast(
+                            Substr('numero_ingreso', len(prefijo) + 2),
+                            output_field=IntegerField()
+                        )
+                    )
+                    .order_by('-num')
+                    .first()
+                )
+                nuevo = (ultimo.num + 1) if ultimo else 1
+                self.numero_ingreso = f'{prefijo}-{nuevo:04d}'
+                super().save(*args, **kwargs)
+            return
+        super().save(*args, **kwargs)
+
+    @property
+    def periodo_display(self):
+        meses = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+        if self.periodo_mes and self.periodo_anio:
+            return f"{meses[self.periodo_mes]} {self.periodo_anio}"
+        return '—'

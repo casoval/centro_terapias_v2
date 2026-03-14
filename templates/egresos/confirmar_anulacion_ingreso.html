@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}❌ Anular Ingreso {{ ingreso.numero_ingreso }}{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-10">
+    <div class="bg-white rounded-2xl shadow-sm border border-red-200 overflow-hidden">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 text-white text-center">
+            <div class="text-4xl mb-2">⚠️</div>
+            <h1 class="text-xl font-bold">Confirmar Anulación</h1>
+            <p class="text-red-200 text-sm mt-1">Esta acción no se puede deshacer</p>
+        </div>
+        <div class="p-6">
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-5">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-green-600 uppercase">Ingreso a anular</span>
+                    <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{{ ingreso.numero_ingreso }}</span>
+                </div>
+                <p class="text-sm font-semibold text-gray-800">{{ ingreso.concepto }}</p>
+                <div class="flex justify-between items-center mt-2">
+                    <span class="text-xs text-gray-500">{{ ingreso.fecha|date:"d/m/Y" }} — {{ ingreso.get_tipo_display }}</span>
+                    <span class="text-lg font-black text-green-600">Bs. {{ ingreso.monto|floatformat:0 }}</span>
+                </div>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-5">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        Motivo de anulación <span class="text-red-500">*</span>
+                    </label>
+                    <textarea name="motivo" required rows="3"
+                              placeholder="Explica por qué se anula este ingreso..."
+                              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 transition resize-none"></textarea>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{% url 'egresos:lista_ingresos_adicionales' %}"
+                       class="flex-1 text-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                        Cancelar
+                    </a>
+                    <button type="submit"
+                            class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition transform active:scale-95 shadow-md shadow-red-200">
+                        Sí, anular ingreso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
