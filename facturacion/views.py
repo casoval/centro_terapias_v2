@@ -5547,46 +5547,70 @@ def reporte_financiero(request):
         cierre_diario['qr_dia']            = _monto_metodo(pagos_dia_validos, ['qr', 'código qr', 'codigo qr'])
         cierre_diario['transferencia_dia'] = _monto_metodo(pagos_dia_validos, ['transferencia', 'transf', 'depósito', 'deposito'])
 
-        # Comparativa con días anteriores (últimos 7 días)
+        # ── Comparativa con días anteriores (últimos 7 días) ─────────────────
+        # BUG FIX: los querysets base (pagos, sesiones, devoluciones) ya están
+        # acotados al día seleccionado (fecha_desde_obj == fecha_hasta_obj en
+        # vista diaria), por lo que filtrar sobre ellos para días anteriores
+        # siempre devuelve vacío. Se crean querysets frescos que cubren los
+        # 7 días previos con el mismo filtro de sucursal si corresponde.
+        comparativa_inicio = fecha_desde_obj - timedelta(days=7)
+
+        ses_comp = Sesion.objects.filter(
+            fecha__gt=comparativa_inicio,
+            fecha__lt=fecha_desde_obj,
+        )
+        pag_comp = Pago.objects.filter(
+            fecha_pago__gt=comparativa_inicio,
+            fecha_pago__lt=fecha_desde_obj,
+            anulado=False,
+        ).select_related('metodo_pago')
+        dev_comp = Devolucion.objects.filter(
+            fecha_devolucion__gt=comparativa_inicio,
+            fecha_devolucion__lt=fecha_desde_obj,
+        )
+
+        if sucursal_id:
+            ses_comp = ses_comp.filter(sucursal_id=sucursal_id)
+            pag_comp = pag_comp.filter(
+                Q(sesion__sucursal_id=sucursal_id) |
+                Q(proyecto__sucursal_id=sucursal_id) |
+                Q(mensualidad__sucursal_id=sucursal_id)
+            )
+            dev_comp = dev_comp.filter(
+                Q(proyecto__sucursal_id=sucursal_id) |
+                Q(mensualidad__sucursal_id=sucursal_id)
+            )
+
         comparativa_dias = []
         for i in range(1, 8):
             dia_anterior = fecha_desde_obj - timedelta(days=i)
 
-            sesiones_dia_ant = sesiones.filter(
+            ses_agg = ses_comp.filter(
                 fecha=dia_anterior,
-                estado__in=['realizada', 'realizada_retraso']
-            ).aggregate(
-                cantidad=Count('id'),
-                ingresos=Sum('monto_cobrado')
+                estado__in=['realizada', 'realizada_retraso'],
+            ).aggregate(cantidad=Count('id'), ingresos=Sum('monto_cobrado'))
+
+            pag_ant_qs = pag_comp.filter(
+                fecha_pago=dia_anterior,
+            ).exclude(metodo_pago__nombre='Uso de Crédito')
+
+            cobrado_bruto = pag_ant_qs.aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            devuelto = (
+                dev_comp.filter(fecha_devolucion=dia_anterior)
+                .aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
             )
 
-            pagos_dia_ant_qs = pagos.filter(
-                fecha_pago=dia_anterior
-            ).exclude(metodo_pago__nombre="Uso de Crédito")
-
-            cobrado_bruto = pagos_dia_ant_qs.aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
-
-            # Restar devoluciones de días anteriores
-            devoluciones_dia_ant = devoluciones.filter(
-                fecha_devolucion=dia_anterior
-            ).aggregate(devuelto=Sum('monto'))['devuelto'] or Decimal('0.00')
-
-            # Desglose por método del día anterior
-            efectivo_ant      = _monto_metodo(pagos_dia_ant_qs, ['efectivo'])
-            qr_ant            = _monto_metodo(pagos_dia_ant_qs, ['qr', 'código qr', 'codigo qr'])
-            transferencia_ant = _monto_metodo(pagos_dia_ant_qs, ['transferencia', 'transf', 'depósito', 'deposito'])
-
             comparativa_dias.append({
-                'fecha':        dia_anterior,
-                'dia_semana':   ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][dia_anterior.weekday()],
-                'sesiones':     sesiones_dia_ant['cantidad'] or 0,
-                'ingresos':     sesiones_dia_ant['ingresos'] or Decimal('0.00'),
+                'fecha':         dia_anterior,
+                'dia_semana':    ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][dia_anterior.weekday()],
+                'sesiones':      ses_agg['cantidad'] or 0,
+                'ingresos':      ses_agg['ingresos'] or Decimal('0.00'),
                 'cobrado_bruto': cobrado_bruto,
-                'devuelto':     devoluciones_dia_ant,
-                'cobrado_neto': cobrado_bruto - devoluciones_dia_ant,
-                'efectivo':     efectivo_ant,
-                'qr':           qr_ant,
-                'transferencia': transferencia_ant,
+                'devuelto':      devuelto,
+                'cobrado_neto':  cobrado_bruto - devuelto,
+                'efectivo':      _monto_metodo(pag_ant_qs, ['efectivo']),
+                'qr':            _monto_metodo(pag_ant_qs, ['qr', 'código qr', 'codigo qr']),
+                'transferencia': _monto_metodo(pag_ant_qs, ['transferencia', 'transf', 'depósito', 'deposito']),
             })
 
         cierre_diario['comparativa_dias'] = list(reversed(comparativa_dias))
