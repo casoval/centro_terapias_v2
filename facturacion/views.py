@@ -3890,7 +3890,7 @@ def reporte_paciente(request):
         
         # Preparar datos para gráfico
         grafico_data = {
-            'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+            'labels': [_mes_label(m['mes']) for m in por_mes],
             'realizadas': [m['realizadas'] for m in por_mes],
             'faltas': [m['faltas'] for m in por_mes],
             'retrasos': [m['retrasos'] for m in por_mes],
@@ -4119,7 +4119,7 @@ def reporte_asistencia(request):
     ).order_by('mes')
     
     grafico_data = {
-        'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+        'labels': [_mes_label(m['mes']) for m in por_mes],
         'realizadas': [m['realizadas'] for m in por_mes],
         'retrasos': [m['retrasos'] for m in por_mes],
         'faltas': [m['faltas'] for m in por_mes],
@@ -4281,7 +4281,7 @@ def reporte_profesional(request):
         ).order_by('mes')
         
         grafico_data = {
-            'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+            'labels': [_mes_label(m['mes']) for m in por_mes],
             'sesiones': [m['cantidad'] for m in por_mes],
             'realizadas': [m['realizadas'] for m in por_mes],
             'ingresos': [float(m['ingresos'] or 0) for m in por_mes],
@@ -4435,7 +4435,7 @@ def reporte_sucursal(request):
         ).order_by('mes')
         
         grafico_data = {
-            'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+            'labels': [_mes_label(m['mes']) for m in por_mes],
             'sesiones': [m['total'] for m in por_mes],
             'realizadas': [m['realizadas'] for m in por_mes],
             'ingresos': [float(m['ingresos'] or 0) for m in por_mes],
@@ -4629,6 +4629,46 @@ def _build_sucursal_map(paciente_ids):
     return resultado
 
 
+# ─── Helper: nombre de mes en español ───────────────────────────────────────
+_MESES_ES = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+             'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+def _mes_label(fecha):
+    """Convierte un date al label 'Ene 2026' en lugar del inglés 'Jan 2026'."""
+    return f"{_MESES_ES[fecha.month]} {fecha.year}"
+
+
+def _render_o_pdf_financiero(request, context):
+    """
+    Intercepta la exportación a PDF si export=pdf está en la URL.
+    En caso contrario, renderiza el template normalmente.
+    Se usa en TODAS las ramas de reporte_financiero para que el PDF
+    funcione en cualquier pestaña activa.
+    """
+    if request.GET.get('export') == 'pdf':
+        try:
+            from facturacion.informe_financiero_pdf import generar_informe_financiero_pdf
+            buffer = generar_informe_financiero_pdf(context)
+            response = HttpResponse(buffer, content_type='application/pdf')
+            vista_slug = (context.get('vista') or 'mensual').replace('detalle_', '')
+            fd = str(context.get('fecha_desde', 'sin-fecha')).replace('/', '-')
+            fh = str(context.get('fecha_hasta', '')).replace('/', '-')
+            filename = f"informe_financiero_{vista_slug}_{fd}"
+            if fh and fh != fd:
+                filename += f"_al_{fh}"
+            filename += ".pdf"
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                f"Error generando informe financiero PDF: {e}", exc_info=True
+            )
+            from django.contrib import messages as _msgs
+            _msgs.error(request, f"\u274c Error al generar el PDF: {str(e)}")
+    return render(request, 'facturacion/reportes/financiero.html', context)
+
+
 def reporte_financiero(request):
     """
     Reporte financiero completo - VERSIÓN EXTENDIDA Y CORREGIDA
@@ -4776,17 +4816,33 @@ def reporte_financiero(request):
         pagos = pagos.filter(registrado_por_id=registrado_por_id)
 
     # ==================== USUARIOS QUE REGISTRARON PAGOS (para el dropdown) ====================
+    # Para la vista diaria (un solo día), mostrar todos los usuarios que han
+    # registrado pagos en los últimos 90 días para que el filtro sea útil
+    # aunque ese día específico no tenga pagos aún.
+    # Para otras vistas, restringir al rango seleccionado.
     from django.contrib.auth.models import User
-    usuarios_registraron = (
-        User.objects
-        .filter(
-            pago__fecha_pago__gte=fecha_desde_obj,
-            pago__fecha_pago__lte=fecha_hasta_obj,
-            pago__anulado=False,
+    if vista == 'diaria':
+        from datetime import timedelta as _td
+        usuarios_registraron = (
+            User.objects
+            .filter(
+                pago__fecha_pago__gte=fecha_desde_obj - _td(days=90),
+                pago__anulado=False,
+            )
+            .distinct()
+            .order_by('first_name', 'last_name', 'username')
         )
-        .distinct()
-        .order_by('first_name', 'last_name', 'username')
-    )
+    else:
+        usuarios_registraron = (
+            User.objects
+            .filter(
+                pago__fecha_pago__gte=fecha_desde_obj,
+                pago__fecha_pago__lte=fecha_hasta_obj,
+                pago__anulado=False,
+            )
+            .distinct()
+            .order_by('first_name', 'last_name', 'username')
+        )
 
     # ==================== CONTEXTO BASE ====================
     context = {
@@ -4830,7 +4886,7 @@ def reporte_financiero(request):
             'total_devoluciones': total_devoluciones,
             'total_anulaciones': total_anulaciones,
         })
-        return render(request, 'facturacion/reportes/financiero.html', context)
+        return _render_o_pdf_financiero(request, context)
     
     # ══════════════════════════════════════════════════════════════════
     # VISTA: DETALLE SESIONES
@@ -4882,7 +4938,7 @@ def reporte_financiero(request):
             'detalle_sesiones': detalle_sesiones,
             'detalle_sesiones_totales': detalle_sesiones_totales,
         })
-        return render(request, 'facturacion/reportes/financiero.html', context)
+        return _render_o_pdf_financiero(request, context)
     
     # ══════════════════════════════════════════════════════════════════
     # VISTA: DETALLE PROYECTOS
@@ -4925,7 +4981,7 @@ def reporte_financiero(request):
             'detalle_proyectos': detalle_proyectos,
             'detalle_proyectos_totales': detalle_proyectos_totales,
         })
-        return render(request, 'facturacion/reportes/financiero.html', context)
+        return _render_o_pdf_financiero(request, context)
     
     # ══════════════════════════════════════════════════════════════════
     # VISTA: DETALLE MENSUALIDADES
@@ -4978,7 +5034,7 @@ def reporte_financiero(request):
             'detalle_mensualidades': detalle_mensualidades,
             'detalle_mensualidades_totales': detalle_mensualidades_totales,
         })
-        return render(request, 'facturacion/reportes/financiero.html', context)
+        return _render_o_pdf_financiero(request, context)
 
     # ══════════════════════════════════════════════════════════════════
     # VISTA: ANÁLISIS DE CRÉDITOS
@@ -5046,7 +5102,7 @@ def reporte_financiero(request):
                 'pacientes_con_credito': pacientes_con_credito,
             }
         })
-        return render(request, 'facturacion/reportes/financiero.html', context)
+        return _render_o_pdf_financiero(request, context)
     
     # ══════════════════════════════════════════════════════════════════
     # VISTAS: MENSUAL Y DIARIA (CÓDIGO ORIGINAL CORREGIDO)
@@ -5552,7 +5608,8 @@ def reporte_financiero(request):
         # acotados al día seleccionado (fecha_desde_obj == fecha_hasta_obj en
         # vista diaria), por lo que filtrar sobre ellos para días anteriores
         # siempre devuelve vacío. Se crean querysets frescos que cubren los
-        # 7 días previos con el mismo filtro de sucursal si corresponde.
+        # 7 días previos aplicando los MISMOS filtros activos (sucursal y
+        # registrado_por) para que la comparativa sea coherente con el cierre.
         comparativa_inicio = fecha_desde_obj - timedelta(days=7)
 
         ses_comp = Sesion.objects.filter(
@@ -5569,6 +5626,7 @@ def reporte_financiero(request):
             fecha_devolucion__lt=fecha_desde_obj,
         )
 
+        # Mismo filtro de sucursal que los querysets principales
         if sucursal_id:
             ses_comp = ses_comp.filter(sucursal_id=sucursal_id)
             pag_comp = pag_comp.filter(
@@ -5580,6 +5638,10 @@ def reporte_financiero(request):
                 Q(proyecto__sucursal_id=sucursal_id) |
                 Q(mensualidad__sucursal_id=sucursal_id)
             )
+
+        # Mismo filtro de registrado_por que el queryset principal de pagos
+        if registrado_por_id:
+            pag_comp = pag_comp.filter(registrado_por_id=registrado_por_id)
 
         comparativa_dias = []
         for i in range(1, 8):
@@ -5657,51 +5719,58 @@ def reporte_financiero(request):
         ingresos_mensualidades=Sum('costo_mensual')
     ).order_by('anio', 'mes')
     
-    # Combinar datos del gráfico
+    # Combinar datos del gráfico.
+    # Clave = (anio, mes) como enteros para mantener orden cronológico correcto
+    # aunque proyectos o mensualidades tengan meses sin sesiones.
     meses_dict = {}
-    
+
     for m in por_mes:
-        mes_str = m['mes'].strftime('%b %Y')
-        meses_dict[mes_str] = {
-            'sesiones': m['sesiones'],
-            'proyectos': 0,
+        key = (m['mes'].year, m['mes'].month)
+        meses_dict[key] = {
+            'label':        _mes_label(m['mes']),
+            'sesiones':     m['sesiones'],
+            'proyectos':    0,
             'mensualidades': 0,
-            'ingresos': float(m['ingresos_sesiones'] or 0)
+            'ingresos':     float(m['ingresos_sesiones'] or 0)
         }
-    
+
     for p in proyectos_mes:
-        mes_str = p['mes'].strftime('%b %Y')
-        if mes_str in meses_dict:
-            meses_dict[mes_str]['proyectos'] = p['proyectos']
-            meses_dict[mes_str]['ingresos'] += float(p['ingresos_proyectos'] or 0)
+        key = (p['mes'].year, p['mes'].month)
+        if key in meses_dict:
+            meses_dict[key]['proyectos'] = p['proyectos']
+            meses_dict[key]['ingresos'] += float(p['ingresos_proyectos'] or 0)
         else:
-            meses_dict[mes_str] = {
-                'sesiones': 0,
-                'proyectos': p['proyectos'],
+            meses_dict[key] = {
+                'label':        _mes_label(p['mes']),
+                'sesiones':     0,
+                'proyectos':    p['proyectos'],
                 'mensualidades': 0,
-                'ingresos': float(p['ingresos_proyectos'] or 0)
+                'ingresos':     float(p['ingresos_proyectos'] or 0)
             }
-    
+
     for mn in mensualidades_mes_grafico:
         from datetime import date as date_cls
-        mes_str = date_cls(mn['anio'], mn['mes'], 1).strftime('%b %Y')
-        if mes_str in meses_dict:
-            meses_dict[mes_str]['mensualidades'] = mn['cantidad']
-            meses_dict[mes_str]['ingresos'] += float(mn['ingresos_mensualidades'] or 0)
+        key = (mn['anio'], mn['mes'])
+        if key in meses_dict:
+            meses_dict[key]['mensualidades'] = mn['cantidad']
+            meses_dict[key]['ingresos'] += float(mn['ingresos_mensualidades'] or 0)
         else:
-            meses_dict[mes_str] = {
-                'sesiones': 0,
-                'proyectos': 0,
+            meses_dict[key] = {
+                'label':        _mes_label(date_cls(mn['anio'], mn['mes'], 1)),
+                'sesiones':     0,
+                'proyectos':    0,
                 'mensualidades': mn['cantidad'],
-                'ingresos': float(mn['ingresos_mensualidades'] or 0)
+                'ingresos':     float(mn['ingresos_mensualidades'] or 0)
             }
-    
+
+    # Ordenar cronológicamente y construir grafico_data
+    meses_sorted = sorted(meses_dict.items())   # ordena por (anio, mes)
     grafico_data = {
-        'labels': list(meses_dict.keys()),
-        'sesiones': [meses_dict[k]['sesiones'] for k in meses_dict.keys()],
-        'proyectos': [meses_dict[k]['proyectos'] for k in meses_dict.keys()],
-        'mensualidades': [meses_dict[k]['mensualidades'] for k in meses_dict.keys()],
-        'ingresos': [meses_dict[k]['ingresos'] for k in meses_dict.keys()],
+        'labels':        [v['label']         for _, v in meses_sorted],
+        'sesiones':      [v['sesiones']       for _, v in meses_sorted],
+        'proyectos':     [v['proyectos']      for _, v in meses_sorted],
+        'mensualidades': [v['mensualidades']  for _, v in meses_sorted],
+        'ingresos':      [v['ingresos']       for _, v in meses_sorted],
     }
     
     # ==================== TOP PACIENTES ====================
@@ -5726,7 +5795,7 @@ def reporte_financiero(request):
         'pagos_anulados': pagos_anulados,
     })
     
-    return render(request, 'facturacion/reportes/financiero.html', context)
+    return _render_o_pdf_financiero(request, context)
 
 @login_required
 def exportar_excel(request):
