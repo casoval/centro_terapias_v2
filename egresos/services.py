@@ -96,14 +96,7 @@ class EgresoService:
             egreso.sesiones_cubiertas.set(sesiones)
 
         # Recalcular snapshot financiero del período
-        # BUG 4 FIX: Antes solo recalculaba el snapshot GLOBAL.
-        # Si el egreso pertenece a una sucursal, ese snapshot también debe
-        # actualizarse para que el dashboard muestre datos correctos al instante.
         ResumenFinancieroService.recalcular_mes(mes_periodo, anio_periodo)
-        if egreso.sucursal_id:
-            ResumenFinancieroService.recalcular_mes(
-                mes_periodo, anio_periodo, sucursal=egreso.sucursal
-            )
 
         logger.info(
             f'Egreso {egreso.numero_egreso} registrado por {user} — '
@@ -144,16 +137,10 @@ class EgresoService:
         egreso.fecha_anulacion  = timezone.now()
         egreso.save()
 
-        # Recalcular snapshot del mes al que pertenecía el egreso.
-        # BUG 5 FIX: Igual que en registrar_egreso, también hay que actualizar
-        # el snapshot de la sucursal si el egreso anulado tenía una asignada.
+        # Recalcular snapshot del mes al que pertenecía el egreso
         ResumenFinancieroService.recalcular_mes(
             egreso.periodo_mes, egreso.periodo_anio
         )
-        if egreso.sucursal_id:
-            ResumenFinancieroService.recalcular_mes(
-                egreso.periodo_mes, egreso.periodo_anio, sucursal=egreso.sucursal
-            )
 
         logger.info(
             f'Egreso {egreso.numero_egreso} ANULADO por {user} — motivo: {motivo}'
@@ -196,6 +183,83 @@ class EgresoService:
         return EgresoService.get_egresos_proveedor(
             proveedor.id, fecha_inicio, fecha_fin
         )
+
+
+def _build_sucursal_map(paciente_ids):
+    """
+    Genera un dict {paciente_id: sucursal_id} para una lista de pacientes,
+    usando una sola query agregada en lugar de un loop por paciente.
+
+    Copia exacta de facturacion.views._build_sucursal_map para poder usarla
+    en este service sin importar desde views (lo que crearía un ciclo de imports).
+
+    Lógica:
+    - 1 sucursal asignada → directa, sin ambigüedad (98 %+ de casos).
+    - Más de 1 → la que tiene más sesiones realizadas históricas.
+    - Sin sucursales → no se agrega al mapa (el pago no se atribuye a nadie).
+    - Multi-sucursal sin sesiones → fallback a la primera sucursal asignada.
+    """
+    from pacientes.models import Paciente
+    from agenda.models import Sesion
+    from django.db.models import Count, OuterRef, Subquery
+
+    if not paciente_ids:
+        return {}
+
+    pacientes_qs = (
+        Paciente.objects
+        .filter(id__in=paciente_ids)
+        .prefetch_related('sucursales')
+    )
+
+    resultado = {}
+    multi_sucursal_ids = []
+
+    for p in pacientes_qs:
+        sucursales = list(p.sucursales.all())
+        if len(sucursales) == 1:
+            resultado[p.id] = sucursales[0].id
+        elif len(sucursales) > 1:
+            multi_sucursal_ids.append(p.id)
+        # 0 sucursales → no se agrega
+
+    # Para los multi-sucursal: una sola query agregada con Subquery
+    if multi_sucursal_ids:
+        top_sucursal = (
+            Sesion.objects.filter(
+                paciente_id=OuterRef('paciente_id'),
+                sucursal_id=OuterRef('sucursal_id'),
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('sucursal_id')
+            .annotate(c=Count('id'))
+            .order_by('-c')
+            .values('sucursal_id')[:1]
+        )
+        filas = (
+            Sesion.objects.filter(
+                paciente_id__in=multi_sucursal_ids,
+                estado__in=['realizada', 'realizada_retraso']
+            )
+            .values('paciente_id')
+            .annotate(sucursal_principal=Subquery(top_sucursal))
+            .values_list('paciente_id', 'sucursal_principal')
+            .distinct()
+        )
+        for pid, sid in filas:
+            if pid not in resultado:
+                resultado[pid] = sid
+
+        # Fallback para multi-sucursal sin ninguna sesión realizada
+        for pid in multi_sucursal_ids:
+            if pid not in resultado:
+                p = next((x for x in pacientes_qs if x.id == pid), None)
+                if p:
+                    s = list(p.sucursales.all())
+                    if s:
+                        resultado[pid] = s[0].id
+
+    return resultado
 
 
 class ResumenFinancieroService:
@@ -263,22 +327,23 @@ class ResumenFinancieroService:
         else:
             # Por sucursal: pagos vinculados a objetos de esa sucursal
             from facturacion.models import DetallePagoMasivo
-            from agenda.models import Sesion as Ses, Mensualidad as Men, Proyecto as Pro
 
             q_pago = DQ(fecha_pago__range=(fecha_inicio, fecha_fin), anulado=False)
+
+            # ── BUG 2 FIX: quitar sesion__proyecto__isnull / sesion__mensualidad__isnull.
+            # Antes excluían pagos a sesiones que pertenecen a un proyecto/mensualidad,
+            # dejándolos fuera de p_ses y sin caer en p_proy/p_mens tampoco.
+            # Los FK de Pago son mutuamente exclusivos (pago.sesion XOR pago.proyecto XOR
+            # pago.mensualidad), así que no hay riesgo de doble conteo.
 
             # Sesiones directas de la sucursal
             p_ses = Pago.objects.filter(
                 q_pago, sesion__sucursal_id=sid,
-                sesion__proyecto__isnull=True,
-                sesion__mensualidad__isnull=True,
             ).exclude(**_excl).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
 
             p_ses_masivo = DetallePagoMasivo.objects.filter(
                 tipo='sesion',
                 sesion__sucursal_id=sid,
-                sesion__proyecto__isnull=True,
-                sesion__mensualidad__isnull=True,
                 pago__fecha_pago__range=(fecha_inicio, fecha_fin),
                 pago__anulado=False,
             ).exclude(pago__metodo_pago__nombre='Uso de Crédito').aggregate(
@@ -311,13 +376,45 @@ class ResumenFinancieroService:
                 t=Coalesce(Sum('monto'), Decimal('0'))
             )['t']
 
-            ingresos_brutos = p_ses + p_ses_masivo + p_mens + p_mens_masivo + p_proy + p_proy_masivo
+            # ── BUG 1 FIX: Pagos adelantados (sin ítem asignado) ─────────────
+            # Estos pagos no tienen FK a sucursal. Se les atribuye la sucursal
+            # principal del paciente (misma lógica que reporte_financiero y
+            # historial_pagos). Sin este bloque, todos los adelantados solo
+            # aparecían en el global y la suma de sucursales < global.
+            masivo_pago_ids = DetallePagoMasivo.objects.values_list('pago_id', flat=True)
+            pagos_adelantados_qs = Pago.objects.filter(
+                q_pago,
+                sesion__isnull=True,
+                proyecto__isnull=True,
+                mensualidad__isnull=True,
+            ).exclude(**_excl).exclude(id__in=masivo_pago_ids)
+            # Los masivos padre (sesion/proyecto/mensualidad=None) se excluyen aquí
+            # porque sus ítems ya están sumados en p_*_masivo arriba.
 
-            # Devoluciones vinculadas a esta sucursal.
-            # NOTA: el modelo Devolucion no tiene FK a Sesion directa,
-            # solo a mensualidad y proyecto. Las devoluciones de crédito
-            # general (sin proyecto ni mensualidad) no se atribuyen a sucursal.
-            total_devoluciones = (
+            p_adelantados = Decimal('0')
+            if pagos_adelantados_qs.exists():
+                pids = list(
+                    pagos_adelantados_qs
+                    .values_list('paciente_id', flat=True)
+                    .distinct()
+                )
+                suc_map = _build_sucursal_map(pids)
+                pids_ok = [pid for pid, suc in suc_map.items() if str(suc) == str(sid)]
+                if pids_ok:
+                    p_adelantados = pagos_adelantados_qs.filter(
+                        paciente_id__in=pids_ok
+                    ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+            ingresos_brutos = (
+                p_ses + p_ses_masivo
+                + p_mens + p_mens_masivo
+                + p_proy + p_proy_masivo
+                + p_adelantados
+            )
+
+            # ── Devoluciones vinculadas a esta sucursal ───────────────────────
+            # Por proyecto / mensualidad: FK directo a sucursal
+            dev_con_item = (
                 Devolucion.objects.filter(
                     fecha_devolucion__range=(fecha_inicio, fecha_fin),
                     mensualidad__sucursal_id=sid,
@@ -328,6 +425,30 @@ class ResumenFinancieroService:
                     proyecto__sucursal_id=sid,
                 ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
             )
+
+            # BUG 3 FIX: Devoluciones libres (sin proyecto ni mensualidad):
+            # antes no se incluían en ninguna sucursal, inflando el ingreso_neto.
+            # Misma inferencia por sucursal principal del paciente.
+            dev_libres_qs = Devolucion.objects.filter(
+                fecha_devolucion__range=(fecha_inicio, fecha_fin),
+                proyecto__isnull=True,
+                mensualidad__isnull=True,
+            )
+            dev_libres = Decimal('0')
+            if dev_libres_qs.exists():
+                pids_d = list(
+                    dev_libres_qs
+                    .values_list('paciente_id', flat=True)
+                    .distinct()
+                )
+                suc_map_d = _build_sucursal_map(pids_d)
+                pids_d_ok = [pid for pid, suc in suc_map_d.items() if str(suc) == str(sid)]
+                if pids_d_ok:
+                    dev_libres = dev_libres_qs.filter(
+                        paciente_id__in=pids_d_ok
+                    ).aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
+
+            total_devoluciones = dev_con_item + dev_libres
 
         ingresos_netos = ingresos_brutos - total_devoluciones
 

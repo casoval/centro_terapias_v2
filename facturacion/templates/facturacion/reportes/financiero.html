@@ -519,39 +519,102 @@
   <!-- VISTA: CIERRE DIARIO -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
   {% if vista == 'diaria' and cierre_diario %}
+
+  <!-- ══ HERO: TOTAL COBRADO + MÉTODOS ══ -->
   <div class="cierre-box">
-    <h2>📆 Cierre de Caja - {{ cierre_diario.dia_semana }}, {{ cierre_diario.fecha_formato }}</h2>
-    
+    <h2>📆 Cierre de Caja — {{ cierre_diario.dia_semana }}, {{ cierre_diario.fecha_formato }}</h2>
+
+    <!-- ── TOTAL COBRADO en GRANDE ── -->
+    <div style="text-align:center;padding:24px 0 8px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:20px">
+      <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#86efac;margin-bottom:10px">
+        💰 TOTAL COBRADO HOY
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:3.8rem;font-weight:900;color:#ffffff;line-height:1;letter-spacing:-.02em">
+        Bs. {{ cierre_diario.monto_total_bruto|floatformat:0 }}
+      </div>
+      <div style="font-size:.78rem;color:#64748b;margin-top:8px">
+        {{ cierre_diario.pagos_total }} recibos emitidos
+        {% if cierre_diario.total_devoluciones > 0 %}
+        &nbsp;·&nbsp; <span style="color:#f87171">— Bs. {{ cierre_diario.total_devoluciones|floatformat:0 }} devueltos</span>
+        &nbsp;·&nbsp; <span style="color:#86efac">Neto: Bs. {{ cierre_diario.monto_total_neto|floatformat:0 }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── MÉTODOS DE PAGO del día en GRANDE ── -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
+
+      <!-- Efectivo (CAJA) -->
+      <div style="background:rgba(34,197,94,.12);border:2px solid rgba(34,197,94,.4);border-radius:14px;padding:20px;text-align:center">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#86efac;margin-bottom:8px">💵 EFECTIVO (CAJA)</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:900;color:#ffffff">
+          Bs. {{ cierre_diario.efectivo_dia|floatformat:0 }}
+        </div>
+        <div style="font-size:.65rem;color:#64748b;margin-top:6px">Dinero físico recibido</div>
+      </div>
+
+      <!-- QR -->
+      <div style="background:rgba(37,99,235,.12);border:2px solid rgba(37,99,235,.4);border-radius:14px;padding:20px;text-align:center">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#93c5fd;margin-bottom:8px">📱 QR / CÓDIGO QR</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:900;color:#ffffff">
+          Bs. {{ cierre_diario.qr_dia|floatformat:0 }}
+        </div>
+        <div style="font-size:.65rem;color:#64748b;margin-top:6px">Pagos escaneados</div>
+      </div>
+
+      <!-- Transferencia -->
+      <div style="background:rgba(124,58,237,.12);border:2px solid rgba(124,58,237,.4);border-radius:14px;padding:20px;text-align:center">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c4b5fd;margin-bottom:8px">🏦 TRANSFERENCIA</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:900;color:#ffffff">
+          Bs. {{ cierre_diario.transferencia_dia|floatformat:0 }}
+        </div>
+        <div style="font-size:.65rem;color:#64748b;margin-top:6px">Depósitos / transferencias</div>
+      </div>
+
+      <!-- Otros métodos si los hay -->
+      {% for m in cierre_diario.por_metodo %}
+        {% with mn=m.metodo_pago__nombre|lower %}
+        {% if 'efectivo' not in mn and 'qr' not in mn and 'código qr' not in mn and 'transferencia' not in mn and 'transf' not in mn and 'depósito' not in mn and 'deposito' not in mn %}
+        <div style="background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.15);border-radius:14px;padding:20px;text-align:center">
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:8px">{{ m.metodo_pago__nombre }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:900;color:#ffffff">Bs. {{ m.monto|floatformat:0 }}</div>
+          <div style="font-size:.65rem;color:#64748b;margin-top:6px">{{ m.cantidad }} transacciones</div>
+        </div>
+        {% endif %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+
+    <!-- ── MENSAJE EN CAJA ── -->
+    <div style="background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(16,185,129,.15));
+                border:2px solid rgba(34,197,94,.5);border-radius:16px;padding:22px 28px;
+                display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:20px">
+      <div style="font-size:2.6rem;line-height:1">🏦</div>
+      <div>
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#86efac;margin-bottom:6px">
+          EN CAJA DEBERÍA ESTAR
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:2.8rem;font-weight:900;color:#4ade80;line-height:1">
+          Bs. {{ cierre_diario.efectivo_esperado|floatformat:0 }}
+        </div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:6px">
+          Efectivo cobrado{% if cierre_diario.total_devoluciones > 0 %} menos devoluciones en efectivo{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATS SECUNDARIOS ── -->
     <div class="cierre-grid">
-      <!-- Total cobrado -->
-      <div class="cierre-item ci-highlight">
-        <div class="ci-label">Total Cobrado</div>
-        <div class="ci-val">Bs. {{ cierre_diario.monto_total|floatformat:2 }}</div>
-        <div class="ci-sub">{{ cierre_diario.pagos_total }} recibos</div>
-      </div>
-      
-      <!-- Efectivo -->
-      <div class="cierre-item">
-        <div class="ci-label">Efectivo</div>
-        <div class="ci-val">Bs. {{ cierre_diario.efectivo_esperado|floatformat:2 }}</div>
-        <div class="ci-sub">Esperado en caja</div>
-      </div>
-      
-      <!-- Sesiones -->
       <div class="cierre-item">
         <div class="ci-label">Sesiones</div>
         <div class="ci-val">{{ cierre_diario.sesiones_realizadas }}</div>
         <div class="ci-sub">Bs. {{ cierre_diario.monto_generado_sesiones|floatformat:2 }}</div>
       </div>
-      
-      <!-- Proyectos -->
       <div class="cierre-item">
         <div class="ci-label">Proyectos</div>
         <div class="ci-val">{{ cierre_diario.proyectos_iniciados }}</div>
         <div class="ci-sub">Bs. {{ cierre_diario.monto_proyectos|floatformat:2 }}</div>
       </div>
-      
-      <!-- Mensualidades del mes -->
       {% if cierre_diario.mensualidades_dia > 0 %}
       <div class="cierre-item">
         <div class="ci-label">Mensualidades</div>
@@ -559,67 +622,39 @@
         <div class="ci-sub">Bs. {{ cierre_diario.monto_mensualidades|floatformat:2 }}</div>
       </div>
       {% endif %}
-      
-      <!-- Créditos generados -->
       <div class="cierre-item">
         <div class="ci-label">Créditos Gen.</div>
-        <div class="ci-val">Bs. {{ cierre_diario.creditos_generados|floatformat:2 }}</div>
+        <div class="ci-val">Bs. {{ cierre_diario.creditos_generados|floatformat:0 }}</div>
         <div class="ci-sub">Pagos adelantados</div>
       </div>
-      
-      <!-- Créditos utilizados -->
       <div class="cierre-item">
         <div class="ci-label">Créditos Usados</div>
-        <div class="ci-val">Bs. {{ cierre_diario.creditos_utilizados|floatformat:2 }}</div>
+        <div class="ci-val">Bs. {{ cierre_diario.creditos_utilizados|floatformat:0 }}</div>
         <div class="ci-sub">Débito de crédito</div>
       </div>
-      
-      <!-- Pacientes atendidos -->
       <div class="cierre-item">
         <div class="ci-label">Pacientes</div>
         <div class="ci-val">{{ cierre_diario.estadisticas.pacientes_unicos }}</div>
         <div class="ci-sub">Únicos atendidos</div>
       </div>
-      
-      <!-- Ticket promedio -->
       <div class="cierre-item">
         <div class="ci-label">Ticket Prom.</div>
-        <div class="ci-val">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:2 }}</div>
+        <div class="ci-val">Bs. {{ cierre_diario.estadisticas.ticket_promedio|floatformat:0 }}</div>
         <div class="ci-sub">Por recibo</div>
       </div>
-      
-      <!-- Horas trabajadas -->
       <div class="cierre-item">
         <div class="ci-label">Horas</div>
         <div class="ci-val">{{ cierre_diario.estadisticas.horas_trabajadas|floatformat:1 }}</div>
         <div class="ci-sub">Trabajadas</div>
       </div>
-      
-      <!-- Ingreso por hora -->
       <div class="cierre-item">
         <div class="ci-label">Bs./Hora</div>
-        <div class="ci-val">{{ cierre_diario.estadisticas.ingreso_por_hora|floatformat:2 }}</div>
+        <div class="ci-val">{{ cierre_diario.estadisticas.ingreso_por_hora|floatformat:0 }}</div>
         <div class="ci-sub">Productividad</div>
       </div>
     </div>
 
-    <!-- Métodos de pago del día -->
-    {% if cierre_diario.por_metodo %}
-    <div style="margin-top:20px">
-      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Detalle por Método</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
-        {% for m in cierre_diario.por_metodo %}
-        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 14px">
-          <div style="font-size:.65rem;color:#94a3b8;margin-bottom:4px">{{ m.metodo_pago__nombre }}</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-weight:900;font-size:1.1rem;color:white">Bs. {{ m.monto|floatformat:2 }}</div>
-          <div style="font-size:.62rem;color:#64748b;margin-top:2px">{{ m.cantidad }} trans.</div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Por profesional -->
+    <!-- ── POR PROFESIONAL ── -->
     {% if cierre_diario.estadisticas.por_profesional %}
     <div style="margin-top:16px">
       <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Por Profesional</div>
@@ -635,7 +670,7 @@
     </div>
     {% endif %}
 
-    <!-- Por servicio -->
+    <!-- ── POR SERVICIO ── -->
     {% if cierre_diario.estadisticas.por_servicio %}
     <div style="margin-top:16px">
       <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Por Servicio</div>
@@ -651,7 +686,7 @@
     </div>
     {% endif %}
 
-    <!-- Asistencia -->
+    <!-- ── ASISTENCIA ── -->
     <div style="margin-top:16px">
       <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Asistencia</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
@@ -674,36 +709,196 @@
       </div>
     </div>
 
-    <!-- Comparativa últimos 7 días -->
+    <!-- ══ ÚLTIMOS 7 DÍAS — TABLA REDISEÑADA ══ -->
     {% if cierre_diario.comparativa_dias %}
-    <div style="margin-top:16px">
-      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:10px">Últimos 7 días</div>
+    <div style="margin-top:24px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:12px">
+        📊 Últimos 7 días — Entrada de dinero
+      </div>
       <div style="overflow-x:auto">
-        <table style="width:100%;min-width:600px">
+        <table style="width:100%;min-width:660px;border-collapse:collapse">
           <thead>
             <tr style="background:rgba(255,255,255,.05)">
-              <th style="text-align:left;padding:8px;font-size:.65rem;color:#94a3b8">Día</th>
-              <th style="text-align:left;padding:8px;font-size:.65rem;color:#94a3b8">Fecha</th>
-              <th style="text-align:center;padding:8px;font-size:.65rem;color:#94a3b8">Sesiones</th>
-              <th style="text-align:right;padding:8px;font-size:.65rem;color:#94a3b8">Generado</th>
-              <th style="text-align:right;padding:8px;font-size:.65rem;color:#94a3b8">Cobrado</th>
+              <th style="text-align:left;padding:10px 10px;font-size:.64rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Día</th>
+              <th style="text-align:left;padding:10px 10px;font-size:.64rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Fecha · Generado</th>
+              <th style="text-align:right;padding:10px 10px;font-size:.64rem;color:#86efac;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">💵 Efectivo<br><span style="font-size:.58rem;color:#64748b;font-weight:500;text-transform:none;letter-spacing:0">(CAJA)</span></th>
+              <th style="text-align:right;padding:10px 10px;font-size:.64rem;color:#93c5fd;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">📱 QR</th>
+              <th style="text-align:right;padding:10px 10px;font-size:.64rem;color:#c4b5fd;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">🏦 Transferencia</th>
+              <th style="text-align:right;padding:10px 10px;font-size:.64rem;color:#fbbf24;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Total Cobrado</th>
             </tr>
           </thead>
           <tbody>
             {% for dia in cierre_diario.comparativa_dias %}
-            <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
-              <td style="padding:8px;color:#e2e8f0;font-size:.75rem">{{ dia.dia_semana }}</td>
-              <td style="padding:8px;color:#94a3b8;font-size:.72rem">{{ dia.fecha|date:"d/m/Y" }}</td>
-              <td style="padding:8px;text-align:center;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-weight:700">{{ dia.sesiones }}</td>
-              <td style="padding:8px;text-align:right;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-weight:700">Bs. {{ dia.ingresos|floatformat:2 }}</td>
-              <td style="padding:8px;text-align:right;color:#86efac;font-family:'JetBrains Mono',monospace;font-weight:900">Bs. {{ dia.cobrado|floatformat:2 }}</td>
+            <tr style="border-bottom:1px solid rgba(255,255,255,.05);transition:background .15s"
+                onmouseover="this.style.background='rgba(255,255,255,.04)'"
+                onmouseout="this.style.background='transparent'">
+              <td style="padding:10px 10px;color:#e2e8f0;font-size:.78rem;font-weight:700">{{ dia.dia_semana }}</td>
+              <td style="padding:10px 10px">
+                <div style="color:#94a3b8;font-size:.73rem">{{ dia.fecha|date:"d/m/Y" }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#60a5fa;font-weight:700;margin-top:2px">Bs. {{ dia.ingresos|floatformat:0 }}</div>
+              </td>
+              <td style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.82rem;color:#86efac">
+                Bs. {{ dia.efectivo|floatformat:0 }}
+              </td>
+              <td style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.82rem;color:#93c5fd">
+                Bs. {{ dia.qr|floatformat:0 }}
+              </td>
+              <td style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.82rem;color:#c4b5fd">
+                Bs. {{ dia.transferencia|floatformat:0 }}
+              </td>
+              <td style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:.9rem;color:#fbbf24">
+                Bs. {{ dia.cobrado_neto|floatformat:0 }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
+          <tfoot>
+            <tr style="background:rgba(255,255,255,.07);border-top:2px solid rgba(255,255,255,.15)">
+              <td colspan="2" style="padding:10px 10px;font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em">TOTAL 7 DÍAS</td>
+              <td id="sum-efectivo" style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:.85rem;color:#86efac">—</td>
+              <td id="sum-qr" style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:.85rem;color:#93c5fd">—</td>
+              <td id="sum-transf" style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:.85rem;color:#c4b5fd">—</td>
+              <td id="sum-total" style="padding:10px 10px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:900;font-size:.85rem;color:#fbbf24">—</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
+
+    <!-- ══ GRÁFICOS 7 DÍAS ══ -->
+    <div style="margin-top:24px">
+      <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin-bottom:12px">
+        📈 Estadísticas — Entrada de dinero (últimos 7 días)
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+        <!-- Gráfico barras apiladas por método -->
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+          <div style="font-size:.72rem;font-weight:700;color:#e2e8f0;margin-bottom:12px">💳 Ingresos por método de pago</div>
+          <canvas id="chart-7d-metodos" height="200"></canvas>
+        </div>
+
+        <!-- Gráfico línea total cobrado -->
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+          <div style="font-size:.72rem;font-weight:700;color:#e2e8f0;margin-bottom:12px">📊 Total cobrado diario</div>
+          <canvas id="chart-7d-total" height="200"></canvas>
+        </div>
+
+      </div>
+
+      <!-- Mini stats de los 7 días -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px">
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:#86efac;margin-bottom:4px">Mejor día</div>
+          <div id="stat-mejor-dia" style="font-size:.8rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">—</div>
+        </div>
+        <div style="background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:#fbbf24;margin-bottom:4px">Promedio diario</div>
+          <div id="stat-promedio" style="font-size:.8rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">—</div>
+        </div>
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:#86efac;margin-bottom:4px">Total efectivo 7d</div>
+          <div id="stat-efec-total" style="font-size:.8rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">—</div>
+        </div>
+        <div style="background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:#93c5fd;margin-bottom:4px">Total QR 7d</div>
+          <div id="stat-qr-total" style="font-size:.8rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">—</div>
+        </div>
+        <div style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:#c4b5fd;margin-bottom:4px">Total transf. 7d</div>
+          <div id="stat-transf-total" style="font-size:.8rem;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">—</div>
+        </div>
+      </div>
+    </div>
     {% endif %}
+
+    <!-- Script gráficos 7 días -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const dias7 = [
+        {% for dia in cierre_diario.comparativa_dias %}
+        {
+          label: '{{ dia.dia_semana }} {{ dia.fecha|date:"d/m" }}',
+          efectivo: {{ dia.efectivo|floatformat:0 }},
+          qr: {{ dia.qr|floatformat:0 }},
+          transferencia: {{ dia.transferencia|floatformat:0 }},
+          total: {{ dia.cobrado_neto|floatformat:0 }},
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ];
+
+      const labels   = dias7.map(d => d.label);
+      const efData   = dias7.map(d => d.efectivo);
+      const qrData   = dias7.map(d => d.qr);
+      const trData   = dias7.map(d => d.transferencia);
+      const totData  = dias7.map(d => d.total);
+
+      // ── Totales en tabla footer ──
+      const sumEfec  = efData.reduce((a,b) => a+b, 0);
+      const sumQr    = qrData.reduce((a,b) => a+b, 0);
+      const sumTr    = trData.reduce((a,b) => a+b, 0);
+      const sumTot   = totData.reduce((a,b) => a+b, 0);
+      document.getElementById('sum-efectivo').textContent = 'Bs. ' + sumEfec.toLocaleString();
+      document.getElementById('sum-qr').textContent       = 'Bs. ' + sumQr.toLocaleString();
+      document.getElementById('sum-transf').textContent   = 'Bs. ' + sumTr.toLocaleString();
+      document.getElementById('sum-total').textContent    = 'Bs. ' + sumTot.toLocaleString();
+
+      // ── Mini stats ──
+      const maxVal  = Math.max(...totData);
+      const maxIdx  = totData.indexOf(maxVal);
+      const promedio = totData.length ? Math.round(sumTot / totData.length) : 0;
+      document.getElementById('stat-mejor-dia').textContent   = dias7[maxIdx]?.label + ' · Bs. ' + maxVal.toLocaleString();
+      document.getElementById('stat-promedio').textContent    = 'Bs. ' + promedio.toLocaleString();
+      document.getElementById('stat-efec-total').textContent  = 'Bs. ' + sumEfec.toLocaleString();
+      document.getElementById('stat-qr-total').textContent    = 'Bs. ' + sumQr.toLocaleString();
+      document.getElementById('stat-transf-total').textContent = 'Bs. ' + sumTr.toLocaleString();
+
+      const chartDefaults = {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { position: 'top', labels: { font:{size:10}, color:'#94a3b8', padding:10 } } },
+        scales: {
+          x: { ticks: { font:{size:9}, color:'#64748b' }, grid: { color:'rgba(255,255,255,.05)' } },
+          y: { beginAtZero: true, ticks: { font:{size:9}, color:'#64748b', callback: v => 'Bs.'+v.toLocaleString() }, grid: { color:'rgba(255,255,255,.06)' } }
+        }
+      };
+
+      // ── Chart 1: barras apiladas por método ──
+      const ctx1 = document.getElementById('chart-7d-metodos');
+      if (ctx1) new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Efectivo (Caja)', data: efData,  backgroundColor: 'rgba(34,197,94,.7)',   borderColor: '#22c55e', borderWidth:1, borderRadius:4, stack:'a' },
+            { label: 'QR',             data: qrData,  backgroundColor: 'rgba(59,130,246,.7)',   borderColor: '#3b82f6', borderWidth:1, borderRadius:4, stack:'a' },
+            { label: 'Transferencia',  data: trData,  backgroundColor: 'rgba(139,92,246,.7)',   borderColor: '#8b5cf6', borderWidth:1, borderRadius:4, stack:'a' },
+          ]
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, x: { ...chartDefaults.scales.x, stacked:true }, y: { ...chartDefaults.scales.y, stacked:true } } }
+      });
+
+      // ── Chart 2: línea total cobrado ──
+      const ctx2 = document.getElementById('chart-7d-total');
+      if (ctx2) new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Total cobrado',
+            data: totData,
+            borderColor: '#fbbf24',
+            backgroundColor: 'rgba(251,191,36,.12)',
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#fbbf24',
+            pointRadius: 5,
+            borderWidth: 2,
+          }]
+        },
+        options: chartDefaults
+      });
+    });
+    </script>
 
     <!-- Pagos del día (DETALLE COMPLETO) -->
     {% if cierre_diario.pagos_agrupados %}
@@ -1449,8 +1644,9 @@
 
 </div>
 
-{% if grafico_data %}
+{% if grafico_data or vista == 'diaria' %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% if grafico_data %}
 <script>
 const labels = {{ grafico_data.labels|safe }};
 const dataIngresos = {{ grafico_data.ingresos|safe }};
@@ -1517,5 +1713,7 @@ document.querySelectorAll('.collapsible').forEach(el => {
   });
 });
 </script>
+
+{% endif %}
 
 {% endblock %}

@@ -5535,11 +5535,23 @@ def reporte_financiero(request):
         if cierre_diario['estadisticas']['horas_trabajadas'] > 0:
             cierre_diario['estadisticas']['ingreso_por_hora'] = cierre_diario['monto_generado_sesiones'] / Decimal(str(cierre_diario['estadisticas']['horas_trabajadas']))
         
+        # ── Desglose por método del día actual (efectivo, QR, transferencia) ──
+        def _monto_metodo(qs, terminos):
+            """Suma pagos cuyo nombre de método contenga alguno de los términos."""
+            filtro = Q()
+            for t in terminos:
+                filtro |= Q(metodo_pago__nombre__icontains=t)
+            return qs.filter(filtro).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+
+        cierre_diario['efectivo_dia']      = _monto_metodo(pagos_dia_validos, ['efectivo'])
+        cierre_diario['qr_dia']            = _monto_metodo(pagos_dia_validos, ['qr', 'código qr', 'codigo qr'])
+        cierre_diario['transferencia_dia'] = _monto_metodo(pagos_dia_validos, ['transferencia', 'transf', 'depósito', 'deposito'])
+
         # Comparativa con días anteriores (últimos 7 días)
         comparativa_dias = []
         for i in range(1, 8):
             dia_anterior = fecha_desde_obj - timedelta(days=i)
-            
+
             sesiones_dia_ant = sesiones.filter(
                 fecha=dia_anterior,
                 estado__in=['realizada', 'realizada_retraso']
@@ -5547,28 +5559,36 @@ def reporte_financiero(request):
                 cantidad=Count('id'),
                 ingresos=Sum('monto_cobrado')
             )
-            
-            pagos_dia_ant = pagos.filter(
+
+            pagos_dia_ant_qs = pagos.filter(
                 fecha_pago=dia_anterior
-            ).exclude(metodo_pago__nombre="Uso de Crédito").aggregate(
-                cobrado=Sum('monto')
-            )
-            
+            ).exclude(metodo_pago__nombre="Uso de Crédito")
+
+            cobrado_bruto = pagos_dia_ant_qs.aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+
             # Restar devoluciones de días anteriores
             devoluciones_dia_ant = devoluciones.filter(
                 fecha_devolucion=dia_anterior
             ).aggregate(devuelto=Sum('monto'))['devuelto'] or Decimal('0.00')
-            
+
+            # Desglose por método del día anterior
+            efectivo_ant      = _monto_metodo(pagos_dia_ant_qs, ['efectivo'])
+            qr_ant            = _monto_metodo(pagos_dia_ant_qs, ['qr', 'código qr', 'codigo qr'])
+            transferencia_ant = _monto_metodo(pagos_dia_ant_qs, ['transferencia', 'transf', 'depósito', 'deposito'])
+
             comparativa_dias.append({
-                'fecha': dia_anterior,
-                'dia_semana': ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][dia_anterior.weekday()],
-                'sesiones': sesiones_dia_ant['cantidad'] or 0,
-                'ingresos': sesiones_dia_ant['ingresos'] or Decimal('0.00'),
-                'cobrado_bruto': pagos_dia_ant['cobrado'] or Decimal('0.00'),
-                'devuelto': devoluciones_dia_ant,
-                'cobrado_neto': (pagos_dia_ant['cobrado'] or Decimal('0.00')) - devoluciones_dia_ant,
+                'fecha':        dia_anterior,
+                'dia_semana':   ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][dia_anterior.weekday()],
+                'sesiones':     sesiones_dia_ant['cantidad'] or 0,
+                'ingresos':     sesiones_dia_ant['ingresos'] or Decimal('0.00'),
+                'cobrado_bruto': cobrado_bruto,
+                'devuelto':     devoluciones_dia_ant,
+                'cobrado_neto': cobrado_bruto - devoluciones_dia_ant,
+                'efectivo':     efectivo_ant,
+                'qr':           qr_ant,
+                'transferencia': transferencia_ant,
             })
-        
+
         cierre_diario['comparativa_dias'] = list(reversed(comparativa_dias))
     
     # ==================== GRÁFICO DE EVOLUCIÓN ====================
