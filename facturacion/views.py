@@ -4816,33 +4816,17 @@ def reporte_financiero(request):
         pagos = pagos.filter(registrado_por_id=registrado_por_id)
 
     # ==================== USUARIOS QUE REGISTRARON PAGOS (para el dropdown) ====================
-    # Para la vista diaria (un solo día), mostrar todos los usuarios que han
-    # registrado pagos en los últimos 90 días para que el filtro sea útil
-    # aunque ese día específico no tenga pagos aún.
-    # Para otras vistas, restringir al rango seleccionado.
     from django.contrib.auth.models import User
-    if vista == 'diaria':
-        from datetime import timedelta as _td
-        usuarios_registraron = (
-            User.objects
-            .filter(
-                pago__fecha_pago__gte=fecha_desde_obj - _td(days=90),
-                pago__anulado=False,
-            )
-            .distinct()
-            .order_by('first_name', 'last_name', 'username')
+    usuarios_registraron = (
+        User.objects
+        .filter(
+            pago__fecha_pago__gte=fecha_desde_obj,
+            pago__fecha_pago__lte=fecha_hasta_obj,
+            pago__anulado=False,
         )
-    else:
-        usuarios_registraron = (
-            User.objects
-            .filter(
-                pago__fecha_pago__gte=fecha_desde_obj,
-                pago__fecha_pago__lte=fecha_hasta_obj,
-                pago__anulado=False,
-            )
-            .distinct()
-            .order_by('first_name', 'last_name', 'username')
-        )
+        .distinct()
+        .order_by('first_name', 'last_name', 'username')
+    )
 
     # ==================== CONTEXTO BASE ====================
     context = {
