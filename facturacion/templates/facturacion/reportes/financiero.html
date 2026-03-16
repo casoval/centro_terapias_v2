@@ -206,6 +206,7 @@
   <div class="filter-bar no-print">
     <form method="get">
       <input type="hidden" name="vista" value="{{ vista }}">
+      {% if not es_recepcionista %}
       <div style="display:flex;flex-direction:column;gap:4px">
         <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Sucursal</label>
         <select name="sucursal" style="min-width:180px">
@@ -226,6 +227,13 @@
           {% endfor %}
         </select>
       </div>
+      {% else %}
+      {# Recepcionista: filtro fijo por su usuario, no puede cambiarlo #}
+      <input type="hidden" name="registrado_por" value="{{ request.user.id }}">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;font-size:.75rem;font-weight:700;color:#4338ca">
+        👤 Mostrando: {{ request.user.get_full_name|default:request.user.username }}
+      </div>
+      {% endif %}
       <div style="display:flex;flex-direction:column;gap:4px">
         <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Desde</label>
         <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
@@ -245,7 +253,7 @@
         🔄 Limpiar filtros
       </button>
     </form>
-    {% if registrado_por_id %}
+    {% if registrado_por_id and not es_recepcionista %}
     <div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span style="font-size:.68rem;font-weight:700;color:var(--muted)">Filtro activo:</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;

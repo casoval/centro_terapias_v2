@@ -20,7 +20,8 @@
         </div>
     </div>
 
-    <!-- 🔒 TOGGLE ESTADÍSTICAS -->
+    <!-- 🔒 TOGGLE ESTADÍSTICAS — solo para no-recepcionistas -->
+    {% if not es_recepcionista %}
     <div class="mb-2 sm:mb-3">
         <button id="btn-toggle-estadisticas"
                 onclick="toggleEstadisticas()"
@@ -31,6 +32,7 @@
             <span id="btn-chevron" class="relative z-10 transition-transform duration-300 opacity-70">▾</span>
         </button>
     </div>
+    {% endif %}
 
     <style>
     .btn-stats-toggle {
@@ -70,6 +72,7 @@
     </style>
 
     <!-- 📊 ESTADÍSTICAS — se cargan bajo demanda al mostrar -->
+    {% if not es_recepcionista %}
     <div id="estadisticas-container" class="mb-2 sm:mb-3 hidden">
         <!-- Spinner de carga inicial -->
         <div id="loading-estadisticas" class="bg-white border rounded-lg p-4 text-center">
@@ -77,10 +80,11 @@
             <p class="text-sm text-gray-600 mt-2">Calculando estadísticas...</p>
         </div>
     </div>
+    {% endif %}
 
     <!-- Filtros -->
     <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">
-        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-6 sm:gap-2">
+        <form method="get" id="form-filtros" class="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-7 sm:gap-2">
             <!-- Búsqueda -->
             <div>
                 <input type="text" 
@@ -113,6 +117,24 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <!-- Registrado por — oculto para recepcionista (siempre ve solo los suyos) -->
+            {% if not es_recepcionista %}
+            <div>
+                <select name="registrado_por" class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <option value="">👤 Todos los usuarios</option>
+                    {% for usuario in usuarios_registraron %}
+                    <option value="{{ usuario.id }}" {% if registrado_por_id == usuario.id|stringformat:"s" %}selected{% endif %}>
+                        {{ usuario.get_full_name|default:usuario.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="flex items-center px-2 py-1 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-700 font-semibold">
+                👤 Mis registros
+            </div>
+            {% endif %}
             
             <!-- Fecha desde -->
             <div>
@@ -194,6 +216,12 @@
                         {% else %}
                             {{ item.objeto.metodo_pago.nombre }}
                         {% endif %}
+                    </span>
+                </div>
+                <div class="col-span-2">
+                    <span class="text-gray-500">Registrado por:</span>
+                    <span class="font-medium">
+                        {% if item.registrado_por %}{{ item.registrado_por.get_full_name|default:item.registrado_por.username }}{% else %}—{% endif %}
                     </span>
                 </div>
             </div>
@@ -282,7 +310,7 @@
                 <tr>
                     {# Columnas ordenables — click en encabezado alterna asc/desc #}
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group w-24">
-                        <a href="?orden=tipo&dir={% if orden_col == 'tipo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=tipo&dir={% if orden_col == 'tipo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Tipo
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -291,7 +319,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group w-28">
-                        <a href="?orden=recibo&dir={% if orden_col == 'recibo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=recibo&dir={% if orden_col == 'recibo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Recibo
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -300,7 +328,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group w-24">
-                        <a href="?orden=fecha&dir={% if orden_col == 'fecha' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=fecha&dir={% if orden_col == 'fecha' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Fecha
                             <span class="{% if orden_col == 'fecha' %}text-blue-600{% else %}text-gray-400{% endif %} group-hover:text-blue-500">
@@ -309,7 +337,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group w-32">
-                        <a href="?orden=paciente&dir={% if orden_col == 'paciente' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=paciente&dir={% if orden_col == 'paciente' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Paciente
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -318,7 +346,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
-                        <a href="?orden=concepto&dir={% if orden_col == 'concepto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=concepto&dir={% if orden_col == 'concepto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Concepto
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -327,7 +355,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group w-28">
-                        <a href="?orden=metodo&dir={% if orden_col == 'metodo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=metodo&dir={% if orden_col == 'metodo' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center gap-1 hover:text-blue-600 transition-colors">
                             Método
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -336,7 +364,7 @@
                         </a>
                     </th>
                     <th class="px-3 py-2 text-right font-bold text-gray-700 uppercase tracking-wider cursor-pointer select-none group">
-                        <a href="?orden=monto&dir={% if orden_col == 'monto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
+                        <a href="?orden=monto&dir={% if orden_col == 'monto' and orden_dir == 'asc' %}desc{% else %}asc{% endif %}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}"
                            class="flex items-center justify-end gap-1 hover:text-blue-600 transition-colors">
                             Monto
                             <span class="text-gray-400 group-hover:text-blue-500">
@@ -344,6 +372,7 @@
                             </span>
                         </a>
                     </th>
+                    <th class="px-3 py-2 text-left font-bold text-gray-700 uppercase tracking-wider w-28">Registrado por</th>
                     <th class="px-3 py-2 text-center font-bold text-gray-700 uppercase tracking-wider w-24">Acciones</th>
                 </tr>
             </thead>
@@ -378,6 +407,15 @@
                     </td>
                     <td class="px-3 py-2 text-right font-bold text-red-700 whitespace-nowrap">
                         -Bs. {{ item.objeto.monto|floatformat:2 }}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {% if item.registrado_por %}
+                        <span class="text-xs text-gray-700">
+                            {{ item.registrado_por.get_full_name|default:item.registrado_por.username }}
+                        </span>
+                        {% else %}
+                        <span class="text-xs text-gray-400">—</span>
+                        {% endif %}
                     </td>
                     <td class="px-3 py-2">
                         <div class="flex justify-center gap-1">
@@ -465,6 +503,15 @@
                     <td class="px-3 py-2 text-right font-bold {% if item.objeto.anulado %}text-gray-500{% else %}text-green-700{% endif %} whitespace-nowrap">
                         Bs. {{ item.objeto.monto|floatformat:2 }}
                     </td>
+                    <td class="px-3 py-2 whitespace-nowrap">
+                        {% if item.registrado_por %}
+                        <span class="text-xs text-gray-700">
+                            {{ item.registrado_por.get_full_name|default:item.registrado_por.username }}
+                        </span>
+                        {% else %}
+                        <span class="text-xs text-gray-400">—</span>
+                        {% endif %}
+                    </td>
                     <td class="px-3 py-2">
                         <div class="flex justify-center gap-1">
                             {% if item.objeto.numero_recibo|slice:":4" != "CRE-" %}
@@ -496,7 +543,7 @@
                 {% if item.tipo == 'pago' and not item.objeto.es_pago_masivo and item.objeto.sesion and item.objeto.sesion.servicio.es_servicio_externo %}
                 {% with comision=item.objeto.sesion.comision %}
                 <tr class="bg-emerald-50 border-l-4 border-l-emerald-500">
-                    <td colspan="8" class="px-4 py-2">
+                    <td colspan="9" class="px-4 py-2">
                         <div class="flex items-center gap-3 flex-wrap">
                             <span class="text-[9px] font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1">
                                 👤 Distribución Profesional Externo
@@ -526,7 +573,7 @@
                 <!-- ✅ NUEVO: Fila expandible con detalles del pago masivo -->
                 {% if item.objeto.es_pago_masivo %}
                 <tr id="detalle-masivo-hist-{{ item.objeto.id }}" style="display: none; max-height: 0; overflow: hidden; opacity: 0; transition: all 0.4s ease; background: linear-gradient(to right, #eff6ff, #eef2ff); border-left: 4px solid #3b82f6;">
-                    <td colspan="8" class="px-0 py-0">
+                    <td colspan="9" class="px-0 py-0">
                         <div class="px-4 py-3">
                             <div class="bg-white rounded-lg shadow-md border-2 border-blue-300 overflow-hidden">
                                 <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2">
@@ -593,7 +640,7 @@
                 {% endif %}
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="px-3 py-6 text-center text-gray-500">
+                    <td colspan="9" class="px-3 py-6 text-center text-gray-500">
                         No hay pagos o devoluciones registrados con los filtros seleccionados
                     </td>
                 </tr>
@@ -607,9 +654,9 @@
     <div class="mt-3 sm:mt-4 flex justify-center">
         <nav class="flex gap-1 sm:gap-1.5 text-[10px] sm:text-xs">
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
+                <a href="?page=1{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Primera</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
+                <a href="?page={{ page_obj.previous_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">‹</a>
             {% endif %}
             
@@ -618,9 +665,9 @@
             </span>
             
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
+                <a href="?page={{ page_obj.next_page_number }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">›</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}" 
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if buscar %}&q={{ buscar }}{% endif %}{% if tipo_filtro %}&tipo={{ tipo_filtro }}{% endif %}{% if metodo_id %}&metodo={{ metodo_id }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}&orden={{ orden_col }}&dir={{ orden_dir }}{% if registrado_por_id %}&registrado_por={{ registrado_por_id }}{% endif %}" 
                    class="px-1.5 py-1 sm:px-2 sm:py-1.5 border rounded hover:bg-gray-50">Última</a>
             {% endif %}
         </nav>

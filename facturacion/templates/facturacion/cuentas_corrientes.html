@@ -17,7 +17,7 @@
                class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap">
                 🔙 <span class="hidden xs:inline">Registrar </span>Devolución
             </a>
-            {% if request.user.is_staff %}
+            {% if request.user.is_staff and not request.user.perfil.es_recepcionista %}
             <a href="/facturacion/admin/panel-recalculo/" 
                title="Panel de recálculo de cuentas (Administrador)"
                class="text-gray-400 hover:text-amber-600 hover:bg-amber-50 border border-transparent hover:border-amber-200 px-1.5 py-1 rounded-lg text-xs transition-all duration-200 whitespace-nowrap">
@@ -79,7 +79,8 @@
         </div>
     </div>
 
-    <!-- 🔒 TOGGLE ESTADÍSTICAS -->
+    <!-- 🔒 TOGGLE ESTADÍSTICAS — oculto para recepcionista -->
+    {% if not request.user.perfil.es_recepcionista %}
     <div class="mb-2 sm:mb-3">
         <button id="btn-toggle-estadisticas"
                 onclick="toggleEstadisticas()"
@@ -90,6 +91,7 @@
             <span id="btn-chevron" class="relative z-10 transition-transform duration-300 opacity-70">▾</span>
         </button>
     </div>
+    {% endif %}
 
     <style>
     .btn-stats-toggle {
@@ -128,7 +130,8 @@
     #btn-chevron.rotated { transform: rotate(180deg); }
     </style>
 
-    <!-- 🚀 ESTADÍSTICAS CON CARGA BAJO DEMANDA -->
+    <!-- 🚀 ESTADÍSTICAS CON CARGA BAJO DEMANDA — oculto para recepcionista -->
+    {% if not request.user.perfil.es_recepcionista %}
     <div id="estadisticas-container" class="mb-2 sm:mb-3 hidden">
         <!-- Spinner de carga inicial -->
         <div id="loading-estadisticas" class="bg-white border rounded-lg p-4 text-center">
@@ -136,6 +139,7 @@
             <p class="text-sm text-gray-600 mt-2">Cargando estadísticas...</p>
         </div>
     </div>
+    {% endif %}
 
     <!-- Filtros secundarios -->
     <div class="bg-white border rounded-lg p-2 sm:p-3 mb-2 sm:mb-4">

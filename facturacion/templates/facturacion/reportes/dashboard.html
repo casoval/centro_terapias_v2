@@ -253,8 +253,9 @@
   </div>
 
   <!-- ========================================================
-       💳 RESUMEN GLOBAL DE CUENTAS CORRIENTES
+       💳 RESUMEN GLOBAL DE CUENTAS CORRIENTES — oculto para recepcionista
        ======================================================== -->
+  {% if not es_recepcionista %}
   <div class="section-title">💳 Resumen Global — Cuentas Corrientes</div>
 
   <div id="cc-stats-container" style="margin-bottom:24px">
@@ -481,12 +482,15 @@
   })();
   </script>
 
+  {% endif %}{# end not es_recepcionista (CC stats) #}
+
   <!-- Section: Reportes Principales -->
   <div class="section-title">📋 Reportes Analíticos</div>
   
   <div class="report-grid">
     
-    <!-- Reporte por Paciente -->
+    <!-- Reporte por Paciente — oculto para recepcionista -->
+    {% if not es_recepcionista %}
     <a href="{% url 'facturacion:reporte_paciente' %}" class="report-card" style="--card-color: var(--blue); --card-bg: var(--blue-light);">
       <span class="card-arrow">↗</span>
       <div class="card-header">
@@ -503,8 +507,10 @@
         <span class="feature-pill">Exportar PDF</span>
       </div>
     </a>
+    {% endif %}{# end not es_recepcionista (pac) #}
 
-    <!-- Reporte por Profesional -->
+    <!-- Reporte por Profesional — oculto para recepcionista -->
+    {% if not es_recepcionista %}
     <a href="{% url 'facturacion:reporte_profesional' %}" class="report-card" style="--card-color: var(--green); --card-bg: var(--green-light);">
       <span class="card-arrow">↗</span>
       <div class="card-header">
@@ -521,6 +527,7 @@
         <span class="feature-pill">Exportar PDF</span>
       </div>
     </a>
+    {% endif %}{# end not es_recepcionista (prof) #}
 
     <!-- Reporte Financiero -->
     <a href="{% url 'facturacion:reporte_financiero' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
@@ -540,7 +547,8 @@
       </div>
     </a>
 
-    <!-- Reporte por Sucursal -->
+    <!-- Reporte por Sucursal — oculto para recepcionista -->
+    {% if not es_recepcionista %}
     <a href="{% url 'facturacion:reporte_sucursal' %}" class="report-card" style="--card-color: var(--purple); --card-bg: var(--purple-light);">
       <span class="card-arrow">↗</span>
       <div class="card-header">
@@ -557,8 +565,10 @@
         <span class="feature-pill">Exportar PDF</span>
       </div>
     </a>
+    {% endif %}{# end not es_recepcionista (suc) #}
 
-    <!-- Reporte de Asistencia -->
+    <!-- Reporte de Asistencia — oculto para recepcionista -->
+    {% if not es_recepcionista %}
     <a href="{% url 'facturacion:reporte_asistencia' %}" class="report-card" style="--card-color: var(--red); --card-bg: var(--red-light);">
       <span class="card-arrow">↗</span>
       <div class="card-header">
@@ -575,8 +585,10 @@
         <span class="feature-pill">Exportar PDF</span>
       </div>
     </a>
+    {% endif %}{# end not es_recepcionista (asistencia) #}
 
-    <!-- Exportar Datos -->
+    <!-- Exportar Datos — oculto para recepcionista -->
+    {% if not es_recepcionista %}
     <div class="export-card" style="grid-column: auto;">
       <p class="section-title" style="margin-bottom:14px">⬇️ Exportación de Datos</p>
       <div style="display:flex;flex-direction:column;gap:8px">
@@ -594,7 +606,8 @@
         </a>
       </div>
     </div>
+    {% endif %}{# end not es_recepcionista (exportar) #}
 
   </div>
 </div>
-{% endblock %}         
+{% endblock %}

@@ -2706,11 +2706,30 @@ def historial_pagos(request):
     """
     
     # ==================== FILTROS ====================
+    es_recepcionista = (
+        not request.user.is_superuser and
+        hasattr(request.user, 'perfil') and
+        request.user.perfil.es_recepcionista
+    )
     buscar = request.GET.get('q', '').strip()
     metodo_id = request.GET.get('metodo', '').strip()
     fecha_desde = request.GET.get('fecha_desde', '').strip()
     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
     tipo_filtro = request.GET.get('tipo', '').strip()  # pago | anulado | devolucion
+    # Recepcionista: siempre ve solo sus propios registros
+    if es_recepcionista:
+        registrado_por_id = str(request.user.id)
+    else:
+        es_recepcionista = (
+        not request.user.is_superuser and
+        hasattr(request.user, 'perfil') and
+        request.user.perfil.es_recepcionista
+    )
+    # Recepcionista: siempre filtrado por su propio usuario
+    if es_recepcionista:
+        registrado_por_id = str(request.user.id)
+    else:
+        registrado_por_id = request.GET.get('registrado_por', '').strip()
 
     # ==================== QUERY DE PAGOS ====================
     pagos = Pago.objects.select_related(
@@ -2718,7 +2737,8 @@ def historial_pagos(request):
         'metodo_pago',
         'sesion',
         'proyecto',
-        'mensualidad'
+        'mensualidad',
+        'registrado_por'
     ).prefetch_related(
         'detalles_masivos'
     )
@@ -2741,6 +2761,9 @@ def historial_pagos(request):
     if fecha_hasta:
         pagos = pagos.filter(fecha_pago__lte=fecha_hasta)
 
+    if registrado_por_id:
+        pagos = pagos.filter(registrado_por_id=registrado_por_id)
+
     # Filtro tipo sobre la columna Tipo de la tabla
     if tipo_filtro == 'pago':
         pagos = pagos.filter(anulado=False)
@@ -2758,7 +2781,8 @@ def historial_pagos(request):
         'paciente',
         'metodo_devolucion',
         'proyecto',
-        'mensualidad'
+        'mensualidad',
+        'registrado_por'
     )
     
     # Aplicar filtros a devoluciones
@@ -2779,6 +2803,9 @@ def historial_pagos(request):
     if fecha_hasta:
         devoluciones = devoluciones.filter(fecha_devolucion__lte=fecha_hasta)
     
+    if registrado_por_id:
+        devoluciones = devoluciones.filter(registrado_por_id=registrado_por_id)
+    
     # ==================== COMBINAR PAGOS Y DEVOLUCIONES ====================
     items_combinados = []
 
@@ -2791,6 +2818,7 @@ def historial_pagos(request):
                 'tipo': 'pago',
                 'objeto': pago,
                 'fecha': pago.fecha_pago,
+                'registrado_por': pago.registrado_por,
             })
 
     if incluir_devoluciones:
@@ -2799,6 +2827,7 @@ def historial_pagos(request):
                 'tipo': 'devolucion',
                 'objeto': devolucion,
                 'fecha': devolucion.fecha_devolucion,
+                'registrado_por': devolucion.registrado_por,
             })
 
     # ==================== ORDENAMIENTO POR COLUMNA ====================
@@ -2845,6 +2874,12 @@ def historial_pagos(request):
     # ==================== MÉTODOS DE PAGO PARA FILTRO ====================
     metodos_pago = MetodoPago.objects.filter(activo=True).order_by('nombre')
     
+    # ==================== USUARIOS QUE HAN REGISTRADO PAGOS ====================
+    from django.contrib.auth.models import User
+    usuarios_registraron = User.objects.filter(
+        Q(pago__isnull=False) | Q(devolucion__isnull=False)
+    ).distinct().order_by('first_name', 'last_name', 'username')
+    
     # ==================== CONTEXTO ====================
     context = {
         'page_obj': page_obj,
@@ -2857,6 +2892,9 @@ def historial_pagos(request):
         'orden_dir': orden_dir,
         'metodos_pago': metodos_pago,
         'mostrar_estadisticas': mostrar_estadisticas,
+        'registrado_por_id': registrado_por_id,
+        'usuarios_registraron': usuarios_registraron,
+        'es_recepcionista': es_recepcionista,
     }
     
     return render(request, 'facturacion/historial_pagos.html', context)
@@ -3395,7 +3433,15 @@ def dashboard_reportes(request):
         'tasa_asistencia': tasa_asistencia,
     }
 
-    return render(request, 'facturacion/reportes/dashboard.html', {'kpis': kpis})
+    es_recepcionista = (
+        not request.user.is_superuser and
+        hasattr(request.user, 'perfil') and
+        request.user.perfil.es_recepcionista
+    )
+    return render(request, 'facturacion/reportes/dashboard.html', {
+        'kpis': kpis,
+        'es_recepcionista': es_recepcionista,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4687,7 +4733,17 @@ def reporte_financiero(request):
     fecha_desde       = request.GET.get('fecha_desde', '')
     fecha_hasta       = request.GET.get('fecha_hasta', '')
     vista             = request.GET.get('vista', 'mensual')  # mensual, diaria, detalle_pagos, detalle_sesiones, detalle_proyectos, analisis_creditos
-    registrado_por_id = request.GET.get('registrado_por', '')
+
+    es_recepcionista = (
+        not request.user.is_superuser and
+        hasattr(request.user, 'perfil') and
+        request.user.perfil.es_recepcionista
+    )
+    # Recepcionista: siempre filtrado por su propio usuario
+    if es_recepcionista:
+        registrado_por_id = str(request.user.id)
+    else:
+        registrado_por_id = request.GET.get('registrado_por', '')
 
     # Rango de fechas
     if fecha_desde and fecha_hasta:
@@ -4837,6 +4893,7 @@ def reporte_financiero(request):
         'fecha_hasta': fecha_hasta,
         'registrado_por_id': registrado_por_id,
         'usuarios_registraron': usuarios_registraron,
+        'es_recepcionista': es_recepcionista,
     }
     
     # ══════════════════════════════════════════════════════════════════
