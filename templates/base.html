@@ -524,7 +524,7 @@
             <div class="quick-menu-title">Nuevo Pago</div>
         </a>
 
-        {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+        {% if user.is_superuser or user.perfil.es_gerente %}
         <a href="{% url 'evaluaciones:ados2_crear' %}" class="quick-menu-item" style="border-color: #a855f7;">
             <div class="quick-menu-icon">🧠</div>
             <div class="quick-menu-title">Nueva ADOS-2</div>
@@ -567,7 +567,7 @@
                         <div>
                             <h1 class="text-base font-bold leading-tight" style="color:white;">     <!-- 20px -->
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
-                                <span class="sm:hidden">CNI </span>
+                                <span class="sm:hidden">Centro de Neurodesarrollo </span>
                                 <span style="color:#7dd3fc;">Misael</span>
                             </h1>
                             <!-- Usuario + rol visible en móvil debajo del título -->
@@ -750,7 +750,7 @@
                     </div>
                     {% endif %}
 
-                    {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                    {% if user.is_superuser or user.perfil.es_gerente %}
                     <div class="dropdown group" style="display:flex; align-items:flex-end;">
                         <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-purple-600 transition-colors tab-nav-link focus:outline-none"
                                 style="height:28px; border-radius:6px 6px 0 0;">
@@ -909,7 +909,7 @@
                 </div>
                 {% endif %}
 
-                {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                {% if user.is_superuser or user.perfil.es_gerente %}
                 <!-- Acordeón: Evaluaciones -->
                 <div>
                     <button onclick="toggleMobileMenu('m-evaluaciones')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
@@ -971,96 +971,173 @@
     </nav>
     {% endif %}
     {% if user.perfil.es_paciente %}
-    <nav class="navbar-gradient sticky top-0 z-50 shadow-sm transition-all duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center gap-2">
-                    {% load static %}
-                    <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-12 w-auto object-contain -ml-2">
-                    
-                    <div class="flex-shrink-0">
-                        <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
-                            Centro Infantil <span class="text-blue-600">Misael</span>
-                        </h1>
-                        <div class="text-xs text-slate-500 leading-tight">
-                            <span class="font-medium bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Portal del Paciente</span>
+    <nav class="sticky top-0 z-50 shadow-md transition-all duration-300">
+        <div style="position:relative;">
+
+        <!-- LOGO: abarca ambas filas, igual que el nav staff -->
+        <div class="hidden lg:flex logo-navbar-span" style="position:absolute; left:2.8rem; top:50%; transform:translateY(-50%); z-index:20; pointer-events:none; align-items:center; justify-content:center;">
+            {% load static %}
+            <div style="width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,#ffffff 0%,#f0f9ff 50%,#e0f2fe 100%); box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 0 0 3px rgba(255,255,255,0.9); display:flex; align-items:center; justify-content:center;">
+                <img src="{% static 'img/logo_misael.png' %}" alt="Logo"
+                     style="height:42px; width:auto; object-fit:contain;">
+            </div>
+        </div>
+
+        <!-- FILA SUPERIOR: fondo oscuro -->
+        <div style="background:linear-gradient(135deg, #1e293b 0%, #2d1b69 40%, #4c1d95 70%, #1e293b 100%);">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-9 lg:pl-24">
+
+                    <!-- Izquierda: logo móvil + título -->
+                    <div class="flex items-center gap-2">
+                        <div class="lg:hidden flex-shrink-0">
+                            <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-7 w-auto object-contain">
+                        </div>
+                        <div>
+                            <h1 class="text-base font-bold leading-tight" style="color:white;">
+                                <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
+                                <span class="sm:hidden">Centro de Neurodesarrollo </span>
+                                <span style="color:#7dd3fc;">Misael</span>
+                            </h1>
+                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
+                                <span class="text-xs font-medium" style="color:rgba(255,255,255,0.75);">{{ user.perfil.paciente.nombre }}</span>
+                                <span class="text-xs font-bold px-1.5 py-0 rounded-full" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Paciente</span>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="hidden lg:ml-8 lg:flex lg:space-x-2">
-                        <a href="{% url 'facturacion:mi_cuenta' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            💰 Mi Cuenta
+
+                    <!-- Derecha: usuario (desktop) + cerrar sesión + hamburguesa -->
+                    <div class="flex items-center gap-2">
+                        <div class="hidden lg:block text-right">
+                            <span class="text-sm font-semibold" style="color:rgba(255,255,255,0.85);">
+                                {{ user.perfil.paciente.nombre }}
+                            </span>
+                            <span class="ml-1.5 text-xs" style="color:rgba(255,255,255,0.45);">(Paciente)</span>
+                        </div>
+                        <a href="{% url 'core:logout' %}"
+                           class="inline-flex items-center justify-center font-semibold text-white transition-colors shadow-sm lg:hidden"
+                           style="background:rgba(220,38,38,0.9); padding:5px 10px; border-radius:8px; font-size:11px; white-space:nowrap;">
+                            ✕ Salir
                         </a>
-                        <a href="{% url 'pacientes:mis_sesiones' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            📅 Mis Sesiones
+                        <a href="{% url 'core:logout' %}"
+                           class="hidden lg:inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors shadow-sm"
+                           style="background:rgba(220,38,38,0.85);"
+                           onmouseover="this.style.background='rgba(220,38,38,1)'"
+                           onmouseout="this.style.background='rgba(220,38,38,0.85)'">
+                            Cerrar Sesión
                         </a>
-                        <a href="{% url 'pacientes:mis_profesionales' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            👨‍⚕️ Mis Profesionales
-                        </a>
-                        <a href="{% url 'facturacion:mis_deudas' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            ⚠️ Mis Deudas
-                        </a>
-                        <a href="{% url 'facturacion:mis_pagos' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            💵 Mis Pagos
-                        </a>
+                        <button id="mobile-menu-button-paciente" class="lg:hidden inline-flex items-center justify-center p-1.5 rounded-lg focus:outline-none transition-colors"
+                                style="color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.15);">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
                     </div>
-                </div>
-                
-                <div class="flex items-center space-x-3">
-                    <span class="text-sm text-slate-600 hidden sm:block">
-                        Hola, <strong>{{ user.perfil.paciente.nombre }}</strong>
-                    </span>
-                    <a href="{% url 'core:logout' %}" 
-                       class="hidden sm:inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                        Cerrar Sesión
-                    </a>
-                    
-                    <button id="mobile-menu-button-paciente" class="lg:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 focus:outline-none transition-colors">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                    </button>
                 </div>
             </div>
         </div>
-        
-        <div id="mobile-menu-paciente" class="mobile-menu lg:hidden border-t border-slate-100 bg-white">
+
+        <!-- FILA INFERIOR: tabs blancos (solo desktop) -->
+        <div class="hidden lg:block tabs-row-animated" style="background:white;">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-end h-8 space-x-1 lg:pl-24">
+
+                    <a href="{% url 'facturacion:mi_cuenta' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        💰 Mi Cuenta
+                    </a>
+                    <a href="{% url 'pacientes:mis_sesiones' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        📅 Mis Sesiones
+                    </a>
+                    <a href="{% url 'pacientes:mis_profesionales' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        👨‍⚕️ Mis Profesionales
+                    </a>
+                    <a href="{% url 'facturacion:mis_deudas' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        ⚠️ Mis Deudas
+                    </a>
+                    <a href="{% url 'facturacion:mis_pagos' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        💵 Mis Pagos
+                    </a>
+
+                    <!-- Selector de tema (igual que los demás roles) -->
+                    <div id="theme-nav-wrapper">
+                        <button id="theme-nav-btn" onclick="toggleThemePanel()" type="button">
+                            🎨 Temas
+                            <svg class="btn-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div id="theme-panel">
+                            <h4>✨ Elige tu tema</h4>
+                            <div class="theme-grid" id="theme-grid"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        </div><!-- fin contenedor relativo -->
+
+        <!-- Menú móvil paciente -->
+        <div id="mobile-menu-paciente" class="mobile-menu lg:hidden border-t border-slate-700 bg-slate-800">
             <div class="px-2 pt-2 pb-3 space-y-1">
-                <a href="{% url 'facturacion:mi_cuenta' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
+                <a href="{% url 'facturacion:mi_cuenta' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     💰 Mi Cuenta
                 </a>
-                <a href="{% url 'pacientes:mis_sesiones' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
+                <a href="{% url 'pacientes:mis_sesiones' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     📅 Mis Sesiones
                 </a>
-                <a href="{% url 'pacientes:mis_profesionales' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
+                <a href="{% url 'pacientes:mis_profesionales' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     👨‍⚕️ Mis Profesionales
                 </a>
-                <a href="{% url 'facturacion:mis_deudas' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
+                <a href="{% url 'facturacion:mis_deudas' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     ⚠️ Mis Deudas
                 </a>
-                <a href="{% url 'facturacion:mis_pagos' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
+                <a href="{% url 'facturacion:mis_pagos' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     💵 Mis Pagos
                 </a>
-                
-                <div class="border-t border-slate-100 pt-3 mt-3">
-                    <div class="px-3 py-2 text-sm">
-                        <p class="text-slate-800 font-bold">{{ user.perfil.paciente.nombre }}</p>
-                        <p class="text-xs text-slate-500">Paciente</p>
+
+                <!-- Selector de tema en móvil -->
+                <div class="border-t border-slate-600 pt-3 mt-2">
+                    <button onclick="toggleMobileTheme()" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">🎨 Temas</span>
+                        <svg id="m-temas-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-theme-grid" class="hidden mt-2 px-2">
+                        <div class="theme-grid" id="theme-grid-mobile"></div>
                     </div>
-                    <a href="{% url 'core:logout' %}" 
-                       class="block px-3 py-2 rounded-lg text-base font-medium text-red-600 hover:bg-red-50">
-                        Cerrar Sesión
-                    </a>
+                </div>
+
+                <!-- Pie: usuario + cerrar sesión -->
+                <div class="border-t border-slate-700 pt-3 mt-2">
+                    <div class="flex items-center justify-between px-3 py-2">
+                        <div>
+                            <p class="text-sm text-white font-bold">{{ user.perfil.paciente.nombre }}</p>
+                            <p class="text-xs text-slate-400">Paciente</p>
+                        </div>
+                        <a href="{% url 'core:logout' %}"
+                           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+                           style="background:#dc2626;">
+                            ✕ Cerrar Sesión
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
