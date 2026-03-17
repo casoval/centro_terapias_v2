@@ -14,4 +14,7 @@ urlpatterns = [
     path('usuarios/pacientes/masivo/', views.crear_usuarios_pacientes_masivo, name='crear_usuarios_pacientes_masivo'),
     path('usuarios/<int:pk>/editar/', views.editar_usuario, name='editar_usuario'),
     path('usuarios/<int:pk>/eliminar/', views.eliminar_usuario, name='eliminar_usuario'),
+    
+    # Tema de interfaz
+    path('guardar-tema/', views.guardar_tema, name='guardar_tema'),
 ]

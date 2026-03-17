@@ -773,3 +773,41 @@ def crear_usuarios_pacientes_masivo(request):
         'mostrar_resultados': False,
     }
     return render(request, 'core/usuarios/masivo_pacientes.html', context)
+
+
+# =====================================================================
+# GUARDAR TEMA DE INTERFAZ POR USUARIO
+# =====================================================================
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def guardar_tema(request):
+    """
+    Guarda el tema de interfaz seleccionado por el usuario en su perfil.
+    Recibe: JSON { "tema": "atardecer" }  o  POST campo 'tema'
+    """
+    import json
+
+    # Leer tema desde JSON body o desde POST form
+    try:
+        data = json.loads(request.body)
+        tema = data.get('tema', '').strip()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        tema = request.POST.get('tema', '').strip()
+
+    # Validar que sea un tema permitido
+    TEMAS_VALIDOS = {'atardecer', 'aurora', 'cyber', 'ocean', 'forest', 'galaxy', 'tropical', 'spring', 'sky'}
+    if tema not in TEMAS_VALIDOS:
+        return JsonResponse({'ok': False, 'error': 'Tema no válido'}, status=400)
+
+    # Guardar en el perfil del usuario
+    try:
+        perfil = request.user.perfil
+        perfil.tema_ui = tema
+        perfil.save(update_fields=['tema_ui'])
+        return JsonResponse({'ok': True, 'tema': tema})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)

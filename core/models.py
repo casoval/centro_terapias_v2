@@ -51,6 +51,25 @@ class PerfilUsuario(models.Model):
         help_text='Tema visual del chat (aplica a todos los roles)'
     )
 
+    # Tema de la interfaz principal (selector de temas del navbar)
+    TEMA_UI_CHOICES = [
+        ('atardecer', 'Atardecer'),
+        ('aurora',    'Aurora'),
+        ('cyber',     'Cyber'),
+        ('ocean',     'Océano'),
+        ('forest',    'Bosque'),
+        ('galaxy',    'Galaxia'),
+        ('tropical',  'Tropical'),
+        ('spring',    'Primavera'),
+        ('sky',       'Cielo'),
+    ]
+    tema_ui = models.CharField(
+        max_length=20,
+        choices=TEMA_UI_CHOICES,
+        default='atardecer',
+        help_text='Tema visual de la interfaz principal elegido por el usuario'
+    )
+
     # Tema del calendario mágico por usuario
     tema_calendario = models.CharField(
         max_length=20,

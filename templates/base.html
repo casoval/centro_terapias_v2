@@ -13,6 +13,21 @@
 
     {% block extra_css %}{% endblock %}
 
+    <!-- Tema guardado en el servidor para este usuario -->
+    {% if user.is_authenticated %}
+    <script>
+        window.__SERVER_THEME__ = "{{ user.perfil.tema_ui|default:'atardecer' }}";
+        window.__GUARDAR_TEMA_URL__ = "{% url 'core:guardar_tema' %}";
+        window.__CSRF_TOKEN__ = "{{ csrf_token }}";
+    </script>
+    {% else %}
+    <script>
+        window.__SERVER_THEME__ = null;
+        window.__GUARDAR_TEMA_URL__ = null;
+        window.__CSRF_TOKEN__ = null;
+    </script>
+    {% endif %}
+
     <!-- Evita el flash blanco: aplica color de fondo ANTES del primer render -->
     <script>
     (function(){
@@ -21,7 +36,12 @@
             ocean:'#003366',     forest:'#0d1b0d',   galaxy:'#1a0a3d',
             tropical:'#0f3460',  spring:'#fce4ec',   sky:'#d0edfb'
         };
-        var t = localStorage.getItem('cni_theme') || 'atardecer';
+        // Preferir el tema del servidor (persistido en BD); fallback a localStorage
+        var t = window.__SERVER_THEME__ || localStorage.getItem('cni_theme') || 'atardecer';
+        // Sincronizar localStorage con el valor del servidor
+        if (window.__SERVER_THEME__) {
+            localStorage.setItem('cni_theme', window.__SERVER_THEME__);
+        }
         document.documentElement.style.background = COLORS[t] || '#FF8C00';
     })();
     </script>
@@ -68,10 +88,8 @@
         #theme-nav-btn.active .btn-arrow { transform: rotate(180deg); }
 
         #theme-panel {
-            position: absolute;
-            top: calc(100% + 6px);
-            right: 0;
-            z-index: 9999;
+            position: fixed;
+            z-index: 99999;
             background: #ffffff;
             border-radius: 16px;
             padding: 14px;
@@ -567,7 +585,7 @@
                         <div>
                             <h1 class="text-base font-bold leading-tight" style="color:white;">     <!-- 20px -->
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
-                                <span class="sm:hidden">Centro de Neurodesarrollo </span>
+                                <span class="sm:hidden">CNI </span>
                                 <span style="color:#7dd3fc;">Misael</span>
                             </h1>
                             <!-- Usuario + rol visible en móvil debajo del título -->
@@ -996,7 +1014,7 @@
                         <div>
                             <h1 class="text-base font-bold leading-tight" style="color:white;">
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
-                                <span class="sm:hidden">Centro de Neurodesarrollo </span>
+                                <span class="sm:hidden">CNI </span>
                                 <span style="color:#7dd3fc;">Misael</span>
                             </h1>
                             <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
@@ -2072,7 +2090,7 @@ function filterPacientes() {
     /* ================================================================
        MOTOR DE ANIMACIÓN
     ================================================================ */
-    let currentThemeId = localStorage.getItem('cni_theme') || 'atardecer';
+    let currentThemeId = (window.__SERVER_THEME__) || localStorage.getItem('cni_theme') || 'atardecer';
     let drawer = null;
     let tick = 0;
 
@@ -2086,6 +2104,21 @@ function filterPacientes() {
         tick = 1;
         loop();
         updateSwatches();
+
+        // ── Persistir en el perfil del usuario (BD) ──
+        if (window.__GUARDAR_TEMA_URL__ && window.__CSRF_TOKEN__) {
+            fetch(window.__GUARDAR_TEMA_URL__, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': window.__CSRF_TOKEN__,
+                },
+                body: JSON.stringify({ tema: id }),
+                credentials: 'same-origin',
+            }).catch(function() {
+                // Fallo silencioso: el tema ya quedó en localStorage de respaldo
+            });
+        }
     }
 
     function loop() {
@@ -2166,6 +2199,18 @@ function filterPacientes() {
         const btn   = document.getElementById('theme-nav-btn');
         if(!panel) return;
         const shouldOpen = force !== undefined ? force : !panel.classList.contains('open');
+
+        if(shouldOpen && btn) {
+            // Calcular posición fija basada en el botón
+            const rect = btn.getBoundingClientRect();
+            const panelWidth = 292;
+            // Ajustar para que no se salga por la derecha
+            let left = rect.right - panelWidth;
+            if(left < 8) left = 8;
+            panel.style.top  = (rect.bottom + 6) + 'px';
+            panel.style.left = left + 'px';
+        }
+
         panel.classList.toggle('open', shouldOpen);
         if(btn) btn.classList.toggle('active', shouldOpen);
     };
