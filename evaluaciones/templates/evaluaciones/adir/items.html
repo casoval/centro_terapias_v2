@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}ADI-R Ítems — {{ evaluacion.paciente.nombre_completo }}{% endblock %}
+
+{% block extra_js_head %}
+<script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .radio-btn input[type="radio"] { display: none; }
+  .radio-btn input[type="radio"] + span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 2px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .radio-btn input[type="radio"] + span:hover {
+    border-color: #22c55e;
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+  .radio-btn input[type="radio"]:checked + span {
+    border-color: #16a34a;
+    background: #16a34a;
+    color: white;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.35);
+  }
+  .acordeon-content { display: none; }
+  .acordeon-content.open { display: block; }
+  .chevron { transition: transform 0.2s; }
+  .chevron.open { transform: rotate(180deg); }
+  /* HTMX indicator: oculto por defecto, visible durante petición */
+  .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator { opacity: 1; }
+  /* Textarea de observaciones */
+  textarea.form-control, textarea {
+    width: 100%;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: #1e293b;
+    background: white;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  textarea.form-control:focus, textarea:focus {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-4 md:p-6">
+<div class="max-w-5xl mx-auto">
+
+  <!-- Fondo suavizado sobre el degradado de atardecer -->
+  <style>
+    .page-backdrop {
+      position: fixed; inset: 0; z-index: 0;
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(2px);
+      pointer-events: none;
+    }
+    .page-content { position: relative; z-index: 1; }
+
+    /* Breadcrumb con mejor contraste */
+    .breadcrumb-link { color: #1e293b !important; font-weight: 600; }
+    .breadcrumb-link:hover { color: #16a34a !important; }
+    .breadcrumb-sep { color: #475569 !important; }
+
+    /* Radio buttons tipo texto para campos con opciones largas (ej: Paciente) */
+    .radio-btn-text input[type="radio"] { display: none; }
+    .radio-btn-text input[type="radio"] + span {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1.5px solid #e2e8f0;
+      background: white;
+      color: #475569;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .radio-btn-text input[type="radio"] + span:hover {
+      border-color: #22c55e;
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+    .radio-btn-text input[type="radio"]:checked + span {
+      border-color: #16a34a;
+      background: #16a34a;
+      color: white;
+      box-shadow: 0 2px 8px rgba(22,163,74,0.35);
+    }
+
+    /* Header con fondo propio para legibilidad */
+    .eval-header {
+      background: rgba(255,255,255,0.85);
+      border-radius: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid rgba(255,255,255,0.9);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+  </style>
+  <div class="page-backdrop"></div>
+  <div class="page-content">
+
+  <!-- Encabezado -->
+  <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6 eval-header">
+    <div>
+      <nav class="text-xs text-slate-400 mb-2">
+        <a href="{% url 'evaluaciones:dashboard' %}" class="breadcrumb-link hover:text-green-600 transition-colors">Evaluaciones</a>
+        <span class="mx-1 breadcrumb-sep">/</span>
+        <a href="{% url 'evaluaciones:adir_lista' %}" class="breadcrumb-link hover:text-green-600 transition-colors">ADI-R</a>
+        <span class="mx-1 breadcrumb-sep">/</span>
+        <span class="font-bold" style="color:#1e293b;">Ítems</span>
+      </nav>
+      <h1 class="text-2xl font-bold" style="color:#1e293b;">🗒️ ADI-R</h1>
+      <p class="font-bold mt-0.5" style="color:#166534;">{{ evaluacion.paciente.nombre_completo }}</p>
+      <p class="text-slate-400 text-sm mt-1">
+        {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} ·
+        <span class="{% if evaluacion.tipo_comunicacion == 'verbal' %}text-blue-600{% else %}text-purple-600{% endif %} font-medium">
+          {{ evaluacion.get_tipo_comunicacion_display }}
+        </span>
+        · Inf: {{ evaluacion.informante }}
+      </p>
+    </div>
+
+    <!-- Panel de algoritmo -->
+    <div id="panel-algoritmo" class="bg-white rounded-2xl shadow border border-slate-100 overflow-hidden w-full lg:w-56 shrink-0">
+      {% include "evaluaciones/adir/partials/algoritmo.html" %}
+    </div>
+  </div>
+
+  <!-- Secciones acordeón -->
+  <div class="space-y-3 mb-6">
+    {% for seccion in secciones %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
+      <!-- Cabecera del acordeón -->
+      <button type="button"
+              onclick="toggleAcordeon('{{ seccion.key }}')"
+              class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors group">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold
+            {% if 'comunicacion' in seccion.key %}bg-blue-100 text-blue-700
+            {% elif 'interaccion' in seccion.key %}bg-purple-100 text-purple-700
+            {% elif 'comportamiento' in seccion.key %}bg-orange-100 text-orange-700
+            {% elif 'historia' in seccion.key %}bg-yellow-100 text-yellow-700
+            {% else %}bg-slate-100 text-slate-600{% endif %}">
+            {% if 'general' in seccion.key %}⚙️
+            {% elif 'historia' in seccion.key %}📅
+            {% elif 'comunicacion' in seccion.key %}💬
+            {% elif 'interaccion' in seccion.key %}🤝
+            {% elif 'comportamiento' in seccion.key %}🔁
+            {% else %}📝{% endif %}
+          </div>
+          <span class="font-bold text-slate-700 group-hover:text-slate-900">{{ seccion.label }}</span>
+          <span class="text-xs text-slate-400 font-normal">({{ seccion.form|length }} ítems)</span>
+        </div>
+        <svg id="chevron-{{ seccion.key }}" class="chevron {% if forloop.first %}open{% endif %} w-5 h-5 text-slate-400"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- Contenido -->
+      <div id="sec-{{ seccion.key }}" class="acordeon-content {% if forloop.first %}open{% endif %} border-t border-slate-100">
+        <form hx-post="{% url 'evaluaciones:adir_guardar_seccion' evaluacion.pk seccion.key %}"
+              hx-target="#panel-algoritmo"
+              hx-swap="innerHTML"
+              hx-indicator="#spinner-{{ seccion.key }}"
+              method="post"
+              class="p-5">
+          {% csrf_token %}
+
+          {% if seccion.form.non_field_errors %}
+          <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-red-600 text-sm">
+            {{ seccion.form.non_field_errors }}
+          </div>
+          {% endif %}
+
+          <div class="space-y-3">
+            {% for field in seccion.form %}
+
+            {% if field.field.widget.input_type == 'textarea' or field.field.widget.input_type == 'text' or field.field.widget.input_type == 'number' or field.field.widget.input_type == 'date' %}
+            {# ── Campo de texto / textarea / número / fecha ── #}
+            <div class="rounded-xl p-4 border bg-slate-50 border-slate-100">
+              <label class="block font-semibold text-sm text-slate-700 mb-2">
+                {{ field.label }}{% if field.field.required %} <span class="text-red-400">*</span>{% endif %}
+              </label>
+              {{ field }}
+              {% if field.help_text %}
+              <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+              {% endif %}
+              {% if field.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ field.errors }}</p>
+              {% endif %}
+            </div>
+
+            {% else %}
+            {# ── Campo de radio buttons (ítems numéricos) ── #}
+            <div class="rounded-xl p-4 border transition-colors
+              {% if field.value is not None and field.value != '' %}bg-green-50 border-green-200{% else %}bg-slate-50 border-slate-100{% endif %}">
+
+              <!-- Etiqueta del ítem -->
+              <div class="flex items-start justify-between mb-3">
+                <label class="font-semibold text-sm text-slate-700 leading-snug pr-4">
+                  {{ field.label }}
+                </label>
+                {% if field.value is not None and field.value != '' %}
+                <span class="shrink-0 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-lg">
+                  {{ field.value }}
+                </span>
+                {% endif %}
+              </div>
+
+              <!-- Radio buttons -->
+              <div class="flex flex-wrap gap-2">
+                {% for choice_val, choice_label in field.field.widget.choices %}
+                <label class="{% if choice_label|length > 6 %}radio-btn-text{% else %}radio-btn{% endif %}">
+                  <input type="radio"
+                         name="{{ field.html_name }}"
+                         value="{{ choice_val }}"
+                         {% if field.value|stringformat:"s" == choice_val|stringformat:"s" %}checked{% endif %}>
+                  <span title="{{ choice_label }}">{% if choice_val == '' %}—{% else %}{{ choice_label }}{% endif %}</span>
+                </label>
+                {% endfor %}
+              </div>
+
+              {% if field.help_text %}
+              <p class="text-xs text-slate-400 mt-2">{{ field.help_text }}</p>
+              {% endif %}
+              {% if field.errors %}
+              <p class="text-red-500 text-xs mt-1">{{ field.errors }}</p>
+              {% endif %}
+            </div>
+            {% endif %}
+
+            {% endfor %}
+          </div>
+
+          <!-- Botón guardar -->
+          <div class="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+            <span id="spinner-{{ seccion.key }}" class="htmx-indicator text-sm text-green-600 font-medium">
+              ⏳ Guardando...
+            </span>
+            <div class="ml-auto">
+              <button type="submit"
+                      class="flex items-center gap-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm">
+                💾 Guardar sección
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl p-8 text-center text-slate-400">
+      <div class="text-4xl mb-2">⚠️</div>
+      <p class="font-semibold">No hay secciones disponibles para esta evaluación.</p>
+      <p class="text-sm mt-1">Verifica el tipo de comunicación seleccionado.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Navegación inferior -->
+  <div class="flex items-center justify-between">
+    <a href="{% url 'evaluaciones:adir_lista' %}"
+       class="flex items-center gap-2 text-slate-500 hover:text-slate-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-white transition-colors">
+      ← Volver al listado
+    </a>
+    <a href="{% url 'evaluaciones:adir_detalle' evaluacion.pk %}"
+       class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm">
+      ✅ Ver resumen final
+    </a>
+  </div>
+
+</div>
+</div>
+
+  </div><!-- fin page-content -->
+
+<script>
+function toggleAcordeon(key) {
+  const content = document.getElementById('sec-' + key);
+  const chevron = document.getElementById('chevron-' + key);
+  content.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+// Actualizar badge del ítem al seleccionar un radio
+document.addEventListener('change', function(e) {
+  if (e.target.type === 'radio') {
+    const name = e.target.name;
+    const val = e.target.value;
+    const container = e.target.closest('.rounded-xl.p-4');
+    if (!container) return;
+
+    // Actualizar el badge del valor seleccionado
+    let badge = container.querySelector('.current-val-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'current-val-badge shrink-0 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-lg';
+      const labelRow = container.querySelector('.flex.items-start');
+      if (labelRow) labelRow.appendChild(badge);
+    }
+
+    if (val === '') {
+      badge.remove();
+      container.className = container.className.replace('bg-green-50 border-green-200', 'bg-slate-50 border-slate-100');
+    } else {
+      badge.textContent = val;
+      container.className = container.className.replace('bg-slate-50 border-slate-100', 'bg-green-50 border-green-200');
+    }
+  }
+});
+</script>
+{% endblock %}

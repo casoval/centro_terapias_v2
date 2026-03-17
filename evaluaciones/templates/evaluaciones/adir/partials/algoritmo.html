@@ -1,0 +1,41 @@
+<div class="bg-green-600 px-4 py-2">
+  <span class="text-white text-xs font-bold uppercase tracking-wide">📊 Algoritmo ADI-R</span>
+</div>
+<div class="p-4 space-y-2">
+  {% with ev=evaluacion %}
+  <div class="flex justify-between items-center text-sm">
+    <span class="text-slate-500">A — Comunicación</span>
+    <div class="flex items-center gap-1">
+      <span class="font-bold text-slate-800">{{ ev.algoritmo_comunicacion|default:"—" }}</span>
+      {% if ev.cumple_corte_comunicacion %}<span class="text-red-500 text-xs">↑</span>
+      {% elif ev.cumple_corte_comunicacion == False %}<span class="text-green-500 text-xs">✓</span>{% endif %}
+    </div>
+  </div>
+  <div class="flex justify-between items-center text-sm">
+    <span class="text-slate-500">B — Social</span>
+    <div class="flex items-center gap-1">
+      <span class="font-bold text-slate-800">{{ ev.algoritmo_interaccion_social|default:"—" }}</span>
+      {% if ev.cumple_corte_interaccion %}<span class="text-red-500 text-xs">↑</span>
+      {% elif ev.cumple_corte_interaccion == False %}<span class="text-green-500 text-xs">✓</span>{% endif %}
+    </div>
+  </div>
+  <div class="flex justify-between items-center text-sm">
+    <span class="text-slate-500">C — RRB</span>
+    <div class="flex items-center gap-1">
+      <span class="font-bold text-slate-800">{{ ev.algoritmo_comportamientos_rr|default:"—" }}</span>
+      {% if ev.cumple_corte_comportamiento %}<span class="text-red-500 text-xs">↑</span>
+      {% elif ev.cumple_corte_comportamiento == False %}<span class="text-green-500 text-xs">✓</span>{% endif %}
+    </div>
+  </div>
+  <hr class="border-slate-100">
+  <div class="pt-1">
+    {% if ev.clasificacion == 'cumple' %}
+      <div class="w-full text-center bg-red-500 text-white text-xs font-bold py-1.5 rounded-xl">🔴 Cumple criterios</div>
+    {% elif ev.clasificacion == 'no_cumple' %}
+      <div class="w-full text-center bg-green-500 text-white text-xs font-bold py-1.5 rounded-xl">🟢 No cumple</div>
+    {% else %}
+      <div class="w-full text-center bg-slate-300 text-slate-600 text-xs py-1.5 rounded-xl">⏳ Pendiente</div>
+    {% endif %}
+  </div>
+  {% endwith %}
+</div>

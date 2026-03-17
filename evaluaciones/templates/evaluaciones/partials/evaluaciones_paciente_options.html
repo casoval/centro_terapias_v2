@@ -1,0 +1,42 @@
+<!-- Partial: opciones de evaluaciones por paciente (HTMX) -->
+<div id="evaluaciones-select">
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">
+      <i class="bi bi-person-lines-fill text-primary me-1"></i>
+      Evaluación ADOS-2 asociada
+    </label>
+    <select name="evaluacion_ados2" id="id_evaluacion_ados2" class="form-select">
+      <option value="">— Sin ADOS-2 —</option>
+      {% for ev in ados2_list %}
+      <option value="{{ ev.pk }}">
+        Módulo {{ ev.modulo }} — {{ ev.fecha_evaluacion|date:"d/m/Y" }}
+        [{{ ev.get_clasificacion_display }}]
+        — SA: {{ ev.total_comunicacion_social|default:"?" }}
+      </option>
+      {% empty %}
+      <option value="" disabled>Sin evaluaciones ADOS-2 para este paciente</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">
+      <i class="bi bi-chat-square-text text-success me-1"></i>
+      Evaluación ADI-R asociada
+    </label>
+    <select name="evaluacion_adir" id="id_evaluacion_adir" class="form-select">
+      <option value="">— Sin ADI-R —</option>
+      {% for ev in adir_list %}
+      <option value="{{ ev.pk }}">
+        {{ ev.fecha_evaluacion|date:"d/m/Y" }}
+        [{{ ev.get_clasificacion_display }}]
+        — Inf: {{ ev.informante }}
+      </option>
+      {% empty %}
+      <option value="" disabled>Sin evaluaciones ADI-R para este paciente</option>
+      {% endfor %}
+    </select>
+  </div>
+
+</div>

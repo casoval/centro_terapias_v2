@@ -13,9 +13,10 @@ urlpatterns = [
     path('servicios/', include('servicios.urls')),
     path('profesionales/', include('profesionales.urls')),
     path('facturacion/', include('facturacion.urls')),
-    # ✅ CORREGIDO: agregado namespace='chat' para que {% url "chat:..." %} funcione
     path('chat/', include('chat.urls', namespace='chat')),
     path('egresos/', include('egresos.urls', namespace='egresos')),
+    # ✅ NUEVO: App de evaluaciones ADOS-2 / ADI-R
+    path('evaluaciones/', include('evaluaciones.urls', namespace='evaluaciones')),
 ]
 
 # ==================== DEBUG TOOLBAR ====================

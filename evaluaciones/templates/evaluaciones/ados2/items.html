@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}ADOS-2 Módulo {{ evaluacion.modulo }} — Ítems{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-4 md:p-6">
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Encabezado -->
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+      <div>
+        <nav class="text-xs text-slate-400 mb-1">
+          <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500">Evaluaciones</a>
+          <span class="mx-1">/</span>
+          <a href="{% url 'evaluaciones:ados2_lista' %}" class="hover:text-blue-500">ADOS-2</a>
+          <span class="mx-1">/</span>
+          <span class="text-slate-600 font-medium">Ítems</span>
+        </nav>
+        <h1 class="text-xl font-bold text-slate-800">📋 {{ evaluacion.get_modulo_display }}</h1>
+        <p class="text-slate-500 text-sm mt-1">
+          {{ evaluacion.paciente.nombre_completo }} ·
+          {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} ·
+          {{ evaluacion.edad_cronologica_anos }}a {{ evaluacion.edad_cronologica_meses }}m
+        </p>
+      </div>
+
+      <!-- Panel puntuaciones actualizado por HTMX -->
+      <div id="panel-puntuaciones" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-w-52">
+        {% include "evaluaciones/ados2/partials/puntuaciones.html" %}
+      </div>
+    </div>
+
+    <!-- Pestañas -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <!-- Tab buttons -->
+      <div class="flex border-b border-slate-100 overflow-x-auto">
+        {% for seccion in secciones %}
+        <button onclick="mostrarTab('tab-{{ seccion.key }}', this)"
+                class="tab-btn px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors text-slate-500 hover:text-blue-600 {% if forloop.first %}active-tab{% endif %}"
+                id="btn-{{ seccion.key }}">
+          {{ seccion.label }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- Contenido de pestañas -->
+      <div class="p-6">
+        {% for seccion in secciones %}
+        <div id="tab-{{ seccion.key }}" class="tab-content {% if not forloop.first %}hidden{% endif %}">
+          <form hx-post="{% url 'evaluaciones:ados2_guardar_seccion' evaluacion.pk seccion.key %}"
+                hx-target="#panel-puntuaciones"
+                hx-swap="innerHTML"
+                method="post">
+            {% csrf_token %}
+
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="font-bold text-slate-700">{{ seccion.label }}</h3>
+              <button type="submit"
+                      class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                <span class="htmx-indicator hidden">⏳</span>
+                💾 Guardar sección
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              {% for field in seccion.form %}
+              <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div class="font-semibold text-sm text-slate-700 mb-3">{{ field.label }}</div>
+                <div class="flex flex-wrap gap-2" id="group-{{ field.html_name }}">
+                  {% for choice_val, choice_label in field.field.widget.choices %}
+                  <label class="item-radio-label cursor-pointer select-none"
+                         data-val="{{ choice_val }}"
+                         data-field="{{ field.html_name }}">
+                    <input type="radio"
+                           name="{{ field.html_name }}"
+                           value="{{ choice_val }}"
+                           class="sr-only"
+                           {% if field.value == choice_val|stringformat:"s" %}checked{% endif %}>
+                    <span class="inline-flex items-center justify-center w-12 h-10 rounded-xl border-2 text-sm font-bold transition-all
+                      {% if field.value == choice_val|stringformat:'s' %}
+                        border-blue-500 bg-blue-500 text-white
+                      {% else %}
+                        border-slate-200 bg-white text-slate-600 hover:border-blue-400
+                      {% endif %}">
+                      {% if choice_val == '' %}—{% else %}{{ choice_label }}{% endif %}
+                    </span>
+                  </label>
+                  {% endfor %}
+                </div>
+                {% if field.errors %}<div class="text-red-500 text-xs mt-1">{{ field.errors }}</div>{% endif %}
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="flex justify-end mt-6 pt-4 border-t border-slate-100">
+              <button type="submit"
+                      class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors">
+                💾 Guardar sección
+              </button>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Botones finales -->
+    <div class="flex justify-between mt-4">
+      <a href="{% url 'evaluaciones:ados2_lista' %}"
+         class="text-slate-500 hover:text-slate-700 text-sm font-medium px-4 py-2">
+        ← Volver al listado
+      </a>
+      <a href="{% url 'evaluaciones:ados2_detalle' evaluacion.pk %}"
+         class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors">
+        ✅ Ver resumen final
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.active-tab {
+  color: #2563eb !important;
+  border-bottom: 3px solid #2563eb;
+  background: #eff6ff;
+}
+</style>
+
+<script>
+function mostrarTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('active-tab');
+    b.style.borderBottom = '';
+  });
+  document.getElementById(tabId).classList.remove('hidden');
+  btn.classList.add('active-tab');
+}
+
+// Radio buttons visuales
+document.addEventListener('change', function(e) {
+  if (e.target.type === 'radio') {
+    const name = e.target.name;
+    document.querySelectorAll(`input[name="${name}"]`).forEach(function(r) {
+      const span = r.nextElementSibling;
+      if (span) {
+        span.className = span.className
+          .replace('border-blue-500 bg-blue-500 text-white', '')
+          .replace('border-slate-200 bg-white text-slate-600', '')
+          .trim();
+        if (r.checked) {
+          span.classList.add('border-blue-500', 'bg-blue-500', 'text-white');
+        } else {
+          span.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

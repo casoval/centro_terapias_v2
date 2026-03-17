@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Evaluaciones Diagnósticas{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-6">
+  <div class="max-w-7xl mx-auto">
+
+    <!-- Encabezado -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">🧠 Evaluaciones Diagnósticas</h1>
+        <p class="text-slate-500 text-sm mt-1">ADOS-2 · ADI-R · Informes PDF</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <a href="{% url 'evaluaciones:ados2_crear' %}"
+           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow">
+          ➕ Nueva ADOS-2
+        </a>
+        <a href="{% url 'evaluaciones:adir_crear' %}"
+           class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition-colors shadow">
+          ➕ Nueva ADI-R
+        </a>
+        <a href="{% url 'evaluaciones:referencia' %}"
+           class="inline-flex items-center px-4 py-2 bg-slate-600 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors shadow">
+          🧮 Referencia
+        </a>
+        <a href="{% url 'evaluaciones:informe_crear' %}"
+           class="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-semibold rounded-xl hover:bg-purple-700 transition-colors shadow">
+          📝 Nuevo Informe
+        </a>
+      </div>
+    </div>
+
+    <!-- Tarjetas resumen -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <a href="{% url 'evaluaciones:ados2_lista' %}"
+         class="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-all border border-blue-100 hover:border-blue-300">
+        <div class="bg-blue-100 rounded-xl p-3 text-3xl">📋</div>
+        <div>
+          <div class="text-3xl font-black text-blue-600">{{ total_ados2 }}</div>
+          <div class="text-slate-500 text-sm font-medium">Evaluaciones ADOS-2</div>
+        </div>
+      </a>
+      <a href="{% url 'evaluaciones:adir_lista' %}"
+         class="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-all border border-green-100 hover:border-green-300">
+        <div class="bg-green-100 rounded-xl p-3 text-3xl">🗒️</div>
+        <div>
+          <div class="text-3xl font-black text-green-600">{{ total_adir }}</div>
+          <div class="text-slate-500 text-sm font-medium">Evaluaciones ADI-R</div>
+        </div>
+      </a>
+      <a href="{% url 'evaluaciones:informe_lista' %}"
+         class="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-all border border-purple-100 hover:border-purple-300">
+        <div class="bg-purple-100 rounded-xl p-3 text-3xl">📄</div>
+        <div>
+          <div class="text-3xl font-black text-purple-600">{{ total_informes }}</div>
+          <div class="text-slate-500 text-sm font-medium">Informes generados</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+      <!-- Últimas ADOS-2 -->
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 class="font-bold text-slate-700">📋 Últimas ADOS-2</h2>
+          <a href="{% url 'evaluaciones:ados2_lista' %}" class="text-blue-500 text-xs font-semibold hover:underline">Ver todas →</a>
+        </div>
+        {% if evaluaciones_ados2 %}
+        <ul class="divide-y divide-slate-50">
+          {% for ev in evaluaciones_ados2 %}
+          <li class="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+            <div>
+              <div class="font-semibold text-sm text-slate-800">{{ ev.paciente.nombre_completo }}</div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                Módulo {{ ev.modulo }} · {{ ev.fecha_evaluacion|date:"d/m/Y" }} · {{ ev.evaluador.nombre_completo }}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if ev.clasificacion == 'autismo' %}
+                <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-lg">Autismo</span>
+              {% elif ev.clasificacion == 'espectro' %}
+                <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-lg">Espectro</span>
+              {% elif ev.clasificacion == 'no_espectro' %}
+                <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">No espectro</span>
+              {% else %}
+                <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Pendiente</span>
+              {% endif %}
+              <a href="{% url 'evaluaciones:ados2_detalle' ev.pk %}" class="text-blue-400 hover:text-blue-600 text-sm">👁</a>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-10 text-slate-400">
+          <div class="text-4xl mb-2">📋</div>
+          <div class="text-sm">Sin evaluaciones ADOS-2</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Últimas ADI-R -->
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 class="font-bold text-slate-700">🗒️ Últimas ADI-R</h2>
+          <a href="{% url 'evaluaciones:adir_lista' %}" class="text-green-500 text-xs font-semibold hover:underline">Ver todas →</a>
+        </div>
+        {% if evaluaciones_adir %}
+        <ul class="divide-y divide-slate-50">
+          {% for ev in evaluaciones_adir %}
+          <li class="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors">
+            <div>
+              <div class="font-semibold text-sm text-slate-800">{{ ev.paciente.nombre_completo }}</div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                {{ ev.fecha_evaluacion|date:"d/m/Y" }} · {{ ev.evaluador.nombre_completo }} · Inf: {{ ev.informante }}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if ev.clasificacion == 'cumple' %}
+                <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-lg">Cumple</span>
+              {% elif ev.clasificacion == 'no_cumple' %}
+                <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">No cumple</span>
+              {% else %}
+                <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Pendiente</span>
+              {% endif %}
+              <a href="{% url 'evaluaciones:adir_detalle' ev.pk %}" class="text-green-400 hover:text-green-600 text-sm">👁</a>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-10 text-slate-400">
+          <div class="text-4xl mb-2">🗒️</div>
+          <div class="text-sm">Sin evaluaciones ADI-R</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Card referencia de puntuaciones -->
+    <a href="{% url 'evaluaciones:referencia' %}"
+       class="flex items-center gap-4 bg-white rounded-2xl shadow-sm border border-slate-100 hover:border-amber-300 hover:shadow-md transition-all px-6 py-4 mb-6 group">
+      <div class="bg-amber-100 rounded-xl p-3 text-2xl shrink-0">🧮</div>
+      <div class="flex-1">
+        <div class="font-bold text-slate-700 group-hover:text-amber-700 transition-colors">Referencia de puntuaciones</div>
+        <div class="text-xs text-slate-400 mt-0.5">Puntos de corte ADOS-2 · ADI-R · Simulador interactivo</div>
+      </div>
+      <div class="text-slate-300 group-hover:text-amber-400 transition-colors text-lg">→</div>
+    </a>
+
+    <!-- Últimos informes -->
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <h2 class="font-bold text-slate-700">📄 Últimos informes</h2>
+        <a href="{% url 'evaluaciones:informe_lista' %}" class="text-purple-500 text-xs font-semibold hover:underline">Ver todos →</a>
+      </div>
+      {% if informes %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+              <th class="px-5 py-3 text-left font-semibold">Paciente</th>
+              <th class="px-4 py-3 text-center font-semibold">Fecha</th>
+              <th class="px-4 py-3 text-center font-semibold">ADOS-2</th>
+              <th class="px-4 py-3 text-center font-semibold">ADI-R</th>
+              <th class="px-4 py-3 text-center font-semibold">Estado</th>
+              <th class="px-4 py-3 text-center font-semibold">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            {% for inf in informes %}
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-5 py-3">
+                <div class="font-semibold text-slate-800">{{ inf.paciente.nombre_completo }}</div>
+                <div class="text-xs text-slate-400">{{ inf.evaluador.nombre_completo }}</div>
+              </td>
+              <td class="px-4 py-3 text-center text-slate-600">{{ inf.fecha_informe|date:"d/m/Y" }}</td>
+              <td class="px-4 py-3 text-center">{% if inf.evaluacion_ados2 %}✅{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+              <td class="px-4 py-3 text-center">{% if inf.evaluacion_adir %}✅{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+              <td class="px-4 py-3 text-center">
+                {% if inf.estado == 'finalizado' %}
+                  <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">Finalizado</span>
+                {% elif inf.estado == 'revision' %}
+                  <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-lg">Revisión</span>
+                {% else %}
+                  <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Borrador</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-center">
+                <div class="flex justify-center gap-1">
+                  <a href="{% url 'evaluaciones:informe_detalle' inf.pk %}" class="bg-purple-50 text-purple-600 hover:bg-purple-100 px-2 py-1 rounded-lg text-xs font-medium transition-colors">👁 Ver</a>
+                  <a href="{% url 'evaluaciones:informe_pdf' inf.pk %}" target="_blank" class="bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-lg text-xs font-medium transition-colors">📄 PDF</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-10 text-slate-400">
+        <div class="text-4xl mb-2">📄</div>
+        <div class="text-sm">Sin informes generados</div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe de Evaluación — {{ paciente }}</title>
+<style>
+  /* ── Página ── */
+  /* xhtml2pdf soporta @page básico: size y margin SOLAMENTE.
+     NO soporta @top-center, @bottom-right, @bottom-left.
+     Los encabezados/pies de página se manejan con -pdf-frame-* */
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm 2.5cm 2.5cm;
+  }
+
+  /* ── Base ── (sin var(), sin :root) ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #212529;
+  }
+
+  /* ── Encabezado: reemplaza display:flex con tabla ── */
+  .header {
+    width: 100%;
+    border-bottom: 3px solid #2c3e50;
+    padding-bottom: 12pt;
+    margin-bottom: 20pt;
+  }
+  .header-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .header-table td {
+    vertical-align: top;
+    padding: 0;
+    border: none;
+  }
+  .header-title h1 {
+    font-size: 15pt;
+    color: #2c3e50;
+    font-weight: bold;
+  }
+  .header-title h2 {
+    font-size: 11pt;
+    color: #2980b9;
+    font-weight: normal;
+    margin-top: 2pt;
+  }
+  .header-meta {
+    text-align: right;
+    font-size: 9pt;
+    color: #6c757d;
+  }
+  .confidencial-badge {
+    background: #c0392b;
+    color: white;
+    padding: 2pt 8pt;
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: 0.5pt;
+    margin-bottom: 4pt;
+    display: inline-block;
+  }
+
+  /* ── Ficha del paciente ── */
+  .ficha-paciente {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-left: 4px solid #2980b9;
+    padding: 12pt;
+    margin-bottom: 20pt;
+  }
+  .ficha-paciente h3 {
+    font-size: 10pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+    color: #2980b9;
+    margin-bottom: 8pt;
+  }
+  /* Reemplaza display:grid con tabla */
+  .ficha-grid {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ficha-grid td {
+    width: 33%;
+    vertical-align: top;
+    padding: 3pt 4pt;
+    border: none;
+  }
+  .ficha-label {
+    font-size: 8pt;
+    color: #6c757d;
+    text-transform: uppercase;
+    display: block;
+  }
+  .ficha-valor {
+    font-size: 10pt;
+    font-weight: 600;
+  }
+
+  /* ── Secciones ── */
+  .seccion {
+    margin-bottom: 18pt;
+    page-break-inside: avoid;
+  }
+  .seccion h3 {
+    font-size: 11pt;
+    color: #2c3e50;
+    border-bottom: 1.5px solid #dee2e6;
+    padding-bottom: 4pt;
+    margin-bottom: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.3pt;
+  }
+  .texto {
+    text-align: justify;
+    font-size: 10pt;
+    line-height: 1.7;
+  }
+  .seccion p {
+    text-align: justify;
+    font-size: 10pt;
+    line-height: 1.7;
+  }
+
+  /* ── Tabla de puntuaciones ── */
+  .tabla-puntuaciones {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10pt 0;
+    font-size: 9.5pt;
+  }
+  .tabla-puntuaciones th {
+    background: #2c3e50;
+    color: white;
+    padding: 5pt 8pt;
+    text-align: left;
+    font-size: 9pt;
+  }
+  .tabla-puntuaciones td {
+    padding: 5pt 8pt;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+  }
+  .tabla-puntuaciones tr.fila-par td {
+    background: #f1f3f5;
+  }
+  .punt-valor {
+    font-weight: bold;
+    font-size: 11pt;
+    text-align: center;
+  }
+
+  /* ── Badges de clasificación ── */
+  .badge {
+    display: inline-block;
+    padding: 2pt 8pt;
+    font-size: 9pt;
+    font-weight: bold;
+    color: white;
+  }
+  .badge-danger  { background: #c0392b; }
+  .badge-warning { background: #e67e22; }
+  .badge-success { background: #27ae60; }
+  .badge-muted   { background: #6c757d; }
+
+  /* ── Recuadro de resultados ── */
+  .resultado-box {
+    border: 1.5px solid #dee2e6;
+    padding: 10pt;
+    margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  /* Reemplaza display:flex del titulo-instrumento con tabla */
+  .titulo-instrumento-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6pt;
+  }
+  .titulo-instrumento-table td {
+    vertical-align: middle;
+    padding: 0;
+    border: none;
+  }
+  .titulo-instrumento-nombre {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #2980b9;
+  }
+  .titulo-instrumento-badge {
+    text-align: right;
+  }
+
+  /* ── Conclusiones y recomendaciones ── */
+  .conclusiones-box {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-left: 4px solid #e67e22;
+    padding: 10pt;
+    margin-bottom: 14pt;
+  }
+  .recomendaciones-box {
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-left: 4px solid #27ae60;
+    padding: 10pt;
+    margin-bottom: 14pt;
+  }
+
+  /* ── Firma: reemplaza display:flex con tabla ── */
+  .firma-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 30pt;
+    page-break-inside: avoid;
+  }
+  .firma-table td {
+    width: 45%;
+    text-align: center;
+    vertical-align: bottom;
+    padding: 0 10pt;
+    border: none;
+  }
+  .firma-linea {
+    border-top: 1.5px solid #212529;
+    margin-bottom: 4pt;
+    width: 100%;
+  }
+  .firma-nombre {
+    font-size: 9pt;
+    font-weight: bold;
+  }
+  .firma-cargo {
+    font-size: 8pt;
+    color: #6c757d;
+  }
+
+  /* ── Notas al pie ── */
+  .nota-pie {
+    margin-top: 20pt;
+    padding-top: 8pt;
+    border-top: 1px solid #dee2e6;
+    font-size: 8pt;
+    color: #6c757d;
+    line-height: 1.5;
+  }
+
+  /* ── Saltos de página ── */
+  .page-break { page-break-after: always; }
+  .no-break   { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- ENCABEZADO -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="header">
+  <table class="header-table">
+    <tr>
+      <td class="header-title">
+        <div class="confidencial-badge">CONFIDENCIAL</div>
+        <h1>Informe de Evaluación Diagnóstica</h1>
+        <h2>ADOS-2 / ADI-R — Espectro del Autismo</h2>
+      </td>
+      <td style="width:35%;">
+        <div class="header-meta">
+          <div><strong>Fecha del informe:</strong> {{ informe.fecha_informe|date:"d/m/Y" }}</div>
+          <div><strong>Evaluador/a:</strong> {{ informe.evaluador.nombre_completo }}</div>
+          <div><strong>Estado:</strong> {{ informe.get_estado_display }}</div>
+          <div style="margin-top:4pt; color:#888; font-size:8pt">
+            Generado: {{ fecha_generacion|date:"d/m/Y H:i" }}
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- FICHA DEL PACIENTE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="ficha-paciente">
+  <h3>Datos del evaluado</h3>
+  <table class="ficha-grid">
+    <tr>
+      <td>
+        <span class="ficha-label">Nombre completo</span>
+        <span class="ficha-valor">{{ paciente.nombre_completo }}</span>
+      </td>
+      <td>
+        <span class="ficha-label">Fecha de nacimiento</span>
+        <span class="ficha-valor">{{ paciente.fecha_nacimiento|date:"d/m/Y" }}</span>
+      </td>
+      <td>
+        <span class="ficha-label">Edad actual</span>
+        <span class="ficha-valor">{{ paciente.edad }} años</span>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <span class="ficha-label">Género</span>
+        <span class="ficha-valor">{{ paciente.get_genero_display }}</span>
+      </td>
+      <td>
+        <span class="ficha-label">Edad al ser evaluado</span>
+        <span class="ficha-valor">
+          {% if ados2 %}{{ ados2.edad_cronologica_anos }} años {{ ados2.edad_cronologica_meses }} meses
+          {% else %}{{ paciente.edad }} años (aprox.){% endif %}
+        </span>
+      </td>
+      <td>
+        <span class="ficha-label">Tutor principal</span>
+        <span class="ficha-valor">{{ paciente.nombre_tutor }} ({{ paciente.parentesco }})</span>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <span class="ficha-label">Teléfono</span>
+        <span class="ficha-valor">{{ paciente.telefono_tutor }}</span>
+      </td>
+      <td>
+        <span class="ficha-label">Fecha de evaluación</span>
+        <span class="ficha-valor">
+          {% if ados2 %}{{ ados2.fecha_evaluacion|date:"d/m/Y" }}
+          {% elif adir %}{{ adir.fecha_evaluacion|date:"d/m/Y" }}
+          {% else %}{{ informe.fecha_informe|date:"d/m/Y" }}{% endif %}
+        </span>
+      </td>
+      <td>
+        <span class="ficha-label">Tipo de comunicación</span>
+        <span class="ficha-valor">{% if adir %}{{ adir.get_tipo_comunicacion_display }}{% else %}—{% endif %}</span>
+      </td>
+    </tr>
+  </table>
+  {% if paciente.diagnostico %}
+  <div style="margin-top:8pt; padding-top:6pt; border-top:1px solid #dee2e6; font-size:9pt">
+    <span style="font-size:8pt; color:#6c757d; text-transform:uppercase; display:block; margin-bottom:2pt">
+      Diagnóstico / motivo de consulta registrado
+    </span>
+    {{ paciente.diagnostico }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MOTIVO DE CONSULTA -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if informe.motivo_consulta %}
+<div class="seccion no-break">
+  <h3>1. Motivo de consulta</h3>
+  <div class="texto">{{ informe.motivo_consulta|linebreaksbr }}</div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- HISTORIA CLÍNICA -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if informe.historia_clinica %}
+<div class="seccion no-break">
+  <h3>2. Historia clínica relevante</h3>
+  <div class="texto">{{ informe.historia_clinica|linebreaksbr }}</div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- INSTRUMENTOS UTILIZADOS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="seccion no-break">
+  <h3>3. Instrumentos de evaluación utilizados</h3>
+  <div class="texto">{{ informe.instrumentos_utilizados|linebreaksbr }}</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- RESULTADOS ADOS-2 -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if ados2 %}
+<div class="seccion">
+  <h3>4. Resultados ADOS-2</h3>
+
+  <div class="resultado-box">
+    <table class="titulo-instrumento-table">
+      <tr>
+        <td class="titulo-instrumento-nombre">
+          ADOS-2 — Módulo {{ ados2.get_modulo_display }}
+        </td>
+        <td class="titulo-instrumento-badge">
+          {% if ados2.clasificacion == 'autismo' %}
+            <span class="badge badge-danger">Autismo</span>
+          {% elif ados2.clasificacion == 'espectro' %}
+            <span class="badge badge-warning">Espectro autista</span>
+          {% elif ados2.clasificacion == 'no_espectro' %}
+            <span class="badge badge-success">No espectro</span>
+          {% else %}
+            <span class="badge badge-muted">Pendiente</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <table class="tabla-puntuaciones">
+      <thead>
+        <tr>
+          <th>Dominio</th>
+          <th style="text-align:center">Puntuación obtenida</th>
+          <th>Interpretación</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Comunicación (A)</td>
+          <td class="punt-valor">{{ ados2.total_comunicacion|default:"—" }}</td>
+          <td>Puntuación bruta del dominio</td>
+        </tr>
+        <tr class="fila-par">
+          <td>Interacción Social Recíproca (B)</td>
+          <td class="punt-valor">{{ ados2.total_interaccion_social|default:"—" }}</td>
+          <td>Puntuación bruta del dominio</td>
+        </tr>
+        <tr style="font-weight:bold; background:#e8f0fe">
+          <td>Total SA (Comunicación + Interacción Social)</td>
+          <td class="punt-valor">{{ ados2.total_comunicacion_social|default:"—" }}</td>
+          <td>Puntuación de clasificación principal</td>
+        </tr>
+        <tr class="fila-par">
+          <td>Comportamiento Restringido y Repetitivo (C)</td>
+          <td class="punt-valor">{{ ados2.total_comportamiento_restringido|default:"—" }}</td>
+          <td>Puntaje informativo (no diagnóstico)</td>
+        </tr>
+        {% if ados2.comparison_score %}
+        <tr>
+          <td>Puntuación de Comparación (CSS)</td>
+          <td class="punt-valor" style="color:#2980b9">{{ ados2.comparison_score }}</td>
+          <td>Escala 1-10 (≥4 espectro; ≥7 autismo)</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    {% if informe.resultados_ados2 %}
+    <div style="margin-top:8pt">
+      <strong style="font-size:9pt">Análisis cualitativo:</strong>
+      <div class="texto" style="margin-top:4pt">{{ informe.resultados_ados2|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+
+    {% if ados2.observaciones %}
+    <div style="margin-top:8pt; padding:6pt; background:#f8f9fa;">
+      <strong style="font-size:9pt">Observaciones durante la evaluación:</strong>
+      <div class="texto" style="margin-top:3pt">{{ ados2.observaciones|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- RESULTADOS ADI-R -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if adir %}
+<div class="seccion">
+  <h3>5. Resultados ADI-R</h3>
+
+  <div class="resultado-box">
+    <table class="titulo-instrumento-table">
+      <tr>
+        <td class="titulo-instrumento-nombre">
+          ADI-R — Entrevista diagnóstica revisada
+        </td>
+        <td class="titulo-instrumento-badge">
+          {% if adir.clasificacion == 'cumple' %}
+            <span class="badge badge-danger">Cumple criterios</span>
+          {% elif adir.clasificacion == 'no_cumple' %}
+            <span class="badge badge-success">No cumple criterios</span>
+          {% else %}
+            <span class="badge badge-muted">Pendiente</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <div style="font-size:8.5pt; color:#666; margin-bottom:8pt">
+      Informante: <strong>{{ adir.informante }}</strong>
+      ({{ adir.relacion_informante }}) |
+      Tipo de comunicación: <strong>{{ adir.get_tipo_comunicacion_display }}</strong>
+    </div>
+
+    <table class="tabla-puntuaciones">
+      <thead>
+        <tr>
+          <th>Dominio del Algoritmo</th>
+          <th style="text-align:center">Puntuación</th>
+          <th style="text-align:center">Punto de corte</th>
+          <th style="text-align:center">¿Cumple?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>A — Comunicación
+            <span style="font-size:8pt; color:#888">({{ adir.get_tipo_comunicacion_display }})</span>
+          </td>
+          <td class="punt-valor">{{ adir.algoritmo_comunicacion|default:"—" }}</td>
+          <td style="text-align:center">
+            {% if adir.tipo_comunicacion == 'verbal' %}≥ 8{% else %}≥ 7{% endif %}
+          </td>
+          <td style="text-align:center">
+            {% if adir.cumple_corte_comunicacion %}
+              <span class="badge badge-danger">Sí</span>
+            {% elif adir.cumple_corte_comunicacion == False %}
+              <span class="badge badge-success">No</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr class="fila-par">
+          <td>B — Interacción Social Recíproca</td>
+          <td class="punt-valor">{{ adir.algoritmo_interaccion_social|default:"—" }}</td>
+          <td style="text-align:center">≥ 10</td>
+          <td style="text-align:center">
+            {% if adir.cumple_corte_interaccion %}
+              <span class="badge badge-danger">Sí</span>
+            {% elif adir.cumple_corte_interaccion == False %}
+              <span class="badge badge-success">No</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>C — Comportamientos Restringidos y Repetitivos</td>
+          <td class="punt-valor">{{ adir.algoritmo_comportamientos_rr|default:"—" }}</td>
+          <td style="text-align:center">≥ 3</td>
+          <td style="text-align:center">
+            {% if adir.cumple_corte_comportamiento %}
+              <span class="badge badge-danger">Sí</span>
+            {% elif adir.cumple_corte_comportamiento == False %}
+              <span class="badge badge-success">No</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        <tr class="fila-par">
+          <td>Inicio antes de los 36 meses</td>
+          <td class="punt-valor">—</td>
+          <td style="text-align:center">Requerido</td>
+          <td style="text-align:center">
+            {% if adir.cumple_criterio_edad_inicio %}
+              <span class="badge badge-danger">Sí</span>
+            {% elif adir.cumple_criterio_edad_inicio == False %}
+              <span class="badge badge-success">No</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    {% if adir.edad_primeras_palabras %}
+    <div style="margin-top:8pt; font-size:9pt">
+      <strong>Hitos del lenguaje:</strong>
+      Primeras palabras a los {{ adir.edad_primeras_palabras }} meses
+      {% if adir.edad_primeras_frases %} |
+        Primeras frases a los {{ adir.edad_primeras_frases }} meses
+      {% endif %}
+      {% if adir.perdida_lenguaje %} |
+        Pérdida de lenguaje: <strong>Sí</strong>
+        {% if adir.edad_perdida_lenguaje %}(a los {{ adir.edad_perdida_lenguaje }} meses){% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if informe.resultados_adir %}
+    <div style="margin-top:8pt">
+      <strong style="font-size:9pt">Análisis cualitativo:</strong>
+      <div class="texto" style="margin-top:4pt">{{ informe.resultados_adir|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- INTEGRACIÓN DE RESULTADOS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if informe.integracion_resultados %}
+<div class="seccion no-break">
+  <h3>6. Integración de resultados</h3>
+  <div class="texto">{{ informe.integracion_resultados|linebreaksbr }}</div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CONCLUSIONES -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if informe.conclusiones %}
+<div class="seccion no-break">
+  <h3>7. Conclusiones y diagnóstico</h3>
+  <div class="conclusiones-box">
+    <div class="texto">{{ informe.conclusiones|linebreaksbr }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- RECOMENDACIONES -->
+<!-- ═══════════════════════════════════════════════════════ -->
+{% if informe.recomendaciones %}
+<div class="seccion no-break">
+  <h3>8. Recomendaciones</h3>
+  <div class="recomendaciones-box">
+    <div class="texto">{{ informe.recomendaciones|linebreaksbr }}</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- FIRMA -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<table class="firma-table">
+  <tr>
+    <td style="width:45%; text-align:center; padding:0 10pt;">
+      <div style="height:40pt"></div>
+      <div class="firma-linea"></div>
+      <div class="firma-nombre">
+        {{ informe.evaluador.nombre_completo }}
+      </div>
+      <div class="firma-cargo">Evaluador/a responsable</div>
+      <div class="firma-cargo">{{ informe.fecha_informe|date:"d/m/Y" }}</div>
+    </td>
+    <td style="width:10%;"></td>
+    <td style="width:45%; text-align:center; padding:0 10pt;">
+      <div style="height:40pt"></div>
+      <div class="firma-linea"></div>
+      <div class="firma-nombre">Sello institucional</div>
+      <div class="firma-cargo">Centro / Clínica</div>
+    </td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- NOTA AL PIE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="nota-pie">
+  <strong>Referencias:</strong><br>
+  Lord, C., Rutter, M., DiLavore, P. C., Risi, S., Gotham, K., &amp; Bishop, S. L. (2012).
+  <em>Autism Diagnostic Observation Schedule, Second Edition (ADOS-2) Manual.</em>
+  Western Psychological Services.<br>
+  Lord, C., Rutter, M., &amp; Le Couteur, A. (1994).
+  Autism Diagnostic Interview-Revised: A revised version of a diagnostic interview for caregivers of individuals with possible pervasive developmental disorders.
+  <em>Journal of Autism and Developmental Disorders, 24</em>(5), 659–685.<br>
+  <br>
+  <strong>Nota:</strong> Este informe es de carácter confidencial y tiene fines exclusivamente clínicos y diagnósticos.
+  Los resultados deben interpretarse siempre en conjunto con la historia clínica, observación directa y evaluación multidisciplinaria.
+  Las puntuaciones ADOS-2 y ADI-R por sí solas no constituyen un diagnóstico.
+</div>
+
+</body>
+</html>

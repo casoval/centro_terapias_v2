@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'facturacion.apps.FacturacionConfig',
     'egresos.apps.EgresosConfig',   # ✅ App de egresos del centro
     'chat',
+    'evaluaciones.apps.EvaluacionesConfig',  # ✅ App de evaluaciones ADOS-2 / ADI-R
 ]
 
 MIDDLEWARE = [

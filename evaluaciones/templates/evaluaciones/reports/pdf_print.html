@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe — {{ paciente.nombre_completo }}</title>
+<style>
+  /* Estilos para impresión */
+  @media print {
+    .no-print { display: none !important; }
+    body { margin: 0; }
+    .page-break { page-break-after: always; }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1e293b;
+    background: #f8fafc;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    min-height: 100vh;
+    padding: 2cm;
+  }
+
+  /* Barra de impresión */
+  .print-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #7c3aed;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1000;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .print-bar button {
+    background: white;
+    color: #7c3aed;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .print-bar button:hover { background: #f3f4f6; }
+  .print-spacer { height: 50px; }
+
+  /* Encabezado del informe */
+  .header {
+    border-bottom: 3px solid #7c3aed;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .header h1 { font-size: 16pt; color: #1e293b; font-weight: 800; }
+  .header h2 { font-size: 11pt; color: #7c3aed; font-weight: 600; margin-top: 4px; }
+  .confidencial {
+    background: #dc2626;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .meta { font-size: 9pt; color: #64748b; text-align: right; margin-top: 6px; }
+
+  /* Ficha del paciente */
+  .ficha {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #7c3aed;
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 20px;
+  }
+  .ficha h3 { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.5px; color: #7c3aed; margin-bottom: 10px; font-weight: 700; }
+  .ficha-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ficha-item label { font-size: 8pt; color: #94a3b8; text-transform: uppercase; display: block; }
+  .ficha-item span { font-size: 10pt; font-weight: 600; }
+
+  /* Secciones */
+  .seccion { margin-bottom: 18px; }
+  .seccion h3 {
+    font-size: 10pt;
+    color: #1e293b;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 700;
+  }
+  .seccion p { font-size: 10pt; text-align: justify; line-height: 1.7; color: #334155; }
+
+  /* Tabla de puntuaciones */
+  .tabla-punt {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin: 10px 0;
+  }
+  .tabla-punt th {
+    background: #1e293b;
+    color: white;
+    padding: 5px 8px;
+    text-align: left;
+    font-size: 9pt;
+  }
+  .tabla-punt td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+  .tabla-punt tr:nth-child(even) td { background: #f8fafc; }
+  .punt-val { font-weight: 800; font-size: 12pt; text-align: center; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 9pt; font-weight: 700; }
+  .badge-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+  .badge-warning { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+  .badge-success { background: #f0fdf4; color: #16a34a; border: 1px solid #a7f3d0; }
+  .badge-muted { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+  /* Conclusiones y recomendaciones */
+  .conclusiones-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 4px solid #f59e0b;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+  .recomendaciones-box {
+    background: #f0fdf4;
+    border: 1px solid #a7f3d0;
+    border-left: 4px solid #10b981;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+
+  /* Firma */
+  .firma-section {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 10px;
+  }
+  .firma-box { width: 45%; text-align: center; }
+  .firma-linea { border-top: 1.5px solid #1e293b; margin-bottom: 4px; }
+  .firma-nombre { font-size: 9pt; font-weight: 700; }
+  .firma-cargo { font-size: 8pt; color: #64748b; }
+
+  /* Pie de página */
+  .pie {
+    margin-top: 20px;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 8pt;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- Barra de impresión (solo visible en pantalla) -->
+<div class="print-bar no-print">
+  <span>📄 Informe listo para imprimir — {{ paciente.nombre_completo }}</span>
+  <div style="display:flex; gap:8px;">
+    <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    <button onclick="window.close()" style="background:#fef2f2; color:#dc2626;">✕ Cerrar</button>
+  </div>
+</div>
+<div class="print-spacer no-print"></div>
+
+<div class="container">
+
+  <!-- Encabezado -->
+  <div class="header">
+    <div>
+      <div class="confidencial">CONFIDENCIAL</div>
+      <h1>Informe de Evaluación Diagnóstica</h1>
+      <h2>ADOS-2 / ADI-R — Espectro del Autismo</h2>
+    </div>
+    <div class="meta">
+      <strong>Fecha:</strong> {{ informe.fecha_informe|date:"d/m/Y" }}<br>
+      <strong>Evaluador/a:</strong> {{ informe.evaluador.nombre_completo }}<br>
+      <strong>Estado:</strong> {{ informe.get_estado_display }}<br>
+      <span style="color:#94a3b8; font-size:8pt;">Generado: {{ fecha_generacion|date:"d/m/Y H:i" }}</span>
+    </div>
+  </div>
+
+  <!-- Ficha del paciente -->
+  <div class="ficha">
+    <h3>Datos del evaluado</h3>
+    <div class="ficha-grid">
+      <div class="ficha-item"><label>Nombre completo</label><span>{{ paciente.nombre_completo }}</span></div>
+      <div class="ficha-item"><label>Fecha de nacimiento</label><span>{{ paciente.fecha_nacimiento|date:"d/m/Y" }}</span></div>
+      <div class="ficha-item"><label>Edad actual</label><span>{{ paciente.edad }} años</span></div>
+      <div class="ficha-item"><label>Género</label><span>{{ paciente.get_genero_display }}</span></div>
+      <div class="ficha-item">
+        <label>Edad al evaluar</label>
+        <span>
+          {% if ados2 %}{{ ados2.edad_cronologica_anos }}a {{ ados2.edad_cronologica_meses }}m
+          {% else %}{{ paciente.edad }} años{% endif %}
+        </span>
+      </div>
+      <div class="ficha-item"><label>Tutor principal</label><span>{{ paciente.nombre_tutor }} ({{ paciente.parentesco }})</span></div>
+      <div class="ficha-item"><label>Teléfono</label><span>{{ paciente.telefono_tutor }}</span></div>
+      <div class="ficha-item">
+        <label>Tipo de comunicación</label>
+        <span>{% if adir %}{{ adir.get_tipo_comunicacion_display }}{% else %}—{% endif %}</span>
+      </div>
+      <div class="ficha-item">
+        <label>Fecha de evaluación</label>
+        <span>{% if ados2 %}{{ ados2.fecha_evaluacion|date:"d/m/Y" }}{% elif adir %}{{ adir.fecha_evaluacion|date:"d/m/Y" }}{% else %}{{ informe.fecha_informe|date:"d/m/Y" }}{% endif %}</span>
+      </div>
+    </div>
+    {% if paciente.diagnostico %}
+    <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e2e8f0; font-size:9pt;">
+      <label style="font-size:8pt; color:#94a3b8; text-transform:uppercase;">Diagnóstico previo registrado</label><br>
+      {{ paciente.diagnostico }}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Motivo de consulta -->
+  {% if informe.motivo_consulta %}
+  <div class="seccion">
+    <h3>1. Motivo de consulta</h3>
+    <p>{{ informe.motivo_consulta|linebreaksbr }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Historia clínica -->
+  {% if informe.historia_clinica %}
+  <div class="seccion">
+    <h3>2. Historia clínica relevante</h3>
+    <p>{{ informe.historia_clinica|linebreaksbr }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Instrumentos -->
+  <div class="seccion">
+    <h3>3. Instrumentos de evaluación</h3>
+    <p>{{ informe.instrumentos_utilizados|linebreaksbr }}</p>
+  </div>
+
+  <!-- Resultados ADOS-2 -->
+  {% if ados2 %}
+  <div class="seccion">
+    <h3>4. Resultados ADOS-2</h3>
+    <div style="border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong style="color:#3b82f6;">ADOS-2 — {{ ados2.get_modulo_display }}</strong>
+        {% if ados2.clasificacion == 'autismo' %}<span class="badge badge-danger">Autismo</span>
+        {% elif ados2.clasificacion == 'espectro' %}<span class="badge badge-warning">Espectro autista</span>
+        {% elif ados2.clasificacion == 'no_espectro' %}<span class="badge badge-success">No espectro</span>
+        {% else %}<span class="badge badge-muted">Pendiente</span>{% endif %}
+      </div>
+      <table class="tabla-punt">
+        <thead><tr><th>Dominio</th><th style="text-align:center;">Puntuación</th><th>Referencia</th></tr></thead>
+        <tbody>
+          <tr><td>Comunicación (A)</td><td class="punt-val">{{ ados2.total_comunicacion|default:"—" }}</td><td>Puntuación bruta</td></tr>
+          <tr><td>Interacción Social (B)</td><td class="punt-val">{{ ados2.total_interaccion_social|default:"—" }}</td><td>Puntuación bruta</td></tr>
+          <tr style="background:#eff6ff;font-weight:700;"><td>Total SA</td><td class="punt-val" style="color:#1d4ed8;">{{ ados2.total_comunicacion_social|default:"—" }}</td><td>Clasificación principal</td></tr>
+          <tr><td>Comp. Restringido (C)</td><td class="punt-val">{{ ados2.total_comportamiento_restringido|default:"—" }}</td><td>Informativo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% if informe.resultados_ados2 %}<p>{{ informe.resultados_ados2|linebreaksbr }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Resultados ADI-R -->
+  {% if adir %}
+  <div class="seccion">
+    <h3>5. Resultados ADI-R</h3>
+    <div style="border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <strong style="color:#16a34a;">ADI-R — Entrevista Diagnóstica Revisada</strong>
+        {% if adir.clasificacion == 'cumple' %}<span class="badge badge-danger">Cumple criterios</span>
+        {% elif adir.clasificacion == 'no_cumple' %}<span class="badge badge-success">No cumple criterios</span>
+        {% else %}<span class="badge badge-muted">Pendiente</span>{% endif %}
+      </div>
+      <p style="font-size:8.5pt; color:#64748b; margin-bottom:8px;">
+        Informante: <strong>{{ adir.informante }}</strong> ({{ adir.relacion_informante }}) ·
+        Tipo comunicación: <strong>{{ adir.get_tipo_comunicacion_display }}</strong>
+      </p>
+      <table class="tabla-punt">
+        <thead><tr><th>Dominio</th><th style="text-align:center;">Puntuación</th><th style="text-align:center;">Punto de corte</th><th style="text-align:center;">¿Cumple?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>A — Comunicación</td>
+            <td class="punt-val">{{ adir.algoritmo_comunicacion|default:"—" }}</td>
+            <td style="text-align:center;">{% if adir.tipo_comunicacion == 'verbal' %}≥ 8{% else %}≥ 7{% endif %}</td>
+            <td style="text-align:center;">{% if adir.cumple_corte_comunicacion %}<span class="badge badge-danger">Sí</span>{% elif adir.cumple_corte_comunicacion == False %}<span class="badge badge-success">No</span>{% else %}—{% endif %}</td>
+          </tr>
+          <tr>
+            <td>B — Interacción Social</td>
+            <td class="punt-val">{{ adir.algoritmo_interaccion_social|default:"—" }}</td>
+            <td style="text-align:center;">≥ 10</td>
+            <td style="text-align:center;">{% if adir.cumple_corte_interaccion %}<span class="badge badge-danger">Sí</span>{% elif adir.cumple_corte_interaccion == False %}<span class="badge badge-success">No</span>{% else %}—{% endif %}</td>
+          </tr>
+          <tr>
+            <td>C — Comp. Restringidos</td>
+            <td class="punt-val">{{ adir.algoritmo_comportamientos_rr|default:"—" }}</td>
+            <td style="text-align:center;">≥ 3</td>
+            <td style="text-align:center;">{% if adir.cumple_corte_comportamiento %}<span class="badge badge-danger">Sí</span>{% elif adir.cumple_corte_comportamiento == False %}<span class="badge badge-success">No</span>{% else %}—{% endif %}</td>
+          </tr>
+          <tr>
+            <td>Inicio antes de 36 meses</td>
+            <td class="punt-val">—</td>
+            <td style="text-align:center;">Requerido</td>
+            <td style="text-align:center;">{% if adir.cumple_criterio_edad_inicio %}<span class="badge badge-danger">Sí</span>{% elif adir.cumple_criterio_edad_inicio == False %}<span class="badge badge-success">No</span>{% else %}—{% endif %}</td>
+          </tr>
+        </tbody>
+      </table>
+      {% if adir.edad_primeras_palabras %}
+      <p style="font-size:8.5pt; color:#64748b; margin-top:6px;">
+        Primeras palabras: {{ adir.edad_primeras_palabras }} meses
+        {% if adir.edad_primeras_frases %} · Primeras frases: {{ adir.edad_primeras_frases }} meses{% endif %}
+        {% if adir.perdida_lenguaje %} · ⚠️ Pérdida de lenguaje{% if adir.edad_perdida_lenguaje %} ({{ adir.edad_perdida_lenguaje }} meses){% endif %}{% endif %}
+      </p>
+      {% endif %}
+    </div>
+    {% if informe.resultados_adir %}<p>{{ informe.resultados_adir|linebreaksbr }}</p>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Integración -->
+  {% if informe.integracion_resultados %}
+  <div class="seccion">
+    <h3>6. Integración de resultados</h3>
+    <p>{{ informe.integracion_resultados|linebreaksbr }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Conclusiones -->
+  {% if informe.conclusiones %}
+  <div class="seccion">
+    <h3>7. Conclusiones y diagnóstico</h3>
+    <div class="conclusiones-box">
+      <p>{{ informe.conclusiones|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Recomendaciones -->
+  {% if informe.recomendaciones %}
+  <div class="seccion">
+    <h3>8. Recomendaciones</h3>
+    <div class="recomendaciones-box">
+      <p>{{ informe.recomendaciones|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Firma -->
+  <div class="firma-section">
+    <div class="firma-box">
+      <div style="height:40px;"></div>
+      <div class="firma-linea"></div>
+      <div class="firma-nombre">{{ informe.evaluador.nombre_completo }}</div>
+      <div class="firma-cargo">Evaluador/a responsable</div>
+      <div class="firma-cargo">{{ informe.fecha_informe|date:"d/m/Y" }}</div>
+    </div>
+    <div class="firma-box">
+      <div style="height:40px;"></div>
+      <div class="firma-linea"></div>
+      <div class="firma-nombre">Sello institucional</div>
+      <div class="firma-cargo">Centro / Clínica</div>
+    </div>
+  </div>
+
+  <!-- Pie de página -->
+  <div class="pie">
+    <strong>Referencias:</strong><br>
+    Lord, C., Rutter, M., DiLavore, P. C., Risi, S., Gotham, K., &amp; Bishop, S. L. (2012). <em>Autism Diagnostic Observation Schedule, Second Edition (ADOS-2).</em> WPS.<br>
+    Lord, C., Rutter, M., &amp; Le Couteur, A. (1994). ADI-R. <em>Journal of Autism and Developmental Disorders, 24</em>(5), 659–685.<br><br>
+    <strong>Nota:</strong> Este informe es confidencial y tiene fines exclusivamente clínicos.
+    Los resultados deben interpretarse siempre junto con la observación directa y evaluación multidisciplinaria.
+  </div>
+
+</div>
+
+<script>
+// Preguntar si desea imprimir al abrir
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    if (confirm('¿Desea imprimir o guardar este informe como PDF ahora?')) {
+      window.print();
+    }
+  }, 500);
+});
+</script>
+
+</body>
+</html>

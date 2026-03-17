@@ -12,96 +12,105 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     {% block extra_css %}{% endblock %}
-    
+
+    <!-- Evita el flash blanco: aplica color de fondo ANTES del primer render -->
+    <script>
+    (function(){
+        var COLORS = {
+            atardecer:'#FF8C00', aurora:'#020818',   cyber:'#0d001a',
+            ocean:'#003366',     forest:'#0d1b0d',   galaxy:'#1a0a3d',
+            tropical:'#0f3460',  spring:'#fce4ec',   sky:'#d0edfb'
+        };
+        var t = localStorage.getItem('cni_theme') || 'atardecer';
+        document.documentElement.style.background = COLORS[t] || '#FF8C00';
+    })();
+    </script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
+        html { background: inherit; }
 
-        /* ===== FONDO DEGRADADO ATARDECER CÁLIDO ===== */
-        body::before {
-            content: '';
+        /* ===== FONDO DINÁMICO CANVAS ===== */
+        #bg-canvas {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(180deg, #FFFF99 0%, #FFD700 20%, #FF8C00 50%, #FF4500 75%, #8B4513 100%);
-            z-index: -2;
-        }
-
-        /* Formas geométricas de fondo */
-        .background-shapes {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            top: 0;
-            left: 0;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: -1;
             pointer-events: none;
         }
 
-        .polygon {
+        /* ===== SELECTOR DE TEMA EN NAVBAR ===== */
+        #theme-nav-wrapper {
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+        }
+        #theme-nav-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 0 12px;
+            height: 28px;
+            border-radius: 6px 6px 0 0;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.75rem; font-weight: 500;
+            color: #64748b;
+            transition: color 0.2s, background 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        #theme-nav-btn:hover { color: #7c3aed; background: rgba(124,58,237,0.07); }
+        #theme-nav-btn.active { color: #7c3aed; background: rgba(124,58,237,0.1); }
+        #theme-nav-btn .btn-arrow {
+            width: 14px; height: 14px;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        #theme-nav-btn.active .btn-arrow { transform: rotate(180deg); }
+
+        #theme-panel {
             position: absolute;
-            opacity: 0.15;
-            animation: rotate-float 20s infinite ease-in-out;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 9999;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06);
+            width: 292px;
+            display: none;
+            animation: themePanelIn 0.18s cubic-bezier(0.34,1.56,0.64,1);
         }
-
-        .polygon-1 {
-            width: 0;
-            height: 0;
-            border-left: 150px solid transparent;
-            border-right: 150px solid transparent;
-            border-bottom: 260px solid #FF1493;
-            top: 10%;
-            left: 10%;
-            animation-delay: 0s;
+        #theme-panel.open { display: block; }
+        @keyframes themePanelIn {
+            from { opacity:0; transform: translateY(-8px) scale(0.97); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
         }
-
-        .polygon-2 {
-            width: 200px;
-            height: 200px;
-            background: #00CED1;
-            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
-            top: 15%;
-            right: 15%;
-            animation-delay: 3s;
+        #theme-panel h4 {
+            font-size: 10px; font-weight: 700; color: #94a3b8;
+            text-transform: uppercase; letter-spacing: 0.09em;
+            margin: 0 0 10px; text-align: center;
         }
-
-        .polygon-3 {
-            width: 180px;
-            height: 180px;
-            background: #9370DB;
-            clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
-            bottom: 20%;
-            left: 20%;
-            animation-delay: 6s;
+        .theme-grid {
+            display: grid; grid-template-columns: repeat(3,1fr); gap: 7px;
         }
-
-        .polygon-4 {
-            width: 220px;
-            height: 220px;
-            background: #32CD32;
-            clip-path: polygon(50% 0%, 90% 20%, 100% 60%, 75% 100%, 25% 100%, 0% 60%, 10% 20%);
-            bottom: 15%;
-            right: 25%;
-            animation-delay: 9s;
+        .theme-swatch {
+            border-radius: 10px; overflow: hidden; cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
-
-        @keyframes rotate-float {
-            0%, 100% {
-                transform: rotate(0deg) translateY(0) scale(1);
-            }
-            25% {
-                transform: rotate(90deg) translateY(-20px) scale(1.1);
-            }
-            50% {
-                transform: rotate(180deg) translateY(-40px) scale(0.9);
-            }
-            75% {
-                transform: rotate(270deg) translateY(-20px) scale(1.05);
-            }
+        .theme-swatch:hover { transform: scale(1.05); }
+        .theme-swatch.active {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
         }
-        /* ===== FIN FONDO ATARDECER CÁLIDO ===== */
+        .theme-swatch .swatch-preview { height: 48px; width: 100%; }
+        .theme-swatch .swatch-name {
+            font-size: 9px; font-weight: 600; color: #475569;
+            text-align: center; padding: 4px 3px 5px;
+            background: white; line-height: 1.2;
+        }
+        .theme-swatch.active .swatch-name { color: #7c3aed; }
+        /* ===== FIN SELECTOR DE TEMA EN NAVBAR ===== */
 
 
         /* Degradado elegante para la barra de navegación */
@@ -246,7 +255,8 @@
             z-index: 1000;
             min-width: 14rem;
             padding: 0.5rem;
-            margin-top: 0.05rem;
+            padding-top: 0.75rem;
+            margin-top: -0.25rem;
             background-color: #ffffff;
             border-radius: 1rem;
             box-shadow: 0 10px 25px -5px rgba(30, 64, 175, 0.12), 0 8px 10px -6px rgba(147, 197, 253, 0.1), 0 0 40px rgba(165, 180, 252, 0.08);
@@ -269,7 +279,7 @@
             text-decoration: none;
             transition: all 0.2s ease;
             font-weight: 500;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             border-radius: 0.5rem;
             position: relative;
         }
@@ -430,19 +440,57 @@
                 display: none;
             }
         }
+
+        /* ===== ANIMACIÓN 3: Logo rebota al cargar ===== */
+        @keyframes logoRebote {
+            0%   { transform: translateY(-50%) scale(0.4) rotate(-15deg); opacity: 0; }
+            60%  { transform: translateY(-50%) scale(1.12) rotate(3deg); opacity: 1; }
+            80%  { transform: translateY(-50%) scale(0.95) rotate(-1deg); }
+            100% { transform: translateY(-50%) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .logo-navbar-span {
+            animation: logoRebote 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* ===== ANIMACIÓN 5: Hover glow azul en tabs ===== */
+        .tab-nav-link {
+            transition: all 0.2s ease;
+        }
+        .tab-nav-link:hover {
+            color: #1e40af !important;
+            background: rgba(37, 99, 235, 0.08) !important;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+        }
+
+        /* ===== ANIMACIÓN 6: Borde inferior flujo de color continuo ===== */
+        @keyframes borderColorFlow {
+            0%   { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .tabs-row-animated {
+            position: relative;
+            border-bottom: none !important;
+        }
+        .tabs-row-animated::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899, #06b6d4, #3b82f6);
+            background-size: 200% 100%;
+            animation: borderColorFlow 4s linear infinite;
+            z-index: 1;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
     
     
-    <!-- ===== FORMAS GEOMÉTRICAS DEL FONDO ATARDECER CÁLIDO ===== -->
-    <div class="background-shapes">
-        <div class="polygon polygon-1"></div>
-        <div class="polygon polygon-2"></div>
-        <div class="polygon polygon-3"></div>
-        <div class="polygon polygon-4"></div>
-    </div>
-    <!-- ===== FIN FORMAS GEOMÉTRICAS ===== -->
+    <!-- ===== CANVAS DE FONDO DINÁMICO ===== -->
+    <canvas id="bg-canvas"></canvas>
+    <!-- ===== FIN CANVAS ===== -->
 
     <!-- ✨ DISEÑO 1: MENÚ MINIMALISTA MODERNO ✨ -->
     {% if user.is_authenticated and not user.perfil.es_paciente and not user.perfil.es_profesional or user.is_authenticated and user.is_superuser %}
@@ -475,392 +523,453 @@
             <div class="quick-menu-icon">💰</div>
             <div class="quick-menu-title">Nuevo Pago</div>
         </a>
+
+        {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+        <a href="{% url 'evaluaciones:ados2_crear' %}" class="quick-menu-item" style="border-color: #a855f7;">
+            <div class="quick-menu-icon">🧠</div>
+            <div class="quick-menu-title">Nueva ADOS-2</div>
+        </a>
+        <a href="{% url 'evaluaciones:adir_crear' %}" class="quick-menu-item" style="border-color: #22c55e;">
+            <div class="quick-menu-icon">🗒️</div>
+            <div class="quick-menu-title">Nueva ADI-R</div>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
     
     {% if user.is_authenticated %}
     
     {% if not user.perfil.es_paciente %}
-    <nav class="navbar-gradient sticky top-0 z-50 shadow-sm transition-all duration-300">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center gap-2">
-                    {% load static %}
-                    <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-12 w-auto object-contain -ml-2">
-                    
-                    <div class="flex-shrink-0">
-                        <h1 class="text-lg lg:text-xl font-bold text-slate-800 tracking-tight">
-                            <span class="title-mobile">Centro Neurodesarrollo <span class="text-blue-600">Misael</span></span>
-                            <span class="title-tablet">Centro de Neurodesarrollo <span class="text-blue-600">Misael</span></span>
-                            <span class="title-desktop">Centro de Neurodesarrollo Infantil <span class="text-blue-600">Misael</span></span>
-                        </h1>
+    <nav class="sticky top-0 z-50 shadow-md transition-all duration-300">
 
-                        <div class="text-xs text-slate-500 font-medium">
-                            <span class="text-slate-700">
+        <!-- ══ OPCIÓN 7: header oscuro + tabs ══ -->
+        <div style="position:relative;">
+
+        <!-- LOGO COMPARTIDO: abarca ambas filas, fondo redondo claro, logo a colores -->
+        <div class="hidden lg:flex logo-navbar-span" style="position:absolute; left:2.8rem; top:50%; transform:translateY(-50%); z-index:20; pointer-events:none; align-items:center; justify-content:center;">
+            {% load static %}
+            <div style="width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,#ffffff 0%,#f0f9ff 50%,#e0f2fe 100%); box-shadow:0 4px 16px rgba(0,0,0,0.3), 0 0 0 3px rgba(255,255,255,0.9); display:flex; align-items:center; justify-content:center;">
+                <img src="{% static 'img/logo_misael.png' %}" alt="Logo"
+                     style="height:42px; width:auto; object-fit:contain;">
+            </div>
+        </div>
+
+        <!-- FILA SUPERIOR: fondo oscuro con logo móvil + título + usuario -->
+        <div style="background:linear-gradient(135deg, #1e293b 0%, #2d1b69 40%, #4c1d95 70%, #1e293b 100%);">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-9 lg:pl-24">
+
+                    <!-- Izquierda: logo móvil + título -->
+                    <div class="flex items-center gap-2">
+                        <div class="lg:hidden flex-shrink-0">
+                            <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-7 w-auto object-contain">
+                        </div>
+                        <div>
+                            <h1 class="text-base font-bold leading-tight" style="color:white;">     <!-- 20px -->
+                                <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
+                                <span class="sm:hidden">CNI </span>
+                                <span style="color:#7dd3fc;">Misael</span>
+                            </h1>
+                            <!-- Usuario + rol visible en móvil debajo del título -->
+                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
+                                <span class="text-xs font-medium" style="color:rgba(255,255,255,0.75);">{{ user.get_full_name|default:user.username }}</span>
+                                {% if user.is_superuser %}
+                                    <span class="text-xs font-bold px-1.5 py-0 rounded-full" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Super Admin</span>
+                                {% elif user.perfil.rol %}
+                                    <span class="text-xs" style="color:rgba(255,255,255,0.4);">{{ user.perfil.get_rol_display }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Derecha: usuario (desktop) + cerrar sesión + hamburguesa -->
+                    <div class="flex items-center gap-2">
+                        <!-- Usuario solo en desktop -->
+                        <div class="hidden lg:block text-right">
+                            <span class="text-sm font-semibold" style="color:rgba(255,255,255,0.85);">
                                 {{ user.get_full_name|default:user.username }}
                             </span>
                             {% if user.is_superuser %}
-                                <span class="ml-1 text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded-full">Super Admin</span>
+                                <span class="ml-1.5 text-xs font-bold px-2 py-0.5 rounded-full"
+                                      style="background:rgba(125,211,252,0.15); color:#7dd3fc;">Super Admin</span>
                             {% elif user.perfil.rol %}
-                                <span class="ml-1 text-slate-400">
-                                    ({{ user.perfil.get_rol_display }})
-                                </span>
+                                <span class="ml-1.5 text-xs" style="color:rgba(255,255,255,0.45);">({{ user.perfil.get_rol_display }})</span>
                             {% endif %}
                         </div>
+                        <!-- Cerrar sesión: compacto en móvil, normal en desktop -->
+                        <a href="{% url 'core:logout' %}"
+                           class="inline-flex items-center justify-center font-semibold text-white transition-colors shadow-sm lg:hidden"
+                           style="background:rgba(220,38,38,0.9); padding:5px 10px; border-radius:8px; font-size:11px; white-space:nowrap;">
+                            ✕ Salir
+                        </a>
+                        <a href="{% url 'core:logout' %}"
+                           class="hidden lg:inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors shadow-sm"
+                           style="background:rgba(220,38,38,0.85);"
+                           onmouseover="this.style.background='rgba(220,38,38,1)'"
+                           onmouseout="this.style.background='rgba(220,38,38,0.85)'">
+                            Cerrar Sesión
+                        </a>
+                        <!-- Hamburguesa -->
+                        <button id="mobile-menu-button" class="lg:hidden inline-flex items-center justify-center p-1.5 rounded-lg focus:outline-none transition-colors"
+                                style="color:rgba(255,255,255,0.7); border:1px solid rgba(255,255,255,0.15);">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
                     </div>
-                    
-                    <div class="hidden lg:ml-8 lg:flex lg:space-x-1 lg:items-center">
-                        
-                        {% if not user.perfil.es_profesional or user.is_superuser %}
-                        <a href="{% url 'core:dashboard' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            Principal
-                        </a>
-                        {% endif %}
-                        
-                        {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                        <a href="{% url 'agenda:calendario' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
-                        </a>
-                        {% endif %}
-                        
-                        {% if user.perfil.es_profesional %}
-                        <a href="{% url 'profesionales:mis_pacientes' %}" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            👶 Mis Pacientes
-                        </a>
-                        <a href="{% url 'agenda:mis_informes_evolucion' %}"
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            📋 Mis Informes
-                        </a>
-                        <a href="{% url 'agenda:sesiones_sucursal_profesional' %}"
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            🌈 Sesiones del Día
-                        </a>
-                        {% endif %}
-                        
-                        {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                        <div class="dropdown group">
-                            <button class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors focus:outline-none">
-                                Catálogos
-                                <svg class="ml-1.5 h-4 w-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            
-                            <div class="dropdown-menu">
-                                <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item">
-                                    <span class="mr-2">📅</span> Agendar Sesión
-                                </a>
-                                <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item">
-                                    <span class="mr-2">📦</span> Proy/Evaluación
-                                </a>
-                                
-                                <a href="{% url 'agenda:lista_mensualidades' %}" class="dropdown-item">
-                                    <span class="mr-2">💳</span> Mensualidades
-                                </a>
-
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                
-                                <a href="{% url 'pacientes:lista' %}" class="dropdown-item">
-                                    <span class="mr-2">👶</span> Pacientes
-                                </a>
-                                
-                                <a href="{% url 'profesionales:lista' %}" class="dropdown-item">
-                                    <span class="mr-2">👨‍⚕️</span> Profesionales
-                                </a>
-                                
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                
-                                <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item">
-                                    <span class="mr-2">🥼</span> Servicios
-                                </a>
-                                <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item">
-                                    <span class="mr-2">🏢</span> Sucursales
-                                </a>
-                                
-                                {% if user.is_superuser %}
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                
-                                <a href="{% url 'core:lista_usuarios' %}" class="dropdown-item">
-                                    <span class="mr-2">👥</span> Usuarios y Roles
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="dropdown group">
-                            <button class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors focus:outline-none">
-                                Facturación
-                                <svg class="ml-1.5 h-4 w-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div class="dropdown-menu">
-                                <a href="{% url 'facturacion:cuentas_corrientes' %}" class="dropdown-item">
-                                    <span class="mr-2">📋</span> Cuentas Corrientes
-                                </a>
-                                <a href="{% url 'facturacion:pagos_masivos' %}" class="dropdown-item">
-                                    <span class="mr-2">💰</span> Pagos Masivos
-                                </a>
-                                <a href="{% url 'facturacion:historial_pagos' %}" class="dropdown-item">
-                                    <span class="mr-2">📜</span> Historial de Pagos
-                                </a>
-                                <a href="{% url 'facturacion:registrar_pago' %}" class="dropdown-item">
-                                    <span class="mr-2">➕</span> Registrar Pago
-                                </a>
-                                <a href="{% url 'facturacion:registrar_devolucion' %}" class="dropdown-item text-red-600 hover:bg-red-50">
-                                    <span class="mr-2">🔙</span> Registrar Devolución
-                                </a>
-
-                                {% if user.is_superuser or user.perfil.es_gerente %}
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                <a href="{% url 'facturacion:dashboard_reportes' %}" class="dropdown-item">
-                                    <span class="mr-2">📊</span> Reportes
-                                </a>
-                                {% elif user.perfil.es_recepcionista %}
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                <a href="{% url 'facturacion:reporte_financiero' %}" class="dropdown-item">
-                                    <span class="mr-2">💰</span> Reporte Financiero
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        {% if user.is_superuser or user.perfil.es_gerente %}
-                        <div class="dropdown group">
-                            <button class="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-slate-50 transition-colors focus:outline-none">
-                                Egresos
-                                <svg class="ml-1.5 h-4 w-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div class="dropdown-menu">
-                                <a href="{% url 'egresos:dashboard_financiero' %}" class="dropdown-item text-indigo-600 hover:bg-indigo-50">
-                                    <span class="mr-2">📊</span> Dashboard Financiero
-                                </a>
-                                <a href="{% url 'egresos:lista_egresos' %}" class="dropdown-item text-red-600 hover:bg-red-50">
-                                    <span class="mr-2">💸</span> Egresos
-                                </a>
-                                <a href="{% url 'egresos:lista_ingresos_adicionales' %}" class="dropdown-item text-teal-600 hover:bg-teal-50">
-                                    <span class="mr-2">💰</span> Ingresos Adicionales
-                                </a>
-                                <a href="{% url 'egresos:liquidar_honorarios' %}" class="dropdown-item text-purple-600 hover:bg-purple-50">
-                                    <span class="mr-2">💼</span> Liquidar Honorarios
-                                </a>
-                                <div class="h-px bg-slate-100 my-1 mx-2"></div>
-                                <a href="{% url 'egresos:lista_categorias' %}" class="dropdown-item text-gray-600 hover:bg-gray-50">
-                                    <span class="mr-2">🏷️</span> Categorías de Egreso
-                                </a>
-                                <a href="{% url 'egresos:lista_proveedores' %}" class="dropdown-item text-gray-600 hover:bg-gray-50">
-                                    <span class="mr-2">🏢</span> Proveedores
-                                </a>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endif %}
-                        
-                        {% if user.is_superuser %}
-                        <a href="/admin/" 
-                           class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-colors">
-                            Admin
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-3">
-                    <a href="{% url 'core:logout' %}" 
-                       class="hidden sm:inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
-                        Cerrar Sesión
-                    </a>
-                    
-                    <button id="mobile-menu-button" class="lg:hidden inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 focus:outline-none transition-colors">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                        </svg>
-                    </button>
                 </div>
             </div>
         </div>
-        
-        <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-slate-100 bg-white">
-            <div class="px-2 pt-2 pb-3 space-y-1">
-                {% if not user.perfil.es_profesional or user.is_superuser %}
-                <a href="{% url 'core:dashboard' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    Menú Principal
-                </a>
-                {% endif %}
-                
-                {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                <a href="{% url 'agenda:calendario' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
-                </a>
-                {% endif %}
-                
-                {% if user.perfil.es_profesional %}
-                <a href="{% url 'profesionales:mis_pacientes' %}" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    👶 Mis Pacientes
-                </a>
-                <a href="{% url 'agenda:mis_informes_evolucion' %}"
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    📋 Mis Informes
-                </a>
-                <a href="{% url 'agenda:sesiones_sucursal_profesional' %}"
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    🌈 Sesiones del Día
-                </a>
-                {% endif %}
-                
-                {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
-                <div>
-                    <button id="catalogos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 focus:outline-none">
-                        <span>Catálogos</span>
-                        <svg id="catalogos-icon" class="h-5 w-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
-                    
-                    <div id="catalogos-menu" class="hidden pl-4 space-y-1 mt-1 bg-slate-50 rounded-lg mx-2">
-                        <a href="{% url 'agenda:agendar_recurrente' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            📅 Agendar Sesión
-                        </a>
-                        <a href="{% url 'agenda:lista_proyectos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            📦 Proy/Evaluación
-                        </a>
-                        
-                        <a href="{% url 'agenda:lista_mensualidades' %}" class="dropdown-item">
-                            <span class="mr-2">💳</span> Mensualidades
-                        </a>
 
-                        <div class="border-t border-slate-200 my-1 mx-3"></div>
-                        
-                        <a href="{% url 'pacientes:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            👶 Pacientes
-                        </a>
-                        
-                        <a href="{% url 'profesionales:lista' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            👨‍⚕️ Profesionales
-                        </a>
-                        
-                        <div class="border-t border-slate-200 my-1 mx-3"></div>
-                        
-                        <a href="{% url 'servicios:lista_servicios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            🥼 Servicios
-                        </a>
-                        <a href="{% url 'servicios:lista_sucursales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            🏢 Sucursales
-                        </a>
-                        
-                        {% if user.is_superuser %}
-                        <div class="border-t border-slate-200 my-1 mx-3"></div>
-                        
-                        <a href="{% url 'core:lista_usuarios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            👥 Usuarios y Roles
-                        </a>
-                        {% endif %}
+        <!-- FILA INFERIOR: tabs estilo browser (solo desktop) -->
+        <div class="hidden lg:block tabs-row-animated" style="background:white;">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-end h-8 space-x-1 lg:pl-24">
+
+                    {% if not user.perfil.es_profesional or user.is_superuser %}
+                    <a href="{% url 'core:dashboard' %}"
+                       class="inline-flex items-center px-4 text-xs font-semibold transition-colors"
+                       style="height:30px; border-radius:6px 6px 0 0; border:1px solid #e2e8f0; border-bottom:5px solid white; margin-bottom:-5px; background:white; color:#1e40af; position:relative; z-index:2;">
+                        Principal
+                    </a>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                    <a href="{% url 'agenda:calendario' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        {% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}
+                    </a>
+                    {% endif %}
+
+                    {% if user.perfil.es_profesional %}
+                    <a href="{% url 'profesionales:mis_pacientes' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        👶 Mis Pacientes
+                    </a>
+                    <a href="{% url 'agenda:mis_informes_evolucion' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        📋 Mis Informes
+                    </a>
+                    <a href="{% url 'agenda:sesiones_sucursal_profesional' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        🌈 Sesiones del Día
+                    </a>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            Catálogos
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'agenda:agendar_recurrente' %}" class="dropdown-item"><span class="mr-2">📅</span> Agendar Sesión</a>
+                            <a href="{% url 'agenda:lista_proyectos' %}" class="dropdown-item"><span class="mr-2">📦</span> Proy/Evaluación</a>
+                            <a href="{% url 'agenda:lista_mensualidades' %}" class="dropdown-item"><span class="mr-2">💳</span> Mensualidades</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'pacientes:lista' %}" class="dropdown-item"><span class="mr-2">👶</span> Pacientes</a>
+                            <a href="{% url 'profesionales:lista' %}" class="dropdown-item"><span class="mr-2">👨‍⚕️</span> Profesionales</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'servicios:lista_servicios' %}" class="dropdown-item"><span class="mr-2">🥼</span> Servicios</a>
+                            <a href="{% url 'servicios:lista_sucursales' %}" class="dropdown-item"><span class="mr-2">🏢</span> Sucursales</a>
+                            {% if user.is_superuser %}
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'core:lista_usuarios' %}" class="dropdown-item"><span class="mr-2">👥</span> Usuarios y Roles</a>
+                            {% endif %}
+                        </div>
                     </div>
+
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            Facturación
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'facturacion:cuentas_corrientes' %}" class="dropdown-item"><span class="mr-2">📋</span> Cuentas Corrientes</a>
+                            <a href="{% url 'facturacion:pagos_masivos' %}" class="dropdown-item"><span class="mr-2">💰</span> Pagos Masivos</a>
+                            <a href="{% url 'facturacion:historial_pagos' %}" class="dropdown-item"><span class="mr-2">📜</span> Historial de Pagos</a>
+                            <a href="{% url 'facturacion:registrar_pago' %}" class="dropdown-item"><span class="mr-2">➕</span> Registrar Pago</a>
+                            <a href="{% url 'facturacion:registrar_devolucion' %}" class="dropdown-item text-red-600 hover:bg-red-50"><span class="mr-2">🔙</span> Registrar Devolución</a>
+                        </div>
+                    </div>
+
+                    {% if user.is_superuser or user.perfil.es_gerente %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-red-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            Egresos
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'egresos:dashboard_financiero' %}" class="dropdown-item text-indigo-600 hover:bg-indigo-50"><span class="mr-2">📊</span> Panel Financiero</a>
+                            <a href="{% url 'egresos:lista_egresos' %}" class="dropdown-item text-red-600 hover:bg-red-50"><span class="mr-2">💸</span> Egresos</a>
+                            <a href="{% url 'egresos:lista_ingresos_adicionales' %}" class="dropdown-item text-teal-600 hover:bg-teal-50"><span class="mr-2">💰</span> Ingresos Adicionales</a>
+                            <a href="{% url 'egresos:liquidar_honorarios' %}" class="dropdown-item text-purple-600 hover:bg-purple-50"><span class="mr-2">💼</span> Liquidar Honorarios</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'egresos:lista_categorias' %}" class="dropdown-item text-gray-600 hover:bg-gray-50"><span class="mr-2">🏷️</span> Categorías de Egreso</a>
+                            <a href="{% url 'egresos:lista_proveedores' %}" class="dropdown-item text-gray-600 hover:bg-gray-50"><span class="mr-2">🏢</span> Proveedores</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+
+                    {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-emerald-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            📊 Reportes
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            {% if user.is_superuser or user.perfil.es_gerente %}
+                            <a href="{% url 'facturacion:dashboard_reportes' %}" class="dropdown-item text-emerald-700 hover:bg-emerald-50"><span class="mr-2">📊</span> Panel de Reportes</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'facturacion:reporte_financiero' %}" class="dropdown-item"><span class="mr-2">💰</span> Reporte Financiero</a>
+                            <a href="{% url 'facturacion:reporte_asistencia' %}" class="dropdown-item"><span class="mr-2">📅</span> Reporte de Asistencia</a>
+                            <a href="{% url 'facturacion:reporte_paciente' %}" class="dropdown-item"><span class="mr-2">👶</span> Reporte de Paciente</a>
+                            <a href="{% url 'facturacion:reporte_profesional' %}" class="dropdown-item"><span class="mr-2">👨‍⚕️</span> Reporte de Profesional</a>
+                            <a href="{% url 'facturacion:reporte_sucursal' %}" class="dropdown-item"><span class="mr-2">🏢</span> Reporte por Sucursal</a>
+                            {% elif user.perfil.es_recepcionista %}
+                            <a href="{% url 'facturacion:reporte_financiero' %}" class="dropdown-item"><span class="mr-2">💰</span> Reporte Financiero</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-purple-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            🧠 Evaluaciones
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'evaluaciones:dashboard' %}" class="dropdown-item text-purple-600 hover:bg-purple-50"><span class="mr-2">🧠</span> Panel de Evaluaciones</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'evaluaciones:ados2_lista' %}" class="dropdown-item"><span class="mr-2">📋</span> Evaluaciones ADOS-2</a>
+                            <a href="{% url 'evaluaciones:ados2_crear' %}" class="dropdown-item text-blue-600 hover:bg-blue-50"><span class="mr-2">➕</span> Nueva ADOS-2</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'evaluaciones:adir_lista' %}" class="dropdown-item"><span class="mr-2">🗒️</span> Evaluaciones ADI-R</a>
+                            <a href="{% url 'evaluaciones:adir_crear' %}" class="dropdown-item text-green-600 hover:bg-green-50"><span class="mr-2">➕</span> Nueva ADI-R</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'evaluaciones:informe_lista' %}" class="dropdown-item"><span class="mr-2">📄</span> Informes PDF</a>
+                            <a href="{% url 'evaluaciones:informe_crear' %}" class="dropdown-item text-red-600 hover:bg-red-50"><span class="mr-2">📝</span> Nuevo Informe</a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Selector de tema integrado en navbar -->
+                    <div id="theme-nav-wrapper">
+                        <button id="theme-nav-btn" onclick="toggleThemePanel()" type="button">
+                            🎨 Temas
+                            <svg class="btn-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div id="theme-panel">
+                            <h4>✨ Elige tu tema</h4>
+                            <div class="theme-grid" id="theme-grid"></div>
+                        </div>
+                    </div>
+
+                    {% if user.is_superuser %}
+                    <a href="/admin/"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        Admin
+                    </a>
+                    {% endif %}
+
                 </div>
-                
+            </div>
+        </div>
+
+        </div><!-- fin contenedor relativo -->
+
+        <!-- Menú móvil -->
+        <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-slate-700 bg-slate-800">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+
+                {% if not user.perfil.es_profesional or user.is_superuser %}
+                <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    🏠 <span>Principal</span>
+                </a>
+                {% endif %}
+
+                {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                <a href="{% url 'agenda:calendario' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    📅 <span>{% if user.perfil.es_profesional and not user.is_superuser %}Mi Agenda{% else %}Agenda{% endif %}</span>
+                </a>
+                {% endif %}
+
+                {% if user.perfil.es_profesional %}
+                <a href="{% url 'profesionales:mis_pacientes' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">👶 <span>Mis Pacientes</span></a>
+                <a href="{% url 'agenda:mis_informes_evolucion' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">📋 <span>Mis Informes</span></a>
+                <a href="{% url 'agenda:sesiones_sucursal_profesional' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">🌈 <span>Sesiones del Día</span></a>
+                {% endif %}
+
+                {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                <!-- Acordeón: Catálogos -->
                 <div>
-                    <button id="facturacion-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 focus:outline-none">
-                        <span>Facturación</span>
-                        <svg id="facturacion-icon" class="h-5 w-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button onclick="toggleMobileMenu('m-catalogos')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">📦 Catálogos</span>
+                        <svg id="m-catalogos-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="facturacion-menu" class="hidden pl-4 space-y-1 mt-1 bg-slate-50 rounded-lg mx-2">
-                        <a href="{% url 'facturacion:cuentas_corrientes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            📋 Cuentas Corrientes
-                        </a>
-                        <a href="{% url 'facturacion:pagos_masivos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            💰 Pagos Masivos
-                        </a>
-                        <a href="{% url 'facturacion:historial_pagos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            📜 Historial de Pagos
-                        </a>
-                        <a href="{% url 'facturacion:registrar_pago' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            ➕ Registrar Pago
-                        </a>
-                        <a href="{% url 'facturacion:registrar_devolucion' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50">
-                            🔙 Registrar Devolución
-                        </a>
-                                                
-                        {% if user.is_superuser or user.perfil.es_gerente %}
-                        <a href="{% url 'facturacion:dashboard_reportes' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            📊 Reportes
-                        </a>
-                        {% elif user.perfil.es_recepcionista %}
-                        <a href="{% url 'facturacion:reporte_financiero' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            💰 Reporte Financiero
-                        </a>
+                    <div id="m-catalogos" class="hidden mt-1 ml-3 pl-3 border-l border-slate-600 space-y-1">
+                        <a href="{% url 'agenda:agendar_recurrente' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📅 Agendar Sesión</a>
+                        <a href="{% url 'agenda:lista_proyectos' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📦 Proy/Evaluación</a>
+                        <a href="{% url 'agenda:lista_mensualidades' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">💳 Mensualidades</a>
+                        <a href="{% url 'pacientes:lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👶 Pacientes</a>
+                        <a href="{% url 'profesionales:lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👨‍⚕️ Profesionales</a>
+                        <a href="{% url 'servicios:lista_servicios' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🥼 Servicios</a>
+                        <a href="{% url 'servicios:lista_sucursales' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🏢 Sucursales</a>
+                        {% if user.is_superuser %}
+                        <a href="{% url 'core:lista_usuarios' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👥 Usuarios y Roles</a>
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- Acordeón: Facturación -->
+                <div>
+                    <button onclick="toggleMobileMenu('m-facturacion')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">💰 Facturación</span>
+                        <svg id="m-facturacion-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-facturacion" class="hidden mt-1 ml-3 pl-3 border-l border-slate-600 space-y-1">
+                        <a href="{% url 'facturacion:cuentas_corrientes' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📋 Cuentas Corrientes</a>
+                        <a href="{% url 'facturacion:pagos_masivos' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">💰 Pagos Masivos</a>
+                        <a href="{% url 'facturacion:historial_pagos' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📜 Historial de Pagos</a>
+                        <a href="{% url 'facturacion:registrar_pago' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">➕ Registrar Pago</a>
+                        <a href="{% url 'facturacion:registrar_devolucion' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-white hover:bg-red-900">🔙 Registrar Devolución</a>
+                    </div>
+                </div>
+                {% endif %}
 
                 {% if user.is_superuser or user.perfil.es_gerente %}
+                <!-- Acordeón: Egresos -->
                 <div>
-                    <button id="egresos-toggle" class="w-full flex justify-between items-center px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-red-600 hover:bg-slate-50 focus:outline-none">
-                        <span>Egresos</span>
-                        <svg id="egresos-icon" class="h-5 w-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button onclick="toggleMobileMenu('m-egresos')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">💸 Egresos</span>
+                        <svg id="m-egresos-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                         </svg>
                     </button>
-                    <div id="egresos-menu" class="hidden pl-4 space-y-1 mt-1 bg-slate-50 rounded-lg mx-2">
-                        <a href="{% url 'egresos:dashboard_financiero' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50">
-                            📊 Dashboard Financiero
-                        </a>
-                        <a href="{% url 'egresos:lista_egresos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50">
-                            💸 Egresos
-                        </a>
-                        <a href="{% url 'egresos:lista_ingresos_adicionales' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-                            💰 Ingresos Adicionales
-                        </a>
-                        <a href="{% url 'egresos:liquidar_honorarios' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                            💼 Liquidar Honorarios
-                        </a>
-                        <div class="border-t border-slate-200 my-1 mx-3"></div>
-                        <a href="{% url 'egresos:lista_categorias' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            🏷️ Categorías de Egreso
-                        </a>
-                        <a href="{% url 'egresos:lista_proveedores' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-slate-500 hover:text-blue-600">
-                            🏢 Proveedores
-                        </a>
+                    <div id="m-egresos" class="hidden mt-1 ml-3 pl-3 border-l border-red-800 space-y-1">
+                        <a href="{% url 'egresos:dashboard_financiero' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-indigo-400 hover:text-white hover:bg-indigo-900">📊 Panel Financiero</a>
+                        <a href="{% url 'egresos:lista_egresos' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-white hover:bg-red-900">💸 Egresos</a>
+                        <a href="{% url 'egresos:lista_ingresos_adicionales' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-teal-400 hover:text-white hover:bg-teal-900">💰 Ingresos Adicionales</a>
+                        <a href="{% url 'egresos:liquidar_honorarios' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-white hover:bg-purple-900">💼 Liquidar Honorarios</a>
+                        <a href="{% url 'egresos:lista_categorias' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🏷️ Categorías de Egreso</a>
+                        <a href="{% url 'egresos:lista_proveedores' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🏢 Proveedores</a>
                     </div>
                 </div>
                 {% endif %}
-                {% endif %}
-                
-                {% if user.is_superuser %}
-                <a href="/admin/" 
-                   class="block px-3 py-2 rounded-lg text-base font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50">
-                    ⭐ Admin
-                </a>
-                {% endif %}
-                
-                <div class="border-t border-slate-100 pt-3 mt-3">
-                    <div class="px-3 py-2 text-sm">
-                        <p class="text-slate-800 font-bold">{{ user.get_full_name|default:user.username }}</p>
-                        {% if user.is_superuser %}
-                        <p class="text-xs text-blue-600 font-bold">⭐ Super Admin</p>
-                        {% elif user.perfil.rol %}
-                        <p class="text-xs text-slate-500">{{ user.perfil.get_rol_display }}</p>
+
+                {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                <!-- Acordeón: Reportes -->
+                <div>
+                    <button onclick="toggleMobileMenu('m-reportes')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">📊 Reportes</span>
+                        <svg id="m-reportes-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-reportes" class="hidden mt-1 ml-3 pl-3 border-l border-emerald-700 space-y-1">
+                        {% if user.is_superuser or user.perfil.es_gerente %}
+                        <a href="{% url 'facturacion:dashboard_reportes' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-400 hover:text-white hover:bg-emerald-900">📊 Panel de Reportes</a>
+                        <a href="{% url 'facturacion:reporte_financiero' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">💰 Reporte Financiero</a>
+                        <a href="{% url 'facturacion:reporte_asistencia' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📅 Reporte de Asistencia</a>
+                        <a href="{% url 'facturacion:reporte_paciente' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👶 Reporte de Paciente</a>
+                        <a href="{% url 'facturacion:reporte_profesional' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👨‍⚕️ Reporte de Profesional</a>
+                        <a href="{% url 'facturacion:reporte_sucursal' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🏢 Reporte por Sucursal</a>
+                        {% elif user.perfil.es_recepcionista %}
+                        <a href="{% url 'facturacion:reporte_financiero' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">💰 Reporte Financiero</a>
                         {% endif %}
                     </div>
-                    <a href="{% url 'core:logout' %}" 
-                       class="block px-3 py-2 rounded-lg text-base font-medium text-red-600 hover:bg-red-50">
-                        Cerrar Sesión
-                    </a>
                 </div>
+                {% endif %}
+
+                {% if user.is_superuser or user.perfil.es_gerente or user.perfil.es_recepcionista %}
+                <!-- Acordeón: Evaluaciones -->
+                <div>
+                    <button onclick="toggleMobileMenu('m-evaluaciones')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">🧠 Evaluaciones</span>
+                        <svg id="m-evaluaciones-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-evaluaciones" class="hidden mt-1 ml-3 pl-3 border-l border-purple-700 space-y-1">
+                        <a href="{% url 'evaluaciones:dashboard' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-purple-400 hover:text-white hover:bg-purple-900">🧠 Panel de Evaluaciones</a>
+                        <a href="{% url 'evaluaciones:ados2_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📋 Evaluaciones ADOS-2</a>
+                        <a href="{% url 'evaluaciones:ados2_crear' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-blue-400 hover:text-white hover:bg-blue-900">➕ Nueva ADOS-2</a>
+                        <a href="{% url 'evaluaciones:adir_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🗒️ Evaluaciones ADI-R</a>
+                        <a href="{% url 'evaluaciones:adir_crear' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-green-400 hover:text-white hover:bg-green-900">➕ Nueva ADI-R</a>
+                        <a href="{% url 'evaluaciones:informe_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📄 Informes PDF</a>
+                        <a href="{% url 'evaluaciones:informe_crear' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-white hover:bg-red-900">📝 Nuevo Informe</a>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if user.is_superuser %}
+                <a href="/admin/" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">⭐ Admin</a>
+                {% endif %}
+
+                <!-- Selector de tema en móvil -->
+                <div class="border-t border-slate-600 pt-3 mt-2">
+                    <button onclick="toggleMobileTheme()" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">🎨 Temas</span>
+                        <svg id="m-temas-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-theme-grid" class="hidden mt-2 px-2">
+                        <div class="theme-grid" id="theme-grid-mobile"></div>
+                    </div>
+                </div>
+
+                <!-- Pie: usuario + cerrar sesión -->
+                <div class="border-t border-slate-700 pt-3 mt-2">
+                    <div class="flex items-center justify-between px-3 py-2">
+                        <div>
+                            <p class="text-sm text-white font-bold">{{ user.get_full_name|default:user.username }}</p>
+                            {% if user.is_superuser %}
+                            <p class="text-xs font-semibold" style="color:#7dd3fc;">⭐ Super Admin</p>
+                            {% elif user.perfil.rol %}
+                            <p class="text-xs text-slate-400">{{ user.perfil.get_rol_display }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'core:logout' %}"
+                           class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
+                           style="background:#dc2626;">
+                            ✕ Cerrar Sesión
+                        </a>
+                    </div>
+                </div>
+
             </div>
         </div>
     </nav>
     {% endif %}
-    
     {% if user.perfil.es_paciente %}
     <nav class="navbar-gradient sticky top-0 z-50 shadow-sm transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -979,6 +1088,15 @@
     
     <script>
         // Toggle menú móvil principal (Staff)
+        // ── Acordeones del menú móvil ──
+        function toggleMobileMenu(id) {
+            const panel = document.getElementById(id);
+            const icon  = document.getElementById(id + '-icon');
+            const open  = !panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', open);
+            if (icon) icon.style.transform = open ? '' : 'rotate(180deg)';
+        }
+
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
         
@@ -1027,10 +1145,22 @@
         const egresosMenu = document.getElementById('egresos-menu');
         const egresosIcon = document.getElementById('egresos-icon');
         
+        const evaluacionesToggle = document.getElementById('evaluaciones-toggle');
+        const evaluacionesMenu = document.getElementById('evaluaciones-menu');
+        const evaluacionesIcon = document.getElementById('evaluaciones-icon');
+        
         if (egresosToggle && egresosMenu && egresosIcon) {
             egresosToggle.addEventListener('click', function() {
                 egresosMenu.classList.toggle('hidden');
                 egresosIcon.classList.toggle('rotate-180');
+            });
+        }
+        
+        // Toggle submenú evaluaciones en móvil
+        if (evaluacionesToggle && evaluacionesMenu && evaluacionesIcon) {
+            evaluacionesToggle.addEventListener('click', function() {
+                evaluacionesMenu.classList.toggle('hidden');
+                evaluacionesIcon.classList.toggle('rotate-180');
             });
         }
         
@@ -1537,6 +1667,456 @@ function filterPacientes() {
     }
 }
 </script>
+
+<!-- ===== FIN MOTOR DE TEMAS ===== -->
+<script>
+(function(){
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, animId, currentStop;
+
+    function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', () => { resize(); });
+    resize();
+
+    /* ================================================================
+       DEFINICIÓN DE TEMAS
+    ================================================================ */
+    const THEMES = [
+        { id:'atardecer', name:'Atardecer Cálido',   swatchColors:['#FFD700','#FF8C00','#FF4500'],  dark:true  },
+        { id:'aurora',    name:'Aurora Boreal',       swatchColors:['#0d2a3e','#1D9E75','#7dd3fc'],  dark:true  },
+        { id:'cyber',     name:'Neón Cyberpunk',      swatchColors:['#0d001a','#ff00cc','#00ffff'],  dark:true  },
+        { id:'ocean',     name:'Océano Profundo',     swatchColors:['#001f3f','#006994','#00b4d8'],  dark:true  },
+        { id:'forest',    name:'Bosque Místico',      swatchColors:['#0d1b0d','#2d5a2d','#50dc50'],  dark:true  },
+        { id:'galaxy',    name:'Galaxia Rosa',        swatchColors:['#2d1b69','#9b4dca','#ff80bf'],  dark:true  },
+        { id:'tropical',  name:'Atardecer Tropical',  swatchColors:['#0f3460','#e94560','#f5a623'],  dark:true  },
+        { id:'spring',    name:'Primavera Clara',     swatchColors:['#fce4ec','#f8bbd9','#ce93d8'],  dark:false },
+        { id:'sky',       name:'Cielo Abierto',       swatchColors:['#e0f7fa','#b3e5fc','#81d4fa'],  dark:false },
+    ];
+
+    /* ================================================================
+       FUNCIONES DRAW — cada tema devuelve { init, draw }
+    ================================================================ */
+    function themeAtardecer() {
+        const shapes = [
+            { type:'tri',   color:'rgba(255,20,147,', x:.12, y:.15, size:130, rot:0, spd: .007, floatA:0   },
+            { type:'penta', color:'rgba(0,206,209,',  x:.82, y:.20, size:100, rot:1, spd:-.006, floatA:1   },
+            { type:'octa',  color:'rgba(147,112,219,',x:.20, y:.72, size:90,  rot:2, spd: .005, floatA:2   },
+            { type:'hepta', color:'rgba(50,205,50,',  x:.75, y:.75, size:110, rot:3, spd:-.008, floatA:.5  },
+        ];
+        function poly(n,cx,cy,r,rot){
+            ctx.beginPath();
+            for(let i=0;i<n;i++){const a=rot+i*Math.PI*2/n; ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));}
+            ctx.closePath();
+        }
+        return { draw(t) {
+            const grd = ctx.createLinearGradient(0,0,0,H);
+            grd.addColorStop(0,'#FFFF99'); grd.addColorStop(.2,'#FFD700');
+            grd.addColorStop(.5,'#FF8C00'); grd.addColorStop(.75,'#FF4500'); grd.addColorStop(1,'#8B4513');
+            ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
+            shapes.forEach(s=>{
+                s.rot += s.spd;
+                const cy = H*(s.y + .03*Math.sin(t*.015+s.floatA));
+                ctx.save(); ctx.translate(W*s.x, cy); ctx.rotate(s.rot);
+                const n = s.type==='tri'?3:s.type==='penta'?5:s.type==='octa'?8:7;
+                poly(n,0,0,s.size,0);
+                ctx.fillStyle = s.color+'0.14)'; ctx.fill();
+                ctx.strokeStyle = s.color+'0.3)'; ctx.lineWidth=2; ctx.stroke();
+                ctx.restore();
+            });
+        }};
+    }
+
+    function themeAurora() {
+        const stars = Array.from({length:60},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.5+.3,p:Math.random()*Math.PI*2}));
+        const waves = [
+            {yf:.55, color:'rgba(0,255,128,', spd:.012, amp:22, phase:0},
+            {yf:.42, color:'rgba(0,180,255,', spd:.018, amp:16, phase:2},
+            {yf:.68, color:'rgba(100,0,255,',  spd:.009, amp:28, phase:4},
+        ];
+        return { draw(t) {
+            const grd = ctx.createLinearGradient(0,0,0,H);
+            grd.addColorStop(0,'#020818'); grd.addColorStop(.5,'#0a1628'); grd.addColorStop(1,'#040e1a');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            stars.forEach(s=>{
+                const a=.3+.7*Math.abs(Math.sin(t*.02+s.p));
+                ctx.fillStyle=`rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2); ctx.fill();
+            });
+            waves.forEach(w=>{
+                ctx.beginPath(); ctx.moveTo(0,H);
+                for(let x=0;x<=W;x+=4) ctx.lineTo(x, H*w.yf + Math.sin(x*.035+t*w.spd+w.phase)*w.amp + Math.sin(x*.018+t*w.spd*.6)*12);
+                ctx.lineTo(W,H); ctx.closePath();
+                ctx.fillStyle=w.color+'.13)'; ctx.fill();
+            });
+        }};
+    }
+
+    function themeCyber() {
+        const pts = Array.from({length:12},()=>({
+            x:Math.random(), y:Math.random(),
+            vx:(Math.random()-.5)*.0012, vy:(Math.random()-.5)*.0012,
+            c: Math.random()>.5
+        }));
+        const hexs = Array.from({length:6},(_,i)=>({
+            fx: .08+i*.17, fy: .25+Math.sin(i*1.3)*.35,
+            r: 55+i*18, rot: i*.8, spd:(i%2?.005:-.004),
+            phase: i*1.1
+        }));
+        function drawHex(cx,cy,r,rot){
+            ctx.beginPath();
+            for(let i=0;i<6;i++){const a=rot+i*Math.PI/3; i===0?ctx.moveTo(cx+r*Math.cos(a),cy+r*Math.sin(a)):ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));}
+            ctx.closePath();
+        }
+        return { draw(t) {
+            /* Fondo sólido cada frame — sin mezcla con tema anterior */
+            ctx.fillStyle='#07001a'; ctx.fillRect(0,0,W,H);
+
+            /* Grid perspectiva */
+            ctx.save();
+            ctx.strokeStyle='rgba(0,255,255,.07)'; ctx.lineWidth=1;
+            const gSize=Math.min(W,H)/10;
+            for(let x=0;x<W;x+=gSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+            for(let y=0;y<H;y+=gSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+            ctx.restore();
+
+            /* Líneas entre puntos */
+            const px=pts.map(p=>({x:p.x*W,y:p.y*H}));
+            for(let i=0;i<pts.length;i++){
+                pts[i].x+=pts[i].vx; pts[i].y+=pts[i].vy;
+                if(pts[i].x<0||pts[i].x>1)pts[i].vx*=-1;
+                if(pts[i].y<0||pts[i].y>1)pts[i].vy*=-1;
+            }
+            for(let i=0;i<px.length;i++) for(let j=i+1;j<px.length;j++){
+                const d=Math.hypot(px[i].x-px[j].x,px[i].y-px[j].y);
+                const maxD=Math.min(W,H)*.4;
+                if(d<maxD){
+                    const a=(1-d/maxD)*.7;
+                    const col=pts[i].c?`rgba(255,0,220,${a})`:`rgba(0,255,255,${a})`;
+                    ctx.strokeStyle=col; ctx.lineWidth=1;
+                    ctx.beginPath(); ctx.moveTo(px[i].x,px[i].y); ctx.lineTo(px[j].x,px[j].y); ctx.stroke();
+                }
+            }
+            /* Puntos */
+            px.forEach((p,i)=>{
+                ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2);
+                ctx.fillStyle=pts[i].c?'rgba(255,0,220,.9)':'rgba(0,255,255,.9)'; ctx.fill();
+            });
+
+            /* Hexágonos neón */
+            hexs.forEach(h=>{
+                h.rot+=h.spd;
+                const cx=h.fx*W, cy=h.fy*H+Math.sin(t*.015+h.phase)*H*.05;
+                const pulse=1+.08*Math.sin(t*.03+h.phase);
+                /* exterior magenta */
+                drawHex(cx,cy,h.r*pulse,h.rot);
+                ctx.strokeStyle='rgba(255,0,200,.55)'; ctx.lineWidth=2; ctx.stroke();
+                /* glow exterior */
+                drawHex(cx,cy,h.r*pulse,h.rot);
+                ctx.strokeStyle='rgba(255,0,200,.12)'; ctx.lineWidth=8; ctx.stroke();
+                /* interior cyan */
+                drawHex(cx,cy,h.r*pulse*.58,h.rot+Math.PI/6);
+                ctx.strokeStyle='rgba(0,255,255,.65)'; ctx.lineWidth=1.5; ctx.stroke();
+                /* glow interior */
+                drawHex(cx,cy,h.r*pulse*.58,h.rot+Math.PI/6);
+                ctx.strokeStyle='rgba(0,255,255,.15)'; ctx.lineWidth=6; ctx.stroke();
+            });
+
+            /* Escanlines sutiles */
+            ctx.fillStyle='rgba(0,0,0,.04)';
+            for(let y=0;y<H;y+=4){ctx.fillRect(0,y,W,2);}
+        }};
+    }
+
+    function themeOcean() {
+        const bubbles = Array.from({length:25},()=>({x:Math.random(),y:1+Math.random(),r:Math.random()*10+3,spd:Math.random()*.003+.001,wave:Math.random()*Math.PI*2}));
+        return { draw(t) {
+            const grd=ctx.createRadialGradient(W*.25,H*.9,0,W*.5,H*.5,H);
+            grd.addColorStop(0,'#001f3f'); grd.addColorStop(.4,'#003875'); grd.addColorStop(.7,'#006994'); grd.addColorStop(1,'#00b4d8');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            ctx.strokeStyle='rgba(0,150,200,.06)'; ctx.lineWidth=60;
+            ctx.beginPath(); ctx.moveTo(0,H*.45+Math.sin(t*.012)*20); ctx.lineTo(W,H*.45+Math.cos(t*.01)*18); ctx.stroke();
+            bubbles.forEach(b=>{
+                b.y-=b.spd; b.x+= Math.sin(t*.02+b.wave)*.001;
+                if(b.y<-.05){b.y=1.05; b.x=Math.random();}
+                const a=.12+.22*Math.abs(Math.sin(t*.015+b.wave));
+                ctx.beginPath(); ctx.arc(b.x*W,b.y*H,b.r,0,Math.PI*2);
+                ctx.strokeStyle=`rgba(100,220,255,${a})`; ctx.lineWidth=1.2; ctx.stroke();
+                ctx.fillStyle=`rgba(0,180,220,${a*.3})`; ctx.fill();
+            });
+        }};
+    }
+
+    function themeForest() {
+        const hexs = Array.from({length:8},(_,i)=>({cx:W*(i/7),cy:H*(.25+Math.random()*.5),r:28+Math.random()*20,rot:Math.random()*Math.PI,spd:(Math.random()-.5)*.006,phase:Math.random()*Math.PI*2}));
+        const parts = Array.from({length:30},()=>({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*.002,vy:-Math.random()*.004-.001,a:Math.random()*.4}));
+        return { draw(t) {
+            const grd=ctx.createLinearGradient(0,0,0,H);
+            grd.addColorStop(0,'#050f05'); grd.addColorStop(.4,'#0d1f0d'); grd.addColorStop(1,'#162816');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            hexs.forEach(h=>{
+                h.rot+=h.spd;
+                const pulse=1+.1*Math.sin(t*.025+h.phase);
+                const fy=h.cy+Math.sin(t*.018+h.phase)*H*.04;
+                ctx.save(); ctx.translate(h.cx,fy); ctx.rotate(h.rot);
+                ctx.beginPath(); for(let i=0;i<6;i++){const a=i*Math.PI/3; ctx.lineTo(h.r*pulse*Math.cos(a),h.r*pulse*Math.sin(a));} ctx.closePath();
+                ctx.strokeStyle='rgba(80,220,80,.2)'; ctx.lineWidth=1.5; ctx.stroke();
+                ctx.beginPath(); for(let i=0;i<6;i++){const a=i*Math.PI/3+Math.PI/6; ctx.lineTo(h.r*pulse*.55*Math.cos(a),h.r*pulse*.55*Math.sin(a));} ctx.closePath();
+                ctx.strokeStyle='rgba(0,255,100,.15)'; ctx.lineWidth=1; ctx.stroke();
+                ctx.restore();
+            });
+            parts.forEach(p=>{
+                p.x+=p.vx; p.y+=p.vy; p.a-=.003;
+                if(p.a<=0||p.y<0){p.x=Math.random(); p.y=1; p.a=Math.random()*.35+.05; p.vy=-Math.random()*.004-.001;}
+                ctx.fillStyle=`rgba(100,255,100,${p.a})`; ctx.beginPath(); ctx.arc(p.x*W,p.y*H,1.5,0,Math.PI*2); ctx.fill();
+            });
+        }};
+    }
+
+    function themeGalaxy() {
+        const stars=Array.from({length:80},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.5+.2,p:Math.random()*Math.PI*2}));
+        const spirals=[{cx:.3,cy:.4,arms:3,rot:0,spd:.003},{cx:.72,cy:.62,arms:4,rot:1,spd:-.0025}];
+        return { draw(t) {
+            const grd=ctx.createRadialGradient(W*.35,H*.4,0,W*.5,H*.5,H*.8);
+            grd.addColorStop(0,'#2d1b69'); grd.addColorStop(.4,'#1a0a3d'); grd.addColorStop(.7,'#3d0a5c'); grd.addColorStop(1,'#0a0518');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            stars.forEach(s=>{
+                const a=.3+.7*Math.abs(Math.sin(t*.025+s.p));
+                ctx.fillStyle=`rgba(255,200,255,${a})`; ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2); ctx.fill();
+            });
+            spirals.forEach(sp=>{
+                sp.rot+=sp.spd;
+                for(let arm=0;arm<sp.arms;arm++) for(let i=0;i<30;i++){
+                    const angle=sp.rot+arm*(Math.PI*2/sp.arms)+i*.22;
+                    const rad=i*Math.min(W,H)*.008;
+                    const a=(1-i/30)*.45;
+                    if(a>0){ctx.fillStyle=`rgba(220,100,255,${a})`; ctx.beginPath(); ctx.arc(sp.cx*W+rad*Math.cos(angle),sp.cy*H+rad*Math.sin(angle),1.2,0,Math.PI*2); ctx.fill();}
+                }
+            });
+        }};
+    }
+
+    function themeTropical() {
+        const tris=Array.from({length:6},(_,i)=>({x:W*(.1+i*.16),y:H*(.2+Math.random()*.6),size:(25+Math.random()*20),rot:Math.random()*Math.PI*2,spd:(Math.random()-.5)*.012,c:i%3===0?'rgba(245,166,35,':i%3===1?'rgba(233,69,96,':'rgba(255,200,50,'}));
+        return { draw(t) {
+            const grd=ctx.createLinearGradient(0,0,0,H);
+            grd.addColorStop(0,'#1a1a2e'); grd.addColorStop(.2,'#16213e'); grd.addColorStop(.4,'#0f3460'); grd.addColorStop(.6,'#533483'); grd.addColorStop(.82,'#e94560'); grd.addColorStop(1,'#f5a623');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            [H*.68, H*.8].forEach((wy,i)=>{
+                ctx.beginPath(); ctx.moveTo(0,H);
+                const ph=i*.8, spd=i?.02:.015;
+                for(let x=0;x<=W;x+=4) ctx.lineTo(x, wy+Math.sin(x*.04+t*spd+ph)*(8+i*4));
+                ctx.lineTo(W,H); ctx.closePath();
+                const wg=ctx.createLinearGradient(0,wy,0,H);
+                wg.addColorStop(0,`rgba(${i?'233,69,96':'245,166,35'},.18)`); wg.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.fillStyle=wg; ctx.fill();
+            });
+            const sx=W*.78, sy=H*.18;
+            const sg=ctx.createRadialGradient(sx,sy,2,sx,sy,H*.07);
+            sg.addColorStop(0,'rgba(255,220,50,.55)'); sg.addColorStop(1,'rgba(255,150,0,0)');
+            ctx.beginPath(); ctx.arc(sx,sy,H*.07,0,Math.PI*2); ctx.fillStyle=sg; ctx.fill();
+            tris.forEach(tr=>{
+                tr.rot+=tr.spd; tr.y+=Math.sin(t*.018+tr.rot)*.35;
+                ctx.save(); ctx.translate(tr.x,tr.y); ctx.rotate(tr.rot);
+                ctx.beginPath(); ctx.moveTo(0,-tr.size); ctx.lineTo(tr.size*.866,tr.size*.5); ctx.lineTo(-tr.size*.866,tr.size*.5); ctx.closePath();
+                ctx.strokeStyle=tr.c+'.38)'; ctx.lineWidth=1.8; ctx.stroke();
+                ctx.restore();
+            });
+        }};
+    }
+
+    function themeSpring() {
+        const petals=Array.from({length:30},(_,i)=>({x:Math.random(),y:Math.random(),r:Math.random()*22+8,rot:Math.random()*Math.PI*2,spd:(Math.random()-.5)*.004,vy:-Math.random()*.002-.0005,hue:300+Math.random()*60,a:Math.random()*.3+.08}));
+        const circles=Array.from({length:12},(_,i)=>({x:.1+i*.08,y:.5+Math.sin(i)*.3,r:Math.min(W,H)*(.04+Math.random()*.06),phase:i*.5,spd:.003+i*.001}));
+        return { draw(t) {
+            const grd=ctx.createLinearGradient(0,0,W*.5,H);
+            grd.addColorStop(0,'#fff9fc'); grd.addColorStop(.4,'#fce4ec'); grd.addColorStop(.7,'#f8bbd9'); grd.addColorStop(1,'#ede7f6');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            circles.forEach(c=>{
+                const cy=c.y*H+Math.sin(t*c.spd+c.phase)*H*.06;
+                const g=ctx.createRadialGradient(c.x*W,cy,0,c.x*W,cy,c.r);
+                g.addColorStop(0,'rgba(240,160,220,.18)'); g.addColorStop(1,'rgba(220,120,200,0)');
+                ctx.beginPath(); ctx.arc(c.x*W,cy,c.r,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+            });
+            petals.forEach(p=>{
+                p.rot+=p.spd; p.y+=p.vy; p.x+=Math.sin(t*.015+p.rot)*.0005;
+                if(p.y<-.08){p.y=1.08; p.x=Math.random();}
+                ctx.save(); ctx.translate(p.x*W,p.y*H); ctx.rotate(p.rot);
+                ctx.beginPath(); ctx.ellipse(0,0,p.r*.5,p.r,0,0,Math.PI*2);
+                ctx.fillStyle=`hsla(${p.hue},80%,75%,${p.a})`; ctx.fill();
+                ctx.strokeStyle=`hsla(${p.hue},70%,65%,${p.a*.6})`; ctx.lineWidth=1; ctx.stroke();
+                ctx.restore();
+            });
+        }};
+    }
+
+    function themeSky() {
+        const clouds=Array.from({length:5},(_,i)=>({x:Math.random(),y:.1+Math.random()*.5,spd:.0003+i*.0001,puffs:[{r:50+Math.random()*30},{r:70+Math.random()*40},{r:45+Math.random()*25}]}));
+        const shapes=Array.from({length:8},(_,i)=>({x:Math.random(),y:Math.random(),n:3+Math.floor(Math.random()*5),r:20+Math.random()*30,rot:Math.random()*Math.PI*2,spd:(Math.random()-.5)*.006,hue:190+Math.random()*40}));
+        return { draw(t) {
+            const grd=ctx.createLinearGradient(0,0,0,H);
+            grd.addColorStop(0,'#e8f5fc'); grd.addColorStop(.4,'#d0edfb'); grd.addColorStop(.7,'#b3e5fc'); grd.addColorStop(1,'#e0f7fa');
+            ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+            clouds.forEach(c=>{
+                c.x+=c.spd; if(c.x>1.3)c.x=-.3;
+                ctx.save(); ctx.translate(c.x*W,c.y*H);
+                c.puffs.forEach((p,j)=>{
+                    const pg=ctx.createRadialGradient(j*p.r*.6,0,0,j*p.r*.6,0,p.r);
+                    pg.addColorStop(0,'rgba(255,255,255,.75)'); pg.addColorStop(1,'rgba(200,235,255,0)');
+                    ctx.beginPath(); ctx.arc(j*p.r*.6,0,p.r,0,Math.PI*2); ctx.fillStyle=pg; ctx.fill();
+                });
+                ctx.restore();
+            });
+            shapes.forEach(s=>{
+                s.rot+=s.spd;
+                ctx.save(); ctx.translate(s.x*W,s.y*H+Math.sin(t*.012+s.rot)*H*.04); ctx.rotate(s.rot);
+                ctx.beginPath(); for(let i=0;i<s.n;i++){const a=i*Math.PI*2/s.n; ctx.lineTo(s.r*Math.cos(a),s.r*Math.sin(a));} ctx.closePath();
+                ctx.strokeStyle=`hsla(${s.hue},70%,65%,.25)`; ctx.lineWidth=2; ctx.stroke();
+                ctx.fillStyle=`hsla(${s.hue},80%,85%,.1)`; ctx.fill();
+                ctx.restore();
+            });
+        }};
+    }
+
+    const DRAWERS = {
+        atardecer: themeAtardecer,
+        aurora:    themeAurora,
+        cyber:     themeCyber,
+        ocean:     themeOcean,
+        forest:    themeForest,
+        galaxy:    themeGalaxy,
+        tropical:  themeTropical,
+        spring:    themeSpring,
+        sky:       themeSky,
+    };
+
+    /* ================================================================
+       MOTOR DE ANIMACIÓN
+    ================================================================ */
+    let currentThemeId = localStorage.getItem('cni_theme') || 'atardecer';
+    let drawer = null;
+    let tick = 0;
+
+    function applyTheme(id) {
+        currentThemeId = id;
+        localStorage.setItem('cni_theme', id);
+        if(animId) cancelAnimationFrame(animId);
+        tick = 0;
+        drawer = DRAWERS[id]();
+        drawFirstFrame(); /* pinta inmediatamente, sin esperar rAF */
+        tick = 1;
+        loop();
+        updateSwatches();
+    }
+
+    function loop() {
+        resize();
+        drawer.draw(tick++);
+        animId = requestAnimationFrame(loop);
+    }
+
+    /* Dibuja el primer frame de forma síncrona para eliminar el flash blanco */
+    function drawFirstFrame() {
+        resize();
+        drawer.draw(0);
+    }
+    function buildPanel() {
+        const grid = document.getElementById('theme-grid');
+        if(!grid) return;
+        grid.innerHTML = '';
+        THEMES.forEach(th=>{
+            const div = document.createElement('div');
+            div.className = 'theme-swatch' + (th.id===currentThemeId?' active':'');
+            div.dataset.id = th.id;
+            div.onclick = ()=>{ applyTheme(th.id); toggleThemePanel(false); };
+            const preview = document.createElement('div');
+            preview.className = 'swatch-preview';
+            const c = th.swatchColors;
+            preview.style.background = `linear-gradient(135deg, ${c[0]} 0%, ${c[1]} 50%, ${c[2]} 100%)`;
+            const label = document.createElement('div');
+            label.className = 'swatch-name';
+            label.textContent = th.name;
+            div.appendChild(preview); div.appendChild(label);
+            grid.appendChild(div);
+        });
+    }
+
+    function updateSwatches() {
+        document.querySelectorAll('.theme-swatch').forEach(el=>{
+            el.classList.toggle('active', el.dataset.id===currentThemeId);
+        });
+        // Actualizar también el grid móvil
+        const mobileGrid = document.getElementById('theme-grid-mobile');
+        if(mobileGrid) {
+            mobileGrid.querySelectorAll('.theme-swatch').forEach(el=>{
+                el.classList.toggle('active', el.dataset.id===currentThemeId);
+            });
+        }
+    }
+
+    window.toggleMobileTheme = function() {
+        const grid = document.getElementById('theme-grid-mobile');
+        const panel = document.getElementById('m-theme-grid');
+        const icon  = document.getElementById('m-temas-icon');
+        if(!panel) return;
+        const isHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !isHidden);
+        if(icon) icon.style.transform = isHidden ? 'rotate(180deg)' : '';
+        // Construir el grid móvil solo la primera vez
+        if(isHidden && grid && grid.children.length === 0) {
+            THEMES.forEach(th => {
+                const div = document.createElement('div');
+                div.className = 'theme-swatch' + (th.id===currentThemeId?' active':'');
+                div.dataset.id = th.id;
+                div.onclick = () => { applyTheme(th.id); };
+                const preview = document.createElement('div');
+                preview.className = 'swatch-preview';
+                const ccc = th.swatchColors;
+                preview.style.background = 'linear-gradient(135deg,' + ccc[0] + ' 0%,' + ccc[1] + ' 50%,' + ccc[2] + ' 100%)';
+                const label = document.createElement('div');
+                label.className = 'swatch-name';
+                label.textContent = th.name;
+                div.appendChild(preview); div.appendChild(label);
+                grid.appendChild(div);
+            });
+        }
+    };
+
+    window.toggleThemePanel = function(force) {
+        const panel = document.getElementById('theme-panel');
+        const btn   = document.getElementById('theme-nav-btn');
+        if(!panel) return;
+        const shouldOpen = force !== undefined ? force : !panel.classList.contains('open');
+        panel.classList.toggle('open', shouldOpen);
+        if(btn) btn.classList.toggle('active', shouldOpen);
+    };
+
+    document.addEventListener('click', function(e){
+        const panel   = document.getElementById('theme-panel');
+        const wrapper = document.getElementById('theme-nav-wrapper');
+        if(panel && wrapper && !wrapper.contains(e.target)){
+            panel.classList.remove('open');
+            const btn = document.getElementById('theme-nav-btn');
+            if(btn) btn.classList.remove('active');
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', ()=>{
+        buildPanel();
+        applyTheme(currentThemeId);
+    });
+
+    if(document.readyState==='loading') {
+        document.addEventListener('DOMContentLoaded',()=>{ buildPanel(); applyTheme(currentThemeId); });
+    } else {
+        buildPanel();
+        applyTheme(currentThemeId);
+    }
+})();
+</script>
+<!-- ===== FIN MOTOR DE TEMAS ===== -->
 
     {% block extra_js %}{% endblock %}
 

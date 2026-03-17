@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}ADI-R — {{ evaluacion.paciente.nombre_completo }}{% endblock %}
+{% block content %}
+<div class="min-h-screen p-4 md:p-6">
+<div class="max-w-4xl mx-auto">
+  <nav class="text-xs text-slate-400 mb-3">
+    <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-green-500">Evaluaciones</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'evaluaciones:adir_lista' %}" class="hover:text-green-500">ADI-R</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-600 font-medium">Detalle</span>
+  </nav>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+    <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 text-white flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold">{{ evaluacion.paciente.nombre_completo }}</h1>
+        <p class="text-sm opacity-85 mt-1">ADI-R · {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} · {{ evaluacion.get_tipo_comunicacion_display }}</p>
+        <p class="text-xs opacity-70 mt-0.5">Informante: {{ evaluacion.informante }} ({{ evaluacion.relacion_informante }}) · Evaluador: {{ evaluacion.evaluador.nombre_completo }}
+</p>
+      </div>
+      {% if evaluacion.clasificacion == 'cumple' %}
+        <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl self-start">🔴 Cumple criterios</span>
+      {% elif evaluacion.clasificacion == 'no_cumple' %}
+        <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl self-start">🟢 No cumple</span>
+      {% else %}
+        <span class="bg-white/15 text-white/80 text-sm px-4 py-1.5 rounded-xl self-start">⏳ Pendiente</span>
+      {% endif %}
+    </div>
+
+    <!-- Algoritmo -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">A — Com.<br><span class="text-slate-300">(corte {% if evaluacion.tipo_comunicacion == 'verbal' %}≥8{% else %}≥7{% endif %})</span></p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comunicacion %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_comunicacion|default:"—" }}</p>
+        {% if evaluacion.cumple_corte_comunicacion %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_comunicacion == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
+      </div>
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">B — Social<br><span class="text-slate-300">(corte ≥10)</span></p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_interaccion %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_interaccion_social|default:"—" }}</p>
+        {% if evaluacion.cumple_corte_interaccion %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_interaccion == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
+      </div>
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">C — RRB<br><span class="text-slate-300">(corte ≥3)</span></p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comportamiento %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_comportamientos_rr|default:"—" }}</p>
+        {% if evaluacion.cumple_corte_comportamiento %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_comportamiento == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
+      </div>
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Inicio &lt;36m</p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_criterio_edad_inicio %}text-red-500{% elif evaluacion.cumple_criterio_edad_inicio == False %}text-green-600{% else %}text-slate-400{% endif %}">
+          {% if evaluacion.cumple_criterio_edad_inicio %}Sí{% elif evaluacion.cumple_criterio_edad_inicio == False %}No{% else %}—{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {% if evaluacion.edad_primeras_palabras %}
+    <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap gap-4 text-sm text-slate-600">
+      <span>🗣 Primeras palabras: <strong>{{ evaluacion.edad_primeras_palabras }}m</strong></span>
+      {% if evaluacion.edad_primeras_frases %}<span>💬 Primeras frases: <strong>{{ evaluacion.edad_primeras_frases }}m</strong></span>{% endif %}
+      {% if evaluacion.perdida_lenguaje %}<span class="text-red-600">⚠️ Pérdida lenguaje{% if evaluacion.edad_perdida_lenguaje %}: {{ evaluacion.edad_perdida_lenguaje }}m{% endif %}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="p-4 flex flex-wrap gap-2">
+      <a href="{% url 'evaluaciones:adir_items' evaluacion.pk %}" class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">✏️ Editar ítems</a>
+      <a href="{% url 'evaluaciones:informe_crear' %}" class="bg-green-50 hover:bg-green-100 text-green-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">📄 Crear informe</a>
+      <a href="{% url 'evaluaciones:adir_eliminar' evaluacion.pk %}" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors ml-auto">🗑 Eliminar</a>
+    </div>
+  </div>
+
+  {% if evaluacion.observaciones %}
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">🔎 Observaciones</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">{{ evaluacion.observaciones|linebreaksbr }}</p>
+  </div>
+  {% endif %}
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+{% block title %}Referencia de Puntuaciones — ADOS-2 · ADI-R{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Radio tabs ── */
+  .ref-tab-input { display: none; }
+  .ref-tab-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 18px; border-radius: 0.75rem;
+    border: 1.5px solid #e2e8f0; background: white;
+    color: #64748b; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: all .15s; user-select: none;
+  }
+  #tab-ados2:checked ~ * #lbl-ados2,
+  #tab-adir:checked  ~ * #lbl-adir,
+  #tab-sim:checked   ~ * #lbl-sim  {
+    background: #1e293b; color: white; border-color: #1e293b;
+  }
+  /* ── Secciones visibilidad ── */
+  .ref-section { display: none; }
+  #tab-ados2:checked ~ * #sec-ados2 { display: block; }
+  #tab-adir:checked  ~ * #sec-adir  { display: block; }
+  #tab-sim:checked   ~ * #sec-sim   { display: block; }
+
+  /* ── Tarjetas y chips ── */
+  .ref-card {
+    background: white; border: 1px solid #f1f5f9;
+    border-radius: 1rem; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+  }
+  .ref-card-title {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: .06em;
+    color: #94a3b8; text-transform: uppercase; margin-bottom: .75rem;
+  }
+  .chip {
+    display: inline-flex; align-items: center; padding: 3px 10px;
+    border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .chip-g  { background: #dcfce7; color: #166534; }
+  .chip-b  { background: #dbeafe; color: #1e40af; }
+  .chip-p  { background: #ede9fe; color: #5b21b6; }
+  .chip-y  { background: #fef9c3; color: #854d0e; }
+  .chip-r  { background: #fee2e2; color: #991b1b; }
+  .chip-sl { background: #f1f5f9; color: #475569; }
+
+  /* ── Tabla de cortes ── */
+  .corte-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .corte-table th {
+    text-align: left; padding: 7px 10px; font-size: 11px; font-weight: 700;
+    color: #94a3b8; letter-spacing: .04em; border-bottom: 1px solid #f1f5f9;
+  }
+  .corte-table td {
+    padding: 8px 10px; border-bottom: 1px solid #f8fafc;
+    color: #334155; vertical-align: middle;
+  }
+  .corte-table tr:last-child td { border-bottom: none; }
+
+  /* ── Filas de resultado ── */
+  .result-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid #f8fafc; font-size: 13px; color: #475569;
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-val { font-weight: 700; color: #1e293b; }
+
+  /* ── Simulador sliders ── */
+  .sim-label { font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 600; }
+  .sim-row { display: flex; align-items: center; gap: 10px; margin-bottom: .9rem; }
+  .sim-row input[type=range] { flex: 1; accent-color: #16a34a; }
+  .sim-val { font-size: 13px; font-weight: 700; min-width: 28px; text-align: right; color: #1e293b; }
+  .sim-result {
+    border-radius: 1rem; padding: 1rem 1.25rem; margin-top: 1rem; font-size: 13px;
+    transition: background .2s, color .2s;
+  }
+  .sim-result.g  { background: #dcfce7; color: #166534; }
+  .sim-result.y  { background: #fef9c3; color: #854d0e; }
+  .sim-result.r  { background: #fee2e2; color: #991b1b; }
+  .sim-result.sl { background: #f1f5f9; color: #64748b; }
+  .sim-result-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+
+  /* ── Dos columnas ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── Infobox ── */
+  .infobox {
+    background: #f8fafc; border-radius: .75rem; padding: .75rem 1rem;
+    font-size: 12px; color: #64748b; margin-top: .75rem; line-height: 1.7;
+    border-left: 3px solid #e2e8f0;
+  }
+
+  /* ── Checklist ADI-R ── */
+  .check-row {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid #f8fafc; font-size: 13px;
+  }
+  .check-row:last-child { border-bottom: none; }
+  .check-ico { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .check-ico.g { background: #dcfce7; color: #16a34a; }
+  .check-ico.b { background: #dbeafe; color: #1d4ed8; }
+  .check-ico.p { background: #ede9fe; color: #7c3aed; }
+  .check-ico.y { background: #fef9c3; color: #a16207; }
+  .check-label { font-weight: 600; color: #1e293b; }
+  .check-sub   { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+  /* ── Breadcrumb ── */
+  .bc-link { color: #64748b; font-weight: 600; font-size: 13px; }
+  .bc-link:hover { color: #16a34a; }
+</style>
+{% endblock %}
+
+{% block content %}
+{# Inputs de control fuera del flujo visual para que los ~ funcionen #}
+<input type="radio" name="ref-tab" id="tab-ados2" class="ref-tab-input" checked>
+<input type="radio" name="ref-tab" id="tab-adir"  class="ref-tab-input">
+<input type="radio" name="ref-tab" id="tab-sim"   class="ref-tab-input">
+
+<div class="min-h-screen p-4 md:p-6">
+<div class="max-w-4xl mx-auto">
+
+  <!-- Encabezado -->
+  <div class="mb-6">
+    <nav class="text-xs text-slate-400 mb-2">
+      <a href="{% url 'evaluaciones:dashboard' %}" class="bc-link">Evaluaciones</a>
+      <span class="mx-1">/</span>
+      <span class="font-bold text-slate-700">Referencia de puntuaciones</span>
+    </nav>
+    <h1 class="text-2xl font-bold text-slate-800">🧮 Referencia de puntuaciones</h1>
+    <p class="text-slate-400 text-sm mt-1">Puntos de corte y algoritmos diagnósticos ADOS-2 · ADI-R</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-6 flex-wrap">
+    <label id="lbl-ados2" class="ref-tab-label" for="tab-ados2">📋 ADOS-2</label>
+    <label id="lbl-adir"  class="ref-tab-label" for="tab-adir">🗒️ ADI-R</label>
+    <label id="lbl-sim"   class="ref-tab-label" for="tab-sim">⚙️ Simulador</label>
+  </div>
+
+  <!-- ═══ SECCIÓN ADOS-2 ═══ -->
+  <div id="sec-ados2" class="ref-section">
+
+    <div class="ref-card">
+      <div class="ref-card-title">Fórmula del total SA (Afecto Social)</div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;margin-bottom:.75rem;">
+        <span class="chip chip-b">SA</span>
+        <span style="color:#94a3b8;font-size:16px;">=</span>
+        <span class="chip chip-g">Comunicación</span>
+        <span style="color:#94a3b8;font-size:16px;">+</span>
+        <span class="chip chip-p">Interacción Social</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;">
+        <span class="chip chip-y">RRB</span>
+        <span style="color:#94a3b8;font-size:13px;">= suma ítems dominio C (solo informativo, no define clasificación)</span>
+      </div>
+      <div class="infobox">
+        Solo los ítems del <strong>algoritmo diagnóstico</strong> se suman — son un subconjunto de los observados. El modelo calcula los totales automáticamente en <code>calcular_puntuaciones()</code> al guardar.
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Ítems del algoritmo por módulo</div>
+      <div class="two-col" style="margin-bottom:.75rem;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">MÓDULO T <span class="chip chip-sl">12-30 meses</span></div>
+          <div style="font-size:12px;color:#475569;line-height:1.9;">
+            <span class="chip chip-g" style="margin-bottom:3px;">Com</span> A1 A2 A3 A5<br>
+            <span class="chip chip-p" style="margin-bottom:3px;">Soc</span> B1 B2 B3 B4 B5<br>
+            <span class="chip chip-y" style="margin-bottom:3px;">RRB</span> C1 C2
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">MÓDULO 1 <span class="chip chip-sl">sin lenguaje</span></div>
+          <div style="font-size:12px;color:#475569;line-height:1.9;">
+            <span class="chip chip-g" style="margin-bottom:3px;">Com</span> A1 A4 A5 A6 A8<br>
+            <span class="chip chip-p" style="margin-bottom:3px;">Soc</span> B1 B2 B3 B4 B5 B6<br>
+            <span class="chip chip-y" style="margin-bottom:3px;">RRB</span> C1 C2 C3
+          </div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">MÓDULOS 2 y 3</div>
+          <div style="font-size:12px;color:#475569;line-height:1.9;">
+            <span class="chip chip-g" style="margin-bottom:3px;">Com</span> A1 A2 A4 A5 (M2) / A1 A2 A3 A5 (M3)<br>
+            <span class="chip chip-p" style="margin-bottom:3px;">Soc</span> B1 B2 B3 B4 B6 (M2) / B1 B2 B3 B4 B5 (M3)<br>
+            <span class="chip chip-y" style="margin-bottom:3px;">RRB</span> C1 C2 C3
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">MÓDULO 4 <span class="chip chip-sl">adultos</span></div>
+          <div style="font-size:12px;color:#475569;line-height:1.9;">
+            <span class="chip chip-g" style="margin-bottom:3px;">Com</span> A1 A2 A3 A5<br>
+            <span class="chip chip-p" style="margin-bottom:3px;">Soc</span> B1 B2 B3 B4 B5 B7<br>
+            <span class="chip chip-y" style="margin-bottom:3px;">RRB</span> C1 C2 C3
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Puntos de corte SA → clasificación (Lord et al., 2012)</div>
+      <div style="overflow-x:auto;">
+        <table class="corte-table">
+          <thead>
+            <tr>
+              <th>Módulo</th>
+              <th>SA máx.</th>
+              <th><span class="chip chip-g">No espectro</span></th>
+              <th><span class="chip chip-y">Espectro</span></th>
+              <th><span class="chip chip-r">Autismo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>T</strong></td><td>18</td><td>SA &lt; 8</td><td>8 ≤ SA &lt; 12</td><td>SA ≥ 12</td></tr>
+            <tr><td><strong>1</strong></td><td>22</td><td>SA &lt; 12</td><td>12 ≤ SA &lt; 16</td><td>SA ≥ 16</td></tr>
+            <tr><td><strong>2</strong></td><td>18</td><td>SA &lt; 8</td><td>8 ≤ SA &lt; 12</td><td>SA ≥ 12</td></tr>
+            <tr><td><strong>3</strong></td><td>18</td><td>SA &lt; 7</td><td>7 ≤ SA &lt; 11</td><td>SA ≥ 11</td></tr>
+            <tr><td><strong>4</strong></td><td>20</td><td>SA &lt; 7</td><td>7 ≤ SA &lt; 11</td><td>SA ≥ 11</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="infobox">El RRB no interviene en la clasificación ADOS-2 (módulos 1–4). Solo el total SA determina el resultado.</div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Flujo de cálculo en el modelo</div>
+      <div class="result-row"><span>Ítems Com (algoritmo) se suman</span><span class="result-val"><code>total_comunicacion</code></span></div>
+      <div class="result-row"><span>Ítems Soc (algoritmo) se suman</span><span class="result-val"><code>total_interaccion_social</code></span></div>
+      <div class="result-row"><span>Com + Soc = SA</span><span class="result-val"><code>total_comunicacion_social</code></span></div>
+      <div class="result-row"><span>Ítems C se suman</span><span class="result-val"><code>total_comportamiento_restringido</code></span></div>
+      <div class="result-row"><span>SA vs cortes del módulo</span><span class="result-val"><code>clasificacion</code></span></div>
+      <div class="result-row"><span>Se recalcula automáticamente en cada guardado</span><span class="chip chip-sl">Auto — <code>save()</code></span></div>
+    </div>
+
+  </div><!-- /sec-ados2 -->
+
+  <!-- ═══ SECCIÓN ADI-R ═══ -->
+  <div id="sec-adir" class="ref-section">
+
+    <div class="ref-card">
+      <div class="ref-card-title">Regla de conversión de valores</div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;margin-bottom:.75rem;">
+        <span style="font-size:13px;color:#475569;">Valor en algoritmo</span>
+        <span style="color:#94a3b8;font-size:16px;">=</span>
+        <span class="chip chip-b">min(valor_ítem, 2)</span>
+      </div>
+      <div class="infobox">Los ítems ADI-R se puntúan 0–3 en entrevista, pero para el algoritmo el <strong>3 se convierte a 2</strong> (cap). Esto se aplica en <code>_suma_items()</code>. En ADOS-2 los ítems ya son 0–2 y no se transforman.</div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Ítems del algoritmo diagnóstico</div>
+      <div class="two-col" style="margin-bottom:.75rem;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">COMUNICACIÓN VERBAL <span class="chip chip-b">corte ≥ 8</span></div>
+          <div style="font-size:12px;color:#475569;line-height:1.8;">
+            A11 · A12 · A13 · A14 · A17 · A18 · A19<br>
+            <span style="color:#94a3b8;font-size:11px;">7 ítems × máx 2 = 14 pts posibles</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">COMUNICACIÓN NO VERBAL <span class="chip chip-p">corte ≥ 7</span></div>
+          <div style="font-size:12px;color:#475569;line-height:1.8;">
+            A(NV)1 · A(NV)2 · A(NV)3 · A17 · A18<br>
+            <span style="color:#94a3b8;font-size:11px;">5 ítems × máx 2 = 10 pts posibles</span>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #f1f5f9;padding-top:.75rem;margin-bottom:.75rem;">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">INTERACCIÓN SOCIAL <span class="chip chip-g">corte ≥ 10</span> — igual para verbales y no verbales</div>
+        <div style="font-size:12px;color:#475569;">B22 · B26 · B27 · B28 · B29 · B31 · B32 &nbsp;<span style="color:#94a3b8;font-size:11px;">7 ítems × máx 2 = 14 pts posibles</span></div>
+      </div>
+      <div style="border-top:1px solid #f1f5f9;padding-top:.75rem;">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:.5rem;">COMPORTAMIENTOS RR <span class="chip chip-y">corte ≥ 3</span> — igual para todos</div>
+        <div style="font-size:12px;color:#475569;">C67 · C68 · C69 · C70 · C71 · C72 &nbsp;<span style="color:#94a3b8;font-size:11px;">6 ítems × máx 2 = 12 pts posibles</span></div>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Los 4 criterios — todos deben cumplirse</div>
+      <div class="check-row">
+        <div class="check-ico g">A</div>
+        <div>
+          <div class="check-label">Comunicación ≥ corte</div>
+          <div class="check-sub">Verbal ≥ 8 · No verbal ≥ 7 — campo <code>cumple_corte_comunicacion</code></div>
+        </div>
+      </div>
+      <div class="check-row">
+        <div class="check-ico p">B</div>
+        <div>
+          <div class="check-label">Interacción Social ≥ 10</div>
+          <div class="check-sub">Igual para todos — campo <code>cumple_corte_interaccion</code></div>
+        </div>
+      </div>
+      <div class="check-row">
+        <div class="check-ico y">C</div>
+        <div>
+          <div class="check-label">Comportamientos RR ≥ 3</div>
+          <div class="check-sub">Solo 6 ítems del algoritmo — campo <code>cumple_corte_comportamiento</code></div>
+        </div>
+      </div>
+      <div class="check-row">
+        <div class="check-ico b">D</div>
+        <div>
+          <div class="check-label">Inicio antes de los 36 meses</div>
+          <div class="check-sub">Primeras palabras &gt; 24m o pérdida de lenguaje &lt; 36m — campo <code>cumple_criterio_edad_inicio</code></div>
+        </div>
+      </div>
+      <div class="infobox" style="margin-top:.75rem;">
+        ✅ Los 4 cumplen → <strong>Cumple criterios para Autismo</strong><br>
+        ❌ Alguno falla → <strong>No cumple</strong><br>
+        ⏳ Ítems sin responder → <strong>Pendiente de cálculo</strong>
+      </div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Comparación rápida ADOS-2 vs ADI-R</div>
+      <div style="overflow-x:auto;">
+        <table class="corte-table">
+          <thead><tr><th>Característica</th><th>ADOS-2</th><th>ADI-R</th></tr></thead>
+          <tbody>
+            <tr><td>Rango ítems</td><td>0 – 2</td><td>0 – 3 (cap a 2 en algoritmo)</td></tr>
+            <tr><td>Resultado</td><td>Total SA → clasificación continua</td><td>4 cortes binarios → cumple / no</td></tr>
+            <tr><td>RRB en diagnóstico</td><td>Solo informativo</td><td>Corte obligatorio ≥ 3</td></tr>
+            <tr><td>Si hay nulls</td><td>Los ignora (suma parcial)</td><td>Puede dejar en "pendiente"</td></tr>
+            <tr><td>Se recalcula</td><td>En cada <code>save()</code></td><td>En cada <code>save()</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /sec-adir -->
+
+  <!-- ═══ SECCIÓN SIMULADOR ═══ -->
+  <div id="sec-sim" class="ref-section">
+
+    <div class="ref-card">
+      <div class="ref-card-title">Simulador ADOS-2</div>
+
+      <div class="sim-label">Módulo</div>
+      <select id="sim-mod" onchange="simAdos2()" style="width:100%;margin-bottom:1rem;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:.75rem;font-size:13px;">
+        <option value="T">T — Niños pequeños (12-30 meses)</option>
+        <option value="1" selected>1 — Sin lenguaje consistente</option>
+        <option value="2">2 — Lenguaje frasal</option>
+        <option value="3">3 — Lenguaje fluido (niño/adolescente)</option>
+        <option value="4">4 — Lenguaje fluido (adulto)</option>
+      </select>
+
+      <div class="two-col">
+        <div>
+          <div class="sim-label">Total Comunicación <span id="com-max-lbl" style="font-weight:400;color:#94a3b8;"></span></div>
+          <div class="sim-row">
+            <input type="range" id="sim-com" min="0" max="10" value="4" step="1" oninput="simAdos2()">
+            <span class="sim-val" id="sim-com-val">4</span>
+          </div>
+        </div>
+        <div>
+          <div class="sim-label">Total Social <span id="soc-max-lbl" style="font-weight:400;color:#94a3b8;"></span></div>
+          <div class="sim-row">
+            <input type="range" id="sim-soc" min="0" max="12" value="5" step="1" oninput="simAdos2()">
+            <span class="sim-val" id="sim-soc-val">5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sim-label">Total RRB <span style="font-weight:400;color:#94a3b8;">(informativo)</span></div>
+      <div class="sim-row">
+        <input type="range" id="sim-rrb" min="0" max="6" value="1" step="1" oninput="simAdos2()">
+        <span class="sim-val" id="sim-rrb-val">1</span>
+      </div>
+
+      <div id="res-ados2" class="sim-result sl"></div>
+    </div>
+
+    <div class="ref-card">
+      <div class="ref-card-title">Simulador ADI-R</div>
+
+      <div class="sim-label">Tipo de comunicación</div>
+      <div style="display:flex;gap:16px;margin-bottom:1rem;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">
+          <input type="radio" name="sim-tipo" value="verbal" checked onchange="simAdir()"> Verbal
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">
+          <input type="radio" name="sim-tipo" value="no_verbal" onchange="simAdir()"> No verbal
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;">
+        <div>
+          <div class="sim-label" id="adir-com-lbl">Com (≥8)</div>
+          <div class="sim-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <input type="range" id="sim-adir-com" min="0" max="14" value="6" step="1" oninput="simAdir()" style="width:100%">
+            <span class="sim-val" id="sim-adir-com-val">6</span>
+          </div>
+        </div>
+        <div>
+          <div class="sim-label">Soc (≥10)</div>
+          <div class="sim-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <input type="range" id="sim-adir-soc" min="0" max="14" value="8" step="1" oninput="simAdir()" style="width:100%">
+            <span class="sim-val" id="sim-adir-soc-val">8</span>
+          </div>
+        </div>
+        <div>
+          <div class="sim-label">RRB (≥3)</div>
+          <div class="sim-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <input type="range" id="sim-adir-rrb" min="0" max="12" value="2" step="1" oninput="simAdir()" style="width:100%">
+            <span class="sim-val" id="sim-adir-rrb-val">2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sim-label" style="margin-top:.25rem;">Inicio antes de 36 meses</div>
+      <div style="display:flex;gap:16px;margin-bottom:.5rem;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">
+          <input type="radio" name="sim-inicio" value="si" checked onchange="simAdir()"> Sí
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">
+          <input type="radio" name="sim-inicio" value="no" onchange="simAdir()"> No
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:600;">
+          <input type="radio" name="sim-inicio" value="nd" onchange="simAdir()"> Sin datos
+        </label>
+      </div>
+
+      <div id="res-adir" class="sim-result sl"></div>
+    </div>
+
+  </div><!-- /sec-sim -->
+
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CORTES_ADOS2 = { T:[8,12], '1':[12,16], '2':[8,12], '3':[7,11], '4':[7,11] };
+const MAX_COM      = { T:8,    '1':10,      '2':8,     '3':8,     '4':8     };
+const MAX_SOC      = { T:10,   '1':12,      '2':10,    '3':10,    '4':12    };
+
+function simAdos2() {
+  const m   = document.getElementById('sim-mod').value;
+  const maxC = MAX_COM[m], maxS = MAX_SOC[m];
+
+  const slCom = document.getElementById('sim-com');
+  const slSoc = document.getElementById('sim-soc');
+  slCom.max = maxC; slSoc.max = maxS;
+  if (parseInt(slCom.value) > maxC) slCom.value = maxC;
+  if (parseInt(slSoc.value) > maxS) slSoc.value = maxS;
+
+  const com = parseInt(slCom.value);
+  const soc = parseInt(slSoc.value);
+  const rrb = parseInt(document.getElementById('sim-rrb').value);
+  const sa  = com + soc;
+
+  document.getElementById('sim-com-val').textContent = com;
+  document.getElementById('sim-soc-val').textContent = soc;
+  document.getElementById('sim-rrb-val').textContent = rrb;
+  document.getElementById('com-max-lbl').textContent = '(máx ' + maxC + ')';
+  document.getElementById('soc-max-lbl').textContent = '(máx ' + maxS + ')';
+
+  const [bajo, alto] = CORTES_ADOS2[m];
+  let cls, title, detail, css;
+  if      (sa < bajo)  { cls='no_espectro'; title='No espectro';     css='g'; detail='SA '+sa+' está por debajo del corte inferior ('+bajo+').'; }
+  else if (sa < alto)  { cls='espectro';    title='Espectro autista'; css='y'; detail='SA '+sa+' está entre los cortes ('+bajo+'–'+alto+').'; }
+  else                  { cls='autismo';     title='Autismo';          css='r'; detail='SA '+sa+' supera el corte superior ('+alto+').'; }
+
+  const el = document.getElementById('res-ados2');
+  el.className = 'sim-result ' + css;
+  el.innerHTML = '<div class="sim-result-title">'+title+'</div>'
+    + '<div style="font-size:12px;margin-top:3px;">'+detail+'</div>'
+    + '<div style="font-size:12px;margin-top:2px;opacity:.8;">Com <strong>'+com+'</strong> + Soc <strong>'+soc+'</strong> = SA <strong>'+sa+'</strong> &nbsp;·&nbsp; RRB <strong>'+rrb+'</strong> (solo informativo)</div>';
+}
+
+function simAdir() {
+  const tipo   = document.querySelector('input[name="sim-tipo"]:checked').value;
+  const inicio = document.querySelector('input[name="sim-inicio"]:checked').value;
+  const com    = parseInt(document.getElementById('sim-adir-com').value);
+  const soc    = parseInt(document.getElementById('sim-adir-soc').value);
+  const rrb    = parseInt(document.getElementById('sim-adir-rrb').value);
+
+  const corteC = tipo === 'verbal' ? 8 : 7;
+  document.getElementById('adir-com-lbl').textContent = 'Com (≥' + corteC + ')';
+  document.getElementById('sim-adir-com-val').textContent = com;
+  document.getElementById('sim-adir-soc-val').textContent = soc;
+  document.getElementById('sim-adir-rrb-val').textContent = rrb;
+
+  const okCom   = com >= corteC;
+  const okSoc   = soc >= 10;
+  const okRrb   = rrb >= 3;
+  const okInicio = inicio === 'si' ? true : inicio === 'no' ? false : null;
+
+  let title, detail, css;
+  if (okInicio === null) {
+    css='sl'; title='Pendiente de cálculo';
+    detail='Sin datos de inicio temprano no es posible clasificar.';
+  } else if (okCom && okSoc && okRrb && okInicio) {
+    css='r'; title='Cumple criterios para Autismo';
+    detail='Los 4 criterios superan el punto de corte.';
+  } else {
+    css='g'; title='No cumple criterios para Autismo';
+    const falta = [];
+    if (!okCom)   falta.push('Com ' + com + ' &lt; ' + corteC);
+    if (!okSoc)   falta.push('Soc ' + soc + ' &lt; 10');
+    if (!okRrb)   falta.push('RRB ' + rrb + ' &lt; 3');
+    if (!okInicio) falta.push('Inicio no documentado antes de 36m');
+    detail = 'No supera: ' + falta.join(' · ');
+  }
+
+  const el = document.getElementById('res-adir');
+  el.className = 'sim-result ' + css;
+  el.innerHTML = '<div class="sim-result-title">'+title+'</div>'
+    + '<div style="font-size:12px;margin-top:3px;">'+detail+'</div>';
+}
+
+// Inicializar al cargar
+simAdos2();
+simAdir();
+</script>
+{% endblock %}

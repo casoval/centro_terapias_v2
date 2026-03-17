@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}ADOS-2 — {{ evaluacion.paciente.nombre_completo }}{% endblock %}
+{% block content %}
+<div class="min-h-screen p-4 md:p-6">
+<div class="max-w-4xl mx-auto">
+  <nav class="text-xs text-slate-400 mb-3">
+    <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500">Evaluaciones</a>
+    <span class="mx-1">/</span>
+    <a href="{% url 'evaluaciones:ados2_lista' %}" class="hover:text-blue-500">ADOS-2</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-600 font-medium">Detalle</span>
+  </nav>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold">{{ evaluacion.paciente.nombre_completo }}</h1>
+        <p class="text-sm opacity-85 mt-1">ADOS-2 {{ evaluacion.get_modulo_display }} · {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} · {{ evaluacion.edad_cronologica_anos }}a {{ evaluacion.edad_cronologica_meses }}m</p>
+        <p class="text-xs opacity-70 mt-0.5">Evaluador: {{ evaluacion.evaluador.nombre_completo }}
+</p>
+      </div>
+      <div>
+        {% if evaluacion.clasificacion == 'autismo' %}
+          <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl">🔴 Autismo</span>
+        {% elif evaluacion.clasificacion == 'espectro' %}
+          <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl">🟡 Espectro</span>
+        {% elif evaluacion.clasificacion == 'no_espectro' %}
+          <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl">🟢 No espectro</span>
+        {% else %}
+          <span class="bg-white/15 text-white/80 text-sm px-4 py-1.5 rounded-xl">⏳ Pendiente</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Puntuaciones -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+      <div class="p-5 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Comunicación</p>
+        <p class="text-3xl font-black text-blue-600">{{ evaluacion.total_comunicacion|default:"—" }}</p>
+      </div>
+      <div class="p-5 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Interacción</p>
+        <p class="text-3xl font-black text-indigo-600">{{ evaluacion.total_interaccion_social|default:"—" }}</p>
+      </div>
+      <div class="p-5 text-center bg-blue-50">
+        <p class="text-xs text-blue-500 font-bold uppercase tracking-wide mb-1">Total SA</p>
+        <p class="text-4xl font-black text-blue-700">{{ evaluacion.total_comunicacion_social|default:"—" }}</p>
+      </div>
+      <div class="p-5 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">RRB (C)</p>
+        <p class="text-3xl font-black text-amber-500">{{ evaluacion.total_comportamiento_restringido|default:"—" }}</p>
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="p-4 flex flex-wrap gap-2">
+      <a href="{% url 'evaluaciones:ados2_items' evaluacion.pk %}"
+         class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">✏️ Editar ítems</a>
+      <a href="{% url 'evaluaciones:ados2_editar' evaluacion.pk %}"
+         class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">⚙️ Datos generales</a>
+      <a href="{% url 'evaluaciones:informe_crear' %}"
+         class="bg-green-50 hover:bg-green-100 text-green-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">📄 Crear informe PDF</a>
+      <a href="{% url 'evaluaciones:ados2_eliminar' evaluacion.pk %}"
+         class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors ml-auto">🗑 Eliminar</a>
+    </div>
+  </div>
+
+  {% if evaluacion.contexto_evaluacion or evaluacion.observaciones %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+    {% if evaluacion.contexto_evaluacion %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">📝 Contexto</h3>
+      <p class="text-sm text-slate-600 leading-relaxed">{{ evaluacion.contexto_evaluacion|linebreaksbr }}</p>
+    </div>
+    {% endif %}
+    {% if evaluacion.observaciones %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">🔎 Observaciones</h3>
+      <p class="text-sm text-slate-600 leading-relaxed">{{ evaluacion.observaciones|linebreaksbr }}</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">📊 Puntos de corte Módulo {{ evaluacion.modulo }}</h3>
+    <p class="text-sm text-slate-500">
+      {% if evaluacion.modulo == 'T' %}SA &lt; 8 → No espectro · SA 8-11 → Espectro · SA ≥ 12 → Autismo
+      {% elif evaluacion.modulo == '1' %}SA &lt; 12 → No espectro · SA 12-15 → Espectro · SA ≥ 16 → Autismo
+      {% elif evaluacion.modulo == '2' %}SA &lt; 8 → No espectro · SA 8-11 → Espectro · SA ≥ 12 → Autismo
+      {% elif evaluacion.modulo == '3' or evaluacion.modulo == '4' %}SA &lt; 7 → No espectro · SA 7-10 → Espectro · SA ≥ 11 → Autismo
+      {% endif %}
+    </p>
+    <p class="text-xs text-slate-400 mt-1">Ref: Lord et al. (2012). ADOS-2 Manual. WPS.</p>
+  </div>
+
+</div>
+</div>
+{% endblock %}
