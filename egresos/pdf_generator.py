@@ -246,28 +246,42 @@ def generar_egreso_pdf(egreso):
     """
     Genera el comprobante PDF del egreso EGR-XXXX.
     Landscape letter con 2 copias: ORIGINAL (izquierda) + ADMINISTRACIÓN (derecha).
+
+    Si el egreso tiene un PagoHonorario vinculado (egreso.pago_honorario) y ese
+    pago incluye sesiones, se agrega automáticamente una segunda página portrait
+    con el detalle completo de las sesiones liquidadas al profesional.
+
     Retorna bytes del PDF.
     """
     buf = BytesIO()
     c   = pdf_canvas.Canvas(buf, pagesize=landscape(letter))
     c.setTitle(f"Egreso_{egreso.numero_egreso}")
 
-    # Fondo de página
+    # ── Página 1: comprobante doble landscape ────────────────────────────────
     c.setFillColor(COLOR_FONDO_PAGINA)
     c.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, fill=1, stroke=0)
 
-    # Copia izquierda — ORIGINAL
     _dibujar_recibo(c, MARGIN, MARGIN, egreso, "ORIGINAL: PROVEEDOR")
-
-    # Línea de corte
     _linea_corte(c)
-
-    # Copia derecha — ADMINISTRACIÓN
     _dibujar_recibo(c, MARGIN + ANCHO_RECIBO + GAP_CENTRAL, MARGIN, egreso, "COPIA: ADMINISTRACIÓN")
 
-    # Sello ANULADO encima de todo (si aplica)
     if egreso.anulado:
         _sello_anulado_pagina(c, PAGE_WIDTH, PAGE_HEIGHT)
+
+    # ── Página 2: detalle de sesiones (solo honorarios con PagoHonorario) ────
+    pago_honorario = getattr(egreso, 'pago_honorario', None)
+    sesiones = _extraer_sesiones_pago_honorario(pago_honorario)
+
+    if sesiones:
+        c.showPage()
+        from reportlab.lib.pagesizes import letter as _portrait
+        pw, ph = _portrait
+        c.setPageSize((pw, ph))
+        c.setFillColor(COLOR_FONDO_PAGINA)
+        c.rect(0, 0, pw, ph, fill=1, stroke=0)
+        _pagina_detalle_sesiones_honorario(c, egreso, pago_honorario, sesiones, pw, ph)
+        if egreso.anulado:
+            _sello_anulado_pagina(c, pw, ph)
 
     c.save()
     data = buf.getvalue()
@@ -524,13 +538,25 @@ def _tabla(c, x, y_base, egreso):
 
 
 def _sesiones(c, x, y_base, egreso):
-    """Tabla morada de sesiones cubiertas (solo honorarios)."""
+    """Tabla morada de sesiones cubiertas (solo honorarios) — página 1."""
     try:
         sesiones = egreso.sesiones_cubiertas.select_related('paciente', 'servicio').all()
     except Exception:
         return 0
     if not sesiones.exists():
         return 0
+
+    # Obtener montos de ComisionSesion en una sola query
+    sesion_ids = list(sesiones.values_list('id', flat=True))
+    monto_por_sesion = {}
+    try:
+        from servicios.models import ComisionSesion
+        for row in ComisionSesion.objects.filter(
+            sesion_id__in=sesion_ids
+        ).values('sesion_id', 'monto_profesional'):
+            monto_por_sesion[row['sesion_id']] = _d(row['monto_profesional'])
+    except Exception as e:
+        logger.warning(f"No se pudo leer ComisionSesion en _sesiones: {e}")
 
     c.setFont("Helvetica-Bold", 7.5)
     c.setFillColor(colors.HexColor('#4A235A'))
@@ -544,15 +570,16 @@ def _sesiones(c, x, y_base, egreso):
     c.restoreState()
 
     yt = y_base - 0.35 * cm
-    headers = [["Fecha", "Paciente", "Servicio", "Cobrado"]]
+    headers = [["Fecha", "Paciente", "Servicio", "Honorario"]]
     filas = []
     for s in sesiones:
         fecha = s.fecha.strftime("%d/%m/%Y") if s.fecha else "---"
+        monto = monto_por_sesion.get(s.id, Decimal(0))
         filas.append([
             fecha,
             _s(s.paciente)[:20],
             _s(s.servicio.nombre if s.servicio else "---")[:18],
-            f"Bs.{_d(s.monto_cobrado):,.0f}",
+            f"Bs.{monto:,.0f}",
         ])
 
     MORADO = colors.HexColor('#7D3C98')
@@ -758,3 +785,381 @@ def _linea_corte(c):
     c.line(x, MARGIN + 0.5 * cm, x, PAGE_HEIGHT - MARGIN - 0.5 * cm)
     c.setDash([])
     c.restoreState()
+
+# =====================================================
+# 8. DETALLE DE SESIONES — PÁGINA 2 (HONORARIOS)
+# =====================================================
+
+def _extraer_sesiones_pago_honorario(pago_honorario):
+    """
+    Retorna lista de tuplas (sesion, monto_profesional_decimal) ordenadas
+    por fecha y hora.
+
+    Estrategia:
+      1. Obtiene todas las sesiones del PagoHonorario (M2M).
+      2. Hace una sola query a ComisionSesion filtrando por esas sesiones,
+         construyendo un dict {sesion_id: monto_profesional} para lookup O(1).
+      3. Devuelve las tuplas ya ordenadas.
+
+    ComisionSesion vive en servicios.models y tiene FK 'sesion'.
+    No asumimos ningún related_name en Sesion → evitamos el AttributeError.
+    """
+    if pago_honorario is None:
+        return []
+    try:
+        # 1. Sesiones del pago ordenadas por fecha/hora
+        sesiones_qs = (
+            pago_honorario.sesiones
+            .select_related('servicio', 'paciente')
+            .order_by('fecha', 'hora_inicio')
+        )
+        sesiones_list = list(sesiones_qs)
+        if not sesiones_list:
+            return []
+
+        # 2. Montos profesional desde ComisionSesion — una sola query
+        sesion_ids = [s.id for s in sesiones_list]
+        try:
+            from servicios.models import ComisionSesion
+            comisiones_qs = ComisionSesion.objects.filter(
+                sesion_id__in=sesion_ids
+            ).values('sesion_id', 'monto_profesional')
+            # dict {sesion_id: monto_profesional}
+            monto_por_sesion = {
+                row['sesion_id']: _d(row['monto_profesional'])
+                for row in comisiones_qs
+            }
+        except Exception as e:
+            logger.warning(f"No se pudo leer ComisionSesion: {e}")
+            monto_por_sesion = {}
+
+        # 3. Construir resultado
+        resultado = [
+            (sesion, monto_por_sesion.get(sesion.id, Decimal(0)))
+            for sesion in sesiones_list
+        ]
+        return resultado
+
+    except Exception as e:
+        logger.error(f"Error extrayendo sesiones PagoHonorario: {e}")
+        return []
+
+
+def _pagina_detalle_sesiones_honorario(c, egreso, pago_honorario, sesiones, pw, ph):
+    """
+    Página portrait con el detalle completo de las sesiones liquidadas.
+
+    Estructura:
+      1. Barra título verde
+      2. Panel de encabezado (EGR, fecha, profesional, CI, cantidad sesiones)
+      3. Tabla: # | Fecha | Hora | Paciente | Servicio | Estado | Monto Prof. (Bs.)
+      4. Caja de totales: deuda calculada / monto pagado / diferencia / saldado
+      5. Nota al pie + marca de agua
+    """
+    COLOR_VERDE_P  = colors.HexColor('#2E7D32')   # Verde primario para esta página
+    COLOR_VERDE_CL = colors.HexColor('#81C784')   # Verde claro
+    COLOR_VERDE_TX = colors.HexColor('#1B5E20')   # Verde oscuro para texto
+
+    margen   = 1.4 * cm
+    y_cursor = ph - margen
+
+    # ── 1. Barra de título ────────────────────────────────────────────────────
+    barra_h = 1.1 * cm
+    _grad_h(c, margen, y_cursor - barra_h, pw - 2 * margen, barra_h,
+            COLOR_VERDE_CL, COLOR_VERDE_P)
+    c.setFillColor(colors.white)
+    c.setFont("Helvetica-Bold", 12)
+    c.drawCentredString(pw / 2, y_cursor - barra_h + 0.34 * cm,
+                        "DETALLE DE SESIONES LIQUIDADAS  —  HONORARIOS PROFESIONAL")
+    y_cursor -= barra_h + 0.3 * cm
+
+    # ── 2. Panel de encabezado ────────────────────────────────────────────────
+    num_egreso  = _s(getattr(egreso, 'numero_egreso', '---'))
+    fecha_egr   = getattr(egreso, 'fecha', None)
+    fecha_str   = fecha_egr.strftime("%d/%m/%Y") if fecha_egr else "---"
+
+    prof_nombre = "---"
+    ci_prof     = "---"
+    if pago_honorario and pago_honorario.profesional:
+        pr = pago_honorario.profesional
+        prof_nombre = f"{_s(pr.nombre)} {_s(pr.apellido)}".strip().title()
+        ci_prof = _s(getattr(pr, 'ci', '') or getattr(pr, 'carnet', '') or '---')
+
+    total_ses = len(sesiones)
+
+    panel_h = 1.85 * cm
+    panel_x = margen
+    panel_y = y_cursor - panel_h
+
+    # Fondo + borde del panel
+    c.saveState()
+    c.setFillColor(COLOR_GRIS_CLARO)
+    c.setFillAlpha(0.45)
+    c.roundRect(panel_x, panel_y, pw - 2 * margen, panel_h, 6, fill=1, stroke=0)
+    c.restoreState()
+    c.saveState()
+    c.setStrokeColor(COLOR_VERDE_P)
+    c.setLineWidth(0.8)
+    c.roundRect(panel_x, panel_y, pw - 2 * margen, panel_h, 6, fill=0, stroke=1)
+    c.restoreState()
+
+    # Fila 1: N° Egreso | Fecha de pago | Centro
+    y1 = y_cursor - 0.55 * cm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 0.4 * cm, y1, "N° EGRESO:")
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.drawString(panel_x + 2.3 * cm, y1, num_egreso)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 5.2 * cm, y1, "FECHA DE PAGO:")
+    c.setFont("Helvetica", 9)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.drawString(panel_x + 7.7 * cm, y1, fecha_str)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 10.5 * cm, y1, "CENTRO:")
+    c.setFont("Helvetica", 8)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.drawString(panel_x + 12.0 * cm, y1, NOMBRE_CENTRO)
+
+    # Fila 2: Profesional | C.I. | Sesiones
+    y2 = y_cursor - 1.20 * cm
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 0.4 * cm, y2, "PROFESIONAL:")
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.drawString(panel_x + 2.8 * cm, y2, prof_nombre)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 9.5 * cm, y2, "C.I.:")
+    c.setFont("Helvetica", 9)
+    c.setFillColor(COLOR_TEXTO_PRINCIPAL)
+    c.drawString(panel_x + 10.5 * cm, y2, ci_prof)
+
+    c.setFont("Helvetica-Bold", 8)
+    c.setFillColor(COLOR_VERDE_TX)
+    c.drawString(panel_x + 12.8 * cm, y2, "SESIONES:")
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(COLOR_VERDE_P)
+    c.drawString(panel_x + 14.5 * cm, y2, str(total_ses))
+
+    y_cursor = panel_y - 0.45 * cm
+
+    # Línea separadora
+    c.setStrokeColor(COLOR_GRIS_MEDIO)
+    c.setLineWidth(0.4)
+    c.line(margen, y_cursor, pw - margen, y_cursor)
+    y_cursor -= 0.35 * cm
+
+    # ── 3. Tabla de sesiones ──────────────────────────────────────────────────
+    ESTADOS = {
+        'realizada':    'Realizada',
+        'completada':   'Completada',
+        'pendiente':    'Pendiente',
+        'cancelada':    'Cancelada',
+        'reprogramada': 'Reprogramada',
+        'ausente':      'Ausente',
+    }
+
+    headers = [["#", "FECHA", "HORA", "PACIENTE", "SERVICIO", "ESTADO", "MONTO PROF. (Bs.)"]]
+    filas_tabla = []
+
+    for i, (sesion, monto_prof) in enumerate(sesiones, start=1):
+        fecha_ses = getattr(sesion, 'fecha', None)
+        f_str = fecha_ses.strftime("%d/%m/%Y") if fecha_ses else "---"
+
+        hora_inicio = getattr(sesion, 'hora_inicio', None)
+        h_str = "---"
+        if hora_inicio:
+            h_str = (hora_inicio.strftime("%H:%M")
+                     if hasattr(hora_inicio, 'strftime')
+                     else str(hora_inicio)[:5])
+
+        pac_str = "---"
+        if hasattr(sesion, 'paciente') and sesion.paciente:
+            p = sesion.paciente
+            pac_str = f"{_s(p.nombre)} {_s(p.apellido)}".strip().title()
+
+        srv_str = "---"
+        if hasattr(sesion, 'servicio') and sesion.servicio:
+            srv_str = _s(sesion.servicio.nombre)
+
+        estado_raw = getattr(sesion, 'estado', None)
+        est_str = ESTADOS.get(str(estado_raw).lower(), str(estado_raw).title()) if estado_raw else "---"
+
+        m_str = f"{monto_prof:,.2f}" if monto_prof else "0.00"
+
+        filas_tabla.append([str(i), f_str, h_str, pac_str, srv_str, est_str, m_str])
+
+    tabla_data = headers + filas_tabla
+    ancho_tabla = pw - 2 * margen
+
+    col_widths = [
+        ancho_tabla * 0.04,   # #
+        ancho_tabla * 0.10,   # Fecha
+        ancho_tabla * 0.07,   # Hora
+        ancho_tabla * 0.24,   # Paciente
+        ancho_tabla * 0.24,   # Servicio
+        ancho_tabla * 0.13,   # Estado
+        ancho_tabla * 0.18,   # Monto Prof.
+    ]
+
+    tabla = Table(tabla_data, colWidths=col_widths, repeatRows=1)
+
+    estilos = [
+        # Header
+        ('BACKGROUND',    (0, 0), (-1, 0),  COLOR_VERDE_P),
+        ('TEXTCOLOR',     (0, 0), (-1, 0),  colors.white),
+        ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, 0),  8),
+        ('TOPPADDING',    (0, 0), (-1, 0),  5),
+        ('BOTTOMPADDING', (0, 0), (-1, 0),  5),
+        ('LINEBELOW',     (0, 0), (-1, 0),  1.5, colors.white),
+        # Datos
+        ('FONTNAME',      (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE',      (0, 1), (-1, -1), 8),
+        ('TOPPADDING',    (0, 1), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        # Alineación por columna
+        ('ALIGN', (0, 0), (0, -1), 'CENTER'),   # #
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),   # Fecha
+        ('ALIGN', (2, 0), (2, -1), 'CENTER'),   # Hora
+        ('ALIGN', (3, 0), (3, -1), 'LEFT'),     # Paciente
+        ('ALIGN', (4, 0), (4, -1), 'LEFT'),     # Servicio
+        ('ALIGN', (5, 0), (5, -1), 'CENTER'),   # Estado
+        ('ALIGN', (6, 0), (6, -1), 'RIGHT'),    # Monto
+        # Bordes
+        ('BOX',       (0, 0), (-1, -1), 1,   COLOR_GRIS_MEDIO),
+        ('INNERGRID', (0, 1), (-1, -1), 0.5, COLOR_GRIS_CLARO),
+    ]
+
+    # Zebra striping — verde muy tenue
+    VERDE_TENUE = colors.HexColor('#F1F8E9')
+    for i in range(1, len(tabla_data)):
+        if i % 2 == 0:
+            estilos.append(('BACKGROUND', (0, i), (-1, i), VERDE_TENUE))
+
+    # Columna monto en verde y negrita
+    for i in range(1, len(tabla_data)):
+        estilos.append(('TEXTCOLOR', (6, i), (6, i), COLOR_VERDE_P))
+        estilos.append(('FONTNAME',  (6, i), (6, i), 'Helvetica-Bold'))
+
+    tabla.setStyle(TableStyle(estilos))
+
+    espacio_tabla = y_cursor - margen - 4.8 * cm  # reserva para totales al pie
+    w_t, h_t = tabla.wrapOn(c, ancho_tabla, espacio_tabla)
+    tabla.drawOn(c, margen, y_cursor - h_t)
+    y_cursor -= h_t + 0.5 * cm
+
+    # ── 4. Caja de totales al pie ─────────────────────────────────────────────
+    monto_deuda  = _d(getattr(pago_honorario, 'monto_deuda',  0))
+    monto_pagado = _d(getattr(pago_honorario, 'monto_pagado', 0))
+    diferencia   = _d(getattr(pago_honorario, 'diferencia',   0))
+    saldado      = getattr(pago_honorario, 'saldado', False)
+
+    monto_literal = _letras(monto_pagado)
+
+    box_w = 8.5 * cm
+    box_h = 3.0 * cm
+    box_x = pw - margen - box_w
+    box_y = margen + 0.9 * cm
+
+    _sombra(c, box_x, box_y, box_w, box_h, r=8, off=2)
+    _grad_r(c, box_x, box_y, box_w, box_h,
+            COLOR_NARANJA_CLARO, COLOR_NARANJA, r=8, steps=25)
+    c.saveState()
+    c.setStrokeColor(COLOR_NARANJA)
+    c.setLineWidth(1)
+    c.roundRect(box_x, box_y, box_w, box_h, 8, fill=0, stroke=1)
+    c.restoreState()
+
+    def _fila_caja(label, valor, y_pos, bold_val=False, col_val=None):
+        c.setFont("Helvetica-Bold", 8.5)
+        c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+        c.drawString(box_x + 0.4 * cm, y_pos, label)
+        c.setFont("Helvetica-Bold" if bold_val else "Helvetica",
+                  11 if bold_val else 9)
+        c.setFillColor(col_val if col_val else COLOR_TEXTO_PRINCIPAL)
+        c.drawRightString(box_x + box_w - 0.4 * cm, y_pos, valor)
+
+    y_box = box_y + box_h - 0.60 * cm
+    _fila_caja("Deuda calculada (sesiones seleccionadas):",
+               f"Bs. {monto_deuda:,.2f}", y_box)
+
+    y_box -= 0.70 * cm
+    _fila_caja("Monto pagado realmente:",
+               f"Bs. {monto_pagado:,.2f}", y_box,
+               bold_val=True, col_val=COLOR_VERDE_P)
+
+    y_box -= 0.70 * cm
+    col_dif = COLOR_VERDE_P if diferencia <= 0 else COLOR_ROJO_PRIMARIO
+    signo   = "+" if diferencia < 0 else ""
+    _fila_caja("Diferencia (deuda − pagado):",
+               f"Bs. {signo}{diferencia:,.2f}", y_box,
+               col_val=col_dif)
+
+    if saldado:
+        y_box -= 0.55 * cm
+        c.setFont("Helvetica-BoldOblique", 8)
+        c.setFillColor(COLOR_VERDE_P)
+        c.drawRightString(box_x + box_w - 0.4 * cm, y_box, "✔  Marcado como SALDADO")
+
+    # Monto en letras
+    c.setFont("Helvetica-BoldOblique", 7)
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.drawRightString(pw - margen, box_y - 0.35 * cm, f"SON: {monto_literal}")
+
+    # ── 5. Nota al pie ────────────────────────────────────────────────────────
+    reg = "---"
+    if hasattr(egreso, 'registrado_por') and egreso.registrado_por:
+        reg = (egreso.registrado_por.get_full_name()
+               or egreso.registrado_por.username)
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+    c.drawString(margen, margen + 0.55 * cm,
+                 "Este documento es el respaldo del pago de honorarios profesionales. "
+                 "Conservar junto al comprobante EGR-XXXX.")
+    c.drawString(margen, margen + 0.20 * cm,
+                 f"Registrado por: {reg}   |   {NOMBRE_CENTRO}   |   {DIRECCION}")
+
+    # ── 6. Marca de agua ──────────────────────────────────────────────────────
+    lp = _logo_path()
+    if lp:
+        try:
+            from PIL import Image
+            img = Image.open(lp).convert('LA')
+            buf2 = BytesIO(); img.save(buf2, 'PNG'); buf2.seek(0)
+            ir = ImageReader(buf2)
+            iw, ih = ir.getSize()
+            aspect = ih / float(iw)
+            ls, lh = 3.5 * cm, 3.5 * cm * aspect
+            sx, sy = 6.5 * cm, 5.0 * cm
+            nc = int(pw / sx) + 2
+            nr = int(ph / sy) + 2
+            for row in range(nr):
+                for col in range(nc):
+                    c.saveState()
+                    ox = (sx / 2) if row % 2 else 0
+                    lx = col * sx + ox - sx * 0.3
+                    ly = row * sy - sy * 0.3
+                    c.setFillAlpha(0.10)
+                    c.translate(lx + ls / 2, ly + lh / 2)
+                    c.rotate(-25)
+                    c.translate(-(lx + ls / 2), -(ly + lh / 2))
+                    c.drawImage(ir, lx, ly, width=ls, height=lh,
+                                mask='auto', preserveAspectRatio=True)
+                    c.restoreState()
+        except Exception as e:
+            logger.error(f"Marca agua detalle sesiones: {e}")

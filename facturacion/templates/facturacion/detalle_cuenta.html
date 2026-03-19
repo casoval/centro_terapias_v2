@@ -3193,14 +3193,24 @@
                                     Bs. {{ pago.monto|floatformat:2 }}
                                 </td>
                                 <td class="px-2 py-1.5 text-center whitespace-nowrap">
-                                    <button 
-                                        hx-get="{% url 'facturacion:detalle_pago_partial' pago.id %}"
-                                        hx-target="#modal-detalle-pago-credito-content-{{ pago.id }}"
-                                        hx-swap="innerHTML"
-                                        onclick="document.getElementById('modal-detalle-pago-credito-{{ pago.id }}').classList.remove('hidden'); document.getElementById('modal-detalle-pago-credito-{{ pago.id }}').classList.add('flex');"
-                                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-[10px] font-bold">
-                                        👁️ Ver Detalle
-                                    </button>
+                                    <div class="flex justify-center gap-1">
+                                        <button 
+                                            hx-get="{% url 'facturacion:detalle_pago_partial' pago.id %}"
+                                            hx-target="#modal-detalle-pago-credito-content-{{ pago.id }}"
+                                            hx-swap="innerHTML"
+                                            onclick="document.getElementById('modal-detalle-pago-credito-{{ pago.id }}').classList.remove('hidden'); document.getElementById('modal-detalle-pago-credito-{{ pago.id }}').classList.add('flex');"
+                                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-[10px] font-bold">
+                                            👁️ Ver
+                                        </button>
+                                        {% if not pago.anulado %}
+                                        <button
+                                            onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
+                                            class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-md text-[10px] font-bold"
+                                            title="Anular uso de crédito — el monto regresa al crédito disponible del paciente">
+                                            ↩️ Anular
+                                        </button>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% empty %}

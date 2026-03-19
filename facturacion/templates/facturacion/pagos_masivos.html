@@ -305,8 +305,8 @@
                                 <p class="text-[9px] text-gray-500">{{ sesion.hora_inicio|time:"H:i" }}</p>
                             </td>
                             <td class="px-2 py-1.5">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }}"></span>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }}"></span>
                                     <span class="text-[11px]">{{ sesion.servicio.nombre }}</span>
                                     <!-- Indicador de Pago Parcial -->
                                     {% if sesion.total_pagado_calc > 0 %}
@@ -315,6 +315,19 @@
                                     </span>
                                     {% endif %}
                                 </div>
+                                <!-- Indicador de Profesional Externo -->
+                                {% if sesion.servicio.es_servicio_externo %}
+                                <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                    <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 border border-orange-300 text-[9px] font-bold text-orange-700 whitespace-nowrap">
+                                        👤 Profesional externo
+                                    </span>
+                                    <span class="text-[9px] text-gray-500 whitespace-nowrap">
+                                        Centro <strong class="text-orange-600">{{ sesion.servicio.porcentaje_centro }}%</strong>
+                                        &middot;
+                                        Profesional <strong class="text-gray-700">{{ sesion.porcentaje_profesional_calc }}%</strong>
+                                    </span>
+                                </div>
+                                {% endif %}
                             </td>
                             <td class="px-2 py-1.5">
                                 {% if sesion.estado == 'programada' %}
@@ -398,14 +411,17 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Método de Pago *</label>
-                    <select name="metodo_pago" required class="w-full px-2 py-1.5 text-sm border rounded-lg">
+                    <select name="metodo_pago" id="select-metodo-pago" onchange="validarCredito()" class="w-full px-2 py-1.5 text-sm border rounded-lg">
                         <option value="">Seleccione...</option>
                         {% for metodo in metodos_pago %}
-                        {% if metodo.nombre in "Efectivo,QR,Transferencia" %}
+                        {% if metodo.nombre == "Efectivo" or metodo.nombre == "QR" or metodo.nombre == "Transferencia" %}
                         <option value="{{ metodo.id }}">{{ metodo.nombre }}</option>
                         {% endif %}
                         {% endfor %}
                     </select>
+                    <p id="aviso-solo-credito" class="hidden mt-1 text-[10px] text-purple-700 font-semibold">
+                        ℹ️ Si el pago es 100% con crédito, no es necesario seleccionar un método.
+                    </p>
                 </div>
                 
                 <div>
@@ -416,6 +432,64 @@
                            required
                            class="w-full px-2 py-1.5 text-sm border rounded-lg">
                 </div>
+
+                <!-- OPCIÓN: Usar Crédito Disponible -->
+                {% if paciente.cuenta_corriente.pagos_adelantados > 0 %}
+                <div class="md:col-span-2">
+                    <div class="border-2 border-purple-200 rounded-lg p-3 bg-purple-50">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="usar-credito-cb" name="usar_credito" value="on"
+                                       onchange="toggleCredito()"
+                                       class="w-4 h-4 rounded accent-purple-600">
+                                <span class="text-xs font-bold text-purple-800">💳 Usar Crédito Disponible</span>
+                            </label>
+                            <span class="text-xs font-black text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full border border-purple-300">
+                                Disponible: Bs. {{ paciente.cuenta_corriente.pagos_adelantados|floatformat:0 }}
+                            </span>
+                        </div>
+
+                        <div id="seccion-credito" class="hidden mt-2 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-bold text-purple-700 whitespace-nowrap">Monto en crédito:</label>
+                                <input type="number"
+                                       id="input-monto-credito"
+                                       name="monto_credito"
+                                       min="0"
+                                       max="{{ paciente.cuenta_corriente.pagos_adelantados|floatformat:0 }}"
+                                       step="1"
+                                       value="0"
+                                       inputmode="numeric"
+                                       pattern="[0-9]*"
+                                       oninput="this.value=this.value.replace(/[^0-9]/g,''); validarCredito();"
+                                       onkeydown="return soloEnteros(event)"
+                                       class="w-32 px-2 py-1 text-sm border-2 border-purple-300 rounded-lg text-right font-bold focus:ring-2 focus:ring-purple-400 focus:border-purple-400">
+                                <button type="button" onclick="usarTodoElCredito()"
+                                        class="text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded font-bold">
+                                    Usar todo
+                                </button>
+                            </div>
+                            <!-- Barra de error de crédito -->
+                            <div id="error-credito" class="hidden text-[10px] text-red-700 bg-red-50 border border-red-300 rounded px-2 py-1 font-semibold"></div>
+                            <!-- Desglose efectivo + crédito -->
+                            <div id="desglose-pago" class="hidden text-[10px] bg-white border border-purple-200 rounded p-2 space-y-0.5">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">💳 Con crédito:</span>
+                                    <span id="desglose-credito" class="font-bold text-purple-700">Bs. 0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">💵 En efectivo/QR/transferencia:</span>
+                                    <span id="desglose-efectivo" class="font-bold text-green-700">Bs. 0</span>
+                                </div>
+                                <div class="flex justify-between border-t border-gray-200 pt-0.5 mt-0.5">
+                                    <span class="font-bold text-gray-900">Total:</span>
+                                    <span id="desglose-total" class="font-black text-blue-700">Bs. 0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Observaciones (opcional)</label>
@@ -458,6 +532,9 @@ function soloEnteros(e) {
     return false;
 }
 
+// Crédito disponible del paciente (valor desde Django)
+const CREDITO_DISPONIBLE = {{ paciente.cuenta_corriente.pagos_adelantados|default:0|floatformat:0 }};
+
 // Objeto para almacenar montos personalizados
 let montosPersonalizados = {
     sesion: {},
@@ -480,13 +557,11 @@ function toggleMontoPersonalizado(tipo, id) {
     const inputPersonalizado = document.querySelector(`.input-personalizado-${tipo}-${id}`);
     
     if (checkbox.checked) {
-        // Modo: PAGO COMPLETO
         montoPendiente.classList.remove('hidden');
         inputPersonalizado.classList.add('hidden');
         inputPersonalizado.value = '';
         delete montosPersonalizados[tipo][id];
     } else {
-        // Modo: MONTO PERSONALIZADO
         montoPendiente.classList.add('hidden');
         inputPersonalizado.classList.remove('hidden');
         inputPersonalizado.focus();
@@ -509,7 +584,7 @@ function actualizarMontoItem(tipo, id) {
     calcularTotal();
 }
 
-// Calcular total seleccionado
+// Calcular total seleccionado y actualizar desglose
 function calcularTotal() {
     let totalSeleccionado = 0;
     const checkboxesItems = document.querySelectorAll('.item-checkbox:checked');
@@ -517,41 +592,142 @@ function calcularTotal() {
     checkboxesItems.forEach(cb => {
         const itemId = cb.value;
         const tipo = getTipoDesdeCheckbox(cb);
-        
         const checkboxCompleto = document.querySelector(
             `.checkbox-completo[data-item-tipo="${tipo}"][data-item-id="${itemId}"]`
         );
-        
         if (checkboxCompleto && checkboxCompleto.checked) {
-            // Usar monto pendiente completo
-            const montoPendiente = parseFloat(cb.dataset.montoPendiente);
-            totalSeleccionado += montoPendiente;
+            totalSeleccionado += parseFloat(cb.dataset.montoPendiente);
         } else {
-            // Usar monto personalizado
-            const montoPersonalizado = (montosPersonalizados[tipo] || {})[itemId] || 0;
-            totalSeleccionado += montoPersonalizado;
+            totalSeleccionado += (montosPersonalizados[tipo] || {})[itemId] || 0;
         }
     });
     
     document.getElementById('total-display').textContent = 'Bs. ' + Math.round(totalSeleccionado);
     
+    // Actualizar desglose si crédito está activo
+    validarCredito();
+    
     // Habilitar/deshabilitar botón
+    actualizarEstadoBoton(totalSeleccionado, checkboxesItems.length);
+}
+
+// Toggle sección crédito
+function toggleCredito() {
+    const cb = document.getElementById('usar-credito-cb');
+    const seccion = document.getElementById('seccion-credito');
+    const inputCredito = document.getElementById('input-monto-credito');
+    const selectMetodo = document.getElementById('select-metodo-pago');
+    const avisoSoloCredito = document.getElementById('aviso-solo-credito');
+    
+    if (cb && cb.checked) {
+        seccion.classList.remove('hidden');
+        inputCredito.value = '0';
+        avisoSoloCredito && avisoSoloCredito.classList.remove('hidden');
+        selectMetodo.removeAttribute('required');
+    } else {
+        seccion.classList.add('hidden');
+        inputCredito.value = '0';
+        document.getElementById('error-credito').classList.add('hidden');
+        document.getElementById('desglose-pago').classList.add('hidden');
+        avisoSoloCredito && avisoSoloCredito.classList.add('hidden');
+        selectMetodo.setAttribute('required', '');
+    }
+    validarCredito();
+}
+
+// Usar todo el crédito disponible (limitado al total del pago)
+function usarTodoElCredito() {
+    const totalStr = document.getElementById('total-display').textContent.replace('Bs. ', '');
+    const total = parseFloat(totalStr) || 0;
+    const maximo = Math.min(CREDITO_DISPONIBLE, total);
+    const input = document.getElementById('input-monto-credito');
+    if (input) {
+        input.value = Math.round(maximo);
+        validarCredito();
+    }
+}
+
+// Validar monto de crédito y actualizar desglose
+function validarCredito() {
+    const cbCredito = document.getElementById('usar-credito-cb');
+    if (!cbCredito || !cbCredito.checked) {
+        actualizarEstadoBoton();
+        return;
+    }
+
+    const inputCredito = document.getElementById('input-monto-credito');
+    const errorDiv = document.getElementById('error-credito');
+    const desgloseDiv = document.getElementById('desglose-pago');
+    const selectMetodo = document.getElementById('select-metodo-pago');
+
+    const totalStr = document.getElementById('total-display').textContent.replace('Bs. ', '');
+    const total = parseFloat(totalStr) || 0;
+    const montoCredito = parseFloat(inputCredito.value) || 0;
+    const montoEfectivo = total - montoCredito;
+
+    let hayError = false;
+
+    // Validar límite crédito disponible
+    if (montoCredito > CREDITO_DISPONIBLE) {
+        errorDiv.textContent = `⚠️ El crédito ingresado (Bs. ${montoCredito}) supera el disponible (Bs. ${CREDITO_DISPONIBLE}). Máximo permitido: Bs. ${Math.min(CREDITO_DISPONIBLE, total)}.`;
+        errorDiv.classList.remove('hidden');
+        hayError = true;
+    } else if (montoCredito > total) {
+        errorDiv.textContent = `⚠️ El crédito (Bs. ${montoCredito}) no puede superar el total del pago (Bs. ${total}).`;
+        errorDiv.classList.remove('hidden');
+        hayError = true;
+    } else if (montoCredito < 0) {
+        errorDiv.textContent = `⚠️ El monto de crédito no puede ser negativo.`;
+        errorDiv.classList.remove('hidden');
+        hayError = true;
+    } else {
+        errorDiv.classList.add('hidden');
+    }
+
+    // Mostrar desglose
+    if (montoCredito > 0 && !hayError) {
+        desgloseDiv.classList.remove('hidden');
+        document.getElementById('desglose-credito').textContent = `Bs. ${Math.round(montoCredito)}`;
+        document.getElementById('desglose-efectivo').textContent = `Bs. ${Math.round(montoEfectivo)}`;
+        document.getElementById('desglose-total').textContent = `Bs. ${Math.round(total)}`;
+    } else {
+        desgloseDiv.classList.add('hidden');
+    }
+
+    // Si es pago 100% con crédito, el método de pago no es obligatorio
+    if (montoEfectivo <= 0 && montoCredito > 0 && !hayError) {
+        selectMetodo.removeAttribute('required');
+    } else {
+        selectMetodo.setAttribute('required', '');
+    }
+
+    actualizarEstadoBoton(total, null, hayError);
+}
+
+// Habilitar/deshabilitar el botón de envío
+function actualizarEstadoBoton(total, cantidadItems, hayErrorCredito) {
     const btn = document.getElementById('btn-submit');
-    btn.disabled = checkboxesItems.length === 0 || totalSeleccionado === 0;
+    if (!btn) return;
+    
+    const checkboxesItems = document.querySelectorAll('.item-checkbox:checked');
+    const count = cantidadItems !== undefined && cantidadItems !== null ? cantidadItems : checkboxesItems.length;
+    
+    const totalFinal = total !== undefined ? total : (parseFloat(
+        document.getElementById('total-display').textContent.replace('Bs. ', '')
+    ) || 0);
+    
+    btn.disabled = count === 0 || totalFinal === 0 || hayErrorCredito === true;
 }
 
 // Seleccionar todas
 function seleccionarTodas() {
     document.querySelectorAll('.item-checkbox').forEach(cb => {
         cb.checked = true;
-        
         const itemId = cb.value;
         const tipo = getTipoDesdeCheckbox(cb);
-        
         const checkboxCompleto = document.querySelector(
             `.checkbox-completo[data-item-tipo="${tipo}"][data-item-id="${itemId}"]`
         );
-        
         if (checkboxCompleto) {
             checkboxCompleto.checked = true;
             toggleMontoPersonalizado(tipo, itemId);
@@ -565,14 +741,11 @@ function seleccionarTodas() {
 function deseleccionarTodas() {
     document.querySelectorAll('.item-checkbox').forEach(cb => {
         cb.checked = false;
-        
         const itemId = cb.value;
         const tipo = getTipoDesdeCheckbox(cb);
-        
         const checkboxCompleto = document.querySelector(
             `.checkbox-completo[data-item-tipo="${tipo}"][data-item-id="${itemId}"]`
         );
-        
         if (checkboxCompleto) {
             checkboxCompleto.checked = true;
             toggleMontoPersonalizado(tipo, itemId);
@@ -608,21 +781,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            // Verificar que cada ítem tenga un monto válido
+            // Verificar montos válidos por ítem
             let tieneMontoInvalido = false;
             checkboxesItems.forEach(cb => {
                 const itemId = cb.value;
                 const tipo = getTipoDesdeCheckbox(cb);
-                
                 const checkboxCompleto = document.querySelector(
                     `.checkbox-completo[data-item-tipo="${tipo}"][data-item-id="${itemId}"]`
                 );
-                
                 if (checkboxCompleto && !checkboxCompleto.checked) {
                     const montoPersonalizado = (montosPersonalizados[tipo] || {})[itemId] || 0;
-                    if (montoPersonalizado <= 0) {
-                        tieneMontoInvalido = true;
-                    }
+                    if (montoPersonalizado <= 0) tieneMontoInvalido = true;
                 }
             });
             
@@ -631,10 +800,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('⚠️ Todos los ítems seleccionados deben tener un monto válido');
                 return false;
             }
+
+            // Validar crédito final
+            const cbCredito = document.getElementById('usar-credito-cb');
+            if (cbCredito && cbCredito.checked) {
+                const montoCredito = parseFloat(document.getElementById('input-monto-credito').value) || 0;
+                const total = parseFloat(document.getElementById('total-display').textContent.replace('Bs. ', '')) || 0;
+                if (montoCredito > CREDITO_DISPONIBLE) {
+                    e.preventDefault();
+                    alert(`⚠️ El crédito ingresado supera el disponible (Bs. ${CREDITO_DISPONIBLE})`);
+                    return false;
+                }
+                if (montoCredito > total) {
+                    e.preventDefault();
+                    alert('⚠️ El crédito no puede superar el total del pago');
+                    return false;
+                }
+                const montoEfectivo = total - montoCredito;
+                const selectMetodo = document.getElementById('select-metodo-pago');
+                if (montoEfectivo > 0 && !selectMetodo.value) {
+                    e.preventDefault();
+                    alert('⚠️ Debes seleccionar un método de pago para el monto en efectivo/QR/transferencia');
+                    return false;
+                }
+            }
             
             // Confirmar
             const total = document.getElementById('total-display').textContent;
-            if (!confirm(`¿Confirmar pago masivo de ${total}?`)) {
+            const cbCredito2 = document.getElementById('usar-credito-cb');
+            let mensajeConfirm = `¿Confirmar pago masivo de ${total}?`;
+            if (cbCredito2 && cbCredito2.checked) {
+                const mc = parseFloat(document.getElementById('input-monto-credito').value) || 0;
+                if (mc > 0) {
+                    const me = (parseFloat(total.replace('Bs. ', '')) || 0) - mc;
+                    mensajeConfirm = `¿Confirmar pago masivo de ${total}?\n\n💳 Crédito: Bs. ${Math.round(mc)}\n💵 Efectivo/QR/Transf.: Bs. ${Math.round(me)}`;
+                }
+            }
+            if (!confirm(mensajeConfirm)) {
                 e.preventDefault();
                 return false;
             }

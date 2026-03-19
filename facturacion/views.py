@@ -2231,6 +2231,11 @@ def pagos_masivos(request):
             if saldo_pendiente > Decimal('0.01'):
                 s.total_pagado_calc = total_pagado
                 s.saldo_pendiente_calc = saldo_pendiente
+                # Calcular porcentaje del profesional externo para mostrarlo en el template
+                if s.servicio.es_servicio_externo and s.servicio.porcentaje_centro is not None:
+                    s.porcentaje_profesional_calc = 100 - s.servicio.porcentaje_centro
+                else:
+                    s.porcentaje_profesional_calc = None
                 sesiones_pendientes.append(s)
                 sesiones_con_deuda += 1
         
@@ -2420,8 +2425,14 @@ def procesar_pagos_masivos(request):
         fecha_pago_str = request.POST.get('fecha_pago')
         observaciones = request.POST.get('observaciones', '')
 
-        # Validaciones
-        if not all([paciente_id, metodo_pago_id, fecha_pago_str]):
+        # Leer crédito ANTES de validaciones para saber si es pago 100% crédito
+        usar_credito = request.POST.get('usar_credito') == 'on'
+        raw_credito = request.POST.get('monto_credito', '').strip()
+        monto_credito = Decimal(raw_credito) if raw_credito and usar_credito else Decimal('0')
+
+        # metodo_pago es opcional solo cuando el pago es 100% con crédito
+        es_solo_credito = usar_credito and monto_credito > 0 and not metodo_pago_id
+        if not all([paciente_id, fecha_pago_str]) or (not metodo_pago_id and not es_solo_credito):
             messages.error(request, '❌ Faltan datos obligatorios')
             return redirect('facturacion:pagos_masivos')
 
@@ -2431,7 +2442,22 @@ def procesar_pagos_masivos(request):
         
         fecha_pago = datetime.strptime(fecha_pago_str, '%Y-%m-%d').date()
         paciente = Paciente.objects.get(id=paciente_id)
-        metodo_pago = MetodoPago.objects.get(id=metodo_pago_id)
+        metodo_pago = MetodoPago.objects.get(id=metodo_pago_id) if metodo_pago_id else None
+
+        # ── Validar crédito disponible ─────────────────────────────────────
+        if usar_credito and monto_credito > 0:
+            cuenta_pac, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
+            credito_disponible = cuenta_pac.pagos_adelantados
+            if monto_credito > credito_disponible:
+                messages.error(
+                    request,
+                    f'❌ El crédito ingresado (Bs. {monto_credito}) supera el disponible '
+                    f'(Bs. {credito_disponible})'
+                )
+                return redirect(f"{request.path_info.replace('procesar/', '')}?paciente={paciente_id}")
+
+        # Metodo de pago es obligatorio solo si hay monto efectivo
+        monto_efectivo_estimado = None  # se calculará después con el total real
         
         # CALCULAR TOTAL Y PREPARAR AJUSTES
         items_ajustados = []
@@ -2542,6 +2568,18 @@ def procesar_pagos_masivos(request):
         if total_pago <= 0:
             messages.error(request, '❌ El total a pagar debe ser mayor a 0')
             return redirect('facturacion:pagos_masivos')
+
+        # Validar crédito vs total ahora que tenemos el total real
+        if usar_credito and monto_credito > total_pago:
+            messages.error(request, '❌ El monto de crédito no puede superar el total del pago')
+            return redirect(f"{ request.build_absolute_uri().split('procesar')[0] }?paciente={paciente_id}")
+
+        monto_efectivo_pago = total_pago - monto_credito if usar_credito else total_pago
+
+        # Validar que haya método de pago cuando hay monto en efectivo
+        if monto_efectivo_pago > 0 and not metodo_pago:
+            messages.error(request, '❌ Debes seleccionar un método de pago para el monto en efectivo/QR/transferencia')
+            return redirect('facturacion:pagos_masivos')
         
         # 🔒 TRANSACCIÓN ATÓMICA
         with transaction.atomic():
@@ -2576,86 +2614,149 @@ def procesar_pagos_masivos(request):
             if count_by_type['mensualidad'] > 0:
                 tipos_str.append(f"{len([i for i in items_ajustados if i['tipo'] == 'mensualidad'])} mensualidad(es)")
             
-            # 💾 CREAR UN SOLO PAGO MASIVO
             concepto_principal = f"Pago masivo de {', '.join(tipos_str)}: {concepto_items}"
             
-            # ✅ Asegurar que el total no tenga decimales (campo decimal_places=0)
+            # ✅ Asegurar que el total no tenga decimales
             total_pago = total_pago.quantize(Decimal('1'))
-            
-            pago_masivo = Pago.objects.create(
-                paciente=paciente,
-                sesion=None,
-                proyecto=None,
-                mensualidad=None,
-                fecha_pago=fecha_pago,
-                monto=total_pago,
-                metodo_pago=metodo_pago,
-                concepto=concepto_principal,
-                observaciones=observaciones or f"Pago masivo de {len(items_ajustados)} ítem(s)",
-                registrado_por=request.user
-            )
-            
-            # 📋 CREAR DETALLES PARA CADA ÍTEM
-            for ajuste in items_ajustados:
+            monto_efectivo_pago = monto_efectivo_pago.quantize(Decimal('1'))
+            monto_credito = monto_credito.quantize(Decimal('1'))
+
+            # ──────────────────────────────────────────────────────────────
+            # CREAR PAGO(S) MASIVO(S)
+            # Si hay crédito: se crean DOS pagos masivos (efectivo + crédito)
+            # y los DetallePagoMasivo se distribuyen proporcionalmente.
+            # ──────────────────────────────────────────────────────────────
+
+            pago_masivo_efectivo = None
+            pago_masivo_credito = None
+
+            if monto_efectivo_pago > 0:
+                obs_efectivo = observaciones or f"Pago masivo de {len(items_ajustados)} ítem(s)"
+                if usar_credito and monto_credito > 0:
+                    obs_efectivo += f" (+ Bs. {monto_credito} con crédito)"
+                pago_masivo_efectivo = Pago.objects.create(
+                    paciente=paciente,
+                    sesion=None,
+                    proyecto=None,
+                    mensualidad=None,
+                    fecha_pago=fecha_pago,
+                    monto=monto_efectivo_pago,
+                    metodo_pago=metodo_pago,
+                    concepto=concepto_principal,
+                    observaciones=obs_efectivo,
+                    registrado_por=request.user
+                )
+
+            if usar_credito and monto_credito > 0:
+                metodo_credito = MetodoPago.objects.get(nombre="Uso de Crédito")
+                pago_masivo_credito = Pago.objects.create(
+                    paciente=paciente,
+                    sesion=None,
+                    proyecto=None,
+                    mensualidad=None,
+                    fecha_pago=fecha_pago,
+                    monto=monto_credito,
+                    metodo_pago=metodo_credito,
+                    concepto=f"Uso de crédito - {concepto_principal}",
+                    observaciones=f"Uso de crédito en pago masivo de {len(items_ajustados)} ítem(s)",
+                    registrado_por=request.user
+                )
+
+            # Si el pago es 100% crédito no hay pago efectivo
+            pago_principal = pago_masivo_efectivo or pago_masivo_credito
+
+            # 📋 CREAR DETALLES — con distribución proporcional si hay crédito
+            credito_asignado = Decimal('0')
+
+            for idx, ajuste in enumerate(items_ajustados):
                 obj = ajuste['objeto']
                 tipo = ajuste['tipo']
-                monto_pagar = ajuste['monto_pagar']
+                monto_item_total = ajuste['monto_pagar']
                 tiene_monto_personalizado = ajuste['tiene_monto_personalizado']
-                
-                # Construir concepto según tipo
+                es_ultimo = (idx == len(items_ajustados) - 1)
+
+                # Calcular fracción de crédito para este ítem
+                if usar_credito and monto_credito > 0:
+                    if es_ultimo:
+                        monto_item_credito = monto_credito - credito_asignado
+                    else:
+                        monto_item_credito = (monto_item_total * monto_credito / total_pago).quantize(Decimal('1'))
+                    credito_asignado += monto_item_credito
+                    monto_item_efectivo = monto_item_total - monto_item_credito
+                else:
+                    monto_item_credito = Decimal('0')
+                    monto_item_efectivo = monto_item_total
+
+                # Construir concepto e info de sesión/proyecto/mensualidad
+                sesion_ref = proyecto_ref = mensualidad_ref = None
                 if tipo == 'sesion':
                     concepto_detalle = f"Sesión {obj.fecha.strftime('%d/%m/%Y')} - {obj.servicio.nombre}"
-                    
-                    # Ajustar monto_cobrado si es personalizado
+                    sesion_ref = obj
+                    proyecto_ref = obj.proyecto if obj.proyecto else None
                     if tiene_monto_personalizado:
-                        monto_original = obj.monto_cobrado
-                        nuevo_monto_cobrado = _total_pagado_sesion(obj) + monto_pagar
-                        
+                        precio_previo = obj.monto_cobrado
+                        nuevo_monto_cobrado = _total_pagado_sesion(obj) + monto_item_total
                         if nuevo_monto_cobrado != obj.monto_cobrado:
+                            # Guardar precio original como referencial (igual que process_payment)
+                            if obj.monto_original is None:
+                                obj.monto_original = precio_previo
                             obj.monto_cobrado = nuevo_monto_cobrado
-                            nota_ajuste = f"\n[{fecha_pago}] Monto ajustado de Bs. {monto_original} a Bs. {nuevo_monto_cobrado} en pago masivo"
+                            nota_ajuste = f"\n[{fecha_pago}] Monto ajustado de Bs. {precio_previo} a Bs. {nuevo_monto_cobrado} en pago masivo"
                             obj.observaciones = (obj.observaciones or "") + nota_ajuste
                             obj.save()
-                    
-                    # Crear detalle
-                    DetallePagoMasivo.objects.create(
-                        pago=pago_masivo,
-                        tipo='sesion',
-                        sesion=obj,
-                        proyecto=obj.proyecto if obj.proyecto else None,
-                        mensualidad=None,
-                        monto=monto_pagar,
-                        concepto=concepto_detalle
-                    )
-                
                 elif tipo == 'proyecto':
                     concepto_detalle = f"Proyecto {obj.codigo} - {obj.nombre}"
-                    
-                    # Crear detalle
-                    DetallePagoMasivo.objects.create(
-                        pago=pago_masivo,
-                        tipo='proyecto',
-                        sesion=None,
-                        proyecto=obj,
-                        mensualidad=None,
-                        monto=monto_pagar,
-                        concepto=concepto_detalle
-                    )
-                
+                    proyecto_ref = obj
                 elif tipo == 'mensualidad':
                     concepto_detalle = f"Mensualidad {obj.mes}/{obj.anio}"
-                    
-                    # Crear detalle
+                    mensualidad_ref = obj
+
+                # Detalle efectivo
+                if pago_masivo_efectivo and monto_item_efectivo > 0:
                     DetallePagoMasivo.objects.create(
-                        pago=pago_masivo,
-                        tipo='mensualidad',
-                        sesion=None,
-                        proyecto=None,
-                        mensualidad=obj,
-                        monto=monto_pagar,
+                        pago=pago_masivo_efectivo,
+                        tipo=tipo,
+                        sesion=sesion_ref,
+                        proyecto=proyecto_ref,
+                        mensualidad=mensualidad_ref,
+                        monto=monto_item_efectivo,
                         concepto=concepto_detalle
                     )
+
+                # Detalle crédito
+                if pago_masivo_credito and monto_item_credito > 0:
+                    DetallePagoMasivo.objects.create(
+                        pago=pago_masivo_credito,
+                        tipo=tipo,
+                        sesion=sesion_ref,
+                        proyecto=proyecto_ref,
+                        mensualidad=mensualidad_ref,
+                        monto=monto_item_credito,
+                        concepto=f"Crédito - {concepto_detalle}"
+                    )
             
+            # Registrar comisión para sesiones de servicios externos
+            # (igual que process_payment en services.py — solo informativo para reportes)
+            from servicios.models import ComisionSesion
+            for ajuste in items_ajustados:
+                if ajuste["tipo"] != "sesion":
+                    continue
+                sesion_ext = ajuste["objeto"]
+                if not sesion_ext.servicio.es_servicio_externo:
+                    continue
+                # precio_cobrado = total pagado por la sesión DESPUÉS de crear los detalles
+                # _total_pagado_sesion ya suma pagos directos + DetallePagoMasivo no anulados
+                precio_cobrado_total = _total_pagado_sesion(sesion_ext)
+                porcentaje = sesion_ext.servicio.porcentaje_centro
+                if precio_cobrado_total and porcentaje:
+                    ComisionSesion.objects.update_or_create(
+                        sesion=sesion_ext,
+                        defaults={
+                            "precio_cobrado": precio_cobrado_total,
+                            "porcentaje_centro": porcentaje,
+                        }
+                    )
+
             # Actualizar cuenta corriente
             cuenta, created = CuentaCorriente.objects.get_or_create(paciente=paciente)
             AccountService.update_balance(paciente)
@@ -2670,17 +2771,24 @@ def procesar_pagos_masivos(request):
         info_estado = f"{', '.join(tipos_str)} procesados correctamente"
         
         # 🆕 ALMACENAR EN SESSION para mostrar en confirmación
+        # pago_principal es el pago efectivo o el de crédito si fue 100% crédito
+        detalle_pago_confirmacion = f'{items_count} ítem(s) pagado(s)'
+        if usar_credito and monto_credito > 0:
+            if monto_efectivo_pago > 0:
+                detalle_pago_confirmacion += f' — Bs. {monto_efectivo_pago} efectivo + Bs. {monto_credito} crédito'
+            else:
+                detalle_pago_confirmacion += f' — 100% crédito (Bs. {monto_credito})'
         request.session['pago_exitoso'] = {
             'tipo': 'Pago Masivo',
-            'mensaje': f'Pago masivo registrado exitosamente',
-            'detalle': f'{items_count} ítem(s) pagado(s)',
+            'mensaje': 'Pago masivo registrado exitosamente',
+            'detalle': detalle_pago_confirmacion,
             'total': float(total_pago),
             'paciente': paciente.nombre_completo,
             'concepto': concepto_completo,
             'info_estado': info_estado,
             'genero_recibo': True,
-            'numero_recibo': pago_masivo.numero_recibo,
-            'pago_id': pago_masivo.id,
+            'numero_recibo': pago_principal.numero_recibo,
+            'pago_id': pago_principal.id,
         }
         
         return redirect('facturacion:confirmacion_pago')

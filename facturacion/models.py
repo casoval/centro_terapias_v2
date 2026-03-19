@@ -782,6 +782,125 @@ class Pago(models.Model):
 
         # La cuenta corriente se actualiza automáticamente vía signal post_save
 
+        # ── Restaurar monto_cobrado en sesiones cuyo precio fue ajustado ────────
+        # Tanto registrar_pago (pago directo) como pagos_masivos pueden ajustar
+        # monto_cobrado y guardar el precio original en monto_original.
+        # Al anular el pago que causó el ajuste hay que revertir ese cambio,
+        # siempre que no queden otros pagos vigentes que lo justifiquen.
+
+        # Recolectar la(s) sesión(es) afectadas por este pago
+        sesiones_a_revisar = []
+
+        # Caso A: pago directo a una sesión (registrar_pago)
+        if self.sesion_id:
+            try:
+                sesiones_a_revisar.append(self.sesion)
+            except Exception:
+                pass
+
+        # Caso B: pago masivo — las sesiones están en DetallePagoMasivo
+        if self.es_pago_masivo:
+            detalles = self.detalles_masivos.filter(
+                tipo='sesion',
+                sesion__isnull=False,
+            ).select_related('sesion')
+            for detalle in detalles:
+                sesiones_a_revisar.append(detalle.sesion)
+
+        for sesion in sesiones_a_revisar:
+            # Solo actuar si la sesión tiene un precio ajustado
+            if sesion.monto_original is None:
+                continue
+
+            # ¿Quedan pagos directos vigentes (no anulados, no este) que
+            # justifiquen el precio ajustado?
+            otros_pagos_directos = Pago.objects.filter(
+                sesion=sesion,
+                anulado=False,
+            ).exclude(pk=self.pk).exists()
+
+            # ¿Quedan pagos masivos vigentes que también ajustaron esta sesión?
+            otros_masivos = DetallePagoMasivo.objects.filter(
+                tipo='sesion',
+                sesion=sesion,
+                pago__anulado=False,
+            ).exclude(pago=self).exists()
+
+            if not otros_pagos_directos and not otros_masivos:
+                # Sin respaldo: restaurar precio original y limpiar el campo
+                sesion.monto_cobrado = sesion.monto_original
+                sesion.monto_original = None
+                sesion.save(update_fields=['monto_cobrado', 'monto_original'])
+
+        # ── Recalcular ComisionSesion para servicios externos ─────────────────
+        # Se recalcula DESPUÉS de marcar anulado=True para que las queries ya
+        # excluyan este pago y reflejen el nuevo total real pagado.
+        self._recalcular_comisiones_externas()
+
+    def _recalcular_comisiones_externas(self):
+        """
+        Recalcula ComisionSesion para todas las sesiones de servicios externos
+        afectadas por este pago (directo o dentro de un pago masivo).
+        Si el nuevo precio_cobrado es 0, elimina el registro de comisión.
+        """
+        from django.db.models import Sum as _Sum
+        try:
+            from servicios.models import ComisionSesion
+        except ImportError:
+            return
+
+        # Recolectar todas las sesiones externas afectadas
+        sesiones_a_recalcular = []
+
+        # Caso 1: pago directo a una sesión
+        if self.sesion_id:
+            try:
+                sesion = self.sesion
+                if sesion.servicio.es_servicio_externo:
+                    sesiones_a_recalcular.append(sesion)
+            except Exception:
+                pass
+
+        # Caso 2: pago masivo — las sesiones están en DetallePagoMasivo
+        if self.es_pago_masivo:
+            detalles = self.detalles_masivos.filter(
+                tipo='sesion',
+                sesion__isnull=False,
+            ).select_related('sesion__servicio')
+            for detalle in detalles:
+                if detalle.sesion.servicio.es_servicio_externo:
+                    sesiones_a_recalcular.append(detalle.sesion)
+
+        for sesion in sesiones_a_recalcular:
+            # Total pagado REAL tras la anulación
+            # (pagos directos no anulados + detalles masivos de pagos no anulados)
+            pagos_directos = sesion.pagos.filter(
+                anulado=False
+            ).aggregate(t=_Sum('monto'))["t"] or Decimal("0")
+
+            from facturacion.models import DetallePagoMasivo as _DPM
+            pagos_masivos_det = _DPM.objects.filter(
+                tipo='sesion',
+                sesion=sesion,
+                pago__anulado=False,
+            ).aggregate(t=_Sum('monto'))["t"] or Decimal("0")
+
+            nuevo_precio = pagos_directos + pagos_masivos_det
+
+            if nuevo_precio <= 0:
+                # Sin pagos válidos → eliminar la comisión
+                ComisionSesion.objects.filter(sesion=sesion).delete()
+            else:
+                porcentaje = sesion.servicio.porcentaje_centro
+                if porcentaje:
+                    ComisionSesion.objects.update_or_create(
+                        sesion=sesion,
+                        defaults={
+                            "precio_cobrado": nuevo_precio,
+                            "porcentaje_centro": porcentaje,
+                        }
+                    )
+
 
 class DetallePagoMasivo(models.Model):
     """

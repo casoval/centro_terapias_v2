@@ -854,9 +854,6 @@ def liquidar_honorarios(request):
 
     comisiones_pendientes = (
         ComisionSesion.objects
-        .filter(
-            sesion__estado__in=['realizada', 'realizada_retraso'],
-        )
         .exclude(sesion__id__in=sesiones_pagadas_ids)
         .select_related(
             'sesion__profesional',
@@ -964,7 +961,6 @@ def liquidar_honorarios(request):
 
     comisiones_pendientes = (
         ComisionSesion.objects
-        .filter(sesion__estado__in=['realizada', 'realizada_retraso'])
         .exclude(sesion__id__in=sesiones_cerradas_ids)
         .select_related(
             'sesion__profesional',

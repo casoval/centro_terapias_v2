@@ -357,22 +357,7 @@
                 </div>
             </div>
 
-            <!-- 🆕 INGRESO NETO CENTRO (solo si hay comisiones) -->
-            {% if paciente.cuenta_corriente.total_profesionales > 0 %}
-            <div class="bg-orange-50 border border-orange-200 rounded-lg p-2 mb-1.5">
-                <p class="text-[8px] text-orange-600 font-bold uppercase mb-1">👤 Distribución Externo</p>
-                <div class="grid grid-cols-2 gap-1 text-center text-[9px]">
-                    <div>
-                        <p class="text-gray-500">Al profesional</p>
-                        <p class="font-bold text-gray-700">Bs. {{ paciente.cuenta_corriente.total_profesionales|floatformat:0 }}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500">Ingreso neto</p>
-                        <p class="font-bold text-orange-700">Bs. {{ paciente.cuenta_corriente.ingreso_neto_centro|floatformat:0 }}</p>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
+
             
             {% if paciente.estado == 'inactivo' %}
                 <div class="flex gap-1.5">
@@ -416,9 +401,6 @@
                         </th>
                         <th rowspan="2" class="px-2 py-2 text-center font-bold text-green-700 uppercase tracking-wider bg-green-50 border-r-2 border-gray-300">
                             💰 Crédito
-                        </th>
-                        <th rowspan="2" class="px-2 py-2 text-center font-bold text-orange-600 uppercase tracking-wider bg-orange-50 border-r-2 border-gray-300">
-                            👤 Neto Centro
                         </th>
                         <th rowspan="2" class="px-2 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">
                             Acciones
@@ -507,16 +489,6 @@
                             {% endif %}
                         </td>
                         
-                        <!-- 🆕 INGRESO NETO CENTRO -->
-                        <td class="px-2 py-2 text-center bg-orange-50/30 border-r-2 border-gray-200">
-                            {% if paciente.cuenta_corriente.total_profesionales > 0 %}
-                                <span class="font-black text-orange-700">Bs. {{ paciente.cuenta_corriente.ingreso_neto_centro|floatformat:0 }}</span>
-                                <span class="block text-[9px] text-orange-500 font-bold">NETO</span>
-                            {% else %}
-                                <span class="text-gray-400 text-[10px]">—</span>
-                            {% endif %}
-                        </td>
-
                         <!-- Acciones -->
                         <td class="px-2 py-2 text-center">
                             {% if paciente.estado == 'inactivo' %}
