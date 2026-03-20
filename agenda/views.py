@@ -93,6 +93,11 @@ def lista_proyectos(request):
     else:
         sucursales = Sucursal.objects.filter(activa=True)
     
+    # Query string sin 'page' para preservar filtros en paginación
+    params = request.GET.copy()
+    params.pop('page', None)
+    query_string = params.urlencode()
+
     context = {
         'page_obj': page_obj,
         'estadisticas': estadisticas,
@@ -103,6 +108,7 @@ def lista_proyectos(request):
         'sucursales': sucursales,
         'estados': Proyecto.ESTADO_CHOICES,
         'tipos': Proyecto.TIPO_CHOICES,
+        'query_string': query_string,
     }
     
     return render(request, 'agenda/lista_proyectos.html', context)
@@ -531,6 +537,11 @@ def lista_mensualidades(request):
     else:
         sucursales = Sucursal.objects.filter(activa=True)
     
+    # Query string sin 'page' para preservar filtros en paginación
+    params = request.GET.copy()
+    params.pop('page', None)
+    query_string = params.urlencode()
+
     context = {
         'page_obj': page_obj,
         'estadisticas': estadisticas,
@@ -539,6 +550,7 @@ def lista_mensualidades(request):
         'sucursal_id': sucursal_id,
         'sucursales': sucursales,
         'estados': Mensualidad.ESTADO_CHOICES,
+        'query_string': query_string,
     }
     
     return render(request, 'agenda/lista_mensualidades.html', context)

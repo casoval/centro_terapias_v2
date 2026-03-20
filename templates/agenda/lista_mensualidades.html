@@ -55,7 +55,7 @@
             <select name="sucursal" class="flex-1 px-2 py-1.5 border border-white rounded-lg text-xs font-bold shadow-sm outline-none focus:ring-1 focus:ring-purple-400">
                 <option value="">Sucursales</option>
                 {% for sucursal in sucursales %}
-                <option value="{{ sucursal.id }}" {% if sucursal_filtro == sucursal.id|stringformat:"s" %}selected{% endif %}>{{ sucursal.nombre }}</option>
+                <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id|stringformat:"s" %}selected{% endif %}>{{ sucursal.nombre }}</option>
                 {% endfor %}
             </select>
             
@@ -73,6 +73,7 @@
                         <th class="px-5 py-4 text-center">Período</th>
                         <th class="px-5 py-4 text-left">Servicios</th>
                         <th class="px-5 py-4 text-center">Sesiones</th>
+                        <th class="px-5 py-4 text-center">Sucursal</th>
                         <th class="px-5 py-4 text-center">Estado</th>
                         <th class="px-5 py-4 text-right">Costo/Pagado</th>
                         <th class="px-5 py-4 text-center">Acciones</th>
@@ -121,6 +122,10 @@
                         </td>
                         
                         <td class="px-5 py-4 text-center">
+                            <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg border border-slate-200 font-bold text-[11px]">🏢 {{ mensualidad.sucursal.nombre }}</span>
+                        </td>
+                        
+                        <td class="px-5 py-4 text-center">
                             <span class="px-3 py-1.5 rounded-full font-black text-[10px] uppercase border shadow-sm
                                 {% if mensualidad.estado == 'activa' %}bg-emerald-50 text-emerald-700 border-emerald-200
                                 {% elif mensualidad.estado == 'pausada' %}bg-amber-50 text-amber-700 border-amber-200
@@ -147,7 +152,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400 font-bold italic text-lg">No se encontraron mensualidades</td></tr>
+                    <tr><td colspan="8" class="px-5 py-12 text-center text-slate-400 font-bold italic text-lg">No se encontraron mensualidades</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -158,7 +163,7 @@
     <div class="mt-8 flex justify-center">
         <nav class="flex gap-2 items-center">
             {% if page_obj.has_previous %}
-                <a href="?page=1" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">INICIO</a>
+                <a href="?page=1{% if query_string %}&{{ query_string }}{% endif %}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">INICIO</a>
             {% endif %}
             
             <div class="flex items-center bg-purple-600 text-white rounded-xl px-5 py-2 shadow-lg">
@@ -166,7 +171,7 @@
             </div>
 
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">SIGUIENTE</a>
+                <a href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 font-black text-[12px] text-slate-600">SIGUIENTE</a>
             {% endif %}
         </nav>
     </div>
