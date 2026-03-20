@@ -3916,393 +3916,1353 @@ def _calcular_financiero_sucursal(sucursal_id, paciente_ids, fecha_desde_obj=Non
         'credito_adelantado_disponible': credito_neto,
     }
 
-
 @login_required
 def reporte_paciente(request):
     """
-    Reporte detallado por paciente - CORREGIDO
-    ✅ Usa anotaciones en lugar del campo 'pagado' eliminado
+    Reporte completo individual por paciente.
+    Incluye: perfil clínico, financiero, asistencia, evolución mensual,
+             proyectos, mensualidades, pagos y detalle completo de sesiones.
+    Soporta exportación a PDF con ?export=pdf
     """
-    
+    from decimal import Decimal
+    from datetime import datetime, timedelta
+    from collections import defaultdict as _dd
+    from collections import defaultdict   # alias directo para uso en el cuerpo
+    from datetime import date as _d
+    from django.db.models import IntegerField
+ 
     paciente_id = request.GET.get('paciente')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
-    
-    paciente = None
-    datos = None
+ 
+    paciente     = None
+    datos        = None
     grafico_data = None
-    
+ 
     if paciente_id:
-        from datetime import datetime, timedelta
-        
         paciente = get_object_or_404(
-            Paciente.objects.select_related('cuenta_corriente'),
+            Paciente.objects.select_related('cuenta_corriente').prefetch_related('sucursales'),
             id=paciente_id
         )
-        
-        # Rango de fechas (por defecto: Últimos 6 meses)
+ 
+        # ── Rango de fechas ───────────────────────────────────────────────────
         if fecha_desde and fecha_hasta:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            try:
+                fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+                fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_desde_obj = None
+                fecha_hasta_obj = None
+                fecha_desde = ''
+                fecha_hasta = ''
         else:
-            fecha_hasta_obj = date.today()
-            fecha_desde_obj = fecha_hasta_obj - timedelta(days=180)
-            fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
-            fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
-        
-        # Query base
+            # Sin fechas → mostrar todo el historial del paciente
+            fecha_desde_obj = None
+            fecha_hasta_obj = None
+            fecha_desde = ''
+            fecha_hasta = ''
+ 
+        # ── Query base de sesiones ────────────────────────────────────────────
         sesiones = Sesion.objects.filter(
             paciente=paciente,
-            fecha__gte=fecha_desde_obj,
-            fecha__lte=fecha_hasta_obj
-        ).select_related('servicio', 'profesional', 'sucursal', 'proyecto')
-        
-        # Estadísticas generales
-        stats = sesiones.aggregate(
-            total_sesiones=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-            faltas=Count('id', filter=Q(estado='falta')),
-            permisos=Count('id', filter=Q(estado='permiso')),
-            canceladas=Count('id', filter=Q(estado='cancelada')),
-            reprogramadas=Count('id', filter=Q(estado='reprogramada')),
-            total_cobrado=Sum('monto_cobrado'),
         )
-        
-        # ✅ CORREGIDO: Calcular total_pagado usando la función que incluye pagos masivos
-        sesiones_list = list(sesiones)
-        
-        total_pagado = Decimal('0.00')
-        sesiones_pagadas = 0
-        sesiones_pendientes = 0
-        
+        if fecha_desde_obj:
+            sesiones = sesiones.filter(fecha__gte=fecha_desde_obj)
+        if fecha_hasta_obj:
+            sesiones = sesiones.filter(fecha__lte=fecha_hasta_obj)
+        sesiones = sesiones.select_related('servicio', 'profesional', 'sucursal',
+                         'proyecto', 'mensualidad')
+ 
+        # ── Estadísticas generales ────────────────────────────────────────────
+        stats = sesiones.aggregate(
+            total_sesiones  = Count('id'),
+            realizadas      = Count('id', filter=Q(estado='realizada')),
+            retrasos        = Count('id', filter=Q(estado='realizada_retraso')),
+            faltas          = Count('id', filter=Q(estado='falta')),
+            permisos        = Count('id', filter=Q(estado='permiso')),
+            canceladas      = Count('id', filter=Q(estado='cancelada')),
+            reprogramadas   = Count('id', filter=Q(estado='reprogramada')),
+            programadas     = Count('id', filter=Q(estado='programada')),
+            total_cobrado   = Coalesce(Sum('monto_cobrado'), Decimal('0')),
+            promedio_retraso= Avg('minutos_retraso',
+                                  filter=Q(estado='realizada_retraso')),
+            duracion_total  = Coalesce(Sum('duracion_minutos',
+                                          filter=Q(estado__in=['realizada',
+                                                               'realizada_retraso'])),
+                                       0,
+                                       output_field=IntegerField()),
+        )
+ 
+        # Total pagado (incluye pagos masivos)
+        sesiones_list   = list(sesiones.order_by('-fecha', '-hora_inicio'))
+        total_pagado    = Decimal('0')
+        sesiones_pagadas = sesiones_pendientes = 0
+ 
         for s in sesiones_list:
-            # Usar la función que incluye pagos masivos
             s.total_pagado_sesion = _total_pagado_sesion(s)
             total_pagado += s.total_pagado_sesion
-            
-            # Contar sesiones pagadas y pendientes
-            if s.monto_cobrado > 0:
+            if s.monto_cobrado and s.monto_cobrado > 0:
                 if s.total_pagado_sesion >= s.monto_cobrado:
                     sesiones_pagadas += 1
                 else:
                     sesiones_pendientes += 1
-        
-        stats['total_pagado'] = total_pagado
-        stats['sesiones_pagadas'] = sesiones_pagadas
-        stats['sesiones_pendientes'] = sesiones_pendientes
-        stats['saldo_pendiente'] = (stats['total_cobrado'] or Decimal('0.00')) - total_pagado
-        
-        # Calcular tasa de asistencia
-        sesiones_efectivas = stats['realizadas'] + stats['retrasos']
-        sesiones_programadas = stats['total_sesiones'] - stats['canceladas'] - stats['permisos']
-        tasa_asistencia = (sesiones_efectivas / sesiones_programadas * 100) if sesiones_programadas > 0 else 0
-        
-        # Tasa de pago
-        total_con_cobro = sum(1 for s in sesiones_list if s.monto_cobrado > 0)
-        tasa_pago = (sesiones_pagadas / total_con_cobro * 100) if total_con_cobro > 0 else 0
-        
-        # Por servicio
-        por_servicio = sesiones.values(
-            'servicio__nombre', 'servicio__color'
-        ).annotate(
-            cantidad=Count('id'),
-            monto_total=Sum('monto_cobrado'),
-            sesiones_realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            sesiones_falta=Count('id', filter=Q(estado='falta'))
+ 
+        stats['total_pagado']       = total_pagado
+        stats['sesiones_pagadas']   = sesiones_pagadas
+        stats['sesiones_pendientes']= sesiones_pendientes
+        stats['saldo_pendiente']    = stats['total_cobrado'] - total_pagado
+ 
+        # ── Tasas ─────────────────────────────────────────────────────────────
+        base_asis = (stats['realizadas'] + stats['retrasos'] +
+                     stats['faltas']     + stats['permisos'])
+        sesiones_con_cobro = sum(1 for s in sesiones_list if s.monto_cobrado and s.monto_cobrado > 0)
+        tasa_asistencia = round((stats['realizadas'] + stats['retrasos']) / base_asis * 100, 1) if base_asis else 0
+        tasa_pago       = round(sesiones_pagadas / sesiones_con_cobro * 100, 1) if sesiones_con_cobro else 0
+        tasa_faltas     = round(stats['faltas'] / base_asis * 100, 1) if base_asis else 0
+        tasa_puntual    = round(stats['realizadas'] / (stats['realizadas'] + stats['retrasos']) * 100, 1) if (stats['realizadas'] + stats['retrasos']) else 0
+        horas_terapia   = round(float(stats.get('duracion_total') or 0) / 60, 1)
+        prom_retraso    = round(float(stats.get('promedio_retraso') or 0), 0)
+ 
+        # ── Por servicio ──────────────────────────────────────────────────────
+        por_servicio = sesiones.values('servicio__nombre', 'servicio__color').annotate(
+            cantidad          = Count('id'),
+            monto_total       = Coalesce(Sum('monto_cobrado'), Decimal('0')),
+            sesiones_realizadas = Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
+            sesiones_falta    = Count('id', filter=Q(estado='falta')),
+            sesiones_permiso  = Count('id', filter=Q(estado='permiso')),
         ).order_by('-cantidad')
-        
-        # Por profesional
-        por_profesional = sesiones.filter(
-            estado__in=['realizada', 'realizada_retraso']
-        ).values(
-            'profesional__nombre', 'profesional__apellido'
+ 
+        # ── Por profesional ───────────────────────────────────────────────────
+        por_profesional = sesiones.values(
+            'profesional__nombre', 'profesional__apellido', 'profesional_id'
         ).annotate(
-            cantidad=Count('id'),
-            monto_total=Sum('monto_cobrado')
+            cantidad     = Count('id'),
+            realizadas   = Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
+            monto_total  = Coalesce(Sum('monto_cobrado'), Decimal('0')),
+            prom_retraso = Avg('minutos_retraso', filter=Q(estado='realizada_retraso')),
+        ).order_by('-realizadas')
+ 
+        # ── Por sucursal ──────────────────────────────────────────────────────
+        por_sucursal = sesiones.values('sucursal__nombre').annotate(
+            cantidad   = Count('id'),
+            realizadas = Count('id', filter=Q(estado='realizada')),
+            faltas     = Count('id', filter=Q(estado='falta')),
         ).order_by('-cantidad')
-        
-        # Por sucursal
-        por_sucursal = sesiones.values(
-            'sucursal__nombre'
-        ).annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada'))
-        ).order_by('-cantidad')
-        
-        # Por mes (para gráfico)
-        from django.db.models.functions import TruncMonth
-        por_mes = sesiones.annotate(
-            mes=TruncMonth('fecha')
-        ).values('mes').annotate(
-            total=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-            faltas=Count('id', filter=Q(estado='falta')),
-            monto_generado=Sum('monto_cobrado')
-        ).order_by('mes')
-        
-        # Preparar datos para gráfico
+ 
+        # ── Por día de la semana ──────────────────────────────────────────────
+        _dias_cnt = defaultdict(int)
+        for row in sesiones.values('fecha'):
+            _dias_cnt[row['fecha'].weekday()] += 1
+        DIAS_ES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+        por_dia_semana = [
+            {'nombre': DIAS_ES[d], 'cantidad': _dias_cnt.get(d, 0)}
+            for d in range(7)
+        ]
+        dia_mas_frecuente = max(por_dia_semana, key=lambda x: x['cantidad'])['nombre'] if any(d['cantidad'] for d in por_dia_semana) else '—'
+ 
+        # ── Evolución mensual ─────────────────────────────────────────────────
+        _m = _dd(lambda: {'realizadas': 0, 'retrasos': 0, 'faltas': 0, 'permisos': 0,
+                           'canceladas': 0, 'programadas': 0, 'monto_generado': Decimal('0')})
+        for _row in sesiones.values('fecha', 'estado', 'monto_cobrado'):
+            _k = _d(_row['fecha'].year, _row['fecha'].month, 1)
+            _e = _row['estado']
+            if   _e == 'realizada':         _m[_k]['realizadas']  += 1
+            elif _e == 'realizada_retraso': _m[_k]['retrasos']    += 1
+            elif _e == 'falta':             _m[_k]['faltas']      += 1
+            elif _e == 'permiso':           _m[_k]['permisos']    += 1
+            elif _e == 'cancelada':         _m[_k]['canceladas']  += 1
+            elif _e == 'programada':        _m[_k]['programadas'] += 1
+            _m[_k]['monto_generado'] += Decimal(str(_row['monto_cobrado'] or 0))
+ 
+        por_mes = [
+            {'mes': k, **v}
+            for k, v in sorted(_m.items())
+        ]
+ 
         grafico_data = {
-            'labels': [_mes_label(m['mes']) for m in por_mes],
-            'realizadas': [m['realizadas'] for m in por_mes],
-            'faltas': [m['faltas'] for m in por_mes],
-            'retrasos': [m['retrasos'] for m in por_mes],
-            'monto': [float(m['monto_generado'] or 0) for m in por_mes],
+            'labels'    : [_mes_label(m['mes'])          for m in por_mes],
+            'realizadas': [m['realizadas']                for m in por_mes],
+            'faltas'    : [m['faltas']                    for m in por_mes],
+            'retrasos'  : [m['retrasos']                  for m in por_mes],
+            'monto'     : [float(m['monto_generado'])     for m in por_mes],
         }
-        
-        # Proyectos del paciente
-        proyectos_paciente = Proyecto.objects.filter(
-            paciente=paciente
-        ).select_related('servicio_base', 'profesional_responsable')
-        
+ 
+        # ── Proyectos ─────────────────────────────────────────────────────────
+        proyectos_qs = Proyecto.objects.filter(paciente=paciente).select_related(
+            'servicio_base', 'profesional_responsable', 'sucursal'
+        ).order_by('-fecha_inicio')
+ 
         proyectos_stats = {
-            'total': proyectos_paciente.count(),
-            'activos': proyectos_paciente.filter(estado__in=['planificado', 'en_progreso']).count(),
-            'finalizados': proyectos_paciente.filter(estado='finalizado').count(),
-            'monto_total': proyectos_paciente.aggregate(Sum('costo_total'))['costo_total__sum'] or Decimal('0.00'),
+            'total'     : proyectos_qs.count(),
+            'activos'   : proyectos_qs.filter(estado__in=['planificado', 'en_progreso']).count(),
+            'finalizados': proyectos_qs.filter(estado='finalizado').count(),
+            'cancelados': proyectos_qs.filter(estado='cancelado').count(),
+            'monto_total': proyectos_qs.aggregate(t=Coalesce(Sum('costo_total'), Decimal('0')))['t'],
         }
-        
-        # Mensualidades del paciente en el período
+ 
+        # ── Mensualidades ─────────────────────────────────────────────────────
         from agenda.models import Mensualidad
-        mensualidades_paciente = Mensualidad.objects.filter(
-            paciente=paciente,
-            estado__in=['activa', 'pausada', 'completada', 'cancelada']
-        ).filter(
-            Q(anio__gt=fecha_desde_obj.year) |
-            Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
-        ).filter(
-            Q(anio__lt=fecha_hasta_obj.year) |
-            Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
-        )
+        mensualidades_qs = Mensualidad.objects.filter(paciente=paciente)
+        if fecha_desde_obj:
+            mensualidades_qs = mensualidades_qs.filter(
+                Q(anio__gt=fecha_desde_obj.year) |
+                Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
+            )
+        if fecha_hasta_obj:
+            mensualidades_qs = mensualidades_qs.filter(
+                Q(anio__lt=fecha_hasta_obj.year) |
+                Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
+            )
+        mensualidades_qs = mensualidades_qs.prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional'
+        ).order_by('-anio', '-mes')
+ 
+        mensualidades_todas = Mensualidad.objects.filter(
+            paciente=paciente
+        ).select_related('sucursal').order_by('-anio', '-mes')
+ 
         mensualidades_stats = {
-            'total': mensualidades_paciente.count(),
-            'activas': mensualidades_paciente.filter(estado='activa').count(),
-            'monto_total': mensualidades_paciente.aggregate(Sum('costo_mensual'))['costo_mensual__sum'] or Decimal('0.00'),
+            'total'      : mensualidades_qs.count(),
+            'activas'    : mensualidades_qs.filter(estado='activa').count(),
+            'pausadas'   : mensualidades_qs.filter(estado='pausada').count(),
+            'completadas': mensualidades_qs.filter(estado='completada').count(),
+            'monto_total': mensualidades_qs.aggregate(
+                t=Coalesce(Sum('costo_mensual'), Decimal('0')))['t'],
         }
-
-        # Desglose financiero por sucursal — solo se muestra en el template
-        # si el paciente tiene actividad en más de una sede en el período.
+ 
+        # ── Pagos del período ─────────────────────────────────────────────────
+        from facturacion.models import Pago
+        pagos_recientes = Pago.objects.filter(
+            paciente=paciente,
+            anulado=False,
+        )
+        if fecha_desde_obj:
+            pagos_recientes = pagos_recientes.filter(fecha_pago__gte=fecha_desde_obj)
+        if fecha_hasta_obj:
+            pagos_recientes = pagos_recientes.filter(fecha_pago__lte=fecha_hasta_obj)
+        pagos_recientes = pagos_recientes.select_related(
+            'metodo_pago', 'sesion__servicio',
+            'proyecto__servicio_base', 'mensualidad'
+        ).order_by('-fecha_pago')
+ 
+        pagos_stats = {
+            'total_recibos': pagos_recientes.count(),
+            'monto_total'  : pagos_recientes.aggregate(
+                t=Coalesce(Sum('monto'), Decimal('0')))['t'],
+        }
+ 
+        # ── Financiero por sucursal ───────────────────────────────────────────
         financiero_por_sucursal = _calcular_financiero_paciente_por_sucursal(
             paciente,
             fecha_desde_obj=fecha_desde_obj,
             fecha_hasta_obj=fecha_hasta_obj,
         )
-
+ 
+        # ── Construir datos ───────────────────────────────────────────────────
         datos = {
-            'stats': stats,
-            'tasa_asistencia': round(tasa_asistencia, 1),
-            'tasa_pago': round(tasa_pago, 1),
-            'por_servicio': por_servicio,
-            'por_profesional': por_profesional,
-            'por_sucursal': por_sucursal,
-            'proyectos_stats': proyectos_stats,
-            'proyectos': proyectos_paciente[:5],
-            'mensualidades_stats': mensualidades_stats,
-            'mensualidades': mensualidades_paciente[:5],
-            'sesiones_recientes': sesiones.order_by('-fecha', '-hora_inicio')[:15],
+            'stats'                 : stats,
+            'tasa_asistencia'       : tasa_asistencia,
+            'tasa_pago'             : tasa_pago,
+            'tasa_faltas'           : tasa_faltas,
+            'tasa_puntual'          : tasa_puntual,
+            'horas_terapia'         : horas_terapia,
+            'prom_retraso_min'      : prom_retraso,
+            'dia_mas_frecuente'     : dia_mas_frecuente,
+            'por_servicio'          : por_servicio,
+            'por_profesional'       : por_profesional,
+            'por_sucursal'          : por_sucursal,
+            'por_dia_semana'        : por_dia_semana,
+            'por_mes'               : por_mes,
+            'proyectos_stats'       : proyectos_stats,
+            'proyectos'             : proyectos_qs[:6],
+            'proyectos_todos'       : proyectos_qs,
+            'mensualidades_stats'   : mensualidades_stats,
+            'mensualidades'         : mensualidades_qs[:6],
+            'mensualidades_todas'   : mensualidades_todas,
+            'pagos_stats'           : pagos_stats,
+            'pagos_recientes'       : pagos_recientes,
+            'sesiones_recientes'    : sesiones_list[:20],
             'financiero_por_sucursal': financiero_por_sucursal,
         }
-
-    # Lista de pacientes para selector
+ 
     pacientes = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
-    
+ 
     context = {
-        'paciente': paciente,
-        'datos': datos,
-        'grafico_data': grafico_data,
-        'pacientes': pacientes,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
+        'paciente'          : paciente,
+        'datos'             : datos,
+        'grafico_data'      : grafico_data,
+        'pacientes'         : pacientes,
+        'fecha_desde'       : fecha_desde,
+        'fecha_hasta'       : fecha_hasta,
     }
-    
+ 
+    # ── Exportar PDF ──────────────────────────────────────────────────────────
+    if request.GET.get('export') == 'pdf' and paciente:
+        try:
+            from facturacion.informe_paciente_pdf import generar_informe_paciente_pdf
+            # Enriquecer contexto con datos completos para el PDF
+            from facturacion.models import Pago
+            if datos:
+                context_pdf = dict(context)
+                context_pdf['sesiones_completas'] = sesiones_list
+                context_pdf['pagos_recientes']    = list(pagos_recientes)
+                context_pdf['proyectos_todos']    = list(proyectos_qs)
+                context_pdf['mensualidades_todas']= list(mensualidades_todas)
+            else:
+                context_pdf = context
+ 
+            buffer = generar_informe_paciente_pdf(context_pdf)
+            response = HttpResponse(buffer, content_type='application/pdf')
+            pac_slug = f"{paciente.apellido}_{paciente.nombre}".replace(' ', '_')
+            fd = fecha_desde.replace('-', '')
+            fh = fecha_hasta.replace('-', '')
+            filename = f"informe_paciente_{pac_slug}_{fd}_al_{fh}.pdf"
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                f"Error generando PDF paciente: {e}", exc_info=True)
+            messages.error(request, f"❌ Error al generar el PDF: {str(e)}")
+ 
     return render(request, 'facturacion/reportes/paciente.html', context)
+
+import json as _json
+from datetime import date as _date, timedelta as _timedelta, datetime as _datetime
+
+from django.db.models import (
+    Count, Avg, Q, Max, Min, IntegerField,
+    Case, When,
+)
+# TruncDate, TruncWeek, ExtractWeekDay, ExtractHour eliminados:
+# todas esas funciones fallan en SQLite + Python 3.14 (user-defined function
+# raised exception). La lógica equivalente se hace en Python puro.
+
+
+# ── Helpers privados del reporte ──────────────────────────────────────────────
+
+def _pct_a(num, den):
+    """Porcentaje con 1 decimal; 0.0 si denominador es 0."""
+    return round(float(num) / float(den) * 100, 1) if den else 0.0
+
+
+def _conteos_estados_a(qs):
+    """
+    Un solo hit a BD que cuenta todos los estados de Sesion en el queryset.
+    Retorna dict: realizadas, retrasos, faltas, permisos, canceladas,
+                  reprogramadas, programadas.
+    """
+    return qs.aggregate(
+        realizadas    = Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+        retrasos      = Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+        faltas        = Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+        permisos      = Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+        canceladas    = Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+        reprogramadas = Count(Case(When(estado='reprogramada',      then=1), output_field=IntegerField())),
+        programadas   = Count(Case(When(estado='programada',        then=1), output_field=IntegerField())),
+    )
+
+
+def _calcular_tasas_a(c):
+    """
+    Calcula todas las tasas a partir del dict de conteos.
+
+    FÓRMULAS CORRECTAS:
+      base_asistencia  = realizadas + retrasos + faltas + permisos
+        (sesiones donde el paciente TENÍA que venir; excluye futuras,
+         canceladas y reprogramadas porque no dependen del paciente)
+      base_puntualidad = realizadas + retrasos
+        (las que realmente ocurrieron, sin importar si fueron puntuales)
+      total_concluidas = base_asistencia + canceladas + reprogramadas
+        (todo lo que ya "pasó" o "no pasará", sin contar futuras)
+
+      tasa_asistencia    = (realizadas + retrasos) / base_asistencia × 100
+      tasa_puntualidad   = realizadas               / base_puntualidad × 100
+      tasa_faltas        = faltas                   / base_asistencia × 100
+      tasa_permisos      = permisos                 / base_asistencia × 100
+      tasa_cancelaciones = canceladas               / total_concluidas × 100
+      tasa_reprog        = reprogramadas            / total_concluidas × 100
+      tasa_retrasos      = retrasos                 / base_puntualidad × 100
+        (% de las sesiones realizadas que tuvieron retraso del paciente)
+    """
+    r, rt, f, p = c['realizadas'], c['retrasos'], c['faltas'], c['permisos']
+    ca, re      = c['canceladas'], c['reprogramadas']
+
+    base_asist  = r + rt + f + p
+    base_punt   = r + rt
+    total_concl = base_asist + ca + re
+
+    return {
+        'asistencia'     : _pct_a(r + rt, base_asist),
+        'puntualidad'    : _pct_a(r,      base_punt),
+        'faltas'         : _pct_a(f,      base_asist),
+        'permisos'       : _pct_a(p,      base_asist),
+        'cancelaciones'  : _pct_a(ca,     total_concl),
+        'reprogramaciones': _pct_a(re,    total_concl),
+        'retrasos'       : _pct_a(rt,     base_punt),   # ← antes faltaba
+    }
+
+
+def _fechas_rango_a(rango, today):
+    """Devuelve (fecha_desde, fecha_hasta) según el parámetro rango."""
+    if rango == 'hoy':
+        return today, today
+    if rango == 'ayer':
+        d = today - _timedelta(days=1)
+        return d, d
+    if rango == 'semana':
+        lun = today - _timedelta(days=today.weekday())
+        return lun, today
+    if rango == 'semana_anterior':
+        lun = today - _timedelta(days=today.weekday() + 7)
+        return lun, lun + _timedelta(days=6)
+    if rango == 'mes':
+        return today.replace(day=1), today
+    if rango == 'mes_anterior':
+        ini = today.replace(day=1) - _timedelta(days=1)
+        return ini.replace(day=1), ini
+    if rango == 'trimestre':
+        return today - _timedelta(days=90), today
+    if rango == 'anio':
+        return today.replace(month=1, day=1), today
+    return None, None
+
+
+# ── Vista principal ───────────────────────────────────────────────────────────
 
 @login_required
 def reporte_asistencia(request):
     """
-    Reporte de asistencia y cumplimiento - MEJORADO
-    ✅ Análisis completo de comportamiento
+    Reporte de asistencia y cumplimiento — versión completa.
+
+    Parámetros GET:
+      rango          : hoy|ayer|semana|semana_anterior|mes|mes_anterior|trimestre|anio
+      fecha_desde    : YYYY-MM-DD (si no hay rango)
+      fecha_hasta    : YYYY-MM-DD
+      tipo           : general|paciente|profesional|servicio|sucursal
+      entidad_id     : ID del objeto según tipo
+      sucursal       : ID de sucursal (filtro transversal)
+      profesional    : ID de profesional (solo en tipo=general)
+      mensualidad_id : ID de mensualidad (filtro opcional, junto a tipo=paciente)
+      proyecto_id    : ID de proyecto (filtro opcional, junto a tipo=paciente)
     """
-    
-    from datetime import datetime, timedelta
-    
-    tipo = request.GET.get('tipo', 'general')
-    entidad_id = request.GET.get('entidad_id', '')
-    fecha_desde = request.GET.get('fecha_desde', '')
-    fecha_hasta = request.GET.get('fecha_hasta', '')
-    
-    # Rango de fechas (últimos 3 meses por defecto)
-    if fecha_desde and fecha_hasta:
-        fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-        fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-    else:
-        fecha_hasta_obj = date.today()
-        fecha_desde_obj = fecha_hasta_obj - timedelta(days=90)
-        fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
-        fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
-    
-    # Query base
+    from servicios.models import TipoServicio, Sucursal
+    from profesionales.models import Profesional
+
+    today = _date.today()
+
+    # ── 1. Resolver fechas ────────────────────────────────────────────────────
+    rango           = request.GET.get('rango', '').strip()
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+
+    fecha_desde_obj, fecha_hasta_obj = _fechas_rango_a(rango, today)
+
+    if fecha_desde_obj is None:
+        if fecha_desde_str and fecha_hasta_str:
+            try:
+                fecha_desde_obj = _datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                fecha_hasta_obj = _datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                rango = ''
+            except ValueError:
+                fecha_desde_obj = today - _timedelta(days=90)
+                fecha_hasta_obj = today
+        else:
+            # Sin parámetros → mostrar empty state con fechas por defecto
+            fecha_desde_obj = today - _timedelta(days=90)
+            fecha_hasta_obj = today
+
+    if fecha_hasta_obj < fecha_desde_obj:
+        fecha_hasta_obj = fecha_desde_obj
+
+    # Strings formateados para el template (input type=date espera Y-m-d)
+    fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
+    fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
+
+    # ── 2. Leer filtros ───────────────────────────────────────────────────────
+    tipo            = request.GET.get('tipo', 'general').strip()
+    entidad_id      = request.GET.get('entidad_id', '').strip()
+    sucursal_filtro = request.GET.get('sucursal', '').strip()
+    prof_filtro     = request.GET.get('profesional', '').strip()
+    mensualidad_id  = request.GET.get('mensualidad_id', '').strip()
+    proyecto_id     = request.GET.get('proyecto_id', '').strip()
+
+    if tipo not in {'general', 'paciente', 'profesional', 'servicio', 'sucursal'}:
+        tipo = 'general'
+
+    # ── 3. Query base de sesiones ─────────────────────────────────────────────
     sesiones = Sesion.objects.filter(
         fecha__gte=fecha_desde_obj,
-        fecha__lte=fecha_hasta_obj
-    ).select_related('paciente', 'servicio', 'profesional', 'sucursal')
-    
-    # Filtros según tipo
+        fecha__lte=fecha_hasta_obj,
+    ).select_related('paciente', 'servicio', 'profesional', 'sucursal',
+                     'mensualidad', 'proyecto')
+
+    # Filtro de sucursal transversal
+    if sucursal_filtro:
+        sesiones = sesiones.filter(sucursal_id=sucursal_filtro)
+
+    # Filtro de profesional (solo en vista general, para evitar doble filtro)
+    if prof_filtro and tipo != 'profesional':
+        sesiones = sesiones.filter(profesional_id=prof_filtro)
+
+    # Filtros por mensualidad / proyecto
+    if mensualidad_id:
+        sesiones = sesiones.filter(mensualidad_id=mensualidad_id)
+    if proyecto_id:
+        sesiones = sesiones.filter(proyecto_id=proyecto_id)
+
+    # ── 4. Filtro por entidad según tipo ─────────────────────────────────────
     entidad = None
-    if tipo == 'paciente' and entidad_id:
-        entidad = Paciente.objects.get(id=entidad_id)
-        sesiones = sesiones.filter(paciente=entidad)
-    elif tipo == 'profesional' and entidad_id:
-        from profesionales.models import Profesional
-        entidad = Profesional.objects.get(id=entidad_id)
-        sesiones = sesiones.filter(profesional=entidad)
-    
-    # Estadísticas de asistencia
-    stats = sesiones.aggregate(
-        total=Count('id'),
-        programadas=Count('id', filter=Q(estado='programada')),
-        realizadas=Count('id', filter=Q(estado='realizada')),
-        retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-        faltas=Count('id', filter=Q(estado='falta')),
-        permisos=Count('id', filter=Q(estado='permiso')),
-        canceladas=Count('id', filter=Q(estado='cancelada')),
+    if entidad_id:
+        try:
+            eid = int(entidad_id)
+            if tipo == 'paciente':
+                entidad = Paciente.objects.get(id=eid)
+                sesiones = sesiones.filter(paciente=entidad)
+            elif tipo == 'profesional':
+                entidad = Profesional.objects.get(id=eid)
+                sesiones = sesiones.filter(profesional=entidad)
+            elif tipo == 'servicio':
+                entidad = TipoServicio.objects.get(id=eid)
+                sesiones = sesiones.filter(servicio=entidad)
+            elif tipo == 'sucursal':
+                entidad = Sucursal.objects.get(id=eid)
+                sesiones = sesiones.filter(sucursal=entidad)
+        except (ValueError, Paciente.DoesNotExist, Profesional.DoesNotExist,
+                TipoServicio.DoesNotExist, Sucursal.DoesNotExist):
+            entidad_id = ''
+            entidad = None
+
+    # ── 5. Conteos y estadísticas ─────────────────────────────────────────────
+    total   = sesiones.count()
+    conteos = _conteos_estados_a(sesiones)
+
+    realizadas    = conteos['realizadas']
+    retrasos      = conteos['retrasos']
+    faltas        = conteos['faltas']
+    permisos      = conteos['permisos']
+    canceladas    = conteos['canceladas']
+    reprogramadas = conteos['reprogramadas']
+    programadas   = conteos['programadas']
+
+    stats = {
+        'total'        : total,
+        'realizadas'   : realizadas,
+        'retrasos'     : retrasos,
+        'faltas'       : faltas,
+        'permisos'     : permisos,
+        'canceladas'   : canceladas,
+        'reprogramadas': reprogramadas,
+        'programadas'  : programadas,
+        'no_realizadas': faltas + canceladas + reprogramadas,  # BUG 5 fix
+    }
+
+    tasas = _calcular_tasas_a(conteos)  # BUG 7 fix: fórmulas correctas
+
+    # ── 6. Gráfico de evolución temporal ─────────────────────────────────────
+    # FIX SQLite/Python 3.14: TruncDate y TruncWeek usan funciones Python
+    # registradas en SQLite que fallan en Python 3.14+.
+    # Solución: 'fecha' ya es DateField → se agrupa directamente con .values('fecha').
+    # Para rangos >31 días la agrupación semanal se hace en Python (no en SQL).
+    grafico_data = None
+    if total > 0:
+        delta = (fecha_hasta_obj - fecha_desde_obj).days
+
+        # Paso 1: obtener totales diarios con una sola query
+        # No usamos TruncDate porque 'fecha' es DateField (ya es una fecha pura).
+        graf_qs = (
+            sesiones
+            .values('fecha')                       # DateField → sin truncar
+            .annotate(
+                realizadas=Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+                retrasos  =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+                faltas    =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+                permisos  =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+                otros     =Count(Case(When(estado__in=['cancelada','reprogramada'], then=1), output_field=IntegerField())),
+            )
+            .order_by('fecha')
+        )
+        filas_diarias = list(graf_qs)
+
+        if delta <= 31:
+            # Rango corto → mostrar por día directamente
+            filas = filas_diarias
+            def _fmt(row): return row['fecha'].strftime('%d/%m')
+            def _key(row): return row['fecha']
+        else:
+            # Rango largo → agrupar por semana en Python
+            # La clave de cada semana es el lunes de esa semana
+            from collections import defaultdict
+            semanas = defaultdict(lambda: {'realizadas':0,'retrasos':0,'faltas':0,'permisos':0,'otros':0})
+            for row in filas_diarias:
+                f = row['fecha']
+                lunes = f - _timedelta(days=f.weekday())  # lunes de la semana
+                semanas[lunes]['realizadas'] += row['realizadas']
+                semanas[lunes]['retrasos']   += row['retrasos']
+                semanas[lunes]['faltas']     += row['faltas']
+                semanas[lunes]['permisos']   += row['permisos']
+                semanas[lunes]['otros']      += row['otros']
+
+            filas = [
+                {'fecha': k,
+                 'realizadas': v['realizadas'],
+                 'retrasos'  : v['retrasos'],
+                 'faltas'    : v['faltas'],
+                 'permisos'  : v['permisos'],
+                 'otros'     : v['otros']}
+                for k, v in sorted(semanas.items())
+            ]
+            def _fmt(row): return _mes_label(row['fecha'])
+            def _key(row): return row['fecha']
+
+        # Paso 2: construir grafico_data como JSON strings para Chart.js
+        grafico_data = {
+            'labels'       : _json.dumps([_fmt(r)          for r in filas]),
+            'realizadas'   : _json.dumps([r['realizadas']  for r in filas]),
+            'retrasos'     : _json.dumps([r['retrasos']    for r in filas]),
+            'faltas'       : _json.dumps([r['faltas']      for r in filas]),
+            'permisos'     : _json.dumps([r['permisos']    for r in filas]),
+            'canceladas'   : _json.dumps([r['otros']       for r in filas]),
+            'reprogramadas': _json.dumps([0                 for _ in filas]),
+            'otros'        : _json.dumps([r['otros']       for r in filas]),
+        }
+
+    # ── 7. Por día de la semana ────────────────────────────────────────────────
+    # FIX SQLite/Python 3.14: ExtractWeekDay también usa UDF en SQLite.
+    # Solución: traer 'fecha' (DateField) y calcular el día de la semana en Python
+    # con date.weekday() → 0=Lunes … 6=Domingo (estándar ISO).
+    _DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+
+    # Obtenemos las fechas + estados con una sola query
+    sesiones_fecha_estado = list(
+        sesiones.values('fecha', 'estado')
     )
-    
-    # Calcular tasas
-    sesiones_efectivas = stats['realizadas'] + stats['retrasos']
-    sesiones_programadas = stats['total'] - stats['canceladas'] - stats['permisos']
-    
-    tasas = {
-        'asistencia': (sesiones_efectivas / sesiones_programadas * 100) if sesiones_programadas > 0 else 0,
-        'faltas': (stats['faltas'] / sesiones_programadas * 100) if sesiones_programadas > 0 else 0,
-        'puntualidad': (stats['realizadas'] / sesiones_efectivas * 100) if sesiones_efectivas > 0 else 0,
-        'cancelaciones': (stats['canceladas'] / stats['total'] * 100) if stats['total'] > 0 else 0,
-    }
-    
-    # Ranking de asistencia (si es reporte general)
-    ranking = []
-    if tipo == 'general':
-        pacientes_con_sesiones = Paciente.objects.filter(
-            estado='activo',
-            sesiones__fecha__gte=fecha_desde_obj,
-            sesiones__fecha__lte=fecha_hasta_obj
-        ).annotate(
-            total=Count('sesiones'),
-            realizadas=Count('sesiones', filter=Q(sesiones__estado__in=['realizada', 'realizada_retraso'])),
-            faltas=Count('sesiones', filter=Q(sesiones__estado='falta')),
-            retrasos=Count('sesiones', filter=Q(sesiones__estado='realizada_retraso'))
-        ).filter(total__gte=3)
-        
-        ranking_data = []
-        for p in pacientes_con_sesiones:
-            tasa = (p.realizadas / p.total * 100) if p.total > 0 else 0
-            ranking_data.append({
-                'id': p.id,
-                'nombre_completo': p.nombre_completo,
-                'total': p.total,
-                'realizadas': p.realizadas,
-                'faltas': p.faltas,
-                'retrasos': p.retrasos,
-                'tasa': round(tasa, 1)
-            })
-        
-        ranking = sorted(ranking_data, key=lambda x: x['tasa'], reverse=True)[:15]
-    
-    # Peores asistentes (opcional)
+
+    # Contadores por día (índice 0=Lun … 6=Dom)
+    from collections import defaultdict
+    _dia_cnt = defaultdict(lambda: {'total':0,'realizadas':0,'retrasos':0,
+                                     'faltas':0,'permisos':0,'canceladas':0})
+    for row in sesiones_fecha_estado:
+        wd = row['fecha'].weekday()   # 0=Lun, …, 6=Dom
+        _dia_cnt[wd]['total'] += 1
+        est = row['estado']
+        if   est == 'realizada':         _dia_cnt[wd]['realizadas'] += 1
+        elif est == 'realizada_retraso': _dia_cnt[wd]['retrasos']   += 1
+        elif est == 'falta':             _dia_cnt[wd]['faltas']     += 1
+        elif est == 'permiso':           _dia_cnt[wd]['permisos']   += 1
+        elif est == 'cancelada':         _dia_cnt[wd]['canceladas'] += 1
+
+    por_dia_semana = [
+        {
+            'nombre'    : _DIAS[idx],
+            'total'     : _dia_cnt[idx]['total'],
+            'realizadas': _dia_cnt[idx]['realizadas'],
+            'retrasos'  : _dia_cnt[idx]['retrasos'],
+            'faltas'    : _dia_cnt[idx]['faltas'],
+            'permisos'  : _dia_cnt[idx]['permisos'],
+            'canceladas': _dia_cnt[idx]['canceladas'],
+        }
+        for idx in range(7)
+    ]
+
+    # ── 8. Por servicio ───────────────────────────────────────────────────────
+    svc_raw = (
+        sesiones
+        .values('servicio__nombre')
+        .annotate(
+            total        =Count('id'),
+            realizadas   =Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos     =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas       =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos     =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas   =Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+            reprogramadas=Count(Case(When(estado='reprogramada',      then=1), output_field=IntegerField())),  # BUG 11 fix
+        )
+        .order_by('-total')
+    )
+    por_servicio = []
+    for s in svc_raw:
+        base = s['realizadas'] + s['retrasos'] + s['faltas'] + s['permisos']
+        s['tasa_asistencia'] = _pct_a(s['realizadas'] + s['retrasos'], base)  # BUG 11 fix
+        por_servicio.append(s)
+
+    # ── 9. Por hora del día ───────────────────────────────────────────────────
+    # FIX SQLite/Python 3.14: ExtractHour también usa UDF en SQLite.
+    # Solución: traer 'hora_inicio' (TimeField) y extraer la hora en Python.
+    hora_cnt = defaultdict(int)
+    for row in sesiones.values('hora_inicio'):
+        if row['hora_inicio']:
+            hora_cnt[row['hora_inicio'].hour] += 1
+
+    por_hora = [
+        {'hora': h, 'total': hora_cnt[h]}
+        for h in sorted(hora_cnt)
+    ]
+    por_hora_labels = _json.dumps([f"{r['hora']}:00" for r in por_hora])
+    por_hora_data   = _json.dumps([r['total']         for r in por_hora])
+
+    # ── 10. Por profesional ───────────────────────────────────────────────────
+    prof_raw = (
+        sesiones
+        .values('profesional__nombre', 'profesional__apellido', 'profesional_id')
+        .annotate(
+            sesiones          =Count('id'),
+            realizadas        =Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos          =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas            =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos          =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas        =Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+            reprogramadas     =Count(Case(When(estado='reprogramada',      then=1), output_field=IntegerField())),
+            promedio_retraso_min=Avg('minutos_retraso', filter=Q(estado='realizada_retraso')),
+        )
+        .order_by('-sesiones')
+    )
+    por_profesional = []
+    for p in prof_raw:
+        base      = p['realizadas'] + p['retrasos'] + p['faltas'] + p['permisos']
+        base_punt = p['realizadas'] + p['retrasos']
+        p['tasa_asistencia'] = _pct_a(p['realizadas'] + p['retrasos'], base)
+        p['puntualidad']     = _pct_a(p['realizadas'], base_punt)
+        por_profesional.append(p)
+
+    # ── 11. Por sucursal ──────────────────────────────────────────────────────
+    suc_raw = (
+        sesiones
+        .values('sucursal__nombre', 'sucursal_id')
+        .annotate(
+            _sesiones =Count('id'),
+            realizadas=Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos  =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas    =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos  =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas=Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+        )
+        .order_by('-_sesiones')
+    )
+    por_sucursal = []
+    for s in suc_raw:
+        base = s['realizadas'] + s['retrasos'] + s['faltas'] + s['permisos']
+        por_sucursal.append({
+            'nombre'         : s['sucursal__nombre'],   # BUG 6 fix: clave 'nombre'
+            'sesiones'       : s['_sesiones'],          # BUG 6 fix: clave 'sesiones'
+            'realizadas'     : s['realizadas'],
+            'retrasos'       : s['retrasos'],
+            'faltas'         : s['faltas'],
+            'permisos'       : s['permisos'],
+            'canceladas'     : s['canceladas'],
+            'tasa_asistencia': _pct_a(s['realizadas'] + s['retrasos'], base),
+        })
+
+    # ── 12. Ranking mejores/peores pacientes ──────────────────────────────────
+    pac_raw = (
+        sesiones
+        .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
+        .annotate(
+            total          =Count('id'),
+            realizadas     =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
+            retrasos       =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas         =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos       =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            primera_sesion =Min('fecha'),
+        )
+        .filter(total__gte=3)
+    )
+    ranking           = []
     peores_asistencia = []
-    if tipo == 'general':
-        pacientes_problematicos = Paciente.objects.filter(
-            estado='activo',
-            sesiones__fecha__gte=fecha_desde_obj,
-            sesiones__fecha__lte=fecha_hasta_obj
-        ).annotate(
-            total=Count('sesiones'),
-            faltas=Count('sesiones', filter=Q(sesiones__estado='falta')),
-            realizadas=Count('sesiones', filter=Q(sesiones__estado__in=['realizada', 'realizada_retraso']))
-        ).filter(total__gte=3, faltas__gt=0)
-        
-        peores_data = []
-        for p in pacientes_problematicos:
-            tasa_faltas = (p.faltas / p.total * 100) if p.total > 0 else 0
-            if tasa_faltas > 20:  # Más del 20% de faltas
-                peores_data.append({
-                    'id': p.id,
-                    'nombre_completo': p.nombre_completo,
-                    'total': p.total,
-                    'faltas': p.faltas,
-                    'realizadas': p.realizadas,
-                    'tasa_faltas': round(tasa_faltas, 1)
-                })
-        
-        peores_asistencia = sorted(peores_data, key=lambda x: x['tasa_faltas'], reverse=True)[:10]
-    
-    # Por día de la semana
-    from django.db.models.functions import ExtractWeekDay
-    por_dia_semana = sesiones.annotate(
-        dia_semana=ExtractWeekDay('fecha')
-    ).values('dia_semana').annotate(
-        total=Count('id'),
-        realizadas=Count('id', filter=Q(estado='realizada')),
-        faltas=Count('id', filter=Q(estado='falta'))
-    ).order_by('dia_semana')
-    
-    dias_nombres = {1: 'Domingo', 2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 
-                   5: 'Jueves', 6: 'Viernes', 7: 'Sábado'}
-    for dia in por_dia_semana:
-        dia['nombre'] = dias_nombres.get(dia['dia_semana'], 'N/A')
-    
-    # Por servicio
-    por_servicio = sesiones.values(
-        'servicio__nombre'
-    ).annotate(
-        total=Count('id'),
-        realizadas=Count('id', filter=Q(estado='realizada')),
-        faltas=Count('id', filter=Q(estado='falta'))
-    ).order_by('-total')
-    
-    # Evolución mensual
-    from django.db.models.functions import TruncMonth
-    por_mes = sesiones.annotate(
-        mes=TruncMonth('fecha')
-    ).values('mes').annotate(
-        total=Count('id'),
-        realizadas=Count('id', filter=Q(estado='realizada')),
-        retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-        faltas=Count('id', filter=Q(estado='falta'))
-    ).order_by('mes')
-    
-    grafico_data = {
-        'labels': [_mes_label(m['mes']) for m in por_mes],
-        'realizadas': [m['realizadas'] for m in por_mes],
-        'retrasos': [m['retrasos'] for m in por_mes],
-        'faltas': [m['faltas'] for m in por_mes],
-    }
-    
-    # Listas para filtros
-    pacientes = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
-    
-    from profesionales.models import Profesional
+    for p in pac_raw:
+        base        = p['realizadas'] + p['faltas'] + p['permisos']
+        tasa        = _pct_a(p['realizadas'], base)
+        tasa_faltas = _pct_a(p['faltas'], base)
+        item = {
+            'nombre_completo': f"{p['paciente__nombre']} {p['paciente__apellido']}",
+            'total'          : p['total'],
+            'realizadas'     : p['realizadas'],
+            'retrasos'       : p['retrasos'],
+            'faltas'         : p['faltas'],
+            'permisos'       : p['permisos'],  # BUG 12 fix
+            'tasa'           : tasa,
+            'tasa_faltas'    : tasa_faltas,
+            'desde'          : p['primera_sesion'],  # BUG 12 fix
+        }
+        ranking.append(item)
+        if tasa_faltas > 20 and base >= 3:
+            peores_asistencia.append(item)
+
+    ranking           = sorted(ranking,           key=lambda x: -x['tasa'])[:15]
+    peores_asistencia = sorted(peores_asistencia, key=lambda x: -x['tasa_faltas'])[:10]
+
+    # ── 13. Detalle retrasos por paciente ─────────────────────────────────────
+    ret_raw = (
+        sesiones
+        .filter(estado='realizada_retraso')
+        .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
+        .annotate(
+            sesiones_con_retraso=Count('id'),
+            promedio_minutos    =Avg('minutos_retraso'),
+            ultima_fecha        =Max('fecha'),
+        )
+        .filter(sesiones_con_retraso__gte=2)
+        .order_by('-promedio_minutos')[:10]
+    )
+    retrasos_detalle = [
+        {
+            'nombre_completo'    : f"{r['paciente__nombre']} {r['paciente__apellido']}",
+            'sesiones_con_retraso': r['sesiones_con_retraso'],
+            'promedio_minutos'   : round(r['promedio_minutos'] or 0, 0),
+            'ultima_fecha'       : r['ultima_fecha'],
+        }
+        for r in ret_raw
+    ]
+
+    # ── 14. Detalle reprogramaciones ──────────────────────────────────────────
+    reprogramaciones = (
+        sesiones
+        .filter(estado='reprogramada')
+        .select_related('paciente', 'servicio', 'profesional', 'mensualidad', 'proyecto')
+        .order_by('-fecha')[:20]
+    )
+
+    # ── 15. Listas para dropdowns del formulario ──────────────────────────────
+    sucursales    = Sucursal.objects.filter(activa=True).order_by('nombre')
     profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
-    
+    servicios     = TipoServicio.objects.filter(activo=True).order_by('nombre')
+    pacientes     = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
+
+    # ── 16. Lista detallada de sesiones (paginada) ────────────────────────────
+    # El usuario puede filtrar adicionalmente por estado desde la tabla.
+    # estado_lista = '' → todos los estados; cualquier valor de ESTADO_CHOICES → filtro exacto.
+    from django.core.paginator import Paginator as _Pag
+
+    estado_lista = request.GET.get('estado_lista', '').strip()
+    ESTADOS_VALIDOS = {'programada','realizada','realizada_retraso',
+                       'falta','permiso','cancelada','reprogramada'}
+
+    sesiones_lista_qs = sesiones.select_related(
+        'paciente', 'servicio', 'profesional', 'sucursal',
+        'mensualidad', 'proyecto'
+    ).order_by('-fecha', '-hora_inicio')
+
+    if estado_lista and estado_lista in ESTADOS_VALIDOS:
+        sesiones_lista_qs = sesiones_lista_qs.filter(estado=estado_lista)
+
+    _pag = _Pag(sesiones_lista_qs, 50)            # 50 sesiones por página
+    page_number = request.GET.get('page_lista', 1)
+    page_obj = _pag.get_page(page_number)
+
+    # Query string sin page_lista para preservar todos los filtros en la paginación
+    _params = request.GET.copy()
+    _params.pop('page_lista', None)
+    query_string_lista = _params.urlencode()
+
+    # ── 17. Contexto completo ─────────────────────────────────────────────────
     context = {
-        'tipo': tipo,
-        'entidad': entidad,
-        'stats': stats,
-        'tasas': tasas,
-        'ranking': ranking,
+        # Datos calculados
+        'stats'            : stats,
+        'tasas'            : tasas,
+        'grafico_data'     : grafico_data,
+        'por_dia_semana'   : por_dia_semana,
+        'por_servicio'     : por_servicio,
+        'por_hora'         : por_hora,
+        'por_hora_labels'  : por_hora_labels,
+        'por_hora_data'    : por_hora_data,
+        'por_profesional'  : por_profesional,
+        'por_sucursal'     : por_sucursal,
+        'ranking'          : ranking,
         'peores_asistencia': peores_asistencia,
-        'por_dia_semana': por_dia_semana,
-        'por_servicio': por_servicio,
-        'grafico_data': grafico_data,
-        'pacientes': pacientes,
-        'profesionales': profesionales,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
+        'retrasos_detalle' : retrasos_detalle,
+        'reprogramaciones' : reprogramaciones,
+        # Lista detallada
+        'page_obj'         : page_obj,
+        'estado_lista'     : estado_lista,
+        'query_string_lista': query_string_lista,
+        # Filtros activos
+        'fecha_desde'      : fecha_desde,
+        'fecha_hasta'      : fecha_hasta,
+        'rango'            : rango,
+        'tipo'             : tipo,
+        'entidad'          : entidad,
+        'entidad_id'       : entidad_id,
+        'sucursal_filtro'  : sucursal_filtro,
+        'prof_filtro'      : prof_filtro,
+        'mensualidad_id'   : mensualidad_id,
+        'proyecto_id'      : proyecto_id,
+        # Listas para dropdowns
+        'sucursales'       : sucursales,
+        'profesionales'    : profesionales,
+        'servicios'        : servicios,
+        'pacientes'        : pacientes,
     }
 
     return render(request, 'facturacion/reportes/asistencia.html', context)
-           
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AÑADIR en facturacion/views.py
+# Colocar justo DEBAJO de la función reporte_asistencia (alrededor de línea 4687)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def generar_reporte_asistencia_pdf(request):
+    """
+    Genera el informe de asistencia en PDF aplicando exactamente los mismos
+    filtros que la vista reporte_asistencia.
+
+    Reutiliza toda la lógica de resolución de fechas, filtros y cálculos
+    de la vista original para que el PDF sea fiel a lo que se ve en pantalla.
+
+    GET params: mismos que reporte_asistencia
+      rango, fecha_desde, fecha_hasta, tipo, entidad_id,
+      sucursal, profesional, mensualidad_id, proyecto_id, estado_lista
+    """
+    from django.db.models import Count, Avg, Min, Max, Case, When, IntegerField
+    from django.db.models import Q
+    from collections import defaultdict
+    import json as _json
+
+    from servicios.models import TipoServicio, Sucursal
+    from profesionales.models import Profesional
+    from agenda.models import Sesion, Proyecto, Mensualidad
+    from facturacion.informe_asistencia_pdf import generar_informe_asistencia_pdf
+
+    # ── Importar helpers internos de la vista de asistencia ──────────────────
+    # Estos están definidos dentro del módulo views.py:
+    from facturacion import views as _v
+    _date     = _v._date         # from datetime import date as _date
+    _datetime = _v._datetime     # from datetime import datetime as _datetime
+    _timedelta= _v._timedelta    # from datetime import timedelta as _timedelta
+
+    today = _date.today()
+
+    # ── 1. Resolver fechas ────────────────────────────────────────────────────
+    rango           = request.GET.get('rango', '').strip()
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+
+    fecha_desde_obj, fecha_hasta_obj = _v._fechas_rango_a(rango, today)
+
+    if fecha_desde_obj is None:
+        if fecha_desde_str and fecha_hasta_str:
+            try:
+                fecha_desde_obj = _datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+                fecha_hasta_obj = _datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+                rango = ''
+            except ValueError:
+                fecha_desde_obj = today - _timedelta(days=90)
+                fecha_hasta_obj = today
+        else:
+            fecha_desde_obj = today - _timedelta(days=90)
+            fecha_hasta_obj = today
+
+    if fecha_hasta_obj < fecha_desde_obj:
+        fecha_hasta_obj = fecha_desde_obj
+
+    fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
+    fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
+
+    # ── 2. Leer filtros ───────────────────────────────────────────────────────
+    tipo            = request.GET.get('tipo', 'general').strip()
+    entidad_id      = request.GET.get('entidad_id', '').strip()
+    sucursal_filtro = request.GET.get('sucursal', '').strip()
+    prof_filtro     = request.GET.get('profesional', '').strip()
+    mensualidad_id  = request.GET.get('mensualidad_id', '').strip()
+    proyecto_id     = request.GET.get('proyecto_id', '').strip()
+    estado_lista    = request.GET.get('estado_lista', '').strip()
+
+    if tipo not in {'general', 'paciente', 'profesional', 'servicio', 'sucursal'}:
+        tipo = 'general'
+
+    # ── 3. Query base ─────────────────────────────────────────────────────────
+    sesiones = Sesion.objects.filter(
+        fecha__gte=fecha_desde_obj,
+        fecha__lte=fecha_hasta_obj,
+    ).select_related('paciente', 'servicio', 'profesional', 'sucursal',
+                     'mensualidad', 'proyecto')
+
+    if sucursal_filtro:
+        sesiones = sesiones.filter(sucursal_id=sucursal_filtro)
+
+    if prof_filtro and tipo != 'profesional':
+        sesiones = sesiones.filter(profesional_id=prof_filtro)
+
+    if mensualidad_id:
+        sesiones = sesiones.filter(mensualidad_id=mensualidad_id)
+    if proyecto_id:
+        sesiones = sesiones.filter(proyecto_id=proyecto_id)
+
+    # ── 4. Filtro por entidad ─────────────────────────────────────────────────
+    entidad = None
+    if entidad_id:
+        try:
+            eid = int(entidad_id)
+            if tipo == 'paciente':
+                entidad = Paciente.objects.get(id=eid)
+                sesiones = sesiones.filter(paciente=entidad)
+            elif tipo == 'profesional':
+                entidad = Profesional.objects.get(id=eid)
+                sesiones = sesiones.filter(profesional=entidad)
+            elif tipo == 'servicio':
+                entidad = TipoServicio.objects.get(id=eid)
+                sesiones = sesiones.filter(servicio=entidad)
+            elif tipo == 'sucursal':
+                entidad = Sucursal.objects.get(id=eid)
+                sesiones = sesiones.filter(sucursal=entidad)
+        except Exception:
+            entidad_id = ''
+            entidad = None
+
+    # ── 5. Filtro adicional de estado (respeta estado_lista del template) ─────
+    ESTADOS_VALIDOS = {'programada', 'realizada', 'realizada_retraso',
+                       'falta', 'permiso', 'cancelada', 'reprogramada'}
+    if estado_lista and estado_lista in ESTADOS_VALIDOS:
+        sesiones = sesiones.filter(estado=estado_lista)
+
+    # ── 6. Estadísticas (mismo código que reporte_asistencia) ─────────────────
+    total   = sesiones.count()
+    conteos = _v._conteos_estados_a(sesiones)
+    realizadas    = conteos['realizadas']
+    retrasos      = conteos['retrasos']
+    faltas        = conteos['faltas']
+    permisos      = conteos['permisos']
+    canceladas    = conteos['canceladas']
+    reprogramadas = conteos['reprogramadas']
+    programadas   = conteos['programadas']
+
+    stats = {
+        'total': total, 'realizadas': realizadas, 'retrasos': retrasos,
+        'faltas': faltas, 'permisos': permisos, 'canceladas': canceladas,
+        'reprogramadas': reprogramadas, 'programadas': programadas,
+        'no_realizadas': faltas + canceladas + reprogramadas,
+    }
+    tasas = _v._calcular_tasas_a(conteos)
+
+    # ── 7. Por día de la semana ───────────────────────────────────────────────
+    _dia_cnt = defaultdict(lambda: {'total': 0, 'realizadas': 0, 'retrasos': 0,
+                                     'faltas': 0, 'permisos': 0, 'canceladas': 0})
+    for row in sesiones.values('fecha', 'estado'):
+        wd  = row['fecha'].weekday()
+        est = row['estado']
+        _dia_cnt[wd]['total'] += 1
+        if   est == 'realizada':         _dia_cnt[wd]['realizadas'] += 1
+        elif est == 'realizada_retraso': _dia_cnt[wd]['retrasos']   += 1
+        elif est == 'falta':             _dia_cnt[wd]['faltas']     += 1
+        elif est == 'permiso':           _dia_cnt[wd]['permisos']   += 1
+        elif est == 'cancelada':         _dia_cnt[wd]['canceladas'] += 1
+
+    _DIAS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo']
+    por_dia_semana = [
+        {
+            'nombre'    : _DIAS[idx],
+            'total'     : _dia_cnt[idx]['total'],
+            'realizadas': _dia_cnt[idx]['realizadas'],
+            'retrasos'  : _dia_cnt[idx]['retrasos'],
+            'faltas'    : _dia_cnt[idx]['faltas'],
+            'permisos'  : _dia_cnt[idx]['permisos'],
+            'canceladas': _dia_cnt[idx]['canceladas'],
+        }
+        for idx in range(7)
+    ]
+
+    # ── 8. Por servicio ───────────────────────────────────────────────────────
+    svc_raw = (
+        sesiones
+        .values('servicio__nombre')
+        .annotate(
+            total        =Count('id'),
+            realizadas   =Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos     =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas       =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos     =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas   =Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+            reprogramadas=Count(Case(When(estado='reprogramada',      then=1), output_field=IntegerField())),
+        )
+        .order_by('-total')
+    )
+    por_servicio = []
+    for s in svc_raw:
+        base = s['realizadas'] + s['retrasos'] + s['faltas'] + s['permisos']
+        s['tasa_asistencia'] = _v._pct_a(s['realizadas'] + s['retrasos'], base)
+        por_servicio.append(s)
+
+    # ── 9. Por profesional ────────────────────────────────────────────────────
+    prof_raw = (
+        sesiones
+        .values('profesional__nombre', 'profesional__apellido', 'profesional_id')
+        .annotate(
+            sesiones          =Count('id'),
+            realizadas        =Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos          =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas            =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos          =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas        =Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+            reprogramadas     =Count(Case(When(estado='reprogramada',      then=1), output_field=IntegerField())),
+            promedio_retraso_min=Avg('minutos_retraso', filter=Q(estado='realizada_retraso')),
+        )
+        .order_by('-sesiones')
+    )
+    por_profesional = []
+    for p in prof_raw:
+        base      = p['realizadas'] + p['retrasos'] + p['faltas'] + p['permisos']
+        base_punt = p['realizadas'] + p['retrasos']
+        p['tasa_asistencia'] = _v._pct_a(p['realizadas'] + p['retrasos'], base)
+        p['puntualidad']     = _v._pct_a(p['realizadas'], base_punt)
+        por_profesional.append(p)
+
+    # ── 10. Por sucursal ──────────────────────────────────────────────────────
+    suc_raw = (
+        sesiones
+        .values('sucursal__nombre', 'sucursal_id')
+        .annotate(
+            _sesiones =Count('id'),
+            realizadas=Count(Case(When(estado='realizada',         then=1), output_field=IntegerField())),
+            retrasos  =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas    =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos  =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            canceladas=Count(Case(When(estado='cancelada',         then=1), output_field=IntegerField())),
+        )
+        .order_by('-_sesiones')
+    )
+    por_sucursal = []
+    for s in suc_raw:
+        base = s['realizadas'] + s['retrasos'] + s['faltas'] + s['permisos']
+        por_sucursal.append({
+            'nombre'         : s['sucursal__nombre'],
+            'sesiones'       : s['_sesiones'],
+            'realizadas'     : s['realizadas'],
+            'retrasos'       : s['retrasos'],
+            'faltas'         : s['faltas'],
+            'permisos'       : s['permisos'],
+            'canceladas'     : s['canceladas'],
+            'tasa_asistencia': _v._pct_a(s['realizadas'] + s['retrasos'], base),
+        })
+
+    # ── 11. Ranking de pacientes ──────────────────────────────────────────────
+    pac_raw = (
+        sesiones
+        .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
+        .annotate(
+            total         =Count('id'),
+            realizadas    =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
+            retrasos      =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
+            faltas        =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
+            permisos      =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
+            primera_sesion=Min('fecha'),
+        )
+        .filter(total__gte=3)
+    )
+    ranking = []
+    peores_asistencia = []
+    for p in pac_raw:
+        base        = p['realizadas'] + p['faltas'] + p['permisos']
+        tasa        = _v._pct_a(p['realizadas'], base)
+        tasa_faltas = _v._pct_a(p['faltas'], base)
+        item = {
+            'nombre_completo': f"{p['paciente__nombre']} {p['paciente__apellido']}",
+            'total'          : p['total'],
+            'realizadas'     : p['realizadas'],
+            'retrasos'       : p['retrasos'],
+            'faltas'         : p['faltas'],
+            'permisos'       : p['permisos'],
+            'tasa'           : tasa,
+            'tasa_faltas'    : tasa_faltas,
+            'desde'          : p['primera_sesion'],
+        }
+        ranking.append(item)
+        if tasa_faltas > 20 and base >= 3:
+            peores_asistencia.append(item)
+
+    ranking           = sorted(ranking,           key=lambda x: -x['tasa'])[:15]
+    peores_asistencia = sorted(peores_asistencia, key=lambda x: -x['tasa_faltas'])[:10]
+
+    # ── 12. Retrasos detalle ──────────────────────────────────────────────────
+    ret_raw = (
+        sesiones
+        .filter(estado='realizada_retraso')
+        .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
+        .annotate(
+            sesiones_con_retraso=Count('id'),
+            promedio_minutos    =Avg('minutos_retraso'),
+            ultima_fecha        =Max('fecha'),
+        )
+        .filter(sesiones_con_retraso__gte=2)
+        .order_by('-promedio_minutos')[:10]
+    )
+    retrasos_detalle = [
+        {
+            'nombre_completo'    : f"{r['paciente__nombre']} {r['paciente__apellido']}",
+            'sesiones_con_retraso': r['sesiones_con_retraso'],
+            'promedio_minutos'   : round(r['promedio_minutos'] or 0, 0),
+            'ultima_fecha'       : r['ultima_fecha'],
+        }
+        for r in ret_raw
+    ]
+
+    # ── 13. Reprogramaciones ──────────────────────────────────────────────────
+    reprogramaciones = list(
+        sesiones
+        .filter(estado='reprogramada')
+        .select_related('paciente', 'servicio', 'profesional', 'mensualidad', 'proyecto')
+        .order_by('-fecha')[:20]
+    )
+
+    # ── 14. QuerySet completo de sesiones para la tabla de detalle ────────────
+    sesiones_qs = list(
+        sesiones.select_related(
+            'paciente', 'servicio', 'profesional', 'sucursal',
+            'mensualidad', 'proyecto'
+        ).order_by('-fecha', '-hora_inicio')
+    )
+
+    # ── 15. Construir contexto para el PDF ────────────────────────────────────
+    context_pdf = {
+        'stats'            : stats,
+        'tasas'            : tasas,
+        'por_dia_semana'   : por_dia_semana,
+        'por_servicio'     : por_servicio,
+        'por_profesional'  : por_profesional,
+        'por_sucursal'     : por_sucursal,
+        'ranking'          : ranking,
+        'peores_asistencia': peores_asistencia,
+        'retrasos_detalle' : retrasos_detalle,
+        'reprogramaciones' : reprogramaciones,
+        'sesiones_qs'      : sesiones_qs,   # ← tabla completa sin paginación web
+        # Filtros para encabezados del PDF
+        'fecha_desde'      : fecha_desde,
+        'fecha_hasta'      : fecha_hasta,
+        'tipo'             : tipo,
+        'entidad'          : entidad,
+        'sucursal_filtro'  : sucursal_filtro,
+        'mensualidad_id'   : mensualidad_id,
+        'proyecto_id'      : proyecto_id,
+    }
+
+    # ── 16. Generar y retornar PDF ────────────────────────────────────────────
+    try:
+        buffer = generar_informe_asistencia_pdf(context_pdf)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        fd = fecha_desde.replace('-', '')
+        fh = fecha_hasta.replace('-', '')
+        filename = f"asistencia_{fd}"
+        if fh and fh != fd:
+            filename += f"_al_{fh}"
+        if tipo and tipo != 'general':
+            filename += f"_{tipo}"
+        filename += ".pdf"
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(
+            f"Error generando PDF asistencia: {e}", exc_info=True
+        )
+        messages.error(request, f"❌ Error al generar el PDF: {str(e)}")
+        return redirect('facturacion:reporte_asistencia')
+
+# ── API AJAX: mensualidades de un paciente ────────────────────────────────────
+# URL: facturacion/api/asistencia/mensualidades/
+# Agregar en facturacion/urls.py:
+#   path('api/asistencia/mensualidades/', views.api_mensualidades_filtro,
+#        name='api_mensualidades_filtro'),
+@login_required
+def api_mensualidades_filtro(request):
+    """
+    Devuelve las mensualidades de un paciente como JSON para el filtro en cascada
+    del reporte de asistencia.
+
+    El template llama a esta URL con JS cuando el usuario selecciona un paciente
+    en el dropdown de entidad (tipo=paciente), y puebla el select de mensualidad.
+
+    Parámetros GET:
+      paciente_id  (obligatorio)
+      sucursal_id  (opcional)
+
+    Respuesta:
+      [{"id": 12, "label": "MEN-0326-JU-001 — Marzo 2026 (Activa)",
+        "estado": "activa", "sesiones_total": 8, "sesiones_realizadas": 5}, ...]
+    """
+    from django.http import JsonResponse as _JR
+
+    paciente_id = request.GET.get('paciente_id', '').strip()
+    sucursal_id = request.GET.get('sucursal_id', '').strip()
+
+    if not paciente_id:
+        return _JR([], safe=False)
+
+    try:
+        qs = Mensualidad.objects.filter(
+            paciente_id=int(paciente_id)
+        ).select_related('sucursal').order_by('-anio', '-mes')
+
+        if sucursal_id:
+            qs = qs.filter(sucursal_id=int(sucursal_id))
+
+        resultado = [
+            {
+                'id'               : m.id,
+                'label'            : f"{m.codigo} — {m.periodo_display} ({m.get_estado_display()})",
+                'estado'           : m.estado,
+                'sesiones_total'   : m.num_sesiones,
+                'sesiones_realizadas': m.num_sesiones_realizadas,
+            }
+            for m in qs
+        ]
+        return _JR(resultado, safe=False)
+
+    except (ValueError, TypeError):
+        return _JR([], safe=False)
+
+
+# ── API AJAX: proyectos de un paciente ────────────────────────────────────────
+# URL: facturacion/api/asistencia/proyectos/
+# Agregar en facturacion/urls.py:
+#   path('api/asistencia/proyectos/', views.api_proyectos_filtro,
+#        name='api_proyectos_filtro'),
+@login_required
+def api_proyectos_filtro(request):
+    """
+    Devuelve los proyectos de un paciente como JSON para el filtro en cascada
+    del reporte de asistencia.
+
+    Parámetros GET:
+      paciente_id  (obligatorio)
+      sucursal_id  (opcional)
+
+    Respuesta:
+      [{"id": 5, "label": "EVAL-0005 — Evaluación Neurológica (En progreso)",
+        "estado": "en_progreso", "servicio_base": "Evaluación", "fecha_inicio": "01/03/2026"}, ...]
+    """
+    from django.http import JsonResponse as _JR
+
+    paciente_id = request.GET.get('paciente_id', '').strip()
+    sucursal_id = request.GET.get('sucursal_id', '').strip()
+
+    if not paciente_id:
+        return _JR([], safe=False)
+
+    try:
+        qs = Proyecto.objects.filter(
+            paciente_id=int(paciente_id)
+        ).select_related('sucursal', 'servicio_base').order_by('-fecha_inicio')
+
+        if sucursal_id:
+            qs = qs.filter(sucursal_id=int(sucursal_id))
+
+        resultado = [
+            {
+                'id'           : p.id,
+                'label'        : f"{p.codigo} — {p.nombre} ({p.get_estado_display()})",
+                'estado'       : p.estado,
+                'servicio_base': p.servicio_base.nombre if p.servicio_base else '',
+                'fecha_inicio' : p.fecha_inicio.strftime('%d/%m/%Y'),
+            }
+            for p in qs
+        ]
+        return _JR(resultado, safe=False)
+
+    except (ValueError, TypeError):
+        return _JR([], safe=False)
+
+
 
 @login_required
 def reporte_profesional(request):
@@ -4409,36 +5369,37 @@ def reporte_profesional(request):
             faltas=Count('id', filter=Q(estado='falta'))
         ).order_by('-sesiones')[:10]
         
-        # Por día de la semana
-        from django.db.models.functions import ExtractWeekDay
-        por_dia_semana = sesiones.annotate(
-            dia_semana=ExtractWeekDay('fecha')
-        ).values('dia_semana').annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada'))
-        ).order_by('dia_semana')
+        # Por día de la semana — Python puro (evita ExtractWeekDay/SQLite bug)
+        from collections import defaultdict as _dd2
+        _d_cnt = _dd2(lambda: {'cantidad':0,'realizadas':0})
+        for _row in sesiones.values('fecha','estado'):
+            _wd = _row['fecha'].weekday()   # 0=Lun … 6=Dom
+            _d_cnt[_wd]['cantidad'] += 1
+            if _row['estado'] == 'realizada':
+                _d_cnt[_wd]['realizadas'] += 1
+        _dias_n = {0:'Lunes',1:'Martes',2:'Miércoles',3:'Jueves',4:'Viernes',5:'Sábado',6:'Domingo'}
+        por_dia_semana = [
+            {'dia_semana': k, 'nombre': _dias_n[k],
+             'cantidad': v['cantidad'], 'realizadas': v['realizadas']}
+            for k, v in sorted(_d_cnt.items())
+        ]
         
-        # Mapear días
-        dias_nombres = {1: 'Domingo', 2: 'Lunes', 3: 'Martes', 4: 'Miércoles', 
-                       5: 'Jueves', 6: 'Viernes', 7: 'Sábado'}
-        for dia in por_dia_semana:
-            dia['nombre'] = dias_nombres.get(dia['dia_semana'], 'N/A')
-        
-        # Por mes (gráfico)
-        from django.db.models.functions import TruncMonth
-        por_mes = sesiones.annotate(
-            mes=TruncMonth('fecha')
-        ).values('mes').annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('mes')
-        
+        # Por mes (gráfico) — Python puro (evita TruncMonth/SQLite bug)
+        from collections import defaultdict as _dd3
+        from datetime import date as _d3
+        _m_cnt = _dd3(lambda: {'cantidad':0,'realizadas':0,'ingresos':0.0})
+        for _row in sesiones.values('fecha','estado','monto_cobrado'):
+            _mk = _d3(_row['fecha'].year, _row['fecha'].month, 1)
+            _m_cnt[_mk]['cantidad'] += 1
+            if _row['estado'] == 'realizada':
+                _m_cnt[_mk]['realizadas'] += 1
+            if _row['estado'] in ('realizada','realizada_retraso'):
+                _m_cnt[_mk]['ingresos'] += float(_row['monto_cobrado'] or 0)
         grafico_data = {
-            'labels': [_mes_label(m['mes']) for m in por_mes],
-            'sesiones': [m['cantidad'] for m in por_mes],
-            'realizadas': [m['realizadas'] for m in por_mes],
-            'ingresos': [float(m['ingresos'] or 0) for m in por_mes],
+            'labels'   : [_mes_label(k) for k in sorted(_m_cnt)],
+            'sesiones' : [_m_cnt[k]['cantidad']   for k in sorted(_m_cnt)],
+            'realizadas': [_m_cnt[k]['realizadas'] for k in sorted(_m_cnt)],
+            'ingresos' : [_m_cnt[k]['ingresos']   for k in sorted(_m_cnt)],
         }
         
         datos = {
@@ -4578,21 +5539,30 @@ def reporte_sucursal(request):
             realizadas=Count('id', filter=Q(estado='realizada'))
         ).order_by('-sesiones')[:10]
         
-        # Por mes
-        from django.db.models.functions import TruncMonth
-        por_mes = sesiones.annotate(
-            mes=TruncMonth('fecha')
-        ).values('mes').annotate(
-            total=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('mes')
-        
+        # Por mes — agrupación en Python (TruncMonth falla en SQLite + Python 3.14)
+        from collections import defaultdict as _dd2
+        from datetime import date as _d2
+
+        _m2 = _dd2(lambda: {'total': 0, 'realizadas': 0, 'ingresos': Decimal('0')})
+        for _row2 in sesiones.values('fecha', 'estado', 'monto_cobrado'):
+            _k2 = _d2(_row2['fecha'].year, _row2['fecha'].month, 1)
+            _e2  = _row2['estado']
+            _m2[_k2]['total'] += 1
+            if _e2 == 'realizada':         _m2[_k2]['realizadas'] += 1
+            if _e2 in ('realizada', 'realizada_retraso'):
+                _m2[_k2]['ingresos'] += Decimal(str(_row2['monto_cobrado'] or 0))
+
+        por_mes = [
+            {'mes': k, 'total': v['total'], 'realizadas': v['realizadas'],
+             'ingresos': v['ingresos']}
+            for k, v in sorted(_m2.items())
+        ]
+
         grafico_data = {
-            'labels': [_mes_label(m['mes']) for m in por_mes],
-            'sesiones': [m['total'] for m in por_mes],
-            'realizadas': [m['realizadas'] for m in por_mes],
-            'ingresos': [float(m['ingresos'] or 0) for m in por_mes],
+            'labels'   : [_mes_label(m['mes'])       for m in por_mes],
+            'sesiones' : [m['total']                 for m in por_mes],
+            'realizadas': [m['realizadas']            for m in por_mes],
+            'ingresos' : [float(m['ingresos'])        for m in por_mes],
         }
 
         # IDs de pacientes con actividad en esta sucursal (para el helper financiero)
@@ -5828,31 +6798,31 @@ def reporte_financiero(request):
     
     # ==================== GRÁFICO DE EVOLUCIÓN ====================
     from django.db.models.functions import TruncMonth
-    
+
     fecha_grafico_desde = fecha_hasta_obj - timedelta(days=180)
-    
+
     por_mes = Sesion.objects.filter(
         fecha__gte=fecha_grafico_desde,
         fecha__lte=fecha_hasta_obj,
         estado__in=['realizada', 'realizada_retraso']
     ).annotate(
-        mes=TruncMonth('fecha')
+        mes=TruncMonth('fecha')          # ✅ restaurado
     ).values('mes').annotate(
         sesiones=Count('id'),
         ingresos_sesiones=Sum('monto_cobrado')
     ).order_by('mes')
-    
+
     # Agregar proyectos al gráfico
     proyectos_mes = Proyecto.objects.filter(
         fecha_inicio__gte=fecha_grafico_desde,
         fecha_inicio__lte=fecha_hasta_obj
     ).annotate(
-        mes=TruncMonth('fecha_inicio')
+        mes=TruncMonth('fecha_inicio')   # ✅ restaurado
     ).values('mes').annotate(
         proyectos=Count('id'),
         ingresos_proyectos=Sum('costo_total')
     ).order_by('mes')
-    
+
     # Agregar mensualidades al gráfico
     from django.db.models import IntegerField
     mensualidades_mes_grafico = Mensualidad.objects.filter(
@@ -5867,7 +6837,7 @@ def reporte_financiero(request):
         cantidad=Count('id'),
         ingresos_mensualidades=Sum('costo_mensual')
     ).order_by('anio', 'mes')
-    
+
     # Combinar datos del gráfico.
     # Clave = (anio, mes) como enteros para mantener orden cronológico correcto
     # aunque proyectos o mensualidades tengan meses sin sesiones.
@@ -5876,11 +6846,11 @@ def reporte_financiero(request):
     for m in por_mes:
         key = (m['mes'].year, m['mes'].month)
         meses_dict[key] = {
-            'label':        _mes_label(m['mes']),
-            'sesiones':     m['sesiones'],
-            'proyectos':    0,
+            'label':         _mes_label(m['mes']),
+            'sesiones':      m['sesiones'],
+            'proyectos':     0,
             'mensualidades': 0,
-            'ingresos':     float(m['ingresos_sesiones'] or 0)
+            'ingresos':      float(m['ingresos_sesiones'] or 0)
         }
 
     for p in proyectos_mes:
@@ -5890,11 +6860,11 @@ def reporte_financiero(request):
             meses_dict[key]['ingresos'] += float(p['ingresos_proyectos'] or 0)
         else:
             meses_dict[key] = {
-                'label':        _mes_label(p['mes']),
-                'sesiones':     0,
-                'proyectos':    p['proyectos'],
+                'label':         _mes_label(p['mes']),
+                'sesiones':      0,
+                'proyectos':     p['proyectos'],
                 'mensualidades': 0,
-                'ingresos':     float(p['ingresos_proyectos'] or 0)
+                'ingresos':      float(p['ingresos_proyectos'] or 0)
             }
 
     for mn in mensualidades_mes_grafico:
@@ -5905,11 +6875,11 @@ def reporte_financiero(request):
             meses_dict[key]['ingresos'] += float(mn['ingresos_mensualidades'] or 0)
         else:
             meses_dict[key] = {
-                'label':        _mes_label(date_cls(mn['anio'], mn['mes'], 1)),
-                'sesiones':     0,
-                'proyectos':    0,
+                'label':         _mes_label(date_cls(mn['anio'], mn['mes'], 1)),
+                'sesiones':      0,
+                'proyectos':     0,
                 'mensualidades': mn['cantidad'],
-                'ingresos':     float(mn['ingresos_mensualidades'] or 0)
+                'ingresos':      float(mn['ingresos_mensualidades'] or 0)
             }
 
     # Ordenar cronológicamente y construir grafico_data

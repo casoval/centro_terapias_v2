@@ -35,8 +35,8 @@ urlpatterns = [
     path('api/sesion/<int:sesion_id>/detalle/', views.api_detalle_sesion, name='api_detalle_sesion'),
     path('api/pago/<int:pago_id>/detalle/', views.api_detalle_pago, name='api_detalle_pago'),
     path('api/proyectos-paciente/<int:paciente_id>/', views.api_proyectos_paciente, name='api_proyectos_paciente'),
-    path('api/mensualidades-paciente/<int:paciente_id>/', views.api_mensualidades_paciente, name='api_mensualidades_paciente'),  # ✅ NUEVO
-    
+    path('api/mensualidades-paciente/<int:paciente_id>/', views.api_mensualidades_paciente, name='api_mensualidades_paciente'),
+
     # ==================== REPORTES ====================
     path('reportes/', views.dashboard_reportes, name='dashboard_reportes'),
     path('reportes/paciente/', views.reporte_paciente, name='reporte_paciente'),
@@ -44,13 +44,26 @@ urlpatterns = [
     path('reportes/sucursal/', views.reporte_sucursal, name='reporte_sucursal'),
     path('reportes/financiero/', views.reporte_financiero, name='reporte_financiero'),
     path('reportes/asistencia/', views.reporte_asistencia, name='reporte_asistencia'),
+    path('reportes/asistencia/pdf/', views.generar_reporte_asistencia_pdf, name='reporte_asistencia_pdf'),
     path('reportes/exportar/', views.exportar_excel, name='exportar_excel'),
+
+    # ── APIs AJAX para filtros en cascada del reporte de asistencia ──────────
+    # Pueblan los selects de Mensualidad y Proyecto según el paciente elegido.
+    # Llamadas desde el JavaScript del template asistencia.html.
+    #
+    # GET /facturacion/api/asistencia/mensualidades/?paciente_id=X&sucursal_id=Y
+    # GET /facturacion/api/asistencia/proyectos/?paciente_id=X&sucursal_id=Y
+    path('api/asistencia/mensualidades/',
+         views.api_mensualidades_filtro,
+         name='api_mensualidades_filtro'),
+    path('api/asistencia/proyectos/',
+         views.api_proyectos_filtro,
+         name='api_proyectos_filtro'),
 
     # ==================== DEVOLUCIONES ====================
     path('devoluciones/registrar/', views.registrar_devolucion, name='registrar_devolucion'),
     path('devoluciones/confirmacion/<int:devolucion_id>/', views.confirmacion_devolucion, name='confirmacion_devolucion'),
 
-    path('pago/<int:pago_id>/anular/', views.anular_pago, name='anular_pago'),
     path('devolucion/<int:devolucion_id>/pdf/', views.generar_devolucion_pdf, name='generar_devolucion_pdf'),
 
     # APIs para cargar información de devoluciones
@@ -59,52 +72,49 @@ urlpatterns = [
     path('api/disponible-devolver-mensualidad/<int:mensualidad_id>/', views.api_disponible_devolver_mensualidad, name='api_disponible_devolver_mensualidad'),
 
     # ==================== ADMINISTRACIÓN ====================
-    # Limpiar pagos anulados (solo admin)
     path('limpiar-pagos-anulados/', views.limpiar_pagos_anulados, name='limpiar_pagos_anulados'),
-    
-    # ✅ NUEVO: Gestión de cache de recibos (solo admin)
     path('cache/limpiar-recibos/', views.limpiar_cache_recibos, name='limpiar_cache_recibos'),
     path('cache/estadisticas/', views.estadisticas_cache_recibos, name='estadisticas_cache_recibos'),
 
     # ==================== VISTAS PARA PACIENTES ====================
     path('mi-cuenta/', views.mi_cuenta, name='mi_cuenta'),
     path('mis-pagos/', views.mis_pagos, name='mis_pagos'),
-    path('mis-deudas/', views.mis_deudas, name='mis_deudas'),  # ✅ NUEVA URL AGREGADA
+    path('mis-deudas/', views.mis_deudas, name='mis_deudas'),
     path('pago/<int:pago_id>/ver/', views.detalle_pago_paciente, name='detalle_pago_paciente'),
 
-    path('sesion/<int:sesion_id>/detalle-partial/', 
-         views.detalle_sesion_partial, 
+    path('sesion/<int:sesion_id>/detalle-partial/',
+         views.detalle_sesion_partial,
          name='detalle_sesion_partial'),
-    
-    path('pago/<int:pago_id>/detalle-partial/', 
-         views.detalle_pago_partial, 
+
+    path('pago/<int:pago_id>/detalle-partial/',
+         views.detalle_pago_partial,
          name='detalle_pago_partial'),
 
     # ==================== PANEL DE RECÁLCULO (ADMIN) ====================
-    path('admin/panel-recalculo/', 
-         views.panel_recalcular_cuentas, 
+    path('admin/panel-recalculo/',
+         views.panel_recalcular_cuentas,
          name='panel_recalcular_cuentas'),
-    
-    path('admin/recalcular-todas/', 
-         views.recalcular_todas_cuentas, 
+
+    path('admin/recalcular-todas/',
+         views.recalcular_todas_cuentas,
          name='recalcular_todas_cuentas'),
-    
-    path('admin/recalcular-cuenta/<int:paciente_id>/', 
-         views.recalcular_cuenta_individual, 
+
+    path('admin/recalcular-cuenta/<int:paciente_id>/',
+         views.recalcular_cuenta_individual,
          name='recalcular_cuenta_individual'),
 
     # ==================== MIGRACIÓN COMISIONES EXTERNAS (ADMIN) ====================
     path('admin/migrar-comisiones/',
          views_migracion.panel_migracion_comisiones,
          name='panel_migracion_comisiones'),
-    
+
     # API AJAX para recálculo
-    path('api/recalcular-cuenta/<int:paciente_id>/', 
-         views.api_recalcular_cuenta, 
+    path('api/recalcular-cuenta/<int:paciente_id>/',
+         views.api_recalcular_cuenta,
          name='api_recalcular_cuenta'),
-    
-    path('api/estado-recalculo/', 
-         views.api_estado_recalculo, 
+
+    path('api/estado-recalculo/',
+         views.api_estado_recalculo,
          name='api_estado_recalculo'),
 
     path('api/lista-cuentas/', views.api_lista_cuentas, name='api_lista_cuentas'),

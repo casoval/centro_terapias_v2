@@ -1,637 +1,1059 @@
 {% extends 'base.html' %}
-{% block title %}Reporte Paciente{% endblock %}
+{% block title %}Reporte Paciente — {{ paciente.nombre_completo|default:"Seleccionar" }}{% endblock %}
 {% block content %}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
-  :root {
-    --ink:#0f172a;--ink2:#334155;--muted:#64748b;--border:#e2e8f0;--surface:#f8fafc;--white:#fff;
-    --blue:#2563eb;--blue-l:#dbeafe;--green:#16a34a;--green-l:#dcfce7;
-    --red:#dc2626;--red-l:#fee2e2;--amber:#d97706;--amber-l:#fef3c7;
-    --purple:#7c3aed;--purple-l:#ede9fe;--teal:#0d9488;--teal-l:#ccfbf1;
-    --r:12px;
-  }
-  body{font-family:'Plus Jakarta Sans',sans-serif;background: transparent}
-  @media print{.no-print{display:none!important} body{background:white!important}}
-  .mono{font-family:'Fira Code',monospace}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --ink:#0f172a;--ink2:#334155;--muted:#64748b;--muted2:#94a3b8;
+  --border:#e2e8f0;--border2:#f1f5f9;--surface:#f8fafc;--surface2:#f1f5f9;--white:#fff;
+  --blue:#2563eb;--blue-d:#1d4ed8;--blue-l:#dbeafe;--blue-ll:#eff6ff;
+  --green:#16a34a;--green-l:#dcfce7;--green-ll:#f0fdf4;
+  --red:#dc2626;--red-l:#fee2e2;--red-ll:#fff5f5;
+  --amber:#d97706;--amber-l:#fef3c7;--amber-ll:#fffbeb;
+  --purple:#7c3aed;--purple-l:#ede9fe;
+  --teal:#0d9488;--teal-l:#ccfbf1;
+  --slate:#475569;--slate-l:#f1f5f9;
+  --r:10px;--r-lg:14px;
+  --shadow-sm:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --shadow:0 4px 12px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
+.mono{font-family:'DM Mono',monospace}
+@media print{.no-print{display:none!important} body{background:white!important;font-size:10px}}
 
-  .rpt-header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f2d4a 100%);
-    border-radius:16px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden}
-  .rpt-header::after{content:'';position:absolute;top:-30px;right:-30px;width:180px;height:180px;
-    background:radial-gradient(circle,rgba(37,99,235,.25) 0%,transparent 70%);border-radius:50%}
-  .back{color:#93c5fd;text-decoration:none;font-size:.75rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
-  .rpt-header h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
-  .rpt-header p{color:#93c5fd;font-size:.8rem;margin:0}
-  .print-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
-    border:1px solid rgba(255,255,255,.3);color:white;font-size:.75rem;font-weight:600;
-    padding:6px 14px;border-radius:8px;cursor:pointer;margin-top:10px}
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,#0f172a 0%,#1e293b 45%,#0c2340 100%);
+  border-radius:var(--r-lg);padding:22px 26px 18px;margin-bottom:16px;color:white;
+  position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-60px;right:-40px;width:260px;height:260px;
+  background:radial-gradient(circle,rgba(37,99,235,.2) 0%,transparent 65%);border-radius:50%}
+.hero::after{content:'';position:absolute;bottom:-40px;left:30%;width:200px;height:200px;
+  background:radial-gradient(circle,rgba(13,148,136,.12) 0%,transparent 65%);border-radius:50%}
+.hero-nav{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;position:relative;z-index:1}
+.back-link{color:#93c5fd;font-size:.72rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.hero-actions{display:flex;gap:7px;flex-wrap:wrap}
+.btn-ghost{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);
+  font-size:.72rem;font-weight:600;padding:6px 13px;border-radius:8px;
+  cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;transition:all .15s}
+.btn-ghost:hover{background:rgba(255,255,255,.16)}
+.hero-body{margin-top:14px;position:relative;z-index:1}
+.hero-title{font-size:1.7rem;font-weight:700;margin:0 0 4px;letter-spacing:-.02em}
+.hero-sub{font-size:.75rem;color:rgba(255,255,255,.45);margin:0 0 12px}
+.hero-pills{display:flex;gap:6px;flex-wrap:wrap}
+.hero-pill{font-size:.65rem;font-weight:600;padding:3px 9px;border-radius:20px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6)}
+.hero-pill.on{background:rgba(37,99,235,.25);border-color:rgba(99,102,241,.4);color:#a5b4fc}
 
-  .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
-  .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
-  .fg{display:flex;flex-direction:column;gap:3px}
-  .fg label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-  .fg select,.fg input[type=date]{padding:7px 10px;font-size:.78rem;border:1px solid var(--border);
-    border-radius:8px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;min-width:160px}
-  .btn-primary{background:var(--blue);color:white;border:none;padding:7px 16px;border-radius:8px;
-    font-size:.78rem;font-weight:700;cursor:pointer;align-self:flex-end}
+/* ── FILTER BAR ── */
+.filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.fg select,.fg input[type=date]{padding:7px 10px;font-size:.77rem;border:1px solid var(--border);
+  border-radius:8px;color:var(--ink);font-family:'DM Sans',sans-serif;background:var(--surface);outline:none}
+.fg select:focus,.fg input:focus{border-color:var(--blue)}
+.btn-primary{background:var(--blue);color:white;border:none;padding:7px 16px;border-radius:8px;
+  font-size:.77rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+.btn-primary:hover{background:var(--blue-d)}
+.btn-clear{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);
+  border:1px solid var(--border);color:var(--muted);padding:7px 13px;border-radius:8px;
+  font-size:.77rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;
+  text-decoration:none;transition:all .15s;white-space:nowrap}
+.btn-clear:hover{background:var(--red-l);border-color:#fecaca;color:var(--red)}
+.quick-ranges{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.qbtn{font-size:.65rem;font-weight:600;padding:3px 9px;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .12s}
+.qbtn:hover{background:var(--blue-ll);border-color:#c7d2fe;color:var(--blue-d)}
 
-  /* Quick tabs */
-  .quick-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px}
-  .qtab{font-size:.72rem;font-weight:600;padding:5px 12px;border:1px solid var(--border);
-    border-radius:8px;background:var(--white);color:var(--muted);text-decoration:none;cursor:pointer;transition:all .15s}
-  .qtab:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+/* ── PAC CARD ── */
+.pac-card{background:linear-gradient(135deg,#0f172a,#1a3050);border-radius:var(--r-lg);
+  padding:18px 22px;margin-bottom:14px;color:white;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.pac-avatar{width:60px;height:60px;border-radius:12px;background:rgba(255,255,255,.13);
+  display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;border:2px solid rgba(255,255,255,.15)}
+.pac-name{font-size:1.15rem;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
+.pac-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:.63rem;font-weight:600;
+  padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8)}
+.chip.green{background:rgba(22,163,74,.2);color:#86efac}
+.chip.red{background:rgba(220,38,38,.2);color:#fca5a5}
+.chip.amber{background:rgba(217,119,6,.2);color:#fcd34d}
+.chip.blue{background:rgba(37,99,235,.25);color:#93c5fd}
+.pac-meta{display:flex;flex-wrap:wrap;gap:12px}
+.pac-meta span{font-size:.7rem;color:rgba(255,255,255,.55)}
+.pac-meta b{color:rgba(255,255,255,.9)}
 
-  /* Patient card */
-  .pac-card{background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:white;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-  .pac-avatar{width:64px;height:64px;border-radius:14px;background:rgba(255,255,255,.15);
-    display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0}
-  .pac-info{flex:1;min-width:200px}
-  .pac-name{font-size:1.2rem;font-weight:800;margin:0 0 4px}
-  .pac-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-  .chip{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:700;
-    padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
-  .chip.green{background:rgba(34,197,94,.2);color:#86efac}
-  .chip.red{background:rgba(220,38,38,.2);color:#fca5a5}
-  .chip.amber{background:rgba(245,158,11,.2);color:#fcd34d}
-  .pac-meta{display:flex;flex-wrap:wrap;gap:10px}
-  .pac-meta span{font-size:.72rem;color:rgba(255,255,255,.65)}
-  .pac-meta b{color:white}
+/* ── SECTION TITLE ── */
+.sec-hdr{display:flex;align-items:center;margin-bottom:12px;gap:10px}
+.sec-hdr h2{font-size:.82rem;font-weight:700;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sec-hdr-line{flex:1;height:1px;background:var(--border)}
 
-  /* Financial hero */
-  .fin-hero{border-radius:14px;padding:18px 20px;margin-bottom:16px;border:2px solid}
-  .fin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
-  .fin-item{background:rgba(255,255,255,.08);border-radius:10px;padding:10px 12px;text-align:center}
-  .fi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.7;margin-bottom:4px}
-  .fi-val{font-size:1rem;font-weight:900;font-family:'Fira Code',monospace}
+/* ── METRIC CARDS ── */
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.metric-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 12px;position:relative;overflow:hidden;transition:transform .12s,box-shadow .12s}
+.metric-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.metric-card .bar{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:var(--r) 0 0 var(--r)}
+.mc-label{font-size:.59rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.mc-val{font-size:1.5rem;font-weight:700;color:var(--ink);font-family:'DM Mono',monospace;line-height:1.1}
+.mc-sub{font-size:.63rem;color:var(--muted);margin-top:4px}
 
-  /* KPI stats */
-  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-  .kpi-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px;
-    position:relative;overflow:hidden}
-  .kpi-box .accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
-  .kpi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
-  .kpi-val{font-size:1.4rem;font-weight:900;color:var(--ink);font-family:'Fira Code',monospace;line-height:1}
-  .kpi-sub{font-size:.65rem;color:var(--muted);margin-top:4px}
+/* ── FIN HERO ── */
+.fin-hero{border-radius:var(--r-lg);padding:16px 18px;margin-bottom:14px;border:2px solid}
+.fin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:12px}
+.fi-item{background:rgba(255,255,255,.1);border-radius:8px;padding:9px 10px;text-align:center}
+.fi-label{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.7;margin-bottom:3px}
+.fi-val{font-size:.95rem;font-weight:700;font-family:'DM Mono',monospace}
 
-  /* Charts */
-  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
-  .chart-card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 12px}
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
-  @media(max-width:768px){.two-col{grid-template-columns:1fr}}
+/* ── CHARTS ── */
+.chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:16px 18px;box-shadow:var(--shadow-sm)}
+.chart-card .cc-title{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 2px}
+.chart-card .cc-sub{font-size:.63rem;color:var(--muted);margin:0 0 12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
 
-  /* Tables / list cards */
-  .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
-  .card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 10px;display:flex;align-items:center;gap:6px}
-  .list-item{display:flex;justify-content:space-between;align-items:center;
-    padding:9px 10px;border-radius:8px;background:var(--surface);margin-bottom:6px;flex-wrap:wrap;gap:6px}
-  .li-name{font-size:.78rem;font-weight:700;color:var(--ink)}
-  .li-sub{font-size:.65rem;color:var(--muted);margin-top:2px}
-  .li-val{font-size:.88rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--green)}
-  .scroll-list{max-height:240px;overflow-y:auto}
+/* ── GENERIC CARD ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);
+  padding:14px 16px;box-shadow:var(--shadow-sm)}
+.card h3{font-size:.8rem;font-weight:700;color:var(--ink);margin:0 0 10px;display:flex;align-items:center;gap:6px}
 
-  /* Clinical card */
-  .clinical-card{background:var(--teal-l);border:1px solid rgba(13,148,136,.2);border-radius:var(--r);padding:16px;margin-bottom:16px}
-  .clinical-card h3{font-size:.8rem;font-weight:700;color:var(--teal);margin:0 0 10px}
-  .clin-row{display:flex;gap:8px;margin-bottom:8px}
-  .clin-label{font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--teal);opacity:.7;min-width:100px}
-  .clin-val{font-size:.78rem;color:var(--ink2);flex:1}
-  .alergia-alert{background:var(--red-l);border:1px solid #fecaca;border-radius:8px;padding:8px 12px;
-    font-size:.78rem;color:var(--red);font-weight:600;margin-top:8px}
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:.75rem}
+.tbl th{background:var(--surface2);color:var(--muted);font-size:.6rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;text-align:left;
+  border-bottom:2px solid var(--border)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border2);color:var(--ink2)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:var(--surface)}
+.tbl .money{font-family:'DM Mono',monospace;font-weight:600;color:var(--ink);text-align:right}
 
-  /* Projects */
-  .proj-card{background:var(--white);border:1px solid var(--border);border-left:3px solid var(--teal);
-    border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
-  .proj-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-  .proj-code{font-family:'Fira Code',monospace;font-size:.72rem;color:var(--muted)}
-  .proj-name{font-size:.85rem;font-weight:700;color:var(--ink)}
-  .proj-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-top:8px}
-  .ps-item{background:var(--surface);border-radius:6px;padding:6px 8px;text-align:center}
-  .ps-label{font-size:.58rem;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:2px}
-  .ps-val{font-size:.85rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--ink)}
+/* ── LIST ITEMS ── */
+.list-item{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 10px;border-radius:8px;background:var(--surface);margin-bottom:5px;
+  flex-wrap:wrap;gap:5px;transition:background .1s}
+.list-item:hover{background:var(--surface2)}
+.li-name{font-size:.78rem;font-weight:600;color:var(--ink)}
+.li-sub{font-size:.63rem;color:var(--muted);margin-top:1px}
+.li-val{font-size:.88rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)}
+.scroll-list{max-height:260px;overflow-y:auto}
+.scroll-list::-webkit-scrollbar{width:3px}
+.scroll-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 
-  /* Session timeline */
-  .session-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;position:relative}
-  .session-item.realizada{border-left:3px solid var(--green)}
-  .session-item.realizada_retraso{border-left:3px solid var(--amber)}
-  .session-item.falta{border-left:3px solid var(--red)}
-  .session-item.programada{border-left:3px solid var(--blue)}
-  .session-item.permiso{border-left:3px solid var(--purple)}
-  .session-item.cancelada{border-left:3px solid #94a3b8}
-  .s-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px}
-  .s-date{font-size:.82rem;font-weight:700;color:var(--ink);font-family:'Fira Code',monospace}
-  .s-info{font-size:.72rem;color:var(--ink2);margin-bottom:4px}
-  .s-badge{display:inline-flex;align-items:center;font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:12px}
-  .s-badge.realizada{background:var(--green-l);color:var(--green)}
-  .s-badge.realizada_retraso{background:var(--amber-l);color:var(--amber)}
-  .s-badge.falta{background:var(--red-l);color:var(--red)}
-  .s-badge.programada{background:var(--blue-l);color:var(--blue)}
-  .s-badge.permiso{background:var(--purple-l);color:var(--purple)}
-  .s-badge.cancelada{background:#f1f5f9;color:#64748b}
-  .s-notes{background:var(--green-l);border-left:3px solid var(--green);border-radius:6px;
-    padding:6px 10px;font-size:.72rem;color:var(--ink2);margin-top:6px}
-  .s-obs{background:var(--surface);border-radius:6px;padding:6px 10px;font-size:.72rem;color:var(--muted);margin-top:4px}
-  .s-money{font-family:'Fira Code',monospace;font-size:.75rem;font-weight:700}
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;font-size:.62rem;font-weight:700;
+  padding:2px 8px;border-radius:12px;gap:3px}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-amber{background:var(--amber-l);color:var(--amber)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.badge-blue{background:var(--blue-l);color:var(--blue)}
+.badge-purple{background:var(--purple-l);color:var(--purple)}
+.badge-slate{background:var(--slate-l);color:var(--slate)}
+.badge-teal{background:var(--teal-l);color:var(--teal)}
 
-  /* Filters timeline */
-  .filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  .fchip{font-size:.72rem;font-weight:600;padding:4px 12px;border-radius:8px;
-    border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all .15s}
-  .fchip.active{background:var(--blue);border-color:var(--blue);color:white}
+/* ── CLINICAL BOX ── */
+.clin-box{background:var(--teal-l);border:1px solid rgba(13,148,136,.2);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.clin-box h3{font-size:.8rem;font-weight:700;color:var(--teal);margin:0 0 10px;display:flex;align-items:center;gap:5px}
+.clin-row{display:grid;grid-template-columns:120px 1fr;gap:6px;margin-bottom:6px;align-items:baseline}
+.clin-lbl{font-size:.63rem;font-weight:700;text-transform:uppercase;color:var(--teal);opacity:.7}
+.clin-val{font-size:.77rem;color:var(--ink2)}
+.alergia{background:var(--red-l);border:1px solid #fecaca;border-radius:8px;padding:7px 11px;
+  font-size:.77rem;color:var(--red);font-weight:600;margin-top:8px}
 
-  .section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-    color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+/* ── PROJECTS ── */
+.proj-card{background:var(--white);border:1px solid var(--border);
+  border-left:3px solid var(--teal);border-radius:var(--r);padding:11px 13px;margin-bottom:7px;
+  transition:box-shadow .12s}
+.proj-card:hover{box-shadow:var(--shadow-sm)}
+.proj-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.proj-code{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:2px}
+.proj-name{font-size:.83rem;font-weight:700;color:var(--ink)}
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:5px;margin-top:6px}
+.pg-item{background:var(--surface);border-radius:6px;padding:5px 7px;text-align:center}
+.pg-lbl{font-size:.57rem;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:2px}
+.pg-val{font-size:.82rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--ink)}
+
+/* ── SESSIONS ── */
+.sess-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+  padding:11px 13px;margin-bottom:7px;position:relative;transition:box-shadow .12s}
+.sess-item:hover{box-shadow:var(--shadow-sm)}
+.sess-item.realizada{border-left:3px solid var(--green)}
+.sess-item.realizada_retraso{border-left:3px solid var(--amber)}
+.sess-item.falta{border-left:3px solid var(--red)}
+.sess-item.programada{border-left:3px solid var(--blue)}
+.sess-item.permiso{border-left:3px solid var(--purple)}
+.sess-item.cancelada{border-left:3px solid #94a3b8}
+.sess-item.reprogramada{border-left:3px solid var(--teal)}
+.s-hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:5px;margin-bottom:5px}
+.s-date{font-size:.8rem;font-weight:700;color:var(--ink);font-family:'DM Mono',monospace}
+.s-info{font-size:.7rem;color:var(--ink2);margin-bottom:3px}
+.s-money{font-family:'DM Mono',monospace;font-size:.73rem;font-weight:700}
+.s-note{background:var(--green-ll);border-left:3px solid var(--green);border-radius:6px;
+  padding:5px 9px;font-size:.7rem;color:var(--ink2);margin-top:5px}
+.s-obs{background:var(--surface);border-radius:6px;padding:5px 9px;font-size:.7rem;color:var(--muted);margin-top:3px}
+
+/* ── PROGRESS BAR ── */
+.prog-bar{height:5px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:10px;transition:width .6s ease}
+
+/* ── FILTER CHIPS ── */
+.fchip-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{font-size:.7rem;font-weight:600;padding:4px 11px;border-radius:8px;
+  border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;transition:all .12s}
+.fchip.active,.fchip:hover{background:var(--blue);border-color:var(--blue);color:white}
+
+/* ── HEAT GRID (days of week) ── */
+.heat-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.heat-cell{border-radius:6px;padding:8px 4px;text-align:center;transition:transform .12s}
+.heat-cell:hover{transform:scale(1.04)}
+.heat-day{font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.heat-val{font-size:.88rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--ink)}
+
+/* ── TASA INDICATOR ── */
+.tasa-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.tasa-label{font-size:.72rem;font-weight:600;color:var(--ink2)}
+.tasa-pct{font-size:.82rem;font-weight:700;font-family:'DM Mono',monospace}
+
+.wrap{max-width:1400px;margin:0 auto;padding:14px 16px 40px}
 </style>
 
-<div class="max-w-7xl mx-auto px-3 py-4">
+<div class="wrap">
 
-  <!-- Header -->
-  <div class="rpt-header no-print">
-    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back">← Volver a Reportes</a>
-    <h1>👤 Reporte por Paciente</h1>
-    <p>Historial clínico · Asistencia · Financiero · Proyectos · Evolución</p>
-    <button onclick="window.print()" class="print-btn">🖨️ Imprimir / PDF</button>
+<!-- ══ HERO ══════════════════════════════════════════════════════════════════ -->
+<div class="hero no-print">
+  <div class="hero-nav">
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Reportes</a>
+    <div class="hero-actions">
+      {% if paciente %}
+      <a href="?paciente={{ paciente.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&export=pdf"
+         target="_blank" class="btn-ghost">📄 Exportar PDF</a>
+      {% endif %}
+      <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
+    </div>
   </div>
-
-  <!-- Filters -->
-  <div class="filter-bar no-print">
-    <form method="get">
-      <div class="fg">
-        <label>Paciente</label>
-        <select name="paciente">
-          <option value="">— Seleccionar paciente —</option>
-          {% for p in pacientes %}
-          <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="fg">
-        <label>Desde</label>
-        <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
-      </div>
-      <div class="fg">
-        <label>Hasta</label>
-        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
-      </div>
-      <button type="submit" class="btn-primary">🔍 Ver reporte</button>
-    </form>
-  </div>
-
-  <!-- Quick ranges (JS) -->
-  {% if paciente %}
-  <div class="quick-tabs no-print">
-    <a class="qtab" onclick="setRango(30)">📅 30 días</a>
-    <a class="qtab" onclick="setRango(90)">📆 3 meses</a>
-    <a class="qtab" onclick="setRango(180)">📈 6 meses</a>
-    <a class="qtab" onclick="setRango(365)">📊 1 año</a>
-  </div>
-  {% endif %}
-
-  {% if not paciente %}
-  <!-- Empty state -->
-  <div style="text-align:center;padding:60px 20px;background:var(--white);border-radius:16px;border:1px solid var(--border)">
-    <div style="font-size:3rem;margin-bottom:12px">👤</div>
-    <p style="font-size:1rem;font-weight:700;color:var(--ink);margin:0 0 6px">Selecciona un paciente</p>
-    <p style="font-size:.82rem;color:var(--muted)">Elige un paciente del selector y un período de fechas para ver el reporte completo.</p>
-  </div>
-
-  {% else %}
-
-  <!-- Patient Card -->
-  <div class="pac-card">
-    <div class="pac-avatar">
-      {% if paciente.foto %}
-      <img src="{{ paciente.get_foto_thumbnail }}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">
+  <div class="hero-body">
+    <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#93c5fd;margin-bottom:5px">Reporte Individual</div>
+    <h1 class="hero-title">👤 {% if paciente %}{{ paciente.nombre_completo }}{% else %}Reporte por Paciente{% endif %}</h1>
+    <p class="hero-sub">Perfil clínico · Financiero · Asistencia · Proyectos · Mensualidades · Sesiones</p>
+    {% if paciente %}
+    <div class="hero-pills">
+      {% if fecha_desde and fecha_hasta %}
+      <span class="hero-pill on">📅 {{ fecha_desde }} — {{ fecha_hasta }}</span>
       {% else %}
-      {{ paciente.nombre|first }}{{ paciente.apellido|first }}
+      <span class="hero-pill on">📅 Todo el historial</span>
       {% endif %}
+      {% if datos %}<span class="hero-pill on">{{ datos.stats.total_sesiones|default:0 }} sesiones</span>{% endif %}
+      {% if paciente.diagnostico %}<span class="hero-pill on">🏥 {{ paciente.diagnostico|truncatechars:30 }}</span>{% endif %}
     </div>
-    <div class="pac-info">
-      <p class="pac-name">{{ paciente.nombre_completo }}</p>
-      <div class="pac-chips">
-        <span class="chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">{{ paciente.get_estado_display }}</span>
-        <span class="chip">{{ paciente.edad }} años</span>
-        <span class="chip">{{ paciente.get_genero_display }}</span>
-        {% if paciente.nombre_tutor %}<span class="chip">👤 {{ paciente.nombre_tutor }} ({{ paciente.get_parentesco_display }})</span>{% endif %}
-      </div>
-      <div class="pac-meta">
-        {% if paciente.telefono_tutor %}<span>📞 <b>{{ paciente.telefono_tutor }}</b></span>{% endif %}
-        {% if paciente.email_tutor %}<span>✉️ <b>{{ paciente.email_tutor }}</b></span>{% endif %}
-        <span>📅 Período: <b>{{ fecha_desde }} — {{ fecha_hasta }}</b></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Clinical info -->
-  {% if paciente.diagnostico or paciente.alergias or paciente.observaciones_medicas %}
-  <div class="clinical-card">
-    <h3>🏥 Información Clínica</h3>
-    {% if paciente.diagnostico %}
-    <div class="clin-row"><span class="clin-label">Diagnóstico</span><span class="clin-val">{{ paciente.diagnostico }}</span></div>
-    {% endif %}
-    {% if paciente.observaciones_medicas %}
-    <div class="clin-row"><span class="clin-label">Observaciones</span><span class="clin-val">{{ paciente.observaciones_medicas }}</span></div>
-    {% endif %}
-    {% if paciente.alergias %}
-    <div class="alergia-alert">⚠️ Alergias: {{ paciente.alergias }}</div>
     {% endif %}
   </div>
-  {% endif %}
-
-  {% if datos %}
-  <!-- Financial Hero (from cuenta_corriente) -->
-  {% with cc=paciente.cuenta_corriente %}
-  {% if cc %}
-  <div class="fin-hero" style="background:{% if cc.saldo_actual >= 0 %}var(--green-l);border-color:#86efac;color:var(--green){% else %}var(--red-l);border-color:#fca5a5;color:var(--red){% endif %}">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <div>
-        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;opacity:.7">Saldo Actual</div>
-        <div style="font-size:2rem;font-weight:900;font-family:'Fira Code',monospace;line-height:1">
-          Bs. {{ cc.saldo_actual|floatformat:2 }}
-        </div>
-        <div style="font-size:.72rem;margin-top:4px;opacity:.8">
-          {% if cc.saldo_actual >= 0 %}✅ Al día{% else %}⚠️ Con deuda{% endif %}
-          · Crédito disponible: Bs. {{ cc.credito_disponible|floatformat:2 }}
-        </div>
-      </div>
-      <div style="font-size:.7rem;opacity:.8;text-align:right">
-        Saldo real: <b class="mono">Bs. {{ cc.saldo_real|floatformat:2 }}</b><br>
-        Devoluciones: <b class="mono">Bs. {{ cc.total_devoluciones|floatformat:2 }}</b>
-      </div>
-    </div>
-    <div class="fin-grid">
-      <div class="fin-item">
-        <div class="fi-label">Consumido Actual</div>
-        <div class="fi-val">Bs. {{ cc.total_consumido_actual|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Consumido Real</div>
-        <div class="fi-val">Bs. {{ cc.total_consumido_real|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Total Pagado</div>
-        <div class="fi-val">Bs. {{ cc.total_pagado|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Pag. Sesiones</div>
-        <div class="fi-val">Bs. {{ cc.pagos_sesiones|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Pag. Mensualidades</div>
-        <div class="fi-val">Bs. {{ cc.pagos_mensualidades|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Pag. Proyectos</div>
-        <div class="fi-val">Bs. {{ cc.pagos_proyectos|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Mensualidades</div>
-        <div class="fi-val">Bs. {{ cc.total_mensualidades|floatformat:0 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Proyectos</div>
-        <div class="fi-val">Bs. {{ cc.total_proyectos_real|floatformat:0 }}</div>
-      </div>
-    </div>
-  </div>
-  {% else %}
-  <!-- Fallback financial from stats -->
-  <div class="fin-hero" style="background:var(--blue-l);border-color:#93c5fd;color:var(--blue)">
-    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;margin-bottom:8px;opacity:.7">Financiero del período</div>
-    <div class="fin-grid">
-      <div class="fin-item">
-        <div class="fi-label">Total Cobrado</div>
-        <div class="fi-val">Bs. {{ datos.stats.total_cobrado|floatformat:2 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Total Pagado</div>
-        <div class="fi-val">Bs. {{ datos.stats.total_pagado|floatformat:2 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Saldo Pendiente</div>
-        <div class="fi-val">Bs. {{ datos.stats.saldo_pendiente|floatformat:2 }}</div>
-      </div>
-      <div class="fin-item">
-        <div class="fi-label">Tasa de Pago</div>
-        <div class="fi-val">{{ datos.tasa_pago|floatformat:1 }}%</div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-  {% endwith %}
-
-  <!-- ══════════════════════════════════════════════════════════ -->
-  <!-- DESGLOSE FINANCIERO POR SUCURSAL                         -->
-  <!-- Solo visible si el paciente tiene más de una sucursal.   -->
-  <!-- Muestra consumido+pagado por cada sede, y el crédito     -->
-  <!-- adelantado global separado (no pertenece a ninguna sede) -->
-  <!-- ══════════════════════════════════════════════════════════ -->
-  {% if datos.financiero_por_sucursal %}
-  <div class="section-title">🏢 Desglose Financiero por Sucursal</div>
-
-  <div style="background:var(--blue-l);border:1px solid #93c5fd;border-radius:10px;
-              padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start">
-    <span style="font-size:1.2rem;flex-shrink:0">ℹ️</span>
-    <p style="margin:0;font-size:.75rem;color:#1e40af;line-height:1.5">
-      Cada fila muestra el consumo y pagos de esa sucursal. Los <strong>pagos adelantados y devoluciones
-      sin ítem asignado</strong> se suman a la <strong>sucursal principal</strong> del paciente,
-      determinada automáticamente como aquella donde registra la mayor cantidad de sesiones realizadas.
-    </p>
-  </div>
-
-  {% for sf in datos.financiero_por_sucursal %}
-  <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r);
-              padding:14px;margin-bottom:10px;border-left:4px solid var(--blue)">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div style="font-size:.88rem;font-weight:800;color:var(--ink)">🏢 {{ sf.sucursal_nombre }}</div>
-      {% if sf.saldo >= 0 %}
-      <span style="font-size:.7rem;font-weight:700;background:var(--teal-l);color:var(--teal);padding:3px 10px;border-radius:20px">
-        ✅ A favor: Bs. {{ sf.saldo|floatformat:0 }}
-      </span>
-      {% else %}
-      <span style="font-size:.7rem;font-weight:700;background:var(--red-l);color:var(--red);padding:3px 10px;border-radius:20px">
-        ⚠️ Debe: Bs. {{ sf.saldo|floatformat:0|slice:"1:" }}
-      </span>
-      {% endif %}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px">
-      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Consumido</div>
-        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace">Bs. {{ sf.consumido|floatformat:0 }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">ses + mens + proy</div>
-      </div>
-      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Pagado</div>
-        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--green)">Bs. {{ sf.pagado|floatformat:0 }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">directos + adelantados</div>
-      </div>
-      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Sesiones</div>
-        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--blue)">{{ sf.num_sesiones }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">normales</div>
-      </div>
-      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Mensualidades</div>
-        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--purple)">{{ sf.num_mensualidades }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">registradas</div>
-      </div>
-      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;text-align:center">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Proyectos</div>
-        <div style="font-size:.9rem;font-weight:900;font-family:'Fira Code',monospace;color:var(--teal)">{{ sf.num_proyectos }}</div>
-        <div style="font-size:.6rem;color:var(--muted);margin-top:2px">registrados</div>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-
-  <!-- Nota: pagos adelantados ya incluidos en la sucursal principal -->
-  {% for sf in datos.financiero_por_sucursal %}
-    {% if sf.pagos_adelantados %}
-    <div style="background:var(--purple-l);border:1px solid rgba(124,58,237,.25);border-radius:8px;
-                padding:10px 14px;margin-bottom:8px;font-size:.72rem;color:#6d28d9">
-      💳 <strong>Bs. {{ sf.pagos_adelantados|floatformat:0 }} de crédito adelantado</strong>
-      incluido en el total de <strong>{{ sf.sucursal_nombre }}</strong> (sucursal principal)
-    </div>
-    {% endif %}
-  {% endfor %}
-
-
-  {% endif %}{# end financiero_por_sucursal #}
-
-  <!-- KPIs Asistencia -->
-  <div class="section-title">📊 Estadísticas del Período</div>
-  <div class="kpi-grid">
-    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
-      <div class="kpi-label">Total Sesiones</div>
-      <div class="kpi-val">{{ datos.stats.total_sesiones|default:0 }}</div>
-      <div class="kpi-sub">en el período</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
-      <div class="kpi-label">Realizadas</div>
-      <div class="kpi-val" style="color:var(--green)">{{ datos.stats.realizadas|default:0 }}</div>
-      <div class="kpi-sub">+ {{ datos.stats.retrasos|default:0 }} con retraso</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--red)"></div>
-      <div class="kpi-label">Faltas</div>
-      <div class="kpi-val" style="color:var(--red)">{{ datos.stats.faltas|default:0 }}</div>
-      <div class="kpi-sub">inasistencias</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--amber)"></div>
-      <div class="kpi-label">Retrasos</div>
-      <div class="kpi-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div>
-      <div class="kpi-sub">llegadas tardías</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--purple)"></div>
-      <div class="kpi-label">Permisos</div>
-      <div class="kpi-val" style="color:var(--purple)">{{ datos.stats.permisos|default:0 }}</div>
-      <div class="kpi-sub">justificados</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:#64748b"></div>
-      <div class="kpi-label">Canceladas</div>
-      <div class="kpi-val">{{ datos.stats.canceladas|default:0 }}</div>
-      <div class="kpi-sub">por el centro</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--teal)"></div>
-      <div class="kpi-label">Tasa Asistencia</div>
-      <div class="kpi-val" style="color:{% if datos.tasa_asistencia >= 85 %}var(--green){% elif datos.tasa_asistencia >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ datos.tasa_asistencia|floatformat:1 }}%</div>
-      <div class="kpi-sub">{% if datos.tasa_asistencia >= 85 %}✅ Excelente{% elif datos.tasa_asistencia >= 60 %}⚠️ Regular{% else %}🔴 Bajo{% endif %}</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
-      <div class="kpi-label">Tasa de Pago</div>
-      <div class="kpi-val">{{ datos.tasa_pago|floatformat:1 }}%</div>
-      <div class="kpi-sub">{{ datos.stats.sesiones_pagadas|default:0 }} pagadas / {{ datos.stats.sesiones_pendientes|default:0 }} pend.</div>
-    </div>
-  </div>
-
-  <!-- Charts -->
-  {% if grafico_data %}
-  <div class="two-col">
-    <div class="chart-card">
-      <h3>📈 Evolución mensual de sesiones</h3>
-      <canvas id="chart-sesiones" height="200"></canvas>
-    </div>
-    <div class="chart-card">
-      <h3>🥧 Distribución de asistencia</h3>
-      <canvas id="chart-asistencia" height="200"></canvas>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Por servicio + por profesional -->
-  <div class="two-col">
-    <div class="card">
-      <h3>🎯 Sesiones por Servicio</h3>
-      <div class="scroll-list">
-        {% for s in datos.por_servicio %}
-        <div class="list-item">
-          <div>
-            <div class="li-name">{{ s.servicio__nombre }}</div>
-            <div class="li-sub">{{ s.sesiones_realizadas|default:0 }} realizadas · {{ s.sesiones_falta|default:0 }} faltas</div>
-          </div>
-          <div>
-            <div class="li-val">{{ s.cantidad }}</div>
-            <div style="font-size:.65rem;color:var(--muted);text-align:right">Bs. {{ s.monto_total|floatformat:0 }}</div>
-          </div>
-        </div>
-        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
-      </div>
-    </div>
-    <div class="card">
-      <h3>👨‍⚕️ Sesiones por Profesional</h3>
-      <div class="scroll-list">
-        {% for p in datos.por_profesional %}
-        <div class="list-item">
-          <div>
-            <div class="li-name">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</div>
-            <div class="li-sub">{{ p.cantidad }} sesiones realizadas</div>
-          </div>
-          <div class="li-val">Bs. {{ p.monto_total|floatformat:0 }}</div>
-        </div>
-        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Proyectos -->
-  {% if datos.proyectos %}
-  <div class="section-title">📁 Proyectos del Paciente</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:16px">
-    <!-- Summary -->
-    <div class="card" style="border-left:3px solid var(--teal)">
-      <h3>📊 Resumen Proyectos</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="ps-item"><div class="ps-label">Total</div><div class="ps-val">{{ datos.proyectos_stats.total }}</div></div>
-        <div class="ps-item"><div class="ps-label">Activos</div><div class="ps-val" style="color:var(--blue)">{{ datos.proyectos_stats.activos }}</div></div>
-        <div class="ps-item"><div class="ps-label">Finalizados</div><div class="ps-val" style="color:var(--green)">{{ datos.proyectos_stats.finalizados }}</div></div>
-        <div class="ps-item"><div class="ps-label">Total Bs.</div><div class="ps-val">{{ datos.proyectos_stats.monto_total|floatformat:0 }}</div></div>
-      </div>
-    </div>
-    <!-- Individual projects -->
-    {% for proy in datos.proyectos %}
-    <div class="proj-card">
-      <div class="proj-header">
-        <div>
-          <div class="proj-code">{{ proy.codigo|default:proy.id }}</div>
-          <div class="proj-name">{{ proy.nombre|default:"Proyecto" }}</div>
-        </div>
-        <span style="font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:12px;
-          background:{% if proy.estado == 'finalizado' %}var(--green-l);color:var(--green){% elif proy.estado == 'en_progreso' %}var(--blue-l);color:var(--blue){% else %}var(--amber-l);color:var(--amber){% endif %}">
-          {{ proy.get_estado_display|default:proy.estado }}
-        </span>
-      </div>
-      <div class="proj-stats">
-        <div class="ps-item"><div class="ps-label">Costo</div><div class="ps-val">Bs. {{ proy.costo_total|floatformat:0 }}</div></div>
-        <div class="ps-item"><div class="ps-label">Inicio</div><div class="ps-val" style="font-size:.72rem">{{ proy.fecha_inicio|date:"d/m/y" }}</div></div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- Recent Sessions Timeline -->
-  <div class="section-title">📅 Sesiones Recientes</div>
-  <div class="filter-chips no-print">
-    <button class="fchip active" onclick="filtrarSesiones('todas',this)">Todas</button>
-    <button class="fchip" onclick="filtrarSesiones('realizada',this)">✅ Realizadas</button>
-    <button class="fchip" onclick="filtrarSesiones('realizada_retraso',this)">🕐 Con Retraso</button>
-    <button class="fchip" onclick="filtrarSesiones('falta',this)">❌ Faltas</button>
-    <button class="fchip" onclick="filtrarSesiones('programada',this)">📅 Programadas</button>
-  </div>
-
-  <div id="session-list">
-    {% for s in datos.sesiones_recientes %}
-    <div class="session-item {{ s.estado }}" data-estado="{{ s.estado }}">
-      <div class="s-header">
-        <div>
-          <span class="s-date">{{ s.fecha|date:"d/m/Y" }} {{ s.hora_inicio|time:"H:i" }}</span>
-          <span class="s-badge {{ s.estado }}">
-            {% if s.estado == 'realizada' %}✅ Realizada
-            {% elif s.estado == 'realizada_retraso' %}🕐 Con Retraso
-            {% elif s.estado == 'falta' %}❌ Falta
-            {% elif s.estado == 'programada' %}📅 Programada
-            {% elif s.estado == 'permiso' %}🛡️ Permiso
-            {% elif s.estado == 'cancelada' %}🚫 Cancelada
-            {% else %}{{ s.get_estado_display }}
-            {% endif %}
-          </span>
-        </div>
-        {% if s.monto_cobrado %}
-        <span class="s-money" style="color:{% if s.total_pagado_sesion is not None and s.total_pagado_sesion >= s.monto_cobrado %}var(--green){% else %}var(--amber){% endif %}">
-          Bs. {{ s.monto_cobrado|floatformat:2 }}
-        </span>
-        {% endif %}
-      </div>
-      <div class="s-info">
-        🎯 <b>{{ s.servicio.nombre }}</b> · 
-        👨‍⚕️ {{ s.profesional.nombre_completo }} · 
-        🏢 {{ s.sucursal.nombre }}
-        {% if s.duracion_minutos %} · ⏱️ {{ s.duracion_minutos }} min{% endif %}
-        {% if s.proyecto %} · 📁 {{ s.proyecto.nombre|default:s.proyecto.codigo }}{% endif %}
-      </div>
-      {% if s.notas_sesion %}
-      <div class="s-notes">📝 <b>Nota:</b> {{ s.notas_sesion|truncatechars:150 }}</div>
-      {% endif %}
-      {% if s.observaciones %}
-      <div class="s-obs">{{ s.observaciones|truncatechars:120 }}</div>
-      {% endif %}
-    </div>
-    {% empty %}
-    <div style="text-align:center;padding:30px;color:var(--muted);font-size:.82rem">Sin sesiones en el período seleccionado</div>
-    {% endfor %}
-  </div>
-  {% endif %}{# end if datos #}
-
-  {% endif %}{# end if paciente #}
 </div>
 
+<!-- ══ FILTER BAR ═════════════════════════════════════════════════════════════ -->
+<div class="filter-bar no-print">
+  <form method="get">
+    <div class="fg">
+      <label>Paciente</label>
+      <select name="paciente" onchange="this.form.submit()">
+        <option value="">— Seleccionar paciente —</option>
+        {% for p in pacientes %}
+        <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
+          {{ p.apellido }}, {{ p.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
+    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
+    <button type="submit" class="btn-primary">🔍 Ver reporte</button>
+    <a href="?{% if paciente %}paciente={{ paciente.id }}{% endif %}" class="btn-clear" title="Limpiar filtros de fecha">✕ Limpiar filtros</a>
+  </form>
+  {% if paciente %}
+  <div class="quick-ranges">
+    <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);align-self:center">Rangos rápidos:</span>
+    <button class="qbtn" onclick="setRango(30)">30 días</button>
+    <button class="qbtn" onclick="setRango(90)">3 meses</button>
+    <button class="qbtn" onclick="setRango(180)">6 meses</button>
+    <button class="qbtn" onclick="setRango(365)">1 año</button>
+    <button class="qbtn" onclick="setRangoMes()">Mes actual</button>
+    <button class="qbtn" onclick="setRangoAnio()">Año actual</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ══ EMPTY STATE ════════════════════════════════════════════════════════════ -->
+{% if not paciente %}
+<div style="text-align:center;padding:60px 20px;background:var(--white);border-radius:var(--r-lg);border:1px solid var(--border)">
+  <div style="font-size:3rem;margin-bottom:14px">👤</div>
+  <p style="font-size:1rem;font-weight:700;color:var(--ink);margin:0 0 6px">Selecciona un paciente</p>
+  <p style="font-size:.82rem;color:var(--muted)">Elige un paciente del selector y un período de fechas para ver el reporte completo.</p>
+</div>
+{% else %}
+
+<!-- ══ PATIENT CARD ═══════════════════════════════════════════════════════════ -->
+<div class="pac-card">
+  <div class="pac-avatar">
+    {% if paciente.foto %}
+    <img src="{{ paciente.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">
+    {% else %}{{ paciente.nombre|first }}{{ paciente.apellido|first }}{% endif %}
+  </div>
+  <div style="flex:1;min-width:200px">
+    <p class="pac-name">{{ paciente.nombre_completo }}</p>
+    <div class="pac-chips">
+      <span class="chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">
+        {{ paciente.get_estado_display }}</span>
+      {% if paciente.edad %}<span class="chip">{{ paciente.edad }} años</span>{% endif %}
+      {% if paciente.genero %}<span class="chip">{{ paciente.get_genero_display }}</span>{% endif %}
+      {% if paciente.ci %}<span class="chip blue">CI: {{ paciente.ci }}</span>{% endif %}
+      {% if paciente.grupo_sanguineo %}<span class="chip amber">🩸 {{ paciente.grupo_sanguineo }}</span>{% endif %}
+      {% if paciente.nombre_tutor %}<span class="chip">👤 {{ paciente.nombre_tutor }}</span>{% endif %}
+    </div>
+    <div class="pac-meta">
+      {% if paciente.fecha_nacimiento %}<span>🎂 <b>{{ paciente.fecha_nacimiento|date:"d/m/Y" }}</b></span>{% endif %}
+      {% if paciente.telefono_tutor %}<span>📞 <b>{{ paciente.telefono_tutor }}</b></span>{% endif %}
+      {% if paciente.telefono_casa %}<span>🏠 <b>{{ paciente.telefono_casa }}</b></span>{% endif %}
+      {% if paciente.telefono_emergencia %}<span>🆘 <b>{{ paciente.telefono_emergencia }}</b></span>{% endif %}
+      {% if paciente.email_tutor %}<span>✉️ <b>{{ paciente.email_tutor }}</b></span>{% endif %}
+      {% for suc in paciente.sucursales.all %}<span>🏢 <b>{{ suc.nombre }}</b></span>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ DATOS COMPLETOS DEL PACIENTE (grid detallado) ════════════════════════ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+
+  <!-- Columna izquierda — Identidad -->
+  <div class="card" style="padding:12px 14px">
+    <h3 style="margin-bottom:8px">🪪 Datos de Identidad</h3>
+    <table style="width:100%;font-size:.75rem;border-collapse:collapse">
+      {% if paciente.ci %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px;width:38%">CI / Carnet</td>
+          <td style="font-weight:600;padding:4px 0 1px">{{ paciente.ci }}</td></tr>
+      {% endif %}
+      {% if paciente.fecha_nacimiento %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Fecha nac.</td>
+          <td style="padding:4px 0 1px">{{ paciente.fecha_nacimiento|date:"d/m/Y" }}</td></tr>
+      {% endif %}
+      {% if paciente.genero %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Género</td>
+          <td style="padding:4px 0 1px">{{ paciente.get_genero_display }}</td></tr>
+      {% endif %}
+      {% if paciente.grupo_sanguineo %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Grupo sang.</td>
+          <td style="padding:4px 0 1px;font-weight:700;color:var(--red)">{{ paciente.grupo_sanguineo }}</td></tr>
+      {% endif %}
+      {% if paciente.peso %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Peso</td>
+          <td style="padding:4px 0 1px">{{ paciente.peso }} kg</td></tr>
+      {% endif %}
+      {% if paciente.talla %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Talla</td>
+          <td style="padding:4px 0 1px">{{ paciente.talla }} cm</td></tr>
+      {% endif %}
+      {% if paciente.nacionalidad %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Nacionalidad</td>
+          <td style="padding:4px 0 1px">{{ paciente.nacionalidad }}</td></tr>
+      {% endif %}
+      {% if paciente.ciudad or paciente.municipio %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Ciudad</td>
+          <td style="padding:4px 0 1px">{{ paciente.ciudad|default:paciente.municipio }}</td></tr>
+      {% endif %}
+      {% if paciente.domicilio %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Domicilio</td>
+          <td style="padding:4px 0 1px">{{ paciente.domicilio }}</td></tr>
+      {% endif %}
+      {% if paciente.nivel_educativo or paciente.grado %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Nivel educ.</td>
+          <td style="padding:4px 0 1px">{{ paciente.nivel_educativo|default:paciente.grado }}</td></tr>
+      {% endif %}
+      {% if paciente.escuela or paciente.colegio %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Escuela</td>
+          <td style="padding:4px 0 1px">{{ paciente.escuela|default:paciente.colegio }}</td></tr>
+      {% endif %}
+      {% if paciente.fecha_ingreso %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Ingreso centro</td>
+          <td style="padding:4px 0 1px">{{ paciente.fecha_ingreso|date:"d/m/Y" }}</td></tr>
+      {% endif %}
+    </table>
+  </div>
+
+  <!-- Columna derecha — Tutor y contacto -->
+  <div class="card" style="padding:12px 14px">
+    <h3 style="margin-bottom:8px">👤 Tutor / Responsable</h3>
+    <table style="width:100%;font-size:.75rem;border-collapse:collapse">
+      {% if paciente.nombre_tutor %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px;width:38%">Nombre</td>
+          <td style="font-weight:600;padding:4px 0 1px">{{ paciente.nombre_tutor }}</td></tr>
+      {% endif %}
+      {% if paciente.parentesco %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Parentesco</td>
+          <td style="padding:4px 0 1px">{{ paciente.get_parentesco_display }}</td></tr>
+      {% endif %}
+      {% if paciente.ci_tutor %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">CI tutor</td>
+          <td style="padding:4px 0 1px">{{ paciente.ci_tutor }}</td></tr>
+      {% endif %}
+      {% if paciente.ocupacion_tutor %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Ocupación</td>
+          <td style="padding:4px 0 1px">{{ paciente.ocupacion_tutor }}</td></tr>
+      {% endif %}
+      {% if paciente.telefono_tutor %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Teléfono</td>
+          <td style="padding:4px 0 1px;font-weight:600">📞 {{ paciente.telefono_tutor }}</td></tr>
+      {% endif %}
+      {% if paciente.telefono_casa %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Tel. casa</td>
+          <td style="padding:4px 0 1px">{{ paciente.telefono_casa }}</td></tr>
+      {% endif %}
+      {% if paciente.telefono_emergencia %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Emergencia</td>
+          <td style="padding:4px 0 1px;color:var(--red);font-weight:600">🆘 {{ paciente.telefono_emergencia }}</td></tr>
+      {% endif %}
+      {% if paciente.email_tutor %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Email</td>
+          <td style="padding:4px 0 1px">{{ paciente.email_tutor }}</td></tr>
+      {% endif %}
+      {% if paciente.derivado_de %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Derivado de</td>
+          <td style="padding:4px 0 1px">{{ paciente.derivado_de }}</td></tr>
+      {% endif %}
+      {% if paciente.seguro_medico or paciente.obra_social %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Seguro</td>
+          <td style="padding:4px 0 1px">{{ paciente.seguro_medico|default:paciente.obra_social }}</td></tr>
+      {% endif %}
+      {% if paciente.motivo_consulta %}
+      <tr><td style="color:var(--muted);font-size:.62rem;font-weight:700;text-transform:uppercase;padding:4px 0 1px">Motivo</td>
+          <td style="padding:4px 0 1px">{{ paciente.motivo_consulta|truncatechars:80 }}</td></tr>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+<!-- ══ INFORMACIÓN CLÍNICA ════════════════════════════════════════════════════ -->
+{% if paciente.diagnostico or paciente.observaciones_medicas or paciente.alergias or paciente.antecedentes or paciente.tratamiento_actual or paciente.medicamentos or paciente.diagnostico_secundario %}
+<div class="clin-box" style="margin-bottom:14px">
+  <h3>🏥 Información Clínica</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    {% if paciente.diagnostico %}
+    <div>
+      <div class="clin-lbl">Diagnóstico principal</div>
+      <div class="clin-val" style="font-weight:600">{{ paciente.diagnostico }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.diagnostico_secundario %}
+    <div>
+      <div class="clin-lbl">Diagnóstico secundario</div>
+      <div class="clin-val">{{ paciente.diagnostico_secundario }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.cie10 or paciente.codigo_diagnostico %}
+    <div>
+      <div class="clin-lbl">CIE-10 / Código</div>
+      <div class="clin-val mono">{{ paciente.cie10|default:paciente.codigo_diagnostico }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.observaciones_medicas %}
+    <div style="grid-column:1/-1">
+      <div class="clin-lbl">Observaciones médicas</div>
+      <div class="clin-val">{{ paciente.observaciones_medicas }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.antecedentes %}
+    <div style="grid-column:1/-1">
+      <div class="clin-lbl">Antecedentes</div>
+      <div class="clin-val">{{ paciente.antecedentes }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.antecedentes_familiares %}
+    <div style="grid-column:1/-1">
+      <div class="clin-lbl">Antecedentes familiares</div>
+      <div class="clin-val">{{ paciente.antecedentes_familiares }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.tratamiento_actual %}
+    <div>
+      <div class="clin-lbl">Tratamiento actual</div>
+      <div class="clin-val">{{ paciente.tratamiento_actual }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.medicamentos %}
+    <div>
+      <div class="clin-lbl">Medicamentos</div>
+      <div class="clin-val" style="color:var(--amber);font-weight:600">💊 {{ paciente.medicamentos }}</div>
+    </div>
+    {% endif %}
+    {% if paciente.notas_adicionales %}
+    <div style="grid-column:1/-1">
+      <div class="clin-lbl">Notas adicionales</div>
+      <div class="clin-val">{{ paciente.notas_adicionales }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% if paciente.alergias %}
+  <div class="alergia" style="margin-top:10px">⚠️ <strong>Alergias / Contraindicaciones:</strong> {{ paciente.alergias }}</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if datos %}
+
+<!-- ══ FINANCIAL HERO (CUENTA CORRIENTE) ════════════════════════════════════ -->
+{% with cc=paciente.cuenta_corriente %}
+{% if cc %}
+<div class="fin-hero" style="background:{% if cc.saldo_real >= 0 %}var(--green-ll);border-color:#86efac;color:var(--green){% else %}var(--red-ll);border-color:#fca5a5;color:var(--red){% endif %}">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:3px">Saldo Real Proyectado (incl. compromisos futuros)</div>
+      <div style="font-size:2rem;font-weight:700;font-family:'DM Mono',monospace;line-height:1">Bs. {{ cc.saldo_real|floatformat:0 }}</div>
+      <div style="font-size:.7rem;margin-top:3px;opacity:.8">
+        {% if cc.saldo_real >= 0 %}✅ Al día{% else %}⚠️ Con deuda{% endif %}
+        · Crédito: Bs. {{ cc.pagos_adelantados|floatformat:0 }}
+        · <span style="opacity:.75">Saldo cuenta: <b class="mono">Bs. {{ cc.saldo_actual|floatformat:0 }}</b></span>
+      </div>
+    </div>
+    <div style="font-size:.68rem;opacity:.8;text-align:right;line-height:1.8">
+      Devoluciones: <b class="mono">Bs. {{ cc.total_devoluciones|floatformat:0 }}</b><br>
+      Últ. actualización: <b class="mono">{{ cc.ultima_actualizacion|date:"d/m/Y H:i"|default:"—" }}</b>
+    </div>
+  </div>
+  <div class="fin-grid">
+    <div class="fi-item"><div class="fi-label">Consumido actual</div><div class="fi-val">Bs. {{ cc.total_consumido_actual|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Consumido real</div><div class="fi-val">Bs. {{ cc.total_consumido_real|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Total pagado</div><div class="fi-val">Bs. {{ cc.total_pagado|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Pag. sesiones</div><div class="fi-val">Bs. {{ cc.pagos_sesiones|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Pag. mensualidades</div><div class="fi-val">Bs. {{ cc.pagos_mensualidades|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Pag. proyectos</div><div class="fi-val">Bs. {{ cc.pagos_proyectos|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Sesiones normales</div><div class="fi-val">Bs. {{ cc.total_sesiones_normales_real|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Mensualidades</div><div class="fi-val">Bs. {{ cc.total_mensualidades|floatformat:0 }}</div></div>
+    <div class="fi-item"><div class="fi-label">Proyectos</div><div class="fi-val">Bs. {{ cc.total_proyectos_real|floatformat:0 }}</div></div>
+  </div>
+</div>
+{% endif %}
+{% endwith %}
+
+<!-- ══ PERÍODO — KPIs FINANCIEROS ════════════════════════════════════════════ -->
+<div class="sec-hdr"><h2>💰 Financiero del Período</h2><div class="sec-hdr-line"></div></div>
+<div class="metric-grid">
+  <div class="metric-card"><div class="bar" style="background:var(--blue)"></div>
+    <div class="mc-label">Total Cobrado</div>
+    <div class="mc-val" style="font-size:1.1rem">Bs. {{ datos.stats.total_cobrado|floatformat:0|default:0 }}</div>
+    <div class="mc-sub">monto generado sesiones</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--green)"></div>
+    <div class="mc-label">Total Pagado</div>
+    <div class="mc-val" style="font-size:1.1rem;color:var(--green)">Bs. {{ datos.stats.total_pagado|floatformat:0|default:0 }}</div>
+    <div class="mc-sub">{{ datos.stats.sesiones_pagadas|default:0 }} sesiones pagadas</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--amber)"></div>
+    <div class="mc-label">Pendiente</div>
+    <div class="mc-val" style="font-size:1.1rem;color:var(--amber)">Bs. {{ datos.stats.saldo_pendiente|floatformat:0|default:0 }}</div>
+    <div class="mc-sub">{{ datos.stats.sesiones_pendientes|default:0 }} ses. pendientes</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--teal)"></div>
+    <div class="mc-label">Tasa de Pago</div>
+    <div class="mc-val" style="color:var(--teal)">{{ datos.tasa_pago|floatformat:1 }}%</div>
+    <div class="mc-sub">cobrado / generado</div></div>
+  {% if datos.pagos_stats %}
+  <div class="metric-card"><div class="bar" style="background:var(--purple)"></div>
+    <div class="mc-label">Recibos emitidos</div>
+    <div class="mc-val">{{ datos.pagos_stats.total_recibos }}</div>
+    <div class="mc-sub">Bs. {{ datos.pagos_stats.monto_total|floatformat:0 }} recaudado</div></div>
+  {% endif %}
+</div>
+
+<!-- Desglose financiero por sucursal -->
+{% if datos.financiero_por_sucursal %}
+<div class="card" style="margin-bottom:14px">
+  <h3>🏢 Desglose por Sucursal (Período)</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr>
+        <th>Sucursal</th><th>Sesiones</th><th>Mensualidades</th><th>Proyectos</th>
+        <th class="money">Consumido</th><th class="money">Pagado</th><th class="money">Saldo</th>
+      </tr></thead>
+      <tbody>
+        {% for sf in datos.financiero_por_sucursal %}
+        <tr>
+          <td><strong>{{ sf.sucursal_nombre }}</strong></td>
+          <td>{{ sf.num_sesiones }}</td>
+          <td>{{ sf.num_mensualidades }}</td>
+          <td>{{ sf.num_proyectos }}</td>
+          <td class="money">Bs. {{ sf.consumido|floatformat:0 }}</td>
+          <td class="money" style="color:var(--green)">Bs. {{ sf.pagado|floatformat:0 }}</td>
+          <td class="money" style="color:{% if sf.saldo <= 0 %}var(--green){% else %}var(--red){% endif %}">
+            Bs. {{ sf.saldo|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ KPIs ASISTENCIA ═══════════════════════════════════════════════════════ -->
+<div class="sec-hdr"><h2>📊 Estadísticas de Asistencia</h2><div class="sec-hdr-line"></div></div>
+<div class="metric-grid">
+  <div class="metric-card"><div class="bar" style="background:var(--blue)"></div>
+    <div class="mc-label">Total Sesiones</div>
+    <div class="mc-val">{{ datos.stats.total_sesiones|default:0 }}</div>
+    <div class="mc-sub">en el período</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--green)"></div>
+    <div class="mc-label">Realizadas</div>
+    <div class="mc-val" style="color:var(--green)">{{ datos.stats.realizadas|default:0 }}</div>
+    <div class="mc-sub">sin retraso</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--amber)"></div>
+    <div class="mc-label">Con Retraso</div>
+    <div class="mc-val" style="color:var(--amber)">{{ datos.stats.retrasos|default:0 }}</div>
+    <div class="mc-sub">{% if datos.prom_retraso_min %}prom. {{ datos.prom_retraso_min|floatformat:0 }} min{% else %}llegadas tardías{% endif %}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--red)"></div>
+    <div class="mc-label">Faltas</div>
+    <div class="mc-val" style="color:var(--red)">{{ datos.stats.faltas|default:0 }}</div>
+    <div class="mc-sub">inasistencias</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--purple)"></div>
+    <div class="mc-label">Permisos</div>
+    <div class="mc-val" style="color:var(--purple)">{{ datos.stats.permisos|default:0 }}</div>
+    <div class="mc-sub">justificados</div></div>
+  <div class="metric-card"><div class="bar" style="background:#94a3b8"></div>
+    <div class="mc-label">Canceladas</div>
+    <div class="mc-val">{{ datos.stats.canceladas|default:0 }}</div>
+    <div class="mc-sub">por el centro</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--teal)"></div>
+    <div class="mc-label">Reprogramadas</div>
+    <div class="mc-val" style="color:var(--teal)">{{ datos.stats.reprogramadas|default:0 }}</div>
+    <div class="mc-sub">reagendadas</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--blue)"></div>
+    <div class="mc-label">Programadas</div>
+    <div class="mc-val">{{ datos.stats.programadas|default:0 }}</div>
+    <div class="mc-sub">pendientes futuras</div></div>
+</div>
+
+<!-- Tasas + Horas -->
+<div class="g3" style="margin-bottom:14px">
+  <div class="card">
+    <h3>📈 Tasas de Rendimiento</h3>
+    {% with ta=datos.tasa_asistencia tf=datos.tasa_faltas tp=datos.tasa_puntual %}
+    <div class="tasa-row">
+      <span class="tasa-label">Tasa asistencia</span>
+      <span class="tasa-pct" style="color:{% if ta >= 85 %}var(--green){% elif ta >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ ta|floatformat:1 }}%</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" style="width:{{ ta }}%;background:{% if ta >= 85 %}var(--green){% elif ta >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
+    <div style="margin-top:10px">
+    <div class="tasa-row">
+      <span class="tasa-label">Puntualidad</span>
+      <span class="tasa-pct" style="color:{% if tp >= 80 %}var(--green){% elif tp >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ tp|floatformat:1 }}%</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" style="width:{{ tp }}%;background:var(--blue)"></div></div>
+    </div>
+    <div style="margin-top:10px">
+    <div class="tasa-row">
+      <span class="tasa-label">Tasa faltas</span>
+      <span class="tasa-pct" style="color:{% if tf <= 10 %}var(--green){% elif tf <= 25 %}var(--amber){% else %}var(--red){% endif %}">{{ tf|floatformat:1 }}%</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" style="width:{{ tf }}%;background:var(--red)"></div></div>
+    </div>
+    {% endwith %}
+  </div>
+
+  <div class="card">
+    <h3>⏱️ Métricas de Tiempo</h3>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <tr><td>Horas de terapia</td><td class="money">{{ datos.horas_terapia|floatformat:1 }} h</td></tr>
+        <tr><td>Prom. retraso</td><td class="money">{{ datos.prom_retraso_min|floatformat:0|default:"0" }} min</td></tr>
+        <tr><td>Día más frecuente</td><td class="money">{{ datos.dia_mas_frecuente }}</td></tr>
+        <tr><td>Tasa de pago</td><td class="money">{{ datos.tasa_pago|floatformat:1 }}%</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📅 Frecuencia por Día</h3>
+    <div class="heat-grid">
+      {% for dia in datos.por_dia_semana %}
+      {% with max_val=datos.por_dia_semana|length %}
+      <div class="heat-cell" style="background:{% if dia.cantidad > 0 %}rgba(37,99,235,{{ dia.cantidad|floatformat:0|add:'0'|stringformat:'s' }}){% else %}var(--surface){% endif %}">
+        <div class="heat-day">{{ dia.nombre|slice:":2" }}</div>
+        <div class="heat-val">{{ dia.cantidad }}</div>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ CHARTS ════════════════════════════════════════════════════════════════ -->
+{% if grafico_data %}
+<div class="g2">
+  <div class="chart-card">
+    <p class="cc-title">📈 Evolución mensual de sesiones</p>
+    <p class="cc-sub">Realizadas, faltas y retrasos por mes</p>
+    <canvas id="chart-sesiones" height="200"></canvas>
+  </div>
+  <div class="g2" style="display:flex;flex-direction:column;gap:14px;margin-bottom:0">
+    <div class="chart-card">
+      <p class="cc-title">🥧 Distribución de asistencia</p>
+      <p class="cc-sub">Por estado en el período</p>
+      <canvas id="chart-donut" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <p class="cc-title">💰 Monto generado por mes</p>
+      <p class="cc-sub">Bs. facturados en sesiones</p>
+      <canvas id="chart-monto" height="120"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ POR SERVICIO + POR PROFESIONAL ════════════════════════════════════════ -->
+<div class="g2">
+  <div class="card">
+    <h3>🎯 Sesiones por Servicio</h3>
+    <div class="scroll-list">
+      {% for s in datos.por_servicio %}
+      <div class="list-item">
+        <div>
+          <div class="li-name">{{ s.servicio__nombre }}</div>
+          <div class="li-sub">{{ s.sesiones_realizadas|default:0 }} real. · {{ s.sesiones_falta|default:0 }} faltas · {{ s.sesiones_permiso|default:0 }} permisos</div>
+        </div>
+        <div style="text-align:right">
+          <div class="li-val">{{ s.cantidad }}</div>
+          <div style="font-size:.63rem;color:var(--muted)">Bs. {{ s.monto_total|floatformat:0 }}</div>
+        </div>
+      </div>
+      {% empty %}<p style="text-align:center;font-size:.75rem;color:var(--muted);padding:18px">Sin datos</p>{% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <h3>👨‍⚕️ Sesiones por Profesional</h3>
+    <div class="scroll-list">
+      {% for p in datos.por_profesional %}
+      <div class="list-item">
+        <div>
+          <div class="li-name">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</div>
+          <div class="li-sub">{{ p.realizadas|default:0 }} realizadas
+            {% if p.prom_retraso %} · prom. {{ p.prom_retraso|floatformat:0 }} min retraso{% endif %}</div>
+        </div>
+        <div class="li-val">Bs. {{ p.monto_total|floatformat:0 }}</div>
+      </div>
+      {% empty %}<p style="text-align:center;font-size:.75rem;color:var(--muted);padding:18px">Sin datos</p>{% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ PROYECTOS ══════════════════════════════════════════════════════════════ -->
+{% if datos.proyectos_stats.total %}
+<div class="sec-hdr"><h2>📁 Proyectos Terapéuticos</h2><div class="sec-hdr-line"></div></div>
+<div class="g2" style="margin-bottom:14px">
+  <div class="card" style="border-left:3px solid var(--teal)">
+    <h3>📊 Resumen de Proyectos</h3>
+    <div class="metric-grid" style="grid-template-columns:repeat(4,1fr);gap:8px">
+      <div class="pg-item"><div class="pg-lbl">Total</div><div class="pg-val">{{ datos.proyectos_stats.total }}</div></div>
+      <div class="pg-item"><div class="pg-lbl">Activos</div><div class="pg-val" style="color:var(--blue)">{{ datos.proyectos_stats.activos }}</div></div>
+      <div class="pg-item"><div class="pg-lbl">Final.</div><div class="pg-val" style="color:var(--green)">{{ datos.proyectos_stats.finalizados }}</div></div>
+      <div class="pg-item"><div class="pg-lbl">Monto</div><div class="pg-val" style="font-size:.72rem">Bs.{{ datos.proyectos_stats.monto_total|floatformat:0 }}</div></div>
+    </div>
+  </div>
+  <div>
+    {% for proy in datos.proyectos %}
+    <div class="proj-card">
+      <div class="proj-hdr">
+        <div>
+          <div class="proj-code">{{ proy.codigo|default:proy.id }}</div>
+          <div class="proj-name">{{ proy.nombre|default:proy.servicio_base.nombre|default:"Proyecto" }}</div>
+        </div>
+        <span class="badge {% if proy.estado == 'finalizado' %}badge-green{% elif proy.estado == 'en_progreso' %}badge-blue{% elif proy.estado == 'cancelado' %}badge-red{% else %}badge-amber{% endif %}">
+          {{ proy.get_estado_display|default:proy.estado }}</span>
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:5px">
+        {% if proy.profesional_responsable %}👨‍⚕️ {{ proy.profesional_responsable.nombre_completo }}{% endif %}
+        {% if proy.sucursal %} · 🏢 {{ proy.sucursal.nombre }}{% endif %}
+      </div>
+      <div class="proj-grid">
+        <div class="pg-item"><div class="pg-lbl">Costo</div><div class="pg-val">Bs.{{ proy.costo_total|floatformat:0 }}</div></div>
+        <div class="pg-item"><div class="pg-lbl">Sesiones</div><div class="pg-val">{{ proy.num_sesiones|default:"—" }}</div></div>
+        <div class="pg-item"><div class="pg-lbl">Inicio</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_inicio|date:"d/m/y" }}</div></div>
+        {% if proy.fecha_fin %}<div class="pg-item"><div class="pg-lbl">Fin</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_fin|date:"d/m/y" }}</div></div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ MENSUALIDADES ══════════════════════════════════════════════════════════ -->
+{% if datos.mensualidades_stats.total %}
+<div class="sec-hdr"><h2>📆 Mensualidades del Período</h2><div class="sec-hdr-line"></div></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+  <div class="pg-item" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r)">
+    <div class="pg-lbl">Total</div><div class="pg-val">{{ datos.mensualidades_stats.total }}</div></div>
+  <div class="pg-item" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r)">
+    <div class="pg-lbl">Activas</div><div class="pg-val" style="color:var(--green)">{{ datos.mensualidades_stats.activas }}</div></div>
+  <div class="pg-item" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r)">
+    <div class="pg-lbl">Pausadas</div><div class="pg-val" style="color:var(--amber)">{{ datos.mensualidades_stats.pausadas|default:0 }}</div></div>
+  <div class="pg-item" style="background:var(--white);border:1px solid var(--border);border-radius:var(--r)">
+    <div class="pg-lbl">Monto total</div><div class="pg-val" style="font-size:.8rem">Bs.{{ datos.mensualidades_stats.monto_total|floatformat:0 }}</div></div>
+</div>
+<div class="card" style="margin-bottom:14px">
+  <h3>📋 Listado de Mensualidades</h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Período</th><th>Sucursal</th><th>Estado</th><th>Servicios</th><th class="money">Costo</th><th class="money">Pagado</th><th class="money">Pendiente</th></tr></thead>
+      <tbody>
+        {% for m in datos.mensualidades %}
+        <tr>
+          <td><strong>{{ m.periodo_display|default:m.codigo }}</strong></td>
+          <td>{{ m.sucursal.nombre|default:"—" }}</td>
+          <td>
+            <span class="badge {% if m.estado == 'activa' %}badge-green{% elif m.estado == 'completada' %}badge-blue{% elif m.estado == 'cancelada' %}badge-red{% else %}badge-amber{% endif %}">
+              {{ m.get_estado_display }}</span>
+          </td>
+          <td style="font-size:.68rem;color:var(--muted)">
+            {% for sp in m.servicios_profesionales.all %}
+            {{ sp.servicio.nombre|default:"—" }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+          </td>
+          <td class="money">Bs. {{ m.costo_mensual|floatformat:0 }}</td>
+          <td class="money" style="color:var(--green)">Bs. {{ m.pagado_neto|floatformat:0 }}</td>
+          <td class="money" style="color:{% if m.saldo_pendiente > 0 %}var(--amber){% else %}var(--green){% endif %}">Bs. {{ m.saldo_pendiente|floatformat:0 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Sin mensualidades en el período</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ PAGOS RECIBIDOS ═════════════════════════════════════════════════════════ -->
+{% if datos.pagos_recientes %}
+<div class="sec-hdr"><h2>💳 Pagos Recibidos en el Período</h2><div class="sec-hdr-line"></div></div>
+<div class="card" style="margin-bottom:14px">
+  <h3>📋 Todos los pagos del período
+    <span style="font-size:.7rem;font-weight:400;color:var(--muted)">
+      · {{ datos.pagos_stats.total_recibos }} recibos · Total: Bs. {{ datos.pagos_stats.monto_total|floatformat:0 }}
+    </span>
+  </h3>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Recibo</th><th>Fecha</th><th>Concepto</th><th>Método</th><th class="money">Monto</th></tr></thead>
+      <tbody>
+        {% for pago in datos.pagos_recientes %}
+        <tr>
+          <td><span class="mono" style="font-size:.7rem">{{ pago.numero_recibo }}</span></td>
+          <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+          <td style="font-size:.72rem">
+            {% if pago.sesion %}Sesión: {{ pago.sesion.servicio.nombre|default:"—" }}
+            {% elif pago.proyecto %}Proyecto: {{ pago.proyecto.servicio_base.nombre|default:"—" }}
+            {% elif pago.mensualidad %}Mensualidad {{ pago.mensualidad.periodo_display|default:"" }}
+            {% else %}Adelanto / Crédito{% endif %}
+          </td>
+          <td>{{ pago.metodo_pago.nombre|default:"—" }}</td>
+          <td class="money">Bs. {{ pago.monto|floatformat:0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══ SESIONES DEL PERÍODO — TABLA COMPLETA ════════════════════════════════ -->
+<div class="sec-hdr"><h2>📅 Sesiones del Período</h2><div class="sec-hdr-line"></div></div>
+
+<!-- Filtros de estado -->
+<div class="fchip-row no-print">
+  <button class="fchip active" onclick="filtrarTabla('todas',this)">Todas ({{ datos.stats.total_sesiones|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('realizada',this)">✅ Realizadas ({{ datos.stats.realizadas|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('realizada_retraso',this)">🕐 Retrasos ({{ datos.stats.retrasos|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('falta',this)">❌ Faltas ({{ datos.stats.faltas|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('programada',this)">📅 Programadas ({{ datos.stats.programadas|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('permiso',this)">🛡️ Permisos ({{ datos.stats.permisos|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('cancelada',this)">🚫 Canceladas ({{ datos.stats.canceladas|default:0 }})</button>
+  <button class="fchip" onclick="filtrarTabla('reprogramada',this)">🔄 Reprog. ({{ datos.stats.reprogramadas|default:0 }})</button>
+</div>
+
+<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
+  <div class="tbl-wrap">
+    <table class="tbl" id="tbl-sesiones">
+      <thead>
+        <tr>
+          <th style="min-width:90px">Fecha</th>
+          <th style="min-width:55px">Hora</th>
+          <th>Estado</th>
+          <th>Servicio</th>
+          <th>Profesional</th>
+          <th>Sucursal</th>
+          <th style="min-width:55px">Duración</th>
+          <th style="min-width:70px">Referencia</th>
+          <th class="money" style="min-width:75px">Costo</th>
+          <th class="money" style="min-width:75px">Pagado</th>
+          <th class="money" style="min-width:75px">Pendiente</th>
+          <th style="min-width:180px">Notas / Obs.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in datos.sesiones_recientes %}
+        <tr data-estado="{{ s.estado }}"
+            style="{% if s.estado == 'falta' %}background:#fff5f5{% elif s.estado == 'realizada' %}background:#f0fdf4{% elif s.estado == 'realizada_retraso' %}background:#fffbeb{% elif s.estado == 'programada' %}background:#eff6ff{% elif s.estado == 'permiso' %}background:#faf5ff{% elif s.estado == 'reprogramada' %}background:#f0fdfa{% endif %}">
+          <!-- Fecha -->
+          <td>
+            <span class="mono" style="font-size:.72rem;font-weight:600">{{ s.fecha|date:"d/m/Y" }}</span>
+          </td>
+          <!-- Hora -->
+          <td>
+            <span class="mono" style="font-size:.72rem">{{ s.hora_inicio|time:"H:i" }}</span>
+            {% if s.hora_fin %}<br><span style="font-size:.6rem;color:var(--muted)">→ {{ s.hora_fin|time:"H:i" }}</span>{% endif %}
+          </td>
+          <!-- Estado badge -->
+          <td>
+            <span class="badge {% if s.estado == 'realizada' %}badge-green{% elif s.estado == 'realizada_retraso' %}badge-amber{% elif s.estado == 'falta' %}badge-red{% elif s.estado == 'programada' %}badge-blue{% elif s.estado == 'permiso' %}badge-purple{% elif s.estado == 'reprogramada' %}badge-teal{% else %}badge-slate{% endif %}" style="white-space:nowrap">
+              {% if s.estado == 'realizada' %}✅ Realizada
+              {% elif s.estado == 'realizada_retraso' %}🕐 Retraso{% if s.minutos_retraso %}<br><span style="font-size:.6rem">({{ s.minutos_retraso }} min)</span>{% endif %}
+              {% elif s.estado == 'falta' %}❌ Falta
+              {% elif s.estado == 'programada' %}📅 Programada
+              {% elif s.estado == 'permiso' %}🛡️ Permiso
+              {% elif s.estado == 'cancelada' %}🚫 Cancelada
+              {% elif s.estado == 'reprogramada' %}🔄 Reprog.
+              {% else %}{{ s.get_estado_display }}{% endif %}
+            </span>
+          </td>
+          <!-- Servicio -->
+          <td style="font-size:.75rem;font-weight:600">{{ s.servicio.nombre }}</td>
+          <!-- Profesional -->
+          <td style="font-size:.73rem">{{ s.profesional.nombre_completo|default:s.profesional.nombre }}</td>
+          <!-- Sucursal -->
+          <td style="font-size:.72rem;color:var(--muted2)">{{ s.sucursal.nombre }}</td>
+          <!-- Duración -->
+          <td style="text-align:center">
+            {% if s.duracion_minutos %}
+            <span class="mono" style="font-size:.72rem">{{ s.duracion_minutos }}<span style="font-size:.6rem;color:var(--muted)"> min</span></span>
+            {% else %}—{% endif %}
+          </td>
+          <!-- Referencia (proyecto / mensualidad) -->
+          <td style="font-size:.67rem;color:var(--muted)">
+            {% if s.proyecto %}<span style="color:var(--teal);font-weight:600">📁 {{ s.proyecto.codigo }}</span>
+            {% elif s.mensualidad %}<span style="color:var(--purple);font-weight:600">📆 {{ s.mensualidad.codigo }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <!-- Costo -->
+          <td class="money" style="{% if s.monto_cobrado %}color:var(--ink){% else %}color:var(--muted2){% endif %}">
+            {% if s.monto_cobrado %}Bs. {{ s.monto_cobrado|floatformat:0 }}{% else %}—{% endif %}
+          </td>
+          <!-- Pagado -->
+          <td class="money" style="color:var(--green)">
+            {% if s.total_pagado_sesion %}Bs. {{ s.total_pagado_sesion|floatformat:0 }}{% else %}—{% endif %}
+          </td>
+          <!-- Pendiente -->
+          <td class="money">
+            {% if s.monto_cobrado and s.total_pagado_sesion is not None %}
+              {% if s.total_pagado_sesion < s.monto_cobrado %}
+              <span style="color:var(--amber);font-weight:700">Bs. {{ s.monto_cobrado|floatformat:0 }}</span>
+              {% else %}
+              <span style="color:var(--green)">✓ Pagado</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <!-- Notas -->
+          <td style="font-size:.68rem;max-width:200px">
+            {% if s.notas_sesion %}<div style="color:var(--ink2);margin-bottom:2px">📝 {{ s.notas_sesion|truncatechars:100 }}</div>{% endif %}
+            {% if s.observaciones %}<div style="color:var(--muted)">{{ s.observaciones|truncatechars:80 }}</div>{% endif %}
+            {% if s.motivo_reprogramacion %}<div style="color:var(--teal)">🔄 {{ s.motivo_reprogramacion|truncatechars:60 }}</div>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="12" style="text-align:center;padding:30px;color:var(--muted)">Sin sesiones en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}{# end datos #}
+{% endif %}{# end paciente #}
+</div>
+
+<!-- ══ SCRIPTS ════════════════════════════════════════════════════════════════ -->
 {% if grafico_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// Sesiones chart
-const ctx1 = document.getElementById('chart-sesiones');
-if(ctx1) new Chart(ctx1, {
-  type:'bar',
-  data:{
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size   = 10;
+
+// ── Sesiones por mes ─────────────────────────────────────────────────────────
+const ctxS = document.getElementById('chart-sesiones');
+if(ctxS) new Chart(ctxS, {
+  type: 'bar',
+  data: {
     labels: {{ grafico_data.labels|safe }},
-    datasets:[
-      {label:'Realizadas',data:{{ grafico_data.realizadas|safe }},backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:5},
-      {label:'Faltas',data:{{ grafico_data.faltas|safe }},backgroundColor:'rgba(220,38,38,.5)',borderColor:'#dc2626',borderWidth:2,borderRadius:5},
-      {label:'Retrasos',data:{{ grafico_data.retrasos|safe }},backgroundColor:'rgba(217,119,6,.5)',borderColor:'#d97706',borderWidth:2,borderRadius:5}
+    datasets: [
+      {label:'Realizadas',  data:{{ grafico_data.realizadas|safe }}, backgroundColor:'rgba(22,163,74,.7)',  borderColor:'#16a34a', borderWidth:1.5, borderRadius:4},
+      {label:'Faltas',      data:{{ grafico_data.faltas|safe }},     backgroundColor:'rgba(220,38,38,.5)',  borderColor:'#dc2626', borderWidth:1.5, borderRadius:4},
+      {label:'Retrasos',    data:{{ grafico_data.retrasos|safe }},   backgroundColor:'rgba(217,119,6,.5)',  borderColor:'#d97706', borderWidth:1.5, borderRadius:4},
     ]
   },
   options:{responsive:true,maintainAspectRatio:true,
-    plugins:{legend:{position:'top',labels:{font:{size:10},padding:12}}},
-    scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}}}
+    plugins:{legend:{position:'top',labels:{padding:14,boxWidth:10}}},
+    scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'}},
+            x:{grid:{display:false}}}}
 });
 
-// Asistencia donut
-const totReal = {{ datos.stats.realizadas|default:0 }};
-const totRet = {{ datos.stats.retrasos|default:0 }};
-const totFalta = {{ datos.stats.faltas|default:0 }};
-const totPerm = {{ datos.stats.permisos|default:0 }};
-const totCan = {{ datos.stats.canceladas|default:0 }};
-const ctx2 = document.getElementById('chart-asistencia');
-if(ctx2 && (totReal+totRet+totFalta+totPerm+totCan) > 0) new Chart(ctx2, {
-  type:'doughnut',
+// ── Donut asistencia ─────────────────────────────────────────────────────────
+const ctxD = document.getElementById('chart-donut');
+if(ctxD){
+  const r={{ datos.stats.realizadas|default:0 }},
+        rt={{ datos.stats.retrasos|default:0 }},
+        f={{ datos.stats.faltas|default:0 }},
+        p={{ datos.stats.permisos|default:0 }},
+        c={{ datos.stats.canceladas|default:0 }},
+        rp={{ datos.stats.reprogramadas|default:0 }};
+  if(r+rt+f+p+c+rp > 0) new Chart(ctxD, {
+    type:'doughnut',
+    data:{
+      labels:['Realizadas','Retrasos','Faltas','Permisos','Canceladas','Reprog.'],
+      datasets:[{data:[r,rt,f,p,c,rp],
+        backgroundColor:['#16a34a','#d97706','#dc2626','#7c3aed','#94a3b8','#0d9488'],
+        borderWidth:2,borderColor:'#fff',hoverOffset:5}]
+    },
+    options:{responsive:true,maintainAspectRatio:true,cutout:'68%',
+      plugins:{legend:{position:'right',labels:{font:{size:9},padding:8}}}}
+  });
+}
+
+// ── Monto por mes ─────────────────────────────────────────────────────────────
+const ctxM = document.getElementById('chart-monto');
+if(ctxM) new Chart(ctxM, {
+  type:'line',
   data:{
-    labels:['Realizadas','Con Retraso','Faltas','Permisos','Canceladas'],
-    datasets:[{data:[totReal,totRet,totFalta,totPerm,totCan],
-      backgroundColor:['#16a34a','#d97706','#dc2626','#7c3aed','#94a3b8'],
-      borderWidth:2,borderColor:'#fff',hoverOffset:6}]
+    labels:{{ grafico_data.labels|safe }},
+    datasets:[{
+      label:'Bs. facturado',
+      data:{{ grafico_data.monto|safe }},
+      borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',
+      fill:true,tension:0.4,pointRadius:3,pointHoverRadius:5,borderWidth:2
+    }]
   },
-  options:{responsive:true,maintainAspectRatio:true,cutout:'65%',
-    plugins:{legend:{position:'right',labels:{font:{size:10},padding:10}}}}
+  options:{responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{display:false}},
+    scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},
+               ticks:{callback:v=>'Bs.'+v.toLocaleString()}},
+            x:{grid:{display:false}}}}
 });
 </script>
 {% endif %}
 
 <script>
-function filtrarSesiones(estado, btn){
+function filtrar(estado, btn){
+  // legacy — ya no se usa, mantenido por compatibilidad
+}
+function filtrarTabla(estado, btn){
   document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.session-item').forEach(item=>{
-    item.style.display = (estado==='todas'||item.dataset.estado===estado)?'':'none';
+  document.querySelectorAll('#tbl-sesiones tbody tr[data-estado]').forEach(row=>{
+    row.style.display=(estado==='todas'||row.dataset.estado===estado)?'':' none';
   });
 }
+
 function setRango(dias){
   const hoy = new Date();
   const desde = new Date(hoy - dias*86400000);
@@ -639,6 +1061,20 @@ function setRango(dias){
   const url = new URL(window.location.href);
   url.searchParams.set('fecha_desde', fmt(desde));
   url.searchParams.set('fecha_hasta', fmt(hoy));
+  window.location.href = url.toString();
+}
+function setRangoMes(){
+  const h = new Date();
+  const url = new URL(window.location.href);
+  url.searchParams.set('fecha_desde', new Date(h.getFullYear(),h.getMonth(),1).toISOString().split('T')[0]);
+  url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
+  window.location.href = url.toString();
+}
+function setRangoAnio(){
+  const h = new Date();
+  const url = new URL(window.location.href);
+  url.searchParams.set('fecha_desde', new Date(h.getFullYear(),0,1).toISOString().split('T')[0]);
+  url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
   window.location.href = url.toString();
 }
 </script>

@@ -280,56 +280,83 @@ def _explicacion(c, y, texto, max_w=None):
 
 def _metrica_box(c, x, y, w, h, label, valor, sublabel='', color=C_VERDE_MED, fondo=None):
     """
-    Dibuja una caja de métrica con layout vertical fijo:
-      ├─ barra de color (top 0.18 cm)
-      ├─ label pequeño (top - 0.45 cm)
-      ├─ valor grande   (top - 1.05 cm)  ← siempre aquí, ajusta font si no cabe
-      └─ sublabel gris  (bottom + 0.22 cm)
-    La altura mínima recomendada es 1.5 cm para que no se superponga nada.
+    Tarjeta de métrica rediseñada:
+      ┌─────────────────────────────┐
+      │▌ LABEL (pequeño, color)     │  ← barra lateral izquierda
+      │                             │
+      │   VALOR (grande, centrado)  │
+      │                             │
+      │   sublabel (gris, pequeño)  │
+      └─────────────────────────────┘
+    Fondo con tinte suave del color. Barra lateral accent.
     """
-    top = y          # coordenada superior de la caja
-    bot = y - h      # coordenada inferior
+    top = y
+    bot = y - h
 
-    # Fondo blanco
-    c.setFillColor(C_BLANCO)
-    c.roundRect(x, bot, w, h, 5, fill=1, stroke=0)
-    # Borde de color
+    # Fondo con tinte suave
+    r_tint = 1.0 - (1.0 - color.red)   * 0.09
+    g_tint = 1.0 - (1.0 - color.green) * 0.09
+    b_tint = 1.0 - (1.0 - color.blue)  * 0.09
+    c.setFillColor(colors.Color(r_tint, g_tint, b_tint))
+    c.roundRect(x, bot, w, h, 6, fill=1, stroke=0)
+
+    # Borde sutil
     c.setStrokeColor(color)
-    c.setLineWidth(0.6)
-    c.roundRect(x, bot, w, h, 5, fill=0, stroke=1)
+    c.setLineWidth(0.5)
+    c.roundRect(x, bot, w, h, 6, fill=0, stroke=1)
 
-    # Barra superior de color (solo los primeros 0.18 cm)
+    # Barra lateral izquierda
+    bar_w = 0.22 * cm
     c.setFillColor(color)
-    c.roundRect(x, top - 0.18 * cm, w, 0.18 * cm, 3, fill=1, stroke=0)
-    # rect sin radio para tapar la mitad inferior del roundRect
-    c.rect(x, top - 0.36 * cm, w, 0.20 * cm, fill=1, stroke=0)
+    c.roundRect(x, bot, bar_w * 2, h, 5, fill=1, stroke=0)
+    c.rect(x + bar_w, bot, bar_w, h, fill=1, stroke=0)
 
-    pad = 0.28 * cm
+    pad_l  = bar_w + 0.25 * cm
+    avail_w = w - pad_l - 0.18 * cm
 
-    # Label (6.5 pt, mayúsculas, color de la caja)
-    c.setFont("Helvetica-Bold", 6.5)
+    # Label
+    c.setFont("Helvetica-Bold", 6.2)
     c.setFillColor(color)
-    c.drawString(x + pad, top - 0.50 * cm, label.upper())
+    lbl_txt = label.upper()
+    while stringWidth(lbl_txt, "Helvetica-Bold", 6.2) > avail_w and len(lbl_txt) > 2:
+        lbl_txt = lbl_txt[:-2] + '.'
+    c.drawString(x + pad_l, top - 0.42 * cm, lbl_txt)
 
-    # Valor (tamaño adaptativo según ancho disponible)
-    avail_w = w - 2 * pad
-    for fsize in (13, 11, 9, 8):
+    # Valor (centrado verticalmente)
+    mid_y = bot + h * 0.52
+    for fsize in (15, 13, 11, 9, 8):
         sw = stringWidth(valor, "Helvetica-Bold", fsize)
         if sw <= avail_w:
             break
     c.setFont("Helvetica-Bold", fsize)
     c.setFillColor(C_TEXTO)
-    c.drawString(x + pad, top - 1.05 * cm, valor)
+    c.drawString(x + pad_l, mid_y - fsize * 0.015 * cm, valor)
 
-    # Sublabel (6 pt, gris, en la parte inferior de la caja)
+    # Sublabel
     if sublabel:
         c.setFont("Helvetica", 6)
         c.setFillColor(C_MUTED)
-        # Truncar si no cabe en una línea
         sub = sublabel
         while stringWidth(sub, "Helvetica", 6) > avail_w and len(sub) > 4:
             sub = sub[:-2] + '…'
-        c.drawString(x + pad, bot + 0.20 * cm, sub)
+        c.drawString(x + pad_l, bot + 0.22 * cm, sub)
+
+
+def _tabla_header(c, y, headers, col_ws, row_h=0.5 * cm):
+    """Dibuja solo la fila de encabezado de una tabla. Útil al retomar en nueva página."""
+    total_w = sum(col_ws)
+    c.setFillColor(C_GRIS_HDR)
+    c.roundRect(ML, y - row_h, total_w, row_h, 3, fill=1, stroke=0)
+    c.setStrokeColor(C_GRIS_BORDE)
+    c.setLineWidth(0.3)
+    c.roundRect(ML, y - row_h, total_w, row_h, 3, fill=0, stroke=1)
+    x_cur = ML
+    for i, hdr in enumerate(headers):
+        c.setFont("Helvetica-Bold", 7)
+        c.setFillColor(C_TEXTO_SEC)
+        c.drawString(x_cur + 0.25 * cm, y - row_h + 0.15 * cm, str(hdr).upper())
+        x_cur += col_ws[i]
+    return y - row_h
 
 
 def _tabla(c, y, headers, rows, col_ws, stripe=True, font_size=7.5, row_h=0.52 * cm):
@@ -432,22 +459,24 @@ def _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm):
     items = lista de (label, valor, sublabel, color)
     Retorna nueva y.
     """
-    box_w = (CW - (cols - 1) * 0.2 * cm) / cols
+    gap = 0.25 * cm
+    box_w = (CW - (cols - 1) * gap) / cols
     row_items = []
     for item in items:
         row_items.append(item)
         if len(row_items) == cols:
             for i, (lbl, val, sub, col) in enumerate(row_items):
-                bx = ML + i * (box_w + 0.2 * cm)
+                bx = ML + i * (box_w + gap)
                 _metrica_box(c, bx, y, box_w, box_h, lbl, val, sub, col)
-            y -= box_h + 0.3 * cm
+            y -= box_h + 0.35 * cm
             row_items = []
     if row_items:
-        box_w2 = (CW - (len(row_items) - 1) * 0.2 * cm) / max(len(row_items), 1)
+        n = len(row_items)
+        box_w2 = (CW - (n - 1) * gap) / max(n, 1)
         for i, (lbl, val, sub, col) in enumerate(row_items):
-            bx = ML + i * (box_w2 + 0.2 * cm)
+            bx = ML + i * (box_w2 + gap)
             _metrica_box(c, bx, y, box_w2, box_h, lbl, val, sub, col)
-        y -= box_h + 0.3 * cm
+        y -= box_h + 0.35 * cm
     return y
 
 
@@ -523,24 +552,24 @@ def _portada(c, titulo_vista, periodo_txt, sucursal_txt, fecha_emision, vista, c
 
     # Obtener métricas de portada según vista
     kpis = _kpis_portada(vista, ctx)
-    box_w = (CW - 1.0 * cm) / min(len(kpis), 4)
-    box_h_portada = 2.5 * cm
+    n_kpis   = min(len(kpis), 4)
+    gap_p    = 0.25 * cm
+    box_w    = (CW - 1.0 * cm - (n_kpis - 1) * gap_p) / n_kpis
+    box_h_portada = 2.2 * cm
 
     # Primera fila de KPIs (máx 4)
     for i, (lbl, val, sub, col) in enumerate(kpis[:4]):
-        bx = ML + 0.5 * cm + i * (box_w + 0.0 * cm)
-        # _metrica_box usa coordenadas top-down (y es el tope de la caja)
-        _metrica_box(c, bx, cy - 0.5 * cm, box_w - 0.15 * cm, box_h_portada,
-                     lbl, val, sub, col)
+        bx = ML + 0.5 * cm + i * (box_w + gap_p)
+        _metrica_box(c, bx, cy - 0.55 * cm, box_w, box_h_portada, lbl, val, sub, col)
 
     if len(kpis) > 4:
         for i, (lbl, val, sub, col) in enumerate(kpis[4:8]):
-            bx = ML + 0.5 * cm + i * (box_w + 0.0 * cm)
-            _metrica_box(c, bx, cy - 0.5 * cm - box_h_portada - 0.3 * cm,
-                         box_w - 0.15 * cm, box_h_portada, lbl, val, sub, col)
+            bx = ML + 0.5 * cm + i * (box_w + gap_p)
+            _metrica_box(c, bx, cy - 0.55 * cm - box_h_portada - 0.35 * cm,
+                         box_w, box_h_portada, lbl, val, sub, col)
 
     # Pie de portada
-    _pie(c, 1, 999, fecha_emision)  # total_pg se actualiza al final
+    _pie(c, 1, 999, fecha_emision)  # total_pg se sobreescribe en la segunda pasada
 
 
 def _kpis_portada(vista, ctx):
@@ -726,7 +755,7 @@ def _seccion_mensual(pages_data, ctx, helpers):
         ]
         y = _grilla_metricas(c, y, items_c, cols=3, box_h=1.7 * cm)
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
     # ── Página 3: Métodos de pago + Devoluciones ────────────────────
@@ -786,7 +815,7 @@ def _seccion_mensual(pages_data, ctx, helpers):
             ]
             y = _tabla(c, y, headers_dev, rows_dev, col_ws_dev)
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
     # ── Página 4: Servicios y Pacientes ─────────────────────────────
@@ -825,7 +854,7 @@ def _seccion_mensual(pages_data, ctx, helpers):
         ]
         y = _tabla(c, y, headers_p, rows_p, col_ws_p)
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -914,7 +943,7 @@ def _seccion_diaria(pages_data, ctx, helpers):
     ]
     y = _grilla_metricas(c, y, items_as, cols=4, box_h=1.7 * cm)
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
     # ── Página 3: Comparativa 7 días ────────────────────────────────
@@ -947,7 +976,7 @@ def _seccion_diaria(pages_data, ctx, helpers):
         rows_7.append(["TOTAL 7 DIAS", "", "", _bs(tot_ef), _bs(tot_qr), _bs(tot_tr), _bs(tot_cn)])
         y = _tabla(c, y, headers_7, rows_7, col_ws_7, font_size=7.5)
 
-        _pie(c, pg, 999, helpers['fecha'])
+        _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
         pages_data.append((c, pg))
 
 
@@ -981,7 +1010,7 @@ def _seccion_tabla_pagos(pages_data, ctx, helpers):
         y = _tabla(c, y, headers_m, rows_m, col_ws_m)
 
     if not detalle:
-        _pie(c, pg, 999, helpers['fecha'])
+        _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
         pages_data.append((c, pg))
         return
 
@@ -989,8 +1018,9 @@ def _seccion_tabla_pagos(pages_data, ctx, helpers):
     y -= 0.3 * cm
     y = _titulo_seccion(c, y, "2. Listado Completo de Pagos")
     headers_p = ["Recibo", "Fecha", "Paciente", "Concepto", "Metodo", "Monto"]
-    col_ws_p  = [2.5*cm, 2.2*cm, 4.5*cm, 4.0*cm, 2.8*cm, 2.5*cm]
+    col_ws_p  = [2.3*cm, 2.0*cm, 4.29*cm, 3.8*cm, 2.8*cm, 2.8*cm]
     row_h_p   = 0.5 * cm
+    y = _tabla_header(c, y, headers_p, col_ws_p)
 
     for pago in detalle:
         if pago.sesion:
@@ -1013,10 +1043,11 @@ def _seccion_tabla_pagos(pages_data, ctx, helpers):
 
         needed = row_h_p + 0.1 * cm
         if y - needed < Y_BOTTOM:
-            _pie(c, pg, 999, helpers['fecha'])
+            _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
             pages_data.append((c, pg))
             c, y, pg = make_page()
             y = _titulo_seccion(c, y, "2. Listado Completo de Pagos (cont.)")
+            y = _tabla_header(c, y, headers_p, col_ws_p)
 
         # Fila individual
         r_idx = len([r for r in pages_data]) % 2
@@ -1034,7 +1065,7 @@ def _seccion_tabla_pagos(pages_data, ctx, helpers):
             x_cur += col_ws_p[c_idx]
         y -= row_h_p
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -1061,14 +1092,15 @@ def _seccion_tabla_sesiones(pages_data, ctx, helpers):
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
     if not detalle:
-        _pie(c, pg, 999, helpers['fecha'])
+        _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
         pages_data.append((c, pg))
         return
 
     y = _titulo_seccion(c, y, "2. Listado de Sesiones")
     headers_s = ["Fecha", "Paciente", "Profesional", "Servicio", "Estado", "Costo", "Pagado", "Pend."]
-    col_ws_s  = [2.1*cm, 3.5*cm, 3.5*cm, 3.0*cm, 2.1*cm, 1.9*cm, 1.9*cm, 1.5*cm]
+    col_ws_s  = [1.9*cm, 3.29*cm, 3.2*cm, 2.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.4*cm]
     row_h_s   = 0.5 * cm
+    y = _tabla_header(c, y, headers_s, col_ws_s)
 
     ESTADOS = {
         'realizada': 'Real.', 'realizada_retraso': 'Real.R',
@@ -1096,10 +1128,11 @@ def _seccion_tabla_sesiones(pages_data, ctx, helpers):
 
         needed = row_h_s + 0.1 * cm
         if y - needed < Y_BOTTOM:
-            _pie(c, pg, 999, helpers['fecha'])
+            _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
             pages_data.append((c, pg))
             c, y, pg = make_page()
             y = _titulo_seccion(c, y, "2. Listado de Sesiones (cont.)")
+            y = _tabla_header(c, y, headers_s, col_ws_s)
 
         c.setStrokeColor(C_GRIS_BORDE)
         c.setLineWidth(0.2)
@@ -1112,7 +1145,7 @@ def _seccion_tabla_sesiones(pages_data, ctx, helpers):
             x_cur += col_ws_s[c_idx]
         y -= row_h_s
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -1138,14 +1171,15 @@ def _seccion_tabla_proyectos(pages_data, ctx, helpers):
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
     if not detalle:
-        _pie(c, pg, 999, helpers['fecha'])
+        _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
         pages_data.append((c, pg))
         return
 
     y = _titulo_seccion(c, y, "2. Listado de Proyectos")
     headers_p = ["Inicio", "Paciente", "Profesional", "Servicio", "Estado", "Costo", "Cobrado", "Pend."]
-    col_ws_p  = [2.1*cm, 3.5*cm, 3.5*cm, 3.0*cm, 2.1*cm, 1.9*cm, 1.9*cm, 1.5*cm]
+    col_ws_p  = [1.9*cm, 3.29*cm, 3.2*cm, 2.8*cm, 1.8*cm, 1.8*cm, 1.8*cm, 1.4*cm]
     row_h_p   = 0.5 * cm
+    y = _tabla_header(c, y, headers_p, col_ws_p)
 
     for proy in detalle:
         costo  = float(proy.costo_total or 0)
@@ -1166,10 +1200,11 @@ def _seccion_tabla_proyectos(pages_data, ctx, helpers):
 
         needed = row_h_p + 0.1 * cm
         if y - needed < Y_BOTTOM:
-            _pie(c, pg, 999, helpers['fecha'])
+            _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
             pages_data.append((c, pg))
             c, y, pg = make_page()
             y = _titulo_seccion(c, y, "2. Listado de Proyectos (cont.)")
+            y = _tabla_header(c, y, headers_p, col_ws_p)
 
         c.setStrokeColor(C_GRIS_BORDE)
         c.setLineWidth(0.2)
@@ -1182,7 +1217,7 @@ def _seccion_tabla_proyectos(pages_data, ctx, helpers):
             x_cur += col_ws_p[c_idx]
         y -= row_h_p
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -1209,14 +1244,15 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
     if not detalle:
-        _pie(c, pg, 999, helpers['fecha'])
+        _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
         pages_data.append((c, pg))
         return
 
     y = _titulo_seccion(c, y, "2. Listado de Mensualidades")
     headers_m = ["Periodo", "Paciente", "Sucursal", "Estado", "Costo Mensual", "Cobrado", "Pendiente"]
-    col_ws_m  = [2.2*cm, 4.0*cm, 3.0*cm, 2.0*cm, 3.0*cm, 2.5*cm, 2.8*cm]
+    col_ws_m  = [2.0*cm, 4.19*cm, 2.8*cm, 1.8*cm, 2.6*cm, 2.3*cm, 2.3*cm]
     row_h_m   = 0.5 * cm
+    y = _tabla_header(c, y, headers_m, col_ws_m)
 
     for mens in detalle:
         costo   = float(mens.costo_mensual or 0)
@@ -1232,10 +1268,11 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
 
         needed = row_h_m + 0.1 * cm
         if y - needed < Y_BOTTOM:
-            _pie(c, pg, 999, helpers['fecha'])
+            _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
             pages_data.append((c, pg))
             c, y, pg = make_page()
             y = _titulo_seccion(c, y, "2. Listado de Mensualidades (cont.)")
+            y = _tabla_header(c, y, headers_m, col_ws_m)
 
         c.setStrokeColor(C_GRIS_BORDE)
         c.setLineWidth(0.2)
@@ -1248,7 +1285,7 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
             x_cur += col_ws_m[c_idx]
         y -= row_h_m
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -1295,7 +1332,7 @@ def _seccion_creditos(pages_data, ctx, helpers):
         ]
         y = _tabla(c, y, headers_pc, rows_pc, col_ws_pc)
 
-    _pie(c, pg, 999, helpers['fecha'])
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
     pages_data.append((c, pg))
 
 
@@ -1366,8 +1403,9 @@ def generar_informe_financiero_pdf(context):
         return c, y, pg
 
     helpers = {
-        'new_page': make_page,
-        'fecha': fecha_emision,
+        'new_page' : make_page,
+        'fecha'    : fecha_emision,
+        'total_pg' : [999],   # placeholder — pasada 1
     }
 
     # Necesitamos wrap de showPage para el make_page
@@ -1428,7 +1466,11 @@ def generar_informe_financiero_pdf(context):
         c2.showPage()
         return make_page2()
 
-    helpers2 = {'new_page': make_page2_wrapped, 'fecha': fecha_emision}
+    helpers2 = {
+        'new_page' : make_page2_wrapped,
+        'fecha'    : fecha_emision,
+        'total_pg' : [total_pages],   # valor real — pasada 2
+    }
     pages_data2 = []
 
     c2.setFillColor(C_FONDO_PAG)
