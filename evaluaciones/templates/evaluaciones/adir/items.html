@@ -67,22 +67,13 @@
 <div class="min-h-screen p-4 md:p-6">
 <div class="max-w-5xl mx-auto">
 
-  <!-- Fondo suavizado sobre el degradado de atardecer -->
   <style>
-    .page-backdrop {
-      position: fixed; inset: 0; z-index: 0;
-      background: rgba(255,255,255,0.55);
-      backdrop-filter: blur(2px);
-      pointer-events: none;
-    }
-    .page-content { position: relative; z-index: 1; }
-
-    /* Breadcrumb con mejor contraste */
+    /* Breadcrumb */
     .breadcrumb-link { color: #1e293b !important; font-weight: 600; }
     .breadcrumb-link:hover { color: #16a34a !important; }
     .breadcrumb-sep { color: #475569 !important; }
 
-    /* Radio buttons tipo texto para campos con opciones largas (ej: Paciente) */
+    /* Radio buttons tipo texto para campos con opciones largas */
     .radio-btn-text input[type="radio"] { display: none; }
     .radio-btn-text input[type="radio"] + span {
       display: inline-flex;
@@ -113,17 +104,48 @@
       box-shadow: 0 2px 8px rgba(22,163,74,0.35);
     }
 
-    /* Header con fondo propio para legibilidad */
+    /* Header */
     .eval-header {
-      background: rgba(255,255,255,0.85);
+      background: white;
       border-radius: 1rem;
       padding: 1rem 1.25rem;
-      border: 1px solid rgba(255,255,255,0.9);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
+
+    /* Estilos unificados para inputs nativos de Django */
+    .field-native input[type="text"],
+    .field-native input[type="number"],
+    .field-native input[type="date"],
+    .field-native select,
+    .field-native textarea {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #1e293b;
+      background: white;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-native input[type="text"]:focus,
+    .field-native input[type="number"]:focus,
+    .field-native input[type="date"]:focus,
+    .field-native select:focus,
+    .field-native textarea:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.12);
+    }
+    .field-native textarea { resize: vertical; }
+    .field-native select { appearance: auto; cursor: pointer; }
+
+    /* Estilos para RadioSelect nativo de Django (booleanos) */
+    .field-native ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+    .field-native ul li label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; color: #374151; }
+    .field-native ul li input[type="radio"] { accent-color: #16a34a; width: 1rem; height: 1rem; cursor: pointer; }
   </style>
-  <div class="page-backdrop"></div>
   <div class="page-content">
 
   <!-- Encabezado -->
@@ -204,9 +226,9 @@
           <div class="space-y-3">
             {% for field in seccion.form %}
 
-            {% if field.field.widget.input_type == 'textarea' or field.field.widget.input_type == 'text' or field.field.widget.input_type == 'number' or field.field.widget.input_type == 'date' %}
-            {# ── Campo de texto / textarea / número / fecha ── #}
-            <div class="rounded-xl p-4 border bg-slate-50 border-slate-100">
+            {% if field.widget_type != 'intradioselect' %}
+            {# ── Campo nativo Django: texto / textarea / número / fecha / select / radio booleano ── #}
+            <div class="field-native rounded-xl p-4 border bg-slate-50 border-slate-100">
               <label class="block font-semibold text-sm text-slate-700 mb-2">
                 {{ field.label }}{% if field.field.required %} <span class="text-red-400">*</span>{% endif %}
               </label>
@@ -298,10 +320,10 @@
     </a>
   </div>
 
-</div>
-</div>
-
   </div><!-- fin page-content -->
+
+</div><!-- fin max-w-5xl -->
+</div><!-- fin min-h-screen -->
 
 <script>
 function toggleAcordeon(key) {

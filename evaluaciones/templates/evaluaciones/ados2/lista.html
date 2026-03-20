@@ -3,14 +3,18 @@
 {% block content %}
 <div class="min-h-screen p-4 md:p-6">
   <div class="max-w-6xl mx-auto">
+
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
       <div>
         <nav class="text-xs text-slate-400 mb-1">
-          <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500">Evaluaciones</a>
-          <span class="mx-1">/</span><span class="text-slate-600 font-medium">ADOS-2</span>
+          <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500 font-semibold text-slate-600">Evaluaciones</a>
+          <span class="mx-1">/</span>
+          <span class="text-slate-600 font-medium">ADOS-2</span>
         </nav>
         <h1 class="text-xl font-bold text-slate-800">📋 Evaluaciones ADOS-2</h1>
-        <p class="text-slate-500 text-sm">{{ evaluaciones.count }} evaluación{{ evaluaciones.count|pluralize:"es" }} registrada{{ evaluaciones.count|pluralize:"s" }}</p>
+        <p class="text-slate-500 text-sm">
+          {{ evaluaciones.count }} evaluación{{ evaluaciones.count|pluralize:"es" }} registrada{{ evaluaciones.count|pluralize:"s" }}
+        </p>
       </div>
       <a href="{% url 'evaluaciones:ados2_crear' %}"
          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow self-start">
@@ -28,8 +32,11 @@
               <th class="px-4 py-3 text-center font-semibold">Módulo</th>
               <th class="px-4 py-3 text-center font-semibold">Fecha</th>
               <th class="px-4 py-3 text-center font-semibold">Edad</th>
-              <th class="px-4 py-3 text-center font-semibold">Total SA</th>
+              <th class="px-4 py-3 text-center font-semibold">SA (A+B)</th>
+              <th class="px-4 py-3 text-center font-semibold">A</th>
+              <th class="px-4 py-3 text-center font-semibold">B</th>
               <th class="px-4 py-3 text-center font-semibold">RRB</th>
+              <th class="px-4 py-3 text-center font-semibold">CSS</th>
               <th class="px-4 py-3 text-center font-semibold">Clasificación</th>
               <th class="px-4 py-3 text-center font-semibold">Evaluador</th>
               <th class="px-4 py-3 text-center font-semibold">Acciones</th>
@@ -45,22 +52,47 @@
               <td class="px-4 py-3 text-center">
                 <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-lg">M{{ ev.modulo }}</span>
               </td>
-              <td class="px-4 py-3 text-center text-slate-600">{{ ev.fecha_evaluacion|date:"d/m/Y" }}</td>
-              <td class="px-4 py-3 text-center text-slate-500 text-xs">{{ ev.edad_cronologica_anos }}a {{ ev.edad_cronologica_meses }}m</td>
-              <td class="px-4 py-3 text-center font-black text-lg text-slate-800">{{ ev.total_comunicacion_social|default:"—" }}</td>
-              <td class="px-4 py-3 text-center text-slate-500">{{ ev.total_comportamiento_restringido|default:"—" }}</td>
-              <td class="px-4 py-3 text-center">
-                {% if ev.clasificacion == 'autismo' %}<span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-lg">Autismo</span>
-                {% elif ev.clasificacion == 'espectro' %}<span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-lg">Espectro</span>
-                {% elif ev.clasificacion == 'no_espectro' %}<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">No espectro</span>
-                {% else %}<span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Pendiente</span>{% endif %}
+              <td class="px-4 py-3 text-center text-slate-600 whitespace-nowrap">{{ ev.fecha_evaluacion|date:"d/m/Y" }}</td>
+              <td class="px-4 py-3 text-center text-slate-500 text-xs whitespace-nowrap">{{ ev.edad_cronologica_anos }}a {{ ev.edad_cronologica_meses }}m</td>
+              <td class="px-4 py-3 text-center font-black text-xl text-blue-700">
+                {{ ev.total_comunicacion_social|default_if_none:"—" }}
               </td>
-              <td class="px-4 py-3 text-center text-slate-500 text-xs">{{ ev.evaluador.nombre_completo }}</td>
+              <td class="px-4 py-3 text-center text-slate-500 font-semibold">
+                {{ ev.total_comunicacion|default_if_none:"—" }}
+              </td>
+              <td class="px-4 py-3 text-center text-slate-500 font-semibold">
+                {{ ev.total_interaccion_social|default_if_none:"—" }}
+              </td>
+              <td class="px-4 py-3 text-center text-amber-600 font-semibold">
+                {{ ev.total_comportamiento_restringido|default_if_none:"—" }}
+              </td>
+              <td class="px-4 py-3 text-center text-indigo-600 font-semibold">
+                {{ ev.comparison_score|default_if_none:"—" }}
+              </td>
+              <td class="px-4 py-3 text-center">
+                {% if ev.clasificacion == 'autismo' %}
+                  <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-lg">Autismo</span>
+                {% elif ev.clasificacion == 'leve_moderado' %}
+                  <span class="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded-lg">Leve/Mod.</span>
+                {% elif ev.clasificacion == 'espectro' %}
+                  <span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-lg">Espectro</span>
+                {% elif ev.clasificacion == 'no_espectro' %}
+                  <span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">No espectro</span>
+                {% else %}
+                  <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Pendiente</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-center text-slate-500 text-xs whitespace-nowrap">
+                {{ ev.evaluador.nombre }} {{ ev.evaluador.apellido }}
+              </td>
               <td class="px-4 py-3 text-center">
                 <div class="flex justify-center gap-1">
-                  <a href="{% url 'evaluaciones:ados2_detalle' ev.pk %}" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Ver">👁</a>
-                  <a href="{% url 'evaluaciones:ados2_items' ev.pk %}" class="bg-green-50 text-green-600 hover:bg-green-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Ítems">✏️</a>
-                  <a href="{% url 'evaluaciones:ados2_eliminar' ev.pk %}" class="bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Eliminar">🗑</a>
+                  <a href="{% url 'evaluaciones:ados2_detalle' ev.pk %}"
+                     class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Ver detalle">👁</a>
+                  <a href="{% url 'evaluaciones:ados2_items' ev.pk %}"
+                     class="bg-green-50 text-green-600 hover:bg-green-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Editar ítems">✏️</a>
+                  <a href="{% url 'evaluaciones:ados2_eliminar' ev.pk %}"
+                     class="bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Eliminar">🗑</a>
                 </div>
               </td>
             </tr>
@@ -73,10 +105,14 @@
         <div class="text-5xl mb-3">📋</div>
         <div class="font-semibold mb-1">Sin evaluaciones ADOS-2</div>
         <div class="text-sm mb-4">Registra la primera evaluación</div>
-        <a href="{% url 'evaluaciones:ados2_crear' %}" class="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors">➕ Nueva ADOS-2</a>
+        <a href="{% url 'evaluaciones:ados2_crear' %}"
+           class="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-colors">
+          ➕ Nueva ADOS-2
+        </a>
       </div>
       {% endif %}
     </div>
+
   </div>
 </div>
 {% endblock %}

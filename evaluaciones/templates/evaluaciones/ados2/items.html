@@ -1,6 +1,53 @@
 {% extends "base.html" %}
 {% block title %}ADOS-2 Módulo {{ evaluacion.modulo }} — Ítems{% endblock %}
 
+{% block extra_js_head %}
+<script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .active-tab {
+    color: #2563eb !important;
+    border-bottom: 3px solid #2563eb;
+    background: #eff6ff;
+  }
+  /* Radio botones numéricos */
+  .item-radio-label input[type="radio"] { display: none; }
+  .item-radio-label input[type="radio"] + span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 2px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .item-radio-label input[type="radio"] + span:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #2563eb;
+  }
+  .item-radio-label input[type="radio"]:checked + span {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: white;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.35);
+  }
+  /* HTMX indicator */
+  .htmx-indicator { opacity: 0; transition: opacity 0.2s; }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator { opacity: 1; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="min-h-screen p-4 md:p-6">
   <div class="max-w-5xl mx-auto">
@@ -9,9 +56,9 @@
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
       <div>
         <nav class="text-xs text-slate-400 mb-1">
-          <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500">Evaluaciones</a>
+          <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-blue-500 font-semibold text-slate-600">Evaluaciones</a>
           <span class="mx-1">/</span>
-          <a href="{% url 'evaluaciones:ados2_lista' %}" class="hover:text-blue-500">ADOS-2</a>
+          <a href="{% url 'evaluaciones:ados2_lista' %}" class="hover:text-blue-500 font-semibold text-slate-600">ADOS-2</a>
           <span class="mx-1">/</span>
           <span class="text-slate-600 font-medium">Ítems</span>
         </nav>
@@ -31,10 +78,12 @@
 
     <!-- Pestañas -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
       <!-- Tab buttons -->
       <div class="flex border-b border-slate-100 overflow-x-auto">
         {% for seccion in secciones %}
-        <button onclick="mostrarTab('tab-{{ seccion.key }}', this)"
+        <button type="button"
+                onclick="mostrarTab('tab-{{ seccion.key }}', this)"
                 class="tab-btn px-4 py-3 text-sm font-semibold whitespace-nowrap transition-colors text-slate-500 hover:text-blue-600 {% if forloop.first %}active-tab{% endif %}"
                 id="btn-{{ seccion.key }}">
           {{ seccion.label }}
@@ -49,45 +98,96 @@
           <form hx-post="{% url 'evaluaciones:ados2_guardar_seccion' evaluacion.pk seccion.key %}"
                 hx-target="#panel-puntuaciones"
                 hx-swap="innerHTML"
+                hx-indicator="#spinner-{{ seccion.key }}"
                 method="post">
             {% csrf_token %}
 
             <div class="flex items-center justify-between mb-5">
               <h3 class="font-bold text-slate-700">{{ seccion.label }}</h3>
-              <button type="submit"
-                      class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                <span class="htmx-indicator hidden">⏳</span>
-                💾 Guardar sección
-              </button>
+              <div class="flex items-center gap-3">
+                <span id="spinner-{{ seccion.key }}" class="htmx-indicator text-sm text-blue-600 font-medium">⏳ Guardando...</span>
+                <button type="submit"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                  💾 Guardar sección
+                </button>
+              </div>
             </div>
 
             <div class="space-y-4">
               {% for field in seccion.form %}
-              <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <div class="font-semibold text-sm text-slate-700 mb-3">{{ field.label }}</div>
-                <div class="flex flex-wrap gap-2" id="group-{{ field.html_name }}">
+
+              {% if field.widget_type != 'intradioselect' %}
+              {# ── Textarea / texto / número / fecha — render nativo Django ── #}
+              <div class="rounded-xl p-4 border bg-slate-50 border-slate-100">
+                <label class="block font-semibold text-sm text-slate-700 mb-2">
+                  {{ field.label }}{% if field.field.required %} <span class="text-red-400">*</span>{% endif %}
+                </label>
+                <style>
+                  #tab-{{ seccion.key }} textarea,
+                  #tab-{{ seccion.key }} input[type="text"],
+                  #tab-{{ seccion.key }} input[type="number"],
+                  #tab-{{ seccion.key }} input[type="date"] {
+                    width: 100%;
+                    padding: 0.625rem 0.875rem;
+                    border: 2px solid #e2e8f0;
+                    border-radius: 0.75rem;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    color: #1e293b;
+                    background: white;
+                    outline: none;
+                    transition: border-color 0.15s;
+                    resize: vertical;
+                  }
+                  #tab-{{ seccion.key }} textarea:focus,
+                  #tab-{{ seccion.key }} input:focus {
+                    border-color: #2563eb;
+                    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+                  }
+                </style>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                <p class="text-red-500 text-xs mt-1">{{ field.errors }}</p>
+                {% endif %}
+              </div>
+
+              {% else %}
+              {# ── Radio buttons numéricos (IntRadioSelect) ── #}
+              <div class="rounded-xl p-4 border transition-colors
+                {% if field.value is not None and field.value != '' %}bg-blue-50 border-blue-200{% else %}bg-slate-50 border-slate-100{% endif %}">
+
+                <div class="flex items-start justify-between mb-3">
+                  <div class="font-semibold text-sm text-slate-700 leading-snug pr-4">{{ field.label }}</div>
+                  {% if field.value is not None and field.value != '' %}
+                  <span class="shrink-0 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-lg current-val-badge">
+                    {{ field.value }}
+                  </span>
+                  {% endif %}
+                </div>
+
+                <div class="flex flex-wrap gap-2">
                   {% for choice_val, choice_label in field.field.widget.choices %}
-                  <label class="item-radio-label cursor-pointer select-none"
-                         data-val="{{ choice_val }}"
-                         data-field="{{ field.html_name }}">
+                  <label class="item-radio-label">
                     <input type="radio"
                            name="{{ field.html_name }}"
                            value="{{ choice_val }}"
-                           class="sr-only"
-                           {% if field.value == choice_val|stringformat:"s" %}checked{% endif %}>
-                    <span class="inline-flex items-center justify-center w-12 h-10 rounded-xl border-2 text-sm font-bold transition-all
-                      {% if field.value == choice_val|stringformat:'s' %}
-                        border-blue-500 bg-blue-500 text-white
-                      {% else %}
-                        border-slate-200 bg-white text-slate-600 hover:border-blue-400
-                      {% endif %}">
+                           {% if field.value|stringformat:"s" == choice_val|stringformat:"s" %}checked{% endif %}>
+                    <span title="{{ choice_label }}">
                       {% if choice_val == '' %}—{% else %}{{ choice_label }}{% endif %}
                     </span>
                   </label>
                   {% endfor %}
                 </div>
-                {% if field.errors %}<div class="text-red-500 text-xs mt-1">{{ field.errors }}</div>{% endif %}
+
+                {% if field.errors %}
+                <div class="text-red-500 text-xs mt-2">{{ field.errors }}</div>
+                {% endif %}
               </div>
+              {% endif %}
+
               {% endfor %}
             </div>
 
@@ -118,43 +218,56 @@
   </div>
 </div>
 
-<style>
-.active-tab {
-  color: #2563eb !important;
-  border-bottom: 3px solid #2563eb;
-  background: #eff6ff;
-}
-</style>
-
 <script>
 function mostrarTab(tabId, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.remove('active-tab');
-    b.style.borderBottom = '';
-  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
   document.getElementById(tabId).classList.remove('hidden');
   btn.classList.add('active-tab');
 }
 
-// Radio buttons visuales
+// Actualizar visual del radio y badge al seleccionar
 document.addEventListener('change', function(e) {
-  if (e.target.type === 'radio') {
-    const name = e.target.name;
-    document.querySelectorAll(`input[name="${name}"]`).forEach(function(r) {
-      const span = r.nextElementSibling;
-      if (span) {
-        span.className = span.className
-          .replace('border-blue-500 bg-blue-500 text-white', '')
-          .replace('border-slate-200 bg-white text-slate-600', '')
-          .trim();
-        if (r.checked) {
-          span.classList.add('border-blue-500', 'bg-blue-500', 'text-white');
-        } else {
-          span.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
-        }
-      }
-    });
+  if (e.target.type !== 'radio') return;
+
+  const name = e.target.name;
+  const val = e.target.value;
+  const container = e.target.closest('.rounded-xl.p-4');
+
+  // Actualizar estilos de todos los radios del grupo
+  document.querySelectorAll(`input[name="${name}"]`).forEach(function(r) {
+    const span = r.nextElementSibling;
+    if (!span) return;
+    if (r.checked) {
+      span.style.borderColor = '#2563eb';
+      span.style.background = '#2563eb';
+      span.style.color = 'white';
+      span.style.boxShadow = '0 2px 8px rgba(37,99,235,0.35)';
+    } else {
+      span.style.borderColor = '#e2e8f0';
+      span.style.background = 'white';
+      span.style.color = '#64748b';
+      span.style.boxShadow = '';
+    }
+  });
+
+  // Actualizar badge y color del contenedor
+  if (!container) return;
+  let badge = container.querySelector('.current-val-badge');
+  if (val === '') {
+    if (badge) badge.remove();
+    container.classList.remove('bg-blue-50', 'border-blue-200');
+    container.classList.add('bg-slate-50', 'border-slate-100');
+  } else {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'current-val-badge shrink-0 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-lg';
+      const labelRow = container.querySelector('.flex.items-start');
+      if (labelRow) labelRow.appendChild(badge);
+    }
+    badge.textContent = val;
+    container.classList.remove('bg-slate-50', 'border-slate-100');
+    container.classList.add('bg-blue-50', 'border-blue-200');
   }
 });
 </script>

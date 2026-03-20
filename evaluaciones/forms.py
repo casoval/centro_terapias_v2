@@ -108,6 +108,7 @@ class EvaluacionADOS2GeneralForm(forms.ModelForm):
             'evaluador': forms.Select(attrs={'class': 'form-select'}),
             'modulo': forms.Select(attrs={'class': 'form-select', 'id': 'id_modulo'}),
             'fecha_evaluacion': forms.DateInput(
+                format='%Y-%m-%d',
                 attrs={'class': 'form-control', 'type': 'date'}),
             'edad_cronologica_anos': forms.NumberInput(
                 attrs={'class': 'form-control', 'min': 0, 'max': 99}),
@@ -272,6 +273,7 @@ class EvaluacionADIRGeneralForm(forms.ModelForm):
                 'placeholder': 'Ej: madre, padre, tutor legal',
             }),
             'fecha_evaluacion': forms.DateInput(
+                format='%Y-%m-%d',
                 attrs={'class': 'form-control', 'type': 'date'}),
             'tipo_comunicacion': forms.RadioSelect(),
         }
@@ -433,6 +435,7 @@ class InformeEvaluacionForm(forms.ModelForm):
             'evaluacion_ados2': forms.Select(attrs={'class': 'form-select'}),
             'evaluacion_adir': forms.Select(attrs={'class': 'form-select'}),
             'fecha_informe': forms.DateInput(
+                format='%Y-%m-%d',
                 attrs={'class': 'form-control', 'type': 'date'}),
             'estado': forms.Select(attrs={'class': 'form-select'}),
             'motivo_consulta': forms.Textarea(

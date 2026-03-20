@@ -3,80 +3,177 @@
 {% block content %}
 <div class="min-h-screen p-4 md:p-6">
 <div class="max-w-4xl mx-auto">
+
   <nav class="text-xs text-slate-400 mb-3">
-    <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-green-500">Evaluaciones</a>
+    <a href="{% url 'evaluaciones:dashboard' %}" class="hover:text-green-500 font-semibold text-slate-600">Evaluaciones</a>
     <span class="mx-1">/</span>
-    <a href="{% url 'evaluaciones:adir_lista' %}" class="hover:text-green-500">ADI-R</a>
+    <a href="{% url 'evaluaciones:adir_lista' %}" class="hover:text-green-500 font-semibold text-slate-600">ADI-R</a>
     <span class="mx-1">/</span>
     <span class="text-slate-600 font-medium">Detalle</span>
   </nav>
 
+  <!-- Card principal -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+
+    <!-- Header -->
     <div class="bg-gradient-to-r from-green-600 to-emerald-600 p-5 text-white flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
       <div>
         <h1 class="text-xl font-bold">{{ evaluacion.paciente.nombre_completo }}</h1>
-        <p class="text-sm opacity-85 mt-1">ADI-R · {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} · {{ evaluacion.get_tipo_comunicacion_display }}</p>
-        <p class="text-xs opacity-70 mt-0.5">Informante: {{ evaluacion.informante }} ({{ evaluacion.relacion_informante }}) · Evaluador: {{ evaluacion.evaluador.nombre_completo }}
-</p>
-      </div>
-      {% if evaluacion.clasificacion == 'cumple' %}
-        <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl self-start">🔴 Cumple criterios</span>
-      {% elif evaluacion.clasificacion == 'no_cumple' %}
-        <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl self-start">🟢 No cumple</span>
-      {% else %}
-        <span class="bg-white/15 text-white/80 text-sm px-4 py-1.5 rounded-xl self-start">⏳ Pendiente</span>
-      {% endif %}
-    </div>
-
-    <!-- Algoritmo -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
-      <div class="p-4 text-center">
-        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">A — Com.<br><span class="text-slate-300">(corte {% if evaluacion.tipo_comunicacion == 'verbal' %}≥8{% else %}≥7{% endif %})</span></p>
-        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comunicacion %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_comunicacion|default:"—" }}</p>
-        {% if evaluacion.cumple_corte_comunicacion %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
-        {% elif evaluacion.cumple_corte_comunicacion == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
-      </div>
-      <div class="p-4 text-center">
-        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">B — Social<br><span class="text-slate-300">(corte ≥10)</span></p>
-        <p class="text-3xl font-black {% if evaluacion.cumple_corte_interaccion %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_interaccion_social|default:"—" }}</p>
-        {% if evaluacion.cumple_corte_interaccion %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
-        {% elif evaluacion.cumple_corte_interaccion == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
-      </div>
-      <div class="p-4 text-center">
-        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">C — RRB<br><span class="text-slate-300">(corte ≥3)</span></p>
-        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comportamiento %}text-red-500{% else %}text-green-600{% endif %}">{{ evaluacion.algoritmo_comportamientos_rr|default:"—" }}</p>
-        {% if evaluacion.cumple_corte_comportamiento %}<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg">↑ Supera</span>
-        {% elif evaluacion.cumple_corte_comportamiento == False %}<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg">✓ Bajo corte</span>{% endif %}
-      </div>
-      <div class="p-4 text-center">
-        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Inicio &lt;36m</p>
-        <p class="text-3xl font-black {% if evaluacion.cumple_criterio_edad_inicio %}text-red-500{% elif evaluacion.cumple_criterio_edad_inicio == False %}text-green-600{% else %}text-slate-400{% endif %}">
-          {% if evaluacion.cumple_criterio_edad_inicio %}Sí{% elif evaluacion.cumple_criterio_edad_inicio == False %}No{% else %}—{% endif %}
+        <p class="text-sm opacity-85 mt-1">
+          ADI-R · {{ evaluacion.fecha_evaluacion|date:"d/m/Y" }} ·
+          <span class="{% if evaluacion.tipo_comunicacion == 'verbal' %}opacity-90{% else %}opacity-90{% endif %}">
+            {{ evaluacion.get_tipo_comunicacion_display }}
+          </span>
+        </p>
+        <p class="text-xs opacity-70 mt-0.5">
+          Informante: {{ evaluacion.informante }}{% if evaluacion.relacion_informante %} ({{ evaluacion.relacion_informante }}){% endif %}
+        </p>
+        <p class="text-xs opacity-70">
+          Evaluador: {{ evaluacion.evaluador.nombre }} {{ evaluacion.evaluador.apellido }}
+          {% if evaluacion.evaluador.especialidad %} — {{ evaluacion.evaluador.especialidad }}{% endif %}
         </p>
       </div>
+      <div class="shrink-0">
+        {% if evaluacion.clasificacion == 'cumple' %}
+          <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl">🔴 Cumple criterios</span>
+        {% elif evaluacion.clasificacion == 'no_cumple' %}
+          <span class="bg-white/20 border-2 border-white/40 text-white text-sm font-bold px-4 py-1.5 rounded-xl">🟢 No cumple</span>
+        {% else %}
+          <span class="bg-white/15 text-white/80 text-sm px-4 py-1.5 rounded-xl">⏳ Pendiente</span>
+        {% endif %}
+      </div>
     </div>
 
-    {% if evaluacion.edad_primeras_palabras %}
+    <!-- Algoritmo diagnóstico — 4 dominios -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">A — Comunicación</p>
+        <p class="text-xs text-slate-300 mb-2">corte {% if evaluacion.tipo_comunicacion == 'verbal' %}≥8{% else %}≥7{% endif %}</p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comunicacion %}text-red-500{% elif evaluacion.cumple_corte_comunicacion == False %}text-green-600{% else %}text-slate-400{% endif %}">
+          {{ evaluacion.algoritmo_comunicacion|default_if_none:"—" }}
+        </p>
+        {% if evaluacion.cumple_corte_comunicacion %}
+          <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg mt-1 inline-block">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_comunicacion == False %}
+          <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg mt-1 inline-block">✓ Bajo corte</span>
+        {% endif %}
+      </div>
+
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">B — Social</p>
+        <p class="text-xs text-slate-300 mb-2">corte ≥10</p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_interaccion %}text-red-500{% elif evaluacion.cumple_corte_interaccion == False %}text-green-600{% else %}text-slate-400{% endif %}">
+          {{ evaluacion.algoritmo_interaccion_social|default_if_none:"—" }}
+        </p>
+        {% if evaluacion.cumple_corte_interaccion %}
+          <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg mt-1 inline-block">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_interaccion == False %}
+          <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg mt-1 inline-block">✓ Bajo corte</span>
+        {% endif %}
+      </div>
+
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">C — RRB</p>
+        <p class="text-xs text-slate-300 mb-2">corte ≥3</p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_corte_comportamiento %}text-red-500{% elif evaluacion.cumple_corte_comportamiento == False %}text-green-600{% else %}text-slate-400{% endif %}">
+          {{ evaluacion.algoritmo_comportamientos_rr|default_if_none:"—" }}
+        </p>
+        {% if evaluacion.cumple_corte_comportamiento %}
+          <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg mt-1 inline-block">↑ Supera</span>
+        {% elif evaluacion.cumple_corte_comportamiento == False %}
+          <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg mt-1 inline-block">✓ Bajo corte</span>
+        {% endif %}
+      </div>
+
+      <div class="p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Inicio &lt;36m</p>
+        <p class="text-xs text-slate-300 mb-2">criterio D</p>
+        <p class="text-3xl font-black {% if evaluacion.cumple_criterio_edad_inicio %}text-red-500{% elif evaluacion.cumple_criterio_edad_inicio == False %}text-green-600{% else %}text-slate-400{% endif %}">
+          {% if evaluacion.cumple_criterio_edad_inicio %}Sí
+          {% elif evaluacion.cumple_criterio_edad_inicio == False %}No
+          {% else %}—{% endif %}
+        </p>
+        {% if evaluacion.cumple_criterio_edad_inicio %}
+          <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-lg mt-1 inline-block">Cumple</span>
+        {% elif evaluacion.cumple_criterio_edad_inicio == False %}
+          <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-lg mt-1 inline-block">No cumple</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Resumen criterios: semáforo de 4 dominios -->
+    <div class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex flex-wrap gap-3 items-center text-xs">
+      <span class="text-slate-500 font-semibold">Criterios:</span>
+      <span class="px-2 py-1 rounded-lg font-bold {% if evaluacion.cumple_corte_comunicacion %}bg-red-100 text-red-700{% elif evaluacion.cumple_corte_comunicacion == False %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-400{% endif %}">
+        A {% if evaluacion.cumple_corte_comunicacion %}✗{% elif evaluacion.cumple_corte_comunicacion == False %}✓{% else %}?{% endif %}
+      </span>
+      <span class="px-2 py-1 rounded-lg font-bold {% if evaluacion.cumple_corte_interaccion %}bg-red-100 text-red-700{% elif evaluacion.cumple_corte_interaccion == False %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-400{% endif %}">
+        B {% if evaluacion.cumple_corte_interaccion %}✗{% elif evaluacion.cumple_corte_interaccion == False %}✓{% else %}?{% endif %}
+      </span>
+      <span class="px-2 py-1 rounded-lg font-bold {% if evaluacion.cumple_corte_comportamiento %}bg-red-100 text-red-700{% elif evaluacion.cumple_corte_comportamiento == False %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-400{% endif %}">
+        C {% if evaluacion.cumple_corte_comportamiento %}✗{% elif evaluacion.cumple_corte_comportamiento == False %}✓{% else %}?{% endif %}
+      </span>
+      <span class="px-2 py-1 rounded-lg font-bold {% if evaluacion.cumple_criterio_edad_inicio %}bg-red-100 text-red-700{% elif evaluacion.cumple_criterio_edad_inicio == False %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-400{% endif %}">
+        D {% if evaluacion.cumple_criterio_edad_inicio %}✗{% elif evaluacion.cumple_criterio_edad_inicio == False %}✓{% else %}?{% endif %}
+      </span>
+      <span class="text-slate-400 text-xs ml-1">✗ supera corte · ✓ bajo corte</span>
+    </div>
+
+    <!-- Historia del desarrollo -->
+    {% if evaluacion.edad_primeras_palabras or evaluacion.perdida_lenguaje or evaluacion.perdida_habilidades_sociales %}
     <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap gap-4 text-sm text-slate-600">
+      {% if evaluacion.edad_primeras_palabras %}
       <span>🗣 Primeras palabras: <strong>{{ evaluacion.edad_primeras_palabras }}m</strong></span>
-      {% if evaluacion.edad_primeras_frases %}<span>💬 Primeras frases: <strong>{{ evaluacion.edad_primeras_frases }}m</strong></span>{% endif %}
-      {% if evaluacion.perdida_lenguaje %}<span class="text-red-600">⚠️ Pérdida lenguaje{% if evaluacion.edad_perdida_lenguaje %}: {{ evaluacion.edad_perdida_lenguaje }}m{% endif %}</span>{% endif %}
+      {% endif %}
+      {% if evaluacion.edad_primeras_frases %}
+      <span>💬 Primeras frases: <strong>{{ evaluacion.edad_primeras_frases }}m</strong></span>
+      {% endif %}
+      {% if evaluacion.perdida_lenguaje %}
+      <span class="text-red-600 font-medium">
+        ⚠️ Pérdida de lenguaje{% if evaluacion.edad_perdida_lenguaje %}: <strong>{{ evaluacion.edad_perdida_lenguaje }}m</strong>{% endif %}
+      </span>
+      {% endif %}
+      {% if evaluacion.perdida_habilidades_sociales %}
+      <span class="text-red-600 font-medium">⚠️ Pérdida habilidades sociales</span>
+      {% endif %}
     </div>
     {% endif %}
 
+    <!-- Acciones -->
     <div class="p-4 flex flex-wrap gap-2">
-      <a href="{% url 'evaluaciones:adir_items' evaluacion.pk %}" class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">✏️ Editar ítems</a>
-      <a href="{% url 'evaluaciones:informe_crear' %}" class="bg-green-50 hover:bg-green-100 text-green-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">📄 Crear informe</a>
-      <a href="{% url 'evaluaciones:adir_eliminar' evaluacion.pk %}" class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors ml-auto">🗑 Eliminar</a>
+      <a href="{% url 'evaluaciones:adir_items' evaluacion.pk %}"
+         class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">✏️ Editar ítems</a>
+      <a href="{% url 'evaluaciones:informe_crear' %}"
+         class="bg-green-50 hover:bg-green-100 text-green-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">📄 Crear informe</a>
+      <a href="{% url 'evaluaciones:adir_eliminar' evaluacion.pk %}"
+         class="bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold px-4 py-2 rounded-xl transition-colors ml-auto">🗑 Eliminar</a>
     </div>
   </div>
 
+  <!-- Observaciones -->
   {% if evaluacion.observaciones %}
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">🔎 Observaciones</h3>
     <p class="text-sm text-slate-600 leading-relaxed">{{ evaluacion.observaciones|linebreaksbr }}</p>
   </div>
   {% endif %}
+
+  <!-- Referencia -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-4">
+    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">📖 Criterios diagnósticos ADI-R</h3>
+    <p class="text-xs text-slate-500 leading-relaxed">
+      Para diagnóstico de autismo se requieren los 4 criterios: A (comunicación {% if evaluacion.tipo_comunicacion == 'verbal' %}≥8 verbal{% else %}≥7 no verbal{% endif %}),
+      B (interacción social ≥10), C (RRB ≥3) y D (inicio de síntomas antes de los 36 meses).
+    </p>
+    <p class="text-xs text-slate-400 mt-1">Ref: Lord, Rutter & Le Couteur (1994). ADI-R Manual. Western Psychological Services.</p>
+  </div>
+
+  <!-- Metadatos -->
+  <div class="text-xs text-slate-400 text-right px-1">
+    Registrado: {{ evaluacion.creado_en|date:"d/m/Y H:i" }} ·
+    Actualizado: {{ evaluacion.actualizado_en|date:"d/m/Y H:i" }}
+  </div>
+
 </div>
 </div>
 {% endblock %}
