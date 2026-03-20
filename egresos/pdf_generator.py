@@ -1057,10 +1057,111 @@ def _pagina_detalle_sesiones_honorario(c, egreso, pago_honorario, sesiones, pw, 
 
     tabla.setStyle(TableStyle(estilos))
 
-    espacio_tabla = y_cursor - margen - 4.8 * cm  # reserva para totales al pie
-    w_t, h_t = tabla.wrapOn(c, ancho_tabla, espacio_tabla)
-    tabla.drawOn(c, margen, y_cursor - h_t)
-    y_cursor -= h_t + 0.5 * cm
+    # ── 3b. Paginación automática de la tabla ─────────────────────────────────
+    #
+    # Si las sesiones no caben en la primera hoja se agregan hojas adicionales
+    # automáticamente usando tabla.split().  Cada hoja de continuación repite
+    # un encabezado compacto y la misma nota al pie/marca de agua.
+    #
+    # • Primera hoja  → espacio = desde y_cursor hasta 4.8 cm del borde inferior
+    #                   (reserva para la caja de totales)
+    # • Hojas extra   → espacio = página completa menos márgenes superior/inferior
+    #                   (sin reserva de totales; éstos solo van en la última hoja)
+
+    RESERVA_TOTALES = 4.8 * cm   # altura mínima para la caja de totales al pie
+
+    def _pie_pagina(reg_str):
+        """Nota al pie + marca de agua — se repite en todas las hojas."""
+        c.setFont("Helvetica-Oblique", 7)
+        c.setFillColor(COLOR_TEXTO_SECUNDARIO)
+        c.drawString(margen, margen + 0.55 * cm,
+                     "Este documento es el respaldo del pago de honorarios profesionales. "
+                     "Conservar junto al comprobante EGR-XXXX.")
+        c.drawString(margen, margen + 0.20 * cm,
+                     f"Registrado por: {reg_str}   |   {NOMBRE_CENTRO}   |   {DIRECCION}")
+        lp2 = _logo_path()
+        if lp2:
+            try:
+                from PIL import Image as _PIL
+                img2 = _PIL.open(lp2).convert('LA')
+                buf3 = BytesIO(); img2.save(buf3, 'PNG'); buf3.seek(0)
+                ir2 = ImageReader(buf3)
+                iw2, ih2 = ir2.getSize()
+                asp2 = ih2 / float(iw2)
+                ls2, lh2 = 3.5 * cm, 3.5 * cm * asp2
+                sx2, sy2  = 6.5 * cm, 5.0 * cm
+                nc2 = int(pw / sx2) + 2
+                nr2 = int(ph / sy2) + 2
+                for _row in range(nr2):
+                    for _col in range(nc2):
+                        c.saveState()
+                        ox2 = (sx2 / 2) if _row % 2 else 0
+                        lx2 = _col * sx2 + ox2 - sx2 * 0.3
+                        ly2 = _row * sy2 - sy2 * 0.3
+                        c.setFillAlpha(0.10)
+                        c.translate(lx2 + ls2 / 2, ly2 + lh2 / 2)
+                        c.rotate(-25)
+                        c.translate(-(lx2 + ls2 / 2), -(ly2 + lh2 / 2))
+                        c.drawImage(ir2, lx2, ly2, width=ls2, height=lh2,
+                                    mask='auto', preserveAspectRatio=True)
+                        c.restoreState()
+            except Exception as _e:
+                logger.error(f"Marca agua detalle sesiones (cont.): {_e}")
+
+    reg_str = "---"
+    if hasattr(egreso, 'registrado_por') and egreso.registrado_por:
+        reg_str = (egreso.registrado_por.get_full_name()
+                   or egreso.registrado_por.username)
+
+    tabla_pendiente = tabla          # porción de tabla aún sin dibujar
+    es_primera_hoja = True
+    num_hoja        = 1
+
+    while tabla_pendiente is not None:
+        if es_primera_hoja:
+            espacio_disp = y_cursor - margen - RESERVA_TOTALES
+        else:
+            # Nueva hoja portrait — fondo + encabezado de continuación
+            c.showPage()
+            c.setPageSize((pw, ph))
+            c.setFillColor(COLOR_FONDO_PAGINA)
+            c.rect(0, 0, pw, ph, fill=1, stroke=0)
+
+            # Barra de continuación
+            cont_barra_h = 0.75 * cm
+            cont_y       = ph - margen
+            _grad_h(c, margen, cont_y - cont_barra_h,
+                    pw - 2 * margen, cont_barra_h,
+                    COLOR_VERDE_CL, COLOR_VERDE_P)
+            c.setFillColor(colors.white)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawCentredString(
+                pw / 2,
+                cont_y - cont_barra_h + 0.22 * cm,
+                f"DETALLE DE SESIONES  —  Continuación (hoja {num_hoja})"
+            )
+            y_cursor    = cont_y - cont_barra_h - 0.3 * cm
+            espacio_disp = y_cursor - margen - RESERVA_TOTALES
+
+            if egreso.anulado:
+                _sello_anulado_pagina(c, pw, ph)
+
+        # Dividir lo que cabe en esta hoja
+        partes = tabla_pendiente.split(ancho_tabla, espacio_disp)
+        parte_actual = partes[0]
+
+        w_t, h_t = parte_actual.wrapOn(c, ancho_tabla, espacio_disp)
+        parte_actual.drawOn(c, margen, y_cursor - h_t)
+        y_cursor -= h_t + 0.5 * cm
+
+        # ¿Quedan más filas?
+        if len(partes) > 1:
+            _pie_pagina(reg_str)          # pie en hoja intermedia
+            tabla_pendiente = partes[1]
+            es_primera_hoja = False
+            num_hoja       += 1
+        else:
+            tabla_pendiente = None        # salir del bucle → dibujar totales
 
     # ── 4. Caja de totales al pie ─────────────────────────────────────────────
     monto_deuda  = _d(getattr(pago_honorario, 'monto_deuda',  0))
@@ -1120,46 +1221,5 @@ def _pagina_detalle_sesiones_honorario(c, egreso, pago_honorario, sesiones, pw, 
     c.setFillColor(COLOR_TEXTO_SECUNDARIO)
     c.drawRightString(pw - margen, box_y - 0.35 * cm, f"SON: {monto_literal}")
 
-    # ── 5. Nota al pie ────────────────────────────────────────────────────────
-    reg = "---"
-    if hasattr(egreso, 'registrado_por') and egreso.registrado_por:
-        reg = (egreso.registrado_por.get_full_name()
-               or egreso.registrado_por.username)
-
-    c.setFont("Helvetica-Oblique", 7)
-    c.setFillColor(COLOR_TEXTO_SECUNDARIO)
-    c.drawString(margen, margen + 0.55 * cm,
-                 "Este documento es el respaldo del pago de honorarios profesionales. "
-                 "Conservar junto al comprobante EGR-XXXX.")
-    c.drawString(margen, margen + 0.20 * cm,
-                 f"Registrado por: {reg}   |   {NOMBRE_CENTRO}   |   {DIRECCION}")
-
-    # ── 6. Marca de agua ──────────────────────────────────────────────────────
-    lp = _logo_path()
-    if lp:
-        try:
-            from PIL import Image
-            img = Image.open(lp).convert('LA')
-            buf2 = BytesIO(); img.save(buf2, 'PNG'); buf2.seek(0)
-            ir = ImageReader(buf2)
-            iw, ih = ir.getSize()
-            aspect = ih / float(iw)
-            ls, lh = 3.5 * cm, 3.5 * cm * aspect
-            sx, sy = 6.5 * cm, 5.0 * cm
-            nc = int(pw / sx) + 2
-            nr = int(ph / sy) + 2
-            for row in range(nr):
-                for col in range(nc):
-                    c.saveState()
-                    ox = (sx / 2) if row % 2 else 0
-                    lx = col * sx + ox - sx * 0.3
-                    ly = row * sy - sy * 0.3
-                    c.setFillAlpha(0.10)
-                    c.translate(lx + ls / 2, ly + lh / 2)
-                    c.rotate(-25)
-                    c.translate(-(lx + ls / 2), -(ly + lh / 2))
-                    c.drawImage(ir, lx, ly, width=ls, height=lh,
-                                mask='auto', preserveAspectRatio=True)
-                    c.restoreState()
-        except Exception as e:
-            logger.error(f"Marca agua detalle sesiones: {e}")
+    # ── 5. Nota al pie + marca de agua (última hoja) ─────────────────────────
+    _pie_pagina(reg_str)
