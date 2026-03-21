@@ -19,12 +19,14 @@
         window.__SERVER_THEME__ = "{{ user.perfil.tema_ui|default:'atardecer' }}";
         window.__GUARDAR_TEMA_URL__ = "{% url 'core:guardar_tema' %}";
         window.__CSRF_TOKEN__ = "{{ csrf_token }}";
+        window.__USER_ID__ = "{{ user.pk }}";
     </script>
     {% else %}
     <script>
         window.__SERVER_THEME__ = null;
         window.__GUARDAR_TEMA_URL__ = null;
         window.__CSRF_TOKEN__ = null;
+        window.__USER_ID__ = null;
     </script>
     {% endif %}
 
@@ -40,10 +42,14 @@
             gatito:'#fbcfe8',    ghost:'#1e1b4b',     alien:'#020617',
             robot:'#082f49',     osito:'#fed7aa',     peces:'#083344'
         };
-        // Prioridad: localStorage (elección del usuario) > servidor > default
-        // Esto evita que al cambiar de pestaña el servidor revierta el tema elegido
+        // Clave de localStorage específica por usuario — evita que usuarios
+        // distintos en el mismo navegador se sobreescriban el tema mutuamente
+        var uid = window.__USER_ID__ || 'guest';
+        var LS_KEY = 'cni_theme_' + uid;
+
+        // Prioridad: localStorage del usuario > servidor > default
         var knownIds = Object.keys(COLORS);
-        var localTheme = localStorage.getItem('cni_theme');
+        var localTheme = localStorage.getItem(LS_KEY);
         var serverTheme = window.__SERVER_THEME__;
         var t;
         if (localTheme && knownIds.indexOf(localTheme) !== -1) {
@@ -52,7 +58,7 @@
         } else if (serverTheme && knownIds.indexOf(serverTheme) !== -1) {
             // Sin localStorage → usar el del servidor y guardarlo
             t = serverTheme;
-            localStorage.setItem('cni_theme', t);
+            localStorage.setItem(LS_KEY, t);
         } else {
             t = 'atardecer';
         }
@@ -2811,11 +2817,12 @@ function filterPacientes() {
     /* ================================================================
        MOTOR DE ANIMACIÓN
     ================================================================ */
+    // Clave localStorage específica por usuario — aísla temas entre usuarios del mismo navegador
+    const _LS_KEY = 'cni_theme_' + (window.__USER_ID__ || 'guest');
+
     let currentThemeId = (function(){
-        // Prioridad: localStorage > servidor > default
-        // El servidor puede no conocer los nuevos IDs (no están en choices del modelo Django)
-        // por eso localStorage manda siempre
-        var l = localStorage.getItem('cni_theme');
+        // Prioridad: localStorage del usuario > servidor > default
+        var l = localStorage.getItem(_LS_KEY);
         if(l && DRAWERS[l]) return l;
         var s = window.__SERVER_THEME__;
         if(s && DRAWERS[s]) return s;
@@ -2826,7 +2833,8 @@ function filterPacientes() {
 
     function applyTheme(id) {
         currentThemeId = id;
-        localStorage.setItem('cni_theme', id);
+        // Guardar con clave específica del usuario actual
+        localStorage.setItem(_LS_KEY, id);
         if(animId) cancelAnimationFrame(animId);
         tick = 0;
         drawer = DRAWERS[id]();
