@@ -53,15 +53,30 @@ class PerfilUsuario(models.Model):
 
     # Tema de la interfaz principal (selector de temas del navbar)
     TEMA_UI_CHOICES = [
-        ('atardecer', 'Atardecer'),
-        ('aurora',    'Aurora'),
-        ('cyber',     'Cyber'),
-        ('ocean',     'Océano'),
-        ('forest',    'Bosque'),
-        ('galaxy',    'Galaxia'),
-        ('tropical',  'Tropical'),
-        ('spring',    'Primavera'),
-        ('sky',       'Cielo'),
+        # Clásicos
+        ('atardecer',     'Atardecer Cálido'),
+        ('aurora',        'Aurora Boreal'),
+        ('cyber',         'Neón Cyberpunk'),
+        ('ocean',         'Océano Profundo'),
+        ('forest',        'Bosque Místico'),
+        ('galaxy',        'Galaxia Rosa'),
+        ('tropical',      'Atardecer Tropical'),
+        ('spring',        'Primavera Clara'),
+        ('sky',           'Cielo Abierto'),
+        # Ambientes cartoon
+        ('candy',         'Candy World'),
+        ('dino',          'Mundo Dino'),
+        ('space_kids',    'Espacio Cartoon'),
+        ('rainbow',       'Arcoíris Mágico'),
+        ('cartoon_night', 'Noche de Cuento'),
+        # Personajes
+        ('pinguinos',     'Playa Pingüino'),
+        ('gatito',        'Gatito Travieso'),
+        ('ghost',         'Fantasmitas'),
+        ('alien',         'Aliens Saltarines'),
+        ('robot',         'Robots Locos'),
+        ('osito',         'Ositos Dulces'),
+        ('peces',         'Peces de Colores'),
     ]
     tema_ui = models.CharField(
         max_length=20,

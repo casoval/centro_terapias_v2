@@ -798,8 +798,16 @@ def guardar_tema(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         tema = request.POST.get('tema', '').strip()
 
-    # Validar que sea un tema permitido
-    TEMAS_VALIDOS = {'atardecer', 'aurora', 'cyber', 'ocean', 'forest', 'galaxy', 'tropical', 'spring', 'sky'}
+    # Validar que sea un tema permitido (incluye todos los temas: clásicos + ambientes + personajes)
+    TEMAS_VALIDOS = {
+        # Clásicos
+        'atardecer', 'aurora', 'cyber', 'ocean', 'forest',
+        'galaxy', 'tropical', 'spring', 'sky',
+        # Ambientes cartoon
+        'candy', 'dino', 'space_kids', 'rainbow', 'cartoon_night',
+        # Personajes
+        'pinguinos', 'gatito', 'ghost', 'alien', 'robot', 'osito', 'peces',
+    }
     if tema not in TEMAS_VALIDOS:
         return JsonResponse({'ok': False, 'error': 'Tema no válido'}, status=400)
 
