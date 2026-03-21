@@ -3946,21 +3946,19 @@ def reporte_paciente(request):
         )
  
         # ── Rango de fechas ───────────────────────────────────────────────────
-        if fecha_desde and fecha_hasta:
-            try:
+        fecha_desde_obj = None
+        fecha_hasta_obj = None
+        try:
+            if fecha_desde:
                 fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-                fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            except ValueError:
-                fecha_desde_obj = None
-                fecha_hasta_obj = None
-                fecha_desde = ''
-                fecha_hasta = ''
-        else:
-            # Sin fechas → mostrar todo el historial del paciente
-            fecha_desde_obj = None
-            fecha_hasta_obj = None
+        except ValueError:
             fecha_desde = ''
+        try:
+            if fecha_hasta:
+                fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+        except ValueError:
             fecha_hasta = ''
+        # Sin ninguna fecha → mostrar todo el historial del paciente
  
         # ── Query base de sesiones ────────────────────────────────────────────
         sesiones = Sesion.objects.filter(
@@ -4133,25 +4131,66 @@ def reporte_paciente(request):
  
         # ── Pagos del período ─────────────────────────────────────────────────
         from facturacion.models import Pago
-        pagos_recientes = Pago.objects.filter(
+        pagos_qs_base = Pago.objects.filter(
             paciente=paciente,
             anulado=False,
         )
         if fecha_desde_obj:
-            pagos_recientes = pagos_recientes.filter(fecha_pago__gte=fecha_desde_obj)
+            pagos_qs_base = pagos_qs_base.filter(fecha_pago__gte=fecha_desde_obj)
         if fecha_hasta_obj:
-            pagos_recientes = pagos_recientes.filter(fecha_pago__lte=fecha_hasta_obj)
-        pagos_recientes = pagos_recientes.select_related(
+            pagos_qs_base = pagos_qs_base.filter(fecha_pago__lte=fecha_hasta_obj)
+        pagos_qs_base = pagos_qs_base.select_related(
             'metodo_pago', 'sesion__servicio',
             'proyecto__servicio_base', 'mensualidad'
         ).order_by('-fecha_pago')
- 
+
+        # Materializar una sola vez
+        pagos_recientes = list(pagos_qs_base)
+
+        NOMBRE_CREDITO = "Uso de Crédito"
+        pagos_contado  = [p for p in pagos_recientes if p.metodo_pago and p.metodo_pago.nombre != NOMBRE_CREDITO]
+        pagos_credito  = [p for p in pagos_recientes if p.metodo_pago and p.metodo_pago.nombre == NOMBRE_CREDITO]
+
+        # Agrupar contado por método de pago
+        from collections import defaultdict as _defdict
+        _por_metodo = _defdict(lambda: {'count': 0, 'monto': Decimal('0')})
+        for p in pagos_contado:
+            _por_metodo[p.metodo_pago.nombre]['count'] += 1
+            _por_metodo[p.metodo_pago.nombre]['monto'] += p.monto
+        contado_por_metodo = [
+            {'nombre': k, 'count': v['count'], 'monto': v['monto']}
+            for k, v in sorted(_por_metodo.items(), key=lambda x: -x[1]['monto'])
+        ]
+
         pagos_stats = {
-            'total_recibos': pagos_recientes.count(),
-            'monto_total'  : pagos_recientes.aggregate(
-                t=Coalesce(Sum('monto'), Decimal('0')))['t'],
+            'total_recibos'      : len(pagos_recientes),
+            'monto_total'        : sum(p.monto for p in pagos_recientes),
+            'contado_recibos'    : len(pagos_contado),
+            'contado_monto'      : sum(p.monto for p in pagos_contado),
+            'contado_por_metodo' : contado_por_metodo,
+            'credito_recibos'    : len(pagos_credito),
+            'credito_monto'      : sum(p.monto for p in pagos_credito),
         }
- 
+
+        # ── Devoluciones del período ──────────────────────────────────────────
+        devoluciones_qs = Devolucion.objects.filter(
+            paciente=paciente,
+        ).select_related(
+            'metodo_devolucion', 'proyecto__servicio_base',
+            'mensualidad', 'registrado_por'
+        ).order_by('-fecha_devolucion')
+        if fecha_desde_obj:
+            devoluciones_qs = devoluciones_qs.filter(fecha_devolucion__gte=fecha_desde_obj)
+        if fecha_hasta_obj:
+            devoluciones_qs = devoluciones_qs.filter(fecha_devolucion__lte=fecha_hasta_obj)
+        devoluciones_list = list(devoluciones_qs)
+
+        devoluciones_stats = {
+            'total'       : len(devoluciones_list),
+            'monto_total' : sum(Decimal(str(d.monto or 0)) for d in devoluciones_list),
+            'neto_contado': sum(p.monto for p in pagos_contado) - sum(Decimal(str(d.monto or 0)) for d in devoluciones_list),
+        }
+
         # ── Financiero por sucursal ───────────────────────────────────────────
         financiero_por_sucursal = _calcular_financiero_paciente_por_sucursal(
             paciente,
@@ -4182,7 +4221,11 @@ def reporte_paciente(request):
             'mensualidades_todas'   : mensualidades_todas,
             'pagos_stats'           : pagos_stats,
             'pagos_recientes'       : pagos_recientes,
-            'sesiones_recientes'    : sesiones_list[:20],
+            'pagos_contado'         : pagos_contado,
+            'pagos_credito'         : pagos_credito,
+            'devoluciones'          : devoluciones_list,
+            'devoluciones_stats'    : devoluciones_stats,
+            'sesiones_recientes'    : sesiones_list,
             'financiero_por_sucursal': financiero_por_sucursal,
         }
  
@@ -4207,6 +4250,9 @@ def reporte_paciente(request):
                 context_pdf = dict(context)
                 context_pdf['sesiones_completas'] = sesiones_list
                 context_pdf['pagos_recientes']    = list(pagos_recientes)
+                context_pdf['pagos_contado']      = list(pagos_contado)
+                context_pdf['pagos_credito']      = list(pagos_credito)
+                context_pdf['devoluciones']       = list(devoluciones_list)
                 context_pdf['proyectos_todos']    = list(proyectos_qs)
                 context_pdf['mensualidades_todas']= list(mensualidades_todas)
             else:

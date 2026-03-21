@@ -544,9 +544,8 @@ def _portada(c, pac, periodo_txt, fecha_emision, ctx):
 def _seccion_perfil(pages_data, ctx, helpers):
     """
     Sección 1: Perfil completo del paciente.
-    Todos los campos se leen defensivamente con getattr(pac, campo, None)
-    para que si el campo no existe en el modelo simplemente no se muestre,
-    sin lanzar ningún error.
+    Todos los campos se leen defensivamente con getattr(pac, campo, None).
+    Incluye fotografía del paciente, datos bien espaciados y diagnóstico destacado.
     """
     make_page = helpers['new_page']
     pac       = ctx.get('paciente')
@@ -558,7 +557,6 @@ def _seccion_perfil(pages_data, ctx, helpers):
 
     # ── Helper: obtener campo defensivamente ─────────────────────────
     def _g(attr, default=''):
-        """Obtiene un atributo del paciente. Si es callable (ej. get_X_display) lo llama."""
         val = getattr(pac, attr, None)
         if val is None:
             return default
@@ -570,7 +568,6 @@ def _seccion_perfil(pages_data, ctx, helpers):
         return val or default
 
     def _gf(attr):
-        """Obtiene fecha y la formatea DD/MM/YYYY."""
         val = getattr(pac, attr, None)
         if not val:
             return '—'
@@ -579,149 +576,233 @@ def _seccion_perfil(pages_data, ctx, helpers):
         except Exception:
             return str(val)
 
-    # ── Dibujar fila clave-valor en dos columnas ──────────────────────
-    col_izq = ML
-    col_der = ML + CW / 2 + 0.3 * cm
-    cw2     = CW / 2 - 0.6 * cm
+    # ── Intentar cargar foto (soporta Cloudinary y filesystem) ──────
+    foto_path = None
+    foto_field = getattr(pac, 'foto', None)
+    if foto_field:
+        # 1) Intentar path local (almacenamiento en disco)
+        try:
+            ruta = str(foto_field.path)
+            if os.path.exists(ruta):
+                foto_path = ruta
+        except Exception:
+            pass
 
-    def _kv2(c, y, label, valor, x, w):
-        c.setFont("Helvetica-Bold", 6.8)
-        c.setFillColor(C_MUTED)
-        c.drawString(x + 0.2 * cm, y, label.upper())
-        c.setFont("Helvetica", 7.8)
+        # 2) Si no hay path (Cloudinary u otro storage externo), descargar la URL
+        if not foto_path:
+            try:
+                import urllib.request, tempfile
+                foto_url = None
+                # Cloudinary: build_url o .url
+                if hasattr(foto_field, 'build_url'):
+                    try:
+                        foto_url = foto_field.build_url(
+                            width=300, height=300, crop='fill',
+                            gravity='face', quality='auto', fetch_format='auto'
+                        )
+                    except Exception:
+                        pass
+                if not foto_url and hasattr(foto_field, 'url'):
+                    foto_url = foto_field.url
+
+                if foto_url:
+                    # Asegurar protocolo HTTPS
+                    if foto_url.startswith('//'):
+                        foto_url = 'https:' + foto_url
+                    tmp = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+                    urllib.request.urlretrieve(foto_url, tmp.name)
+                    tmp.close()
+                    if os.path.getsize(tmp.name) > 0:
+                        foto_path = tmp.name
+            except Exception:
+                foto_path = None
+
+    FOTO_W = 3.6 * cm
+    FOTO_H = 3.6 * cm
+    foto_x = ML
+    foto_y = y - FOTO_H
+
+    if foto_path:
+        # Marco de la foto
+        c.setFillColor(C_GRIS_H)
+        c.roundRect(foto_x - 0.12*cm, foto_y - 0.12*cm,
+                    FOTO_W + 0.24*cm, FOTO_H + 0.24*cm, 7, fill=1, stroke=0)
+        c.setStrokeColor(C_MED)
+        c.setLineWidth(1.5)
+        c.roundRect(foto_x - 0.12*cm, foto_y - 0.12*cm,
+                    FOTO_W + 0.24*cm, FOTO_H + 0.24*cm, 7, fill=0, stroke=1)
+        try:
+            c.drawImage(foto_path, foto_x, foto_y,
+                        width=FOTO_W, height=FOTO_H,
+                        preserveAspectRatio=False, mask='auto')
+        except Exception:
+            foto_path = None  # si falla el render mostrar avatar abajo
+
+    if not foto_path:
+        # Avatar placeholder con iniciales
+        c.setFillColor(C_FONDO)
+        c.roundRect(foto_x, foto_y, FOTO_W, FOTO_H, 7, fill=1, stroke=0)
+        c.setStrokeColor(C_MED)
+        c.setLineWidth(1.0)
+        c.roundRect(foto_x, foto_y, FOTO_W, FOTO_H, 7, fill=0, stroke=1)
+        nom_raw = _g('nombre_completo') or f"{_g('nombre')} {_g('apellido')}".strip()
+        partes   = nom_raw.split()
+        iniciales = ''.join(p[0].upper() for p in partes[:2]) if partes else '?'
+        c.setFont("Helvetica-Bold", 22)
+        c.setFillColor(C_MED)
+        c.drawCentredString(foto_x + FOTO_W / 2, foto_y + FOTO_H / 2 - 0.4*cm, iniciales)
+
+    # ── Columnas (siempre reservar espacio de foto) ───────────────────
+    x_offset = FOTO_W + 0.55*cm
+    col_izq  = ML + x_offset
+    col_der  = ML + CW / 2 + 0.3*cm
+    cw_izq   = CW / 2 - x_offset - 0.3*cm
+    cw_der   = CW / 2 - 0.6*cm
+
+    ROW_H  = 0.88 * cm   # altura total de cada fila (label + valor + espacio)
+    GAP    = 0.10 * cm   # gap entre filas
+
+    def _kv2(c, y_pos, label, valor, x, w):
+        # Fondo de la tarjeta
+        c.setFillColor(C_FONDO)
+        c.roundRect(x, y_pos - ROW_H, w, ROW_H, 3, fill=1, stroke=0)
+        # Label en azul pequeño arriba
+        c.setFont("Helvetica-Bold", 6.2)
+        c.setFillColor(C_MED)
+        c.drawString(x + 0.25*cm, y_pos - 0.25*cm, label.upper())
+        # Valor en negro más grande abajo
+        c.setFont("Helvetica", 8.5)
         c.setFillColor(C_TEXTO)
         txt = str(valor) if valor else '—'
-        mw = w - 0.4 * cm
-        while stringWidth(txt, "Helvetica", 7.8) > mw and len(txt) > 1:
+        mw = w - 0.5*cm
+        while stringWidth(txt, "Helvetica", 8.5) > mw and len(txt) > 1:
             txt = txt[:-2] + '.'
-        c.drawString(x + 0.2 * cm, y - 0.26 * cm, txt)
-        c.setStrokeColor(C_GRIS_B)
-        c.setLineWidth(0.13)
-        c.line(x, y - 0.38 * cm, x + w, y - 0.38 * cm)
-        return y - 0.56 * cm
+        c.drawString(x + 0.25*cm, y_pos - 0.62*cm, txt)
+        return y_pos - ROW_H - GAP
 
     # ── COLUMNA IZQUIERDA: Datos de identidad ─────────────────────────
     yi = y
-
-    # Nombre — prioridad: nombre_completo > nombre + apellido
-    nom = (_g('nombre_completo') or
-           f"{_g('nombre')} {_g('apellido')}".strip() or '—')
-    yi = _kv2(c, yi, "Nombre completo", nom, col_izq, cw2)
-
-    # CI / Carnet de identidad
-    ci_val = _g('ci') or _g('carnet') or _g('documento') or _g('ci_pasaporte') or '—'
-    yi = _kv2(c, yi, "CI / Carnet", ci_val, col_izq, cw2)
-
-    # Fecha de nacimiento
-    fn = _gf('fecha_nacimiento') or _gf('fecha_nac')
-    yi = _kv2(c, yi, "Fecha de nacimiento", fn, col_izq, cw2)
-
-    # Edad
+    nom = (_g('nombre_completo') or f"{_g('nombre')} {_g('apellido')}".strip() or '—')
+    yi = _kv2(c, yi, "Nombre completo", nom, col_izq, cw_izq)
+    ci_val = _g('ci') or _g('carnet') or _g('documento') or '—'
+    yi = _kv2(c, yi, "CI / Carnet", ci_val, col_izq, cw_izq)
+    yi = _kv2(c, yi, "Fecha de nacimiento", _gf('fecha_nacimiento'), col_izq, cw_izq)
     edad_val = _g('edad')
-    yi = _kv2(c, yi, "Edad", f"{edad_val} años" if edad_val else '—', col_izq, cw2)
-
-    # Género
+    yi = _kv2(c, yi, "Edad", f"{edad_val} años" if edad_val else '—', col_izq, cw_izq)
     gen = _g('get_genero_display') or _g('genero') or '—'
-    yi = _kv2(c, yi, "Género", gen, col_izq, cw2)
-
-    # Estado
+    yi = _kv2(c, yi, "Género", gen, col_izq, cw_izq)
     est = _g('get_estado_display') or _g('estado') or '—'
-    yi = _kv2(c, yi, "Estado", est, col_izq, cw2)
-
-    # Peso y talla (si existen)
+    yi = _kv2(c, yi, "Estado", est, col_izq, cw_izq)
     peso  = _g('peso')
     talla = _g('talla') or _g('altura')
     if peso or talla:
         wt = []
-        if peso:  wt.append(f"Peso: {peso} kg")
-        if talla: wt.append(f"Talla: {talla} cm")
-        yi = _kv2(c, yi, "Medidas antropométricas", ' · '.join(wt), col_izq, cw2)
-
-    # Grupo sanguíneo
-    gs = _g('grupo_sanguineo') or _g('tipo_sangre') or _g('grupo_sangre')
+        if peso:  wt.append(f"{peso} kg")
+        if talla: wt.append(f"{talla} cm")
+        yi = _kv2(c, yi, "Peso / Talla", ' · '.join(wt), col_izq, cw_izq)
+    gs = _g('grupo_sanguineo') or _g('tipo_sangre')
     if gs:
-        yi = _kv2(c, yi, "Grupo sanguíneo", gs, col_izq, cw2)
-
-    # Nacionalidad / Ciudad
+        yi = _kv2(c, yi, "Grupo sanguíneo", gs, col_izq, cw_izq)
     nac = _g('nacionalidad')
-    ciu = _g('ciudad') or _g('municipio') or _g('provincia')
-    if nac: yi = _kv2(c, yi, "Nacionalidad", nac, col_izq, cw2)
-    if ciu: yi = _kv2(c, yi, "Ciudad / Municipio", ciu, col_izq, cw2)
+    if nac: yi = _kv2(c, yi, "Nacionalidad", nac, col_izq, cw_izq)
+    ciu = _g('ciudad') or _g('municipio')
+    if ciu: yi = _kv2(c, yi, "Ciudad / Municipio", ciu, col_izq, cw_izq)
+    dom = _g('domicilio') or _g('direccion')
+    if dom: yi = _kv2(c, yi, "Domicilio", dom, col_izq, cw_izq)
+    nivel   = _g('nivel_educativo') or _g('grado')
+    escuela = _g('escuela') or _g('colegio')
+    if nivel:   yi = _kv2(c, yi, "Nivel educativo", nivel, col_izq, cw_izq)
+    if escuela: yi = _kv2(c, yi, "Escuela / Colegio", escuela, col_izq, cw_izq)
+    fi = _gf('fecha_ingreso') or _gf('fecha_registro')
+    if fi and fi != '—': yi = _kv2(c, yi, "Ingreso al centro", fi, col_izq, cw_izq)
 
-    # Domicilio
-    dom = _g('domicilio') or _g('direccion') or _g('calle')
-    if dom: yi = _kv2(c, yi, "Domicilio", dom, col_izq, cw2)
-
-    # Nivel educativo / Escuela
-    nivel = _g('nivel_educativo') or _g('grado') or _g('curso')
-    escuela = _g('escuela') or _g('colegio') or _g('institucion_educativa')
-    if nivel:   yi = _kv2(c, yi, "Nivel educativo", nivel, col_izq, cw2)
-    if escuela: yi = _kv2(c, yi, "Escuela / Colegio", escuela, col_izq, cw2)
-
-    # ── COLUMNA DERECHA: Datos del tutor / contacto ───────────────────
+    # ── COLUMNA DERECHA: Tutor y contacto ────────────────────────────
     yd = y
-
-    # Tutor / responsable
     tutor = _g('nombre_tutor') or _g('nombre_padre') or _g('nombre_madre')
-    if tutor:
-        yd = _kv2(c, yd, "Tutor / Responsable", tutor, col_der, cw2)
-
-    # Parentesco
-    par = _g('get_parentesco_display') or _g('parentesco') or _g('relacion_tutor')
-    if par: yd = _kv2(c, yd, "Parentesco", par, col_der, cw2)
-
-    # CI del tutor
-    ci_tutor = _g('ci_tutor') or _g('carnet_tutor') or _g('ci_responsable')
-    if ci_tutor: yd = _kv2(c, yd, "CI del tutor", ci_tutor, col_der, cw2)
-
-    # Ocupación del tutor
-    ocu = _g('ocupacion_tutor') or _g('profesion_tutor') or _g('trabajo_tutor')
-    if ocu: yd = _kv2(c, yd, "Ocupación tutor", ocu, col_der, cw2)
-
-    # Teléfonos (múltiples si existen)
+    if tutor: yd = _kv2(c, yd, "Tutor / Responsable", tutor, col_der, cw_der)
+    par = _g('get_parentesco_display') or _g('parentesco')
+    if par: yd = _kv2(c, yd, "Parentesco", par, col_der, cw_der)
+    ci_tutor = _g('ci_tutor') or _g('carnet_tutor')
+    if ci_tutor: yd = _kv2(c, yd, "CI del tutor", ci_tutor, col_der, cw_der)
+    ocu = _g('ocupacion_tutor') or _g('profesion_tutor')
+    if ocu: yd = _kv2(c, yd, "Ocupación tutor", ocu, col_der, cw_der)
     tel1 = _g('telefono_tutor') or _g('telefono') or _g('celular_tutor')
-    tel2 = _g('telefono_casa') or _g('telefono2') or _g('telefono_alternativo')
-    tel3 = _g('telefono_emergencia') or _g('contacto_emergencia_telefono')
-    if tel1: yd = _kv2(c, yd, "Teléfono tutor", tel1, col_der, cw2)
-    if tel2: yd = _kv2(c, yd, "Tel. alternativo", tel2, col_der, cw2)
-    if tel3: yd = _kv2(c, yd, "Tel. emergencia", tel3, col_der, cw2)
-
-    # Email
-    email = _g('email_tutor') or _g('email') or _g('correo_tutor')
-    if email: yd = _kv2(c, yd, "Email", email, col_der, cw2)
-
-    # Sucursales
+    tel2 = _g('telefono_casa') or _g('telefono2')
+    tel3 = _g('telefono_emergencia')
+    if tel1: yd = _kv2(c, yd, "Teléfono tutor", tel1, col_der, cw_der)
+    if tel2: yd = _kv2(c, yd, "Tel. alternativo", tel2, col_der, cw_der)
+    if tel3: yd = _kv2(c, yd, "Tel. emergencia", tel3, col_der, cw_der)
+    email = _g('email_tutor') or _g('email')
+    if email: yd = _kv2(c, yd, "Email", email, col_der, cw_der)
     try:
         sucs = pac.sucursales.all()
         suc_txt = ', '.join(s.nombre for s in sucs) if sucs.exists() else '—'
     except Exception:
         suc_txt = '—'
-    yd = _kv2(c, yd, "Sucursales", suc_txt, col_der, cw2)
+    yd = _kv2(c, yd, "Sucursales", suc_txt, col_der, cw_der)
+    der = _g('derivado_de') or _g('medico_derivante')
+    if der: yd = _kv2(c, yd, "Derivado de", der, col_der, cw_der)
+    seg = _g('seguro_medico') or _g('obra_social')
+    if seg: yd = _kv2(c, yd, "Seguro médico", seg, col_der, cw_der)
 
-    # Fecha de ingreso al centro
-    fi = _gf('fecha_ingreso') or _gf('fecha_registro') or _gf('fecha_alta')
-    if fi and fi != '—': yd = _kv2(c, yd, "Fecha ingreso al centro", fi, col_der, cw2)
+    # Segundo tutor (si existe)
+    tutor2 = _g('nombre_tutor_2')
+    if tutor2:
+        yd = _kv2(c, yd, "2° Tutor", tutor2, col_der, cw_der)
+        par2 = _g('get_parentesco_2_display') or _g('parentesco_2')
+        tel_2 = _g('telefono_tutor_2')
+        if par2: yd = _kv2(c, yd, "Parentesco 2°", par2, col_der, cw_der)
+        if tel_2: yd = _kv2(c, yd, "Teléfono 2°", tel_2, col_der, cw_der)
 
-    # Derivado de / médico referente
-    der = _g('derivado_de') or _g('medico_derivante') or _g('institucion_derivante')
-    if der: yd = _kv2(c, yd, "Derivado de", der, col_der, cw2)
+    y = min(yi, yd) - 0.35*cm
 
-    # Seguro médico / obra social
-    seg = _g('seguro_medico') or _g('obra_social') or _g('seguro')
-    if seg: yd = _kv2(c, yd, "Seguro médico", seg, col_der, cw2)
+    # ── SECCIÓN 1.2: DIAGNÓSTICO DESTACADO ───────────────────────────
+    diag_principal = _g('diagnostico')
+    if diag_principal:
+        if y < Y_BOTTOM + 2.5*cm:
+            _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
+            pages_data.append(pg)
+            c, y, pg = make_page()
 
-    # Motivo de consulta
-    mot = _g('motivo_consulta') or _g('motivo_ingreso') or _g('motivo')
-    if mot: yd = _kv2(c, yd, "Motivo de consulta", mot[:60], col_der, cw2)
+        y -= 0.1*cm
+        y = _titulo_seccion(c, y, "1.2 Diagnóstico", color=C_TEAL)
 
-    y = min(yi, yd) - 0.25 * cm
+        # Caja destacada de diagnóstico
+        words_d = str(diag_principal).split()
+        lines_d, line_d = [], ""
+        mw_d = CW - 3.0*cm
+        for w_ in words_d:
+            test = (line_d + " " + w_).strip()
+            if stringWidth(test, "Helvetica-Bold", 9) <= mw_d:
+                line_d = test
+            else:
+                if line_d: lines_d.append(line_d)
+                line_d = w_
+        if line_d: lines_d.append(line_d)
 
-    # ── SECCIÓN 1.2: INFORMACIÓN CLÍNICA ─────────────────────────────
-    # Recolectar todos los campos clínicos disponibles
+        diag_h = max(1.1*cm, len(lines_d) * 0.44*cm + 0.5*cm)
+        c.setFillColor(C_TEAL_L)
+        c.roundRect(ML, y - diag_h, CW, diag_h, 5, fill=1, stroke=0)
+        c.setStrokeColor(C_TEAL)
+        c.setLineWidth(1.5)
+        c.line(ML, y - diag_h, ML, y)  # barra izquierda
+        c.setLineWidth(0.4)
+        c.roundRect(ML, y - diag_h, CW, diag_h, 5, fill=0, stroke=1)
+        c.setFont("Helvetica-Bold", 6.5)
+        c.setFillColor(C_TEAL)
+        c.drawString(ML + 0.4*cm, y - 0.24*cm, "DIAGNÓSTICO:")
+        yt = y - 0.24*cm
+        for ln in lines_d:
+            c.setFont("Helvetica-Bold", 9)
+            c.setFillColor(C_TEXTO)
+            c.drawString(ML + 3.0*cm, yt, ln)
+            yt -= 0.44*cm
+        y -= diag_h + 0.15*cm
+
+    # ── SECCIÓN 1.3: INFORMACIÓN CLÍNICA ─────────────────────────────
     campos_clinicos = [
-        ("Diagnóstico",           _g('diagnostico'), C_TEAL_L),
         ("Diagnóstico secundario", _g('diagnostico_secundario') or _g('diagnostico2'), C_TEAL_L),
-        ("CIE-10 / Código diag.", _g('cie10') or _g('codigo_diagnostico') or _g('clasificacion'), C_TEAL_L),
+        ("CIE-10 / Código diag.", _g('cie10') or _g('codigo_diagnostico'), C_TEAL_L),
         ("Observaciones médicas",  _g('observaciones_medicas') or _g('observaciones'), C_GRIS_T),
         ("Antecedentes",           _g('antecedentes') or _g('antecedentes_medicos'), C_GRIS_T),
         ("Antecedentes familiares",_g('antecedentes_familiares'), C_GRIS_T),
@@ -729,31 +810,27 @@ def _seccion_perfil(pages_data, ctx, helpers):
         ("Medicamentos actuales",  _g('medicamentos') or _g('medicamentos_actuales'), C_AMBER_L),
         ("Notas adicionales",      _g('notas_adicionales') or _g('notas'), C_GRIS_T),
     ]
-    # Siempre mostrar alergias al final con color rojo
     aler = _g('alergias') or _g('alergias_medicamentos')
-
     campos_a_mostrar = [(lbl, val, bg) for lbl, val, bg in campos_clinicos if val]
     if aler:
         campos_a_mostrar.append(("⚠ ALERGIAS / CONTRAINDICACIONES", aler, C_ROJO_L))
 
     if campos_a_mostrar:
-        # Necesitamos nueva página si queda poco espacio
-        if y < Y_BOTTOM + 3 * cm:
+        if y < Y_BOTTOM + 3*cm:
             _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
             pages_data.append(pg)
             c, y, pg = make_page()
 
-        y -= 0.1 * cm
-        y = _titulo_seccion(c, y, "1.2 Información Clínica", color=C_TEAL)
+        y -= 0.1*cm
+        y = _titulo_seccion(c, y, "1.3 Información Clínica Adicional", color=C_TEAL)
 
         def _kv_largo(c, y, label, valor, bg_color):
             if not valor:
                 return y
             txt = str(valor)
             words_l = txt.split()
-            lines_l = []
-            line_l  = ""
-            mw_l    = CW - 2.6 * cm
+            lines_l, line_l = [], ""
+            mw_l = CW - 2.8*cm
             for w_ in words_l:
                 test = (line_l + " " + w_).strip()
                 if stringWidth(test, "Helvetica", 7.8) <= mw_l:
@@ -763,49 +840,46 @@ def _seccion_perfil(pages_data, ctx, helpers):
                     line_l = w_
             if line_l: lines_l.append(line_l)
 
-            h_box = max(0.62 * cm, len(lines_l) * 0.37 * cm + 0.32 * cm)
-
-            # Salto de página si no cabe
+            h_box = max(0.68*cm, len(lines_l) * 0.38*cm + 0.36*cm)
             if y - h_box < Y_BOTTOM:
-                _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
-                pages_data.append(pg)
-                # Nota: pg es de la función contenedora — usamos nonlocal trick via list
                 return None  # señal de página nueva
 
             c.setFillColor(bg_color)
             c.roundRect(ML, y - h_box, CW, h_box, 4, fill=1, stroke=0)
-            # Label en negrita
             c.setFont("Helvetica-Bold", 6.8)
             lbl_col = C_TEAL if bg_color == C_TEAL_L else (C_ROJO if bg_color == C_ROJO_L else C_TSEC)
             c.setFillColor(lbl_col)
-            c.drawString(ML + 0.3 * cm, y - 0.24 * cm, label.upper() + ":")
-            # Valor
+            c.drawString(ML + 0.3*cm, y - 0.26*cm, label.upper() + ":")
             c.setFont("Helvetica", 7.8)
             c.setFillColor(C_TEXTO)
-            yt = y - 0.24 * cm
+            yt = y - 0.26*cm
             for ln in lines_l:
-                c.drawString(ML + 2.5 * cm, yt, ln)
-                yt -= 0.37 * cm
-            return y - h_box - 0.12 * cm
+                c.drawString(ML + 2.7*cm, yt, ln)
+                yt -= 0.38*cm
+            return y - h_box - 0.14*cm
 
         for lbl, val, bg in campos_a_mostrar:
             resultado = _kv_largo(c, y, lbl, val, bg)
             if resultado is None:
-                # Hubo salto de página — retomar en nueva página
                 _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
                 pages_data.append(pg)
                 c, y, pg = make_page()
-                y = _titulo_seccion(c, y, "1.2 Información Clínica (cont.)", color=C_TEAL)
+                y = _titulo_seccion(c, y, "1.3 Información Clínica (cont.)", color=C_TEAL)
                 resultado = _kv_largo(c, y, lbl, val, bg)
             y = resultado if resultado is not None else y
 
     _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
     pages_data.append(pg)
 
+    # Limpiar archivo temporal si se descargó de Cloudinary
+    try:
+        import tempfile
+        if foto_path and foto_path.startswith(tempfile.gettempdir()):
+            os.unlink(foto_path)
+    except Exception:
+        pass
 
-# ─────────────────────────────────────────────────────────────────────
-# SECCIÓN 2 — RESUMEN FINANCIERO
-# ─────────────────────────────────────────────────────────────────────
+
 
 def _seccion_financiero(pages_data, ctx, helpers):
     make_page = helpers['new_page']
@@ -1134,75 +1208,257 @@ def _seccion_mensualidades(pages_data, ctx, helpers):
 
 
 # ─────────────────────────────────────────────────────────────────────
-# SECCIÓN 7 — PAGOS RECIBIDOS
+# SECCIÓN 7 — PAGOS RECIBIDOS (contado + crédito separados)
 # ─────────────────────────────────────────────────────────────────────
 
 def _seccion_pagos(pages_data, ctx, helpers):
-    make_page = helpers['new_page']
-    pagos     = list(ctx.get('pagos_recientes') or [])
+    make_page  = helpers['new_page']
+    datos      = ctx.get('datos') or {}
+    p_stats    = datos.get('pagos_stats') or {}
 
-    if not pagos:
+    # Listas separadas — primero intentar desde contexto directo, luego desde datos
+    pagos_contado = list(ctx.get('pagos_contado') or [])
+    pagos_credito = list(ctx.get('pagos_credito') or [])
+
+    # Si no vienen separados, reconstruir desde pagos_recientes
+    if not pagos_contado and not pagos_credito:
+        todos = list(ctx.get('pagos_recientes') or [])
+        NOMBRE_CREDITO = "Uso de Crédito"
+        pagos_contado = [p for p in todos if p.metodo_pago and p.metodo_pago.nombre != NOMBRE_CREDITO]
+        pagos_credito = [p for p in todos if p.metodo_pago and p.metodo_pago.nombre == NOMBRE_CREDITO]
+
+    if not pagos_contado and not pagos_credito:
         return
 
     c, y, pg = make_page()
     y = _titulo_seccion(c, y, "7. Pagos Recibidos en el Período")
     y = _explicacion(c, y,
-        "Listado de los pagos registrados para este paciente en el período seleccionado.")
+        "Se distinguen los pagos reales al contado (efectivo, QR, transferencia) "
+        "de los descuentos de crédito acumulado previamente por el paciente.")
 
-    headers = ["Recibo", "Fecha", "Concepto", "Método", "Monto Bs."]
-    col_ws  = [2.5*cm, 2.2*cm, 7.0*cm, 3.5*cm, 2.8*cm]
-    row_h   = 0.50 * cm
-    y = _tabla_header(c, y, headers, col_ws)
+    # ── Resumen en grilla ──────────────────────────────────────────────
+    total_contado = sum(Decimal(str(p.monto or 0)) for p in pagos_contado)
+    total_credito = sum(Decimal(str(p.monto or 0)) for p in pagos_credito)
+    total_global  = total_contado + total_credito
 
-    total_pagos = Decimal('0')
-    for ri, pago in enumerate(pagos):
-        if y < Y_BOTTOM + row_h:
+    # Agrupar contado por método
+    from collections import defaultdict as _ddict
+    _por_met = _ddict(lambda: Decimal('0'))
+    for p in pagos_contado:
+        _por_met[p.metodo_pago.nombre] += Decimal(str(p.monto or 0))
+    met_txt = '  ·  '.join(f"{k}: {_bs(v)}" for k, v in sorted(_por_met.items(), key=lambda x: -x[1]))
+
+    kpis = [
+        ("Total Recibido",   _bs(total_global),  f"{len(pagos_contado)+len(pagos_credito)} recibos", C_MED),
+        ("Pagos al Contado", _bs(total_contado), f"{len(pagos_contado)} recibos",                    C_VERDE),
+        ("Uso de Crédito",   _bs(total_credito), f"{len(pagos_credito)} aplicaciones",               C_MORADO),
+    ]
+    y = _grilla(c, y, kpis, cols=3, box_h=1.55*cm)
+
+    # Desglose por método de pago (contado)
+    if _por_met:
+        y -= 0.1*cm
+        c.setFont("Helvetica-Bold", 7)
+        c.setFillColor(C_TSEC)
+        c.drawString(ML, y, "Desglose por método de pago (contado):")
+        y -= 0.35*cm
+        gap_m = 0.3*cm
+        n_met = len(_por_met)
+        bw_m  = (CW - (n_met - 1) * gap_m) / max(n_met, 1)
+        bw_m  = min(bw_m, 5.0*cm)
+        for i, (met_n, met_v) in enumerate(sorted(_por_met.items(), key=lambda x: -x[1])):
+            _metrica_box(c, ML + i*(bw_m + gap_m), y, bw_m, 1.45*cm,
+                         met_n, _bs(met_v), f"{sum(1 for p in pagos_contado if p.metodo_pago and p.metodo_pago.nombre == met_n)} recibos",
+                         C_VERDE)
+        y -= 1.45*cm + 0.3*cm
+
+    # ── Tabla pagos al contado ─────────────────────────────────────────
+    def _tabla_pagos(c, y, pg, pagos, titulo_sec, color_titulo, color_monto):
+        if not pagos:
+            return y, pg
+
+        # ¿Cabe el título + encabezado?
+        if y < Y_BOTTOM + 2.5*cm:
             _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
             pages_data.append(pg)
             c, y, pg = make_page()
-            y = _titulo_seccion(c, y, "7. Pagos Recibidos (cont.)")
+
+        y = _titulo_seccion(c, y, titulo_sec, color=color_titulo)
+
+        headers = ["Recibo", "Fecha", "Concepto", "Método", "Monto Bs."]
+        col_ws  = [2.5*cm, 2.2*cm, 6.5*cm, 3.5*cm, 3.3*cm]
+        row_h   = 0.50*cm
+        y = _tabla_header(c, y, headers, col_ws)
+
+        total_sec = Decimal('0')
+        for ri, pago in enumerate(pagos):
+            if y < Y_BOTTOM + row_h:
+                _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
+                pages_data.append(pg)
+                c, y, pg = make_page()
+                y = _titulo_seccion(c, y, titulo_sec + " (cont.)", color=color_titulo)
+                y = _tabla_header(c, y, headers, col_ws)
+
+            if pago.sesion:
+                concepto = f"Sesión: {pago.sesion.servicio.nombre if pago.sesion.servicio else '—'}"
+            elif pago.proyecto:
+                concepto = f"Proyecto: {pago.proyecto.servicio_base.nombre if pago.proyecto.servicio_base else '—'}"
+            elif pago.mensualidad:
+                concepto = f"Mensualidad {getattr(pago.mensualidad, 'periodo_display', '') or ''}"
+            else:
+                concepto = "Adelanto / Crédito"
+
+            metodo_n = str(pago.metodo_pago.nombre if pago.metodo_pago else '—')
+            monto_v  = Decimal(str(pago.monto or 0))
+            total_sec += monto_v
+
+            row = [
+                str(pago.numero_recibo),
+                pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else '—',
+                concepto[:42],
+                metodo_n[:20],
+                _bs(monto_v),
+            ]
+
+            if ri % 2 == 0:
+                c.setFillColor(C_GRIS_T)
+                c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
+            c.setStrokeColor(C_GRIS_B)
+            c.setLineWidth(0.15)
+            c.line(ML, y - row_h, ML + sum(col_ws), y - row_h)
+            xc = ML
+            for ci, cell in enumerate(row):
+                c.setFont("Helvetica", 7.5)
+                c.setFillColor(C_TEXTO if ci != 4 else color_monto)
+                if ci == 4:
+                    c.setFont("Helvetica-Bold", 7.5)
+                c.drawString(xc + 0.2*cm, y - row_h + 0.13*cm, str(cell))
+                xc += col_ws[ci]
+            y -= row_h
+
+        # Fila total
+        c.setFillColor(C_GRIS_H)
+        c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(C_TEXTO)
+        c.drawString(ML + 0.25*cm, y - row_h + 0.15*cm, f"TOTAL ({len(pagos)} recibos)")
+        c.setFillColor(color_monto)
+        c.drawRightString(ML + sum(col_ws) - 0.25*cm, y - row_h + 0.15*cm, _bs(total_sec))
+        y -= row_h + 0.25*cm
+
+        return y, pg
+
+    y, pg = _tabla_pagos(c, y, pg, pagos_contado,
+                         "7.1 Pagos al Contado (Efectivo / QR / Transferencia)",
+                         C_VERDE, C_VERDE)
+    y, pg = _tabla_pagos(c, y, pg, pagos_credito,
+                         "7.2 Uso de Crédito Acumulado",
+                         C_MORADO, C_MORADO)
+
+    _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
+    pages_data.append(pg)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# SECCIÓN 7.3 — DEVOLUCIONES
+# ─────────────────────────────────────────────────────────────────────
+
+def _seccion_devoluciones(pages_data, ctx, helpers):
+    make_page    = helpers['new_page']
+    devoluciones = list(ctx.get('devoluciones') or [])
+
+    if not devoluciones:
+        return
+
+    c, y, pg = make_page()
+    y = _titulo_seccion(c, y, "7.3 Devoluciones Realizadas en el Período", color=C_ROJO)
+    y = _explicacion(c, y,
+        "Reintegros efectuados al paciente durante el período. "
+        "El monto neto recibido = pagos al contado − devoluciones.")
+
+    # ── Resumen ────────────────────────────────────────────────────────
+    total_dev = sum(Decimal(str(getattr(d, 'monto', 0) or 0)) for d in devoluciones)
+    datos     = ctx.get('datos') or {}
+    p_stats   = datos.get('pagos_stats') or {}
+    contado   = Decimal(str(p_stats.get('contado_monto', 0) or 0))
+    neto      = contado - total_dev
+
+    kpis = [
+        ("Devoluciones",    _bs(total_dev), f"{len(devoluciones)} registro(s)",   C_ROJO),
+        ("Pagado Contado",  _bs(contado),   "Efectivo / QR / Transf.",            C_VERDE),
+        ("Neto Recibido",   _bs(neto),      "Contado − Devoluciones",             C_MED if neto >= 0 else C_ROJO),
+    ]
+    y = _grilla(c, y, kpis, cols=3, box_h=1.45*cm)
+
+    # ── Tabla ──────────────────────────────────────────────────────────
+    headers = ["N° Dev.", "Fecha", "Concepto", "Método", "Motivo", "Monto Bs."]
+    col_ws  = [2.3*cm, 2.0*cm, 4.5*cm, 2.8*cm, 4.9*cm, 2.5*cm]
+    row_h   = 0.50*cm
+    y = _tabla_header(c, y, headers, col_ws)
+
+    for ri, dev in enumerate(devoluciones):
+        if y < _LS_Y_BOTTOM + row_h if False else y < Y_BOTTOM + row_h:
+            _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
+            pages_data.append(pg)
+            c, y, pg = make_page()
+            y = _titulo_seccion(c, y, "7.3 Devoluciones (cont.)", color=C_ROJO)
             y = _tabla_header(c, y, headers, col_ws)
 
-        if pago.sesion:
-            concepto = f"Sesión: {pago.sesion.servicio.nombre if pago.sesion.servicio else '—'}"
-        elif pago.proyecto:
-            concepto = f"Proyecto: {pago.proyecto.servicio_base.nombre if pago.proyecto.servicio_base else '—'}"
-        elif pago.mensualidad:
-            concepto = "Mensualidad"
+        # Concepto
+        proy  = getattr(dev, 'proyecto',    None)
+        mens  = getattr(dev, 'mensualidad', None)
+        if proy:
+            sb = getattr(proy, 'servicio_base', None)
+            concepto = f"Proy: {getattr(sb,'nombre','—') if sb else getattr(proy,'codigo','—')}"
+        elif mens:
+            concepto = f"Mens: {getattr(mens,'periodo_display',None) or getattr(mens,'codigo','—')}"
         else:
-            concepto = "Adelanto / Crédito"
+            concepto = "Crédito / Adelanto"
+
+        metodo_dev = getattr(dev, 'metodo_devolucion', None)
+        metodo_n   = getattr(metodo_dev, 'nombre', '—') if metodo_dev else '—'
+        motivo_txt = str(getattr(dev, 'motivo', '') or '—')
+        fecha_d    = getattr(dev, 'fecha_devolucion', None)
+        monto_d    = Decimal(str(getattr(dev, 'monto', 0) or 0))
+        num_dev    = str(getattr(dev, 'numero_devolucion', '—') or '—')
 
         row = [
-            str(pago.numero_recibo),
-            pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else '—',
-            concepto[:40],
-            str(pago.metodo_pago.nombre if pago.metodo_pago else '—')[:18],
-            _bs(pago.monto),
+            num_dev[:12],
+            fecha_d.strftime('%d/%m/%Y') if fecha_d else '—',
+            concepto[:30],
+            metodo_n[:18],
+            motivo_txt[:35],
+            _bs(monto_d),
         ]
-        total_pagos += Decimal(str(pago.monto or 0))
 
-        if ri % 2 == 0:
-            c.setFillColor(C_GRIS_T)
-            c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
+        # Fondo rojo suave
+        c.setFillColor(C_ROJO_L)
+        c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
         c.setStrokeColor(C_GRIS_B)
         c.setLineWidth(0.15)
         c.line(ML, y - row_h, ML + sum(col_ws), y - row_h)
+
         xc = ML
         for ci, cell in enumerate(row):
-            c.setFont("Helvetica", 7.5)
-            c.setFillColor(C_TEXTO)
-            c.drawString(xc + 0.2 * cm, y - row_h + 0.13 * cm, str(cell))
+            is_monto = (ci == 5)
+            c.setFont("Helvetica-Bold" if is_monto else "Helvetica", 7.5)
+            c.setFillColor(C_ROJO if is_monto else C_TEXTO)
+            txt = str(cell)
+            mw  = col_ws[ci] - 0.4*cm
+            while stringWidth(txt, "Helvetica-Bold" if is_monto else "Helvetica", 7.5) > mw and len(txt) > 1:
+                txt = txt[:-2] + '.'
+            c.drawString(xc + 0.2*cm, y - row_h + 0.13*cm, txt)
             xc += col_ws[ci]
         y -= row_h
 
     # Fila total
-    c.setFillColor(C_GRIS_H)
+    c.setFillColor(C_ROJO_L)
     c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
     c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(C_TEXTO)
-    c.drawString(ML + 0.25 * cm, y - row_h + 0.15 * cm, "TOTAL")
-    c.drawRightString(ML + sum(col_ws) - 0.25 * cm, y - row_h + 0.15 * cm, _bs(total_pagos))
-    y -= row_h + 0.15 * cm
+    c.setFillColor(C_ROJO)
+    c.drawString(ML + 0.25*cm, y - row_h + 0.15*cm, f"TOTAL DEVOLUCIONES ({len(devoluciones)})")
+    c.drawRightString(ML + sum(col_ws) - 0.25*cm, y - row_h + 0.15*cm, f"− {_bs(total_dev)}")
+    y -= row_h + 0.2*cm
 
     _pie(c, pg, helpers['total_pg'][0], helpers['fecha'])
     pages_data.append(pg)
@@ -1384,7 +1640,7 @@ def generar_informe_paciente_pdf(context):
         else:
             periodo_txt = f"{fecha_desde}  al  {fecha_hasta}"
     else:
-        periodo_txt = 'Período no especificado'
+        periodo_txt = 'Todo el historial del paciente'
 
     fecha_emision = _date_cls.today().strftime('%d/%m/%Y')
 
@@ -1431,6 +1687,7 @@ def generar_informe_paciente_pdf(context):
     _seccion_proyectos(pages_data, context, helpers)
     _seccion_mensualidades(pages_data, context, helpers)
     _seccion_pagos(pages_data, context, helpers)
+    _seccion_devoluciones(pages_data, context, helpers)
     _seccion_detalle_sesiones(pages_data, context, helpers)
 
     total_pages = pc[0]
@@ -1479,6 +1736,7 @@ def generar_informe_paciente_pdf(context):
     _seccion_proyectos(pages_data2, context, helpers2)
     _seccion_mensualidades(pages_data2, context, helpers2)
     _seccion_pagos(pages_data2, context, helpers2)
+    _seccion_devoluciones(pages_data2, context, helpers2)
     _seccion_detalle_sesiones(pages_data2, context, helpers2)
 
     c2.save()

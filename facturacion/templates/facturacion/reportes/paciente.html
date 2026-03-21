@@ -258,7 +258,7 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
   <form method="get">
     <div class="fg">
       <label>Paciente</label>
-      <select name="paciente" onchange="this.form.submit()">
+      <select name="paciente" id="sel-paciente" onchange="cambiarPaciente(this.value)">
         <option value="">— Seleccionar paciente —</option>
         {% for p in pacientes %}
         <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
@@ -266,8 +266,8 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
         {% endfor %}
       </select>
     </div>
-    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
-    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
+    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" id="inp-desde" value="{{ fecha_desde }}"></div>
+    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" id="inp-hasta" value="{{ fecha_hasta }}"></div>
     <button type="submit" class="btn-primary">🔍 Ver reporte</button>
     <a href="?{% if paciente %}paciente={{ paciente.id }}{% endif %}" class="btn-clear" title="Limpiar filtros de fecha">✕ Limpiar filtros</a>
   </form>
@@ -828,28 +828,184 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 <!-- ══ PAGOS RECIBIDOS ═════════════════════════════════════════════════════════ -->
 {% if datos.pagos_recientes %}
 <div class="sec-hdr"><h2>💳 Pagos Recibidos en el Período</h2><div class="sec-hdr-line"></div></div>
-<div class="card" style="margin-bottom:14px">
-  <h3>📋 Todos los pagos del período
-    <span style="font-size:.7rem;font-weight:400;color:var(--muted)">
-      · {{ datos.pagos_stats.total_recibos }} recibos · Total: Bs. {{ datos.pagos_stats.monto_total|floatformat:0 }}
-    </span>
-  </h3>
+
+<!-- Resumen cards -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+  <!-- Total global -->
+  <div class="metric-card" style="border-left:4px solid var(--blue)">
+    <div class="bar" style="background:var(--blue)"></div>
+    <div class="mc-label">Total recibido</div>
+    <div class="mc-val" style="color:var(--blue)">Bs. {{ datos.pagos_stats.monto_total|floatformat:0 }}</div>
+    <div class="mc-sub">{{ datos.pagos_stats.total_recibos }} recibo{{ datos.pagos_stats.total_recibos|pluralize:"s" }}</div>
+  </div>
+  <!-- Pagos reales (contado) -->
+  <div class="metric-card" style="border-left:4px solid var(--green)">
+    <div class="bar" style="background:var(--green)"></div>
+    <div class="mc-label">💵 Pagos al contado</div>
+    <div class="mc-val" style="color:var(--green)">Bs. {{ datos.pagos_stats.contado_monto|floatformat:0 }}</div>
+    <div class="mc-sub">{{ datos.pagos_stats.contado_recibos }} recibo{{ datos.pagos_stats.contado_recibos|pluralize:"s" }}
+      {% for m in datos.pagos_stats.contado_por_metodo %} · {{ m.nombre }} Bs.{{ m.monto|floatformat:0 }}{% endfor %}
+    </div>
+  </div>
+  <!-- Uso de crédito -->
+  <div class="metric-card" style="border-left:4px solid var(--purple)">
+    <div class="bar" style="background:var(--purple)"></div>
+    <div class="mc-label">🏦 Uso de crédito</div>
+    <div class="mc-val" style="color:var(--purple)">Bs. {{ datos.pagos_stats.credito_monto|floatformat:0 }}</div>
+    <div class="mc-sub">{{ datos.pagos_stats.credito_recibos }} aplicación{{ datos.pagos_stats.credito_recibos|pluralize:"es" }}</div>
+  </div>
+</div>
+
+<!-- Desglose por método (contado) -->
+{% if datos.pagos_stats.contado_por_metodo %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+  {% for m in datos.pagos_stats.contado_por_metodo %}
+  <div style="background:var(--green-ll);border:1px solid var(--green-l);border-radius:var(--r);padding:8px 14px;display:flex;flex-direction:column;gap:2px;min-width:110px">
+    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--green);letter-spacing:.06em">{{ m.nombre }}</div>
+    <div style="font-size:1rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--ink)">Bs. {{ m.monto|floatformat:0 }}</div>
+    <div style="font-size:.62rem;color:var(--muted)">{{ m.count }} recibo{{ m.count|pluralize:"s" }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Tablas lado a lado -->
+<div class="g2" style="align-items:start">
+
+  <!-- Pagos al contado -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 14px 8px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:.8rem">💵 Pagos al Contado
+        <span class="badge badge-green" style="margin-left:6px">{{ datos.pagos_stats.contado_recibos }}</span>
+      </h3>
+      <span style="font-size:.75rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--green)">Bs. {{ datos.pagos_stats.contado_monto|floatformat:0 }}</span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>Recibo</th><th>Fecha</th><th>Concepto</th><th>Método</th><th class="money">Monto</th></tr></thead>
+        <tbody>
+          {% for pago in datos.pagos_contado %}
+          <tr>
+            <td><span class="mono" style="font-size:.7rem">{{ pago.numero_recibo }}</span></td>
+            <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+            <td style="font-size:.72rem">
+              {% if pago.sesion %}Sesión: {{ pago.sesion.servicio.nombre|default:"—" }}
+              {% elif pago.proyecto %}Proyecto: {{ pago.proyecto.servicio_base.nombre|default:"—" }}
+              {% elif pago.mensualidad %}Mens. {{ pago.mensualidad.periodo_display|default:"" }}
+              {% else %}Adelanto{% endif %}
+            </td>
+            <td>
+              <span class="badge badge-green" style="font-size:.6rem">{{ pago.metodo_pago.nombre }}</span>
+            </td>
+            <td class="money" style="color:var(--green)">Bs. {{ pago.monto|floatformat:0 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;font-size:.75rem">Sin pagos al contado</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagos con crédito -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 14px 8px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:.8rem">🏦 Uso de Crédito
+        <span class="badge badge-purple" style="margin-left:6px">{{ datos.pagos_stats.credito_recibos }}</span>
+      </h3>
+      <span style="font-size:.75rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--purple)">Bs. {{ datos.pagos_stats.credito_monto|floatformat:0 }}</span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>Recibo</th><th>Fecha</th><th>Concepto</th><th class="money">Monto</th></tr></thead>
+        <tbody>
+          {% for pago in datos.pagos_credito %}
+          <tr>
+            <td><span class="mono" style="font-size:.7rem">{{ pago.numero_recibo }}</span></td>
+            <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+            <td style="font-size:.72rem">
+              {% if pago.sesion %}Sesión: {{ pago.sesion.servicio.nombre|default:"—" }}
+              {% elif pago.proyecto %}Proyecto: {{ pago.proyecto.servicio_base.nombre|default:"—" }}
+              {% elif pago.mensualidad %}Mens. {{ pago.mensualidad.periodo_display|default:"" }}
+              {% else %}Aplicación de crédito{% endif %}
+            </td>
+            <td class="money" style="color:var(--purple)">Bs. {{ pago.monto|floatformat:0 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px;font-size:.75rem">Sin usos de crédito</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+<!-- ══ DEVOLUCIONES ══════════════════════════════════════════════════════════ -->
+{% if datos.devoluciones %}
+<div class="sec-hdr"><h2>↩️ Devoluciones del Período</h2><div class="sec-hdr-line"></div></div>
+
+<!-- Card resumen -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+  <div class="metric-card" style="border-left:4px solid var(--red)">
+    <div class="bar" style="background:var(--red)"></div>
+    <div class="mc-label">Total devoluciones</div>
+    <div class="mc-val" style="color:var(--red)">Bs. {{ datos.devoluciones_stats.monto_total|floatformat:0 }}</div>
+    <div class="mc-sub">{{ datos.devoluciones_stats.total }} devolución{{ datos.devoluciones_stats.total|pluralize:"es" }}</div>
+  </div>
+  <div class="metric-card" style="border-left:4px solid var(--blue)">
+    <div class="bar" style="background:var(--blue)"></div>
+    <div class="mc-label">Pagado neto</div>
+    <div class="mc-val" style="color:{% if datos.devoluciones_stats.neto_contado >= 0 %}var(--blue){% else %}var(--red){% endif %}">Bs. {{ datos.devoluciones_stats.neto_contado|floatformat:0 }}</div>
+    <div class="mc-sub">Contado − Devoluciones</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
+  <div style="padding:11px 14px 8px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+    <h3 style="margin:0;font-size:.8rem">↩️ Detalle de Devoluciones
+      <span class="badge badge-red" style="margin-left:6px">{{ datos.devoluciones_stats.total }}</span>
+    </h3>
+    <span style="font-size:.75rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--red)">− Bs. {{ datos.devoluciones_stats.monto_total|floatformat:0 }}</span>
+  </div>
   <div class="tbl-wrap">
     <table class="tbl">
-      <thead><tr><th>Recibo</th><th>Fecha</th><th>Concepto</th><th>Método</th><th class="money">Monto</th></tr></thead>
-      <tbody>
-        {% for pago in datos.pagos_recientes %}
+      <thead>
         <tr>
-          <td><span class="mono" style="font-size:.7rem">{{ pago.numero_recibo }}</span></td>
-          <td>{{ pago.fecha_pago|date:"d/m/Y" }}</td>
+          <th style="min-width:90px">N° Devolución</th>
+          <th style="min-width:90px">Fecha</th>
+          <th>Concepto</th>
+          <th>Método</th>
+          <th>Motivo</th>
+          <th>Registrado por</th>
+          <th class="money" style="min-width:90px">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dev in datos.devoluciones %}
+        <tr style="background:var(--red-ll)">
+          <td><span class="mono" style="font-size:.7rem;color:var(--red)">{{ dev.numero_devolucion|default:"—" }}</span></td>
+          <td>{{ dev.fecha_devolucion|date:"d/m/Y" }}</td>
           <td style="font-size:.72rem">
-            {% if pago.sesion %}Sesión: {{ pago.sesion.servicio.nombre|default:"—" }}
-            {% elif pago.proyecto %}Proyecto: {{ pago.proyecto.servicio_base.nombre|default:"—" }}
-            {% elif pago.mensualidad %}Mensualidad {{ pago.mensualidad.periodo_display|default:"" }}
-            {% else %}Adelanto / Crédito{% endif %}
+            {% if dev.proyecto %}
+              <span style="color:var(--teal);font-weight:600">📁 {{ dev.proyecto.servicio_base.nombre|default:dev.proyecto.codigo }}</span>
+            {% elif dev.mensualidad %}
+              <span style="color:var(--purple);font-weight:600">📆 {{ dev.mensualidad.periodo_display|default:dev.mensualidad.codigo }}</span>
+            {% else %}
+              <span style="color:var(--muted)">Crédito / Adelanto</span>
+            {% endif %}
           </td>
-          <td>{{ pago.metodo_pago.nombre|default:"—" }}</td>
-          <td class="money">Bs. {{ pago.monto|floatformat:0 }}</td>
+          <td>
+            {% if dev.metodo_devolucion %}
+            <span class="badge badge-red" style="font-size:.6rem">{{ dev.metodo_devolucion.nombre }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-size:.7rem;color:var(--ink2);max-width:200px">{{ dev.motivo|default:"—"|truncatechars:80 }}</td>
+          <td style="font-size:.7rem;color:var(--muted)">
+            {% if dev.registrado_por %}{{ dev.registrado_por.get_full_name|default:dev.registrado_por.username }}{% else %}—{% endif %}
+          </td>
+          <td class="money" style="color:var(--red);font-weight:700">− Bs. {{ dev.monto|floatformat:0 }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -859,7 +1015,7 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% endif %}
 
 <!-- ══ SESIONES DEL PERÍODO — TABLA COMPLETA ════════════════════════════════ -->
-<div class="sec-hdr"><h2>📅 Sesiones del Período</h2><div class="sec-hdr-line"></div></div>
+<div class="sec-hdr"><h2>📅 Sesiones del Período <span style="font-weight:400;color:var(--muted);font-size:.75rem">({{ datos.stats.total_sesiones|default:0 }} total)</span></h2><div class="sec-hdr-line"></div></div>
 
 <!-- Filtros de estado -->
 <div class="fchip-row no-print">
@@ -1043,6 +1199,13 @@ if(ctxM) new Chart(ctxM, {
 {% endif %}
 
 <script>
+function cambiarPaciente(id){
+  // Al cambiar paciente: limpiar fechas para mostrar todo el historial
+  document.getElementById('inp-desde').value = '';
+  document.getElementById('inp-hasta').value = '';
+  document.getElementById('sel-paciente').form.submit();
+}
+
 function filtrar(estado, btn){
   // legacy — ya no se usa, mantenido por compatibilidad
 }
