@@ -6,6 +6,7 @@ app_name = 'asistencia'
 urlpatterns = [
     # ── Panel administrador ──────────────────────────────────────────────────
     path('admin/', views.panel_admin, name='panel_admin'),
+    path('admin/marcar/<int:user_pk>/', views.marcar_admin, name='marcar_admin'),
     path('admin/zonas/', views.zonas_gps, name='zonas_gps'),
     path('admin/zonas/<int:pk>/editar/', views.editar_zona, name='editar_zona'),
     path('admin/horarios/', views.horarios, name='horarios'),

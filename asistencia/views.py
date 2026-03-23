@@ -54,6 +54,82 @@ def solo_profesional(view_func):
 # ══════════════════════════════════════════════════════════════════════════════
 
 @solo_admin
+def marcar_admin(request, user_pk):
+    """
+    El admin marca entrada o salida de cualquier profesional manualmente.
+    Sin GPS ni foto. Queda registrado con nota de quién lo hizo.
+    """
+    from django.contrib.auth.models import User as DjangoUser
+    profesional_user = get_object_or_404(
+        DjangoUser, pk=user_pk, perfil__rol='profesional', is_active=True
+    )
+    hoy = timezone.now().date()
+
+    if request.method == 'POST':
+        tipo = request.POST.get('tipo')
+        observacion = request.POST.get('observacion', '').strip()
+
+        if tipo not in ['ENTRADA', 'SALIDA']:
+            messages.error(request, 'Tipo inválido.')
+            return redirect('asistencia:panel_admin')
+
+        # Verificar duplicado
+        ya_existe = profesional_user.registros_asistencia.filter(
+            tipo=tipo,
+            estado__in=['PUNTUAL', 'TARDANZA', 'MANUAL_ADMIN'],
+            fecha_hora__date=hoy,
+        ).exists()
+
+        if ya_existe:
+            messages.error(
+                request,
+                f'{profesional_user.get_full_name()} ya tiene {tipo.lower()} registrada hoy.'
+            )
+            return redirect('asistencia:panel_admin')
+
+        # Resolver horario para calcular estado
+        config = profesional_user.configs_asistencia.filter(zona__activa=True).first()
+        estado = 'PUNTUAL'
+        minutos_tardanza = 0
+        bloque = ''
+
+        if config and tipo == 'ENTRADA':
+            from .services import ResolvedorHorario, CalculadorEstado
+            resolvedor = ResolvedorHorario(
+                user=profesional_user,
+                zona=config.zona,
+                config=config,
+                fecha=hoy,
+            )
+            horario = resolvedor.resolver()
+            calculador = CalculadorEstado(horario)
+            estado, bloque, minutos_tardanza = calculador.calcular()
+
+        nota_admin = f"Registrado manualmente por {request.user.get_full_name() or request.user.username}."
+        if observacion:
+            nota_admin += f" Motivo: {observacion}"
+
+        RegistroAsistencia.objects.create(
+            user=profesional_user,
+            zona=config.zona if config else None,
+            tipo=tipo,
+            estado=estado,
+            bloque=bloque,
+            minutos_tardanza=minutos_tardanza,
+            observacion=nota_admin,
+            registrado_por=request.user,
+        )
+
+        messages.success(
+            request,
+            f'{tipo.capitalize()} de {profesional_user.get_full_name()} registrada correctamente.'
+        )
+        return redirect('asistencia:panel_admin')
+
+    return redirect('asistencia:panel_admin')
+
+
+@solo_admin
 def panel_admin(request):
     """Resumen diario — vista principal del admin."""
     hoy = timezone.now().date()

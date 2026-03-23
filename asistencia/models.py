@@ -331,6 +331,14 @@ class RegistroAsistencia(models.Model):
     minutos_tardanza = models.IntegerField(default=0)
     device_id = models.CharField(max_length=255, blank=True)
     observacion = models.TextField(blank=True)
+    # Marcado manual por admin
+    registrado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='registros_marcados',
+        help_text="Si no es null, este registro fue creado manualmente por un administrador"
+    )
 
     class Meta:
         verbose_name = 'Registro de asistencia'
