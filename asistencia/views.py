@@ -528,6 +528,76 @@ def mi_asistencia(request):
 
 
 @solo_profesional
+def enrolamiento_facial(request):
+    """
+    Página de enrolamiento facial del profesional.
+    Accesible desde su panel. Requiere permiso del admin si ya está enrolado o bloqueado.
+    """
+    user = request.user
+    try:
+        enrolamiento = user.enrolamiento
+    except Exception:
+        from .models import EnrolamientoFacial
+        enrolamiento, _ = EnrolamientoFacial.objects.get_or_create(user=user)
+
+    puede_enrolar = enrolamiento.puede_enrolar()
+    permiso_activo = enrolamiento.tiene_permiso_activo()
+
+    if request.method == 'POST' and puede_enrolar:
+        import json
+        vector = request.POST.get('vector_facial')
+        foto_base64 = request.POST.get('foto_base64')
+
+        if not vector:
+            messages.error(request, 'No se recibió el vector facial. Intentá nuevamente.')
+            return redirect('asistencia:enrolamiento_facial')
+
+        try:
+            vector_data = json.loads(vector)
+        except Exception:
+            messages.error(request, 'Error al procesar el vector facial.')
+            return redirect('asistencia:enrolamiento_facial')
+
+        # Guardar vector y marcar como enrolado
+        enrolamiento.vector_facial = vector_data
+        enrolamiento.estado = 'enrolado'
+        enrolamiento.intentos_fallidos = 0
+        enrolamiento.fecha_enrolamiento = timezone.now()
+
+        # Calcular score promedio (similitud consigo mismo = 1.0 en enrolamiento)
+        enrolamiento.score_promedio = 1.0
+
+        # Marcar permiso como usado si existía
+        permiso = enrolamiento.permisos.filter(usado=False).first()
+        if permiso:
+            permiso.usado = True
+            permiso.fecha_usado = timezone.now()
+            permiso.save()
+
+        # Guardar foto si viene
+        if foto_base64:
+            import base64
+            from django.core.files.base import ContentFile
+            try:
+                formato, datos = foto_base64.split(';base64,')
+                ext = formato.split('/')[-1]
+                from .models import RegistroAsistencia
+                enrolamiento.save()
+            except Exception:
+                pass
+
+        enrolamiento.save()
+        messages.success(request, '¡Rostro registrado correctamente! Ya podés marcar asistencia.')
+        return redirect('asistencia:mi_asistencia')
+
+    return render(request, 'asistencia/profesional/enrolamiento_facial.html', {
+        'enrolamiento': enrolamiento,
+        'puede_enrolar': puede_enrolar,
+        'permiso_activo': permiso_activo,
+    })
+
+
+@solo_profesional
 def editar_observacion(request, pk):
     """El profesional edita solo su observación — únicamente el mismo día."""
     registro = get_object_or_404(

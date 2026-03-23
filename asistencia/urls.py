@@ -22,5 +22,6 @@ urlpatterns = [
     # ── Panel profesional ────────────────────────────────────────────────────
     path('marcar/', views.marcar_asistencia, name='marcar'),
     path('mi-asistencia/', views.mi_asistencia, name='mi_asistencia'),
+    path('enrolamiento/', views.enrolamiento_facial, name='enrolamiento_facial'),
     path('mi-asistencia/<int:pk>/observacion/', views.editar_observacion, name='editar_observacion'),
 ]

@@ -20,6 +20,49 @@
     </a>
   </div>
 
+  <!-- Botón enrolamiento facial -->
+  {% if request.user.enrolamiento.estado == 'pendiente' %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+    <div>
+      <div class="font-semibold text-yellow-800 text-sm">Rostro no registrado</div>
+      <div class="text-xs text-yellow-600 mt-0.5">Necesitás registrar tu rostro para poder marcar asistencia biométrica.</div>
+    </div>
+    <a href="{% url 'asistencia:enrolamiento_facial' %}"
+       class="bg-yellow-500 text-white font-bold px-4 py-2 rounded-xl text-sm hover:bg-yellow-600 transition-colors flex-shrink-0">
+      Registrar mi rostro
+    </a>
+  </div>
+  {% elif request.user.enrolamiento.estado == 'bloqueado' %}
+  <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+    <div>
+      <div class="font-semibold text-red-800 text-sm">Enrolamiento bloqueado</div>
+      <div class="text-xs text-red-600 mt-0.5">Contactá al administrador para que te habilite el re-enrolamiento.</div>
+    </div>
+    <a href="{% url 'asistencia:enrolamiento_facial' %}"
+       class="bg-gray-200 text-gray-600 font-bold px-4 py-2 rounded-xl text-sm flex-shrink-0">
+      Ver estado
+    </a>
+  </div>
+  {% elif request.user.enrolamiento.estado == 'enrolado' and request.user.enrolamiento.tiene_permiso_activo %}
+  <div class="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+    <div>
+      <div class="font-semibold text-blue-800 text-sm">Permiso de re-enrolamiento activo</div>
+      <div class="text-xs text-blue-600 mt-0.5">El administrador habilitó la actualización de tu rostro.</div>
+    </div>
+    <a href="{% url 'asistencia:enrolamiento_facial' %}"
+       class="bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-sm hover:bg-blue-800 transition-colors flex-shrink-0">
+      Actualizar mi rostro
+    </a>
+  </div>
+  {% else %}
+  <div class="flex justify-end mb-4">
+    <a href="{% url 'asistencia:enrolamiento_facial' %}"
+       class="text-xs text-gray-400 hover:text-blue-600 font-medium border border-gray-200 px-3 py-1.5 rounded-lg hover:border-blue-300 transition-colors">
+      Ver estado de enrolamiento
+    </a>
+  </div>
+  {% endif %}
+
   <!-- Selector de mes -->
   <div class="flex gap-1.5 flex-wrap mb-6">
     {% for m in meses_disponibles %}
