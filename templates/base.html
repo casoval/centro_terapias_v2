@@ -828,7 +828,56 @@
                     </div>
                     {% endif %}
 
-                    <!-- Selector de tema integrado en navbar -->
+                    <!-- ══ MENÚ ASISTENCIA ══ -->
+                    {% if user.is_superuser or user.perfil.es_gerente %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            🕐 Asistencia
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'asistencia:panel_admin' %}" class="dropdown-item text-blue-600 hover:bg-blue-50"><span class="mr-2">📊</span> Panel de asistencia</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'asistencia:zonas_gps' %}" class="dropdown-item"><span class="mr-2">📍</span> Zonas GPS</a>
+                            <a href="{% url 'asistencia:horarios' %}" class="dropdown-item"><span class="mr-2">⏰</span> Horarios</a>
+                            <a href="{% url 'asistencia:fechas_especiales' %}" class="dropdown-item"><span class="mr-2">📆</span> Fechas especiales</a>
+                            <a href="{% url 'asistencia:asignaciones' %}" class="dropdown-item"><span class="mr-2">👤</span> Asignaciones</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'asistencia:enrolamiento' %}" class="dropdown-item"><span class="mr-2">🪪</span> Enrolamiento facial</a>
+                            <a href="{% url 'asistencia:permisos' %}" class="dropdown-item"><span class="mr-2">🔓</span> Permisos</a>
+                        </div>
+                    </div>
+                    {% elif user.perfil.es_recepcionista %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            🕐 Asistencia
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'asistencia:panel_admin' %}" class="dropdown-item text-blue-600 hover:bg-blue-50"><span class="mr-2">📊</span> Panel de asistencia</a>
+                        </div>
+                    </div>
+                    {% elif user.perfil.es_profesional %}
+                    <a href="{% url 'asistencia:marcar' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        🕐 Asistencia
+                    </a>
+                    <a href="{% url 'asistencia:mi_asistencia' %}"
+                       class="inline-flex items-center px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors"
+                       style="height:28px; border-radius:6px 6px 0 0;">
+                        📋 Mi historial
+                    </a>
+                    {% endif %}
+                    <!-- ══ FIN MENÚ ASISTENCIA ══ -->
+
+                                        <!-- Selector de tema integrado en navbar -->
                     <div id="theme-nav-wrapper">
                         <button id="theme-nav-btn" onclick="toggleThemePanel()" type="button">
                             🎨 Temas
@@ -988,7 +1037,40 @@
                 <a href="/admin/" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">⭐ Admin</a>
                 {% endif %}
 
-                <!-- Selector de tema en móvil -->
+                <!-- ══ MENÚ ASISTENCIA MÓVIL ══ -->
+                {% if user.is_superuser or user.perfil.es_gerente %}
+                <div>
+                    <button onclick="toggleMobileMenu('m-asistencia')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">🕐 Asistencia</span>
+                        <svg id="m-asistencia-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-asistencia" class="hidden mt-1 ml-3 pl-3 border-l border-blue-700 space-y-1">
+                        <a href="{% url 'asistencia:panel_admin' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-blue-400 hover:text-white hover:bg-blue-900">📊 Panel de asistencia</a>
+                        <a href="{% url 'asistencia:zonas_gps' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📍 Zonas GPS</a>
+                        <a href="{% url 'asistencia:horarios' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">⏰ Horarios</a>
+                        <a href="{% url 'asistencia:fechas_especiales' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📆 Fechas especiales</a>
+                        <a href="{% url 'asistencia:asignaciones' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👤 Asignaciones</a>
+                        <a href="{% url 'asistencia:enrolamiento' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🪪 Enrolamiento facial</a>
+                        <a href="{% url 'asistencia:permisos' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🔓 Permisos</a>
+                    </div>
+                </div>
+                {% elif user.perfil.es_recepcionista %}
+                <a href="{% url 'asistencia:panel_admin' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    🕐 <span>Asistencia</span>
+                </a>
+                {% elif user.perfil.es_profesional %}
+                <a href="{% url 'asistencia:marcar' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    🕐 <span>Marcar asistencia</span>
+                </a>
+                <a href="{% url 'asistencia:mi_asistencia' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+                    📋 <span>Mi historial</span>
+                </a>
+                {% endif %}
+                <!-- ══ FIN MENÚ ASISTENCIA MÓVIL ══ -->
+
+                                <!-- Selector de tema en móvil -->
                 <div class="border-t border-slate-600 pt-3 mt-2">
                     <button onclick="toggleMobileTheme()" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
                         <span class="flex items-center gap-2">🎨 Temas</span>

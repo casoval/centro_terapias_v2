@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Zonas GPS — Asistencia{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Zonas GPS</h1>
+      <p class="text-sm text-gray-500 mt-1">Cada zona tiene nombre y radio propios, independientes de las sucursales de agenda.</p>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="flex gap-2 flex-wrap mb-6">
+    <a href="{% url 'asistencia:panel_admin' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Resumen</a>
+    <a href="{% url 'asistencia:zonas_gps' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Zonas GPS</a>
+    <a href="{% url 'asistencia:horarios' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Horarios</a>
+    <a href="{% url 'asistencia:fechas_especiales' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Fechas especiales</a>
+    <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Asignaciones</a>
+    <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Enrolamiento</a>
+    <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
+  </nav>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Mapa -->
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-base font-bold text-gray-800">Mapa de zonas</h2>
+        <p class="text-xs text-gray-400 mt-1">Haz clic en el mapa para copiar las coordenadas al formulario</p>
+      </div>
+      <div id="mapa" style="height:380px;"></div>
+    </div>
+
+    <!-- Formulario nueva zona -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-6">
+      <h2 class="text-base font-bold text-gray-800 mb-1">Nueva zona</h2>
+      <p class="text-xs text-gray-400 mb-5">Completa los datos o haz clic en el mapa para obtener coordenadas</p>
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            {% for error in field.errors %}
+            <p class="text-xs text-red-500 mt-1">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+          {% if field.help_text %}
+          <p class="text-xs text-gray-400 mt-1">{{ field.help_text }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">
+          Crear zona
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Listado de zonas existentes -->
+  <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mt-6">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-bold text-gray-800">Zonas registradas</h2>
+    </div>
+    <table class="w-full">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left text-xs font-semibold text-gray-500 px-6 py-3">Nombre</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Sucursal ref.</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Coordenadas</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Radio</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Horario base</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for zona in zonas %}
+        <tr class="border-t border-gray-50 hover:bg-gray-50">
+          <td class="px-6 py-3 font-semibold text-gray-800 text-sm">{{ zona.nombre }}</td>
+          <td class="px-4 py-3 text-sm text-gray-500">{{ zona.sucursal.nombre|default:"—" }}</td>
+          <td class="px-4 py-3 text-xs font-mono text-gray-500">{{ zona.latitud }}, {{ zona.longitud }}</td>
+          <td class="px-4 py-3 text-sm text-gray-700 font-semibold">{{ zona.radio_metros }}m</td>
+          <td class="px-4 py-3 text-sm text-gray-600">
+            {% if zona.horario_predeterminado %}
+              {{ zona.horario_predeterminado.hora_entrada|time:"H:i" }} — {{ zona.horario_predeterminado.hora_salida|time:"H:i" }}
+              <span class="text-gray-400 text-xs">(±{{ zona.horario_predeterminado.tolerancia_minutos }}min)</span>
+            {% else %}
+              <span class="text-gray-300">Sin horario</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            {% if zona.activa %}
+              <span class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">Activa</span>
+            {% else %}
+              <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Inactiva</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex gap-2">
+              <a href="{% url 'asistencia:editar_zona' zona.pk %}" class="text-xs text-blue-600 hover:underline font-medium">Editar</a>
+              <a href="{% url 'asistencia:editar_horario' zona.pk %}" class="text-xs text-purple-600 hover:underline font-medium">Horario</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400 text-sm">No hay zonas creadas aún.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const zonas = [
+  {% for zona in zonas %}
+  { lat: {{ zona.latitud }}, lon: {{ zona.longitud }}, nombre: "{{ zona.nombre }}", radio: {{ zona.radio_metros }}, activa: {{ zona.activa|yesno:"true,false" }} },
+  {% endfor %}
+];
+
+const mapa = L.map('mapa').setView([-16.4897, -68.1193], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(mapa);
+
+zonas.forEach(z => {
+  const color = z.activa ? '#1d4ed8' : '#9ca3af';
+  L.circle([z.lat, z.lon], { radius: z.radio, color, fillOpacity: 0.15, weight: 2 }).addTo(mapa)
+    .bindPopup(`<b>${z.nombre}</b><br>Radio: ${z.radio}m`);
+  L.marker([z.lat, z.lon]).addTo(mapa).bindPopup(`<b>${z.nombre}</b>`);
+});
+
+mapa.on('click', function(e) {
+  document.getElementById('id_latitud').value = e.latlng.lat.toFixed(6);
+  document.getElementById('id_longitud').value = e.latlng.lng.toFixed(6);
+  L.popup().setLatLng(e.latlng).setContent('Coordenadas copiadas al formulario').openOn(mapa);
+});
+</script>
+{% endblock %}

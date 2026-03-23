@@ -17,6 +17,8 @@ urlpatterns = [
     path('egresos/', include('egresos.urls', namespace='egresos')),
     # ✅ NUEVO: App de evaluaciones ADOS-2 / ADI-R
     path('evaluaciones/', include('evaluaciones.urls', namespace='evaluaciones')),
+    # ✅ NUEVO: App de control de asistencia
+    path('asistencia/', include('asistencia.urls', namespace='asistencia')),
 ]
 
 # ==================== DEBUG TOOLBAR ====================

@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'egresos.apps.EgresosConfig',   # ✅ App de egresos del centro
     'chat',
     'evaluaciones.apps.EvaluacionesConfig',  # ✅ App de evaluaciones ADOS-2 / ADI-R
+    'asistencia.apps.AsistenciaConfig',      # ✅ App de control de asistencia
 ]
 
 MIDDLEWARE = [
@@ -271,6 +272,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'asistencia': {
+            'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
 
@@ -280,6 +286,12 @@ LOGGING = {
 # ✅ Data upload limits
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
+
+# --------------------------------------------------
+# ASISTENCIA
+# --------------------------------------------------
+
+EMAIL_RRHH = os.environ.get('EMAIL_RRHH', 'rrhh@tucentro.com')
 
 # --------------------------------------------------
 # CONFIGURACIONES ADICIONALES SEGÚN ENTORNO

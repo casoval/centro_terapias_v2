@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Fechas Especiales — Asistencia{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Fechas especiales</h1>
+  <p class="text-sm text-gray-500 mb-6">
+    Define días con horario especial. Prioridad máxima sobre cualquier otro horario.
+    Si no defines un horario específico, se usa el horario base de la zona.
+  </p>
+
+  <nav class="flex gap-2 flex-wrap mb-6">
+    <a href="{% url 'asistencia:panel_admin' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Resumen</a>
+    <a href="{% url 'asistencia:zonas_gps' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Zonas GPS</a>
+    <a href="{% url 'asistencia:horarios' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Horarios</a>
+    <a href="{% url 'asistencia:fechas_especiales' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Fechas especiales</a>
+    <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Asignaciones</a>
+    <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Enrolamiento</a>
+    <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
+  </nav>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Formulario -->
+    <div class="bg-white border border-gray-200 rounded-2xl p-6">
+      <h2 class="text-base font-bold text-gray-800 mb-1">Nueva fecha especial</h2>
+      <p class="text-xs text-gray-400 mb-5">Puedes crearla con anticipación o el mismo día.</p>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.zona.label }}</label>
+          {{ form.zona }}
+          {% for e in form.zona.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.fecha.label }}</label>
+            {{ form.fecha }}
+            {% for e in form.fecha.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tipo_horario.label }}</label>
+            {{ form.tipo_horario }}
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.motivo.label }}</label>
+          {{ form.motivo }}
+        </div>
+
+        <!-- Horario específico (se muestra/oculta según tipo) -->
+        <div id="bloque-horario-especial" class="hidden">
+          <div class="border border-blue-100 bg-blue-50 rounded-xl p-4 mb-4">
+            <p class="text-xs font-semibold text-blue-700 mb-3">
+              Horario específico para esta fecha
+              <span class="text-blue-400 font-normal">(dejar vacío para usar el horario base de la zona)</span>
+            </p>
+            <div class="grid grid-cols-3 gap-2 mb-3">
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada_especial.label }}</label>
+                {{ form.hora_entrada_especial }}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida_especial.label }}</label>
+                {{ form.hora_salida_especial }}
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_especial.label }}</label>
+                {{ form.tolerancia_especial }}
+              </div>
+            </div>
+
+            <!-- Bloque tarde (solo partido) -->
+            <div id="bloque-tarde-especial" class="hidden">
+              <p class="text-xs font-semibold text-purple-700 mb-2 mt-3">Bloque tarde</p>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada_tarde_especial.label }}</label>
+                  {{ form.hora_entrada_tarde_especial }}
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida_tarde_especial.label }}</label>
+                  {{ form.hora_salida_tarde_especial }}
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_tarde_especial.label }}</label>
+                  {{ form.tolerancia_tarde_especial }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profesionales -->
+        <div class="mb-5">
+          <label class="block text-xs font-semibold text-gray-600 mb-2">{{ form.profesionales.label }}</label>
+          <p class="text-xs text-gray-400 mb-2">Si no seleccionas ninguno aplica a todos los profesionales de la zona.</p>
+          <div class="max-h-36 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-1">
+            {{ form.profesionales }}
+          </div>
+        </div>
+
+        {% if form.errors %}
+        <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
+          {% for field in form %}{% for e in field.errors %}<p>{{ e }}</p>{% endfor %}{% endfor %}
+          {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
+        </div>
+        {% endif %}
+
+        <button type="submit" class="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">
+          Guardar fecha especial
+        </button>
+      </form>
+    </div>
+
+    <!-- Listado -->
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-base font-bold text-gray-800">Fechas registradas</h2>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% for fecha in fechas %}
+        <div class="px-5 py-4 flex items-start justify-between gap-3">
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="font-bold text-gray-800 text-sm font-mono">{{ fecha.fecha|date:"d/m/Y" }}</span>
+              {% if fecha.tipo_horario == 'continuo' %}
+                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2 py-0.5 rounded-full">Continuo</span>
+              {% elif fecha.tipo_horario == 'partido' %}
+                <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">Partido</span>
+              {% else %}
+                <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-full">Día libre</span>
+              {% endif %}
+              {% if fecha.hora_entrada_especial %}
+                <span class="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full">Horario propio</span>
+              {% endif %}
+            </div>
+            <div class="text-xs text-gray-500">{{ fecha.zona.nombre }}</div>
+            {% if fecha.hora_entrada_especial %}
+            <div class="text-xs text-gray-500 mt-0.5">
+              {{ fecha.hora_entrada_especial|time:"H:i" }} — {{ fecha.hora_salida_especial|time:"H:i" }}
+              {% if fecha.hora_entrada_tarde_especial %}
+                · Tarde: {{ fecha.hora_entrada_tarde_especial|time:"H:i" }} — {{ fecha.hora_salida_tarde_especial|time:"H:i" }}
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="text-xs text-gray-400 mt-0.5 italic">Usa horario base de la zona</div>
+            {% endif %}
+            {% if fecha.motivo %}
+            <div class="text-xs text-gray-400 italic mt-0.5">"{{ fecha.motivo }}"</div>
+            {% endif %}
+            <div class="text-xs text-gray-400 mt-1">
+              {% with count=fecha.profesionales.count %}
+                {% if count == 0 %}Todos los profesionales{% else %}{{ count }} seleccionado{{ count|pluralize:"s" }}{% endif %}
+              {% endwith %}
+              · {{ fecha.creado_por.get_full_name|default:"—" }}
+            </div>
+          </div>
+          <form method="post" action="{% url 'asistencia:eliminar_fecha_especial' fecha.pk %}"
+                onsubmit="return confirm('¿Eliminar esta fecha especial?')">
+            {% csrf_token %}
+            <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-medium flex-shrink-0">Eliminar</button>
+          </form>
+        </div>
+        {% empty %}
+        <div class="px-5 py-8 text-center text-gray-400 text-sm">No hay fechas especiales registradas.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function toggleHorarioEspecial(tipo) {
+  const bloqueH = document.getElementById('bloque-horario-especial');
+  const bloqueTarde = document.getElementById('bloque-tarde-especial');
+  if (tipo === 'libre') {
+    bloqueH.classList.add('hidden');
+    bloqueTarde.classList.add('hidden');
+  } else {
+    bloqueH.classList.remove('hidden');
+    if (tipo === 'partido') {
+      bloqueTarde.classList.remove('hidden');
+    } else {
+      bloqueTarde.classList.add('hidden');
+    }
+  }
+}
+// Inicializar según valor actual
+document.addEventListener('DOMContentLoaded', function() {
+  const sel = document.querySelector('[name="tipo_horario"]');
+  if (sel) toggleHorarioEspecial(sel.value);
+});
+</script>
+{% endblock %}

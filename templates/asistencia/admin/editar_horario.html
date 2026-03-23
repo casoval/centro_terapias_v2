@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Editar Horario — {{ zona.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <div class="mb-6">
+    <a href="{% url 'asistencia:horarios' %}" class="text-sm text-blue-600 hover:underline font-medium">← Volver a horarios</a>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-2xl p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-1">Horario predeterminado</h1>
+    <p class="text-sm text-gray-400 mb-5">{{ zona.nombre }}</p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Días partido -->
+      <div class="mb-5">
+        <label class="block text-xs font-semibold text-gray-600 mb-2">{{ form.dias_partido.label }}</label>
+        <p class="text-xs text-gray-400 mb-2">{{ form.dias_partido.help_text }}</p>
+        <div class="flex flex-wrap gap-2">
+          {% for value, label in form.dias_partido.field.choices %}
+          <label class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-purple-50 hover:border-purple-300 has-[:checked]:bg-purple-100 has-[:checked]:border-purple-500">
+            <input type="checkbox" name="dias_partido" value="{{ value }}"
+              {% if value in form.initial.dias_partido %}checked{% endif %}
+              class="w-4 h-4 text-purple-600"/>
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        {% for error in form.dias_partido.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+      </div>
+
+      <!-- Días continuo -->
+      <div class="mb-5">
+        <label class="block text-xs font-semibold text-gray-600 mb-2">{{ form.dias_continuo.label }}</label>
+        <p class="text-xs text-gray-400 mb-2">{{ form.dias_continuo.help_text }}</p>
+        <div class="flex flex-wrap gap-2">
+          {% for value, label in form.dias_continuo.field.choices %}
+          <label class="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm cursor-pointer hover:bg-teal-50 hover:border-teal-300 has-[:checked]:bg-teal-100 has-[:checked]:border-teal-500">
+            <input type="checkbox" name="dias_continuo" value="{{ value }}"
+              {% if value in form.initial.dias_continuo %}checked{% endif %}
+              class="w-4 h-4 text-teal-600"/>
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        {% for error in form.dias_continuo.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+      </div>
+
+      <div class="border-t border-gray-100 my-5"></div>
+
+      <!-- Bloque mañana / continuo -->
+      <h3 class="text-sm font-bold text-gray-700 mb-3">Bloque mañana / horario continuo</h3>
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada.label }}</label>
+          {{ form.hora_entrada }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida.label }}</label>
+          {{ form.hora_salida }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_minutos.label }}</label>
+          {{ form.tolerancia_minutos }}
+        </div>
+      </div>
+
+      <!-- Bloque tarde -->
+      <h3 class="text-sm font-bold text-gray-700 mb-3">Bloque tarde <span class="text-gray-400 font-normal text-xs">(solo aplica en días partido)</span></h3>
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada_tarde.label }}</label>
+          {{ form.hora_entrada_tarde }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida_tarde.label }}</label>
+          {{ form.hora_salida_tarde }}
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_tarde.label }}</label>
+          {{ form.tolerancia_tarde }}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Profesionales afectados -->
+      <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
+        <p class="text-xs font-semibold text-blue-700 mb-2">Profesionales que usan este horario (sin personalización):</p>
+        {% with zona.configs.all as configs %}
+          {% for c in configs %}{% if not c.personalizado %}
+          <div class="text-xs text-blue-600">• {{ c.user.get_full_name }}</div>
+          {% endif %}{% endfor %}
+          {% if not configs %}<p class="text-xs text-blue-400">Ninguno asignado aún.</p>{% endif %}
+        {% endwith %}
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">
+          Guardar horario
+        </button>
+        <a href="{% url 'asistencia:horarios' %}" class="flex-1 text-center bg-gray-100 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

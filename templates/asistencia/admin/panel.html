@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Panel de Asistencia — Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+
+  <!-- Encabezado -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Panel de Asistencia</h1>
+      <p class="text-sm text-gray-500 mt-1">{{ hoy|date:"l, d \d\e F \d\e Y" }}</p>
+    </div>
+  </div>
+
+  <!-- Navegación -->
+  <nav class="flex gap-2 flex-wrap mb-6">
+    <a href="{% url 'asistencia:panel_admin' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'resumen' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Resumen</a>
+    <a href="{% url 'asistencia:zonas_gps' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'zonas' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Zonas GPS</a>
+    <a href="{% url 'asistencia:horarios' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'horarios' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Horarios</a>
+    <a href="{% url 'asistencia:fechas_especiales' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'fechas' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Fechas especiales</a>
+    <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'asignaciones' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Asignaciones</a>
+    <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'enrolamiento' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Enrolamiento</a>
+    <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'permisos' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Permisos</a>
+  </nav>
+
+  <!-- Métricas -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+      <div class="text-3xl font-bold text-green-700">{{ resumen.presentes }}</div>
+      <div class="text-xs text-green-600 mt-1 font-medium">Presentes hoy</div>
+    </div>
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+      <div class="text-3xl font-bold text-yellow-700">{{ resumen.tardanzas }}</div>
+      <div class="text-xs text-yellow-600 mt-1 font-medium">Tardanzas</div>
+    </div>
+    <div class="bg-red-50 border border-red-200 rounded-xl p-4">
+      <div class="text-3xl font-bold text-red-700">{{ resumen.ausentes }}</div>
+      <div class="text-xs text-red-600 mt-1 font-medium">Ausentes</div>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+      <div class="text-3xl font-bold text-gray-500">{{ resumen.sin_enrolar }}</div>
+      <div class="text-xs text-gray-400 mt-1 font-medium">Sin enrolar</div>
+    </div>
+  </div>
+
+  <!-- Tabla de profesionales -->
+  <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h2 class="text-base font-bold text-gray-800">Detalle por profesional</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-gray-50">
+            <th class="text-left text-xs font-semibold text-gray-500 px-6 py-3">Profesional</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Zona</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Entrada</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Salida</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Tardanza</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Biométrico</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in datos %}
+          <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-3">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                  {{ d.user.first_name|slice:":1" }}{{ d.user.last_name|slice:":1" }}
+                </div>
+                <div>
+                  <div class="font-semibold text-gray-800 text-sm">{{ d.user.get_full_name }}</div>
+                  {% if d.profesional %}
+                  <div class="text-xs text-gray-400">{{ d.profesional.especialidad }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+              {% if d.entrada %}{{ d.entrada.zona.nombre|default:"—" }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm font-mono text-gray-700">
+              {% if d.entrada %}{{ d.entrada.fecha_hora|date:"H:i" }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm font-mono text-gray-700">
+              {% if d.salida %}{{ d.salida.fecha_hora|date:"H:i" }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3">
+              {% if d.estado_dia == 'PUNTUAL' %}
+                <span class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">Puntual</span>
+              {% elif d.estado_dia == 'TARDANZA' %}
+                <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-3 py-1 rounded-full">Tardanza</span>
+              {% elif d.estado_dia == 'ausente' %}
+                <span class="bg-red-100 text-red-800 text-xs font-semibold px-3 py-1 rounded-full">Ausente</span>
+              {% else %}
+                <span class="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">Sin enrolar</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+              {% if d.entrada and d.entrada.minutos_tardanza > 0 %}
+                <span class="text-yellow-700 font-semibold">{{ d.entrada.minutos_tardanza }} min</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-500">
+              {% if d.entrada and d.entrada.biometrico_score %}
+                {{ d.entrada.biometrico_score|floatformat:2 }}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400 text-sm">No hay profesionales registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
