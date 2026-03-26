@@ -621,8 +621,8 @@
                         <div>
                             <h1 class="text-base font-bold leading-tight" style="color:white;">     <!-- 20px -->
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
-                                <span class="sm:hidden">CNI </span>
-                                <span style="color:#7dd3fc;">Misael</span>
+                                <span class="sm:hidden">Centro Neurodesarrollo I. </span>
+                                <span style="color:#7dd3fc;">MISAEL</span>
                             </h1>
                             <!-- Usuario + rol visible en móvil debajo del título -->
                             <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
@@ -649,6 +649,12 @@
                             {% elif user.perfil.rol %}
                                 <span class="ml-1.5 text-xs" style="color:rgba(255,255,255,0.45);">({{ user.perfil.get_rol_display }})</span>
                             {% endif %}
+                        </div>
+                        <!-- Reloj desktop (Opción A · Variante 2) -->
+                        <div class="hidden lg:flex flex-col items-center justify-center"
+                             style="background:rgba(124,58,237,0.3); border:1px solid rgba(196,167,255,0.3); border-radius:8px; padding:3px 10px; line-height:1.25; min-width:74px;">
+                            <span id="navbar-hora" style="font-size:14px; font-weight:700; color:#e9d5ff; font-variant-numeric:tabular-nums; letter-spacing:0.04em;"></span>
+                            <span id="navbar-fecha" style="font-size:9px; font-weight:500; color:rgba(233,213,255,0.6); letter-spacing:0.02em;"></span>
                         </div>
                         <!-- Cerrar sesión: compacto en móvil, normal en desktop -->
                         <a href="{% url 'core:logout' %}"
@@ -909,6 +915,12 @@
         <div id="mobile-menu" class="mobile-menu lg:hidden border-t border-slate-700 bg-slate-800">
             <div class="px-2 pt-2 pb-3 space-y-1">
 
+                <!-- Reloj móvil (Opción C) -->
+                <div class="flex items-center justify-between px-3 py-2 mb-1 rounded-lg" style="background:rgba(124,58,237,0.25); border:1px solid rgba(196,167,255,0.2);">
+                    <span id="navbar-hora-mobile" style="font-size:15px; font-weight:700; color:#e9d5ff; font-variant-numeric:tabular-nums; letter-spacing:0.04em;"></span>
+                    <span id="navbar-fecha-mobile" style="font-size:11px; font-weight:500; color:rgba(233,213,255,0.6);"></span>
+                </div>
+
                 {% if not user.perfil.es_profesional or user.is_superuser %}
                 <a href="{% url 'core:dashboard' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
                     🏠 <span>Principal</span>
@@ -1132,8 +1144,8 @@
                         <div>
                             <h1 class="text-base font-bold leading-tight" style="color:white;">
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
-                                <span class="sm:hidden">CNI </span>
-                                <span style="color:#7dd3fc;">Misael</span>
+                                <span class="sm:hidden">Centro Neurodesarrollo I. </span>
+                                <span style="color:#7dd3fc;">MISAEL</span>
                             </h1>
                             <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
                                 <span class="text-xs font-medium" style="color:rgba(255,255,255,0.75);">{{ user.perfil.paciente.nombre }}</span>
@@ -3099,6 +3111,31 @@ function filterPacientes() {
 <!-- ===== FIN MOTOR DE TEMAS ===== -->
 
     {% block extra_js %}{% endblock %}
+
+<!-- ===== RELOJ EN TIEMPO REAL ===== -->
+<script>
+(function(){
+    function pad(n){ return String(n).padStart(2,'0'); }
+    var dias = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    var meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    function tick(){
+        var now = new Date();
+        var hora = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+        var fecha = dias[now.getDay()]+' '+now.getDate()+' '+meses[now.getMonth()];
+        var h = document.getElementById('navbar-hora');
+        var f = document.getElementById('navbar-fecha');
+        var hm = document.getElementById('navbar-hora-mobile');
+        var fm = document.getElementById('navbar-fecha-mobile');
+        if(h)  h.textContent  = hora;
+        if(f)  f.textContent  = fecha;
+        if(hm) hm.textContent = hora;
+        if(fm) fm.textContent = fecha;
+    }
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
+<!-- ===== FIN RELOJ EN TIEMPO REAL ===== -->
 
 <!-- ===== BOTÓN FLOTANTE DE CHAT ===== -->
 {% load chat_tags %}
