@@ -4,579 +4,795 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centro de Neurodesarrollo Infantil Misael</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Centro Infantil Misael · Neurodesarrollo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --rojo:   #e8334a;
-            --azul:   #3b6fd4;
-            --amarillo: #f7c844;
-            --verde:  #28c76f;
-            --naranja: #ff7b3a;
-            --morado: #8e5cf7;
-            --bg:     #fff9f0;
-            --text:   #1a1a2e;
+            --bg-base:    #080b14;
+            --bg-1:       #0d1220;
+            --bg-2:       #111827;
+            --glass:      rgba(255,255,255,0.04);
+            --glass-border: rgba(255,255,255,0.08);
+
+            --rojo:       #ff3f5e;
+            --rojo-glow:  rgba(255,63,94,0.35);
+            --azul:       #4d8bff;
+            --azul-glow:  rgba(77,139,255,0.35);
+            --amarillo:   #ffd147;
+            --oro-glow:   rgba(255,209,71,0.3);
+            --verde:      #22e89a;
+            --verde-glow: rgba(34,232,154,0.3);
+            --morado:     #b06cff;
+            --naranja:    #ff7b3a;
+
+            --text:       #f0f4ff;
+            --muted:      rgba(240,244,255,0.55);
+            --muted2:     rgba(240,244,255,0.35);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: 'Nunito', sans-serif;
-            background: var(--bg);
+            background: var(--bg-base);
             color: var(--text);
             overflow-x: hidden;
         }
 
-        h1, h2, h3, .display {
-            font-family: 'Baloo 2', cursive;
+        h1, h2, h3, h4 { font-family: 'Baloo 2', cursive; }
+
+        /* ─── GRAIN OVERLAY ─── */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: 0.4;
         }
 
-        /* ===== FONDO ANIMADO CON FIGURAS ===== */
-        .hero-bg {
-            position: absolute; inset: 0;
-            background: linear-gradient(140deg, #fff9f0 0%, #ffeef8 30%, #eef4ff 60%, #f0fff8 100%);
-            overflow: hidden;
-            z-index: 0;
-        }
-
-        .bubble {
-            position: absolute;
-            border-radius: 50%;
-            opacity: 0.18;
-            animation: floatBubble var(--dur, 8s) ease-in-out infinite;
-            animation-delay: var(--del, 0s);
-        }
-        @keyframes floatBubble {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50%       { transform: translateY(-28px) scale(1.06); }
-        }
-
-        /* Confetti flotante */
-        .confetti-piece {
-            position: absolute;
-            width: 10px; height: 10px;
-            border-radius: 2px;
-            opacity: 0.55;
-            animation: confettiFloat var(--dur, 6s) ease-in-out infinite;
-            animation-delay: var(--del, 0s);
-        }
-        @keyframes confettiFloat {
-            0%   { transform: translateY(0) rotate(0deg); }
-            50%  { transform: translateY(-20px) rotate(180deg); }
-            100% { transform: translateY(0) rotate(360deg); }
-        }
-
-        /* ===== NAVBAR ===== */
+        /* ─────────────────────────────────────────
+           NAVBAR
+        ───────────────────────────────────────── */
         .navbar {
             position: sticky; top: 0; z-index: 999;
-            background: rgba(255,255,255,0.88);
-            backdrop-filter: blur(18px);
-            border-bottom: 3px solid transparent;
-            border-image: linear-gradient(90deg, var(--rojo), var(--amarillo), var(--azul), var(--verde)) 1;
-            padding: 0.75rem 2rem;
+            background: linear-gradient(135deg,
+                rgba(20,8,40,0.92) 0%,
+                rgba(40,10,60,0.92) 15%,
+                rgba(15,30,80,0.92) 35%,
+                rgba(10,50,60,0.92) 55%,
+                rgba(50,10,40,0.92) 75%,
+                rgba(20,8,40,0.92) 100%);
+            background-size: 400% 400%;
+            animation: navbarShift 12s ease-in-out infinite;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 0.85rem 2.5rem;
             display: flex; align-items: center; justify-content: space-between;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+            box-shadow: 0 2px 40px rgba(77,139,255,0.15), 0 1px 0 rgba(255,255,255,0.06);
         }
-        .navbar-logo {
-            display: flex; align-items: center; gap: 14px;
+        @keyframes navbarShift {
+            0%   { background-position: 0% 50%; box-shadow: 0 2px 40px rgba(77,139,255,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+            25%  { background-position: 100% 50%; box-shadow: 0 2px 40px rgba(255,63,94,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+            50%  { background-position: 100% 0%; box-shadow: 0 2px 40px rgba(176,108,255,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+            75%  { background-position: 0% 100%; box-shadow: 0 2px 40px rgba(34,232,154,0.15), 0 1px 0 rgba(255,255,255,0.06); }
+            100% { background-position: 0% 50%; box-shadow: 0 2px 40px rgba(77,139,255,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+        }
+        /* Borde inferior animado en la navbar */
+        .navbar::after {
+            content: '';
+            position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg,
+                var(--rojo), var(--morado), var(--azul), var(--verde), var(--amarillo), var(--naranja), var(--rojo));
+            background-size: 300% 100%;
+            animation: borderRun 4s linear infinite;
+            opacity: 0.7;
+        }
+        @keyframes borderRun {
+            0%   { background-position: 0% 0%; }
+            100% { background-position: 300% 0%; }
+        }
+        .navbar-logo { display: flex; align-items: center; gap: 14px; }
+        .navbar-logo-placeholder {
+            height: 46px; width: 46px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--rojo) 0%, var(--azul) 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 0 18px var(--rojo-glow);
         }
         .navbar-logo img {
-            height: 48px; width: 48px;
-            border-radius: 50%;
-            border: 3px solid var(--amarillo);
-            box-shadow: 0 0 0 4px rgba(247,200,68,0.2);
-            object-fit: cover;
+            height: 50px; width: 50px;
+            border-radius: 50%; object-fit: contain;
+            background: #ffffff;
+            padding: 4px;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 20px var(--rojo-glow);
+            transition: transform 0.3s, box-shadow 0.3s;
         }
-        .navbar-logo-placeholder {
-            height: 48px; width: 48px;
-            border-radius: 50%;
-            border: 3px solid var(--amarillo);
-            background: linear-gradient(135deg, var(--rojo), var(--azul));
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; box-shadow: 0 0 0 4px rgba(247,200,68,0.2);
+        .navbar-logo img:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 0 2px rgba(255,209,71,0.6), 0 0 28px var(--oro-glow);
         }
         .navbar-brand {
-            font-family: 'Baloo 2', cursive;
-            font-size: 1rem;
-            font-weight: 800;
+            font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 800;
+            background: linear-gradient(90deg, #fff 30%, var(--azul));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             line-height: 1.2;
-            background: linear-gradient(90deg, var(--rojo), var(--azul));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
         }
         .navbar-brand span {
-            display: block;
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: #888;
-            -webkit-text-fill-color: #888;
-            letter-spacing: 0.04em;
+            display: block; font-size: 0.68rem; font-weight: 600;
+            letter-spacing: 0.06em;
+            -webkit-text-fill-color: var(--muted);
         }
-
         .nav-links {
-            display: flex; align-items: center; gap: 2rem;
-            list-style: none;
+            display: flex; align-items: center; gap: 2.2rem; list-style: none;
         }
         .nav-links a {
-            font-size: 0.875rem; font-weight: 700;
-            color: #555; text-decoration: none;
-            transition: color 0.2s;
-            position: relative; padding-bottom: 2px;
+            font-size: 0.875rem; font-weight: 700; color: var(--muted);
+            text-decoration: none; transition: color 0.2s;
         }
-        .nav-links a::after {
-            content: ''; position: absolute;
-            bottom: 0; left: 0; width: 0; height: 2px;
-            background: var(--azul); border-radius: 2px;
-            transition: width 0.25s;
-        }
-        .nav-links a:hover { color: var(--azul); }
-        .nav-links a:hover::after { width: 100%; }
-
+        .nav-links a:hover { color: var(--text); }
         .btn-login {
             display: inline-flex; align-items: center; gap: 8px;
-            background: linear-gradient(135deg, var(--rojo) 0%, #c0392b 100%);
+            background: linear-gradient(135deg, var(--rojo), #c0222f);
             color: white; font-family: 'Baloo 2', cursive;
-            font-size: 0.95rem; font-weight: 700;
-            padding: 0.55rem 1.4rem;
-            border-radius: 50px; text-decoration: none;
-            border: 3px solid rgba(255,255,255,0.3);
-            box-shadow: 0 4px 16px rgba(232,51,74,0.35);
+            font-size: 0.9rem; font-weight: 700;
+            padding: 0.5rem 1.4rem; border-radius: 50px;
+            text-decoration: none; border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 4px 20px var(--rojo-glow), inset 0 1px 0 rgba(255,255,255,0.2);
             transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
         }
         .btn-login:hover {
-            transform: translateY(-3px) scale(1.04);
-            box-shadow: 0 8px 24px rgba(232,51,74,0.45);
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 32px var(--rojo-glow);
         }
         .btn-login .rocket { display: inline-block; transition: transform 0.3s; }
-        .btn-login:hover .rocket { transform: translateX(4px) translateY(-4px) rotate(-10deg); }
+        .btn-login:hover .rocket { transform: translateX(3px) translateY(-4px) rotate(-10deg); }
 
-        /* ===== HERO ===== */
+        /* ─────────────────────────────────────────
+           HERO
+        ───────────────────────────────────────── */
         .hero {
-            position: relative;
-            min-height: 92vh;
+            position: relative; min-height: 95vh;
             display: flex; align-items: center;
-            padding: 5rem 2rem 4rem;
+            padding: 5rem 2.5rem 4rem;
             overflow: hidden;
+            background-image: url("{% static 'img/foto_sucursal.jpg' %}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
-        .hero-content {
-            position: relative; z-index: 2;
-            max-width: 600px;
+        .hero::after {
+            content: '';
+            position: absolute; inset: 0; z-index: 1;
+            background: rgba(8, 11, 20, 0.82);
         }
+        .hero > * { position: relative; z-index: 2; }
+
+        /* Fondo con orbes de luz */
+        .hero-orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(80px); pointer-events: none;
+        }
+        .hero-orb-1 {
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(77,139,255,0.18) 0%, transparent 70%);
+            top: -10%; right: -10%;
+        }
+        .hero-orb-2 {
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(255,63,94,0.14) 0%, transparent 70%);
+            bottom: -5%; left: -8%;
+        }
+        .hero-orb-3 {
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(255,209,71,0.1) 0%, transparent 70%);
+            top: 30%; left: 30%;
+        }
+
+        /* Confetti flotante oscuro */
+        .confetti-piece {
+            position: absolute; border-radius: 2px;
+            animation: confettiFloat var(--dur, 6s) ease-in-out infinite var(--del, 0s);
+        }
+        @keyframes confettiFloat {
+            0%   { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+            50%  { transform: translateY(-22px) rotate(180deg); opacity: 0.8; }
+            100% { transform: translateY(0) rotate(360deg); opacity: 0.5; }
+        }
+
+        .hero-content { position: relative; z-index: 2; max-width: 620px; }
+
         .hero-badge {
             display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(247,200,68,0.18);
-            border: 2px solid rgba(247,200,68,0.5);
+            background: rgba(255,209,71,0.1);
+            border: 1px solid rgba(255,209,71,0.3);
             border-radius: 50px;
-            padding: 0.35rem 1rem;
-            font-size: 0.8rem; font-weight: 800;
-            color: #b8861a;
-            margin-bottom: 1.2rem;
+            padding: 0.35rem 1.1rem;
+            font-size: 0.78rem; font-weight: 800;
+            color: var(--amarillo); letter-spacing: 0.04em;
+            margin-bottom: 1.4rem;
             animation: badgePop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
         }
         @keyframes badgePop {
             from { opacity: 0; transform: scale(0.7); }
             to   { opacity: 1; transform: scale(1); }
         }
+
         .hero h1 {
-            font-size: clamp(2.4rem, 5.5vw, 3.8rem);
-            font-weight: 900;
-            line-height: 1.1;
-            margin-bottom: 1.2rem;
+            font-size: clamp(2.6rem, 5.5vw, 4rem);
+            font-weight: 900; line-height: 1.08;
+            margin-bottom: 1.4rem;
             animation: slideUp 0.7s ease both 0.1s;
         }
         @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
+            from { opacity: 0; transform: translateY(32px); }
             to   { opacity: 1; transform: translateY(0); }
         }
-        .hero h1 .highlight-red   { color: var(--rojo); }
-        .hero h1 .highlight-blue  { color: var(--azul); }
-        .hero h1 .highlight-gold  { color: #d4a017; }
+        .hl-red   { color: var(--rojo); text-shadow: 0 0 32px var(--rojo-glow); }
+        .hl-blue  { color: var(--azul); text-shadow: 0 0 28px var(--azul-glow); }
+        .hl-gold  { color: var(--amarillo); }
 
         .hero p {
-            font-size: 1.1rem; line-height: 1.75;
-            color: #4a4a6a; margin-bottom: 2rem;
+            font-size: 1.05rem; line-height: 1.8; color: var(--muted);
+            margin-bottom: 2.2rem;
             animation: slideUp 0.7s ease both 0.2s;
         }
+        .hero p strong { color: var(--text); }
 
         .hero-cta-group {
             display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
             animation: slideUp 0.7s ease both 0.3s;
         }
-
         .btn-primary {
             display: inline-flex; align-items: center; gap: 10px;
-            background: linear-gradient(135deg, var(--azul), #2a4fab);
+            background: linear-gradient(135deg, var(--azul), #2a5ecf);
             color: white; font-family: 'Baloo 2', cursive;
             font-size: 1.05rem; font-weight: 700;
-            padding: 0.85rem 2rem;
-            border-radius: 50px; text-decoration: none;
-            box-shadow: 0 8px 28px rgba(59,111,212,0.4);
+            padding: 0.9rem 2.2rem; border-radius: 50px;
+            text-decoration: none; border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 8px 32px var(--azul-glow), inset 0 1px 0 rgba(255,255,255,0.2);
             transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
         }
         .btn-primary:hover {
             transform: translateY(-4px) scale(1.05);
-            box-shadow: 0 14px 36px rgba(59,111,212,0.5);
+            box-shadow: 0 16px 48px var(--azul-glow);
         }
-
         .btn-secondary {
             display: inline-flex; align-items: center; gap: 8px;
-            background: white;
-            color: var(--rojo); font-family: 'Baloo 2', cursive;
-            font-size: 1rem; font-weight: 700;
-            padding: 0.8rem 1.8rem;
-            border-radius: 50px; text-decoration: none;
-            border: 3px solid var(--rojo);
+            background: var(--glass); color: var(--text);
+            font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 700;
+            padding: 0.85rem 1.9rem; border-radius: 50px;
+            text-decoration: none;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(12px);
             transition: all 0.25s;
         }
         .btn-secondary:hover {
-            background: var(--rojo); color: white;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.2);
             transform: translateY(-3px);
         }
 
         /* Ilustración hero */
         .hero-illustration {
-            position: absolute; right: 0; top: 50%;
+            position: absolute; right: 2rem; top: 50%;
             transform: translateY(-50%);
-            width: min(520px, 48vw);
-            z-index: 1;
+            width: min(500px, 44vw); z-index: 1;
             animation: floatIllus 5s ease-in-out infinite;
+            filter: drop-shadow(0 0 60px rgba(77,139,255,0.2));
         }
         @keyframes floatIllus {
-            0%, 100% { transform: translateY(-50%) translateX(0); }
-            50%       { transform: translateY(calc(-50% - 15px)) translateX(-6px); }
+            0%,100% { transform: translateY(-50%); }
+            50%     { transform: translateY(calc(-50% - 18px)); }
         }
 
-        /* Indicadores de confianza */
+        @keyframes logoHero {
+            0%,100% { transform: translateY(0) scale(1) rotate(0deg); filter: drop-shadow(0 0 60px rgba(255,63,94,0.5)) drop-shadow(0 0 100px rgba(77,139,255,0.35)); }
+            25%     { transform: translateY(-14px) scale(1.03) rotate(1deg); filter: drop-shadow(0 0 80px rgba(176,108,255,0.6)) drop-shadow(0 0 120px rgba(255,63,94,0.3)); }
+            50%     { transform: translateY(-20px) scale(1.04) rotate(0deg); filter: drop-shadow(0 0 70px rgba(77,139,255,0.6)) drop-shadow(0 0 110px rgba(34,232,154,0.3)); }
+            75%     { transform: translateY(-10px) scale(1.02) rotate(-1deg); filter: drop-shadow(0 0 75px rgba(255,209,71,0.5)) drop-shadow(0 0 105px rgba(77,139,255,0.3)); }
+        }
+
+        @keyframes ringPulse {
+            0%,100% { transform: scale(1); opacity: 0.6; }
+            50%     { transform: scale(1.06); opacity: 1; }
+        }
+
+        @keyframes orbitDot {
+            0%,100% { transform: translateY(0) scale(1); }
+            33%     { transform: translateY(-16px) scale(1.3); }
+            66%     { transform: translateY(-8px) scale(0.85); }
+        }
+
+        @keyframes spinOrb {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        /* ─── TRUST BAR ─── */
         .trust-bar {
             position: relative; z-index: 2;
-            background: white;
-            border-top: 4px solid transparent;
-            border-image: linear-gradient(90deg, var(--rojo), var(--amarillo), var(--azul)) 1;
-            padding: 1.5rem 2rem;
-            display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: center;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+            background: linear-gradient(135deg, var(--bg-1), rgba(20,15,45,0.95), var(--bg-1));
+            background-size: 300% 100%;
+            animation: trustBarShift 8s ease-in-out infinite;
+            border-top: 1px solid rgba(77,139,255,0.15);
+            border-bottom: 1px solid rgba(176,108,255,0.15);
+            padding: 1.6rem 2rem;
+            display: flex; flex-wrap: wrap; gap: 2.5rem;
+            align-items: center; justify-content: center;
         }
-        .trust-item {
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.9rem; font-weight: 700; color: #444;
+        @keyframes trustBarShift {
+            0%,100% { background-position: 0% 50%; }
+            50%     { background-position: 100% 50%; }
         }
+        .trust-item { display: flex; align-items: center; gap: 12px; }
         .trust-item .icon {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
+            display: inline-block;
+            animation: iconBounce 3s ease-in-out infinite;
+        }
+        .trust-item:nth-child(2) .icon { animation-delay: 0.4s; }
+        .trust-item:nth-child(3) .icon { animation-delay: 0.8s; }
+        .trust-item:nth-child(4) .icon { animation-delay: 1.2s; }
+        .trust-item:nth-child(5) .icon { animation-delay: 1.6s; }
+        @keyframes iconBounce {
+            0%,100% { transform: translateY(0) scale(1); }
+            40%     { transform: translateY(-6px) scale(1.2); }
+            60%     { transform: translateY(-3px) scale(1.1); }
         }
         .trust-number {
-            font-family: 'Baloo 2', cursive;
-            font-size: 1.4rem; font-weight: 900;
-            color: var(--azul);
+            font-family: 'Baloo 2', cursive; font-size: 1.5rem; font-weight: 900;
+            color: var(--azul); text-shadow: 0 0 16px var(--azul-glow);
+            animation: numberGlow 3s ease-in-out infinite;
         }
+        @keyframes numberGlow {
+            0%,100% { text-shadow: 0 0 16px var(--azul-glow); }
+            50%     { text-shadow: 0 0 32px var(--azul-glow), 0 0 48px rgba(77,139,255,0.2); }
+        }
+        .trust-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
 
-        /* ===== SECCIÓN SERVICIOS ===== */
-        .section {
-            padding: 5rem 2rem;
-        }
-        .section-title {
-            text-align: center;
-            font-size: clamp(1.8rem, 4vw, 2.8rem);
-            font-weight: 900; margin-bottom: 0.6rem;
-        }
-        .section-subtitle {
-            text-align: center;
-            color: #666; font-size: 1.05rem; margin-bottom: 3rem;
-        }
+        /* ─────────────────────────────────────────
+           SECCIONES GENÉRICAS
+        ───────────────────────────────────────── */
+        .section { padding: 5.5rem 2.5rem; }
         .section-pill {
             display: inline-block;
-            background: linear-gradient(135deg, var(--amarillo), #f0a500);
-            color: #5a3a00;
-            font-size: 0.75rem; font-weight: 800;
-            letter-spacing: 0.08em; text-transform: uppercase;
+            background: rgba(255,209,71,0.12);
+            border: 1px solid rgba(255,209,71,0.3);
+            color: var(--amarillo);
+            font-size: 0.72rem; font-weight: 800;
+            letter-spacing: 0.1em; text-transform: uppercase;
             padding: 0.3rem 1rem; border-radius: 50px;
-            margin-bottom: 0.8rem;
+            margin-bottom: 0.9rem;
+            animation: pillPulse 4s ease-in-out infinite;
+        }
+        @keyframes pillPulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(255,209,71,0); }
+            50%     { box-shadow: 0 0 0 6px rgba(255,209,71,0.08); }
+        }
+        .section-title {
+            text-align: center; font-size: clamp(1.9rem, 4vw, 3rem);
+            font-weight: 900; margin-bottom: 0.6rem; color: var(--text);
+        }
+        .section-subtitle {
+            text-align: center; color: var(--muted);
+            font-size: 1.05rem; margin-bottom: 3rem;
         }
 
+        /* ─────────────────────────────────────────
+           GALERÍA / CARRUSEL
+        ───────────────────────────────────────── */
+        .gallery-section {
+            padding: 5rem 0 4.5rem;
+            background: var(--bg-1);
+            overflow: hidden; position: relative;
+        }
+        .gallery-section::before {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(circle at 10% 90%, rgba(255,209,71,0.06) 0%, transparent 45%),
+                radial-gradient(circle at 90% 10%, rgba(77,139,255,0.07) 0%, transparent 45%);
+            pointer-events: none;
+        }
+        .gallery-header {
+            text-align: center; padding: 0 2rem 2.5rem;
+            position: relative; z-index: 1;
+        }
+        .carousel-track-wrap { position: relative; }
+        .carousel-track-wrap::before,
+        .carousel-track-wrap::after {
+            content: ''; position: absolute; top: 0; bottom: 0; width: 140px;
+            z-index: 2; pointer-events: none;
+        }
+        .carousel-track-wrap::before {
+            left: 0;
+            background: linear-gradient(90deg, var(--bg-1), transparent);
+        }
+        .carousel-track-wrap::after {
+            right: 0;
+            background: linear-gradient(-90deg, var(--bg-1), transparent);
+        }
+        .carousel-track {
+            display: flex; gap: 22px;
+            padding: 16px 60px;
+            overflow: hidden; cursor: grab; user-select: none;
+        }
+        .carousel-track:active { cursor: grabbing; }
+
+        .carousel-slide {
+            flex: 0 0 auto; width: 320px;
+            border-radius: 20px; overflow: hidden;
+            background: var(--bg-2);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+            transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+        }
+        .carousel-slide:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 28px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
+        }
+        .carousel-slide img {
+            width: 100%; height: 240px; object-fit: cover; display: block;
+        }
+        .carousel-slide-label {
+            padding: 0.85rem 1.1rem 1rem;
+        }
+        .carousel-slide-label span {
+            font-family: 'Baloo 2', cursive; font-size: 0.82rem; font-weight: 700;
+            color: var(--muted); display: flex; align-items: center; gap: 7px;
+        }
+        .carousel-slide-label .dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        }
+        .carousel-btns {
+            display: flex; justify-content: center; gap: 14px; margin-top: 2rem;
+        }
+        .carousel-btn {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: var(--glass); border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            color: var(--text); font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .carousel-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.15); }
+        .carousel-btn.prev:hover { box-shadow: 0 0 20px var(--azul-glow); border-color: var(--azul); }
+        .carousel-btn.next:hover { box-shadow: 0 0 20px var(--rojo-glow); border-color: var(--rojo); }
+        .carousel-dots {
+            display: flex; justify-content: center; gap: 8px; margin-top: 1.2rem;
+        }
+        .carousel-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(255,255,255,0.18); border: none; cursor: pointer; padding: 0;
+            transition: all 0.3s;
+        }
+        .carousel-dot.active {
+            width: 26px; border-radius: 4px;
+            background: var(--rojo);
+            box-shadow: 0 0 10px var(--rojo-glow);
+        }
+
+        /* ─────────────────────────────────────────
+           SERVICIOS
+        ───────────────────────────────────────── */
         .services-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1.5rem;
-            max-width: 1200px; margin: 0 auto;
+            gap: 1.4rem; max-width: 1200px; margin: 0 auto;
         }
-
         .service-card {
-            background: white;
-            border-radius: 24px;
-            padding: 2rem 1.6rem;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 2rem 1.7rem;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.07);
-            border: 3px solid transparent;
-            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-            position: relative; overflow: hidden;
-            cursor: default;
+            backdrop-filter: blur(12px);
+            transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative; overflow: hidden; cursor: default;
+            animation: cardFloat 6s ease-in-out infinite;
+        }
+        .service-card:nth-child(2) { animation-delay: 0.5s; }
+        .service-card:nth-child(3) { animation-delay: 1s; }
+        .service-card:nth-child(4) { animation-delay: 1.5s; }
+        .service-card:nth-child(5) { animation-delay: 2s; }
+        .service-card:nth-child(6) { animation-delay: 2.5s; }
+        @keyframes cardFloat {
+            0%,100% { transform: translateY(0); }
+            50%     { transform: translateY(-6px); }
         }
         .service-card::before {
-            content: ''; position: absolute;
-            top: 0; left: 0; right: 0; height: 5px;
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
             background: var(--card-color, var(--azul));
             border-radius: 24px 24px 0 0;
+            box-shadow: 0 0 12px var(--card-glow, var(--azul-glow));
+        }
+        .service-card::after {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(77,139,255,0.06)) 0%, transparent 60%);
+            pointer-events: none;
         }
         .service-card:hover {
-            transform: translateY(-8px) scale(1.02);
-            border-color: var(--card-color, var(--azul));
-            box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+            transform: translateY(-14px) scale(1.04);
+            background: rgba(255,255,255,0.07);
+            animation-play-state: paused;
+            border-color: rgba(255,255,255,0.14);
+            box-shadow: 0 20px 48px rgba(0,0,0,0.4);
         }
         .service-icon {
-            font-size: 3rem; margin-bottom: 1rem;
-            display: block;
+            font-size: 3rem; margin-bottom: 1rem; display: block;
             animation: iconWobble 3s ease-in-out infinite;
         }
         @keyframes iconWobble {
-            0%, 100% { transform: rotate(0deg); }
-            25%       { transform: rotate(-5deg); }
-            75%       { transform: rotate(5deg); }
+            0%,100% { transform: rotate(0deg); }
+            25%     { transform: rotate(-6deg) scale(1.05); }
+            75%     { transform: rotate(6deg) scale(1.05); }
         }
         .service-card:nth-child(2) .service-icon { animation-delay: 0.4s; }
         .service-card:nth-child(3) .service-icon { animation-delay: 0.8s; }
         .service-card:nth-child(4) .service-icon { animation-delay: 1.2s; }
         .service-card:nth-child(5) .service-icon { animation-delay: 1.6s; }
         .service-card:nth-child(6) .service-icon { animation-delay: 2.0s; }
+        .service-card h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text); }
+        .service-card p  { font-size: 0.875rem; color: var(--muted); line-height: 1.65; }
 
-        .service-card h3 {
-            font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem;
-            color: var(--text);
-        }
-        .service-card p {
-            font-size: 0.875rem; color: #666; line-height: 1.6;
-        }
-
-        /* ===== SECCIÓN POR QUÉ NOSOTROS ===== */
+        /* ─────────────────────────────────────────
+           POR QUÉ NOSOTROS
+        ───────────────────────────────────────── */
         .why-section {
-            background: linear-gradient(135deg, #0e1a6e 0%, #1a3a8f 40%, #0d3561 100%);
-            padding: 5rem 2rem;
+            background: var(--bg-2);
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 5.5rem 2.5rem;
             position: relative; overflow: hidden;
         }
         .why-section::before {
             content: '';
             position: absolute; inset: 0;
-            background-image: radial-gradient(circle at 20% 50%, rgba(247,200,68,0.1) 0%, transparent 50%),
-                              radial-gradient(circle at 80% 20%, rgba(232,51,74,0.1) 0%, transparent 50%);
+            background:
+                radial-gradient(ellipse at 20% 60%, rgba(77,139,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 30%, rgba(255,63,94,0.07) 0%, transparent 50%);
         }
-        .why-section .section-title { color: white; }
-        .why-section .section-subtitle { color: rgba(255,255,255,0.7); }
-        .why-section .section-pill {
-            background: linear-gradient(135deg, rgba(247,200,68,0.3), rgba(247,200,68,0.15));
-            color: var(--amarillo);
-        }
-
         .why-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.5rem;
-            max-width: 1100px; margin: 0 auto;
+            gap: 1.4rem; max-width: 1100px; margin: 0 auto;
         }
         .why-card {
-            background: rgba(255,255,255,0.07);
-            backdrop-filter: blur(10px);
-            border: 1.5px solid rgba(255,255,255,0.15);
-            border-radius: 20px;
-            padding: 1.8rem 1.4rem;
-            text-align: center;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 1.8rem 1.4rem;
+            text-align: center; backdrop-filter: blur(10px);
             transition: all 0.3s;
         }
         .why-card:hover {
-            background: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,209,71,0.3);
             transform: translateY(-6px);
-            border-color: rgba(247,200,68,0.4);
+            box-shadow: 0 12px 36px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,209,71,0.15);
         }
-        .why-card .why-icon {
-            font-size: 2.5rem; margin-bottom: 1rem;
-        }
-        .why-card h3 {
-            color: white; font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem;
-        }
-        .why-card p {
-            color: rgba(255,255,255,0.65); font-size: 0.85rem; line-height: 1.6;
-        }
+        .why-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+        .why-card h3 { color: var(--text); font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .why-card p  { color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
 
-        /* ===== EQUIPO ===== */
-        .team-section { background: #f8faff; }
-
+        /* ─────────────────────────────────────────
+           EQUIPO
+        ───────────────────────────────────────── */
+        .team-section { background: var(--bg-base); }
         .team-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.8rem;
-            max-width: 1000px; margin: 0 auto;
+            gap: 1.8rem; max-width: 1000px; margin: 0 auto;
         }
-        .team-card {
-            text-align: center;
-        }
+        .team-card { text-align: center; }
         .team-avatar {
-            width: 100px; height: 100px;
-            border-radius: 50%;
+            width: 100px; height: 100px; border-radius: 50%;
             margin: 0 auto 1rem;
-            border: 4px solid white;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            border: 2px solid var(--glass-border);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.4);
             display: flex; align-items: center; justify-content: center;
             font-size: 3rem;
             transition: transform 0.3s;
         }
         .team-card:hover .team-avatar { transform: scale(1.1) rotate(-5deg); }
-        .team-card h3 {
-            font-size: 1rem; font-weight: 800; margin-bottom: 0.2rem;
-        }
-        .team-card p {
-            font-size: 0.8rem; color: #888; font-weight: 600;
-        }
+        .team-card h3 { font-size: 1rem; font-weight: 800; margin-bottom: 0.2rem; color: var(--text); }
+        .team-card p  { font-size: 0.8rem; color: var(--muted2); font-weight: 600; }
         .team-tag {
             display: inline-block;
-            background: var(--tag-bg, #eef4ff);
-            color: var(--tag-color, var(--azul));
-            font-size: 0.72rem; font-weight: 700;
+            background: rgba(77,139,255,0.12);
+            border: 1px solid rgba(77,139,255,0.25);
+            color: var(--azul); font-size: 0.7rem; font-weight: 700;
             padding: 0.2rem 0.7rem; border-radius: 50px; margin-top: 0.4rem;
         }
 
-        /* ===== CTA FINAL ===== */
+        /* ─────────────────────────────────────────
+           CTA FINAL
+        ───────────────────────────────────────── */
         .cta-section {
-            background: linear-gradient(135deg, var(--rojo) 0%, #c0392b 50%, #8e1a2e 100%);
-            padding: 5rem 2rem;
+            background: var(--bg-1);
+            border-top: 1px solid var(--glass-border);
+            padding: 6rem 2.5rem;
             text-align: center;
             position: relative; overflow: hidden;
         }
         .cta-section::before {
             content: '';
             position: absolute; inset: 0;
-            background-image: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 60%),
-                              radial-gradient(circle at 70% 30%, rgba(247,200,68,0.1) 0%, transparent 50%);
+            background:
+                radial-gradient(ellipse at 50% 100%, rgba(255,63,94,0.14) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 0%, rgba(77,139,255,0.1) 0%, transparent 50%);
         }
         .cta-section h2 {
-            color: white; font-size: clamp(1.8rem, 4vw, 3rem);
+            color: var(--text); font-size: clamp(2rem, 4vw, 3.2rem);
             font-weight: 900; margin-bottom: 1rem; position: relative;
         }
         .cta-section p {
-            color: rgba(255,255,255,0.8); font-size: 1.1rem;
-            margin-bottom: 2.5rem; position: relative;
+            color: var(--muted); font-size: 1.1rem;
+            margin-bottom: 2.8rem; position: relative;
         }
-        .btn-cta-white {
+        .btn-cta {
             display: inline-flex; align-items: center; gap: 10px;
-            background: white;
-            color: var(--rojo); font-family: 'Baloo 2', cursive;
+            background: linear-gradient(135deg, var(--rojo), #bf1a34);
+            color: white; font-family: 'Baloo 2', cursive;
             font-size: 1.15rem; font-weight: 800;
-            padding: 1rem 2.5rem;
-            border-radius: 50px; text-decoration: none;
-            box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+            padding: 1.1rem 2.8rem; border-radius: 50px;
+            text-decoration: none; position: relative;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 40px var(--rojo-glow), inset 0 1px 0 rgba(255,255,255,0.25);
             transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
-            position: relative;
         }
-        .btn-cta-white:hover {
+        .btn-cta:hover {
             transform: scale(1.07) translateY(-4px);
-            box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+            box-shadow: 0 20px 56px var(--rojo-glow);
+        }
+        .cta-features {
+            margin-top: 2.5rem; display: flex; justify-content: center;
+            gap: 1.5rem; flex-wrap: wrap; position: relative;
+        }
+        .cta-feature {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.82rem; color: var(--muted2); font-weight: 600;
         }
 
-        /* ===== FOOTER ===== */
+        /* ─────────────────────────────────────────
+           FOOTER
+        ───────────────────────────────────────── */
         footer {
-            background: #0e1117;
-            padding: 3rem 2rem 2rem;
-            color: rgba(255,255,255,0.6);
+            background: #060810;
+            border-top: 1px solid var(--glass-border);
+            padding: 3.5rem 2.5rem 2rem;
+            color: var(--muted2);
         }
         .footer-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
-            max-width: 1100px; margin: 0 auto 2rem;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2.5rem; max-width: 1100px; margin: 0 auto 2.5rem;
         }
         .footer-brand h3 {
-            font-family: 'Baloo 2', cursive;
-            color: white; font-size: 1.1rem; font-weight: 900;
-            margin-bottom: 0.5rem;
+            font-family: 'Baloo 2', cursive; color: var(--text);
+            font-size: 1.1rem; font-weight: 900; margin-bottom: 0.6rem;
         }
-        .footer-brand p {
-            font-size: 0.82rem; line-height: 1.6;
-        }
+        .footer-brand p { font-size: 0.82rem; line-height: 1.7; }
         .footer-col h4 {
-            color: white; font-size: 0.875rem;
-            font-weight: 800; margin-bottom: 0.8rem;
-            letter-spacing: 0.05em;
+            color: var(--text); font-size: 0.82rem; font-weight: 800;
+            margin-bottom: 0.8rem; letter-spacing: 0.07em; text-transform: uppercase;
         }
         .footer-col ul { list-style: none; }
-        .footer-col ul li {
-            font-size: 0.82rem; margin-bottom: 0.4rem;
-        }
+        .footer-col ul li { font-size: 0.82rem; margin-bottom: 0.5rem; }
         .footer-col ul li a {
-            color: rgba(255,255,255,0.55);
-            text-decoration: none; transition: color 0.2s;
+            color: var(--muted2); text-decoration: none; transition: color 0.2s;
         }
         .footer-col ul li a:hover { color: var(--amarillo); }
         .footer-bottom {
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 1.5rem;
-            text-align: center;
-            font-size: 0.8rem;
-            max-width: 1100px; margin: 0 auto;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 1.5rem; text-align: center;
+            font-size: 0.78rem; max-width: 1100px; margin: 0 auto;
         }
-        .footer-dots {
-            display: flex; justify-content: center; gap: 8px; margin-top: 1rem;
+        .footer-accent-line {
+            height: 3px;
+            background: linear-gradient(90deg, var(--rojo), var(--amarillo), var(--azul), var(--verde));
+            border-radius: 0 0 4px 4px;
+            margin-bottom: 0;
         }
-        .footer-dots span {
-            width: 10px; height: 10px; border-radius: 50%;
+        /* Logo footer */
+        .footer-logo {
+            width: 120px; height: 120px; border-radius: 50%; object-fit: contain;
+            background: #ffffff;
+            padding: 5px;
+            margin-bottom: 1rem;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.15), 0 0 24px var(--rojo-glow);
         }
+        /* Ubicaciones en footer */
+        .location-card {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 0.75rem 0.9rem;
+            margin-bottom: 0.6rem;
+            transition: all 0.25s;
+            text-decoration: none; color: inherit;
+        }
+        .location-card:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,209,71,0.3);
+            transform: translateX(4px);
+        }
+        .location-icon {
+            font-size: 1.3rem; flex-shrink: 0; margin-top: 1px;
+        }
+        .location-card h5 {
+            font-size: 0.8rem; font-weight: 800; color: var(--text); margin-bottom: 0.15rem;
+        }
+        .location-card p {
+            font-size: 0.75rem; color: var(--muted); line-height: 1.5;
+        }
+        /* Redes sociales footer */
+        .social-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0.6rem;
+        }
+        .social-link {
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            border-radius: 10px; padding: 0.55rem 0.5rem;
+            font-size: 0.75rem; font-weight: 700; color: white;
+            text-decoration: none;
+            transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .social-link:hover { transform: translateY(-3px) scale(1.04); }
+        .social-link svg { width: 14px; height: 14px; flex-shrink: 0; }
+        .social-link.fb   { background: #1877F2; }
+        .social-link.yt   { background: #FF0000; }
+        .social-link.wa   { background: #25D366; }
+        .social-link.ig   { background: linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); }
+        .social-link.tt   { background: #010101; border-color: rgba(255,255,255,0.15); }
+        .social-link.tt   { grid-column: span 2; }
 
-        /* ===== ESTRELLAS ===== */
-        #starContainer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 1000; overflow: hidden;
-        }
-        .star-blink {
-            position: absolute; background: white; border-radius: 50%; opacity: 0;
-            animation: blinker var(--duration) ease-in-out infinite var(--delay);
-        }
-        @keyframes blinker {
-            0%   { opacity: 0; transform: scale(0.5); }
-            50%  { opacity: var(--opacity); transform: scale(1.2); }
-            100% { opacity: 0; transform: scale(0.5); }
-        }
-
-        /* ===== SCROLL ANIMATIONS ===== */
+        /* ─────────────────────────────────────────
+           SCROLL ANIMATIONS
+        ───────────────────────────────────────── */
         .fade-in-up {
-            opacity: 0; transform: translateY(32px);
+            opacity: 0; transform: translateY(30px);
             transition: opacity 0.6s ease, transform 0.6s ease;
         }
-        .fade-in-up.visible {
-            opacity: 1; transform: translateY(0);
-        }
+        .fade-in-up.visible { opacity: 1; transform: translateY(0); }
 
-        /* ===== RESPONSIVE ===== */
+        /* ─────────────────────────────────────────
+           RESPONSIVE
+        ───────────────────────────────────────── */
         @media (max-width: 768px) {
             .hero-illustration { display: none; }
             .nav-links { display: none; }
-            .hero { padding: 4rem 1.2rem 3rem; text-align: center; }
+            .hero { padding: 4rem 1.4rem 3rem; text-align: center; }
             .hero-cta-group { justify-content: center; }
-            .section { padding: 3.5rem 1.2rem; }
-            .why-section, .cta-section { padding: 3.5rem 1.2rem; }
-            .trust-bar { gap: 1.2rem; }
+            .section { padding: 3.5rem 1.4rem; }
+            .why-section, .cta-section { padding: 3.5rem 1.4rem; }
+            .trust-bar { gap: 1.4rem; }
+            .carousel-slide { width: 265px; }
+            .carousel-track { padding: 12px 20px; }
+            .carousel-track-wrap::before,
+            .carousel-track-wrap::after { width: 40px; }
         }
-
-        /* Separador ondulado */
-        .wave-divider svg { display: block; }
     </style>
 </head>
 <body>
 
-<!-- ===== ESTRELLAS DE FONDO ===== -->
-<div id="starContainer"></div>
-
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      NAVBAR
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <nav class="navbar">
     <div class="navbar-logo">
-        <!-- Intentar cargar logo; si no existe se muestra el placeholder -->
-        <div class="navbar-logo-placeholder" id="logoWrap">🧠</div>
+        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" id="logoWrap">
         <div class="navbar-brand">
-            Centro Misael
-            <span>Neurodesarrollo Infantil</span>
+            Centro de Neurodesarrollo Infantil Misael
+            <span>Potosí - Bolivia</span>
         </div>
     </div>
 
     <ul class="nav-links">
         <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#galeria">Galería</a></li>
         <li><a href="#nosotros">Nosotros</a></li>
         <li><a href="#equipo">Equipo</a></li>
         <li><a href="#contacto">Contacto</a></li>
@@ -587,349 +803,364 @@
     </a>
 </nav>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      HERO
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <section class="hero">
 
-    <!-- Fondo animado con burbujas -->
-    <div class="hero-bg" id="heroBg"></div>
+    <!-- Orbes de luz de fondo -->
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-orb hero-orb-3"></div>
+    <div id="heroBg"></div>
 
-    <!-- Contenido principal -->
     <div class="hero-content">
-        <div class="hero-badge">
-            ⭐ Especialistas en Neurodesarrollo Infantil
-        </div>
+        <div class="hero-badge">⭐ Especialistas en Neurodesarrollo Infantil</div>
 
         <h1>
-            Impulsamos el <span class="highlight-red">potencial</span> de cada<br>
-            <span class="highlight-blue">niño</span> y <span class="highlight-gold">niña</span>
+            Impulsamos el <span class="hl-red">potencial</span><br>
+            de cada <span class="hl-blue">niño</span> y <span class="hl-gold">niña</span>
         </h1>
 
         <p>
-            En el <strong>Centro de Neurodesarrollo Infantil Misael</strong>, acompañamos a cada familia con
-            terapias especializadas, evaluaciones científicas y un equipo comprometido
+            En el <strong>Centro Infantil Misael</strong>, acompañamos a cada familia
+            con terapias especializadas, evaluaciones científicas y un equipo comprometido
             con el bienestar y desarrollo integral de tu hijo.
         </p>
 
         <div class="hero-cta-group">
-            <a href="#servicios" class="btn-primary">
-                🌟 Conocer Servicios
-            </a>
-            <a href="{% url 'core:login' %}" class="btn-secondary">
-                🔐 Acceder al Sistema
-            </a>
+            <a href="#servicios" class="btn-primary">🌟 Conocer Servicios</a>
+            <a href="{% url 'core:login' %}" class="btn-secondary">🔐 Acceder al Sistema</a>
         </div>
     </div>
 
-    <!-- Ilustración decorativa SVG -->
-    <div class="hero-illustration">
-        <svg viewBox="0 0 480 420" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <!-- Fondo circular grande -->
-            <circle cx="260" cy="210" r="190" fill="url(#heroGrad)" opacity="0.12"/>
-            <circle cx="260" cy="210" r="155" fill="url(#heroGrad2)" opacity="0.14"/>
-
-            <!-- Figura niño/cerebro estilizado -->
-            <!-- Cabeza -->
-            <circle cx="240" cy="140" r="75" fill="white" stroke="#e8334a" stroke-width="4"/>
-            <!-- Hemisferio izquierdo del cerebro -->
-            <path d="M185 130 Q175 100 200 85 Q220 72 235 90 Q240 105 240 130 Z" fill="#3b6fd4" opacity="0.7"/>
-            <!-- Hemisferio derecho del cerebro -->
-            <path d="M295 130 Q305 100 280 85 Q260 72 245 90 Q240 105 240 130 Z" fill="#e8334a" opacity="0.7"/>
-            <!-- Conexión cerebral -->
-            <line x1="240" y1="90" x2="240" y2="135" stroke="#f7c844" stroke-width="3"/>
-            <!-- Ojos -->
-            <circle cx="218" cy="148" r="10" fill="#1a1a2e"/>
-            <circle cx="262" cy="148" r="10" fill="#1a1a2e"/>
-            <circle cx="222" cy="145" r="4" fill="white"/>
-            <circle cx="266" cy="145" r="4" fill="white"/>
-            <!-- Sonrisa -->
-            <path d="M220 168 Q240 185 260 168" stroke="#1a1a2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-
-            <!-- Cuerpo / bata médica -->
-            <path d="M195 215 Q200 205 240 200 Q280 205 285 215 L295 320 Q240 335 185 320 Z" fill="white" stroke="#ddd" stroke-width="2"/>
-            <!-- Botones bata -->
-            <circle cx="240" cy="235" r="4" fill="#3b6fd4"/>
-            <circle cx="240" cy="255" r="4" fill="#3b6fd4"/>
-            <circle cx="240" cy="275" r="4" fill="#3b6fd4"/>
-            <!-- Cruz médica en bata -->
-            <rect x="228" y="290" width="24" height="8" rx="3" fill="#e8334a"/>
-            <rect x="236" y="282" width="8" height="24" rx="3" fill="#e8334a"/>
-
-            <!-- Brazo izquierdo extendido sosteniendo estrella -->
-            <path d="M195 235 Q165 240 148 255" stroke="#ffcba4" stroke-width="18" stroke-linecap="round"/>
-            <!-- Mano con estrella -->
-            <polygon points="148,235 153,248 167,248 156,257 160,270 148,262 136,270 140,257 129,248 143,248" fill="#f7c844"/>
-
-            <!-- Brazo derecho con tablet/libro -->
-            <path d="M285 235 Q315 240 332 255" stroke="#ffcba4" stroke-width="18" stroke-linecap="round"/>
-            <rect x="325" y="242" width="38" height="50" rx="5" fill="#3b6fd4"/>
-            <rect x="329" y="247" width="30" height="38" rx="3" fill="#eef4ff"/>
-            <line x1="332" y1="255" x2="356" y2="255" stroke="#3b6fd4" stroke-width="1.5"/>
-            <line x1="332" y1="261" x2="356" y2="261" stroke="#3b6fd4" stroke-width="1.5"/>
-            <line x1="332" y1="267" x2="356" y2="267" stroke="#3b6fd4" stroke-width="1.5"/>
-            <line x1="332" y1="273" x2="348" y2="273" stroke="#e8334a" stroke-width="1.5"/>
-
-            <!-- Piernas -->
-            <rect x="210" y="318" width="28" height="60" rx="12" fill="#3b6fd4"/>
-            <rect x="242" y="318" width="28" height="60" rx="12" fill="#3b6fd4"/>
-            <!-- Zapatos -->
-            <ellipse cx="224" cy="378" rx="20" ry="9" fill="#1a1a2e"/>
-            <ellipse cx="256" cy="378" rx="20" ry="9" fill="#1a1a2e"/>
-
-            <!-- Elementos flotantes decorativos -->
-            <!-- Átomo/molécula -->
-            <g transform="translate(60, 60)">
-                <circle cx="0" cy="0" r="8" fill="#28c76f"/>
-                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(0)"/>
-                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(60)"/>
-                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(120)"/>
-            </g>
-            <!-- Corazón -->
-            <path d="M400 60 Q400 45 390 45 Q378 45 378 58 Q378 70 400 82 Q422 70 422 58 Q422 45 410 45 Q400 45 400 60 Z" fill="#e8334a" opacity="0.7"/>
-            <!-- Nota musical -->
-            <text x="75" y="320" font-size="28" fill="#8e5cf7" opacity="0.7">♪</text>
-            <!-- ABC -->
-            <text x="390" y="300" font-size="20" font-weight="900" fill="#f7c844" opacity="0.8" font-family="Baloo 2">ABC</text>
-            <!-- Pequeños puntos coloridos -->
-            <circle cx="110" cy="200" r="6" fill="#f7c844" opacity="0.6"/>
-            <circle cx="420" cy="160" r="8" fill="#3b6fd4" opacity="0.5"/>
-            <circle cx="50" cy="350" r="5" fill="#e8334a" opacity="0.5"/>
-            <circle cx="430" cy="350" r="7" fill="#28c76f" opacity="0.5"/>
-
-            <defs>
-                <radialGradient id="heroGrad" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stop-color="#3b6fd4"/>
-                    <stop offset="100%" stop-color="#e8334a"/>
-                </radialGradient>
-                <radialGradient id="heroGrad2" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stop-color="#f7c844"/>
-                    <stop offset="100%" stop-color="#28c76f"/>
-                </radialGradient>
-            </defs>
-        </svg>
+    <!-- Logo como ilustración del hero -->
+    <div class="hero-illustration" style="display:flex; align-items:center; justify-content:center;">
+        <div style="position:relative; width:100%; max-width:520px; display:flex; align-items:center; justify-content:center;">
+            <!-- Anillos decorativos animados detrás del logo -->
+            <div style="position:absolute; width:480px; height:480px; border-radius:50%;
+                        border:2px solid rgba(77,139,255,0.2); animation:ringPulse 6s ease-in-out infinite;"></div>
+            <div style="position:absolute; width:410px; height:410px; border-radius:50%;
+                        border:2px dashed rgba(255,63,94,0.18); animation:ringPulse 8s ease-in-out infinite reverse 0.5s;"></div>
+            <div style="position:absolute; width:340px; height:340px; border-radius:50%;
+                        border:1px solid rgba(255,209,71,0.15); animation:ringPulse 7s ease-in-out infinite 1s;"></div>
+            <div style="position:absolute; width:270px; height:270px; border-radius:50%;
+                        border:1px solid rgba(176,108,255,0.12); animation:ringPulse 5s ease-in-out infinite 1.5s;"></div>
+            <!-- Orbe de brillo giratorio detrás -->
+            <div style="position:absolute; width:360px; height:360px; border-radius:50%;
+                        background:conic-gradient(from 0deg, rgba(77,139,255,0.1), rgba(255,63,94,0.08), rgba(176,108,255,0.1), rgba(34,232,154,0.07), rgba(77,139,255,0.1));
+                        filter:blur(28px); animation:spinOrb 12s linear infinite;"></div>
+            <!-- Logo principal — MÁS GRANDE -->
+            <img src="{% static 'img/logo_misael.png' %}"
+                 alt="Centro Infantil Misael"
+                 style="width:310px; height:310px; object-fit:contain; border-radius:50%;
+                        position:relative; z-index:2;
+                        filter: drop-shadow(0 0 60px rgba(255,63,94,0.5)) drop-shadow(0 0 100px rgba(77,139,255,0.35));
+                        animation: logoHero 4s ease-in-out infinite;">
+            <!-- Puntos decorativos flotantes — más y más grandes -->
+            <div style="position:absolute; top:6%; left:6%; width:16px; height:16px; border-radius:50%;
+                        background:var(--rojo); box-shadow:0 0 18px var(--rojo-glow);
+                        animation:orbitDot 4s ease-in-out infinite 0.5s;"></div>
+            <div style="position:absolute; top:10%; right:8%; width:13px; height:13px; border-radius:50%;
+                        background:var(--azul); box-shadow:0 0 16px var(--azul-glow);
+                        animation:orbitDot 5s ease-in-out infinite 1s;"></div>
+            <div style="position:absolute; bottom:12%; left:10%; width:11px; height:11px; border-radius:50%;
+                        background:var(--verde); box-shadow:0 0 14px var(--verde-glow);
+                        animation:orbitDot 6s ease-in-out infinite 0.8s;"></div>
+            <div style="position:absolute; bottom:8%; right:6%; width:18px; height:18px; border-radius:50%;
+                        background:var(--amarillo); box-shadow:0 0 20px var(--oro-glow);
+                        animation:orbitDot 4.5s ease-in-out infinite 1.5s;"></div>
+            <div style="position:absolute; top:50%; left:2%; width:10px; height:10px; border-radius:50%;
+                        background:var(--morado); box-shadow:0 0 14px rgba(176,108,255,0.5);
+                        animation:orbitDot 7s ease-in-out infinite 2s;"></div>
+            <div style="position:absolute; top:50%; right:2%; width:10px; height:10px; border-radius:50%;
+                        background:var(--naranja); box-shadow:0 0 14px rgba(255,123,58,0.5);
+                        animation:orbitDot 5.5s ease-in-out infinite 0.3s;"></div>
+            <!-- Texto decorativo flotante -->
+            <span style="position:absolute; top:3%; right:2%; font-size:2.2rem;
+                         animation:orbitDot 5s ease-in-out infinite 0.3s; opacity:0.8;">⭐</span>
+            <span style="position:absolute; bottom:8%; left:5%; font-size:1.5rem;
+                         animation:floatIllus 6s ease-in-out infinite 1.2s; opacity:0.7;">🌟</span>
+            <span style="position:absolute; top:40%; left:0; font-size:1.3rem;
+                         animation:floatIllus 7s ease-in-out infinite 0.7s; opacity:0.6;">♪</span>
+        </div>
     </div>
 </section>
 
-<!-- ===== BARRA DE CONFIANZA ===== -->
+<!-- ═══════════════════════════════════════════
+     TRUST BAR
+═══════════════════════════════════════════ -->
 <div class="trust-bar">
     <div class="trust-item">
         <span class="icon">👨‍👩‍👧</span>
-        <div>
-            <div class="trust-number">+500</div>
-            <div style="font-size:0.78rem;color:#888;">Familias atendidas</div>
-        </div>
+        <div><div class="trust-number">+500</div><div class="trust-label">Familias atendidas</div></div>
     </div>
     <div class="trust-item">
         <span class="icon">👩‍⚕️</span>
-        <div>
-            <div class="trust-number">+15</div>
-            <div style="font-size:0.78rem;color:#888;">Especialistas</div>
-        </div>
+        <div><div class="trust-number">+15</div><div class="trust-label">Especialistas</div></div>
     </div>
     <div class="trust-item">
         <span class="icon">🏆</span>
-        <div>
-            <div class="trust-number">+8</div>
-            <div style="font-size:0.78rem;color:#888;">Años de experiencia</div>
-        </div>
+        <div><div class="trust-number">+8</div><div class="trust-label">Años de experiencia</div></div>
     </div>
     <div class="trust-item">
         <span class="icon">📋</span>
-        <div>
-            <div class="trust-number">ADOS-2</div>
-            <div style="font-size:0.78rem;color:#888;">Evaluaciones certificadas</div>
-        </div>
+        <div><div class="trust-number">ADOS-2 y ADI-R</div><div class="trust-label">Evaluaciones certificadas</div></div>
     </div>
     <div class="trust-item">
         <span class="icon">❤️</span>
-        <div>
-            <div class="trust-number">100%</div>
-            <div style="font-size:0.78rem;color:#888;">Compromiso familiar</div>
-        </div>
+        <div><div class="trust-number">100%</div><div class="trust-label">Compromiso familiar</div></div>
     </div>
 </div>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
+     GALERÍA / CARRUSEL
+═══════════════════════════════════════════ -->
+<section class="gallery-section" id="galeria">
+    <div class="gallery-header fade-in-up">
+        <div class="section-pill">📸 Nuestra Historia</div>
+        <h2 class="section-title">
+            Momentos que <span style="color:var(--rojo); text-shadow: 0 0 28px var(--rojo-glow);">importan</span>
+        </h2>
+        <p class="section-subtitle">Cada sonrisa, cada logro, cada avance — aquí celebramos juntos.</p>
+    </div>
+
+    <div class="carousel-track-wrap">
+        <div class="carousel-track" id="carouselTrack">
+
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_alianza.jpg' %}" alt="Alianza con Aldeas Infantiles SOS" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--azul);"></span>Alianza con Aldeas Infantiles SOS</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_equipo.jpg' %}" alt="Nuestro equipo" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--verde);"></span>Nuestro equipo de especialistas</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_feria.jpg' %}" alt="Feria de servicios" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--amarillo);"></span>Participación en ferias y eventos</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_instalaciones.jpg' %}" alt="Nuestras instalaciones" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--naranja);"></span>Nuestras instalaciones</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_terapia.jpg' %}" alt="Estimulación temprana" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--morado);"></span>Estimulación temprana y terapia</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_sucursal.jpg' %}" alt="Inauguración sucursal" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--rojo);"></span>Inauguración de nuestra sucursal</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_primavera1.jpg' %}" alt="Festival de Primavera" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--verde);"></span>Festival de Primavera 🌸</span>
+                </div>
+            </div>
+            <div class="carousel-slide">
+                <img src="{% static 'img/foto_primavera2.jpg' %}" alt="Festival niños" loading="lazy">
+                <div class="carousel-slide-label">
+                    <span><span class="dot" style="background:var(--amarillo);"></span>¡Cada niño brilla a su manera! ✨</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="carousel-btns">
+        <button class="carousel-btn prev" id="prevBtn" aria-label="Anterior">&#8592;</button>
+        <button class="carousel-btn next" id="nextBtn" aria-label="Siguiente">&#8594;</button>
+    </div>
+    <div class="carousel-dots" id="carouselDots"></div>
+</section>
+
+<!-- ═══════════════════════════════════════════
      SERVICIOS
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <section class="section" id="servicios">
     <div style="text-align:center; margin-bottom:2rem;" class="fade-in-up">
         <div class="section-pill">✨ Nuestros Servicios</div>
-        <h2 class="section-title">
-            Terapias y programas<br>
-            <span style="color:var(--azul);">especializados</span>
-        </h2>
-        <p class="section-subtitle">
-            Cada niño es único. Por eso nuestros programas se adaptan a las necesidades individuales de cada paciente.
-        </p>
+        <h2 class="section-title">Terapias y programas<br><span style="color:var(--azul);">especializados</span></h2>
+        <p class="section-subtitle">Atención integral para el desarrollo pleno de cada niño.</p>
     </div>
 
     <div class="services-grid">
-        <div class="service-card fade-in-up" style="--card-color: #3b6fd4;">
+        <div class="service-card fade-in-up" style="--card-color:var(--azul); --card-glow:var(--azul-glow);">
             <span class="service-icon">🧠</span>
             <h3>Neuropsicología</h3>
-            <p>Evaluación y rehabilitación de funciones cognitivas, atención, memoria y aprendizaje.</p>
+            <p>Evaluación y rehabilitación de funciones cognitivas para el aprendizaje.</p>
         </div>
-        <div class="service-card fade-in-up" style="--card-color: #e8334a;">
+        <div class="service-card fade-in-up" style="--card-color:var(--rojo); --card-glow:var(--rojo-glow);">
             <span class="service-icon">🗣️</span>
             <h3>Terapia del Lenguaje</h3>
-            <p>Atención de trastornos de comunicación, lenguaje oral y escrito en niños y adolescentes.</p>
+            <p>Desarrollo de la comunicación oral, escrita y comprensión lingüística.</p>
         </div>
-        <div class="service-card fade-in-up" style="--card-color: #28c76f;">
-            <span class="service-icon">🙌</span>
+        <div class="service-card fade-in-up" style="--card-color:var(--verde); --card-glow:var(--verde-glow);">
+            <span class="service-icon">✋</span>
             <h3>Terapia Ocupacional</h3>
-            <p>Desarrollo de habilidades motoras finas, integración sensorial y autonomía personal.</p>
+            <p>Estimulación sensorial, motricidad fina y autonomía en la vida diaria.</p>
         </div>
-        <div class="service-card fade-in-up" style="--card-color: #f7c844;">
-            <span class="service-icon">🎭</span>
+        <div class="service-card fade-in-up" style="--card-color:var(--morado); --card-glow:rgba(176,108,255,0.3);">
+            <span class="service-icon">💙</span>
             <h3>Psicología Infantil</h3>
-            <p>Acompañamiento emocional, manejo conductual y apoyo a familias en el proceso terapéutico.</p>
+            <p>Acompañamiento emocional y conductual para niños y familias.</p>
         </div>
-        <div class="service-card fade-in-up" style="--card-color: #8e5cf7;">
-            <span class="service-icon">📊</span>
-            <h3>Evaluaciones ADOS-2 / ADI-R</h3>
-            <p>Diagnóstico riguroso del espectro autista con instrumentos estandarizados internacionalmente.</p>
+        <div class="service-card fade-in-up" style="--card-color:var(--naranja); --card-glow:rgba(255,123,58,0.3);">
+            <span class="service-icon">📋</span>
+            <h3>Evaluaciones ADOS-2</h3>
+            <p>Diagnóstico científico certificado para el espectro autista.</p>
         </div>
-        <div class="service-card fade-in-up" style="--card-color: #ff7b3a;">
-            <span class="service-icon">🎵</span>
+        <div class="service-card fade-in-up" style="--card-color:var(--amarillo); --card-glow:var(--oro-glow);">
+            <span class="service-icon">🌱</span>
             <h3>Estimulación Temprana</h3>
-            <p>Programas de estimulación para bebés y niños pequeños que potencian su desarrollo integral.</p>
+            <p>Programas desde los primeros meses para un desarrollo óptimo e integral.</p>
         </div>
     </div>
 </section>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      POR QUÉ NOSOTROS
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <section class="why-section" id="nosotros">
     <div style="text-align:center; margin-bottom:2.5rem; position:relative; z-index:1;" class="fade-in-up">
-        <div class="section-pill">💎 ¿Por qué elegirnos?</div>
-        <h2 class="section-title">Un equipo que cuida<br>cada detalle</h2>
-        <p class="section-subtitle">Nos diferencia la calidez humana, la tecnología y el trabajo en equipo interdisciplinario.</p>
+        <div class="section-pill">⚡ ¿Por qué elegirnos?</div>
+        <h2 class="section-title">El lugar donde cada niño<br><span style="color:var(--amarillo);">encuentra su camino</span></h2>
+        <p class="section-subtitle">Un equipo multidisciplinario comprometido con resultados reales.</p>
     </div>
 
-    <div class="why-grid" style="position:relative;z-index:1;">
+    <div class="why-grid" style="position:relative; z-index:1;">
+        <div class="why-card fade-in-up">
+            <div class="why-icon">🎯</div>
+            <h3>Evaluación Integral</h3>
+            <p>Diagnóstico completo y personalizado para cada niño desde el primer día.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">👨‍👩‍👧</div>
+            <h3>Enfoque Familiar</h3>
+            <p>Los padres son parte del equipo terapéutico en cada etapa del proceso.</p>
+        </div>
         <div class="why-card fade-in-up">
             <div class="why-icon">🔬</div>
-            <h3>Evidencia Científica</h3>
-            <p>Todos nuestros programas están basados en investigación actualizada y mejores prácticas internacionales.</p>
+            <h3>Metodología Científica</h3>
+            <p>Protocolos basados en evidencia y estándares internacionales validados.</p>
         </div>
         <div class="why-card fade-in-up">
-            <div class="why-icon">👨‍👩‍👧‍👦</div>
-            <h3>Enfoque Familiar</h3>
-            <p>Involucramos activamente a la familia en el proceso terapéutico para mejores resultados a largo plazo.</p>
+            <div class="why-icon">🌐</div>
+            <h3>Red de Alianzas</h3>
+            <p>Trabajamos con Aldeas Infantiles SOS y organizaciones nacionales de apoyo.</p>
         </div>
         <div class="why-card fade-in-up">
-            <div class="why-icon">💻</div>
-            <h3>Sistema Integrado</h3>
-            <p>Plataforma digital propia para gestión de citas, historial clínico, facturación y comunicación.</p>
+            <div class="why-icon">📊</div>
+            <h3>Sistema Digital</h3>
+            <p>Gestión de citas, historial clínico y reportes accesibles en línea.</p>
         </div>
         <div class="why-card fade-in-up">
-            <div class="why-icon">🗓️</div>
-            <h3>Agenda Flexible</h3>
-            <p>Horarios adaptados a las necesidades de cada familia, con atención personalizada y puntual.</p>
-        </div>
-        <div class="why-card fade-in-up">
-            <div class="why-icon">📈</div>
-            <h3>Seguimiento Continuo</h3>
-            <p>Monitoreo constante del progreso con reportes detallados para padres y profesionales.</p>
-        </div>
-        <div class="why-card fade-in-up">
-            <div class="why-icon">🌈</div>
-            <h3>Ambiente Inclusivo</h3>
-            <p>Espacios diseñados para que cada niño se sienta seguro, respetado y motivado a crecer.</p>
+            <div class="why-icon">💛</div>
+            <h3>Atención con Amor</h3>
+            <p>Cada terapeuta está comprometido con el bienestar integral del niño.</p>
         </div>
     </div>
 </section>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      EQUIPO
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <section class="section team-section" id="equipo">
     <div style="text-align:center; margin-bottom:2.5rem;" class="fade-in-up">
         <div class="section-pill">👩‍⚕️ Nuestro Equipo</div>
-        <h2 class="section-title">Profesionales<br><span style="color:var(--rojo);">apasionados</span></h2>
-        <p class="section-subtitle">Un equipo interdisciplinario comprometido con el desarrollo y bienestar de cada niño.</p>
+        <h2 class="section-title">Especialistas <span style="color:var(--verde);">comprometidos</span></h2>
+        <p class="section-subtitle">Profesionales con vocación, experiencia y corazón.</p>
     </div>
 
     <div class="team-grid">
         <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#ffeef8,#ffcba4);">👩‍⚕️</div>
+            <div class="team-avatar" style="background:linear-gradient(135deg,#1a2240,#2a3a6a);">🧠</div>
             <h3>Neuropsicología</h3>
-            <p>Evaluación y diagnóstico</p>
-            <span class="team-tag" style="--tag-bg:#eef4ff;--tag-color:#3b6fd4;">Especialista</span>
+            <p>Evaluación cognitiva</p>
+            <span class="team-tag" style="background:rgba(77,139,255,0.12); border-color:rgba(77,139,255,0.25); color:var(--azul);">Especialista</span>
         </div>
         <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#eef4ff,#c7d9ff);">🗣️</div>
-            <h3>Lenguaje y Comunicación</h3>
-            <p>Terapia del habla</p>
-            <span class="team-tag" style="--tag-bg:#fff0f0;--tag-color:#e8334a;">Terapeuta</span>
+            <div class="team-avatar" style="background:linear-gradient(135deg,#1a1030,#2a1850);">🗣️</div>
+            <h3>Terapia del Lenguaje</h3>
+            <p>Fonoaudiología</p>
+            <span class="team-tag" style="background:rgba(176,108,255,0.12); border-color:rgba(176,108,255,0.25); color:var(--morado);">Terapeuta</span>
         </div>
         <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#f0fff8,#b8f5d8);">🙌</div>
+            <div class="team-avatar" style="background:linear-gradient(135deg,#0d2020,#1a3a2a);">✋</div>
             <h3>Terapia Ocupacional</h3>
             <p>Integración sensorial</p>
-            <span class="team-tag" style="--tag-bg:#f0fff8;--tag-color:#28c76f;">Terapeuta</span>
+            <span class="team-tag" style="background:rgba(34,232,154,0.1); border-color:rgba(34,232,154,0.25); color:var(--verde);">Terapeuta</span>
         </div>
         <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#fef9e7,#fdeaa8);">🎭</div>
+            <div class="team-avatar" style="background:linear-gradient(135deg,#2a1010,#3a1a20);">💙</div>
             <h3>Psicología Clínica</h3>
             <p>Atención emocional</p>
-            <span class="team-tag" style="--tag-bg:#fffbea;--tag-color:#b8861a;">Psicólogo/a</span>
+            <span class="team-tag" style="background:rgba(255,209,71,0.1); border-color:rgba(255,209,71,0.25); color:var(--amarillo);">Psicólogo/a</span>
         </div>
         <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#f5f0ff,#d8c8ff);">📊</div>
+            <div class="team-avatar" style="background:linear-gradient(135deg,#1a1820,#2a2840);">📊</div>
             <h3>Evaluaciones Diagnósticas</h3>
             <p>ADOS-2 y ADI-R</p>
-            <span class="team-tag" style="--tag-bg:#f5f0ff;--tag-color:#8e5cf7;">Evaluador/a</span>
+            <span class="team-tag" style="background:rgba(255,63,94,0.1); border-color:rgba(255,63,94,0.25); color:var(--rojo);">Evaluador/a</span>
         </div>
     </div>
 </section>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      CTA FINAL
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <section class="cta-section">
     <div style="position:relative; z-index:1;">
         <h2>¿Listo para acompañar<br>el desarrollo de tu hijo?</h2>
-        <p>Accede al sistema para gestionar citas, historial y mucho más.<br>
+        <p>Accede al sistema para gestionar citas, historial clínico y mucho más.<br>
         Si eres parte del equipo, ingresa con tu cuenta.</p>
 
-        <a href="{% url 'core:login' %}" class="btn-cta-white">
+        <a href="{% url 'core:login' %}" class="btn-cta">
             🚀 Iniciar Sesión en el Sistema
         </a>
 
-        <div style="margin-top:2rem; display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; position:relative;">
-            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
-                🔒 Acceso seguro y privado
-            </span>
-            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
-                📱 Disponible en móvil y escritorio
-            </span>
-            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
-                ☁️ Datos siempre respaldados
-            </span>
+        <div class="cta-features">
+            <span class="cta-feature">🔒 Acceso seguro y privado</span>
+            <span class="cta-feature">📱 Disponible en móvil y escritorio</span>
+            <span class="cta-feature">☁️ Datos siempre respaldados</span>
         </div>
     </div>
 </section>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      FOOTER
-     =================================================================== -->
+═══════════════════════════════════════════ -->
+<div class="footer-accent-line"></div>
 <footer id="contacto">
-    <div class="footer-grid">
+    <div class="footer-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); max-width:1200px;">
+
+        <!-- MARCA + LOGO -->
         <div class="footer-brand">
-            <h3>🧠 Centro Misael</h3>
-            <p>Centro de Neurodesarrollo Infantil especializado en brindar atención integral a niños y familias de Bolivia.</p>
-            <div class="footer-dots" style="justify-content:flex-start; margin-top:1rem;">
-                <span style="background:#e8334a;"></span>
-                <span style="background:#f7c844;"></span>
-                <span style="background:#3b6fd4;"></span>
-                <span style="background:#28c76f;"></span>
+            <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" class="footer-logo">
+            <h3>Centro Infantil Misael</h3>
+            <p>Centro de Neurodesarrollo Infantil especializado en atención integral para niños y familias de Bolivia.</p>
+            <div style="display:flex; gap:8px; margin-top:1rem;">
+                <span style="width:9px;height:9px;border-radius:50%;background:var(--rojo);box-shadow:0 0 8px var(--rojo-glow);display:inline-block;"></span>
+                <span style="width:9px;height:9px;border-radius:50%;background:var(--amarillo);box-shadow:0 0 8px var(--oro-glow);display:inline-block;"></span>
+                <span style="width:9px;height:9px;border-radius:50%;background:var(--azul);box-shadow:0 0 8px var(--azul-glow);display:inline-block;"></span>
+                <span style="width:9px;height:9px;border-radius:50%;background:var(--verde);box-shadow:0 0 8px var(--verde-glow);display:inline-block;"></span>
             </div>
         </div>
 
+        <!-- SERVICIOS -->
         <div class="footer-col">
             <h4>Servicios</h4>
             <ul>
@@ -940,134 +1171,188 @@
                 <li><a href="#">Evaluaciones ADOS-2</a></li>
                 <li><a href="#">Estimulación Temprana</a></li>
             </ul>
-        </div>
-
-        <div class="footer-col">
-            <h4>Sistema</h4>
+            <h4 style="margin-top:1.2rem;">Sistema</h4>
             <ul>
                 <li><a href="{% url 'core:login' %}">Iniciar Sesión</a></li>
                 <li><a href="#">Agenda de Citas</a></li>
                 <li><a href="#">Historial Clínico</a></li>
-                <li><a href="#">Facturación</a></li>
             </ul>
         </div>
 
+        <!-- UBICACIONES (2 sucursales) -->
         <div class="footer-col">
-            <h4>Contacto</h4>
-            <ul>
-                <li>📍 La Paz, Bolivia</li>
-                <li>📞 Consultar horarios</li>
-                <li>✉️ info@centramisael.bo</li>
-                <li style="margin-top:0.8rem;">
-                    <span style="font-size:0.78rem; color:rgba(255,255,255,0.4);">
-                        Lun - Vie: 8:00 - 18:00<br>
-                        Sáb: 8:00 - 12:00
-                    </span>
-                </li>
-            </ul>
-        </div>
-    </div>
+            <h4>Nuestras Sedes</h4>
 
-    <div class="footer-bottom">
-        <p>© 2025 Centro de Neurodesarrollo Infantil Misael · La Paz, Bolivia · Todos los derechos reservados</p>
-        <div class="footer-dots" style="margin-top:0.8rem;">
-            <span style="background:#e8334a;"></span>
-            <span style="background:#f7c844;"></span>
-            <span style="background:#3b6fd4;"></span>
+            <a href="https://maps.google.com/?q=Centro+Integral+Infantil+Misael&ll=-19.57586,-65.76807"
+               target="_blank" class="location-card">
+                <span class="location-icon">🏢</span>
+                <div>
+                    <h5>Sede Principal · Potosí</h5>
+                    <p>Calle Japón #28 entre Daza y Calderón a lado de la EPI-10<br>ZONA BAJA</p>
+                </div>
+            </a>
+
+            <a href="https://maps.google.com/?q=-19.58779,-65.75640"
+               target="_blank" class="location-card">
+                <span class="location-icon">🏥</span>
+                <div>
+                    <h5>Sucursal 1 · Potosí</h5>
+                    <p>Calle Cochabamba a lado de ENTEL casi esquina Bolivar<br>ZONA CENTRAL</p>
+                </div>
+            </a>
+
+            <div style="margin-top:0.8rem; font-size:0.75rem; color:var(--muted2); line-height:1.7;">
+                📞 76175352<br>
+                🕐 Lun – Vie: 9:00–12:00 y 14:30–19:00<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sáb: 9:00–12:00
+            </div>
         </div>
+
+        <!-- REDES SOCIALES -->
+        <div class="footer-col">
+            <h4>Redes Sociales</h4>
+            <div class="social-grid">
+
+                <a href="https://www.facebook.com/CentroMisael" target="_blank" class="social-link fb">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Facebook
+                </a>
+
+                <a href="https://youtube.com/@CentroInfantilMisael" target="_blank" class="social-link yt">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    YouTube
+                </a>
+
+                <a href="https://wa.me/59176175352" target="_blank" class="social-link wa">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                    WhatsApp
+                </a>
+
+                <a href="https://instagram.com/rehabilitacioninfantilmisael" target="_blank" class="social-link ig">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    Instagram
+                </a>
+
+                <a href="https://tiktok.com/@centroinfantilmisael" target="_blank" class="social-link tt">
+                    <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z"/></svg>
+                    TikTok @centroinfantilmisael
+                </a>
+
+            </div>
+        </div>
+
+    </div>
+    <div class="footer-bottom">
+        <p>© 2025 Centro de Neurodesarrollo Infantil Misael · Potosí, Bolivia · Todos los derechos reservados</p>
     </div>
 </footer>
 
-<!-- ===================================================================
+<!-- ═══════════════════════════════════════════
      SCRIPTS
-     =================================================================== -->
+═══════════════════════════════════════════ -->
 <script>
-/* ---- BURBUJAS DE FONDO ---- */
+/* ── CONFETTI FLOTANTE ── */
 (function(){
     const bg = document.getElementById('heroBg');
     if (!bg) return;
-    const colors = ['#e8334a','#3b6fd4','#f7c844','#28c76f','#8e5cf7','#ff7b3a'];
-    const sizes  = [80, 120, 160, 200, 240, 300, 350];
-    for (let i = 0; i < 12; i++) {
-        const b = document.createElement('div');
-        b.className = 'bubble';
-        const s = sizes[Math.floor(Math.random() * sizes.length)];
-        b.style.cssText = `
-            width:${s}px; height:${s}px;
-            background:${colors[Math.floor(Math.random() * colors.length)]};
-            left:${Math.random() * 100}%;
-            top:${Math.random() * 100}%;
-            --dur:${5 + Math.random() * 8}s;
-            --del:${Math.random() * 4}s;
-        `;
-        bg.appendChild(b);
-    }
-    // Confetti
-    const confColors = ['#e8334a','#3b6fd4','#f7c844','#28c76f','#8e5cf7'];
-    for (let i = 0; i < 18; i++) {
+    const colors = ['#4d8bff','#ff3f5e','#ffd147','#22e89a','#b06cff','#ff7b3a'];
+    for (let i = 0; i < 22; i++) {
         const c = document.createElement('div');
         c.className = 'confetti-piece';
-        const s = 6 + Math.random() * 8;
+        const s = 5 + Math.random() * 8;
+        const isCircle = Math.random() > 0.5;
         c.style.cssText = `
             width:${s}px; height:${s}px;
-            background:${confColors[Math.floor(Math.random() * confColors.length)]};
-            left:${Math.random() * 100}%;
-            top:${Math.random() * 100}%;
-            --dur:${4 + Math.random() * 6}s;
-            --del:${Math.random() * 5}s;
-            border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+            background:${colors[Math.floor(Math.random() * colors.length)]};
+            left:${Math.random()*100}%;
+            top:${Math.random()*100}%;
+            --dur:${4 + Math.random()*7}s;
+            --del:${Math.random()*5}s;
+            border-radius:${isCircle ? '50%' : '2px'};
+            opacity:0.45;
+            position:absolute;
         `;
         bg.appendChild(c);
     }
 })();
 
-/* ---- ESTRELLAS SUAVES ---- */
+/* ── CARRUSEL ── */
 (function(){
-    const container = document.getElementById('starContainer');
-    if (!container) return;
-    for (let i = 0; i < 35; i++) {
-        const s = document.createElement('div');
-        s.className = 'star-blink';
-        const size = (Math.random() * 2.5 + 0.8) + 'px';
-        s.style.cssText = `
-            left:${Math.random()*100}%;
-            top:${Math.random()*100}%;
-            width:${size}; height:${size};
-            --duration:${2 + Math.random()*4}s;
-            --delay:${Math.random()*6}s;
-            --opacity:${0.4 + Math.random()*0.5};
-        `;
-        container.appendChild(s);
+    const track    = document.getElementById('carouselTrack');
+    const prevBtn  = document.getElementById('prevBtn');
+    const nextBtn  = document.getElementById('nextBtn');
+    const dotsWrap = document.getElementById('carouselDots');
+    if (!track) return;
+
+    const slides = Array.from(track.querySelectorAll('.carousel-slide'));
+    const GAP    = 22;
+    const slideW = () => slides[0].offsetWidth + GAP;
+    let current  = 0;
+    let autoPlay = null;
+    let isDragging = false, startX = 0, scrollStart = 0;
+
+    slides.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+        d.setAttribute('aria-label', 'Foto ' + (i+1));
+        d.addEventListener('click', () => { goTo(i); resetAuto(); });
+        dotsWrap.appendChild(d);
+    });
+
+    function updateDots() {
+        document.querySelectorAll('.carousel-dot').forEach((d, i) =>
+            d.classList.toggle('active', i === current));
     }
+    function goTo(idx) {
+        const total = slides.length;
+        current = ((idx % total) + total) % total;
+        const visibleW = track.parentElement.offsetWidth;
+        let target = current * slideW() - visibleW / 2 + slideW() / 2;
+        target = Math.max(0, Math.min(target, track.scrollWidth - visibleW));
+        track.scrollTo({ left: target, behavior: 'smooth' });
+        updateDots();
+    }
+    prevBtn.addEventListener('click', () => { goTo(current - 1); resetAuto(); });
+    nextBtn.addEventListener('click', () => { goTo(current + 1); resetAuto(); });
+
+    track.addEventListener('mousedown',  e => { isDragging = true;  startX = e.pageX; scrollStart = track.scrollLeft; });
+    track.addEventListener('mousemove',  e => { if (!isDragging) return; track.scrollLeft = scrollStart - (e.pageX - startX); });
+    track.addEventListener('mouseup',    () => { isDragging = false; snap(); });
+    track.addEventListener('mouseleave', () => { if (isDragging) { isDragging = false; snap(); } });
+    track.addEventListener('touchstart', e => { startX = e.touches[0].pageX; scrollStart = track.scrollLeft; }, {passive:true});
+    track.addEventListener('touchmove',  e => { track.scrollLeft = scrollStart - (e.touches[0].pageX - startX); }, {passive:true});
+    track.addEventListener('touchend',   snap);
+
+    function snap() {
+        goTo(Math.round(track.scrollLeft / slideW()));
+    }
+    function startAuto() { autoPlay = setInterval(() => goTo(current + 1), 3800); }
+    function resetAuto()  { clearInterval(autoPlay); startAuto(); }
+    track.addEventListener('mouseenter', () => clearInterval(autoPlay));
+    track.addEventListener('mouseleave', () => { if (!isDragging) startAuto(); });
+    startAuto();
 })();
 
-/* ---- SCROLL FADE IN ---- */
+/* ── SCROLL FADE IN ── */
 (function(){
-    const els = document.querySelectorAll('.fade-in-up');
-    const obs = new IntersectionObserver((entries) => {
-        entries.forEach((entry, i) => {
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
             if (entry.isIntersecting) {
-                // Pequeño delay escalonado entre cards hermanas
                 const siblings = Array.from(entry.target.parentElement.querySelectorAll('.fade-in-up'));
                 const idx = siblings.indexOf(entry.target);
-                setTimeout(() => {
-                    entry.target.classList.add('visible');
-                }, idx * 80);
+                setTimeout(() => entry.target.classList.add('visible'), idx * 90);
                 obs.unobserve(entry.target);
             }
         });
     }, { threshold: 0.12 });
-    els.forEach(el => obs.observe(el));
+    document.querySelectorAll('.fade-in-up').forEach(el => obs.observe(el));
 })();
 
-/* ---- SMOOTH SCROLL ---- */
+/* ── SMOOTH SCROLL ── */
 document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', function(e){
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            e.preventDefault();
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        const t = document.querySelector(this.getAttribute('href'));
+        if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
 });
 </script>

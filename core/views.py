@@ -10,9 +10,10 @@ from decimal import Decimal
 from calendar import monthrange
 from core.utils import solo_sus_sucursales
 
-# 1. Quitar la redirección automática en landing
 def landing(request):
-    if request.user.is_authenticated:
+    # Si viene desde el admin de Django, llevar al dashboard
+    referer = request.META.get('HTTP_REFERER', '')
+    if request.user.is_authenticated and '/admin/' in referer:
         return redirect('core:dashboard')
     return render(request, 'core/landing.html')
     

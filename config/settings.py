@@ -178,8 +178,8 @@ SHORT_DATE_FORMAT = 'd/m/Y'
 # --------------------------------------------------
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = []
+STATIC_ROOT = BASE_DIR / 'staticfiles_collected'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',
