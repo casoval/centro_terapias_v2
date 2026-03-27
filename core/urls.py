@@ -1,11 +1,12 @@
 from django.urls import path
+from django.views.generic import TemplateView
 from . import views
 
 app_name = 'core'
 
 urlpatterns = [
-    path('', views.landing, name='landing'),          # ← solo landing
-    path('dashboard/', views.dashboard, name='dashboard'),  # ← ruta propia
+    path('', views.landing, name='landing'),
+    path('dashboard/', views.dashboard, name='dashboard'),
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),
 
@@ -17,4 +18,10 @@ urlpatterns = [
     path('usuarios/<int:pk>/eliminar/', views.eliminar_usuario, name='eliminar_usuario'),
 
     path('guardar-tema/', views.guardar_tema, name='guardar_tema'),
+
+    # SEO
+    path('robots.txt', TemplateView.as_view(
+        template_name='robots.txt',
+        content_type='text/plain'
+    )),
 ]
