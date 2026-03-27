@@ -1,0 +1,1076 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Neurodesarrollo Infantil Misael</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --rojo:   #e8334a;
+            --azul:   #3b6fd4;
+            --amarillo: #f7c844;
+            --verde:  #28c76f;
+            --naranja: #ff7b3a;
+            --morado: #8e5cf7;
+            --bg:     #fff9f0;
+            --text:   #1a1a2e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .display {
+            font-family: 'Baloo 2', cursive;
+        }
+
+        /* ===== FONDO ANIMADO CON FIGURAS ===== */
+        .hero-bg {
+            position: absolute; inset: 0;
+            background: linear-gradient(140deg, #fff9f0 0%, #ffeef8 30%, #eef4ff 60%, #f0fff8 100%);
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.18;
+            animation: floatBubble var(--dur, 8s) ease-in-out infinite;
+            animation-delay: var(--del, 0s);
+        }
+        @keyframes floatBubble {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50%       { transform: translateY(-28px) scale(1.06); }
+        }
+
+        /* Confetti flotante */
+        .confetti-piece {
+            position: absolute;
+            width: 10px; height: 10px;
+            border-radius: 2px;
+            opacity: 0.55;
+            animation: confettiFloat var(--dur, 6s) ease-in-out infinite;
+            animation-delay: var(--del, 0s);
+        }
+        @keyframes confettiFloat {
+            0%   { transform: translateY(0) rotate(0deg); }
+            50%  { transform: translateY(-20px) rotate(180deg); }
+            100% { transform: translateY(0) rotate(360deg); }
+        }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            position: sticky; top: 0; z-index: 999;
+            background: rgba(255,255,255,0.88);
+            backdrop-filter: blur(18px);
+            border-bottom: 3px solid transparent;
+            border-image: linear-gradient(90deg, var(--rojo), var(--amarillo), var(--azul), var(--verde)) 1;
+            padding: 0.75rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+        }
+        .navbar-logo {
+            display: flex; align-items: center; gap: 14px;
+        }
+        .navbar-logo img {
+            height: 48px; width: 48px;
+            border-radius: 50%;
+            border: 3px solid var(--amarillo);
+            box-shadow: 0 0 0 4px rgba(247,200,68,0.2);
+            object-fit: cover;
+        }
+        .navbar-logo-placeholder {
+            height: 48px; width: 48px;
+            border-radius: 50%;
+            border: 3px solid var(--amarillo);
+            background: linear-gradient(135deg, var(--rojo), var(--azul));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; box-shadow: 0 0 0 4px rgba(247,200,68,0.2);
+        }
+        .navbar-brand {
+            font-family: 'Baloo 2', cursive;
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.2;
+            background: linear-gradient(90deg, var(--rojo), var(--azul));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .navbar-brand span {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #888;
+            -webkit-text-fill-color: #888;
+            letter-spacing: 0.04em;
+        }
+
+        .nav-links {
+            display: flex; align-items: center; gap: 2rem;
+            list-style: none;
+        }
+        .nav-links a {
+            font-size: 0.875rem; font-weight: 700;
+            color: #555; text-decoration: none;
+            transition: color 0.2s;
+            position: relative; padding-bottom: 2px;
+        }
+        .nav-links a::after {
+            content: ''; position: absolute;
+            bottom: 0; left: 0; width: 0; height: 2px;
+            background: var(--azul); border-radius: 2px;
+            transition: width 0.25s;
+        }
+        .nav-links a:hover { color: var(--azul); }
+        .nav-links a:hover::after { width: 100%; }
+
+        .btn-login {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, var(--rojo) 0%, #c0392b 100%);
+            color: white; font-family: 'Baloo 2', cursive;
+            font-size: 0.95rem; font-weight: 700;
+            padding: 0.55rem 1.4rem;
+            border-radius: 50px; text-decoration: none;
+            border: 3px solid rgba(255,255,255,0.3);
+            box-shadow: 0 4px 16px rgba(232,51,74,0.35);
+            transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .btn-login:hover {
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 8px 24px rgba(232,51,74,0.45);
+        }
+        .btn-login .rocket { display: inline-block; transition: transform 0.3s; }
+        .btn-login:hover .rocket { transform: translateX(4px) translateY(-4px) rotate(-10deg); }
+
+        /* ===== HERO ===== */
+        .hero {
+            position: relative;
+            min-height: 92vh;
+            display: flex; align-items: center;
+            padding: 5rem 2rem 4rem;
+            overflow: hidden;
+        }
+        .hero-content {
+            position: relative; z-index: 2;
+            max-width: 600px;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(247,200,68,0.18);
+            border: 2px solid rgba(247,200,68,0.5);
+            border-radius: 50px;
+            padding: 0.35rem 1rem;
+            font-size: 0.8rem; font-weight: 800;
+            color: #b8861a;
+            margin-bottom: 1.2rem;
+            animation: badgePop 0.6s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes badgePop {
+            from { opacity: 0; transform: scale(0.7); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .hero h1 {
+            font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.2rem;
+            animation: slideUp 0.7s ease both 0.1s;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .hero h1 .highlight-red   { color: var(--rojo); }
+        .hero h1 .highlight-blue  { color: var(--azul); }
+        .hero h1 .highlight-gold  { color: #d4a017; }
+
+        .hero p {
+            font-size: 1.1rem; line-height: 1.75;
+            color: #4a4a6a; margin-bottom: 2rem;
+            animation: slideUp 0.7s ease both 0.2s;
+        }
+
+        .hero-cta-group {
+            display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+            animation: slideUp 0.7s ease both 0.3s;
+        }
+
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, var(--azul), #2a4fab);
+            color: white; font-family: 'Baloo 2', cursive;
+            font-size: 1.05rem; font-weight: 700;
+            padding: 0.85rem 2rem;
+            border-radius: 50px; text-decoration: none;
+            box-shadow: 0 8px 28px rgba(59,111,212,0.4);
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 14px 36px rgba(59,111,212,0.5);
+        }
+
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: white;
+            color: var(--rojo); font-family: 'Baloo 2', cursive;
+            font-size: 1rem; font-weight: 700;
+            padding: 0.8rem 1.8rem;
+            border-radius: 50px; text-decoration: none;
+            border: 3px solid var(--rojo);
+            transition: all 0.25s;
+        }
+        .btn-secondary:hover {
+            background: var(--rojo); color: white;
+            transform: translateY(-3px);
+        }
+
+        /* Ilustración hero */
+        .hero-illustration {
+            position: absolute; right: 0; top: 50%;
+            transform: translateY(-50%);
+            width: min(520px, 48vw);
+            z-index: 1;
+            animation: floatIllus 5s ease-in-out infinite;
+        }
+        @keyframes floatIllus {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50%       { transform: translateY(calc(-50% - 15px)) translateX(-6px); }
+        }
+
+        /* Indicadores de confianza */
+        .trust-bar {
+            position: relative; z-index: 2;
+            background: white;
+            border-top: 4px solid transparent;
+            border-image: linear-gradient(90deg, var(--rojo), var(--amarillo), var(--azul)) 1;
+            padding: 1.5rem 2rem;
+            display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: center;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+        }
+        .trust-item {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.9rem; font-weight: 700; color: #444;
+        }
+        .trust-item .icon {
+            font-size: 1.5rem;
+        }
+        .trust-number {
+            font-family: 'Baloo 2', cursive;
+            font-size: 1.4rem; font-weight: 900;
+            color: var(--azul);
+        }
+
+        /* ===== SECCIÓN SERVICIOS ===== */
+        .section {
+            padding: 5rem 2rem;
+        }
+        .section-title {
+            text-align: center;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 900; margin-bottom: 0.6rem;
+        }
+        .section-subtitle {
+            text-align: center;
+            color: #666; font-size: 1.05rem; margin-bottom: 3rem;
+        }
+        .section-pill {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--amarillo), #f0a500);
+            color: #5a3a00;
+            font-size: 0.75rem; font-weight: 800;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 0.3rem 1rem; border-radius: 50px;
+            margin-bottom: 0.8rem;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            max-width: 1200px; margin: 0 auto;
+        }
+
+        .service-card {
+            background: white;
+            border-radius: 24px;
+            padding: 2rem 1.6rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+            border: 3px solid transparent;
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative; overflow: hidden;
+            cursor: default;
+        }
+        .service-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 5px;
+            background: var(--card-color, var(--azul));
+            border-radius: 24px 24px 0 0;
+        }
+        .service-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            border-color: var(--card-color, var(--azul));
+            box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+        }
+        .service-icon {
+            font-size: 3rem; margin-bottom: 1rem;
+            display: block;
+            animation: iconWobble 3s ease-in-out infinite;
+        }
+        @keyframes iconWobble {
+            0%, 100% { transform: rotate(0deg); }
+            25%       { transform: rotate(-5deg); }
+            75%       { transform: rotate(5deg); }
+        }
+        .service-card:nth-child(2) .service-icon { animation-delay: 0.4s; }
+        .service-card:nth-child(3) .service-icon { animation-delay: 0.8s; }
+        .service-card:nth-child(4) .service-icon { animation-delay: 1.2s; }
+        .service-card:nth-child(5) .service-icon { animation-delay: 1.6s; }
+        .service-card:nth-child(6) .service-icon { animation-delay: 2.0s; }
+
+        .service-card h3 {
+            font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        .service-card p {
+            font-size: 0.875rem; color: #666; line-height: 1.6;
+        }
+
+        /* ===== SECCIÓN POR QUÉ NOSOTROS ===== */
+        .why-section {
+            background: linear-gradient(135deg, #0e1a6e 0%, #1a3a8f 40%, #0d3561 100%);
+            padding: 5rem 2rem;
+            position: relative; overflow: hidden;
+        }
+        .why-section::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle at 20% 50%, rgba(247,200,68,0.1) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(232,51,74,0.1) 0%, transparent 50%);
+        }
+        .why-section .section-title { color: white; }
+        .why-section .section-subtitle { color: rgba(255,255,255,0.7); }
+        .why-section .section-pill {
+            background: linear-gradient(135deg, rgba(247,200,68,0.3), rgba(247,200,68,0.15));
+            color: var(--amarillo);
+        }
+
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            max-width: 1100px; margin: 0 auto;
+        }
+        .why-card {
+            background: rgba(255,255,255,0.07);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 1.8rem 1.4rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .why-card:hover {
+            background: rgba(255,255,255,0.12);
+            transform: translateY(-6px);
+            border-color: rgba(247,200,68,0.4);
+        }
+        .why-card .why-icon {
+            font-size: 2.5rem; margin-bottom: 1rem;
+        }
+        .why-card h3 {
+            color: white; font-size: 1rem; font-weight: 800; margin-bottom: 0.5rem;
+        }
+        .why-card p {
+            color: rgba(255,255,255,0.65); font-size: 0.85rem; line-height: 1.6;
+        }
+
+        /* ===== EQUIPO ===== */
+        .team-section { background: #f8faff; }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.8rem;
+            max-width: 1000px; margin: 0 auto;
+        }
+        .team-card {
+            text-align: center;
+        }
+        .team-avatar {
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            border: 4px solid white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem;
+            transition: transform 0.3s;
+        }
+        .team-card:hover .team-avatar { transform: scale(1.1) rotate(-5deg); }
+        .team-card h3 {
+            font-size: 1rem; font-weight: 800; margin-bottom: 0.2rem;
+        }
+        .team-card p {
+            font-size: 0.8rem; color: #888; font-weight: 600;
+        }
+        .team-tag {
+            display: inline-block;
+            background: var(--tag-bg, #eef4ff);
+            color: var(--tag-color, var(--azul));
+            font-size: 0.72rem; font-weight: 700;
+            padding: 0.2rem 0.7rem; border-radius: 50px; margin-top: 0.4rem;
+        }
+
+        /* ===== CTA FINAL ===== */
+        .cta-section {
+            background: linear-gradient(135deg, var(--rojo) 0%, #c0392b 50%, #8e1a2e 100%);
+            padding: 5rem 2rem;
+            text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .cta-section::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 60%),
+                              radial-gradient(circle at 70% 30%, rgba(247,200,68,0.1) 0%, transparent 50%);
+        }
+        .cta-section h2 {
+            color: white; font-size: clamp(1.8rem, 4vw, 3rem);
+            font-weight: 900; margin-bottom: 1rem; position: relative;
+        }
+        .cta-section p {
+            color: rgba(255,255,255,0.8); font-size: 1.1rem;
+            margin-bottom: 2.5rem; position: relative;
+        }
+        .btn-cta-white {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: white;
+            color: var(--rojo); font-family: 'Baloo 2', cursive;
+            font-size: 1.15rem; font-weight: 800;
+            padding: 1rem 2.5rem;
+            border-radius: 50px; text-decoration: none;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+        }
+        .btn-cta-white:hover {
+            transform: scale(1.07) translateY(-4px);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            background: #0e1117;
+            padding: 3rem 2rem 2rem;
+            color: rgba(255,255,255,0.6);
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1100px; margin: 0 auto 2rem;
+        }
+        .footer-brand h3 {
+            font-family: 'Baloo 2', cursive;
+            color: white; font-size: 1.1rem; font-weight: 900;
+            margin-bottom: 0.5rem;
+        }
+        .footer-brand p {
+            font-size: 0.82rem; line-height: 1.6;
+        }
+        .footer-col h4 {
+            color: white; font-size: 0.875rem;
+            font-weight: 800; margin-bottom: 0.8rem;
+            letter-spacing: 0.05em;
+        }
+        .footer-col ul { list-style: none; }
+        .footer-col ul li {
+            font-size: 0.82rem; margin-bottom: 0.4rem;
+        }
+        .footer-col ul li a {
+            color: rgba(255,255,255,0.55);
+            text-decoration: none; transition: color 0.2s;
+        }
+        .footer-col ul li a:hover { color: var(--amarillo); }
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 1.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            max-width: 1100px; margin: 0 auto;
+        }
+        .footer-dots {
+            display: flex; justify-content: center; gap: 8px; margin-top: 1rem;
+        }
+        .footer-dots span {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+
+        /* ===== ESTRELLAS ===== */
+        #starContainer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1000; overflow: hidden;
+        }
+        .star-blink {
+            position: absolute; background: white; border-radius: 50%; opacity: 0;
+            animation: blinker var(--duration) ease-in-out infinite var(--delay);
+        }
+        @keyframes blinker {
+            0%   { opacity: 0; transform: scale(0.5); }
+            50%  { opacity: var(--opacity); transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+
+        /* ===== SCROLL ANIMATIONS ===== */
+        .fade-in-up {
+            opacity: 0; transform: translateY(32px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-in-up.visible {
+            opacity: 1; transform: translateY(0);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .hero-illustration { display: none; }
+            .nav-links { display: none; }
+            .hero { padding: 4rem 1.2rem 3rem; text-align: center; }
+            .hero-cta-group { justify-content: center; }
+            .section { padding: 3.5rem 1.2rem; }
+            .why-section, .cta-section { padding: 3.5rem 1.2rem; }
+            .trust-bar { gap: 1.2rem; }
+        }
+
+        /* Separador ondulado */
+        .wave-divider svg { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- ===== ESTRELLAS DE FONDO ===== -->
+<div id="starContainer"></div>
+
+<!-- ===================================================================
+     NAVBAR
+     =================================================================== -->
+<nav class="navbar">
+    <div class="navbar-logo">
+        <!-- Intentar cargar logo; si no existe se muestra el placeholder -->
+        <div class="navbar-logo-placeholder" id="logoWrap">🧠</div>
+        <div class="navbar-brand">
+            Centro Misael
+            <span>Neurodesarrollo Infantil</span>
+        </div>
+    </div>
+
+    <ul class="nav-links">
+        <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#nosotros">Nosotros</a></li>
+        <li><a href="#equipo">Equipo</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+    </ul>
+
+    <a href="{% url 'core:login' %}" class="btn-login">
+        <span class="rocket">🚀</span> Iniciar Sesión
+    </a>
+</nav>
+
+<!-- ===================================================================
+     HERO
+     =================================================================== -->
+<section class="hero">
+
+    <!-- Fondo animado con burbujas -->
+    <div class="hero-bg" id="heroBg"></div>
+
+    <!-- Contenido principal -->
+    <div class="hero-content">
+        <div class="hero-badge">
+            ⭐ Especialistas en Neurodesarrollo Infantil
+        </div>
+
+        <h1>
+            Impulsamos el <span class="highlight-red">potencial</span> de cada<br>
+            <span class="highlight-blue">niño</span> y <span class="highlight-gold">niña</span>
+        </h1>
+
+        <p>
+            En el <strong>Centro de Neurodesarrollo Infantil Misael</strong>, acompañamos a cada familia con
+            terapias especializadas, evaluaciones científicas y un equipo comprometido
+            con el bienestar y desarrollo integral de tu hijo.
+        </p>
+
+        <div class="hero-cta-group">
+            <a href="#servicios" class="btn-primary">
+                🌟 Conocer Servicios
+            </a>
+            <a href="{% url 'core:login' %}" class="btn-secondary">
+                🔐 Acceder al Sistema
+            </a>
+        </div>
+    </div>
+
+    <!-- Ilustración decorativa SVG -->
+    <div class="hero-illustration">
+        <svg viewBox="0 0 480 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Fondo circular grande -->
+            <circle cx="260" cy="210" r="190" fill="url(#heroGrad)" opacity="0.12"/>
+            <circle cx="260" cy="210" r="155" fill="url(#heroGrad2)" opacity="0.14"/>
+
+            <!-- Figura niño/cerebro estilizado -->
+            <!-- Cabeza -->
+            <circle cx="240" cy="140" r="75" fill="white" stroke="#e8334a" stroke-width="4"/>
+            <!-- Hemisferio izquierdo del cerebro -->
+            <path d="M185 130 Q175 100 200 85 Q220 72 235 90 Q240 105 240 130 Z" fill="#3b6fd4" opacity="0.7"/>
+            <!-- Hemisferio derecho del cerebro -->
+            <path d="M295 130 Q305 100 280 85 Q260 72 245 90 Q240 105 240 130 Z" fill="#e8334a" opacity="0.7"/>
+            <!-- Conexión cerebral -->
+            <line x1="240" y1="90" x2="240" y2="135" stroke="#f7c844" stroke-width="3"/>
+            <!-- Ojos -->
+            <circle cx="218" cy="148" r="10" fill="#1a1a2e"/>
+            <circle cx="262" cy="148" r="10" fill="#1a1a2e"/>
+            <circle cx="222" cy="145" r="4" fill="white"/>
+            <circle cx="266" cy="145" r="4" fill="white"/>
+            <!-- Sonrisa -->
+            <path d="M220 168 Q240 185 260 168" stroke="#1a1a2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+            <!-- Cuerpo / bata médica -->
+            <path d="M195 215 Q200 205 240 200 Q280 205 285 215 L295 320 Q240 335 185 320 Z" fill="white" stroke="#ddd" stroke-width="2"/>
+            <!-- Botones bata -->
+            <circle cx="240" cy="235" r="4" fill="#3b6fd4"/>
+            <circle cx="240" cy="255" r="4" fill="#3b6fd4"/>
+            <circle cx="240" cy="275" r="4" fill="#3b6fd4"/>
+            <!-- Cruz médica en bata -->
+            <rect x="228" y="290" width="24" height="8" rx="3" fill="#e8334a"/>
+            <rect x="236" y="282" width="8" height="24" rx="3" fill="#e8334a"/>
+
+            <!-- Brazo izquierdo extendido sosteniendo estrella -->
+            <path d="M195 235 Q165 240 148 255" stroke="#ffcba4" stroke-width="18" stroke-linecap="round"/>
+            <!-- Mano con estrella -->
+            <polygon points="148,235 153,248 167,248 156,257 160,270 148,262 136,270 140,257 129,248 143,248" fill="#f7c844"/>
+
+            <!-- Brazo derecho con tablet/libro -->
+            <path d="M285 235 Q315 240 332 255" stroke="#ffcba4" stroke-width="18" stroke-linecap="round"/>
+            <rect x="325" y="242" width="38" height="50" rx="5" fill="#3b6fd4"/>
+            <rect x="329" y="247" width="30" height="38" rx="3" fill="#eef4ff"/>
+            <line x1="332" y1="255" x2="356" y2="255" stroke="#3b6fd4" stroke-width="1.5"/>
+            <line x1="332" y1="261" x2="356" y2="261" stroke="#3b6fd4" stroke-width="1.5"/>
+            <line x1="332" y1="267" x2="356" y2="267" stroke="#3b6fd4" stroke-width="1.5"/>
+            <line x1="332" y1="273" x2="348" y2="273" stroke="#e8334a" stroke-width="1.5"/>
+
+            <!-- Piernas -->
+            <rect x="210" y="318" width="28" height="60" rx="12" fill="#3b6fd4"/>
+            <rect x="242" y="318" width="28" height="60" rx="12" fill="#3b6fd4"/>
+            <!-- Zapatos -->
+            <ellipse cx="224" cy="378" rx="20" ry="9" fill="#1a1a2e"/>
+            <ellipse cx="256" cy="378" rx="20" ry="9" fill="#1a1a2e"/>
+
+            <!-- Elementos flotantes decorativos -->
+            <!-- Átomo/molécula -->
+            <g transform="translate(60, 60)">
+                <circle cx="0" cy="0" r="8" fill="#28c76f"/>
+                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(0)"/>
+                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(60)"/>
+                <ellipse cx="0" cy="0" rx="22" ry="10" stroke="#28c76f" stroke-width="1.5" fill="none" transform="rotate(120)"/>
+            </g>
+            <!-- Corazón -->
+            <path d="M400 60 Q400 45 390 45 Q378 45 378 58 Q378 70 400 82 Q422 70 422 58 Q422 45 410 45 Q400 45 400 60 Z" fill="#e8334a" opacity="0.7"/>
+            <!-- Nota musical -->
+            <text x="75" y="320" font-size="28" fill="#8e5cf7" opacity="0.7">♪</text>
+            <!-- ABC -->
+            <text x="390" y="300" font-size="20" font-weight="900" fill="#f7c844" opacity="0.8" font-family="Baloo 2">ABC</text>
+            <!-- Pequeños puntos coloridos -->
+            <circle cx="110" cy="200" r="6" fill="#f7c844" opacity="0.6"/>
+            <circle cx="420" cy="160" r="8" fill="#3b6fd4" opacity="0.5"/>
+            <circle cx="50" cy="350" r="5" fill="#e8334a" opacity="0.5"/>
+            <circle cx="430" cy="350" r="7" fill="#28c76f" opacity="0.5"/>
+
+            <defs>
+                <radialGradient id="heroGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#3b6fd4"/>
+                    <stop offset="100%" stop-color="#e8334a"/>
+                </radialGradient>
+                <radialGradient id="heroGrad2" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#f7c844"/>
+                    <stop offset="100%" stop-color="#28c76f"/>
+                </radialGradient>
+            </defs>
+        </svg>
+    </div>
+</section>
+
+<!-- ===== BARRA DE CONFIANZA ===== -->
+<div class="trust-bar">
+    <div class="trust-item">
+        <span class="icon">👨‍👩‍👧</span>
+        <div>
+            <div class="trust-number">+500</div>
+            <div style="font-size:0.78rem;color:#888;">Familias atendidas</div>
+        </div>
+    </div>
+    <div class="trust-item">
+        <span class="icon">👩‍⚕️</span>
+        <div>
+            <div class="trust-number">+15</div>
+            <div style="font-size:0.78rem;color:#888;">Especialistas</div>
+        </div>
+    </div>
+    <div class="trust-item">
+        <span class="icon">🏆</span>
+        <div>
+            <div class="trust-number">+8</div>
+            <div style="font-size:0.78rem;color:#888;">Años de experiencia</div>
+        </div>
+    </div>
+    <div class="trust-item">
+        <span class="icon">📋</span>
+        <div>
+            <div class="trust-number">ADOS-2</div>
+            <div style="font-size:0.78rem;color:#888;">Evaluaciones certificadas</div>
+        </div>
+    </div>
+    <div class="trust-item">
+        <span class="icon">❤️</span>
+        <div>
+            <div class="trust-number">100%</div>
+            <div style="font-size:0.78rem;color:#888;">Compromiso familiar</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================================================================
+     SERVICIOS
+     =================================================================== -->
+<section class="section" id="servicios">
+    <div style="text-align:center; margin-bottom:2rem;" class="fade-in-up">
+        <div class="section-pill">✨ Nuestros Servicios</div>
+        <h2 class="section-title">
+            Terapias y programas<br>
+            <span style="color:var(--azul);">especializados</span>
+        </h2>
+        <p class="section-subtitle">
+            Cada niño es único. Por eso nuestros programas se adaptan a las necesidades individuales de cada paciente.
+        </p>
+    </div>
+
+    <div class="services-grid">
+        <div class="service-card fade-in-up" style="--card-color: #3b6fd4;">
+            <span class="service-icon">🧠</span>
+            <h3>Neuropsicología</h3>
+            <p>Evaluación y rehabilitación de funciones cognitivas, atención, memoria y aprendizaje.</p>
+        </div>
+        <div class="service-card fade-in-up" style="--card-color: #e8334a;">
+            <span class="service-icon">🗣️</span>
+            <h3>Terapia del Lenguaje</h3>
+            <p>Atención de trastornos de comunicación, lenguaje oral y escrito en niños y adolescentes.</p>
+        </div>
+        <div class="service-card fade-in-up" style="--card-color: #28c76f;">
+            <span class="service-icon">🙌</span>
+            <h3>Terapia Ocupacional</h3>
+            <p>Desarrollo de habilidades motoras finas, integración sensorial y autonomía personal.</p>
+        </div>
+        <div class="service-card fade-in-up" style="--card-color: #f7c844;">
+            <span class="service-icon">🎭</span>
+            <h3>Psicología Infantil</h3>
+            <p>Acompañamiento emocional, manejo conductual y apoyo a familias en el proceso terapéutico.</p>
+        </div>
+        <div class="service-card fade-in-up" style="--card-color: #8e5cf7;">
+            <span class="service-icon">📊</span>
+            <h3>Evaluaciones ADOS-2 / ADI-R</h3>
+            <p>Diagnóstico riguroso del espectro autista con instrumentos estandarizados internacionalmente.</p>
+        </div>
+        <div class="service-card fade-in-up" style="--card-color: #ff7b3a;">
+            <span class="service-icon">🎵</span>
+            <h3>Estimulación Temprana</h3>
+            <p>Programas de estimulación para bebés y niños pequeños que potencian su desarrollo integral.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ===================================================================
+     POR QUÉ NOSOTROS
+     =================================================================== -->
+<section class="why-section" id="nosotros">
+    <div style="text-align:center; margin-bottom:2.5rem; position:relative; z-index:1;" class="fade-in-up">
+        <div class="section-pill">💎 ¿Por qué elegirnos?</div>
+        <h2 class="section-title">Un equipo que cuida<br>cada detalle</h2>
+        <p class="section-subtitle">Nos diferencia la calidez humana, la tecnología y el trabajo en equipo interdisciplinario.</p>
+    </div>
+
+    <div class="why-grid" style="position:relative;z-index:1;">
+        <div class="why-card fade-in-up">
+            <div class="why-icon">🔬</div>
+            <h3>Evidencia Científica</h3>
+            <p>Todos nuestros programas están basados en investigación actualizada y mejores prácticas internacionales.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">👨‍👩‍👧‍👦</div>
+            <h3>Enfoque Familiar</h3>
+            <p>Involucramos activamente a la familia en el proceso terapéutico para mejores resultados a largo plazo.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">💻</div>
+            <h3>Sistema Integrado</h3>
+            <p>Plataforma digital propia para gestión de citas, historial clínico, facturación y comunicación.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">🗓️</div>
+            <h3>Agenda Flexible</h3>
+            <p>Horarios adaptados a las necesidades de cada familia, con atención personalizada y puntual.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">📈</div>
+            <h3>Seguimiento Continuo</h3>
+            <p>Monitoreo constante del progreso con reportes detallados para padres y profesionales.</p>
+        </div>
+        <div class="why-card fade-in-up">
+            <div class="why-icon">🌈</div>
+            <h3>Ambiente Inclusivo</h3>
+            <p>Espacios diseñados para que cada niño se sienta seguro, respetado y motivado a crecer.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ===================================================================
+     EQUIPO
+     =================================================================== -->
+<section class="section team-section" id="equipo">
+    <div style="text-align:center; margin-bottom:2.5rem;" class="fade-in-up">
+        <div class="section-pill">👩‍⚕️ Nuestro Equipo</div>
+        <h2 class="section-title">Profesionales<br><span style="color:var(--rojo);">apasionados</span></h2>
+        <p class="section-subtitle">Un equipo interdisciplinario comprometido con el desarrollo y bienestar de cada niño.</p>
+    </div>
+
+    <div class="team-grid">
+        <div class="team-card fade-in-up">
+            <div class="team-avatar" style="background:linear-gradient(135deg,#ffeef8,#ffcba4);">👩‍⚕️</div>
+            <h3>Neuropsicología</h3>
+            <p>Evaluación y diagnóstico</p>
+            <span class="team-tag" style="--tag-bg:#eef4ff;--tag-color:#3b6fd4;">Especialista</span>
+        </div>
+        <div class="team-card fade-in-up">
+            <div class="team-avatar" style="background:linear-gradient(135deg,#eef4ff,#c7d9ff);">🗣️</div>
+            <h3>Lenguaje y Comunicación</h3>
+            <p>Terapia del habla</p>
+            <span class="team-tag" style="--tag-bg:#fff0f0;--tag-color:#e8334a;">Terapeuta</span>
+        </div>
+        <div class="team-card fade-in-up">
+            <div class="team-avatar" style="background:linear-gradient(135deg,#f0fff8,#b8f5d8);">🙌</div>
+            <h3>Terapia Ocupacional</h3>
+            <p>Integración sensorial</p>
+            <span class="team-tag" style="--tag-bg:#f0fff8;--tag-color:#28c76f;">Terapeuta</span>
+        </div>
+        <div class="team-card fade-in-up">
+            <div class="team-avatar" style="background:linear-gradient(135deg,#fef9e7,#fdeaa8);">🎭</div>
+            <h3>Psicología Clínica</h3>
+            <p>Atención emocional</p>
+            <span class="team-tag" style="--tag-bg:#fffbea;--tag-color:#b8861a;">Psicólogo/a</span>
+        </div>
+        <div class="team-card fade-in-up">
+            <div class="team-avatar" style="background:linear-gradient(135deg,#f5f0ff,#d8c8ff);">📊</div>
+            <h3>Evaluaciones Diagnósticas</h3>
+            <p>ADOS-2 y ADI-R</p>
+            <span class="team-tag" style="--tag-bg:#f5f0ff;--tag-color:#8e5cf7;">Evaluador/a</span>
+        </div>
+    </div>
+</section>
+
+<!-- ===================================================================
+     CTA FINAL
+     =================================================================== -->
+<section class="cta-section">
+    <div style="position:relative; z-index:1;">
+        <h2>¿Listo para acompañar<br>el desarrollo de tu hijo?</h2>
+        <p>Accede al sistema para gestionar citas, historial y mucho más.<br>
+        Si eres parte del equipo, ingresa con tu cuenta.</p>
+
+        <a href="{% url 'core:login' %}" class="btn-cta-white">
+            🚀 Iniciar Sesión en el Sistema
+        </a>
+
+        <div style="margin-top:2rem; display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; position:relative;">
+            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+                🔒 Acceso seguro y privado
+            </span>
+            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+                📱 Disponible en móvil y escritorio
+            </span>
+            <span style="color:rgba(255,255,255,0.7); font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+                ☁️ Datos siempre respaldados
+            </span>
+        </div>
+    </div>
+</section>
+
+<!-- ===================================================================
+     FOOTER
+     =================================================================== -->
+<footer id="contacto">
+    <div class="footer-grid">
+        <div class="footer-brand">
+            <h3>🧠 Centro Misael</h3>
+            <p>Centro de Neurodesarrollo Infantil especializado en brindar atención integral a niños y familias de Bolivia.</p>
+            <div class="footer-dots" style="justify-content:flex-start; margin-top:1rem;">
+                <span style="background:#e8334a;"></span>
+                <span style="background:#f7c844;"></span>
+                <span style="background:#3b6fd4;"></span>
+                <span style="background:#28c76f;"></span>
+            </div>
+        </div>
+
+        <div class="footer-col">
+            <h4>Servicios</h4>
+            <ul>
+                <li><a href="#">Neuropsicología</a></li>
+                <li><a href="#">Terapia del Lenguaje</a></li>
+                <li><a href="#">Terapia Ocupacional</a></li>
+                <li><a href="#">Psicología Infantil</a></li>
+                <li><a href="#">Evaluaciones ADOS-2</a></li>
+                <li><a href="#">Estimulación Temprana</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Sistema</h4>
+            <ul>
+                <li><a href="{% url 'core:login' %}">Iniciar Sesión</a></li>
+                <li><a href="#">Agenda de Citas</a></li>
+                <li><a href="#">Historial Clínico</a></li>
+                <li><a href="#">Facturación</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-col">
+            <h4>Contacto</h4>
+            <ul>
+                <li>📍 La Paz, Bolivia</li>
+                <li>📞 Consultar horarios</li>
+                <li>✉️ info@centramisael.bo</li>
+                <li style="margin-top:0.8rem;">
+                    <span style="font-size:0.78rem; color:rgba(255,255,255,0.4);">
+                        Lun - Vie: 8:00 - 18:00<br>
+                        Sáb: 8:00 - 12:00
+                    </span>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="footer-bottom">
+        <p>© 2025 Centro de Neurodesarrollo Infantil Misael · La Paz, Bolivia · Todos los derechos reservados</p>
+        <div class="footer-dots" style="margin-top:0.8rem;">
+            <span style="background:#e8334a;"></span>
+            <span style="background:#f7c844;"></span>
+            <span style="background:#3b6fd4;"></span>
+        </div>
+    </div>
+</footer>
+
+<!-- ===================================================================
+     SCRIPTS
+     =================================================================== -->
+<script>
+/* ---- BURBUJAS DE FONDO ---- */
+(function(){
+    const bg = document.getElementById('heroBg');
+    if (!bg) return;
+    const colors = ['#e8334a','#3b6fd4','#f7c844','#28c76f','#8e5cf7','#ff7b3a'];
+    const sizes  = [80, 120, 160, 200, 240, 300, 350];
+    for (let i = 0; i < 12; i++) {
+        const b = document.createElement('div');
+        b.className = 'bubble';
+        const s = sizes[Math.floor(Math.random() * sizes.length)];
+        b.style.cssText = `
+            width:${s}px; height:${s}px;
+            background:${colors[Math.floor(Math.random() * colors.length)]};
+            left:${Math.random() * 100}%;
+            top:${Math.random() * 100}%;
+            --dur:${5 + Math.random() * 8}s;
+            --del:${Math.random() * 4}s;
+        `;
+        bg.appendChild(b);
+    }
+    // Confetti
+    const confColors = ['#e8334a','#3b6fd4','#f7c844','#28c76f','#8e5cf7'];
+    for (let i = 0; i < 18; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti-piece';
+        const s = 6 + Math.random() * 8;
+        c.style.cssText = `
+            width:${s}px; height:${s}px;
+            background:${confColors[Math.floor(Math.random() * confColors.length)]};
+            left:${Math.random() * 100}%;
+            top:${Math.random() * 100}%;
+            --dur:${4 + Math.random() * 6}s;
+            --del:${Math.random() * 5}s;
+            border-radius:${Math.random() > 0.5 ? '50%' : '2px'};
+        `;
+        bg.appendChild(c);
+    }
+})();
+
+/* ---- ESTRELLAS SUAVES ---- */
+(function(){
+    const container = document.getElementById('starContainer');
+    if (!container) return;
+    for (let i = 0; i < 35; i++) {
+        const s = document.createElement('div');
+        s.className = 'star-blink';
+        const size = (Math.random() * 2.5 + 0.8) + 'px';
+        s.style.cssText = `
+            left:${Math.random()*100}%;
+            top:${Math.random()*100}%;
+            width:${size}; height:${size};
+            --duration:${2 + Math.random()*4}s;
+            --delay:${Math.random()*6}s;
+            --opacity:${0.4 + Math.random()*0.5};
+        `;
+        container.appendChild(s);
+    }
+})();
+
+/* ---- SCROLL FADE IN ---- */
+(function(){
+    const els = document.querySelectorAll('.fade-in-up');
+    const obs = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+            if (entry.isIntersecting) {
+                // Pequeño delay escalonado entre cards hermanas
+                const siblings = Array.from(entry.target.parentElement.querySelectorAll('.fade-in-up'));
+                const idx = siblings.indexOf(entry.target);
+                setTimeout(() => {
+                    entry.target.classList.add('visible');
+                }, idx * 80);
+                obs.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.12 });
+    els.forEach(el => obs.observe(el));
+})();
+
+/* ---- SMOOTH SCROLL ---- */
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', function(e){
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            e.preventDefault();
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+</script>
+
+</body>
+</html>

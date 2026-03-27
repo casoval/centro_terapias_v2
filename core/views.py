@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -9,7 +10,12 @@ from decimal import Decimal
 from calendar import monthrange
 from core.utils import solo_sus_sucursales
 
-
+# 1. Quitar la redirección automática en landing
+def landing(request):
+    if request.user.is_authenticated:
+        return redirect('core:dashboard')
+    return render(request, 'core/landing.html')
+    
 @login_required
 @solo_sus_sucursales  # ✅ Aplicar filtrado automático
 def dashboard(request):
@@ -245,7 +251,7 @@ class CustomLoginView(LoginView):
                 if user.perfil.es_paciente():
                     return '/facturacion/mi-cuenta/'
         
-        return '/'
+        return '/dashboard/'
 
 
 def logout_view(request):
