@@ -21,7 +21,7 @@ urlpatterns = [
 
     # SEO
     path('robots.txt', TemplateView.as_view(
-        template_name='robots.txt',
+        template_name='core/robots.txt',  # ← agrega core/
         content_type='text/plain'
     )),
 ]
