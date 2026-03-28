@@ -65,6 +65,8 @@ INSTALLED_APPS = [
     'chat',
     'evaluaciones.apps.EvaluacionesConfig',
     'asistencia.apps.AsistenciaConfig',
+    'rest_framework',    # ← nueva
+    'recordatorios',     # ← nueva
 ]
 
 MIDDLEWARE = [

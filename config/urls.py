@@ -25,6 +25,7 @@ urlpatterns = [
     path('egresos/', include('egresos.urls', namespace='egresos')),
     path('evaluaciones/', include('evaluaciones.urls', namespace='evaluaciones')),
     path('asistencia/', include('asistencia.urls', namespace='asistencia')),
+    path('api/', include('recordatorios.urls')),
 ]
 
 if settings.DEBUG:
