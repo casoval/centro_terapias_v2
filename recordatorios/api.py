@@ -45,33 +45,29 @@ def citas_manana(request):
 
 @api_view(['GET'])
 def deudas_pendientes(request):
+    """
+    Retorna pacientes activos con deuda pendiente.
+    Usa saldo_real (proyección total), es negativo cuando hay deuda.
+    """
     cuentas = CuentaCorriente.objects.filter(
-        paciente__estado='activo'
-    ).select_related('paciente')
-    
+        paciente__estado='activo',
+        saldo_real__lt=0
+    ).select_related('paciente').order_by('saldo_real')  # mayor deuda primero
+
     data = []
     for cuenta in cuentas:
-        total_pagado = (
-            cuenta.pagos_sesiones +
-            cuenta.pagos_mensualidades +
-            cuenta.pagos_proyectos
-        )
-        saldo = cuenta.total_consumido_actual - total_pagado + cuenta.total_devoluciones
+        paciente = cuenta.paciente
+        deuda = abs(cuenta.saldo_real)
+        data.append({
+            'paciente_nombre': paciente.nombre_completo,
+            'tutor_nombre': paciente.nombre_tutor,
+            'tutor_telefono': paciente.telefono_tutor,
+            'tutor_email': paciente.email_tutor or '',
+            'saldo_pendiente': str(deuda),
+            'total_consumido': str(cuenta.total_consumido_real),
+            'total_pagado': str(cuenta.total_pagado),
+        })
 
-        if saldo > Decimal('0'):
-            paciente = cuenta.paciente
-            data.append({
-                'paciente_nombre': paciente.nombre_completo,
-                'tutor_nombre': paciente.nombre_tutor,
-                'tutor_telefono': paciente.telefono_tutor,
-                'tutor_email': paciente.email_tutor or '',
-                'saldo_pendiente': str(saldo),
-                'total_consumido': str(cuenta.total_consumido_actual),
-                'total_pagado': str(total_pagado),
-            })
-    
-    data.sort(key=lambda x: float(x['saldo_pendiente']), reverse=True)
-    
     return Response({
         'total_pacientes_con_deuda': len(data),
         'deudas': data
