@@ -1,6 +1,4 @@
 # recordatorios/api.py
-import locale
-locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
@@ -8,6 +6,9 @@ from datetime import timedelta
 from agenda.models import Sesion
 from facturacion.models import CuentaCorriente
 from decimal import Decimal
+
+DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 
 
 @api_view(['GET'])
@@ -30,7 +31,7 @@ def citas_manana(request):
             'tutor_email': paciente.email_tutor or '',
             'tutor2_nombre': paciente.nombre_tutor_2 or '',
             'tutor2_telefono': paciente.telefono_tutor_2 or '',
-            'fecha': sesion.fecha.strftime('%A, %d de %B de %Y').capitalize(),
+            'fecha': f"{DIAS[sesion.fecha.weekday()]}, {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]} de {sesion.fecha.year}",
             'hora_inicio': str(sesion.hora_inicio),
             'hora_fin': str(sesion.hora_fin),
             'servicio': sesion.servicio.nombre,
@@ -47,14 +48,10 @@ def citas_manana(request):
 
 @api_view(['GET'])
 def deudas_pendientes(request):
-    """
-    Retorna pacientes activos con deuda pendiente.
-    Usa saldo_real (proyección total), es negativo cuando hay deuda.
-    """
     cuentas = CuentaCorriente.objects.filter(
         paciente__estado='activo',
         saldo_real__lt=0
-    ).select_related('paciente').order_by('saldo_real')  # mayor deuda primero
+    ).select_related('paciente').order_by('saldo_real')
 
     data = []
     for cuenta in cuentas:
