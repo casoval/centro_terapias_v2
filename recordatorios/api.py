@@ -1,4 +1,6 @@
 # recordatorios/api.py
+import locale
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
@@ -28,7 +30,7 @@ def citas_manana(request):
             'tutor_email': paciente.email_tutor or '',
             'tutor2_nombre': paciente.nombre_tutor_2 or '',
             'tutor2_telefono': paciente.telefono_tutor_2 or '',
-            'fecha': str(sesion.fecha),
+            'fecha': sesion.fecha.strftime('%A, %d de %B de %Y').capitalize(),
             'hora_inicio': str(sesion.hora_inicio),
             'hora_fin': str(sesion.hora_fin),
             'servicio': sesion.servicio.nombre,
