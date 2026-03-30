@@ -13,17 +13,16 @@ def logs_whatsapp(request):
     try:
         if platform.system() == 'Windows':
             logs = [{'texto': 'ℹ️ Los logs solo están disponibles en el servidor de producción.', 'tipo': 'info'}]
-        else:
-            resultado = subprocess.run(
-                ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
-                capture_output=True, text=True
-            )
-            for linea in reversed(resultado.stdout.strip().split('\n')):
-                if linea.strip():
-                    logs.append({
-                        'texto': linea.strip(),
-                        'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
-                    })
+        resultado = subprocess.run(
+            ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
+            capture_output=True, text=True
+        )
+        for linea in reversed(resultado.stdout.strip().split('\n')):
+            if linea.strip() and any(x in linea for x in ['✅', '❌', '🚀', '📱']):
+                logs.append({
+                    'texto': linea.strip(),
+                    'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
+                })
     except Exception as e:
         logs = [{'texto': f'Error al leer logs: {str(e)}', 'tipo': 'error'}]
 
