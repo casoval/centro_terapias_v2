@@ -5129,9 +5129,8 @@ def profesional_puede_editar_sesion(profesional, sesion):
 
     return True, campos, f"Permiso otorgado por {permiso.otorgado_por}"
 
-
 def registrar_uso_permiso(profesional, sesion):
-    """Marca el permiso como usado una vez que el profesional edita la sesión."""
+    """Registra la primera vez que se usa el permiso, sin cerrarlo."""
     from django.utils import timezone as tz
 
     permiso = PermisoEdicionSesion.objects.filter(
@@ -5143,10 +5142,24 @@ def registrar_uso_permiso(profesional, sesion):
         usado=False,
     ).first()
 
-    if permiso:
-        permiso.usado     = True
+    if permiso and not permiso.fecha_uso:
+        # Solo registra la fecha del primer uso, el permiso sigue activo
         permiso.fecha_uso = tz.now()
-        permiso.save(update_fields=['usado', 'fecha_uso'])
+        permiso.save(update_fields=['fecha_uso'])
+
+def cerrar_permisos_vencidos():
+    """
+    Marca como 'usado' todos los permisos cuyo período de validez ya expiró.
+    Llamar desde un management command o tarea periódica (celery/cron).
+    """
+    from django.utils import timezone as tz
+
+    vencidos = PermisoEdicionSesion.objects.filter(
+        valido_hasta__lt=tz.now(),
+        usado=False,
+    )
+    count = vencidos.update(usado=True)
+    return count  # cuántos se cerraron
 
 def calcular_racha_semanas(paciente):
     """Cuenta semanas consecutivas hacia atrás con al menos 1 sesión realizada."""

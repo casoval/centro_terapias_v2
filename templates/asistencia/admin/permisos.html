@@ -66,12 +66,14 @@
           <td class="px-4 py-3 text-sm text-gray-700 italic">"{{ permiso.motivo }}"</td>
           <td class="px-4 py-3 text-xs text-gray-400">{{ permiso.fecha_otorgado|date:"d/m/Y H:i" }}</td>
           <td class="px-4 py-3">
-            {% if permiso.usado %}
-              <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Usado</span>
-            {% else %}
-              <span class="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">Activo</span>
-            {% endif %}
-          </td>
+          {% if permiso.usado %}
+            <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Vencido</span>
+          {% elif permiso.fecha_uso %}
+            <span class="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">En uso</span>
+          {% else %}
+            <span class="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">Activo</span>
+          {% endif %}
+        </td>
         </tr>
         {% empty %}
         <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400 text-sm">Sin historial de permisos.</td></tr>
