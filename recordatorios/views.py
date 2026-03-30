@@ -8,7 +8,6 @@ def logs_whatsapp(request):
     logs = []
     try:
         if platform.system() == 'Windows':
-            # En Windows, mostrar mensaje de que solo funciona en producción
             logs = [{'texto': 'ℹ️ Los logs solo están disponibles en el servidor de producción.', 'tipo': 'info'}]
         else:
             resultado = subprocess.run(
@@ -16,9 +15,9 @@ def logs_whatsapp(request):
                 capture_output=True, text=True
             )
             for linea in reversed(resultado.stdout.strip().split('\n')):
-                if 'Mensaje enviado' in linea or 'Error' in linea or 'conectado' in linea:
+                if linea.strip():
                     logs.append({
-                        'texto': linea,
+                        'texto': linea.strip(),
                         'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
                     })
     except Exception as e:

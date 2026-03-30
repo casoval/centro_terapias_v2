@@ -1,13 +1,38 @@
 {% extends 'base.html' %}
-{% block title %}Historial WhatsApp{% endblock %}
+{% block title %}WhatsApp Bot{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-8">
+
+    <!-- Estado del bot -->
+    <div id="status-banner" class="mb-6 p-4 rounded-2xl flex items-center gap-4 glass-card">
+        <div id="status-icon" class="text-4xl">⏳</div>
+        <div>
+            <h2 id="status-text" class="text-xl font-bold text-white">Verificando estado...</h2>
+            <p id="status-sub" class="text-white/60 text-sm">Conectando con el bot</p>
+        </div>
+        <div class="ml-auto">
+            <button onclick="reconectar()" id="btn-reconectar" 
+                class="hidden px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-all">
+                🔄 Reconectar
+            </button>
+        </div>
+    </div>
+
+    <!-- QR Code (aparece si está desconectado) -->
+    <div id="qr-container" class="hidden mb-6 glass-card rounded-2xl p-6 text-center">
+        <h3 class="text-white font-bold text-lg mb-2">📱 Escanea el QR con WhatsApp</h3>
+        <p class="text-white/60 text-sm mb-4">Ve a WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+        <img id="qr-image" src="" alt="QR Code" class="mx-auto rounded-xl" style="max-width:250px;">
+        <p class="text-white/40 text-xs mt-3">El QR se actualiza automáticamente</p>
+    </div>
+
+    <!-- Historial de mensajes -->
     <div class="glass-card rounded-2xl p-6">
         <div class="flex items-center gap-3 mb-6">
-            <span class="text-3xl">📱</span>
+            <span class="text-3xl">📋</span>
             <div>
-                <h1 class="text-2xl font-bold text-white">Historial de Mensajes WhatsApp</h1>
+                <h1 class="text-2xl font-bold text-white">Historial de Mensajes</h1>
                 <p class="text-white/60 text-sm">Mensajes enviados automáticamente</p>
             </div>
         </div>
@@ -34,4 +59,70 @@
         </div>
     </div>
 </div>
+
+<script>
+async function checkStatus() {
+    try {
+        const res = await fetch('/api/whatsapp-status/');
+        const data = await res.json();
+        const banner = document.getElementById('status-banner');
+        const icon = document.getElementById('status-icon');
+        const text = document.getElementById('status-text');
+        const sub = document.getElementById('status-sub');
+        const btnReconectar = document.getElementById('btn-reconectar');
+        const qrContainer = document.getElementById('qr-container');
+
+        if (data.status === 'conectado') {
+            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-green-500/20 border border-green-500/30';
+            icon.textContent = '🟢';
+            text.textContent = 'Bot Conectado';
+            sub.textContent = 'WhatsApp está activo y enviando mensajes correctamente';
+            btnReconectar.classList.add('hidden');
+            qrContainer.classList.add('hidden');
+        } else if (data.status === 'esperando_qr') {
+            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-yellow-500/20 border border-yellow-500/30';
+            icon.textContent = '📱';
+            text.textContent = 'Escanea el QR';
+            sub.textContent = 'El bot necesita que escanees el código QR para conectarse';
+            btnReconectar.classList.add('hidden');
+            qrContainer.classList.remove('hidden');
+            loadQR();
+        } else {
+            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-red-500/20 border border-red-500/30';
+            icon.textContent = '🔴';
+            text.textContent = 'Bot Desconectado';
+            sub.textContent = 'El bot no está activo. Haz clic en Reconectar para volver a conectarlo';
+            btnReconectar.classList.remove('hidden');
+            qrContainer.classList.add('hidden');
+        }
+    } catch(e) {
+        console.error('Error verificando estado:', e);
+    }
+}
+
+async function loadQR() {
+    try {
+        const res = await fetch('/api/whatsapp-qr/');
+        const data = await res.json();
+        if (data.qr) {
+            document.getElementById('qr-image').src = data.qr;
+        }
+    } catch(e) {
+        console.error('Error cargando QR:', e);
+    }
+}
+
+async function reconectar() {
+    try {
+        await fetch('/api/whatsapp-reconectar/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}});
+        setTimeout(checkStatus, 3000);
+    } catch(e) {
+        console.error('Error reconectando:', e);
+    }
+}
+
+// Verificar estado cada 10 segundos
+checkStatus();
+setInterval(checkStatus, 10000);
+</script>
 {% endblock %}
