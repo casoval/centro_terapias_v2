@@ -15,7 +15,7 @@ def logs_whatsapp(request):
             logs = [{'texto': 'ℹ️ Los logs solo están disponibles en el servidor de producción.', 'tipo': 'info'}]
         else:
             resultado = subprocess.run(
-                ['tail', '-n', '300', '/root/.pm2/logs/whatsapp-bot-out.log'],
+                ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
                 capture_output=True, text=True
             )
             for linea in reversed(resultado.stdout.strip().split('\n')):
