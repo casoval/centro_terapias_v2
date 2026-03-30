@@ -18,8 +18,8 @@ def citas_manana(request):
     sesiones = Sesion.objects.filter(
         fecha=manana,
         estado='programada'
-    ).select_related('paciente', 'profesional', 'servicio', 'sucursal')
-    
+    ).select_related('paciente', 'profesional', 'servicio', 'sucursal').order_by('hora_inicio')
+
     data = []
     for sesion in sesiones:
         paciente = sesion.paciente
