@@ -53,3 +53,94 @@ def whatsapp_reconectar(request):
         subprocess.Popen(['pm2', 'restart', 'whatsapp-bot'])
         return JsonResponse({'ok': True})
     return JsonResponse({'ok': False})
+
+@login_required
+def whatsapp_historial(request):
+    import json
+    historial_japon = []
+    historial_camacho = []
+    try:
+        with open('/var/log/whatsapp-bot/historial-japon.json', 'r') as f:
+            historial_japon = json.load(f)
+    except:
+        pass
+    try:
+        with open('/var/log/whatsapp-bot/historial-camacho.json', 'r') as f:
+            historial_camacho = json.load(f)
+    except:
+        pass
+    # Combinar y ordenar por fecha
+    historial = historial_japon + historial_camacho
+    historial.sort(key=lambda x: x.get('fecha', ''), reverse=True)
+    return JsonResponse(historial[:200], safe=False)
+
+
+@login_required  
+def whatsapp_envio_masivo(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False})
+    import json as json_lib
+    data = json_lib.loads(request.body)
+    mensaje = data.get('mensaje', '').strip()
+    sucursal_filtro = data.get('sucursal', 'todas')
+    if not mensaje:
+        return JsonResponse({'error': 'Mensaje vacío'}, status=400)
+
+    from agenda.models import Sesion
+    from django.utils import timezone
+    from datetime import timedelta
+
+    hoy = timezone.localdate()
+    lunes = hoy + timedelta(days=(7 - hoy.weekday()))
+    domingo = lunes + timedelta(days=6)
+
+    sesiones = Sesion.objects.filter(
+        fecha__range=[lunes, domingo],
+        estado='programada',
+    ).select_related('paciente', 'sucursal')
+
+    # Recopilar tutores únicos
+    tutores = {}
+    for sesion in sesiones:
+        paciente = sesion.paciente
+        telefono = paciente.telefono_tutor
+        sucursal_nombre = sesion.sucursal.nombre
+        sucursal_id = sesion.sucursal.id
+        if not telefono:
+            continue
+        if sucursal_filtro == 'japon' and sucursal_id != 3:
+            continue
+        if sucursal_filtro == 'camacho' and sucursal_id != 4:
+            continue
+        if telefono not in tutores:
+            tutores[telefono] = {
+                'telefono': telefono,
+                'tutor_nombre': paciente.nombre_tutor,
+                'paciente_nombre': paciente.nombre_completo,
+                'sucursal_id': sucursal_id,
+                'sucursal': sucursal_nombre,
+            }
+
+    # Enviar a cada bot según sucursal
+    import requests as req_lib
+    enviados = 0
+    errores = 0
+    for tutor in tutores.values():
+        puerto = 3000 if tutor['sucursal_id'] == 3 else 3001
+        try:
+            req_lib.post(
+                f'http://localhost:{puerto}/send',
+                json={
+                    'telefono': tutor['telefono'],
+                    'mensaje': mensaje,
+                    'paciente': tutor['paciente_nombre'],
+                    'sucursal': tutor['sucursal'],
+                    'delay_type': 'corto'
+                },
+                timeout=5
+            )
+            enviados += 1
+        except:
+            errores += 1
+
+    return JsonResponse({'ok': True, 'enviados': enviados, 'errores': errores})

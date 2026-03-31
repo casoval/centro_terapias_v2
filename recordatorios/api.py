@@ -1,8 +1,7 @@
-# recordatorios/api.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from agenda.models import Sesion
 from facturacion.models import CuentaCorriente
 from decimal import Decimal
@@ -10,11 +9,14 @@ from decimal import Decimal
 DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
 
+SUCURSAL_JAPON = 3
+SUCURSAL_CAMACHO = 4
+
 
 @api_view(['GET'])
 def citas_manana(request):
+    """LEGACY - mantener por compatibilidad"""
     manana = timezone.localdate() + timedelta(days=1)
-    
     sesiones = Sesion.objects.filter(
         fecha=manana,
         estado='programada'
@@ -25,24 +27,119 @@ def citas_manana(request):
         paciente = sesion.paciente
         data.append({
             'paciente_nombre': paciente.nombre_completo,
-            'paciente_edad': paciente.edad,
             'tutor_nombre': paciente.nombre_tutor,
             'tutor_telefono': paciente.telefono_tutor,
-            'tutor_email': paciente.email_tutor or '',
-            'tutor2_nombre': paciente.nombre_tutor_2 or '',
-            'tutor2_telefono': paciente.telefono_tutor_2 or '',
             'fecha': f"{DIAS[sesion.fecha.weekday()]}, {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]} de {sesion.fecha.year}",
             'hora_inicio': str(sesion.hora_inicio),
-            'hora_fin': str(sesion.hora_fin),
             'servicio': sesion.servicio.nombre,
             'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
             'sucursal': sesion.sucursal.nombre,
         })
-    
+
+    return Response({'total_sesiones': len(data), 'sesiones': data})
+
+
+@api_view(['GET'])
+def sesiones_proximas(request):
+    """
+    Sesiones individuales y de proyecto que empiezan en exactamente 2 horas.
+    Separadas por sucursal para cada bot.
+    """
+    sucursal_id = request.GET.get('sucursal')
+    ahora = timezone.localtime()
+    objetivo = ahora + timedelta(hours=2)
+
+    # Ventana de ±3 minutos alrededor de las 2 horas exactas
+    desde = objetivo - timedelta(minutes=3)
+    hasta = objetivo + timedelta(minutes=3)
+
+    sesiones = Sesion.objects.filter(
+        fecha=objetivo.date(),
+        hora_inicio__gte=desde.time(),
+        hora_inicio__lte=hasta.time(),
+        estado='programada',
+        mensualidad__isnull=True,  # excluir mensualidades
+    ).select_related('paciente', 'profesional', 'servicio', 'sucursal').order_by('hora_inicio')
+
+    if sucursal_id:
+        sesiones = sesiones.filter(sucursal_id=sucursal_id)
+
+    data = []
+    for sesion in sesiones:
+        paciente = sesion.paciente
+        tipo = 'proyecto' if sesion.proyecto else 'individual'
+        data.append({
+            'paciente_nombre': paciente.nombre_completo,
+            'tutor_nombre': paciente.nombre_tutor,
+            'tutor_telefono': paciente.telefono_tutor,
+            'fecha': f"{DIAS[sesion.fecha.weekday()]}, {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]} de {sesion.fecha.year}",
+            'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
+            'hora_fin': sesion.hora_fin.strftime('%H:%M'),
+            'servicio': sesion.servicio.nombre,
+            'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
+            'sucursal': sesion.sucursal.nombre,
+            'tipo': tipo,
+        })
+
+    return Response({'total': len(data), 'sesiones': data})
+
+
+@api_view(['GET'])
+def mensualidades_semana(request):
+    """
+    Sesiones de mensualidad de la semana actual (lunes a domingo).
+    Agrupadas por tutor — un solo mensaje por tutor con todos sus horarios.
+    Separadas por sucursal.
+    """
+    sucursal_id = request.GET.get('sucursal')
+    hoy = timezone.localdate()
+
+    # Calcular lunes y domingo de la semana actual
+    lunes = hoy + timedelta(days=(7 - hoy.weekday()))  # próximo lunes
+    domingo = lunes + timedelta(days=6)
+
+    sesiones = Sesion.objects.filter(
+        fecha__range=[lunes, domingo],
+        estado='programada',
+        mensualidad__isnull=False,  # solo mensualidades
+    ).select_related(
+        'paciente', 'profesional', 'servicio', 'sucursal', 'mensualidad'
+    ).order_by('fecha', 'hora_inicio')
+
+    if sucursal_id:
+        sesiones = sesiones.filter(sucursal_id=sucursal_id)
+
+    # Agrupar por tutor (telefono_tutor)
+    tutores = {}
+    for sesion in sesiones:
+        paciente = sesion.paciente
+        telefono = paciente.telefono_tutor
+        if not telefono:
+            continue
+
+        if telefono not in tutores:
+            tutores[telefono] = {
+                'tutor_nombre': paciente.nombre_tutor,
+                'tutor_telefono': telefono,
+                'sucursal': sesion.sucursal.nombre,
+                'sesiones': []
+            }
+
+        tutores[telefono]['sesiones'].append({
+            'paciente_nombre': paciente.nombre_completo,
+            'dia': DIAS[sesion.fecha.weekday()],
+            'fecha': f"{sesion.fecha.day} de {MESES[sesion.fecha.month - 1]}",
+            'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
+            'hora_fin': sesion.hora_fin.strftime('%H:%M'),
+            'servicio': sesion.servicio.nombre,
+            'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
+        })
+
     return Response({
-        'fecha_consulta': str(manana),
-        'total_sesiones': len(data),
-        'sesiones': data
+        'semana_desde': str(lunes),
+        'semana_hasta': str(domingo),
+        'total_tutores': len(tutores),
+        'tutores': list(tutores.values())
     })
 
 
@@ -63,11 +160,6 @@ def deudas_pendientes(request):
             'tutor_telefono': paciente.telefono_tutor,
             'tutor_email': paciente.email_tutor or '',
             'saldo_pendiente': str(deuda),
-            'total_consumido': str(cuenta.total_consumido_real),
-            'total_pagado': str(cuenta.total_pagado),
         })
 
-    return Response({
-        'total_pacientes_con_deuda': len(data),
-        'deudas': data
-    })
+    return Response({'total_pacientes_con_deuda': len(data), 'deudas': data})
