@@ -84,7 +84,23 @@ def sesiones_proximas(request):
             'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
         })
 
-    data = list(tutores.values())
+    data = []
+    for telefono, tutor in tutores.items():
+        sesiones = tutor['sesiones']
+        if len(sesiones) == 1:
+            s = sesiones[0]
+            cuerpo = f"{s['paciente_nombre']} tiene su sesión de {s['servicio']} hoy a las {s['hora_inicio']}"
+        else:
+            cuerpo = "sus pacientes tienen sesiones hoy:\n" + "\n".join([f"• {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}" for s in sesiones])
+
+        mensaje = f"👋 Hola! Le recordamos que {cuerpo} en {tutor['sucursal']}. ¡Hasta pronto! 😊 neuromisael.com"
+
+        data.append({
+            'tutor_nombre': tutor['tutor_nombre'],
+            'tutor_telefono': telefono,
+            'sucursal': tutor['sucursal'],
+            'mensaje': mensaje,
+        })
 
     return Response({'total': len(data), 'sesiones': data})
 
