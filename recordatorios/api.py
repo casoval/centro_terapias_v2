@@ -38,51 +38,55 @@ def citas_manana(request):
 
     return Response({'total_sesiones': len(data), 'sesiones': data})
 
-
 @api_view(['GET'])
 def sesiones_proximas(request):
-    """
-    Sesiones individuales y de proyecto que empiezan en exactamente 2 horas.
-    Separadas por sucursal para cada bot.
-    """
     sucursal_id = request.GET.get('sucursal')
     ahora = timezone.localtime()
     objetivo = ahora + timedelta(hours=2)
 
-    # Ventana de ±3 minutos alrededor de las 2 horas exactas
-    desde = objetivo - timedelta(minutes=3)
-    hasta = objetivo + timedelta(minutes=3)
+    # Ventana de ±1 minuto para evitar duplicados
+    desde = objetivo - timedelta(minutes=1)
+    hasta = objetivo + timedelta(minutes=1)
 
     sesiones = Sesion.objects.filter(
         fecha=objetivo.date(),
         hora_inicio__gte=desde.time(),
         hora_inicio__lte=hasta.time(),
         estado='programada',
-        mensualidad__isnull=True,  # excluir mensualidades
+        mensualidad__isnull=True,
     ).select_related('paciente', 'profesional', 'servicio', 'sucursal').order_by('hora_inicio')
 
     if sucursal_id:
         sesiones = sesiones.filter(sucursal_id=sucursal_id)
 
-    data = []
+    # Agrupar por tutor — un mensaje por tutor aunque tenga varios pacientes
+    tutores = {}
     for sesion in sesiones:
         paciente = sesion.paciente
+        telefono = paciente.telefono_tutor
+        if not telefono:
+            continue
         tipo = 'proyecto' if sesion.proyecto else 'individual'
-        data.append({
+
+        if telefono not in tutores:
+            tutores[telefono] = {
+                'tutor_nombre': paciente.nombre_tutor,
+                'tutor_telefono': telefono,
+                'sucursal': sesion.sucursal.nombre,
+                'tipo': tipo,
+                'sesiones': []
+            }
+        tutores[telefono]['sesiones'].append({
             'paciente_nombre': paciente.nombre_completo,
-            'tutor_nombre': paciente.nombre_tutor,
-            'tutor_telefono': paciente.telefono_tutor,
-            'fecha': f"{DIAS[sesion.fecha.weekday()]}, {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]} de {sesion.fecha.year}",
             'hora_inicio': sesion.hora_inicio.strftime('%H:%M'),
             'hora_fin': sesion.hora_fin.strftime('%H:%M'),
             'servicio': sesion.servicio.nombre,
             'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
-            'sucursal': sesion.sucursal.nombre,
-            'tipo': tipo,
         })
 
-    return Response({'total': len(data), 'sesiones': data})
+    data = list(tutores.values())
 
+    return Response({'total': len(data), 'sesiones': data})
 
 @api_view(['GET'])
 def mensualidades_semana(request):
