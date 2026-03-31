@@ -28,29 +28,34 @@ def logs_whatsapp(request):
 
     return render(request, 'recordatorios/logs_whatsapp.html', {'logs': logs})
 
-
 @login_required
 def whatsapp_status(request):
+    bot = request.GET.get('bot', 'japon')
+    puerto = 3000 if bot == 'japon' else 3001
     try:
-        res = requests.get('http://localhost:3000/status', timeout=5)
+        res = requests.get(f'http://localhost:{puerto}/status', timeout=5)
         return JsonResponse(res.json())
-    except Exception:
+    except:
         return JsonResponse({'status': 'desconectado'})
-
 
 @login_required
 def whatsapp_qr(request):
+    bot = request.GET.get('bot', 'japon')
+    puerto = 3000 if bot == 'japon' else 3001
     try:
-        res = requests.get('http://localhost:3000/qr', timeout=5)
+        res = requests.get(f'http://localhost:{puerto}/qr', timeout=5)
         return JsonResponse(res.json())
-    except Exception:
+    except:
         return JsonResponse({'qr': None, 'status': 'desconectado'})
-
 
 @login_required
 def whatsapp_reconectar(request):
     if request.method == 'POST':
-        subprocess.Popen(['pm2', 'restart', 'whatsapp-bot'])
+        import json as json_lib
+        data = json_lib.loads(request.body)
+        bot = data.get('bot', 'japon')
+        puerto = 3000 if bot == 'japon' else 3001
+        subprocess.Popen(['pm2', 'restart', f'whatsapp-bot{"-camacho" if bot == "camacho" else ""}'])
         return JsonResponse({'ok': True})
     return JsonResponse({'ok': False})
 
@@ -83,45 +88,79 @@ def whatsapp_envio_masivo(request):
     data = json_lib.loads(request.body)
     mensaje = data.get('mensaje', '').strip()
     sucursal_filtro = data.get('sucursal', 'todas')
+    destinatarios = data.get('destinatarios', 'semana')
     if not mensaje:
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
     from agenda.models import Sesion
+    from pacientes.models import Paciente
     from django.utils import timezone
     from datetime import timedelta
 
-    hoy = timezone.localdate()
-    lunes = hoy + timedelta(days=(7 - hoy.weekday()))
-    domingo = lunes + timedelta(days=6)
-
-    sesiones = Sesion.objects.filter(
-        fecha__range=[lunes, domingo],
-        estado='programada',
-    ).select_related('paciente', 'sucursal')
-
-    # Recopilar tutores únicos
     tutores = {}
-    for sesion in sesiones:
-        paciente = sesion.paciente
-        telefono = paciente.telefono_tutor
-        sucursal_nombre = sesion.sucursal.nombre
-        sucursal_id = sesion.sucursal.id
-        if not telefono:
-            continue
-        if sucursal_filtro == 'japon' and sucursal_id != 3:
-            continue
-        if sucursal_filtro == 'camacho' and sucursal_id != 4:
-            continue
-        if telefono not in tutores:
-            tutores[telefono] = {
-                'telefono': telefono,
-                'tutor_nombre': paciente.nombre_tutor,
-                'paciente_nombre': paciente.nombre_completo,
-                'sucursal_id': sucursal_id,
-                'sucursal': sucursal_nombre,
-            }
 
-    # Enviar a cada bot según sucursal
+    if destinatarios == 'semana':
+        hoy = timezone.localdate()
+        lunes = hoy + timedelta(days=(7 - hoy.weekday()))
+        domingo = lunes + timedelta(days=6)
+        sesiones = Sesion.objects.filter(
+            fecha__range=[lunes, domingo],
+            estado='programada',
+        ).select_related('paciente', 'sucursal')
+        for sesion in sesiones:
+            paciente = sesion.paciente
+            telefono = paciente.telefono_tutor
+            sucursal_id = sesion.sucursal.id
+            if not telefono:
+                continue
+            if sucursal_filtro == 'japon' and sucursal_id != 3:
+                continue
+            if sucursal_filtro == 'camacho' and sucursal_id != 4:
+                continue
+            if telefono not in tutores:
+                tutores[telefono] = {
+                    'telefono': telefono,
+                    'tutor_nombre': paciente.nombre_tutor,
+                    'paciente_nombre': paciente.nombre_completo,
+                    'sucursal_id': sucursal_id,
+                    'sucursal': sesion.sucursal.nombre,
+                }
+
+    elif destinatarios == 'todos':
+        pacientes = Paciente.objects.filter(estado='activo')
+        
+        if sucursal_filtro == 'japon':
+            pacientes = pacientes.filter(sucursales__id=3)
+        elif sucursal_filtro == 'camacho':
+            pacientes = pacientes.filter(sucursales__id=4)
+
+        for paciente in pacientes:
+            telefono = paciente.telefono_tutor
+            if not telefono:
+                continue
+            # Determinar sucursal principal para elegir el bot
+            sucursal_id = 3  # default Japón
+            sucursal_nombre = 'Suc. Japon'
+            if paciente.sucursales.filter(id=4).exists():
+                sucursal_id = 4
+                sucursal_nombre = 'Suc. Camacho'
+            # Si filtramos por sucursal específica, respetar eso
+            if sucursal_filtro == 'japon':
+                sucursal_id = 3
+                sucursal_nombre = 'Suc. Japon'
+            elif sucursal_filtro == 'camacho':
+                sucursal_id = 4
+                sucursal_nombre = 'Suc. Camacho'
+
+            if telefono not in tutores:
+                tutores[telefono] = {
+                    'telefono': telefono,
+                    'tutor_nombre': paciente.nombre_tutor,
+                    'paciente_nombre': paciente.nombre_completo,
+                    'sucursal_id': sucursal_id,
+                    'sucursal': sucursal_nombre,
+                }
+
     import requests as req_lib
     enviados = 0
     errores = 0

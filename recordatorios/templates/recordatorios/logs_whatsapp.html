@@ -2,127 +2,272 @@
 {% block title %}WhatsApp Bot{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
-    <!-- Estado del bot -->
-    <div id="status-banner" class="mb-6 p-4 rounded-2xl flex items-center gap-4 glass-card">
-        <div id="status-icon" class="text-4xl">⏳</div>
-        <div>
-            <h2 id="status-text" class="text-xl font-bold text-white">Verificando estado...</h2>
-            <p id="status-sub" class="text-white/60 text-sm">Conectando con el bot</p>
+    <!-- ESTADO BOTS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Bot Japón -->
+        <div id="banner-japon" class="p-4 rounded-2xl flex items-center gap-4 glass-card">
+            <div id="icon-japon" class="text-4xl">⏳</div>
+            <div class="flex-1">
+                <h2 id="text-japon" class="text-lg font-bold text-white">Verificando...</h2>
+                <p class="text-white/80 text-xs">Bot Suc. Japón · Puerto 3000</p>
+            </div>
+            <button onclick="reconectar('japon')" id="btn-japon"
+                class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
+                🔄 Reconectar
+            </button>
         </div>
-        <div class="ml-auto">
-            <button onclick="reconectar()" id="btn-reconectar" 
-                class="hidden px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-all">
+        <!-- Bot Camacho -->
+        <div id="banner-camacho" class="p-4 rounded-2xl flex items-center gap-4 glass-card">
+            <div id="icon-camacho" class="text-4xl">⏳</div>
+            <div class="flex-1">
+                <h2 id="text-camacho" class="text-lg font-bold text-white">Verificando...</h2>
+                <p class="text-white/80 text-xs">Bot Suc. Camacho · Puerto 3001</p>
+            </div>
+            <button onclick="reconectar('camacho')" id="btn-camacho"
+                class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
                 🔄 Reconectar
             </button>
         </div>
     </div>
 
-    <!-- QR Code (aparece si está desconectado) -->
-    <div id="qr-container" class="hidden mb-6 glass-card rounded-2xl p-6 text-center">
-        <h3 class="text-white font-bold text-lg mb-2">📱 Escanea el QR con WhatsApp</h3>
-        <p class="text-white/60 text-sm mb-4">Ve a WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
-        <img id="qr-image" src="" alt="QR Code" class="mx-auto rounded-xl" style="max-width:250px;">
-        <p class="text-white/40 text-xs mt-3">El QR se actualiza automáticamente</p>
+    <!-- QR CONTAINERS -->
+    <div id="qr-japon" class="hidden glass-card rounded-2xl p-6 text-center">
+        <h3 class="text-white font-bold text-lg mb-2">📱 Escanea el QR — Bot Japón</h3>
+        <p class="text-white/80 text-sm mb-4">WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+        <img id="qr-img-japon" src="" alt="QR Japón" class="mx-auto rounded-xl" style="max-width:250px;">
+    </div>
+    <div id="qr-camacho" class="hidden glass-card rounded-2xl p-6 text-center">
+        <h3 class="text-white font-bold text-lg mb-2">📱 Escanea el QR — Bot Camacho</h3>
+        <p class="text-white/80 text-sm mb-4">WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+        <img id="qr-img-camacho" src="" alt="QR Camacho" class="mx-auto rounded-xl" style="max-width:250px;">
     </div>
 
-    <!-- Historial de mensajes -->
+    <!-- ENVÍO MASIVO -->
     <div class="glass-card rounded-2xl p-6">
-        <div class="flex items-center gap-3 mb-6">
-            <span class="text-3xl">📋</span>
+        <div class="flex items-center gap-3 mb-4">
+            <span class="text-2xl">📢</span>
             <div>
-                <h1 class="text-2xl font-bold text-white">Historial de Mensajes</h1>
-                <p class="text-white/60 text-sm">Mensajes enviados automáticamente</p>
+                <h2 class="text-lg font-bold text-white">Envío Masivo</h2>
+                <p class="text-white/80 text-xs">Envía un mensaje a todos los tutores con sesiones esta semana</p>
+            </div>
+        </div>
+        <textarea id="mensaje-masivo" rows="3"
+            placeholder="Escribe tu mensaje aquí... Ej: Estimado tutor, informamos que mañana no habrá atención por feriado."
+            class="w-full border border-white/20 rounded-xl p-3 text-white text-sm resize-none focus:outline-none focus:border-white/40 mb-3"
+            style="background-color:#1e293b; color:#f1f5f9; placeholder-color:#94a3b8;"></textarea>
+        <div class="flex flex-wrap gap-3 items-center">
+            <select id="filtro-destinatarios"
+                class="border border-white/20 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style="background-color:#1e293b; color:#f1f5f9;">
+                <option value="semana" style="background:#1e293b; color:#f1f5f9;">📅 Tutores con sesiones esta semana</option>
+                <option value="todos" style="background:#1e293b; color:#f1f5f9;">👥 Todos los pacientes activos</option>
+            </select>
+            <select id="filtro-sucursal"
+                class="border border-white/20 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style="background-color:#1e293b; color:#f1f5f9;">
+                <option value="todas" style="background:#1e293b; color:#f1f5f9;">🏢 Ambas sucursales</option>
+                <option value="japon" style="background:#1e293b; color:#f1f5f9;">📍 Solo Japón</option>
+                <option value="camacho" style="background:#1e293b; color:#f1f5f9;">📍 Solo Camacho</option>
+            </select>
+            <button onclick="enviarMasivo()"
+                class="px-5 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2">
+                <span id="btn-enviar-icon">🚀</span>
+                <span id="btn-enviar-text">Enviar mensaje</span>
+            </button>
+        </div>
+        <div id="resultado-masivo" class="hidden mt-3 p-3 rounded-xl text-sm font-semibold"></div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">📋</span>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Historial de Mensajes</h2>
+                    <p class="text-white/80 text-xs">Últimos mensajes enviados por ambos bots</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="filtrarHistorial('todos')" id="fil-todos"
+                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/20 text-white">Todos</button>
+                <button onclick="filtrarHistorial('japon')" id="fil-japon"
+                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">Japón</button>
+                <button onclick="filtrarHistorial('camacho')" id="fil-camacho"
+                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">Camacho</button>
+                <button onclick="cargarHistorial()"
+                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">🔄</button>
             </div>
         </div>
 
-        <div class="space-y-2">
-            {% for log in logs %}
-            <div class="flex items-center gap-3 p-3 rounded-xl
-                {% if log.tipo == 'success' %}bg-green-500/20 border border-green-500/30
-                {% elif log.tipo == 'error' %}bg-red-500/20 border border-red-500/30
-                {% else %}bg-blue-500/20 border border-blue-500/30{% endif %}">
-                <span class="text-lg">
-                    {% if log.tipo == 'success' %}✅
-                    {% elif log.tipo == 'error' %}❌
-                    {% else %}ℹ️{% endif %}
-                </span>
-                <span class="text-white/90 text-sm font-mono">{{ log.texto }}</span>
-            </div>
-            {% empty %}
-            <div class="text-center text-white/50 py-12">
-                <span class="text-4xl">📭</span>
-                <p class="mt-3">No hay mensajes enviados aún</p>
-            </div>
-            {% endfor %}
+        <div id="historial-container" class="space-y-2">
+            <div class="text-center text-white/40 py-8">Cargando historial...</div>
         </div>
     </div>
 </div>
 
 <script>
-async function checkStatus() {
+let historialCompleto = [];
+let filtroActual = 'todos';
+
+// ── Estado de los bots ──
+async function checkStatus(bot) {
     try {
-        const res = await fetch('/api/whatsapp-status/');
+        const res = await fetch(`/api/whatsapp-status/?bot=${bot}`);
         const data = await res.json();
-        const banner = document.getElementById('status-banner');
-        const icon = document.getElementById('status-icon');
-        const text = document.getElementById('status-text');
-        const sub = document.getElementById('status-sub');
-        const btnReconectar = document.getElementById('btn-reconectar');
-        const qrContainer = document.getElementById('qr-container');
+        const banner = document.getElementById(`banner-${bot}`);
+        const icon = document.getElementById(`icon-${bot}`);
+        const text = document.getElementById(`text-${bot}`);
+        const btn = document.getElementById(`btn-${bot}`);
+        const qrDiv = document.getElementById(`qr-${bot}`);
 
         if (data.status === 'conectado') {
-            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-green-500/20 border border-green-500/30';
+            banner.className = 'p-4 rounded-2xl flex items-center gap-4 bg-green-500/20 border border-green-500/30';
             icon.textContent = '🟢';
-            text.textContent = 'Bot Conectado';
-            sub.textContent = 'WhatsApp está activo y enviando mensajes correctamente';
-            btnReconectar.classList.add('hidden');
-            qrContainer.classList.add('hidden');
+            text.textContent = `Bot ${bot === 'japon' ? 'Japón' : 'Camacho'} Conectado`;
+            btn.classList.add('hidden');
+            qrDiv.classList.add('hidden');
         } else if (data.status === 'esperando_qr') {
-            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-yellow-500/20 border border-yellow-500/30';
+            banner.className = 'p-4 rounded-2xl flex items-center gap-4 bg-yellow-500/20 border border-yellow-500/30';
             icon.textContent = '📱';
-            text.textContent = 'Escanea el QR';
-            sub.textContent = 'El bot necesita que escanees el código QR para conectarse';
-            btnReconectar.classList.add('hidden');
-            qrContainer.classList.remove('hidden');
-            loadQR();
+            text.textContent = `Escanea el QR — ${bot === 'japon' ? 'Japón' : 'Camacho'}`;
+            btn.classList.add('hidden');
+            qrDiv.classList.remove('hidden');
+            loadQR(bot);
         } else {
-            banner.className = 'mb-6 p-4 rounded-2xl flex items-center gap-4 bg-red-500/20 border border-red-500/30';
+            banner.className = 'p-4 rounded-2xl flex items-center gap-4 bg-red-500/20 border border-red-500/30';
             icon.textContent = '🔴';
-            text.textContent = 'Bot Desconectado';
-            sub.textContent = 'El bot no está activo. Haz clic en Reconectar para volver a conectarlo';
-            btnReconectar.classList.remove('hidden');
-            qrContainer.classList.add('hidden');
+            text.textContent = `Bot ${bot === 'japon' ? 'Japón' : 'Camacho'} Desconectado`;
+            btn.classList.remove('hidden');
+            qrDiv.classList.add('hidden');
         }
-    } catch(e) {
-        console.error('Error verificando estado:', e);
-    }
+    } catch(e) {}
 }
 
-async function loadQR() {
+async function loadQR(bot) {
     try {
-        const res = await fetch('/api/whatsapp-qr/');
+        const res = await fetch(`/api/whatsapp-qr/?bot=${bot}`);
         const data = await res.json();
         if (data.qr) {
-            document.getElementById('qr-image').src = data.qr;
+            document.getElementById(`qr-img-${bot}`).src = data.qr;
         }
-    } catch(e) {
-        console.error('Error cargando QR:', e);
-    }
+    } catch(e) {}
 }
 
-async function reconectar() {
+async function reconectar(bot) {
     try {
-        await fetch('/api/whatsapp-reconectar/', {method: 'POST', headers: {'X-CSRFToken': '{{ csrf_token }}'}});
-        setTimeout(checkStatus, 3000);
+        await fetch('/api/whatsapp-reconectar/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({bot})
+        });
+        setTimeout(() => checkStatus(bot), 3000);
+    } catch(e) {}
+}
+
+// ── Envío masivo ──
+async function enviarMasivo() {
+    const mensaje = document.getElementById('mensaje-masivo').value.trim();
+    const sucursal = document.getElementById('filtro-sucursal').value;
+    const destinatarios = document.getElementById('filtro-destinatarios').value;
+    if (!mensaje) { alert('Escribe un mensaje primero'); return; }
+
+    const btn = document.getElementById('btn-enviar-text');
+    const icon = document.getElementById('btn-enviar-icon');
+    btn.textContent = 'Enviando...';
+    icon.textContent = '⏳';
+
+    try {
+        const res = await fetch('/api/whatsapp-envio-masivo/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({mensaje, sucursal, destinatarios})
+        });
+        const data = await res.json();
+        const div = document.getElementById('resultado-masivo');
+        div.className = 'mt-3 p-3 rounded-xl text-sm font-semibold bg-green-500/20 border border-green-500/30 text-green-300';
+        div.textContent = `✅ Encolados ${data.enviados} mensajes. Se enviarán con delay de 5-10 segundos entre cada uno.`;
+        div.classList.remove('hidden');
     } catch(e) {
-        console.error('Error reconectando:', e);
+        const div = document.getElementById('resultado-masivo');
+        div.className = 'mt-3 p-3 rounded-xl text-sm font-semibold bg-red-500/20 border border-red-500/30 text-red-300';
+        div.textContent = '❌ Error al enviar';
+        div.classList.remove('hidden');
+    }
+    btn.textContent = 'Enviar mensaje';
+    icon.textContent = '🚀';
+}
+
+// ── Historial ──
+async function cargarHistorial() {
+    try {
+        const res = await fetch('/api/whatsapp-historial/');
+        historialCompleto = await res.json();
+        renderHistorial();
+    } catch(e) {
+        document.getElementById('historial-container').innerHTML =
+            '<div class="text-center text-red-400 py-8">Error al cargar historial</div>';
     }
 }
 
-// Verificar estado cada 10 segundos
-checkStatus();
-setInterval(checkStatus, 10000);
+function filtrarHistorial(filtro) {
+    filtroActual = filtro;
+    ['todos','japon','camacho'].forEach(f => {
+        const btn = document.getElementById(`fil-${f}`);
+        btn.className = f === filtro
+            ? 'px-3 py-1 rounded-lg text-xs font-bold bg-white/20 text-white'
+            : 'px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60';
+    });
+    renderHistorial();
+}
+
+function renderHistorial() {
+    const container = document.getElementById('historial-container');
+    let datos = historialCompleto;
+
+    if (filtroActual === 'japon') {
+        datos = datos.filter(m => m.sucursal && m.sucursal.toLowerCase().includes('japon'));
+    } else if (filtroActual === 'camacho') {
+        datos = datos.filter(m => m.sucursal && m.sucursal.toLowerCase().includes('camacho'));
+    }
+
+    if (datos.length === 0) {
+        container.innerHTML = '<div class="text-center text-white/40 py-8">📭 No hay mensajes aún</div>';
+        return;
+    }
+
+    container.innerHTML = datos.map(m => {
+        const fecha = new Date(m.fecha);
+        const fechaStr = fecha.toLocaleString('es-BO', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+        const esExito = m.estado === 'enviado';
+        const colorBg = esExito ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20';
+        const sucursalColor = m.sucursal && m.sucursal.includes('Camacho') ? 'text-purple-300' : 'text-blue-300';
+
+        return `
+        <div class="border ${colorBg} rounded-xl p-3 space-y-1">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <span>${esExito ? '✅' : '❌'}</span>
+                    <span class="text-white font-semibold text-sm">${m.paciente || 'Sin nombre'}</span>
+                    <span class="text-white/70 text-xs">· ${m.telefono}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold ${sucursalColor}">${m.sucursal || ''}</span>
+                    <span class="text-white/70 text-xs">${fechaStr}</span>
+                </div>
+            </div>
+            <div class="text-white/85 text-xs leading-relaxed pl-6">${m.mensaje || ''}</div>
+        </div>`;
+    }).join('');
+}
+
+// ── Inicializar ──
+checkStatus('japon');
+checkStatus('camacho');
+cargarHistorial();
+setInterval(() => { checkStatus('japon'); checkStatus('camacho'); }, 10000);
+setInterval(cargarHistorial, 30000);
 </script>
 {% endblock %}
