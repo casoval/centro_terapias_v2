@@ -4,25 +4,25 @@ import requests
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.contrib.admin.views.decorators import staff_member_required
 
 
-@staff_member_required
+@login_required
 def logs_whatsapp(request):
     logs = []
     try:
         if platform.system() == 'Windows':
             logs = [{'texto': 'ℹ️ Los logs solo están disponibles en el servidor de producción.', 'tipo': 'info'}]
-        resultado = subprocess.run(
-            ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
-            capture_output=True, text=True
-        )
-        for linea in reversed(resultado.stdout.strip().split('\n')):
-            if linea.strip() and any(x in linea for x in ['✅', '❌', '🚀', '📱']):
-                logs.append({
-                    'texto': linea.strip(),
-                    'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
-                })
+        else:
+            resultado = subprocess.run(
+                ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
+                capture_output=True, text=True
+            )
+            for linea in reversed(resultado.stdout.strip().split('\n')):
+                if linea.strip() and any(x in linea for x in ['✅', '❌', '🚀', '📱']):
+                    logs.append({
+                        'texto': linea.strip(),
+                        'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
+                    })
     except Exception as e:
         logs = [{'texto': f'Error al leer logs: {str(e)}', 'tipo': 'error'}]
 
