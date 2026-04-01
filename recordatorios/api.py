@@ -45,8 +45,8 @@ def sesiones_proximas(request):
     objetivo = ahora + timedelta(hours=2)
 
     # Ventana de ±1 minuto para evitar duplicados
-    desde = objetivo - timedelta(minutes=1)
-    hasta = objetivo + timedelta(minutes=1)
+    desde = objetivo - timedelta(minutes=5)
+    hasta = objetivo + timedelta(minutes=5)
 
     sesiones = Sesion.objects.filter(
         fecha=objetivo.date(),
