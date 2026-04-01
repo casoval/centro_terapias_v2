@@ -80,7 +80,9 @@
                         <th class="px-5 py-4 text-left">Proyecto / Especialidad</th>
                         <th class="px-5 py-4 text-left">Paciente</th>
                         <th class="px-5 py-4 text-left">Sucursal</th>
+                        <th class="px-5 py-4 text-center">Fecha Inicio</th>
                         <th class="px-5 py-4 text-center">Estado</th>
+                        <th class="px-5 py-4 text-center">Informe</th>
                         <th class="px-5 py-4 text-right">Inversión</th>
                         <th class="px-5 py-4 text-center">Acciones</th>
                     </tr>
@@ -101,6 +103,13 @@
                             <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg border border-slate-200 font-bold text-[11px]">🏢 {{ proyecto.sucursal.nombre }}</span>
                         </td>
                         <td class="px-5 py-4 text-center">
+                            {% if proyecto.fecha_inicio %}
+                            <p class="font-black text-slate-700 text-[13px]">{{ proyecto.fecha_inicio|date:"d/m/Y" }}</p>
+                            {% else %}
+                            <p class="text-slate-400 font-bold text-[11px]">—</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-center">
                             <span class="px-3 py-1.5 rounded-full font-black text-[10px] uppercase border shadow-sm
                                 {% if proyecto.estado == 'planificado' %}bg-amber-50 text-amber-700 border-amber-200
                                 {% elif proyecto.estado == 'en_progreso' %}bg-emerald-50 text-emerald-700 border-emerald-200
@@ -108,6 +117,16 @@
                                 {% else %}bg-red-50 text-red-700 border-red-200{% endif %}">
                                 {{ proyecto.get_estado_display }}
                             </span>
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            {% if proyecto.informe_entregado %}
+                            <span class="inline-flex flex-col items-center gap-0.5">
+                                <span class="px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full font-black text-[10px] uppercase">✓ Entregado</span>
+                                <span class="text-[10px] text-slate-400 font-bold">{{ proyecto.fecha_entrega_informe|date:"d/m/Y" }}</span>
+                            </span>
+                            {% else %}
+                            <span class="px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-full font-black text-[10px] uppercase">⏳ Pendiente</span>
+                            {% endif %}
                         </td>
                         <td class="px-5 py-4 text-right">
                             <p class="font-black text-slate-900 text-[14px]">Bs. {{ proyecto.costo_total|floatformat:2 }}</p>
@@ -125,7 +144,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" class="px-5 py-12 text-center text-slate-400 font-bold italic text-lg">No se encontraron proyectos activos</td></tr>
+                    <tr><td colspan="9" class="px-5 py-12 text-center text-slate-400 font-bold italic text-lg">No se encontraron proyectos activos</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

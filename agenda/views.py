@@ -182,6 +182,7 @@ def detalle_proyecto(request, proyecto_id):
         'pagos': pagos,
         'devoluciones': devoluciones,  # ✅ NUEVO
         'stats': stats,
+        'hoy': date.today(),
     }
     
     return render(request, 'agenda/detalle_proyecto.html', context)
@@ -350,6 +351,42 @@ def actualizar_estado_proyecto(request, proyecto_id):
         return JsonResponse({'error': 'Proyecto no encontrado'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def marcar_entrega_informe(request, proyecto_id):
+    """
+    Marca el informe físico como entregado (AJAX).
+    Acepta opcionalmente una fecha; si no se envía, usa hoy.
+    """
+    try:
+        proyecto = get_object_or_404(Proyecto, id=proyecto_id)
+
+        fecha_str = request.POST.get('fecha', '').strip()
+        if fecha_str:
+            from datetime import datetime as _dt
+            fecha = _dt.strptime(fecha_str, '%Y-%m-%d').date()
+        else:
+            fecha = date.today()
+
+        proyecto.informe_entregado = True
+        proyecto.fecha_entrega_informe = fecha
+        proyecto.observaciones_informe = request.POST.get('observaciones', '').strip()
+        proyecto.modificado_por = request.user
+        proyecto.save(update_fields=['informe_entregado', 'fecha_entrega_informe', 'observaciones_informe', 'modificado_por'])
+
+        return JsonResponse({
+            'success': True,
+            'fecha': fecha.strftime('%d/%m/%Y'),
+            'observaciones': proyecto.observaciones_informe,
+        })
+
+    except ValueError:
+        return JsonResponse({'error': 'Formato de fecha inválido. Use YYYY-MM-DD.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 # ============= 💳 MENSUALIDADES =============
 
@@ -704,18 +741,20 @@ def actualizar_estado_mensualidad(request, mensualidad_id):
 
 
 @login_required
-@login_required
 def confirmacion_mensualidad(request):
-    """
-    Vista de confirmación después de crear mensualidad
-    """
-    
-    # Obtener datos de la sesión
     datos_mensualidad = request.session.get('mensualidad_creada')
     
     if not datos_mensualidad:
         messages.error(request, '❌ No hay datos de mensualidad para mostrar')
-
+        return redirect('agenda:lista_mensualidades')
+    
+    del request.session['mensualidad_creada']
+    
+    context = {
+        'datos_mensualidad': datos_mensualidad,
+    }
+    
+    return render(request, 'agenda/confirmacion_mensualidad.html', context)
 
 # ✅ NUEVO: API para obtener datos de confirmación al cancelar
 @login_required
@@ -757,16 +796,6 @@ def api_datos_confirmacion_cancelacion(request):
         return JsonResponse({'error': 'Objeto no encontrado'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-        return redirect('agenda:lista_mensualidades')
-    
-    # Limpiar sesión después de obtener datos
-    del request.session['mensualidad_creada']
-    
-    context = {
-        'datos_mensualidad': datos_mensualidad,
-    }
-    
-    return render(request, 'agenda/confirmacion_mensualidad.html', context)
 
 @login_required
 @solo_sus_sucursales

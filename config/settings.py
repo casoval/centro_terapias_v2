@@ -138,8 +138,7 @@ if IS_PRODUCTION:
             'OPTIONS': {'MAX_ENTRIES': 1000}
         }
     }
-    SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
-    SESSION_CACHE_ALIAS = 'default'
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 else:
     CACHES = {
         'default': {

@@ -104,6 +104,21 @@ class Proyecto(models.Model):
         help_text="Descripción del alcance del proyecto"
     )
     observaciones = models.TextField(blank=True)
+
+    # Entrega de informe físico
+    informe_entregado = models.BooleanField(
+        default=False,
+        help_text="Indica si el informe físico fue entregado al tutor"
+    )
+    fecha_entrega_informe = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Fecha en que se entregó el informe físico"
+    )
+    observaciones_informe = models.TextField(
+        blank=True,
+        help_text="Observaciones sobre la entrega del informe físico"
+    )
     
     # Control
     creado_por = models.ForeignKey(

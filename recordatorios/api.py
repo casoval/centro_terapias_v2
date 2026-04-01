@@ -155,13 +155,22 @@ def mensualidades_semana(request):
             'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
         })
 
+    data = []
+    for telefono, tutor in tutores.items():
+        lineas = "\n".join([
+            f"• {s['dia']} {s['fecha']}: {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}"
+            for s in tutor['sesiones']
+        ])
+        mensaje = f"👋 Hola! Le recordamos los horarios de esta semana en {tutor['sucursal']}:\n{lineas}\n¡Hasta pronto! 😊 neuromisael.com"
+        tutor['mensaje'] = mensaje
+        data.append(tutor)
+
     return Response({
         'semana_desde': str(lunes),
         'semana_hasta': str(domingo),
         'total_tutores': len(tutores),
-        'tutores': list(tutores.values())
+        'tutores': data
     })
-
 
 @api_view(['GET'])
 def deudas_pendientes(request):

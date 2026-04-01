@@ -35,6 +35,7 @@ urlpatterns = [
     path('proyectos/crear/', views.crear_proyecto, name='crear_proyecto'),
     path('proyectos/<int:proyecto_id>/', views.detalle_proyecto, name='detalle_proyecto'),
     path('proyectos/<int:proyecto_id>/actualizar-estado/', views.actualizar_estado_proyecto, name='actualizar_estado_proyecto'),
+    path('proyectos/<int:proyecto_id>/marcar-informe/', views.marcar_entrega_informe, name='marcar_entrega_informe'),
 
     # MENSUALIDADES
     path('mensualidades/', views.lista_mensualidades, name='lista_mensualidades'),

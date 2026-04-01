@@ -68,8 +68,15 @@ COLOR_FILA_IMPAR = colors.white
 
 # Datos del Centro
 NOMBRE_CENTRO = "Centro de Neurodesarrollo Infantil Misael"
-DIRECCION = "Calle Japón #28 • Potosí, Bolivia"
-TELEFONO = "Tel.: 76175352"
+DIRECCION_CENTRAL = "Dir. Central: Calle Japón #28 • Potosí, Bolivia"
+TELEFONO_CENTRAL = "Tel.: 76175352"
+SUCURSAL_1_LINEA1 = "Sucursal 1: Calle Cochabamba"
+SUCURSAL_1_LINEA2 = "a lado de ENTEL casi esquina Bolivar"
+TELEFONO_SUCURSAL_1 = "Tel.: 78633975"
+
+# Compatibilidad (usada en otros lugares)
+DIRECCION = DIRECCION_CENTRAL
+TELEFONO = TELEFONO_CENTRAL
 
 # Configuración de Página
 PAGE_WIDTH, PAGE_HEIGHT = landscape(letter)
@@ -670,10 +677,13 @@ def dibujar_header_optimizado(c, x, y_base, obj, es_devolucion):
     c.setFont("Helvetica-Bold", 17)
     c.drawString(text_x + ancho_antes, y_text - 1, TEXTO_MISAEL)
     
-    c.setFont("Helvetica", 9)
+    c.setFont("Helvetica", 7.5)
     c.setFillColor(COLOR_TEXTO_SECUNDARIO)
-    c.drawString(text_x, y_text - 0.45*cm, DIRECCION)
-    c.drawString(text_x, y_text - 0.95*cm, TELEFONO)
+    c.drawString(text_x, y_text - 0.42*cm, DIRECCION_CENTRAL)
+    c.drawString(text_x, y_text - 0.79*cm, TELEFONO_CENTRAL)
+    c.drawString(text_x, y_text - 1.16*cm, SUCURSAL_1_LINEA1)
+    c.drawString(text_x, y_text - 1.53*cm, SUCURSAL_1_LINEA2)
+    c.drawString(text_x, y_text - 1.90*cm, TELEFONO_SUCURSAL_1)
 
     # Caja de número de recibo - BAJADA MÁS
     titulo = "RECIBO DE PAGO" if not es_devolucion else "DEVOLUCIÓN"

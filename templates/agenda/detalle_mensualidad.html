@@ -7,13 +7,13 @@
 <div class="max-w-7xl mx-auto px-4 py-5 text-[13px]">
     
     <!-- Header -->
-    <div class="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-slate-200 pb-5">
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-white/20 pb-5">
         <div class="flex items-center gap-4">
             <div class="bg-gradient-to-br from-purple-700 to-purple-900 text-white p-3.5 rounded-2xl shadow-lg">
                 <span class="text-3xl">💳</span>
             </div>
             <div>
-                <h1 class="text-2xl font-black text-slate-800 uppercase tracking-tight leading-none">{{ mensualidad.periodo_display }}</h1>
+                <h1 class="text-2xl font-black text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] uppercase tracking-tight leading-none">{{ mensualidad.periodo_display }}</h1>
                 <div class="flex gap-3 items-center mt-2">
                     <span class="font-mono text-[12px] font-bold text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">{{ mensualidad.codigo }}</span>
                     <span class="px-3 py-1 rounded-full text-[11px] font-black border uppercase shadow-sm tracking-wider
@@ -26,76 +26,73 @@
                 </div>
             </div>
         </div>
-        <a href="{% url 'agenda:lista_mensualidades' %}" class="bg-white hover:bg-slate-50 text-slate-600 px-5 py-2.5 rounded-xl font-black text-[11px] border border-slate-200 transition-all shadow-sm uppercase tracking-wide">← Volver al Listado</a>
+        <a href="{% url 'agenda:lista_mensualidades' %}" class="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-5 py-2.5 rounded-xl font-black text-[11px] transition-all shadow-sm uppercase tracking-wide backdrop-blur-sm">← Volver al Listado</a>
     </div>
 
     <!-- Información Principal -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
         
         <!-- Paciente -->
-        <div class="bg-blue-50/60 rounded-2xl shadow-sm border border-blue-100 overflow-hidden">
-            <div class="bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-2.5 border-b border-blue-200">
-                <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">👤 Ficha del Paciente</h2>
+        <div class="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3 flex items-center gap-2">
+                <span class="text-white text-base">👤</span>
+                <h2 class="text-[11px] font-black uppercase text-white tracking-widest">Ficha del Paciente</h2>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Nombre Completo</p>
-                    <p class="text-base font-black text-slate-800 uppercase leading-tight">{{ mensualidad.paciente.nombre_completo }}</p>
+                    <p class="text-[9px] uppercase font-black text-blue-600 tracking-[0.15em] mb-1">Nombre Completo</p>
+                    <p class="text-[15px] font-black text-slate-900 uppercase leading-tight">{{ mensualidad.paciente.nombre_completo }}</p>
                 </div>
-                <div class="grid grid-cols-2 gap-4 pt-3 border-t border-blue-200/50">
-                    <div>
-                        <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Tutor</p>
-                        <p class="font-bold text-slate-700 text-[12px]">{{ mensualidad.paciente.nombre_tutor }}</p>
+                <div class="grid grid-cols-2 gap-4 pt-3 border-t-2 border-blue-50">
+                    <div class="bg-blue-50 rounded-xl px-3 py-2.5">
+                        <p class="text-[9px] uppercase font-black text-blue-600 tracking-[0.15em] mb-1">Tutor</p>
+                        <p class="font-bold text-slate-800 text-[12px] leading-tight">{{ mensualidad.paciente.nombre_tutor }}</p>
                     </div>
-                    <div>
-                        <p class="text-[10px] uppercase font-bold text-blue-500 mb-1">Contacto</p>
-                        <p class="font-bold text-slate-700 text-[12px]">{{ mensualidad.paciente.telefono_tutor }}</p>
+                    <div class="bg-blue-50 rounded-xl px-3 py-2.5">
+                        <p class="text-[9px] uppercase font-black text-blue-600 tracking-[0.15em] mb-1">Contacto</p>
+                        <p class="font-bold text-slate-800 text-[12px] leading-tight">{{ mensualidad.paciente.telefono_tutor }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ✅ MODIFICADO: Información de Servicios con Profesionales -->
-        <div class="bg-purple-50/60 rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
-            <div class="bg-gradient-to-r from-purple-600 to-purple-400 px-5 py-2.5 border-b border-purple-200">
-                <div class="flex items-center justify-between gap-2">
-                    <h2 class="text-[11px] font-black uppercase text-white flex items-center gap-2 tracking-widest">
-                        📋 Servicios Incluidos
-                        <span class="bg-white/20 px-2 py-0.5 rounded-full text-[10px]">{{ mensualidad.servicios_profesionales.count }}</span>
-                    </h2>
-                    {% if mensualidad.estado != 'completada' and mensualidad.estado != 'cancelada' %}
-                    <button
-                        onclick="abrirModalAgregarServicio()"
-                        class="flex items-center gap-1.5 bg-white/20 hover:bg-white/35 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all border border-white/30 hover:border-white/60 hover:scale-105 active:scale-95 shadow-sm"
-                        title="Agregar nuevo servicio a esta mensualidad">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
-                        </svg>
-                        Nuevo Servicio
-                    </button>
-                    {% endif %}
+        <!-- Servicios Incluidos -->
+        <div class="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-700 to-purple-500 px-5 py-3 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-white text-base">📋</span>
+                    <h2 class="text-[11px] font-black uppercase text-white tracking-widest">Servicios Incluidos</h2>
+                    <span class="bg-white/25 text-white font-black px-2 py-0.5 rounded-full text-[10px]">{{ mensualidad.servicios_profesionales.count }}</span>
                 </div>
+                {% if mensualidad.estado != 'completada' and mensualidad.estado != 'cancelada' %}
+                <button
+                    onclick="abrirModalAgregarServicio()"
+                    class="flex items-center gap-1.5 bg-white/20 hover:bg-white/35 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all border border-white/30 hover:border-white/60 hover:scale-105 active:scale-95 shadow-sm"
+                    title="Agregar nuevo servicio a esta mensualidad">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Nuevo Servicio
+                </button>
+                {% endif %}
             </div>
-            <div class="p-5 space-y-3">
-                <!-- ✅ NUEVO: Lista de servicios con profesionales y botón + -->
+            <div class="p-4 space-y-2">
                 {% for sp in mensualidad.servicios_profesionales.all %}
-                <div class="bg-white rounded-lg p-3 border border-purple-200 hover:border-purple-400 transition-all">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex-1">
-                            <p class="font-black text-slate-800 text-[13px] flex items-center gap-2 mb-1">
-                                <span class="w-2 h-2 bg-purple-500 rounded-full"></span>
-                                {{ sp.servicio.nombre }}
+                <div class="bg-purple-50 rounded-xl px-4 py-3 border border-purple-100 hover:border-purple-300 hover:bg-purple-100/60 transition-all">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-black text-slate-800 text-[13px] flex items-center gap-2 leading-tight">
+                                <span class="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></span>
+                                <span class="truncate">{{ sp.servicio.nombre }}</span>
                             </p>
-                            <p class="text-[11px] text-purple-600 font-semibold pl-4">
+                            <p class="text-[11px] text-purple-700 font-semibold mt-1 pl-4">
                                 👨‍⚕️ {{ sp.profesional.nombre }} {{ sp.profesional.apellido }}
                             </p>
                         </div>
-                        
-                        <!-- Botón para agendar sesiones (oculto si está completada, cancelada o finalizada) -->
                         {% if mensualidad.estado != 'completada' and mensualidad.estado != 'cancelada' and mensualidad.estado != 'finalizada' %}
                         <button 
                             onclick="abrirModalAgendarRapido({{ sp.id }}, '{{ sp.servicio.nombre }}', '{{ sp.profesional.nombre }} {{ sp.profesional.apellido }}')"
-                            class="flex-shrink-0 bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all shadow-md hover:shadow-lg hover:scale-105 active:scale-95"
+                            class="flex-shrink-0 bg-emerald-500 hover:bg-emerald-600 text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg transition-all shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
                             title="Agendar sesiones de {{ sp.servicio.nombre }}">
                             +
                         </button>
@@ -103,13 +100,13 @@
                     </div>
                 </div>
                 {% empty %}
-                <p class="text-slate-400 text-center py-3 italic text-[11px]">Sin servicios asignados</p>
+                <p class="text-slate-400 text-center py-4 italic text-[11px]">Sin servicios asignados</p>
                 {% endfor %}
                 
-                <div class="grid grid-cols-1 gap-3 pt-3 border-t border-purple-200/50">
-                    <div>
-                        <p class="text-[10px] uppercase font-bold text-purple-500 mb-1">Sucursal</p>
-                        <p class="font-black text-slate-700 text-[12px]">🏢 {{ mensualidad.sucursal.nombre }}</p>
+                <div class="pt-3 mt-1 border-t-2 border-purple-50">
+                    <div class="bg-purple-50 rounded-xl px-3 py-2.5">
+                        <p class="text-[9px] uppercase font-black text-purple-600 tracking-[0.15em] mb-1">Sucursal</p>
+                        <p class="font-black text-slate-800 text-[12px]">🏢 {{ mensualidad.sucursal.nombre }}</p>
                     </div>
                 </div>
             </div>
