@@ -53,6 +53,12 @@
                 <p class="text-white/80 text-xs">Envía un mensaje a todos los tutores con sesiones esta semana</p>
             </div>
         </div>
+
+        <!-- Aviso para deudores: el mensaje se genera automáticamente -->
+        <div id="aviso-deudores" class="hidden mb-3 p-3 rounded-xl text-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-300">
+            💡 Para deudores, el mensaje se genera automáticamente con el saldo exacto de cada tutor. El texto que escribas abajo <strong>no se usará</strong> — se enviará el mensaje personalizado de la API.
+        </div>
+
         <textarea id="mensaje-masivo" rows="3"
             placeholder="Escribe tu mensaje aquí... Ej: Estimado tutor, informamos que mañana no habrá atención por feriado."
             class="w-full border border-white/20 rounded-xl p-3 text-white text-sm resize-none focus:outline-none focus:border-white/40 mb-3"
@@ -60,12 +66,14 @@
         <div class="flex flex-wrap gap-3 items-center">
             <select id="filtro-destinatarios"
                 class="border border-white/20 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                style="background-color:#1e293b; color:#f1f5f9;">
+                style="background-color:#1e293b; color:#f1f5f9;"
+                onchange="onDestinatariosChange(this.value)">
                 <option value="semana" style="background:#1e293b; color:#f1f5f9;">📅 Tutores con sesiones esta semana</option>
                 <option value="hoy" style="background:#1e293b; color:#f1f5f9;">📆 Pacientes con sesiones hoy</option>
                 <option value="manana" style="background:#1e293b; color:#f1f5f9;">📆 Pacientes con sesiones mañana</option>
                 <option value="todos" style="background:#1e293b; color:#f1f5f9;">👥 Todos los pacientes activos</option>
                 <option value="todos_incluido_inactivos" style="background:#1e293b; color:#f1f5f9;">👥 Todos los pacientes (activos e inactivos)</option>
+                <option value="deudores" style="background:#1e293b; color:#f1f5f9;">💳 Pacientes con deuda pendiente</option>
             </select>
             <select id="filtro-sucursal"
                 class="border border-white/20 rounded-xl px-3 py-2 text-sm focus:outline-none"
@@ -170,12 +178,34 @@ async function reconectar(bot) {
     } catch(e) {}
 }
 
+// ── Mostrar aviso cuando se selecciona deudores ──
+function onDestinatariosChange(value) {
+    const aviso = document.getElementById('aviso-deudores');
+    const textarea = document.getElementById('mensaje-masivo');
+    if (value === 'deudores') {
+        aviso.classList.remove('hidden');
+        textarea.setAttribute('disabled', true);
+        textarea.style.opacity = '0.4';
+        textarea.placeholder = 'El mensaje se genera automáticamente para deudores.';
+    } else {
+        aviso.classList.add('hidden');
+        textarea.removeAttribute('disabled');
+        textarea.style.opacity = '1';
+        textarea.placeholder = 'Escribe tu mensaje aquí... Ej: Estimado tutor, informamos que mañana no habrá atención por feriado.';
+    }
+}
+
 // ── Envío masivo ──
 async function enviarMasivo() {
-    const mensaje = document.getElementById('mensaje-masivo').value.trim();
-    const sucursal = document.getElementById('filtro-sucursal').value;
     const destinatarios = document.getElementById('filtro-destinatarios').value;
-    if (!mensaje) { alert('Escribe un mensaje primero'); return; }
+    const sucursal = document.getElementById('filtro-sucursal').value;
+    const mensaje = document.getElementById('mensaje-masivo').value.trim();
+
+    // Para deudores el mensaje viene de la API, no del textarea
+    if (destinatarios !== 'deudores' && !mensaje) {
+        alert('Escribe un mensaje primero');
+        return;
+    }
 
     const btn = document.getElementById('btn-enviar-text');
     const icon = document.getElementById('btn-enviar-icon');

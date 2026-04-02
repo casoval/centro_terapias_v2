@@ -38,13 +38,14 @@ def citas_manana(request):
 
     return Response({'total_sesiones': len(data), 'sesiones': data})
 
+
 @api_view(['GET'])
 def sesiones_proximas(request):
     sucursal_id = request.GET.get('sucursal')
     ahora = timezone.localtime()
     objetivo = ahora + timedelta(hours=2)
 
-    # Ventana de ±1 minuto para evitar duplicados
+    # Ventana de ±5 minutos (segura porque sesiones son cada 15 min)
     desde = objetivo - timedelta(minutes=5)
     hasta = objetivo + timedelta(minutes=5)
 
@@ -86,12 +87,12 @@ def sesiones_proximas(request):
 
     data = []
     for telefono, tutor in tutores.items():
-        sesiones = tutor['sesiones']
-        if len(sesiones) == 1:
-            s = sesiones[0]
+        sesiones_tutor = tutor['sesiones']
+        if len(sesiones_tutor) == 1:
+            s = sesiones_tutor[0]
             cuerpo = f"{s['paciente_nombre']} tiene su sesión de {s['servicio']} hoy a las {s['hora_inicio']}"
         else:
-            cuerpo = "sus pacientes tienen sesiones hoy:\n" + "\n".join([f"• {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}" for s in sesiones])
+            cuerpo = "sus pacientes tienen sesiones hoy:\n" + "\n".join([f"• {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}" for s in sesiones_tutor])
 
         mensaje = f"👋 Hola! Le recordamos que {cuerpo} en {tutor['sucursal']}. ¡Hasta pronto! 😊 neuromisael.com"
 
@@ -103,6 +104,7 @@ def sesiones_proximas(request):
         })
 
     return Response({'total': len(data), 'sesiones': data})
+
 
 @api_view(['GET'])
 def mensualidades_semana(request):
@@ -172,23 +174,108 @@ def mensualidades_semana(request):
         'tutores': data
     })
 
+
 @api_view(['GET'])
 def deudas_pendientes(request):
+    """
+    Retorna tutores con saldo pendiente (saldo_actual < -1).
+    Agrupa por teléfono del tutor — un mensaje por tutor aunque tenga varios hijos con deuda.
+    Filtra por sucursal si se pasa ?sucursal=3 o ?sucursal=4.
+    Construye el mensaje completo listo para enviar por WhatsApp.
+    """
+    sucursal_id = request.GET.get('sucursal')
+
     cuentas = CuentaCorriente.objects.filter(
         paciente__estado='activo',
-        saldo_real__lt=0
-    ).select_related('paciente').order_by('saldo_real')
+        saldo_actual__lt=-1,  # deuda real de al menos Bs. 1
+    ).select_related('paciente').prefetch_related('paciente__sucursales').order_by('saldo_actual')
 
-    data = []
+    # Agrupar por teléfono del tutor
+    tutores = {}
     for cuenta in cuentas:
         paciente = cuenta.paciente
-        deuda = abs(cuenta.saldo_real)
-        data.append({
-            'paciente_nombre': paciente.nombre_completo,
-            'tutor_nombre': paciente.nombre_tutor,
-            'tutor_telefono': paciente.telefono_tutor,
-            'tutor_email': paciente.email_tutor or '',
-            'saldo_pendiente': str(deuda),
+        telefono = paciente.telefono_tutor
+        if not telefono:
+            continue
+
+        # Determinar sucursal principal del paciente
+        sucursales = list(paciente.sucursales.all())
+        if len(sucursales) == 1:
+            suc_id = sucursales[0].id
+            suc_nombre = sucursales[0].nombre
+        else:
+            # Multi-sucursal: buscar la que tiene más sesiones
+            from agenda.models import Sesion
+            from django.db.models import Count
+            resultado = Sesion.objects.filter(
+                paciente=paciente,
+                estado__in=['realizada', 'realizada_retraso']
+            ).values('sucursal_id', 'sucursal__nombre').annotate(
+                total=Count('id')
+            ).order_by('-total').first()
+            if resultado:
+                suc_id = resultado['sucursal_id']
+                suc_nombre = resultado['sucursal__nombre']
+            elif sucursales:
+                suc_id = sucursales[0].id
+                suc_nombre = sucursales[0].nombre
+            else:
+                suc_id = SUCURSAL_JAPON
+                suc_nombre = 'Suc. Japon'
+
+        # Aplicar filtro de sucursal
+        if sucursal_id and str(suc_id) != str(sucursal_id):
+            continue
+
+        deuda = abs(cuenta.saldo_actual)
+
+        if telefono not in tutores:
+            tutores[telefono] = {
+                'tutor_nombre': paciente.nombre_tutor,
+                'tutor_telefono': telefono,
+                'sucursal': suc_nombre,
+                'sucursal_id': suc_id,
+                'pacientes': []
+            }
+
+        tutores[telefono]['pacientes'].append({
+            'nombre': paciente.nombre_completo,
+            'deuda': deuda,
         })
 
-    return Response({'total_pacientes_con_deuda': len(data), 'deudas': data})
+    # Construir mensaje por tutor
+    data = []
+    for telefono, tutor in tutores.items():
+        pacientes = tutor['pacientes']
+        sucursal = tutor['sucursal']
+
+        if len(pacientes) == 1:
+            p = pacientes[0]
+            detalle_deuda = (
+                f"*{p['nombre']}* presenta un saldo pendiente de *Bs. {int(p['deuda'])}*"
+            )
+        else:
+            lineas = "\n".join([
+                f"• {p['nombre']}: Bs. {int(p['deuda'])}"
+                for p in pacientes
+            ])
+            detalle_deuda = f"los siguientes pacientes presentan saldo pendiente:\n{lineas}"
+
+        nombre_tutor = tutor['tutor_nombre'] or 'estimado tutor/a'
+        mensaje = (
+            f"👋 Hola, *{nombre_tutor}*! Esperamos que se encuentre muy bien. 😊\n\n"
+            f"Le contactamos desde *{sucursal}* para informarle cordialmente que {detalle_deuda}.\n\n"
+            f"💡 Para revisar el detalle de pagos, sesiones y deudas de forma rápida y sencilla, puede ingresar a su cuenta en nuestra página web: *neuromisael.com*\n\n"
+            f"Si tiene alguna consulta que la página web no pueda resolver, le invitamos a apersonarse directamente a nuestras oficinas, donde nuestro equipo le atenderá con mucho gusto. 🙏\n\n"
+            f"¡Gracias por su confianza y comprensión!"
+        )
+
+        data.append({
+            'tutor_nombre': tutor['tutor_nombre'],
+            'tutor_telefono': telefono,
+            'sucursal': sucursal,
+            'sucursal_id': tutor['sucursal_id'],
+            'mensaje': mensaje,
+        })
+
+    return Response({'total': len(data), 'deudas': data})

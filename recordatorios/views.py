@@ -115,7 +115,8 @@ def whatsapp_envio_masivo(request):
     sucursal_filtro = data.get('sucursal', 'todas')
     destinatarios = data.get('destinatarios', 'semana')
 
-    if not mensaje:
+    # Para deudores el mensaje se genera por tutor desde la lógica interna
+    if destinatarios != 'deudores' and not mensaje:
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
     from agenda.models import Sesion
@@ -127,7 +128,7 @@ def whatsapp_envio_masivo(request):
 
     if destinatarios == 'semana':
         hoy = timezone.localdate()
-        lunes = hoy - timedelta(days=hoy.weekday())  # lunes de esta semana
+        lunes = hoy - timedelta(days=hoy.weekday())
         domingo = lunes + timedelta(days=6)
         sesiones = Sesion.objects.filter(
             fecha__range=[lunes, domingo],
@@ -150,6 +151,7 @@ def whatsapp_envio_masivo(request):
                     'paciente_nombre': paciente.nombre_completo,
                     'sucursal_id': sucursal_id,
                     'sucursal': sesion.sucursal.nombre,
+                    'mensaje': mensaje,
                 }
 
     elif destinatarios == 'hoy':
@@ -175,6 +177,7 @@ def whatsapp_envio_masivo(request):
                     'paciente_nombre': paciente.nombre_completo,
                     'sucursal_id': sucursal_id,
                     'sucursal': sesion.sucursal.nombre,
+                    'mensaje': mensaje,
                 }
 
     elif destinatarios == 'manana':
@@ -200,6 +203,7 @@ def whatsapp_envio_masivo(request):
                     'paciente_nombre': paciente.nombre_completo,
                     'sucursal_id': sucursal_id,
                     'sucursal': sesion.sucursal.nombre,
+                    'mensaje': mensaje,
                 }
 
     elif destinatarios == 'todos':
@@ -208,7 +212,6 @@ def whatsapp_envio_masivo(request):
             pacientes = pacientes.filter(sucursales__id=3)
         elif sucursal_filtro == 'camacho':
             pacientes = pacientes.filter(sucursales__id=4)
-
         for paciente in pacientes:
             telefono = paciente.telefono_tutor
             if not telefono:
@@ -225,6 +228,7 @@ def whatsapp_envio_masivo(request):
                     'paciente_nombre': paciente.nombre_completo,
                     'sucursal_id': sucursal_id,
                     'sucursal': sucursal_nombre,
+                    'mensaje': mensaje,
                 }
 
     elif destinatarios == 'todos_incluido_inactivos':
@@ -233,7 +237,6 @@ def whatsapp_envio_masivo(request):
             pacientes = pacientes.filter(sucursales__id=3)
         elif sucursal_filtro == 'camacho':
             pacientes = pacientes.filter(sucursales__id=4)
-
         for paciente in pacientes:
             telefono = paciente.telefono_tutor
             if not telefono:
@@ -250,7 +253,80 @@ def whatsapp_envio_masivo(request):
                     'paciente_nombre': paciente.nombre_completo,
                     'sucursal_id': sucursal_id,
                     'sucursal': sucursal_nombre,
+                    'mensaje': mensaje,
                 }
+
+    elif destinatarios == 'deudores':
+        # El mensaje se construye personalizado por tutor (igual que en api.py)
+        from facturacion.models import CuentaCorriente
+        from django.db.models import Count
+
+        SUCURSAL_JAPON = 3
+        SUCURSAL_CAMACHO = 4
+
+        cuentas = CuentaCorriente.objects.filter(
+            paciente__estado='activo',
+            saldo_actual__lt=-1,
+        ).select_related('paciente').prefetch_related('paciente__sucursales')
+
+        deudores_agrupados = {}
+        for cuenta in cuentas:
+            paciente = cuenta.paciente
+            telefono = paciente.telefono_tutor
+            if not telefono:
+                continue
+
+            sucursal_id, sucursal_nombre = get_sucursal_principal(paciente)
+
+            if sucursal_filtro == 'japon' and sucursal_id != SUCURSAL_JAPON:
+                continue
+            if sucursal_filtro == 'camacho' and sucursal_id != SUCURSAL_CAMACHO:
+                continue
+
+            deuda = abs(cuenta.saldo_actual)
+
+            if telefono not in deudores_agrupados:
+                deudores_agrupados[telefono] = {
+                    'tutor_nombre': paciente.nombre_tutor,
+                    'tutor_telefono': telefono,
+                    'sucursal': sucursal_nombre,
+                    'sucursal_id': sucursal_id,
+                    'pacientes': []
+                }
+            deudores_agrupados[telefono]['pacientes'].append({
+                'nombre': paciente.nombre_completo,
+                'deuda': deuda,
+            })
+
+        # Construir mensaje personalizado por tutor
+        for telefono, tutor in deudores_agrupados.items():
+            pacientes_deuda = tutor['pacientes']
+            sucursal = tutor['sucursal']
+            nombre_tutor = tutor['tutor_nombre'] or 'estimado tutor/a'
+
+            if len(pacientes_deuda) == 1:
+                p = pacientes_deuda[0]
+                detalle = f"*{p['nombre']}* presenta un saldo pendiente de *Bs. {int(p['deuda'])}*"
+            else:
+                lineas = "\n".join([f"• {p['nombre']}: Bs. {int(p['deuda'])}" for p in pacientes_deuda])
+                detalle = f"los siguientes pacientes presentan saldo pendiente:\n{lineas}"
+
+            mensaje_tutor = (
+                f"👋 Hola, *{nombre_tutor}*! Esperamos que se encuentre muy bien. 😊\n\n"
+                f"Le contactamos desde *{sucursal}* para informarle cordialmente que {detalle}.\n\n"
+                f"💡 Para revisar el detalle de pagos, sesiones y deudas de forma rápida y sencilla, puede ingresar a su cuenta en nuestra página web: *neuromisael.com*\n\n"
+                f"Si tiene alguna consulta que la página web no pueda resolver, le invitamos a apersonarse directamente a nuestras oficinas, donde nuestro equipo le atenderá con mucho gusto. 🙏\n\n"
+                f"¡Gracias por su confianza y comprensión!"
+            )
+
+            tutores[telefono] = {
+                'telefono': telefono,
+                'tutor_nombre': tutor['tutor_nombre'],
+                'paciente_nombre': tutor['tutor_nombre'],
+                'sucursal_id': tutor['sucursal_id'],
+                'sucursal': sucursal,
+                'mensaje': mensaje_tutor,
+            }
 
     import requests as req_lib
     enviados = 0
@@ -262,10 +338,11 @@ def whatsapp_envio_masivo(request):
                 f'http://localhost:{puerto}/send',
                 json={
                     'telefono': tutor['telefono'],
-                    'mensaje': mensaje,
+                    'mensaje': tutor['mensaje'],
                     'paciente': tutor['paciente_nombre'],
                     'sucursal': tutor['sucursal'],
-                    'delay_type': 'corto'
+                    'delay_type': 'largo'  # delay largo para deudores, corto para el resto
+                    if destinatarios == 'deudores' else 'corto',
                 },
                 timeout=5
             )
