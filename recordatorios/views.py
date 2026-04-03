@@ -8,6 +8,7 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
 log = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ def whatsapp_qr(request):
         return JsonResponse({'qr': None, 'status': 'desconectado'})
 
 
+@csrf_exempt
 @login_required
 def whatsapp_reconectar(request):
     if request.method == 'POST':
@@ -80,6 +82,7 @@ _PAUSA_FILES = {
 }
 
 
+@csrf_exempt
 @login_required
 def whatsapp_pausa(request):
     """
@@ -178,6 +181,7 @@ def get_sucursal_principal(paciente):
     return 3, 'Suc. Japon'
 
 
+@csrf_exempt
 @login_required
 def whatsapp_envio_masivo(request):
     if request.method != 'POST':
