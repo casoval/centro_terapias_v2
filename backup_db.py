@@ -191,6 +191,39 @@ def limpiar_backups_viejos() -> None:
 # MAIN
 # --------------------------------------------------
 
+def registrar_en_django(exitoso, tamanio='', duracion=None, error='', tipo='automatico'):
+    """
+    Guarda el resultado en la base de datos Django (modelo RegistroBackup).
+    Solo funciona si el script se ejecuta desde la raíz del proyecto Django.
+    """
+    try:
+        import django
+        from pathlib import Path as _Path
+        import sys as _sys
+
+        # Agregar el proyecto al path
+        project_dir = _Path(__file__).resolve().parent
+        if str(project_dir) not in _sys.path:
+            _sys.path.insert(0, str(project_dir))
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+        django.setup()
+
+        from recordatorios.models import RegistroBackup
+        RegistroBackup.objects.create(
+            tipo=tipo,
+            exitoso=exitoso,
+            tamanio_mb=tamanio,
+            duracion_segundos=duracion,
+            destinatarios=', '.join(EMAILS_DESTINO),
+            mensaje_error=error,
+        )
+        log.info("📝 Resultado registrado en la base de datos.")
+    except Exception as e:
+        # No interrumpir el backup si falla el registro
+        log.warning(f"No se pudo registrar en Django: {e}")
+
+
 def main():
     log.info("=" * 55)
     log.info("INICIO DEL PROCESO DE BACKUP POSTGRESQL")
@@ -207,12 +240,21 @@ def main():
         )
 
     archivo = generar_nombre_archivo()
+    inicio  = __import__('time').time()
+
     try:
         hacer_dump(archivo)
         enviar_correo(archivo)
         limpiar_backups_viejos()
+
+        duracion  = round(__import__('time').time() - inicio, 1)
+        tamanio   = f"{archivo.stat().st_size / (1024*1024):.2f} MB" if archivo.exists() else ''
+        registrar_en_django(exitoso=True, tamanio=tamanio, duracion=duracion)
+
         log.info("✅ Proceso completado exitosamente.")
     except Exception as e:
+        duracion = round(__import__('time').time() - inicio, 1)
+        registrar_en_django(exitoso=False, duracion=duracion, error=str(e))
         log.error(f"❌ Error durante el backup: {e}")
         raise
     finally:

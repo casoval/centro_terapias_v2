@@ -12,11 +12,22 @@
             <div class="flex-1">
                 <h2 id="text-japon" class="text-lg font-bold text-white">Verificando...</h2>
                 <p class="text-white/80 text-xs">Bot Suc. Japón · Puerto 3000</p>
+                <!-- Badge de pausa -->
+                <span id="badge-pausa-japon" class="hidden mt-1 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-500/25 text-yellow-300 border border-yellow-500/40">
+                    ⏸ Envíos pausados
+                </span>
             </div>
-            <button onclick="reconectar('japon')" id="btn-japon"
-                class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
-                🔄 Reconectar
-            </button>
+            <div class="flex flex-col gap-2 items-end">
+                <button onclick="reconectar('japon')" id="btn-japon"
+                    class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
+                    🔄 Reconectar
+                </button>
+                <!-- Botón pausa / reanudar -->
+                <button onclick="togglePausa('japon')" id="btn-pausa-japon"
+                    class="px-3 py-1.5 rounded-xl font-semibold text-xs transition-all bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-200 border border-yellow-500/30">
+                    ⏸ Pausar bot
+                </button>
+            </div>
         </div>
         <!-- Bot Camacho -->
         <div id="banner-camacho" class="p-4 rounded-2xl flex items-center gap-4 glass-card">
@@ -24,11 +35,22 @@
             <div class="flex-1">
                 <h2 id="text-camacho" class="text-lg font-bold text-white">Verificando...</h2>
                 <p class="text-white/80 text-xs">Bot Suc. Camacho · Puerto 3001</p>
+                <!-- Badge de pausa -->
+                <span id="badge-pausa-camacho" class="hidden mt-1 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-500/25 text-yellow-300 border border-yellow-500/40">
+                    ⏸ Envíos pausados
+                </span>
             </div>
-            <button onclick="reconectar('camacho')" id="btn-camacho"
-                class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
-                🔄 Reconectar
-            </button>
+            <div class="flex flex-col gap-2 items-end">
+                <button onclick="reconectar('camacho')" id="btn-camacho"
+                    class="hidden px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-xs transition-all">
+                    🔄 Reconectar
+                </button>
+                <!-- Botón pausa / reanudar -->
+                <button onclick="togglePausa('camacho')" id="btn-pausa-camacho"
+                    class="px-3 py-1.5 rounded-xl font-semibold text-xs transition-all bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-200 border border-yellow-500/30">
+                    ⏸ Pausar bot
+                </button>
+            </div>
         </div>
     </div>
 
@@ -296,11 +318,68 @@ function renderHistorial() {
     }).join('');
 }
 
+// ── Pausa de bots ──
+const estadoPausa = { japon: false, camacho: false };
+
+async function checkPausa(bot) {
+    try {
+        const res = await fetch(`/api/whatsapp-pausa/?bot=${bot}`);
+        const data = await res.json();
+        aplicarEstadoPausa(bot, data.pausado);
+    } catch(e) {}
+}
+
+function aplicarEstadoPausa(bot, pausado) {
+    estadoPausa[bot] = pausado;
+    const btnPausa = document.getElementById(`btn-pausa-${bot}`);
+    const badge    = document.getElementById(`badge-pausa-${bot}`);
+    const banner   = document.getElementById(`banner-${bot}`);
+
+    if (pausado) {
+        btnPausa.textContent = '▶️ Reanudar bot';
+        btnPausa.className   = 'px-3 py-1.5 rounded-xl font-semibold text-xs transition-all bg-green-500/20 hover:bg-green-500/40 text-green-200 border border-green-500/40';
+        badge.classList.remove('hidden');
+        // Añadir borde amarillo al banner para indicar pausa activa
+        banner.style.outline = '2px solid rgba(234,179,8,0.5)';
+    } else {
+        btnPausa.textContent = '⏸ Pausar bot';
+        btnPausa.className   = 'px-3 py-1.5 rounded-xl font-semibold text-xs transition-all bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-200 border border-yellow-500/30';
+        badge.classList.add('hidden');
+        banner.style.outline = '';
+    }
+}
+
+async function togglePausa(bot) {
+    const pausar = !estadoPausa[bot];
+    const btnPausa = document.getElementById(`btn-pausa-${bot}`);
+    btnPausa.disabled = true;
+    btnPausa.textContent = '⏳ Espera...';
+
+    try {
+        const res = await fetch('/api/whatsapp-pausa/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({ bot, pausar })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            aplicarEstadoPausa(bot, data.pausado);
+        }
+    } catch(e) {
+        alert('Error al cambiar estado de pausa');
+    } finally {
+        btnPausa.disabled = false;
+    }
+}
+
 // ── Inicializar ──
 checkStatus('japon');
 checkStatus('camacho');
+checkPausa('japon');
+checkPausa('camacho');
 cargarHistorial();
 setInterval(() => { checkStatus('japon'); checkStatus('camacho'); }, 10000);
+setInterval(() => { checkPausa('japon'); checkPausa('camacho'); }, 15000);
 setInterval(cargarHistorial, 30000);
 </script>
 {% endblock %}

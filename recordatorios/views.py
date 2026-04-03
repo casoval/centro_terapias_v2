@@ -1,10 +1,20 @@
+import time
+import logging
 import subprocess
 import platform
 import requests
-from django.shortcuts import render
+
+from django.shortcuts import render, redirect
 from django.http import JsonResponse
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 
+log = logging.getLogger(__name__)
+
+
+# ══════════════════════════════════════════════════════
+# WHATSAPP
+# ══════════════════════════════════════════════════════
 
 @login_required
 def logs_whatsapp(request):
@@ -36,7 +46,7 @@ def whatsapp_status(request):
     try:
         res = requests.get(f'http://localhost:{puerto}/status', timeout=5)
         return JsonResponse(res.json())
-    except:
+    except Exception:
         return JsonResponse({'status': 'desconectado'})
 
 
@@ -47,7 +57,7 @@ def whatsapp_qr(request):
     try:
         res = requests.get(f'http://localhost:{puerto}/qr', timeout=5)
         return JsonResponse(res.json())
-    except:
+    except Exception:
         return JsonResponse({'qr': None, 'status': 'desconectado'})
 
 
@@ -62,6 +72,70 @@ def whatsapp_reconectar(request):
     return JsonResponse({'ok': False})
 
 
+# Archivos de pausa — uno por bot, persisten en disco entre sesiones
+_PAUSA_FILES = {
+    'japon':   '/var/log/whatsapp-bot/pausa-japon.flag',
+    'camacho': '/var/log/whatsapp-bot/pausa-camacho.flag',
+}
+
+
+@login_required
+def whatsapp_pausa(request):
+    """
+    GET  ?bot=japon|camacho  → devuelve {bot, pausado: true|false}
+    POST {bot, pausar: true|false} → activa o desactiva la pausa y notifica al bot Node.js
+    """
+    import json as json_lib
+    from pathlib import Path
+
+    if request.method == 'GET':
+        bot = request.GET.get('bot', 'japon')
+        flag = _PAUSA_FILES.get(bot)
+        pausado = flag is not None and Path(flag).exists()
+        return JsonResponse({'bot': bot, 'pausado': pausado})
+
+    if request.method == 'POST':
+        data = json_lib.loads(request.body)
+        bot    = data.get('bot', 'japon')
+        pausar = bool(data.get('pausar', True))
+        flag   = _PAUSA_FILES.get(bot)
+
+        if not flag:
+            return JsonResponse({'ok': False, 'error': 'Bot desconocido'}, status=400)
+
+        flag_path = Path(flag)
+
+        try:
+            if pausar:
+                # Crear el archivo de bandera con timestamp y usuario
+                flag_path.parent.mkdir(parents=True, exist_ok=True)
+                flag_path.write_text(
+                    f"pausado_por={request.user.username}\n"
+                    f"fecha={timezone.localtime().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                )
+            else:
+                flag_path.unlink(missing_ok=True)
+        except Exception as e:
+            log.error(f"Error al {'crear' if pausar else 'eliminar'} flag de pausa para {bot}: {e}")
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+        # Notificar al bot Node.js vía su endpoint /pausa (si está disponible)
+        puerto = 3000 if bot == 'japon' else 3001
+        try:
+            requests.post(
+                f'http://localhost:{puerto}/pausa',
+                json={'pausado': pausar},
+                timeout=3,
+            )
+        except Exception:
+            # El bot puede estar desconectado; el archivo flag es suficiente para cuando se reconecte
+            pass
+
+        accion = 'pausado' if pausar else 'reanudado'
+        log.info(f"Bot {bot} {accion} por {request.user.username}")
+        return JsonResponse({'ok': True, 'bot': bot, 'pausado': pausar})
+
+
 @login_required
 def whatsapp_historial(request):
     import json
@@ -70,12 +144,12 @@ def whatsapp_historial(request):
     try:
         with open('/var/log/whatsapp-bot/historial-japon.json', 'r') as f:
             historial_japon = json.load(f)
-    except:
+    except Exception:
         pass
     try:
         with open('/var/log/whatsapp-bot/historial-camacho.json', 'r') as f:
             historial_camacho = json.load(f)
-    except:
+    except Exception:
         pass
     historial = historial_japon + historial_camacho
     historial.sort(key=lambda x: x.get('fecha', ''), reverse=True)
@@ -96,12 +170,11 @@ def get_sucursal_principal(paciente):
     if resultado:
         return resultado['sucursal_id'], resultado['sucursal__nombre']
 
-    # Si no tiene sesiones, tomar la primera sucursal asignada
     primera = paciente.sucursales.first()
     if primera:
         return primera.id, primera.nombre
 
-    return 3, 'Suc. Japon'  # default
+    return 3, 'Suc. Japon'
 
 
 @login_required
@@ -115,7 +188,6 @@ def whatsapp_envio_masivo(request):
     sucursal_filtro = data.get('sucursal', 'todas')
     destinatarios = data.get('destinatarios', 'semana')
 
-    # Para deudores el mensaje se genera por tutor desde la lógica interna
     if destinatarios != 'deudores' and not mensaje:
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
@@ -257,12 +329,7 @@ def whatsapp_envio_masivo(request):
                 }
 
     elif destinatarios == 'deudores':
-        # El mensaje se construye personalizado por tutor (igual que en api.py)
         from facturacion.models import CuentaCorriente
-        from django.db.models import Count
-
-        SUCURSAL_JAPON = 3
-        SUCURSAL_CAMACHO = 4
 
         cuentas = CuentaCorriente.objects.filter(
             paciente__estado='activo',
@@ -278,9 +345,9 @@ def whatsapp_envio_masivo(request):
 
             sucursal_id, sucursal_nombre = get_sucursal_principal(paciente)
 
-            if sucursal_filtro == 'japon' and sucursal_id != SUCURSAL_JAPON:
+            if sucursal_filtro == 'japon' and sucursal_id != 3:
                 continue
-            if sucursal_filtro == 'camacho' and sucursal_id != SUCURSAL_CAMACHO:
+            if sucursal_filtro == 'camacho' and sucursal_id != 4:
                 continue
 
             deuda = abs(cuenta.saldo_actual)
@@ -298,7 +365,6 @@ def whatsapp_envio_masivo(request):
                 'deuda': deuda,
             })
 
-        # Construir mensaje personalizado por tutor
         for telefono, tutor in deudores_agrupados.items():
             pacientes_deuda = tutor['pacientes']
             sucursal = tutor['sucursal']
@@ -341,13 +407,101 @@ def whatsapp_envio_masivo(request):
                     'mensaje': tutor['mensaje'],
                     'paciente': tutor['paciente_nombre'],
                     'sucursal': tutor['sucursal'],
-                    'delay_type': 'largo'  # delay largo para deudores, corto para el resto
-                    if destinatarios == 'deudores' else 'corto',
+                    'delay_type': 'largo' if destinatarios == 'deudores' else 'corto',
                 },
                 timeout=5
             )
             enviados += 1
-        except:
+        except Exception:
             errores += 1
 
     return JsonResponse({'ok': True, 'enviados': enviados, 'errores': errores})
+
+
+# ══════════════════════════════════════════════════════
+# BACKUP
+# ══════════════════════════════════════════════════════
+
+@login_required
+def backup_monitor(request):
+    """Vista principal del monitor de respaldos."""
+    from recordatorios.models import RegistroBackup
+
+    backups  = RegistroBackup.objects.all()[:50]
+    exitosos = RegistroBackup.objects.filter(exitoso=True).count()
+    fallidos = RegistroBackup.objects.filter(exitoso=False).count()
+    ultimo   = RegistroBackup.objects.first()
+
+    stats = {
+        'total':          RegistroBackup.objects.count(),
+        'exitosos':       exitosos,
+        'fallidos':       fallidos,
+        'ultimo_fecha':   ultimo.fecha.strftime('%d/%m/%Y %H:%M') if ultimo else None,
+        'ultimo_tipo':    ultimo.get_tipo_display() if ultimo else None,
+        'ultimo_tamanio': ultimo.tamanio_mb if ultimo else None,
+    }
+
+    return render(request, 'recordatorios/backup_monitor.html', {
+        'backups': backups,
+        'stats':   stats,
+    })
+
+
+@login_required
+def backup_ejecutar(request):
+    """Lanza un backup manual y registra el resultado."""
+    if request.method != 'POST':
+        return redirect('recordatorios:backup_monitor')
+
+    from recordatorios.models import RegistroBackup
+    import sys
+    import os
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    script  = Path(__file__).resolve().parent.parent / 'backup_db.py'
+    inicio  = time.time()
+    registro = RegistroBackup(tipo='manual')
+
+    try:
+        resultado = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True, text=True, timeout=300
+        )
+        duracion = round(time.time() - inicio, 1)
+
+        if resultado.returncode == 0:
+            tamanio = ''
+            for linea in resultado.stdout.splitlines():
+                if 'Tamaño:' in linea:
+                    tamanio = linea.split('Tamaño:')[-1].strip()
+                    break
+            registro.exitoso           = True
+            registro.tamanio_mb        = tamanio
+            registro.duracion_segundos = duracion
+            registro.destinatarios     = os.environ.get('BACKUP_EMAIL_DESTINO', '')
+            registro.save()
+            messages.success(request, f'✅ Respaldo completado en {duracion}s y enviado por correo.')
+            log.info(f"Backup manual exitoso. Duración: {duracion}s")
+        else:
+            registro.exitoso       = False
+            registro.mensaje_error = resultado.stderr[:500]
+            registro.save()
+            messages.error(request, '❌ Error al generar el respaldo. Revisa los logs.')
+            log.error(f"Backup manual fallido: {resultado.stderr[:300]}")
+
+    except subprocess.TimeoutExpired:
+        registro.exitoso       = False
+        registro.mensaje_error = 'Timeout: el proceso tardó más de 5 minutos.'
+        registro.save()
+        messages.error(request, '❌ El respaldo tardó demasiado y fue cancelado.')
+
+    except Exception as e:
+        registro.exitoso       = False
+        registro.mensaje_error = str(e)
+        registro.save()
+        messages.error(request, f'❌ Error inesperado: {e}')
+        log.exception("Error en backup manual")
+
+    return redirect('recordatorios:backup_monitor')
