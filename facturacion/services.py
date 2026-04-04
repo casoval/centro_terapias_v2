@@ -726,7 +726,7 @@ class AccountService:
                     if sesion.monto_original is None:
                         sesion.monto_original = sesion.monto_cobrado
                     sesion.monto_cobrado = total_pagado
-                    sesion.save()
+                    sesion.save(update_fields=['monto_cobrado', 'monto_original'])
                 else:
                     # Pago normal: solo ajustar monto_cobrado
                     if sesion.monto_cobrado != total_pagado:
@@ -734,7 +734,7 @@ class AccountService:
                         if sesion.monto_original is None:
                             sesion.monto_original = sesion.monto_cobrado
                         sesion.monto_cobrado = total_pagado
-                        sesion.save()
+                        sesion.save(update_fields=['monto_cobrado', 'monto_original'])
             
             elif proyecto:
                 total_pagado = Pago.objects.filter(
