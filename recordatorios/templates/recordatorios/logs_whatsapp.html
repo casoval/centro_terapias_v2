@@ -54,6 +54,110 @@
         </div>
     </div>
 
+
+    <!-- AUTOMATIZACIONES -->
+    <div class="glass-card rounded-2xl overflow-hidden">
+        <button onclick="toggleAutomatizaciones()" class="w-full flex items-center justify-between px-5 py-4 text-left">
+            <div class="flex items-center gap-3">
+                <span class="text-xl">🤖</span>
+                <div>
+                    <h2 class="text-sm font-bold text-white">Automatizaciones activas</h2>
+                    <p class="text-white/60 text-xs">¿Qué mensajes envía el bot y cuándo?</p>
+                </div>
+            </div>
+            <span id="chevron-auto" class="text-white/60 text-lg transition-transform duration-300">▼</span>
+        </button>
+        <div id="panel-automatizaciones" class="hidden px-5 pb-5 space-y-3">
+
+            <!-- 2. Sesiones próximas -->
+            <div class="rounded-xl p-4 border border-white/10" style="background:#111827;">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">⏰</span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 class="text-white font-bold text-sm">Recordatorio 2 horas antes de la sesión</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Automático · cada 15 min</span>
+                        </div>
+                        <p class="text-white/70 text-xs mb-2">Detecta sesiones que empiezan <strong class="text-white">exactamente en 2 horas</strong> (ventana ±5 min). Solo sesiones <strong class="text-white">individuales sin mensualidad</strong>. Agrupa varios pacientes del mismo tutor en un solo mensaje.</p>
+                        <div class="rounded-lg p-3 text-xs font-mono text-green-300" style="background:#0d1f0d; border:1px solid rgba(74,222,128,0.2);">
+                            👋 Hola! Le recordamos que [paciente] tiene su sesión de [servicio] hoy a las [hora] en [sucursal]. ¡Hasta pronto! 😊 neuromisael.com
+                        </div>
+                        <p class="text-white/50 text-[11px] mt-2">🔗 <code class="text-blue-300">/api/sesiones-proximas/</code> · <code class="text-blue-300">?sucursal=3</code> (Japón) o <code class="text-blue-300">?sucursal=4</code> (Camacho)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Mensualidades semana -->
+            <div class="rounded-xl p-4 border border-white/10" style="background:#111827;">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">📆</span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 class="text-white font-bold text-sm">Horarios de mensualidad — próxima semana</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Automático · cada domingo</span>
+                        </div>
+                        <p class="text-white/70 text-xs mb-2">Envía a tutores de pacientes con <strong class="text-white">mensualidad activa</strong> un resumen de sus horarios de la <strong class="text-white">próxima semana</strong> (del lunes al domingo siguiente). Un solo mensaje por tutor aunque tenga varios hijos.</p>
+                        <div class="rounded-lg p-3 text-xs font-mono text-green-300" style="background:#0d1f0d; border:1px solid rgba(74,222,128,0.2);">
+                            👋 Hola! Le recordamos los horarios de esta semana en [sucursal]:<br>• Lunes 6 de abril: [paciente] - [servicio] a las [hora]<br>¡Hasta pronto! 😊 neuromisael.com
+                        </div>
+                        <p class="text-white/50 text-[11px] mt-2">🔗 <code class="text-blue-300">/api/mensualidades-semana/</code> · <code class="text-blue-300">?sucursal=3</code> (Japón) o <code class="text-blue-300">?sucursal=4</code> (Camacho)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Deudas -->
+            <div class="rounded-xl p-4 border border-white/10" style="background:#111827;">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">💳</span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 class="text-white font-bold text-sm">Cobro de deudas pendientes</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">Automático · cada lunes</span>
+                        </div>
+                        <p class="text-white/70 text-xs mb-2">Notifica tutores con <strong class="text-white">saldo pendiente mayor a Bs. 1</strong>. Solo pacientes activos. Agrupa todas las deudas del tutor en un mensaje personalizado con el monto exacto.</p>
+                        <div class="rounded-lg p-3 text-xs font-mono text-green-300" style="background:#0d1f0d; border:1px solid rgba(74,222,128,0.2);">
+                            👋 Hola, [tutor]! Le contactamos desde [sucursal] para informarle que [paciente] presenta un saldo pendiente de Bs. [monto]. Puede revisar en neuromisael.com 🙏
+                        </div>
+                        <p class="text-white/50 text-[11px] mt-2">🔗 <code class="text-blue-300">/api/deudas/</code> · <code class="text-blue-300">?sucursal=3</code> (Japón) o <code class="text-blue-300">?sucursal=4</code> (Camacho)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Envío masivo -->
+            <div class="rounded-xl p-4 border border-white/10" style="background:#111827;">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">📢</span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 class="text-white font-bold text-sm">Envío masivo personalizado</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">Manual · desde esta página</span>
+                        </div>
+                        <p class="text-white/70 text-xs mb-2">Envía un mensaje libre a grupos de tutores. Filtrá por sucursal y tipo de destinatario.</p>
+                        <div class="grid grid-cols-2 gap-2 mt-2 text-[11px]">
+                            <div class="rounded-lg px-3 py-2 text-white/70" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">📅 Sesiones esta semana</div>
+                            <div class="rounded-lg px-3 py-2 text-white/70" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">📆 Sesiones hoy / mañana</div>
+                            <div class="rounded-lg px-3 py-2 text-white/70" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">👥 Todos los pacientes activos e inactivos</div>
+                            <div class="rounded-lg px-3 py-2 text-white/70" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">💳 Pacientes con deuda pendiente</div>
+                        </div>
+                        <p class="text-white/50 text-[11px] mt-2">⚠️ Los mensajes se envían con delay de 5-10 seg entre cada uno para evitar bloqueos de WhatsApp.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Pausa -->
+            <div class="rounded-xl p-4 border border-yellow-500/20" style="background:#1a1500;">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">⏸</span>
+                    <div class="flex-1">
+                        <h3 class="text-white font-bold text-sm mb-1">Botón Pausar bot</h3>
+                        <p class="text-white/70 text-xs">Cuando el bot está pausado, <strong class="text-white">todos los mensajes entrantes se descartan inmediatamente</strong> — no se acumulan ni se envían después. Útil para feriados o días sin atención. Se puede reanudar en cualquier momento desde esta página.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- QR CONTAINERS -->
     <div id="qr-japon" class="hidden glass-card rounded-2xl p-6 text-center">
         <h3 class="text-white font-bold text-lg mb-2">📱 Escanea el QR — Bot Japón</h3>
@@ -371,6 +475,15 @@ async function togglePausa(bot) {
         btnPausa.disabled = false;
     }
 }
+
+
+  // ── Toggle automatizaciones ──
+  function toggleAutomatizaciones() {
+    const panel = document.getElementById('panel-automatizaciones');
+    const chevron = document.getElementById('chevron-auto');
+    const hidden = panel.classList.toggle('hidden');
+    chevron.style.transform = hidden ? '' : 'rotate(180deg)';
+  }
 
 // ── Inicializar ──
 checkStatus('japon');
