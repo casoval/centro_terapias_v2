@@ -6,13 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centro de Neurodesarrollo Infantil MISAEL · Potosí - Bolivia</title>
     
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QVNKQ6FHE5"></script>
+    <!-- Google Analytics — carga diferida para no bloquear el render -->
     <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-QVNKQ6FHE5');
+        window.addEventListener('load', function() {
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=G-QVNKQ6FHE5';
+            document.head.appendChild(s);
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-QVNKQ6FHE5');
+        });
     </script>
 
     <!-- Favicon -->
@@ -30,6 +35,13 @@
     <!-- Canónica -->
     <link rel="canonical" href="https://neuromisael.com/">
 
+    <!-- Color barra del navegador en Android -->
+    <meta name="theme-color" content="#080b14" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#FDFAF5" media="(prefers-color-scheme: light)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://neuromisael.com/">
@@ -43,7 +55,42 @@
     <meta name="twitter:title" content="Centro Infantil Misael · Neurodesarrollo en Potosí, Bolivia">
     <meta name="twitter:description" content="Especialistas en neurodesarrollo y rehabilitación infantil en Potosí, Bolivia.">
 
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Fuentes optimizadas: preconnect + carga no bloqueante -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Baloo+2:wght@700;800;900&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Baloo+2:wght@700;800;900&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Baloo+2:wght@700;800;900&display=swap"></noscript>
+
+    <!-- Structured Data — Rich Snippets en Google (horarios, dirección, teléfono) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "MedicalBusiness",
+      "name": "Centro de Neurodesarrollo Infantil Misael",
+      "url": "https://neuromisael.com",
+      "logo": "https://neuromisael.com/static/img/logo_misael.png",
+      "description": "Centro especializado en neurodesarrollo y rehabilitación infantil en Potosí, Bolivia. Terapia física, fonoaudiología, psicopedagogía, psicología y estimulación temprana.",
+      "telephone": ["+591-76175352", "+591-78633975"],
+      "email": "info@neuromisael.com",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Potosí",
+        "addressRegion": "Potosí",
+        "addressCountry": "BO"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "addressCountry": "BO"
+      },
+      "openingHoursSpecification": [
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"], "opens": "08:00", "closes": "18:00" },
+        { "@type": "OpeningHoursSpecification", "dayOfWeek": "Saturday", "opens": "08:00", "closes": "13:00" }
+      ],
+      "medicalSpecialty": ["Pediatrics","PhysicalTherapy","SpeechTherapy","Neurological"],
+      "sameAs": ["https://www.facebook.com/centromisael"]
+    }
+    </script>
 
     <style>
         :root {
@@ -393,28 +440,34 @@
         ═══════════════════════════════════════ */
         .theme-toggle {
             display: inline-flex; align-items: center; gap: 7px;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.35);
             border-radius: 50px;
             padding: 0.38rem 0.9rem;
             cursor: pointer; font-family: 'Nunito', sans-serif;
-            font-size: 0.78rem; font-weight: 700; color: var(--muted);
+            font-size: 0.78rem; font-weight: 700; color: #ffffff;
             transition: all 0.25s; flex-shrink: 0;
             backdrop-filter: blur(10px);
         }
-        .theme-toggle:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .theme-toggle:hover { background: rgba(255,255,255,0.28); color: #ffffff; }
         [data-theme="light"] .theme-toggle {
-            background: rgba(46,125,85,0.1);
-            border-color: rgba(46,125,85,0.25);
-            color: #2E7D55;
+            background: rgba(30,60,45,0.82);
+            border-color: rgba(30,60,45,0.6);
+            color: #ffffff;
         }
-        [data-theme="light"] .theme-toggle:hover { background: rgba(46,125,85,0.18); }
+        [data-theme="light"] .theme-toggle:hover { background: rgba(20,50,35,0.95); }
         .theme-toggle-icon { font-size: 1rem; transition: transform 0.4s; }
         .theme-toggle:hover .theme-toggle-icon { transform: rotate(20deg); }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html { scroll-behavior: smooth; }
+        /* Eliminar delay de 300ms en taps en móvil */
+        a, button, [role="button"], .srv-tab, .vm-toggle, .theme-toggle {
+            touch-action: manipulation;
+        }
+
+        /* scroll-behavior gestionado por JS en anclas — evita janks globales */
+        /* html { scroll-behavior: smooth; } */
 
         body {
             font-family: 'Nunito', sans-serif;
@@ -507,6 +560,19 @@
             letter-spacing: 0.06em;
             -webkit-text-fill-color: var(--muted);
         }
+        .navbar-brand-email {
+            display: block;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.62rem; font-weight: 600;
+            letter-spacing: 0.04em;
+            -webkit-text-fill-color: var(--muted2);
+            text-decoration: none;
+            margin-top: 1px;
+            transition: opacity 0.2s;
+        }
+        .navbar-brand-email:hover { opacity: 0.8; }
+        [data-theme="light"] .navbar-brand-email { -webkit-text-fill-color: rgba(62,39,35,0.55); }
+
         .nav-links {
             display: flex; align-items: center; gap: 2.2rem; list-style: none;
         }
@@ -739,6 +805,13 @@
            SECCIONES GENÉRICAS
         ───────────────────────────────────────── */
         .section { padding: 5.5rem 2.5rem; }
+        /* content-visibility: auto — el navegador omite el render
+           de secciones fuera del viewport, acelerando la carga inicial */
+        .vmv-section, .gallery-section, .why-section,
+        .team-section, .cta-section, #servicios {
+            content-visibility: auto;
+            contain-intrinsic-size: 0 600px;
+        }
         /* Servicios section specific background */
         #servicios {
             background: linear-gradient(160deg, #080020 0%, #100035 35%, #0a002a 60%, #060018 100%);
@@ -1571,6 +1644,290 @@
         #servicios {
             position: relative;
         }
+
+        /* ─────────────────────────────────────────
+           NAVBAR — transición para hide-on-scroll
+        ───────────────────────────────────────── */
+        .navbar { transition: transform 0.3s ease, box-shadow 0.3s; }
+        .navbar.hidden { transform: translateY(-110%); }
+
+        /* ─────────────────────────────────────────
+           HAMBURGUESA
+        ───────────────────────────────────────── */
+        .hamburger {
+            display: none;
+            flex-direction: column; justify-content: center; gap: 5px;
+            cursor: pointer; padding: 8px; border: none; background: none;
+            border-radius: 10px; transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .hamburger:hover { background: var(--glass); }
+        .hamburger span {
+            display: block; width: 22px; height: 2px;
+            background: var(--text); border-radius: 2px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            transform-origin: center;
+        }
+        /* Animación X cuando está abierto */
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* ─────────────────────────────────────────
+           MENÚ MÓVIL
+        ───────────────────────────────────────── */
+        .mobile-menu {
+            display: none;
+            position: fixed; inset: 0; z-index: 997;
+            background: var(--bg-1);
+            flex-direction: column;
+            padding: 5.5rem 2rem 2rem;
+            gap: 0;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .mobile-menu.open {
+            display: flex;
+            opacity: 1;
+            transform: translateX(0);
+        }
+        [data-theme="light"] .mobile-menu { background: #FDFAF5; }
+
+        .mobile-nav-link {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1.1rem 0;
+            border-bottom: 1px solid var(--glass-border);
+            color: var(--text); text-decoration: none;
+            font-family: 'Baloo 2', cursive; font-size: 1.3rem; font-weight: 800;
+            transition: color 0.2s, padding-left 0.2s;
+        }
+        .mobile-nav-link:hover { color: var(--azul); padding-left: 8px; }
+        .mobile-nav-link span { font-size: 1.1rem; opacity: 0.5; }
+        .mobile-nav-emoji { font-size: 1.3rem; margin-right: 12px; }
+
+        /* Overlay oscuro detrás del menú */
+        .mobile-menu-overlay {
+            display: none; position: fixed; inset: 0; z-index: 996;
+            background: rgba(0,0,0,0.55);
+        }
+        .mobile-menu-overlay.open { display: block; }
+
+        /* ─────────────────────────────────────────
+           BOTÓN SCROLL TO TOP
+        ───────────────────────────────────────── */
+        .scroll-top-btn {
+            position: fixed; bottom: 5.5rem; left: 1rem; z-index: 9997;
+            width: 44px; height: 44px; border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: var(--bg-2);
+            color: var(--text); font-size: 1.1rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transform: translateY(12px);
+            transition: opacity 0.3s, transform 0.3s;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+        .scroll-top-btn.visible {
+            opacity: 1; pointer-events: auto;
+            transform: translateY(0);
+        }
+        .scroll-top-btn:hover { background: var(--glass); transform: translateY(-2px); }
+        [data-theme="light"] .scroll-top-btn {
+            background: #ffffff; border-color: rgba(46,125,85,0.2);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        /* ─────────────────────────────────────────
+           BARRA DE HORARIOS (solo móvil)
+        ───────────────────────────────────────── */
+        .horarios-bar {
+            display: flex; /* visible en todas las pantallas */
+            background: linear-gradient(135deg, #001a18 0%, #002e2a 100%);
+            border-bottom: 1px solid rgba(0,212,200,0.15);
+            padding: 0.7rem 1.2rem;
+            align-items: center; justify-content: center;
+            gap: 0.6rem; flex-wrap: wrap;
+            font-size: 0.78rem; color: var(--muted);
+            position: relative; z-index: 998;
+        }
+        [data-theme="light"] .horarios-bar {
+            background: linear-gradient(135deg, #E8F5EE, #D4EDDE);
+            border-bottom-color: rgba(46,125,85,0.2);
+            color: #2E7D55;
+        }
+        .horarios-bar strong { color: var(--azul); font-weight: 800; }
+        [data-theme="light"] .horarios-bar strong { color: #1B5E40; }
+        .horarios-bar-sep { opacity: 0.35; }
+        @media (max-width: 768px) {
+            .horarios-bar-hide-mobile { display: none !important; }
+        }
+        .horarios-bar-cta {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: #25D366; color: white;
+            font-weight: 800; font-size: 0.75rem;
+            padding: 0.25rem 0.8rem; border-radius: 50px;
+            text-decoration: none; margin-left: 4px;
+        }
+
+        /* ─────────────────────────────────────────
+           INDICADOR SECCIÓN ACTIVA EN NAVBAR
+        ───────────────────────────────────────── */
+        .nav-link { position: relative; }
+        .nav-link::after {
+            content: ''; position: absolute; bottom: -4px; left: 0; right: 0;
+            height: 2px; border-radius: 2px;
+            background: var(--azul);
+            transform: scaleX(0); transform-origin: center;
+            transition: transform 0.25s ease;
+        }
+        .nav-link.active::after { transform: scaleX(1); }
+        .nav-link.active { color: var(--text) !important; }
+
+        /* ═══════════════════════════════════════
+           OPTIMIZACIÓN COMPLETA PARA MÓVIL
+           Mejora scroll, rendimiento GPU y UX
+           en dispositivos de gama baja.
+        ═══════════════════════════════════════ */
+        @media (max-width: 768px) {
+
+            /* Mostrar hamburguesa y barra de horarios */
+            .hamburger { display: flex; }
+            .horarios-bar { display: flex; }
+
+            /* 1. GRAIN OVERLAY — principal culpable del scroll lento.
+                  El SVG feTurbulence en position:fixed se repinta en
+                  cada frame. Lo eliminamos en móvil. */
+            body::before { display: none !important; }
+
+            /* 2. ORBES BLUR — filter:blur(80px) en elementos grandes
+                  es muy costoso en GPU de gama baja. */
+            .hero-orb,
+            .vmv-glow, .vmv-glow-1, .vmv-glow-2, .vmv-glow-3 {
+                display: none !important;
+            }
+
+            /* 3. ANIMACIONES EN LOOP DE TARJETAS — desactivar
+                  cardFloat, iconWobble y delays escalonados que
+                  saturan el hilo de composición. */
+            .service-card:not(:hover)  { animation: none !important; }
+            .service-icon              { animation: none !important; }
+            .trust-item .icon          { animation: none !important; }
+            .trust-number              { animation: none !important; }
+            .vmv-circle,
+            .vmv-circle-mision,
+            .vmv-circle-valores        { animation: none !important; }
+            .section-pill              { animation: none !important; }
+            .footer-accent-line        { animation: none !important; }
+            .hero-illustration img     { animation: none !important; }
+            .confetti-piece            { display: none !important; }
+
+            /* 4. NAVBAR — animación de fondo y borde en loop.
+                  En móvil la navbar es estática, no necesita shift. */
+            .navbar {
+                animation: none !important;
+                background: rgba(20,8,40,0.96) !important;
+                background-size: unset !important;
+            }
+            .navbar::after {
+                animation-duration: 10s;
+            }
+            [data-theme="light"] .navbar {
+                animation: none !important;
+            }
+
+            /* 5. TRUST BAR — animación de fondo */
+            .trust-bar {
+                animation: none !important;
+                background-size: unset !important;
+            }
+
+            /* 6. BACKDROP-FILTER — extremadamente costoso en
+                  Android 6-9. Reemplazar con fondo sólido semitransparente. */
+            .service-card,
+            .why-card,
+            .vmv-card,
+            .team-intro-card,
+            .srv-tab,
+            .btn-secondary,
+            .theme-toggle {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            .service-card  { background: rgba(255,255,255,0.07) !important; }
+            .why-card      { background: rgba(255,255,255,0.08) !important; }
+            .vmv-card      { background: rgba(255,255,255,0.05) !important; }
+            .team-intro-card { background: rgba(255,255,255,0.07) !important; }
+            .srv-tab       { background: rgba(255,255,255,0.06) !important; }
+            .btn-secondary { background: rgba(255,255,255,0.08) !important; }
+            .theme-toggle  { background: rgba(255,255,255,0.18) !important; }
+
+            /* 7. DOODLES FLOTANTES — animaciones decorativas,
+                  las desactivamos sin quitarlas visualmente. */
+            .doodle-float,
+            .doodle-sway,
+            .doodle-pulse { animation: none !important; }
+
+            /* 8. FOTOSTRIP — reducir tamaño de items y ralentizar
+                  para ahorrar recursos de composición. */
+            .photo-strip      { animation-duration: 60s; }
+            .photo-strip-item { width: 220px; height: 170px; }
+
+            /* 9. WHATSAPP FAB — fix de botones que se salen
+                  del viewport en pantallas angostas. */
+            .wa-fab-wrapper {
+                right: 1rem;
+                bottom: 1rem;
+            }
+            .wa-sede-btn {
+                min-width: auto !important;
+                width: auto !important;
+                max-width: calc(100vw - 5rem);
+            }
+            footer { padding-bottom: 5rem; }
+
+            /* 10. HERO — usar svh para evitar el salto del
+                   browser bar en móviles modernos. */
+            .hero { min-height: 100svh; }
+
+            /* 11. SCROLL BEHAVIOR — quitar smooth global para
+                   evitar janks. El JS de anclas ya lo maneja. */
+            html { scroll-behavior: auto; }
+
+            /* 12. TRANSICIONES — reducir duración para que
+                   la UI se sienta más ágil en hardware lento. */
+            .service-card,
+            .why-card,
+            .team-card,
+            .vmv-card,
+            .location-card {
+                transition-duration: 0.15s !important;
+            }
+
+            /* 13. LOGO HERO — anillos decorativos animados
+                   ocultos en móvil (ya se oculta .hero-illustration
+                   pero los rings están dentro del mismo bloque). */
+            .hero-illustration { display: none !important; }
+        }
+
+        /* Pantallas muy pequeñas — ajustes adicionales */
+        @media (max-width: 400px) {
+            .trust-bar { gap: 1rem; padding: 1.2rem 1rem; }
+            .section   { padding: 3rem 1.2rem; }
+            .hero      { padding: 3.5rem 1.2rem 2.5rem; }
+            .horarios-bar { display: none !important; } /* demasiado estrecho */
+        }
+
+        /* Respetar preferencia del sistema de reducir movimiento */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .photo-strip { animation: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -1595,10 +1952,10 @@
 ═══════════════════════════════════════════ -->
 <nav class="navbar">
     <div class="navbar-logo">
-        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" id="logoWrap">
+        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" id="logoWrap" fetchpriority="high" decoding="sync">
         <div class="navbar-brand">
             Centro de Neurodesarrollo Infantil Misael
-            <span>Contacto: info@neuromisael.com</span>
+            <a href="mailto:info@neuromisael.com" class="navbar-brand-email">info@neuromisael.com</a>
         </div>
     </div>
 
@@ -1610,7 +1967,7 @@
         <li><a href="#contacto">Contacto</a></li>
     </ul>
 
-    <div style="display:flex;align-items:center;gap:0.8rem;">
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-left:1.2rem;">
         <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema" title="Cambiar tema">
             <span class="theme-toggle-icon" id="themeIcon">🌙</span>
             <span id="themeLabel">Oscuro</span>
@@ -1618,8 +1975,49 @@
         <a href="{% url 'core:login' %}" class="btn-login">
             <span class="rocket">🚀</span> Iniciar Sesión
         </a>
+        <!-- Hamburguesa — solo visible en móvil -->
+        <button class="hamburger" id="hamburgerBtn"
+                aria-label="Abrir menú de navegación"
+                aria-expanded="false"
+                aria-controls="mobileMenu">
+            <span></span><span></span><span></span>
+        </button>
     </div>
 </nav>
+
+<!-- ── BARRA DE HORARIOS (solo móvil, debajo del navbar) ── -->
+<div class="horarios-bar">
+    <span>⏰ <strong>Lun–Vie</strong> 9:00–12:00 y 14:30–19:00</span>
+    <span class="horarios-bar-sep">·</span>
+    <span><strong>Sáb</strong> 9:00–12:00</span>
+    <span class="horarios-bar-sep horarios-bar-hide-mobile">·</span>
+    <span class="horarios-bar-hide-mobile">✨ ¡Te esperamos!</span>
+</div>
+
+<!-- ── OVERLAY MENÚ MÓVIL ── -->
+<div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
+
+<!-- ── MENÚ MÓVIL COMPLETO ── -->
+<nav class="mobile-menu" id="mobileMenu" role="dialog" aria-label="Menú de navegación">
+    <a href="#servicios" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span><span class="mobile-nav-emoji">🌟</span>Servicios</span><span>›</span>
+    </a>
+    <a href="#galeria" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span><span class="mobile-nav-emoji">📸</span>Galería</span><span>›</span>
+    </a>
+    <a href="#nosotros" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span><span class="mobile-nav-emoji">🏥</span>Nosotros</span><span>›</span>
+    </a>
+    <a href="#equipo" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span><span class="mobile-nav-emoji">👩‍⚕️</span>Equipo</span><span>›</span>
+    </a>
+    <a href="#contacto" class="mobile-nav-link" onclick="closeMobileMenu()">
+        <span><span class="mobile-nav-emoji">📍</span>Contacto</span><span>›</span>
+    </a>
+</nav>
+
+<!-- ── BOTÓN SCROLL TOP ── -->
+<button class="scroll-top-btn" id="scrollTopBtn" aria-label="Volver arriba" title="Volver arriba">↑</button>
 
 <!-- ═══════════════════════════════════════════
      HERO
@@ -1720,7 +2118,7 @@
             <!-- Logo principal — MÁS GRANDE -->
             <img src="{% static 'img/logo_misael.png' %}"
                  alt="Centro Infantil Misael"
-                 style="width:310px; height:310px; object-fit:contain; border-radius:50%;
+                 loading="lazy" decoding="async" style="width:310px; height:310px; object-fit:contain; border-radius:50%;
                         position:relative; z-index:2;
                         filter: drop-shadow(0 0 60px rgba(255,95,64,0.5)) drop-shadow(0 0 100px rgba(0,212,200,0.35));
                         animation: logoHero 4s ease-in-out infinite;">
@@ -1940,69 +2338,69 @@
 
             <!-- Set original -->
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_alianza.jpg' %}" alt="Alianza con Aldeas Infantiles SOS" loading="lazy">
+                <img src="{% static 'img/foto_alianza.jpg' %}" alt="Alianza con Aldeas Infantiles SOS" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--azul);"></span>Alianza con Aldeas Infantiles SOS</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_equipo.jpg' %}" alt="Nuestro equipo" loading="lazy">
+                <img src="{% static 'img/foto_equipo.jpg' %}" alt="Nuestro equipo" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--verde);"></span>Nuestro equipo de especialistas</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_feria.jpg' %}" alt="Feria de servicios" loading="lazy">
+                <img src="{% static 'img/foto_feria.jpg' %}" alt="Feria de servicios" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--amarillo);"></span>Participación en ferias y eventos</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_instalaciones.jpg' %}" alt="Nuestras instalaciones" loading="lazy">
+                <img src="{% static 'img/foto_instalaciones.jpg' %}" alt="Nuestras instalaciones" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--naranja);"></span>Nuestras instalaciones</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_terapia.jpg' %}" alt="Estimulación temprana" loading="lazy">
+                <img src="{% static 'img/foto_terapia.jpg' %}" alt="Estimulación temprana" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--morado);"></span>Estimulación temprana y terapia</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_sucursal.jpg' %}" alt="Inauguración sucursal" loading="lazy">
+                <img src="{% static 'img/foto_sucursal.jpg' %}" alt="Inauguración sucursal" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--rojo);"></span>Inauguración de nuestra sucursal</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_primavera1.jpg' %}" alt="Festival de Primavera" loading="lazy">
+                <img src="{% static 'img/foto_primavera1.jpg' %}" alt="Festival de Primavera" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--verde);"></span>Festival de Primavera 🌸</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_primavera2.jpg' %}" alt="Festival niños" loading="lazy">
+                <img src="{% static 'img/foto_primavera2.jpg' %}" alt="Festival niños" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--amarillo);"></span>¡Cada niño brilla a su manera! ✨</div>
             </div>
 
             <!-- Copia duplicada para scroll infinito continuo -->
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_alianza.jpg' %}" alt="Alianza con Aldeas Infantiles SOS" loading="lazy">
+                <img src="{% static 'img/foto_alianza.jpg' %}" alt="Alianza con Aldeas Infantiles SOS" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--azul);"></span>Alianza con Aldeas Infantiles SOS</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_equipo.jpg' %}" alt="Nuestro equipo" loading="lazy">
+                <img src="{% static 'img/foto_equipo.jpg' %}" alt="Nuestro equipo" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--verde);"></span>Nuestro equipo de especialistas</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_feria.jpg' %}" alt="Feria de servicios" loading="lazy">
+                <img src="{% static 'img/foto_feria.jpg' %}" alt="Feria de servicios" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--amarillo);"></span>Participación en ferias y eventos</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_instalaciones.jpg' %}" alt="Nuestras instalaciones" loading="lazy">
+                <img src="{% static 'img/foto_instalaciones.jpg' %}" alt="Nuestras instalaciones" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--naranja);"></span>Nuestras instalaciones</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_terapia.jpg' %}" alt="Estimulación temprana" loading="lazy">
+                <img src="{% static 'img/foto_terapia.jpg' %}" alt="Estimulación temprana" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--morado);"></span>Estimulación temprana y terapia</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_sucursal.jpg' %}" alt="Inauguración sucursal" loading="lazy">
+                <img src="{% static 'img/foto_sucursal.jpg' %}" alt="Inauguración sucursal" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--rojo);"></span>Inauguración de nuestra sucursal</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_primavera1.jpg' %}" alt="Festival de Primavera" loading="lazy">
+                <img src="{% static 'img/foto_primavera1.jpg' %}" alt="Festival de Primavera" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--verde);"></span>Festival de Primavera 🌸</div>
             </div>
             <div class="photo-strip-item">
-                <img src="{% static 'img/foto_primavera2.jpg' %}" alt="Festival niños" loading="lazy">
+                <img src="{% static 'img/foto_primavera2.jpg' %}" alt="Festival niños" loading="lazy" decoding="async">
                 <div class="photo-strip-label"><span class="strip-dot" style="background:var(--amarillo);"></span>¡Cada niño brilla a su manera! ✨</div>
             </div>
 
@@ -2505,6 +2903,123 @@
 </section>
 
 <!-- ═══════════════════════════════════════════
+     FORMULARIO DE CONTACTO
+═══════════════════════════════════════════ -->
+<section id="formulario-contacto" style="
+    padding: 5rem 1.5rem;
+    background: var(--bg-1);
+    position: relative;
+    overflow: hidden;
+">
+    <!-- Glow decorativo -->
+    <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);
+        width:600px;height:300px;border-radius:50%;
+        background:radial-gradient(ellipse, rgba(0,212,200,0.08) 0%, transparent 70%);
+        pointer-events:none;"></div>
+
+    <div style="max-width:620px; margin:0 auto; position:relative; z-index:1;">
+
+        <!-- Encabezado -->
+        <div style="text-align:center; margin-bottom:2.5rem;">
+            <span class="section-pill" style="margin-bottom:1rem; display:inline-block;">✉️ Escríbenos</span>
+            <h2 style="font-family:'Baloo 2',cursive; font-size:clamp(1.6rem,4vw,2.2rem); font-weight:900; color:var(--text); margin-bottom:0.6rem;">
+                ¿Tienes una consulta o sugerencia?
+            </h2>
+            <p style="color:var(--muted2); font-size:0.95rem;">
+                Completa el formulario y te responderemos a la brevedad.
+            </p>
+        </div>
+
+        <!-- Formulario -->
+        <form id="contactForm" style="
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem 2.2rem;
+            backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; gap: 1.1rem;
+        ">
+            <!-- Nombre -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">👤 Nombre completo *</label>
+                <input type="text" id="cf-name" required placeholder="Tu nombre" style="
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+            </div>
+
+            <!-- Correo -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📧 Correo electrónico *</label>
+                <input type="email" id="cf-email" required placeholder="tu@correo.com" style="
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+            </div>
+
+            <!-- Teléfono -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📞 Teléfono</label>
+                <input type="tel" id="cf-telefono" placeholder="Ej: 70000000" style="
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+            </div>
+
+            <!-- Tipo de consulta -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📋 Tipo de consulta *</label>
+                <select id="cf-tipo" required style="
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:var(--bg-2); border:1px solid var(--glass-border);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box; cursor:pointer;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+                    <option value="" disabled selected>Selecciona una opción</option>
+                    <option value="Consulta">💬 Consulta</option>
+                    <option value="Sugerencia">💡 Sugerencia</option>
+                    <option value="Cita">📅 Solicitud de cita</option>
+                    <option value="Otro">📌 Otro</option>
+                </select>
+            </div>
+
+            <!-- Mensaje -->
+            <div>
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">💬 Mensaje *</label>
+                <textarea id="cf-message" required rows="4" placeholder="Escribe tu mensaje aquí..." style="
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                    resize:vertical; min-height:110px;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'"></textarea>
+            </div>
+
+            <!-- Botón enviar -->
+            <button type="submit" id="cf-submit" style="
+                width:100%; padding:0.85rem; border-radius:50px; border:none; cursor:pointer;
+                background: linear-gradient(135deg, var(--azul), #00a89e);
+                color:#fff; font-family:'Baloo 2',cursive; font-size:1rem; font-weight:800;
+                box-shadow: 0 6px 24px rgba(0,212,200,0.35);
+                transition: all 0.25s; letter-spacing:0.02em;
+            " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 32px rgba(0,212,200,0.45)'"
+               onmouseout="this.style.transform='';this.style.boxShadow='0 6px 24px rgba(0,212,200,0.35)'">
+                📨 Enviar mensaje
+            </button>
+
+            <!-- Mensaje de estado -->
+            <div id="cf-status" style="display:none; text-align:center; padding:0.8rem; border-radius:10px; font-weight:700; font-size:0.9rem;"></div>
+        </form>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
      FOOTER
 ═══════════════════════════════════════════ -->
 <div class="footer-accent-line"></div>
@@ -2554,7 +3069,7 @@
 
         <!-- MARCA + LOGO -->
         <div class="footer-brand">
-            <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" class="footer-logo">
+            <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" class="footer-logo" loading="lazy" decoding="async">
             <h3>Centro Infantil Misael</h3>
             <p>Centro de Neurodesarrollo Infantil especializado en atención integral para niños y familias de Bolivia.</p>
             <div style="display:flex; gap:8px; margin-top:1rem;">
@@ -2620,33 +3135,33 @@
             <h4>Redes Sociales</h4>
             <div class="social-grid">
 
-                <a href="https://www.facebook.com/CentroMisael" target="_blank" class="social-link fb">
+                <a href="https://www.facebook.com/CentroMisael" target="_blank" class="social-link fb" aria-label="Síguenos en Facebook" rel="noopener noreferrer">
                     <svg fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                     Facebook
                 </a>
 
-                <a href="https://youtube.com/@CentroInfantilMisael" target="_blank" class="social-link yt">
+                <a href="https://youtube.com/@CentroInfantilMisael" target="_blank" class="social-link yt" aria-label="Canal de YouTube" rel="noopener noreferrer">
                     <svg fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                     YouTube
                 </a>
 
-                <a href="https://instagram.com/rehabilitacioninfantilmisael" target="_blank" class="social-link ig">
+                <a href="https://instagram.com/rehabilitacioninfantilmisael" target="_blank" class="social-link ig" aria-label="Síguenos en Instagram" rel="noopener noreferrer">
                     <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
                     Instagram
                 </a>
 
-                <a href="https://tiktok.com/@centroinfantilmisael" target="_blank" class="social-link tt">
+                <a href="https://tiktok.com/@centroinfantilmisael" target="_blank" class="social-link tt" aria-label="Síguenos en TikTok" rel="noopener noreferrer">
                     <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z"/></svg>
                     TikTok
                 </a>
 
                 <!-- WhatsApp multi-sede en footer -->
                 <div class="wa-footer-group">
-                    <a href="https://wa.me/59176175352?text=Hola,%20me%20gustar%C3%ADa%20obtener%20información%20sobre%20los%20servicios%20del%20Centro%20Misael" target="_blank" class="social-link wa">
+                    <a href="https://wa.me/59176175352?text=Hola,%20me%20gustar%C3%ADa%20obtener%20información%20sobre%20los%20servicios%20del%20Centro%20Misael" target="_blank" class="social-link wa" aria-label="WhatsApp Sede Principal" rel="noopener noreferrer">
                         <svg fill="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                         <span class="wa-label-sede">🏥 Sede Principal<small>+591 76175352</small></span>
                     </a>
-                    <a href="https://wa.me/59178633975?text=Hola,%20me%20gustar%C3%ADa%20obtener%20información%20sobre%20los%20servicios%20del%20Centro%20Misael%20(Sucursal%201)" target="_blank" class="social-link wa" style="background:#128C7E;">
+                    <a href="https://wa.me/59178633975?text=Hola,%20me%20gustar%C3%ADa%20obtener%20información%20sobre%20los%20servicios%20del%20Centro%20Misael%20(Sucursal%201)" target="_blank" class="social-link wa" aria-label="WhatsApp Sucursal 1" rel="noopener noreferrer" style="background:#128C7E;">
                         <svg fill="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                         <span class="wa-label-sede">🏢 Sucursal 1<small>+591 78633975</small></span>
                     </a>
@@ -2658,7 +3173,7 @@
     </div>
     <div class="footer-bottom">
         <div style="display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
-            <span style="font-size:0.8rem;">📧 info@neuromisael.com</span>
+            <a href="mailto:info@neuromisael.com" style="font-size:0.8rem; color:inherit; text-decoration:none;">📧 info@neuromisael.com</a>
             <span style="color:var(--glass-border);">·</span>
             <span style="font-size:0.8rem;">📍 Potosí, Bolivia</span>
         </div>
@@ -2667,7 +3182,7 @@
 </footer>
 
 <!-- ── BOTÓN FLOTANTE WHATSAPP (multi-sede) ── -->
-<div class="wa-fab-wrapper" id="waFabWrapper">
+<div class="wa-fab-wrapper" id="waFabWrapper" style="touch-action:manipulation; will-change:transform;">
 
     <!-- Opciones de sede (aparecen al hacer clic) -->
     <div class="wa-fab-options">
@@ -2699,7 +3214,11 @@
     </div>
 
     <!-- Botón principal toggle -->
-    <button class="whatsapp-fab" id="waFabToggle" title="Contáctanos por WhatsApp" onclick="toggleWaFab()">
+    <button class="whatsapp-fab" id="waFabToggle"
+            title="Contáctanos por WhatsApp"
+            aria-label="Contactar por WhatsApp"
+            aria-expanded="false"
+            onclick="toggleWaFab()">
         <svg fill="currentColor" viewBox="0 0 24 24" width="28" height="28">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
         </svg>
@@ -2707,29 +3226,13 @@
     </button>
 </div>
 
-<script>
-function toggleWaFab() {
-    const wrapper = document.getElementById('waFabWrapper');
-    const label = document.getElementById('waFabLabel');
-    const isOpen = wrapper.classList.toggle('open');
-    label.textContent = isOpen ? 'Elegir sede ▲' : '¡Escríbenos!';
-}
-// Cerrar al hacer clic fuera
-document.addEventListener('click', function(e) {
-    const wrapper = document.getElementById('waFabWrapper');
-    if (!wrapper.contains(e.target)) {
-        wrapper.classList.remove('open');
-        document.getElementById('waFabLabel').textContent = '¡Escríbenos!';
-    }
-});
-</script>
-
 <!-- ═══════════════════════════════════════════
      SCRIPTS
 ═══════════════════════════════════════════ -->
 <script>
 /* ── CONFETTI FLOTANTE ── */
 (function(){
+    if (window.innerWidth <= 768) return; /* skip en móvil — ahorra memoria y CPU */
     const bg = document.getElementById('heroBg');
     if (!bg) return;
     const colors = ['#00d4c8','#ff5f40','#ffd147','#22e89a','#b06cff','#ff7b3a'];
@@ -2837,16 +3340,22 @@ document.addEventListener('click', function(e) {
 
 /* ── SCROLL FADE IN ── */
 (function(){
+    const isMobile = window.innerWidth <= 768;
     const obs = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const siblings = Array.from(entry.target.parentElement.querySelectorAll('.fade-in-up'));
                 const idx = siblings.indexOf(entry.target);
-                setTimeout(() => entry.target.classList.add('visible'), idx * 90);
+                /* En móvil reducir el delay de stagger para que se vea más ágil */
+                const delay = isMobile ? idx * 50 : idx * 90;
+                setTimeout(() => entry.target.classList.add('visible'), delay);
                 obs.unobserve(entry.target);
             }
         });
-    }, { threshold: 0.12 });
+    }, {
+        threshold: isMobile ? 0.05 : 0.12,
+        rootMargin: isMobile ? '0px 0px -30px 0px' : '0px'
+    });
     document.querySelectorAll('.fade-in-up').forEach(el => obs.observe(el));
 })();
 
@@ -2960,11 +3469,10 @@ function toggleVM(id) {
     const btn    = document.getElementById('themeToggle');
     const icon   = document.getElementById('themeIcon');
     const label  = document.getElementById('themeLabel');
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
 
-    /* Cargar preferencia guardada o respetar preferencia del sistema */
     const saved = localStorage.getItem('misael-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initTheme = saved || (prefersDark ? 'dark' : 'light');
+    const initTheme = saved || 'dark';
     applyTheme(initTheme);
 
     btn.addEventListener('click', function() {
@@ -2979,10 +3487,208 @@ function toggleVM(id) {
         if (theme === 'light') {
             icon.textContent  = '🌙';
             label.textContent = 'Oscuro';
+            /* Actualizar color de barra del navegador Android */
+            document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+                m.content = '#FDFAF5';
+            });
         } else {
             icon.textContent  = '☀️';
             label.textContent = 'Claro';
+            document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+                m.content = '#080b14';
+            });
         }
+    }
+})();
+
+/* ── HAMBURGUESA + MENÚ MÓVIL ── */
+(function() {
+    const btn     = document.getElementById('hamburgerBtn');
+    const menu    = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', function() {
+        const isOpen = menu.classList.toggle('open');
+        overlay.classList.toggle('open', isOpen);
+        btn.classList.toggle('open', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
+        /* Evitar scroll del body cuando el menú está abierto */
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    });
+
+    /* Cerrar con tecla Escape */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeMobileMenu();
+    });
+})();
+
+function closeMobileMenu() {
+    const menu    = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const btn     = document.getElementById('hamburgerBtn');
+    if (!menu) return;
+    menu.classList.remove('open');
+    overlay.classList.remove('open');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+}
+
+/* ── NAVBAR HIDE-ON-SCROLL ── */
+(function() {
+    const navbar = document.querySelector('.navbar');
+    let lastY = 0;
+    let ticking = false;
+
+    window.addEventListener('scroll', function() {
+        if (!ticking) {
+            requestAnimationFrame(function() {
+                const y = window.scrollY;
+                if (y > lastY && y > 100) {
+                    navbar.classList.add('hidden');
+                    /* Si el menú móvil está abierto, cerrarlo al bajar */
+                    closeMobileMenu();
+                } else {
+                    navbar.classList.remove('hidden');
+                }
+                lastY = y;
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }, { passive: true });
+})();
+
+/* ── BOTÓN SCROLL TOP ── */
+(function() {
+    const btn = document.getElementById('scrollTopBtn');
+    if (!btn) return;
+
+    window.addEventListener('scroll', function() {
+        btn.classList.toggle('visible', window.scrollY > 400);
+    }, { passive: true });
+
+    btn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
+
+/* ── FOTOSTRIP — PAUSA AL TOCAR EN MÓVIL ── */
+(function() {
+    const strip = document.querySelector('.photo-strip');
+    if (!strip) return;
+    let resumeTimer = null;
+
+    strip.addEventListener('touchstart', function() {
+        strip.style.animationPlayState = 'paused';
+        clearTimeout(resumeTimer);
+    }, { passive: true });
+
+    strip.addEventListener('touchend', function() {
+        resumeTimer = setTimeout(function() {
+            strip.style.animationPlayState = 'running';
+        }, 2500);
+    }, { passive: true });
+})();
+
+/* ── INDICADOR DE SECCIÓN ACTIVA EN NAVBAR ── */
+(function() {
+    const links = document.querySelectorAll('.nav-links a');
+    if (!links.length) return;
+
+    /* Agregar clase nav-link a todos los links del navbar */
+    links.forEach(l => l.classList.add('nav-link'));
+
+    const sectionIds = ['servicios','galeria','nosotros','equipo','contacto'];
+    const sections = sectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
+    const obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                links.forEach(l => l.classList.remove('active'));
+                const active = document.querySelector(`.nav-links a[href="#${entry.target.id}"]`);
+                if (active) active.classList.add('active');
+            }
+        });
+    }, { threshold: 0.35, rootMargin: '-60px 0px -40% 0px' });
+
+    sections.forEach(s => obs.observe(s));
+})();
+
+/* ── WHATSAPP FAB TOGGLE (actualizado con aria) ── */
+function toggleWaFab() {
+    const wrapper = document.getElementById('waFabWrapper');
+    const label   = document.getElementById('waFabLabel');
+    const toggle  = document.getElementById('waFabToggle');
+    const isOpen  = wrapper.classList.toggle('open');
+    label.textContent = isOpen ? 'Elegir sede ▲' : '¡Escríbenos!';
+    toggle.setAttribute('aria-expanded', String(isOpen));
+}
+document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('waFabWrapper');
+    const toggle  = document.getElementById('waFabToggle');
+    if (!wrapper.contains(e.target)) {
+        wrapper.classList.remove('open');
+        document.getElementById('waFabLabel').textContent = '¡Escríbenos!';
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+});
+</script>
+
+<!-- ── EMAILJS ── -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+(function() {
+    emailjs.init('VX4No2pP5YWtNuvfq');
+
+    const form     = document.getElementById('contactForm');
+    const status   = document.getElementById('cf-status');
+    const submitBtn = document.getElementById('cf-submit');
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const name     = document.getElementById('cf-name').value.trim();
+        const email    = document.getElementById('cf-email').value.trim();
+        const telefono = document.getElementById('cf-telefono').value.trim();
+        const tipo     = document.getElementById('cf-tipo').value;
+        const message  = document.getElementById('cf-message').value.trim();
+
+        if (!name || !email || !tipo || !message) {
+            showStatus('Por favor completa todos los campos obligatorios.', '#ff5f40', 'rgba(255,95,64,0.12)');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Enviando...';
+
+        emailjs.send('service_b4jxnfo', 'template_snpjw8a', {
+            name:     name,
+            email:    email,
+            telefono: telefono || 'No proporcionado',
+            tipo:     tipo,
+            message:  message
+        }).then(function() {
+            showStatus('✅ ¡Mensaje enviado! Te responderemos pronto.', '#34eea0', 'rgba(52,238,160,0.12)');
+            form.reset();
+            submitBtn.disabled = false;
+            submitBtn.textContent = '📨 Enviar mensaje';
+        }, function(error) {
+            showStatus('❌ Hubo un error al enviar. Intenta de nuevo.', '#ff5f40', 'rgba(255,95,64,0.12)');
+            submitBtn.disabled = false;
+            submitBtn.textContent = '📨 Enviar mensaje';
+            console.error('EmailJS error:', error);
+        });
+    });
+
+    function showStatus(msg, color, bg) {
+        status.textContent = msg;
+        status.style.color = color;
+        status.style.background = bg;
+        status.style.border = '1px solid ' + color + '44';
+        status.style.display = 'block';
+        setTimeout(function() { status.style.display = 'none'; }, 6000);
     }
 })();
 </script>
