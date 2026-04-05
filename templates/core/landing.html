@@ -992,8 +992,10 @@
         /* ── Tira de scroll automático ── */
         .photo-strip-wrap {
             position: relative; overflow: hidden;
-            /* Degradados suaves en los bordes izquierdo y derecho */
+            cursor: grab;
+            user-select: none;
         }
+        .photo-strip-wrap:active { cursor: grabbing; }
         .photo-strip-wrap::before,
         .photo-strip-wrap::after {
             content: ''; position: absolute; top: 0; bottom: 0;
@@ -1976,6 +1978,45 @@
             }
             .photo-strip { animation: none !important; }
         }
+        /* ── LIGHTBOX ── */
+        .lightbox-overlay {
+            position: fixed; inset: 0; z-index: 99999;
+            background: rgba(0,0,0,0.92);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        .lightbox-overlay.open {
+            opacity: 1; pointer-events: auto;
+        }
+        .lightbox-inner {
+            position: relative; max-width: 92vw; max-height: 88vh;
+            display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
+        }
+        .lightbox-inner img {
+            max-width: 90vw; max-height: 80vh;
+            border-radius: 12px;
+            object-fit: contain;
+            box-shadow: 0 0 80px rgba(0,212,200,0.25);
+            transform: scale(0.92);
+            transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .lightbox-overlay.open .lightbox-inner img { transform: scale(1); }
+        .lightbox-caption {
+            color: rgba(240,244,255,0.85); font-family: 'Baloo 2', cursive;
+            font-size: 0.9rem; font-weight: 700; text-align: center;
+        }
+        .lightbox-close {
+            position: absolute; top: -2.5rem; right: 0;
+            background: rgba(255,255,255,0.12); border: none;
+            color: #fff; font-size: 1.4rem; width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .lightbox-close:hover { background: rgba(255,95,64,0.5); }
+        .photo-strip-item { cursor: pointer; }
     </style>
 </head>
 <body>
@@ -3741,6 +3782,139 @@ document.addEventListener('click', function(e) {
         status.style.display = 'block';
         setTimeout(function() { status.style.display = 'none'; }, 6000);
     }
+})();
+</script>
+
+<!-- ── LIGHTBOX ── -->
+<div class="lightbox-overlay" id="lightboxOverlay">
+    <div class="lightbox-inner">
+        <button class="lightbox-close" id="lightboxClose" aria-label="Cerrar">✕</button>
+        <img id="lightboxImg" src="" alt="">
+        <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+</div>
+
+<script>
+/* ── CARRUSEL: ARRASTRE MANUAL (mouse + touch) ── */
+(function() {
+    const wrap  = document.querySelector('.photo-strip-wrap');
+    const strip = document.getElementById('photoStrip');
+    if (!wrap || !strip) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    window.carouselDragMoved = false;
+
+    function pauseAnim() { strip.style.animationPlayState = 'paused'; }
+    function resumeAnim() { strip.style.animationPlayState = 'running'; }
+
+    // Exponer para que el lightbox pueda pausar/reanudar
+    window.pauseCarousel = pauseAnim;
+    window.resumeCarousel = resumeAnim;
+
+    // ── MOUSE ──
+    wrap.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        window.carouselDragMoved = false;
+        startX = e.pageX - wrap.offsetLeft;
+        scrollLeft = wrap.scrollLeft;
+        pauseAnim();
+        wrap.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mouseup', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        wrap.style.cursor = 'grab';
+        if (!window.carouselDragMoved) {
+            // No hubo arrastre real — reanudar inmediatamente
+            resumeAnim();
+        } else {
+            // Hubo arrastre — reanudar tras 1.5s
+            setTimeout(resumeAnim, 1500);
+        }
+    });
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x    = e.pageX - wrap.offsetLeft;
+        const diff = x - startX;
+        if (Math.abs(diff) > 6) window.carouselDragMoved = true;
+        wrap.scrollLeft = scrollLeft - diff * 1.5;
+    });
+
+    // ── TOUCH ──
+    wrap.addEventListener('touchstart', function(e) {
+        isDragging = true;
+        window.carouselDragMoved = false;
+        startX = e.touches[0].pageX - wrap.offsetLeft;
+        scrollLeft = wrap.scrollLeft;
+        pauseAnim();
+    }, { passive: true });
+    wrap.addEventListener('touchend', function() {
+        isDragging = false;
+        if (!window.carouselDragMoved) {
+            resumeAnim();
+        } else {
+            setTimeout(resumeAnim, 2000);
+        }
+    }, { passive: true });
+    wrap.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        const x    = e.touches[0].pageX - wrap.offsetLeft;
+        const diff = x - startX;
+        if (Math.abs(diff) > 6) window.carouselDragMoved = true;
+        wrap.scrollLeft = scrollLeft - diff * 1.5;
+    }, { passive: true });
+
+    wrap.style.overflowX = 'auto';
+    wrap.style.scrollbarWidth = 'none';
+    wrap.style.msOverflowStyle = 'none';
+    const styleHide = document.createElement('style');
+    styleHide.textContent = '.photo-strip-wrap::-webkit-scrollbar { display: none; }';
+    document.head.appendChild(styleHide);
+})();
+
+/* ── LIGHTBOX ── */
+(function() {
+    const overlay  = document.getElementById('lightboxOverlay');
+    const img      = document.getElementById('lightboxImg');
+    const caption  = document.getElementById('lightboxCaption');
+    const closeBtn = document.getElementById('lightboxClose');
+    if (!overlay) return;
+
+    // Click en cada foto — solo abrir si NO hubo arrastre
+    document.querySelectorAll('.photo-strip-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            if (window.carouselDragMoved) return;
+            const imgEl   = item.querySelector('img');
+            const labelEl = item.querySelector('.photo-strip-label');
+            if (!imgEl) return;
+            img.src = imgEl.src;
+            img.alt = imgEl.alt;
+            caption.textContent = labelEl ? labelEl.textContent.trim() : imgEl.alt;
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            // Pausar carrusel mientras el lightbox está abierto
+            if (window.pauseCarousel) window.pauseCarousel();
+        });
+    });
+
+    function closeLightbox() {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        // Reanudar carrusel al cerrar
+        if (window.resumeCarousel) window.resumeCarousel();
+        setTimeout(function() { img.src = ''; }, 300);
+    }
+
+    closeBtn.addEventListener('click', closeLightbox);
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeLightbox();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLightbox();
+    });
 })();
 </script>
 
