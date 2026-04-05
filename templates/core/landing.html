@@ -3042,26 +3042,99 @@
                 " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
             </div>
 
-            <!-- Correo -->
-            <div>
-                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📧 Correo electrónico *</label>
-                <input type="email" id="cf-email" required placeholder="tu@correo.com" style="
-                    width:100%; padding:0.75rem 1rem; border-radius:10px;
-                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
-                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
-                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
-                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+            <!-- Correo y Teléfono — al menos uno requerido -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+                <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">
+                        📧 Correo <span id="cf-email-req" style="color:var(--azul);">*</span>
+                    </label>
+                    <input type="email" id="cf-email" placeholder="tu@correo.com" style="
+                        width:100%; padding:0.75rem 1rem; border-radius:10px;
+                        background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                        color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                        outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                    " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'"
+                    oninput="updateContactReq()">
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">
+                        📞 Teléfono <span id="cf-tel-req" style="color:var(--azul);">*</span>
+                    </label>
+                    <input type="tel" id="cf-telefono" placeholder="Ej: 70000000" style="
+                        width:100%; padding:0.75rem 1rem; border-radius:10px;
+                        background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                        color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                        outline:none; transition:border-color 0.2s; box-sizing:border-box;
+                    " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'"
+                    oninput="updateContactReq()">
+                </div>
             </div>
+            <p style="font-size:0.72rem; color:var(--muted2); margin-top:-0.6rem;">* Al menos uno de los dos es obligatorio.</p>
 
-            <!-- Teléfono -->
+            <!-- Ciudad -->
             <div>
-                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📞 Teléfono</label>
-                <input type="tel" id="cf-telefono" placeholder="Ej: 70000000" style="
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--muted); margin-bottom:0.4rem;">📍 Ciudad *</label>
+                <select id="cf-ciudad" required style="
                     width:100%; padding:0.75rem 1rem; border-radius:10px;
-                    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+                    background:var(--bg-2); border:1px solid var(--glass-border);
                     color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
-                    outline:none; transition:border-color 0.2s; box-sizing:border-box;
-                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'">
+                    outline:none; transition:border-color 0.2s; box-sizing:border-box; cursor:pointer;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--glass-border)'"
+                onchange="toggleOtrasCiudad(this)">
+                    <option value="" disabled selected>Selecciona tu ciudad</option>
+                    <optgroup label="Capitales de Departamento">
+                        <option value="Sucre">Sucre (Chuquisaca)</option>
+                        <option value="La Paz">La Paz</option>
+                        <option value="Cochabamba">Cochabamba</option>
+                        <option value="Oruro">Oruro</option>
+                        <option value="Potosí">Potosí</option>
+                        <option value="Tarija">Tarija</option>
+                        <option value="Santa Cruz de la Sierra">Santa Cruz de la Sierra</option>
+                        <option value="Trinidad">Trinidad (Beni)</option>
+                        <option value="Cobija">Cobija (Pando)</option>
+                    </optgroup>
+                    <optgroup label="Otras ciudades">
+                        <option value="El Alto">El Alto</option>
+                        <option value="Quillacollo">Quillacollo</option>
+                        <option value="Sacaba">Sacaba</option>
+                        <option value="Montero">Montero</option>
+                        <option value="Warnes">Warnes</option>
+                        <option value="Riberalta">Riberalta</option>
+                        <option value="Guayaramerín">Guayaramerín</option>
+                        <option value="Yacuiba">Yacuiba</option>
+                        <option value="Bermejo">Bermejo</option>
+                        <option value="Villazón">Villazón</option>
+                        <option value="Llallagua">Llallagua</option>
+                        <option value="Tupiza">Tupiza</option>
+                        <option value="Uyuni">Uyuni</option>
+                        <option value="Camiri">Camiri</option>
+                        <option value="Villamontes">Villamontes</option>
+                        <option value="Punata">Punata</option>
+                        <option value="Viacha">Viacha</option>
+                        <option value="Caracollo">Caracollo</option>
+                        <option value="Huanuni">Huanuni</option>
+                        <option value="Challapata">Challapata</option>
+                        <option value="San Ignacio de Velasco">San Ignacio de Velasco</option>
+                        <option value="San Borja">San Borja</option>
+                        <option value="Rurrenabaque">Rurrenabaque</option>
+                        <option value="Caranavi">Caranavi</option>
+                        <option value="Puerto Suárez">Puerto Suárez</option>
+                        <option value="Robore">Roboré</option>
+                        <option value="Coroico">Coroico</option>
+                        <option value="Tiahuanaco">Tiahuanaco</option>
+                        <option value="Colcapirhua">Colcapirhua</option>
+                        <option value="Tiquipaya">Tiquipaya</option>
+                    </optgroup>
+                    <option value="Otra">📌 Otra ciudad...</option>
+                </select>
+                <!-- Campo que aparece solo si elige "Otra" -->
+                <input type="text" id="cf-ciudad-otra" placeholder="Escribe tu ciudad" style="
+                    display:none; margin-top:0.6rem;
+                    width:100%; padding:0.75rem 1rem; border-radius:10px;
+                    background:rgba(255,255,255,0.06); border:1px solid var(--azul);
+                    color:var(--text); font-family:'Nunito',sans-serif; font-size:0.9rem;
+                    outline:none; box-sizing:border-box;
+                " onfocus="this.style.borderColor='var(--azul)'" onblur="this.style.borderColor='var(--azul)'">
             </div>
 
             <!-- Tipo de consulta -->
@@ -3729,6 +3802,40 @@ document.addEventListener('click', function(e) {
 </script>
 
 <!-- ── EMAILJS ── -->
+<script>
+// Mostrar/ocultar campo de ciudad personalizada
+function toggleOtrasCiudad(select) {
+    const otraInput = document.getElementById('cf-ciudad-otra');
+    if (select.value === 'Otra') {
+        otraInput.style.display = 'block';
+        otraInput.required = true;
+        otraInput.focus();
+    } else {
+        otraInput.style.display = 'none';
+        otraInput.required = false;
+        otraInput.value = '';
+    }
+}
+function updateContactReq() {
+    const email    = document.getElementById('cf-email').value.trim();
+    const telefono = document.getElementById('cf-telefono').value.trim();
+    const emailReq = document.getElementById('cf-email-req');
+    const telReq   = document.getElementById('cf-tel-req');
+    if (email) {
+        // Tiene correo → teléfono ya no es requerido
+        emailReq.style.display = 'none';
+        telReq.style.display   = 'none';
+    } else if (telefono) {
+        // Tiene teléfono → correo ya no es requerido
+        emailReq.style.display = 'none';
+        telReq.style.display   = 'none';
+    } else {
+        // Ninguno — mostrar ambos asteriscos
+        emailReq.style.display = 'inline';
+        telReq.style.display   = 'inline';
+    }
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
 (function() {
@@ -3744,11 +3851,26 @@ document.addEventListener('click', function(e) {
         const name     = document.getElementById('cf-name').value.trim();
         const email    = document.getElementById('cf-email').value.trim();
         const telefono = document.getElementById('cf-telefono').value.trim();
+        const ciudadSel = document.getElementById('cf-ciudad').value;
+        const ciudadOtra = document.getElementById('cf-ciudad-otra').value.trim();
+        const ciudad   = ciudadSel === 'Otra' ? (ciudadOtra || '') : ciudadSel;
         const tipo     = document.getElementById('cf-tipo').value;
         const message  = document.getElementById('cf-message').value.trim();
 
-        if (!name || !email || !tipo || !message) {
+        if (!name || !tipo || !message) {
             showStatus('Por favor completa todos los campos obligatorios.', '#ff5f40', 'rgba(255,95,64,0.12)');
+            return;
+        }
+        if (!email && !telefono) {
+            showStatus('Por favor ingresa al menos tu correo o tu teléfono.', '#ff5f40', 'rgba(255,95,64,0.12)');
+            return;
+        }
+        if (!ciudad) {
+            showStatus('Por favor selecciona tu ciudad.', '#ff5f40', 'rgba(255,95,64,0.12)');
+            return;
+        }
+        if (ciudadSel === 'Otra' && !ciudadOtra) {
+            showStatus('Por favor escribe el nombre de tu ciudad.', '#ff5f40', 'rgba(255,95,64,0.12)');
             return;
         }
 
@@ -3757,13 +3879,15 @@ document.addEventListener('click', function(e) {
 
         emailjs.send('service_b4jxnfo', 'template_snpjw8a', {
             name:     name,
-            email:    email,
+            email:    email    || 'No proporcionado',
             telefono: telefono || 'No proporcionado',
+            ciudad:   ciudad   || 'No especificada',
             tipo:     tipo,
             message:  message
         }).then(function() {
             showStatus('✅ ¡Mensaje enviado! Te responderemos pronto.', '#34eea0', 'rgba(52,238,160,0.12)');
             form.reset();
+            updateContactReq();
             submitBtn.disabled = false;
             submitBtn.textContent = '📨 Enviar mensaje';
         }, function(error) {
