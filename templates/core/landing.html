@@ -1792,25 +1792,67 @@
         ═══════════════════════════════════════ */
         @media (max-width: 768px) {
 
+            /* OVERFLOW GLOBAL — evita que cualquier elemento se salga */
+            html, body {
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
+            }
+
             /* Mostrar hamburguesa y barra de horarios */
             .hamburger { display: flex; }
-            .horarios-bar { display: flex; }
+            .horarios-bar {
+                display: flex !important;
+                flex-wrap: wrap;
+                font-size: 0.72rem;
+                padding: 0.5rem 1rem;
+                gap: 0.4rem;
+                justify-content: center;
+            }
 
-            /* 1. GRAIN OVERLAY — principal culpable del scroll lento.
-                  El SVG feTurbulence en position:fixed se repinta en
-                  cada frame. Lo eliminamos en móvil. */
+            /* NAVBAR — compactar padding en móvil */
+            .navbar {
+                padding: 0.6rem 1rem !important;
+                animation: none !important;
+                background: rgba(20,8,40,0.96) !important;
+                background-size: unset !important;
+            }
+            .navbar::after { animation-duration: 10s; }
+            [data-theme="light"] .navbar { animation: none !important; }
+
+            /* NAVBAR BRAND — texto más pequeño */
+            .navbar-brand {
+                font-size: 0.78rem !important;
+                line-height: 1.2;
+            }
+            .navbar-brand-email { font-size: 0.58rem !important; }
+
+            /* THEME TOGGLE — asegurar que el texto sea visible */
+            .theme-toggle {
+                background: rgba(255,255,255,0.18) !important;
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+                padding: 0.3rem 0.65rem !important;
+                font-size: 0.72rem !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            [data-theme="light"] .theme-toggle {
+                background: rgba(30,60,45,0.85) !important;
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+            }
+            #themeLabel { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+
+            /* 1. GRAIN OVERLAY */
             body::before { display: none !important; }
 
-            /* 2. ORBES BLUR — filter:blur(80px) en elementos grandes
-                  es muy costoso en GPU de gama baja. */
+            /* 2. ORBES BLUR */
             .hero-orb,
             .vmv-glow, .vmv-glow-1, .vmv-glow-2, .vmv-glow-3 {
                 display: none !important;
             }
 
-            /* 3. ANIMACIONES EN LOOP DE TARJETAS — desactivar
-                  cardFloat, iconWobble y delays escalonados que
-                  saturan el hilo de composición. */
+            /* 3. ANIMACIONES EN LOOP */
             .service-card:not(:hover)  { animation: none !important; }
             .service-icon              { animation: none !important; }
             .trust-item .icon          { animation: none !important; }
@@ -1823,80 +1865,58 @@
             .hero-illustration img     { animation: none !important; }
             .confetti-piece            { display: none !important; }
 
-            /* 4. NAVBAR — animación de fondo y borde en loop.
-                  En móvil la navbar es estática, no necesita shift. */
-            .navbar {
-                animation: none !important;
-                background: rgba(20,8,40,0.96) !important;
-                background-size: unset !important;
-            }
-            .navbar::after {
-                animation-duration: 10s;
-            }
-            [data-theme="light"] .navbar {
-                animation: none !important;
-            }
-
-            /* 5. TRUST BAR — animación de fondo */
+            /* 4. TRUST BAR */
             .trust-bar {
                 animation: none !important;
                 background-size: unset !important;
             }
 
-            /* 6. BACKDROP-FILTER — extremadamente costoso en
-                  Android 6-9. Reemplazar con fondo sólido semitransparente. */
+            /* 5. BACKDROP-FILTER */
             .service-card,
             .why-card,
             .vmv-card,
             .team-intro-card,
             .srv-tab,
-            .btn-secondary,
-            .theme-toggle {
+            .btn-secondary {
                 backdrop-filter: none !important;
                 -webkit-backdrop-filter: none !important;
             }
-            .service-card  { background: rgba(255,255,255,0.07) !important; }
-            .why-card      { background: rgba(255,255,255,0.08) !important; }
-            .vmv-card      { background: rgba(255,255,255,0.05) !important; }
+            .service-card    { background: rgba(255,255,255,0.07) !important; }
+            .why-card        { background: rgba(255,255,255,0.08) !important; }
+            .vmv-card        { background: rgba(255,255,255,0.05) !important; }
             .team-intro-card { background: rgba(255,255,255,0.07) !important; }
-            .srv-tab       { background: rgba(255,255,255,0.06) !important; }
-            .btn-secondary { background: rgba(255,255,255,0.08) !important; }
-            .theme-toggle  { background: rgba(255,255,255,0.18) !important; }
+            .srv-tab         { background: rgba(255,255,255,0.06) !important; }
+            .btn-secondary   { background: rgba(255,255,255,0.08) !important; }
 
-            /* 7. DOODLES FLOTANTES — animaciones decorativas,
-                  las desactivamos sin quitarlas visualmente. */
+            /* 6. DOODLES */
             .doodle-float,
             .doodle-sway,
             .doodle-pulse { animation: none !important; }
 
-            /* 8. FOTOSTRIP — reducir tamaño de items y ralentizar
-                  para ahorrar recursos de composición. */
+            /* 7. FOTOSTRIP */
             .photo-strip      { animation-duration: 60s; }
             .photo-strip-item { width: 220px; height: 170px; }
 
-            /* 9. WHATSAPP FAB — fix de botones que se salen
-                  del viewport en pantallas angostas. */
+            /* 8. WHATSAPP FAB — siempre visible y dentro del viewport */
             .wa-fab-wrapper {
-                right: 1rem;
-                bottom: 1rem;
+                right: 0.75rem !important;
+                bottom: 0.75rem !important;
+                max-width: calc(100vw - 1.5rem) !important;
             }
             .wa-sede-btn {
                 min-width: auto !important;
                 width: auto !important;
-                max-width: calc(100vw - 5rem);
+                max-width: calc(100vw - 5rem) !important;
             }
             footer { padding-bottom: 5rem; }
 
-            /* 10. HERO — usar svh para evitar el salto del
-                   browser bar en móviles modernos. */
+            /* 9. HERO */
             .hero { min-height: 100svh; }
 
-            /* 11. SCROLL BEHAVIOR — quitar smooth global para
-                   evitar janks. El JS de anclas ya lo maneja. */
+            /* 10. SCROLL BEHAVIOR */
             html { scroll-behavior: auto; }
 
-            /* 12. TRANSICIONES — reducir duración para que
-                   la UI se sienta más ágil en hardware lento. */
+            /* 11. TRANSICIONES */
             .service-card,
             .why-card,
             .team-card,
@@ -1905,18 +1925,28 @@
                 transition-duration: 0.15s !important;
             }
 
-            /* 13. LOGO HERO — anillos decorativos animados
-                   ocultos en móvil (ya se oculta .hero-illustration
-                   pero los rings están dentro del mismo bloque). */
+            /* 12. HERO ILLUSTRATION */
             .hero-illustration { display: none !important; }
+
+            /* 13. ELEMENTOS QUE SE SALEN — contener todo */
+            section, footer, .trust-bar, .gallery-section,
+            .why-section, .team-section, .vmv-section, .cta-section {
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
         }
 
         /* Pantallas muy pequeñas — ajustes adicionales */
         @media (max-width: 400px) {
-            .trust-bar { gap: 1rem; padding: 1.2rem 1rem; }
-            .section   { padding: 3rem 1.2rem; }
-            .hero      { padding: 3.5rem 1.2rem 2.5rem; }
-            .horarios-bar { display: none !important; } /* demasiado estrecho */
+            .trust-bar   { gap: 1rem; padding: 1.2rem 1rem; }
+            .section     { padding: 3rem 1.2rem; }
+            .hero        { padding: 3.5rem 1.2rem 2.5rem; }
+            .horarios-bar {
+                font-size: 0.65rem !important;
+                padding: 0.4rem 0.8rem !important;
+                gap: 0.3rem !important;
+            }
+            .navbar { padding: 0.5rem 0.75rem !important; }
         }
 
         /* Respetar preferencia del sistema de reducir movimiento */
