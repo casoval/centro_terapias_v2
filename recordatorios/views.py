@@ -193,7 +193,7 @@ def whatsapp_envio_masivo(request):
     sucursal_filtro = data.get('sucursal', 'todas')
     destinatarios = data.get('destinatarios', 'semana')
 
-    if destinatarios != 'deudores' and not mensaje:
+    if destinatarios not in ('deudores', 'mensualidades_semana') and not mensaje:
         return JsonResponse({'error': 'Mensaje vacío'}, status=400)
 
     from agenda.models import Sesion
@@ -332,6 +332,63 @@ def whatsapp_envio_masivo(request):
                     'sucursal': sucursal_nombre,
                     'mensaje': mensaje,
                 }
+
+    elif destinatarios == 'mensualidades_semana':
+        from agenda.models import Sesion as SesionLocal
+        DIAS_LOCAL  = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+        MESES_LOCAL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+                       'septiembre','octubre','noviembre','diciembre']
+
+        hoy     = timezone.localdate()
+        lunes   = hoy + timedelta(days=(7 - hoy.weekday()))  # próximo lunes
+        domingo = lunes + timedelta(days=6)
+
+        sesiones_mens = SesionLocal.objects.filter(
+            fecha__range=[lunes, domingo],
+            estado='programada',
+            mensualidad__isnull=False,
+        ).select_related('paciente', 'profesional', 'servicio', 'sucursal', 'mensualidad'
+        ).order_by('fecha', 'hora_inicio')
+
+        if sucursal_filtro == 'japon':
+            sesiones_mens = sesiones_mens.filter(sucursal_id=3)
+        elif sucursal_filtro == 'camacho':
+            sesiones_mens = sesiones_mens.filter(sucursal_id=4)
+
+        grupos = {}
+        for sesion in sesiones_mens:
+            paciente = sesion.paciente
+            telefono = paciente.telefono_tutor
+            if not telefono:
+                continue
+            sucursal_id, sucursal_nombre = get_sucursal_principal(paciente)
+            if telefono not in grupos:
+                grupos[telefono] = {
+                    'telefono':        telefono,
+                    'tutor_nombre':    paciente.nombre_tutor,
+                    'paciente_nombre': paciente.nombre_tutor,
+                    'sucursal_id':     sucursal_id,
+                    'sucursal':        sesion.sucursal.nombre,
+                    'sesiones':        [],
+                }
+            grupos[telefono]['sesiones'].append({
+                'paciente_nombre': paciente.nombre_completo,
+                'dia':             DIAS_LOCAL[sesion.fecha.weekday()],
+                'fecha':           f"{sesion.fecha.day} de {MESES_LOCAL[sesion.fecha.month - 1]}",
+                'hora_inicio':     sesion.hora_inicio.strftime('%H:%M'),
+                'servicio':        sesion.servicio.nombre,
+            })
+
+        for telefono, tutor in grupos.items():
+            lineas = "\n".join([
+                f"• {s['dia']} {s['fecha']}: {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}"
+                for s in tutor['sesiones']
+            ])
+            tutor['mensaje'] = (
+                f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n"
+                f"{lineas}\n¡Hasta pronto! 😊 neuromisael.com"
+            )
+            tutores[telefono] = tutor
 
     elif destinatarios == 'deudores':
         from facturacion.models import CuentaCorriente
