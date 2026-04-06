@@ -380,13 +380,26 @@ def whatsapp_envio_masivo(request):
             })
 
         for telefono, tutor in grupos.items():
-            lineas = "\n".join([
-                f"• {s['dia']} {s['fecha']}: {s['paciente_nombre']} - {s['servicio']} a las {s['hora_inicio']}"
-                for s in tutor['sesiones']
-            ])
+            # Agrupar sesiones por paciente
+            pacientes_dict = {}
+            for s in tutor['sesiones']:
+                nombre = s['paciente_nombre']
+                if nombre not in pacientes_dict:
+                    pacientes_dict[nombre] = []
+                pacientes_dict[nombre].append(s)
+
+            bloques = []
+            for nombre_paciente, sesiones_paciente in pacientes_dict.items():
+                lineas_paciente = "\n".join([
+                    f"  • {s['dia']} {s['fecha']}: {s['servicio']} a las {s['hora_inicio']}"
+                    for s in sesiones_paciente
+                ])
+                bloques.append(f"*{nombre_paciente}:*\n{lineas_paciente}")
+
+            cuerpo = "\n\n".join(bloques)
             tutor['mensaje'] = (
-                f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n"
-                f"{lineas}\n¡Hasta pronto! 😊 neuromisael.com"
+                f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n\n"
+                f"{cuerpo}\n\n¡Hasta pronto! 😊 neuromisael.com"
             )
             tutores[telefono] = tutor
 
