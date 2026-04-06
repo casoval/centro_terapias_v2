@@ -253,6 +253,8 @@
 <script>
 let historialCompleto = [];
 let filtroActual = 'todos';
+let paginaActual = 1;
+const POR_PAGINA = 50;
 
 // ── Estado de los bots ──
 async function checkStatus(bot) {
@@ -387,6 +389,7 @@ async function cargarHistorial() {
 
 function filtrarHistorial(filtro) {
     filtroActual = filtro;
+    paginaActual = 1;
     ['todos','japon','camacho'].forEach(f => {
         const btn = document.getElementById(`fil-${f}`);
         btn.className = f === filtro
@@ -411,7 +414,12 @@ function renderHistorial() {
         return;
     }
 
-    container.innerHTML = datos.map(m => {
+    const totalPaginas = Math.ceil(datos.length / POR_PAGINA);
+    if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+    const inicio = (paginaActual - 1) * POR_PAGINA;
+    const pagina = datos.slice(inicio, inicio + POR_PAGINA);
+
+    const items = pagina.map(m => {
         const fecha = new Date(m.fecha);
         const fechaStr = fecha.toLocaleString('es-BO', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
         const esExito = m.estado === 'enviado';
@@ -434,6 +442,29 @@ function renderHistorial() {
             <div class="text-white/85 text-xs leading-relaxed pl-6">${m.mensaje || ''}</div>
         </div>`;
     }).join('');
+
+    const paginacion = totalPaginas > 1 ? `
+        <div class="flex items-center justify-between pt-3 mt-2" style="border-top:1px solid rgba(255,255,255,0.08);">
+            <span class="text-xs text-white/50">
+                Página ${paginaActual} de ${totalPaginas} · ${datos.length} mensajes
+            </span>
+            <div class="flex gap-2">
+                ${paginaActual > 1 ? `<button onclick="cambiarPagina(${paginaActual - 1})"
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                    style="background:#1e293b; border:1px solid rgba(255,255,255,0.15);">← Anterior</button>` : ''}
+                ${paginaActual < totalPaginas ? `<button onclick="cambiarPagina(${paginaActual + 1})"
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
+                    style="background:#1e293b; border:1px solid rgba(255,255,255,0.15);">Siguiente →</button>` : ''}
+            </div>
+        </div>` : '';
+
+    container.innerHTML = `<div class="space-y-2">${items}</div>${paginacion}`;
+}
+
+function cambiarPagina(pagina) {
+    paginaActual = pagina;
+    renderHistorial();
+    document.getElementById('historial-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ── Pausa de bots ──

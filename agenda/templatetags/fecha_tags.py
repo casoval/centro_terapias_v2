@@ -1,5 +1,5 @@
 from django import template
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 register = template.Library()
 
@@ -58,3 +58,24 @@ def mes_anio(fecha):
         mes = MESES[fecha.month]
         return f"{mes} {fecha.year}"
     return ''
+
+@register.filter
+def fecha_offset(value, days):
+    """Suma o resta días a una fecha. Uso: {{ fecha|fecha_offset:'7' }}"""
+    if isinstance(value, (date, datetime)):
+        try:
+            return value + timedelta(days=int(days))
+        except (ValueError, TypeError):
+            return value
+    return value
+
+@register.filter
+def fecha_offset_meses(value, months):
+    """Suma o resta meses a una fecha. Uso: {{ fecha|fecha_offset_meses:'3' }}"""
+    if isinstance(value, (date, datetime)):
+        try:
+            from dateutil.relativedelta import relativedelta
+            return value + relativedelta(months=int(months))
+        except (ValueError, TypeError):
+            return value
+    return value

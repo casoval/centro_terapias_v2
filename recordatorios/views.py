@@ -501,8 +501,8 @@ def whatsapp_envio_masivo(request):
 def backup_monitor(request):
     """Vista principal del monitor de respaldos."""
     from recordatorios.models import RegistroBackup
+    from django.core.paginator import Paginator
 
-    backups  = RegistroBackup.objects.all()[:50]
     exitosos = RegistroBackup.objects.filter(exitoso=True).count()
     fallidos = RegistroBackup.objects.filter(exitoso=False).count()
     ultimo   = RegistroBackup.objects.first()
@@ -515,6 +515,10 @@ def backup_monitor(request):
         'ultimo_tipo':    ultimo.get_tipo_display() if ultimo else None,
         'ultimo_tamanio': ultimo.tamanio_mb if ultimo else None,
     }
+
+    paginator = Paginator(RegistroBackup.objects.all(), 50)
+    page_number = request.GET.get('page', 1)
+    backups = paginator.get_page(page_number)
 
     return render(request, 'recordatorios/backup_monitor.html', {
         'backups': backups,
