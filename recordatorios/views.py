@@ -408,7 +408,7 @@ def whatsapp_envio_masivo(request):
 
         cuentas = CuentaCorriente.objects.filter(
             paciente__estado='activo',
-            saldo_actual__lt=-1,
+            saldo_real__lt=-1,
         ).select_related('paciente').prefetch_related('paciente__sucursales')
 
         deudores_agrupados = {}
@@ -425,7 +425,7 @@ def whatsapp_envio_masivo(request):
             if sucursal_filtro == 'camacho' and sucursal_id != 4:
                 continue
 
-            deuda = abs(cuenta.saldo_actual)
+            deuda = abs(cuenta.saldo_real)
 
             if telefono not in deudores_agrupados:
                 deudores_agrupados[telefono] = {

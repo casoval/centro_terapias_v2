@@ -191,17 +191,18 @@ def mensualidades_semana(request):
 @api_view(['GET'])
 def deudas_pendientes(request):
     """
-    Retorna tutores con saldo pendiente (saldo_actual < -1).
+    Retorna tutores con saldo proyectado pendiente (saldo_real < -1).
     Agrupa por teléfono del tutor — un mensaje por tutor aunque tenga varios hijos con deuda.
     Filtra por sucursal si se pasa ?sucursal=3 o ?sucursal=4.
     Construye el mensaje completo listo para enviar por WhatsApp.
+    Usa saldo_real (incluye sesiones programadas y planificadas).
     """
     sucursal_id = request.GET.get('sucursal')
 
     cuentas = CuentaCorriente.objects.filter(
         paciente__estado='activo',
-        saldo_actual__lt=-1,  # deuda real de al menos Bs. 1
-    ).select_related('paciente').prefetch_related('paciente__sucursales').order_by('saldo_actual')
+        saldo_real__lt=-1,  # deuda proyectada de al menos Bs. 1
+    ).select_related('paciente').prefetch_related('paciente__sucursales').order_by('saldo_real')
 
     # Agrupar por teléfono del tutor
     tutores = {}
@@ -240,7 +241,7 @@ def deudas_pendientes(request):
         if sucursal_id and str(suc_id) != str(sucursal_id):
             continue
 
-        deuda = abs(cuenta.saldo_actual)
+        deuda = abs(cuenta.saldo_real)
 
         if telefono not in tutores:
             tutores[telefono] = {
