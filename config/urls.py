@@ -26,6 +26,7 @@ urlpatterns = [
     path('evaluaciones/', include('evaluaciones.urls', namespace='evaluaciones')),
     path('asistencia/', include('asistencia.urls', namespace='asistencia')),
     path('api/', include('recordatorios.urls')),
+    path('agente/', include('agente.urls', namespace='agente')),
 ]
 
 if settings.DEBUG:

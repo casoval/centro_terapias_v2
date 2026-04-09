@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'asistencia.apps.AsistenciaConfig',
     'rest_framework',    # ← nueva
     'recordatorios',     # ← nueva
+    'agente',
 ]
 
 MIDDLEWARE = [
@@ -263,6 +264,11 @@ LOGGING = {
             'propagate': False,
         },
         'asistencia': {
+            'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'agente': {
             'handlers': ['console', 'file'] if IS_PRODUCTION else ['console'],
             'level': 'INFO',
             'propagate': False,
