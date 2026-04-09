@@ -412,44 +412,35 @@ def _enviar_respuesta_texto(telefono: str, mensaje: str, puerto: int):
  
  
 def _enviar_respuesta_voz(telefono: str, texto: str, puerto: int):
-    """Convierte texto a audio y envía nota de voz via bot Node.js."""
+    """Convierte texto a audio ogg y envía nota de voz via bot Node.js."""
+    import os as _os
     try:
-        from agente.voz import texto_a_voz, guardar_audio_temp
-        import os as _os
- 
-        # Generar audio
-        audio_bytes = texto_a_voz(texto)
-        if not audio_bytes:
+        from agente.voz import texto_a_voz
+
+        # texto_a_voz ahora devuelve ruta del archivo ogg/opus
+        ruta_audio = texto_a_voz(texto)
+        if not ruta_audio:
             log.warning(f'[Voz] Fallo TTS para {telefono} — enviando texto como respaldo')
             _enviar_respuesta_texto(telefono, texto, puerto)
             return
- 
-        # Guardar audio temporal
-        ruta_audio = guardar_audio_temp(audio_bytes, 'mp3')
-        if not ruta_audio:
-            _enviar_respuesta_texto(telefono, texto, puerto)
-            return
- 
-        # Enviar al bot Node.js para que lo envíe como nota de voz
+
+        # Enviar al bot Node.js
         requests.post(
             f'http://localhost:{puerto}/send-audio',
             json={
-                'telefono':  telefono,
+                'telefono':   telefono,
                 'ruta_audio': ruta_audio,
-                'paciente':  'Consulta nueva',
-                'sucursal':  'Agente Público',
             },
             timeout=10,
         )
-        log.info(f'[Voz] Audio enviado a {telefono}')
- 
+        log.info(f'[Voz] Audio ogg enviado a {telefono}')
+
         # Limpiar archivo temporal
         try:
             _os.unlink(ruta_audio)
         except Exception:
             pass
- 
+
     except Exception as e:
         log.error(f'[Voz] Error al enviar audio a {telefono}: {e}')
         _enviar_respuesta_texto(telefono, texto, puerto)
- 
