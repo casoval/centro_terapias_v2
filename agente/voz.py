@@ -4,22 +4,21 @@ Módulo de voz para el Agente Público.
 
 Funciones:
 - transcribir_audio(): Convierte nota de voz (ogg/mp3) a texto usando Groq Whisper
-- texto_a_voz(): Convierte texto a audio usando ElevenLabs
+- texto_a_voz(): Convierte texto a audio ogg/opus listo para WhatsApp (via ElevenLabs + ffmpeg)
 """
 
 import os
 import logging
+import subprocess
 import tempfile
 import requests
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('agente')
 
 # ── Configuración ─────────────────────────────────────────────────────────────
-ELEVENLABS_API_KEY = os.environ.get('ELEVENLABS_API_KEY')
-ELEVENLABS_VOICE_ID = os.environ.get('ELEVENLABS_VOICE_ID')
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
-
-ELEVENLABS_URL = f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}'
+ELEVENLABS_API_KEY  = os.environ.get('ELEVENLABS_API_KEY', '')
+ELEVENLABS_VOICE_ID = os.environ.get('ELEVENLABS_VOICE_ID', 'pNInz6obpgDQGcFmaJgB')
+GROQ_API_KEY        = os.environ.get('GROQ_API_KEY', '')
 
 
 # ── Transcripción de audio → texto (Groq Whisper) ────────────────────────────
@@ -47,7 +46,7 @@ def transcribir_audio(ruta_audio: str) -> str | None:
             )
 
         texto = transcripcion.strip() if isinstance(transcripcion, str) else transcripcion.text.strip()
-        log.info(f'[Voz] Transcripción exitosa: {texto[:60]}...')
+        log.info(f'[Voz] Transcripción exitosa: {texto[:60]}')
         return texto
 
     except Exception as e:
@@ -55,21 +54,26 @@ def transcribir_audio(ruta_audio: str) -> str | None:
         return None
 
 
-# ── Síntesis de voz → audio (ElevenLabs) ─────────────────────────────────────
+# ── Síntesis de voz → audio ogg/opus (ElevenLabs + ffmpeg) ──────────────────
 
-def texto_a_voz(texto: str) -> bytes | None:
+def texto_a_voz(texto: str) -> str | None:
     """
-    Convierte texto a audio usando ElevenLabs.
+    Convierte texto a audio ogg/opus listo para enviar como nota de voz en WhatsApp.
+
+    Flujo:
+        texto → ElevenLabs (mp3) → ffmpeg → ogg/opus → ruta del archivo
 
     Args:
         texto: Texto a convertir en voz
 
     Returns:
-        Bytes del audio MP3 o None si falla
+        Ruta al archivo ogg/opus temporal, o None si falla
     """
     try:
-        response = requests.post(
-            ELEVENLABS_URL,
+        # 1. Generar audio mp3 con ElevenLabs
+        url = f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}'
+        r = requests.post(
+            url,
             headers={
                 'xi-api-key': ELEVENLABS_API_KEY,
                 'Content-Type': 'application/json',
@@ -85,37 +89,32 @@ def texto_a_voz(texto: str) -> bytes | None:
             timeout=30,
         )
 
-        if response.status_code == 200:
-            log.info(f'[Voz] Audio generado exitosamente ({len(response.content)} bytes)')
-            return response.content
-        else:
-            log.error(f'[Voz] Error ElevenLabs: {response.status_code} — {response.text[:100]}')
+        if r.status_code != 200:
+            log.error(f'[Voz] Error ElevenLabs: {r.status_code} — {r.text[:200]}')
             return None
 
+        # 2. Guardar mp3 temporal
+        mp3_fd, mp3_path = tempfile.mkstemp(suffix='.mp3', dir='/tmp')
+        with os.fdopen(mp3_fd, 'wb') as f:
+            f.write(r.content)
+        log.info(f'[Voz] MP3 generado ({len(r.content)} bytes) — convirtiendo a ogg/opus')
+
+        # 3. Convertir mp3 → ogg/opus con ffmpeg (requerido por WhatsApp)
+        ogg_path = mp3_path.replace('.mp3', '.ogg')
+        resultado = subprocess.run(
+            ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'libopus', '-b:a', '64k', ogg_path],
+            capture_output=True,
+            text=True,
+        )
+        os.unlink(mp3_path)
+
+        if resultado.returncode != 0:
+            log.error(f'[Voz] Error ffmpeg: {resultado.stderr[-300:]}')
+            return None
+
+        log.info(f'[Voz] Audio ogg/opus listo: {ogg_path}')
+        return ogg_path
+
     except Exception as e:
-        log.error(f'[Voz] Error al generar audio: {e}')
-        return None
-
-
-def guardar_audio_temp(audio_bytes: bytes, extension: str = 'mp3') -> str | None:
-    """
-    Guarda bytes de audio en un archivo temporal.
-
-    Args:
-        audio_bytes: Bytes del audio
-        extension: Extensión del archivo (mp3, ogg, etc.)
-
-    Returns:
-        Ruta al archivo temporal o None si falla
-    """
-    try:
-        with tempfile.NamedTemporaryFile(
-            suffix=f'.{extension}',
-            delete=False,
-            dir='/tmp'
-        ) as f:
-            f.write(audio_bytes)
-            return f.name
-    except Exception as e:
-        log.error(f'[Voz] Error al guardar audio temporal: {e}')
+        log.error(f'[Voz] Error inesperado en texto_a_voz: {e}')
         return None
