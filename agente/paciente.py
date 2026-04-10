@@ -24,9 +24,26 @@ def get_client():
     return _client
 
 
-PROMPT_PACIENTE = """Eres Misael, el asistente virtual del Centro Infantil Misael. Atiendes a tutores que ya son parte del centro — conoces a su hijo/a y tienes acceso a su informacion de sesiones y pagos.
+PROMPT_BASE_PACIENTE = """Eres Misael, el asistente virtual personal del Centro Infantil Misael. Atiendes exclusivamente a tutores que ya son parte del centro — conoces a su hijo/a y tienes acceso a su informacion de sesiones y pagos.
 
-Hablas en espanol boliviano con un tono calido, empatico y profesional. El tutor debe sentir que habla con alguien que conoce a su hijo y entiende su situacion.
+Estas hablando con {nombre_tutor}, tutor/a de {nombre_paciente}.
+
+Hablas en espanol boliviano con un tono calido, empatico y profesional. El tutor debe sentir que habla con alguien que conoce a su hijo por nombre y entiende su situacion particular — no un bot generico, sino su asistente personal del centro.
+
+Cuando sea natural en la conversacion, usa el nombre del tutor ({nombre_tutor}) o el del nino/a ({nombre_paciente}) para hacer la conversacion mas cercana y personalizada. No lo fuerces en cada mensaje, solo cuando aporte calidez.
+
+═══════════════════════════════════════════
+SEGURIDAD — NUMERO NO REGISTRADO
+═══════════════════════════════════════════
+Si por algun error tecnico recibes un mensaje de un numero que NO esta en los datos del paciente, o si el contexto del paciente no esta disponible o dice CONTEXTO NO DISPONIBLE, NO respondas con ningun dato personal. Responde:
+
+"Para consultar informacion de tu cuenta o realizar solicitudes relacionadas con las sesiones de tu hijo, necesitas escribir desde el numero que tienes registrado en el centro. Si cambiaste de numero o necesitas actualizarlo, acercate personalmente a cualquiera de nuestras sucursales — nuestro personal te ayudara a actualizarlo de forma segura. Es un dato sensible y lo manejamos con cuidado para proteger tu privacidad 🔒"
+
+REGLAS DE SEGURIDAD (no negociables):
+- NUNCA intentes verificar identidad por mensaje (nombre, fecha de nacimiento, etc.) — es riesgo de suplantacion
+- NUNCA entregues informacion de cuenta, sesiones ni pagos si el contexto del paciente no esta disponible
+- Si el tutor insiste en obtener datos sin estar registrado, mantente firme con amabilidad
+- Siempre redirige presencialmente al centro para cambio de numero
 
 ═══════════════════════════════════════════
 TU ROL COMO AGENTE DE PACIENTES
@@ -169,7 +186,30 @@ REGLAS GENERALES
 """
 
 
-def construir_contexto(paciente) -> str:
+def get_prompt(contexto: str = '', nombre_tutor: str = '', nombre_paciente: str = '') -> str:
+    """
+    Lee el prompt desde ConfigAgente en la BD.
+    Si no existe, usa PROMPT_BASE_PACIENTE.
+    Inyecta contexto, nombre_tutor y nombre_paciente en los placeholders.
+    """
+    try:
+        from agente.models import ConfigAgente
+        config = ConfigAgente.objects.filter(agente='paciente', activo=True).first()
+        prompt = config.prompt if (config and config.prompt) else PROMPT_BASE_PACIENTE
+    except Exception:
+        prompt = PROMPT_BASE_PACIENTE
+
+    return prompt.format(
+        contexto=contexto,
+        nombre_tutor=nombre_tutor or 'tutor/a',
+        nombre_paciente=nombre_paciente or 'su hijo/a',
+    )
+
+
+def construir_contexto(paciente) -> tuple[str, str, str]:
+    """
+    Retorna (contexto_texto, nombre_tutor, nombre_paciente).
+    """
     try:
         from agente.paciente_db import (
             get_info_basica, get_sesiones_proximas,
@@ -183,10 +223,13 @@ def construir_contexto(paciente) -> str:
         cuenta    = get_cuenta_corriente(paciente)
         profs     = get_profesionales_del_paciente(paciente)
 
-        ctx = f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
+        nombre_paciente = f"{info.get('nombre', '')} {info.get('apellido', '')}".strip()
+        nombre_tutor    = info.get('nombre_tutor', '')
+
+        ctx = f"PACIENTE: {nombre_paciente}"
         if info.get('edad'):
             ctx += f" ({info['edad']} anios)"
-        ctx += f"\nTUTOR: {info.get('nombre_tutor', '—')}\n"
+        ctx += f"\nTUTOR: {nombre_tutor or '—'}\n"
 
         if profs:
             ctx += "\nPROFESIONALES QUE LO ATIENDEN:\n"
@@ -219,11 +262,11 @@ def construir_contexto(paciente) -> str:
             else:
                 ctx += "- Cuenta al dia\n"
 
-        return ctx
+        return ctx, nombre_tutor, nombre_paciente
 
     except Exception as e:
         log.error(f'[Agente Paciente] Error construyendo contexto: {e}')
-        return "CONTEXTO NO DISPONIBLE"
+        return "CONTEXTO NO DISPONIBLE", '', ''
 
 
 def get_historial_db(telefono: str, limite: int = 15) -> list:
@@ -256,11 +299,6 @@ def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
 
 
 def procesar_notificaciones(respuesta: str, paciente) -> int:
-    """
-    Detecta etiquetas [NOTIFICAR:tipo|sesion_id:ID|detalle] en la respuesta
-    y envia notificaciones al equipo correspondiente.
-    Retorna el numero de notificaciones enviadas.
-    """
     from agente.paciente_db import notificar_solicitud
 
     total  = 0
@@ -280,7 +318,6 @@ def procesar_notificaciones(respuesta: str, paciente) -> int:
 
 
 def limpiar_etiquetas(texto: str) -> str:
-    """Elimina las etiquetas internas antes de enviar al tutor."""
     return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
 
 
@@ -295,10 +332,6 @@ PALABRAS_SOLICITUD = (
 
 
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
-    """
-    Sonnet para solicitudes que generan notificaciones.
-    Haiku para consultas informativas (datos del paciente o info del centro).
-    """
     msg = mensaje.lower()
     if any(p in msg for p in PALABRAS_SOLICITUD):
         return 'claude-sonnet-4-6', 'Sonnet'
@@ -307,8 +340,8 @@ def _elegir_modelo(mensaje: str) -> tuple[str, str]:
 
 def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
     try:
-        contexto = construir_contexto(paciente)
-        prompt   = PROMPT_PACIENTE.format(contexto=contexto)
+        contexto, nombre_tutor, nombre_paciente = construir_contexto(paciente)
+        prompt = get_prompt(contexto, nombre_tutor, nombre_paciente)
 
         guardar_mensaje(telefono, 'user', mensaje_usuario)
         historial = get_historial_db(telefono)
@@ -325,10 +358,7 @@ def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
 
         respuesta_raw = response.content[0].text.strip()
 
-        # Procesar notificaciones antes de limpiar
         procesar_notificaciones(respuesta_raw, paciente)
-
-        # Limpiar etiquetas internas
         respuesta = limpiar_etiquetas(respuesta_raw)
 
         guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-paciente')
