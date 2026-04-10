@@ -315,18 +315,25 @@ def _enviar_notificacion_via_ia(destinatario, contenido: str) -> bool:
 
 def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
     """
-    Notifica via chat del Asistente IA a:
-    - Profesional de la sesión mencionada
-    - Recepcionistas + Gerentes de la sucursal
-    - Admins/Superusuarios
+    Notifica via chat del Asistente IA segun el tipo de solicitud:
 
-    tipo: 'permiso' | 'cancelacion' | 'peticion'
-    Retorna el número de usuarios notificados.
+    permiso / cancelacion / reprogramacion:
+        → Profesional de la sesion (por sesion_id) + recepcion + gerencia + admin
+
+    peticion_profesional:
+        → Profesional de la sesion (si hay sesion_id) + recepcion + gerencia + admin
+
+    peticion_centro (nueva evaluacion, nuevo servicio, consulta administrativa):
+        → Recepcion + gerencia + admin (NO al profesional)
+
+    Retorna el numero de usuarios notificados.
     """
     TITULOS = {
-        'permiso':     '📋 SOLICITUD DE PERMISO',
-        'cancelacion': '🚫 SOLICITUD DE CANCELACION',
-        'peticion':    '⚡ PETICION ESPECIAL',
+        'permiso':              '📋 SOLICITUD DE PERMISO',
+        'cancelacion':          '🚫 SOLICITUD DE CANCELACION',
+        'reprogramacion':       '🔄 SOLICITUD DE REPROGRAMACION',
+        'peticion_profesional': '⚡ PETICION AL PROFESIONAL',
+        'peticion_centro':      '📩 PETICION AL CENTRO',
     }
 
     mensaje = (
@@ -337,9 +344,13 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
         f"Recibido por WhatsApp — requiere accion manual en el sistema"
     )
 
-    usuarios    = _get_usuarios_a_notificar(paciente, detalle)
-    notificados = 0
+    # peticion_centro: solo recepcion + gerencia + admin, sin profesional
+    if tipo == 'peticion_centro':
+        usuarios = _get_usuarios_sin_profesional(paciente)
+    else:
+        usuarios = _get_usuarios_a_notificar(paciente, detalle)
 
+    notificados = 0
     for usuario in usuarios:
         if _enviar_notificacion_via_ia(usuario, mensaje):
             notificados += 1
@@ -347,6 +358,38 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
 
     log.info(f'[PacienteDB] {tipo} para {paciente.nombre} — {notificados} usuarios notificados')
     return notificados
+
+
+def _get_usuarios_sin_profesional(paciente) -> list:
+    """Recepcionistas + gerentes de la sucursal + admins. Sin profesionales."""
+    from django.contrib.auth.models import User
+
+    usuarios = []
+    vistos   = set()
+
+    def agregar(user):
+        if user and user.id not in vistos:
+            vistos.add(user.id)
+            usuarios.append(user)
+
+    try:
+        sucursales = paciente.sucursales.all()
+        for u in User.objects.filter(
+            perfil__rol__in=['recepcionista', 'gerente'],
+            perfil__sucursales__in=sucursales,
+            is_active=True,
+        ).distinct():
+            agregar(u)
+    except Exception as e:
+        log.error(f'[PacienteDB] Error obteniendo recep/gerentes: {e}')
+
+    try:
+        for u in User.objects.filter(is_superuser=True, is_active=True):
+            agregar(u)
+    except Exception as e:
+        log.error(f'[PacienteDB] Error obteniendo admins: {e}')
+
+    return usuarios
 
 
 def _nombre_dia(weekday: int) -> str:
