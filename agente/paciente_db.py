@@ -169,13 +169,57 @@ def get_profesionales_del_paciente(paciente) -> list:
 
 
 # ─────────────────────────────────────────────────────────────
-# NOTIFICACIONES MÚLTIPLES
+# NOTIFICACIONES — via chat del Asistente IA
 # ─────────────────────────────────────────────────────────────
 
-def _get_usuarios_a_notificar(paciente) -> list:
+def _extraer_sesion_id(detalle: str) -> int:
+    import re
+    match = re.search(r'sesion_id:(\d+)', detalle)
+    return int(match.group(1)) if match else 0
+
+
+def _get_profesional_sesion(detalle: str, paciente) -> list:
     """
-    Retorna todos los usuarios que deben recibir notificaciones:
-    profesionales del paciente + recepcionistas + gerentes + admins.
+    Obtiene el profesional usando el sesion_id incluido en el detalle.
+    Fallback: sesión más próxima del paciente.
+    """
+    from agenda.models import Sesion
+
+    usuarios = []
+    sesion_id = _extraer_sesion_id(detalle)
+
+    if sesion_id:
+        try:
+            sesion = Sesion.objects.select_related('profesional__user').get(
+                id=sesion_id, paciente=paciente
+            )
+            if sesion.profesional and sesion.profesional.user:
+                usuarios.append(sesion.profesional.user)
+                return usuarios
+        except Sesion.DoesNotExist:
+            log.warning(f'[PacienteDB] Sesion ID {sesion_id} no encontrada para paciente {paciente.id}')
+
+    hoy = date.today()
+    primera = Sesion.objects.filter(
+        paciente=paciente,
+        estado='programada',
+        fecha__gte=hoy,
+    ).select_related('profesional__user').order_by('fecha', 'hora_inicio').first()
+
+    if primera and primera.profesional and primera.profesional.user:
+        usuarios.append(primera.profesional.user)
+        log.info(f'[PacienteDB] Fallback: profesional de sesión más próxima (id={primera.id})')
+
+    return usuarios
+
+
+def _get_usuarios_a_notificar(paciente, detalle: str = '') -> list:
+    """
+    Retorna los usuarios que deben recibir la notificación:
+    - Profesional de la sesión mencionada (o la más próxima)
+    - Recepcionistas de la sucursal
+    - Gerentes de la sucursal
+    - Superusuarios/Admin
     """
     from django.contrib.auth.models import User
 
@@ -187,15 +231,12 @@ def _get_usuarios_a_notificar(paciente) -> list:
             vistos.add(user.id)
             usuarios.append(user)
 
-    # 1. Profesionales que atienden al paciente
+    # 1. Profesional de la sesión específica
     try:
-        for p in get_profesionales_del_paciente(paciente):
-            if p.get('user_id'):
-                u = User.objects.filter(id=p['user_id']).first()
-                if u:
-                    agregar(u)
+        for u in _get_profesional_sesion(detalle, paciente):
+            agregar(u)
     except Exception as e:
-        log.error(f'[PacienteDB] Error obteniendo profesionales: {e}')
+        log.error(f'[PacienteDB] Error obteniendo profesional sesión: {e}')
 
     # 2. Recepcionistas de la sucursal del paciente
     try:
@@ -231,26 +272,33 @@ def _get_usuarios_a_notificar(paciente) -> list:
     return usuarios
 
 
-def _enviar_mensaje_chat(remitente, destinatario, contenido: str) -> bool:
-    """Envía un mensaje por el chat interno."""
+def _enviar_notificacion_via_ia(destinatario, contenido: str) -> bool:
+    """
+    Envía la notificación al chat del Asistente IA del destinatario.
+    El Asistente IA es el remitente — aparece en el chat IA del usuario.
+    """
     try:
         from chat.models import Conversacion, Mensaje, NotificacionChat
+        from chat.ia_agent import get_o_crear_usuario_ia
         from django.db.models import Q
 
+        usuario_ia = get_o_crear_usuario_ia()
+
+        # Obtener o crear la conversación del usuario con el Asistente IA
         conv = Conversacion.objects.filter(
-            Q(usuario_1=remitente, usuario_2=destinatario) |
-            Q(usuario_1=destinatario, usuario_2=remitente)
+            Q(usuario_1=destinatario, usuario_2=usuario_ia) |
+            Q(usuario_1=usuario_ia, usuario_2=destinatario)
         ).first()
 
         if not conv:
             conv = Conversacion.objects.create(
-                usuario_1=remitente,
+                usuario_1=usuario_ia,
                 usuario_2=destinatario,
             )
 
         msg = Mensaje.objects.create(
             conversacion=conv,
-            remitente=remitente,
+            remitente=usuario_ia,
             contenido=contenido,
         )
         NotificacionChat.objects.create(
@@ -261,29 +309,20 @@ def _enviar_mensaje_chat(remitente, destinatario, contenido: str) -> bool:
         conv.save()
         return True
     except Exception as e:
-        log.error(f'[PacienteDB] Error enviando chat a {destinatario}: {e}')
+        log.error(f'[PacienteDB] Error enviando notif IA a {destinatario}: {e}')
         return False
 
 
 def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
     """
-    Notifica a TODOS los usuarios relevantes sobre una solicitud del tutor.
+    Notifica via chat del Asistente IA a:
+    - Profesional de la sesión mencionada
+    - Recepcionistas + Gerentes de la sucursal
+    - Admins/Superusuarios
 
     tipo: 'permiso' | 'cancelacion' | 'peticion'
-    detalle: descripción de la solicitud
-
     Retorna el número de usuarios notificados.
     """
-    from django.contrib.auth.models import User
-
-    remitente = (
-        User.objects.filter(is_superuser=True).first() or
-        User.objects.filter(is_staff=True).first()
-    )
-    if not remitente:
-        log.error('[PacienteDB] No hay usuario admin para enviar notificaciones')
-        return 0
-
     TITULOS = {
         'permiso':     '📋 SOLICITUD DE PERMISO',
         'cancelacion': '🚫 SOLICITUD DE CANCELACION',
@@ -298,15 +337,13 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
         f"Recibido por WhatsApp — requiere accion manual en el sistema"
     )
 
-    usuarios    = _get_usuarios_a_notificar(paciente)
+    usuarios    = _get_usuarios_a_notificar(paciente, detalle)
     notificados = 0
 
     for usuario in usuarios:
-        if usuario.id == remitente.id:
-            continue
-        if _enviar_mensaje_chat(remitente, usuario, mensaje):
+        if _enviar_notificacion_via_ia(usuario, mensaje):
             notificados += 1
-            log.info(f'[PacienteDB] Notificado: {usuario.get_full_name() or usuario.username}')
+            log.info(f'[PacienteDB] Notificado via IA: {usuario.get_full_name() or usuario.username}')
 
     log.info(f'[PacienteDB] {tipo} para {paciente.nombre} — {notificados} usuarios notificados')
     return notificados

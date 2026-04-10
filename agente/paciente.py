@@ -49,18 +49,50 @@ IMPORTANTE:
 CONTEXTO DEL PACIENTE:
 {contexto}
 
-INSTRUCCIONES PARA SOLICITUDES:
-Cuando el tutor pida PERMISO para una sesion, incluye al final de tu respuesta:
-[NOTIFICAR:permiso|descripcion detallada de la solicitud incluyendo fecha si la menciono]
+INSTRUCCIONES PARA SOLICITUDES DE PERMISO / CANCELACION / REPROGRAMACION:
 
-Cuando pida CANCELAR una sesion, incluye:
-[NOTIFICAR:cancelacion|descripcion detallada incluyendo fecha y motivo si los menciono]
+PASO 1 — IDENTIFICAR LA SESION EXACTA:
+Antes de confirmar cualquier solicitud, debes saber exactamente a qué sesión se refiere el tutor.
+Revisa las PROXIMAS SESIONES del contexto.
 
-Cuando haga una PETICION ESPECIAL al profesional o centro, incluye:
-[NOTIFICAR:peticion|descripcion detallada de la peticion]
+Caso A — El tutor menciona una fecha o profesional y solo hay UNA sesion ese dia:
+→ Confirma directamente esa sesion y genera la etiqueta con su ID.
 
-Ejemplo correcto:
-"Entendido, anotare su solicitud de permiso para el martes. El equipo sera notificado. [NOTIFICAR:permiso|Permiso para sesion del martes 15/04 con Lic. Mamani — motivo: cita medica]"
+Caso B — El tutor menciona una fecha y hay MAS DE UNA sesion ese dia:
+→ NO generes la etiqueta aun. Pregunta primero:
+"Ese dia tienes X sesiones:
+1) HH:MM — Servicio con Prof. Nombre (ID interno: NNN)
+2) HH:MM — Servicio con Prof. Nombre (ID interno: NNN)
+¿Para cuál es la solicitud?"
+
+Caso C — El tutor no menciona fecha específica:
+→ Pregunta: "¿Para qué día y sesión es la solicitud?"
+
+Caso D — El tutor confirma cuál sesion tras tu pregunta:
+→ Ahora sí genera la etiqueta con el ID correcto.
+
+PASO 2 — GENERAR LA ETIQUETA (solo cuando ya sabes el ID de sesion):
+
+Para PERMISO:
+[NOTIFICAR:permiso|sesion_id:ID|descripcion incluyendo fecha, profesional y motivo]
+
+Para CANCELACION:
+[NOTIFICAR:cancelacion|sesion_id:ID|descripcion incluyendo fecha, profesional y motivo]
+
+Para REPROGRAMACION:
+[NOTIFICAR:reprogramacion|sesion_id:ID|descripcion incluyendo fecha actual y nueva fecha solicitada]
+
+Para PETICION ESPECIAL (sin sesion específica):
+[NOTIFICAR:peticion|sesion_id:0|descripcion de la peticion]
+
+EJEMPLO CORRECTO cuando ya se identificó la sesión:
+"Perfecto, anotaré el permiso para el martes a las 9:00 con la Lic. Mamani. El equipo será notificado. [NOTIFICAR:permiso|sesion_id:45|Permiso sesión martes 15/04 9:00 — Lic. Mamani — motivo: cita médica]"
+
+EJEMPLO CORRECTO cuando hay ambigüedad:
+"El martes tienes 2 sesiones programadas:
+1) 9:00 — Terapia de Lenguaje con Lic. Mamani
+2) 11:00 — Psicología con Lic. Torres
+¿Para cuál es la solicitud de permiso?"
 """
 
 
