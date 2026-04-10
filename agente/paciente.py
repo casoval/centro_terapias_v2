@@ -159,7 +159,7 @@ def procesar_notificaciones(respuesta: str, paciente) -> int:
     patron = r'\[NOTIFICAR:(\w+)\|([^\]]+)\]'
 
     for match in re.finditer(patron, respuesta):
-        tipo   = match.group(1).strip()
+        tipo    = match.group(1).strip()
         detalle = match.group(2).strip()
 
         if tipo in ('permiso', 'cancelacion', 'peticion'):
@@ -175,6 +175,24 @@ def limpiar_etiquetas(texto: str) -> str:
     return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
 
 
+PALABRAS_SOLICITUD = (
+    'permiso', 'permisos', 'ausencia', 'faltar', 'falta', 'no voy', 'no podre',
+    'no puedo', 'cancelar', 'cancelacion', 'suspender', 'suspendida',
+    'peticion', 'solicitud', 'pedir', 'necesito hablar', 'mensaje al',
+    'avisar', 'avisar al', 'decirle al', 'preguntarle', 'cambiar',
+)
+
+def _elegir_modelo(mensaje: str) -> tuple[str, str]:
+    """
+    Retorna (modelo, etiqueta_log).
+    Usa Sonnet si el mensaje parece una solicitud, Haiku si es consulta.
+    """
+    msg = mensaje.lower()
+    if any(p in msg for p in PALABRAS_SOLICITUD):
+        return 'claude-sonnet-4-6', 'Sonnet'
+    return 'claude-haiku-4-5-20251001', 'Haiku'
+
+
 def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
     try:
         contexto = construir_contexto(paciente)
@@ -183,10 +201,11 @@ def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
         guardar_mensaje(telefono, 'user', mensaje_usuario)
         historial = get_historial_db(telefono)
 
-        log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | Sonnet')
+        modelo, etiqueta = _elegir_modelo(mensaje_usuario)
+        log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | {etiqueta}')
 
         response = get_client().messages.create(
-            model='claude-sonnet-4-20250514',
+            model=modelo,
             max_tokens=500,
             system=prompt,
             messages=historial,
@@ -200,7 +219,7 @@ def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
         # Limpiar etiquetas internas
         respuesta = limpiar_etiquetas(respuesta_raw)
 
-        guardar_mensaje(telefono, 'assistant', respuesta, 'sonnet-paciente')
+        guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-paciente')
         log.info(f'[Agente Paciente] {telefono} | {respuesta[:60]}')
         return respuesta
 
