@@ -102,9 +102,21 @@ def whatsapp_entrante(request):
             return JsonResponse({'ok': False, 'error': 'Falta mensaje'}, status=400)
         log.info(f'[Entrante] {telefono}: {mensaje[:80]}')
  
-    # 4. Procesar con el Agente Público
-    from agente.publico import responder
-    respuesta_texto = responder(telefono, mensaje)
+    # 4. Detectar si es paciente registrado o público
+    from agente.paciente_db import buscar_paciente_por_telefono
+ 
+    paciente = buscar_paciente_por_telefono(telefono)
+ 
+    if paciente:
+        # Agente Paciente — tutor registrado en el sistema
+        log.info(f'[Entrante] {telefono} identificado como paciente: {paciente.nombre} {paciente.apellido}')
+        from agente.paciente import responder as responder_paciente
+        respuesta_texto = responder_paciente(telefono, mensaje, paciente)
+    else:
+        # Agente Público — consulta nueva
+        log.info(f'[Entrante] {telefono} no registrado — Agente Público')
+        from agente.publico import responder
+        respuesta_texto = responder(telefono, mensaje)
  
     # 5. Enviar respuesta
     puerto = 3000 if sucursal_id == 3 else 3001
