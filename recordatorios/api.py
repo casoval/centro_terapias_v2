@@ -293,3 +293,289 @@ def deudas_pendientes(request):
         })
 
     return Response({'total': len(data), 'deudas': data})
+
+
+# ─────────────────────────────────────────────────────────────
+# PROPUESTA 1 — Hitos de asistencia
+# Cron: diariamente a las 20:00
+# GET /recordatorios/hitos/?sucursal=3
+# ─────────────────────────────────────────────────────────────
+HITOS = {
+    10:  ("🎉", "¡10 sesiones completadas!", "Llevan 10 sesiones juntos y eso ya se nota. El esfuerzo y la constancia de su familia están marcando una diferencia real en el proceso de {nombre_paciente}. ¡Gracias por confiar en nosotros!"),
+    25:  ("⭐", "¡25 sesiones completadas!", "25 sesiones es un logro enorme. La continuidad que han mantenido es uno de los pilares más importantes en el desarrollo de {nombre_paciente}. El equipo del Centro Misael los admira y los acompaña con mucho orgullo."),
+    50:  ("🏆", "¡50 sesiones completadas!", "50 sesiones es un hito extraordinario. Pocas familias llegan aquí y las que lo hacen son las que ven los cambios más profundos. Gracias por su dedicación, {nombre_tutor}. {nombre_paciente} tiene una familia increíble."),
+    100: ("💫", "¡100 sesiones completadas!", "100 sesiones. Un número que habla solo. Gracias por estar siempre, por no rendirse, por creer en el proceso. Es un honor acompañar a {nombre_paciente} y a toda su familia en este camino."),
+}
+
+@api_view(['GET'])
+def hitos_asistencia(request):
+    """
+    Detecta pacientes que completaron exactamente 10, 25, 50 o 100 sesiones hoy.
+    Devuelve el mensaje listo para enviar por WhatsApp.
+    Agregar al cron diariamente a las 20:00.
+    """
+    sucursal_id = request.GET.get('sucursal')
+    hoy = timezone.localdate()
+
+    data = []
+    for hito, (emoji, titulo, plantilla) in HITOS.items():
+        # Pacientes cuya sesión número exacta = hito fue realizada hoy
+        from django.db.models import Count
+        pacientes_hito = Sesion.objects.filter(
+            estado__in=['realizada', 'realizada_retraso'],
+            fecha=hoy,
+        ).values('paciente').annotate(
+            total_hoy=Count('id')
+        )
+
+        # Para cada paciente con sesión hoy, contar su total histórico
+        for sesion_hoy in Sesion.objects.filter(
+            estado__in=['realizada', 'realizada_retraso'],
+            fecha=hoy,
+        ).select_related('paciente', 'sucursal').distinct('paciente'):
+
+            if sucursal_id and str(sesion_hoy.sucursal_id) != str(sucursal_id):
+                continue
+
+            paciente = sesion_hoy.paciente
+            total = Sesion.objects.filter(
+                paciente=paciente,
+                estado__in=['realizada', 'realizada_retraso'],
+            ).count()
+
+            if total != hito:
+                continue
+
+            telefono = paciente.telefono_tutor
+            if not telefono:
+                continue
+
+            nombre_tutor = paciente.nombre_tutor or 'estimado tutor/a'
+            nombre_paciente = paciente.nombre_completo
+
+            mensaje_cuerpo = plantilla.format(
+                nombre_tutor=nombre_tutor,
+                nombre_paciente=nombre_paciente,
+            )
+            mensaje = (
+                f"{emoji} *{titulo}*\n\n"
+                f"Hola, *{nombre_tutor}*! 😊\n\n"
+                f"{mensaje_cuerpo}\n\n"
+                f"— Centro de Neurodesarrollo Misael 💙"
+            )
+
+            data.append({
+                'tutor_nombre': nombre_tutor,
+                'tutor_telefono': telefono,
+                'paciente_nombre': nombre_paciente,
+                'hito': hito,
+                'sucursal': sesion_hoy.sucursal.nombre,
+                'mensaje': mensaje,
+            })
+
+    return Response({'total': len(data), 'hitos': data})
+
+
+# ─────────────────────────────────────────────────────────────
+# PROPUESTA 2 — Post-falta / Post-permiso  (endpoint manual)
+# El signal en signals.py lo dispara automáticamente.
+# POST /recordatorios/post-falta/   body: { "sesion_id": 123 }
+# ─────────────────────────────────────────────────────────────
+@api_view(['POST'])
+def post_falta(request):
+    """
+    Recibe un sesion_id y devuelve el mensaje cálido para enviar al tutor
+    cuando una sesión fue registrada como falta o permiso.
+    Puede llamarse manualmente o desde el signal automático.
+    """
+    sesion_id = request.data.get('sesion_id')
+    if not sesion_id:
+        return Response({'error': 'sesion_id requerido'}, status=400)
+
+    try:
+        sesion = Sesion.objects.select_related(
+            'paciente', 'servicio', 'profesional', 'sucursal'
+        ).get(id=sesion_id)
+    except Sesion.DoesNotExist:
+        return Response({'error': 'Sesión no encontrada'}, status=404)
+
+    if sesion.estado not in ('falta', 'permiso'):
+        return Response({'error': f'La sesión tiene estado "{sesion.estado}", no es falta ni permiso'}, status=400)
+
+    paciente = sesion.paciente
+    telefono = paciente.telefono_tutor
+    if not telefono:
+        return Response({'error': 'El paciente no tiene teléfono de tutor registrado'}, status=400)
+
+    nombre_tutor = paciente.nombre_tutor or 'estimado tutor/a'
+    nombre_paciente = paciente.nombre_completo
+    servicio = sesion.servicio.nombre
+    fecha_str = f"{DIAS[sesion.fecha.weekday()]} {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]}"
+
+    if sesion.estado == 'permiso':
+        mensaje = (
+            f"Hola, *{nombre_tutor}*. 😊\n\n"
+            f"Quedamos anotados del permiso de *{nombre_paciente}* para la sesión de {servicio} del {fecha_str}.\n\n"
+            f"Esperamos que todo esté bien. Cuando quieran retomar, aquí estamos. "
+            f"Recuerde que puede ver el detalle de sesiones y permisos en *neuromisael.com* 💙"
+        )
+    else:  # falta
+        mensaje = (
+            f"Hola, *{nombre_tutor}*. 😊\n\n"
+            f"Notamos que *{nombre_paciente}* no pudo asistir a su sesión de {servicio} del {fecha_str}. "
+            f"Esperamos que todo esté bien por casa.\n\n"
+            f"La continuidad es muy importante en el proceso terapéutico — cada sesión tiene un propósito dentro del plan individual de {nombre_paciente}. "
+            f"Cuando puedan, con gusto los esperamos. 🙏\n\n"
+            f"— Centro de Neurodesarrollo Misael"
+        )
+
+    return Response({
+        'tutor_nombre': nombre_tutor,
+        'tutor_telefono': telefono,
+        'paciente_nombre': nombre_paciente,
+        'estado': sesion.estado,
+        'sucursal': sesion.sucursal.nombre,
+        'mensaje': mensaje,
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# PROPUESTA 3 — Orientación mensual
+# Cron: día 1 de cada mes
+# GET /recordatorios/orientacion-mensual/?sucursal=3
+# ─────────────────────────────────────────────────────────────
+TIPS_POR_TERAPIA = {
+    'lenguaje': (
+        "🗣️ *Tip del mes — Terapia de Lenguaje*\n\n"
+        "Una cosa simple que pueden hacer en casa: hablen con {nombre_paciente} sobre lo que ven mientras caminan o hacen compras. "
+        "Nombren los objetos, los colores, los sonidos. No necesitan materiales — solo unos minutos de conversación real. "
+        "Eso refuerza directamente lo que trabaja en terapia. 💙"
+    ),
+    'ocupacional': (
+        "✋ *Tip del mes — Terapia Ocupacional*\n\n"
+        "Esta semana pueden darle a {nombre_paciente} una actividad con las manos: amasar plastilina, abrir y cerrar frascos, "
+        "doblar ropa o ayudar con la cocina. Son tareas cotidianas que trabajan la coordinación y la autonomía — "
+        "exactamente lo que se refuerza en terapia. 💙"
+    ),
+    'fisica': (
+        "🏃 *Tip del mes — Terapia Física*\n\n"
+        "Si pueden, dediquen 10 minutos al día a que {nombre_paciente} camine en diferentes superficies — pasto, arena, suelo irregular. "
+        "También subir y bajar escaleras despacio. Son actividades sencillas que complementan muy bien el trabajo en terapia. 💙"
+    ),
+    'psicologia': (
+        "💬 *Tip del mes — Psicología*\n\n"
+        "Algo que ayuda mucho: al final del día, pregunten a {nombre_paciente} una sola cosa — '¿qué fue lo mejor de hoy?' "
+        "No importa si la respuesta es corta. Ese pequeño ritual ayuda a procesar emociones y a sentirse escuchado. 💙"
+    ),
+    'neurologia': (
+        "🧠 *Tip del mes — Seguimiento Neurológico*\n\n"
+        "Lleven un registro breve esta semana: anoten si {nombre_paciente} tuvo cambios en el sueño, el apetito o el comportamiento. "
+        "No necesitan ser detallistas — basta con una nota al día. Esa información es muy valiosa en la próxima consulta. 💙"
+    ),
+    'aprendizaje': (
+        "📚 *Tip del mes — Apoyo al Aprendizaje*\n\n"
+        "Una estrategia sencilla: cuando {nombre_paciente} tenga que aprender algo nuevo, divídanlo en pasos muy pequeños "
+        "y celebren cada uno por separado. El cerebro aprende mejor con logros frecuentes que con metas lejanas. 💙"
+    ),
+    'conductual': (
+        "🌟 *Tip del mes — Intervención Conductual*\n\n"
+        "Esta semana, elijan una sola conducta positiva de {nombre_paciente} y nómbrenla en voz alta cuando ocurra: "
+        "'¡Qué bien que esperaste tu turno!' La atención positiva específica refuerza mucho más que el elogio general. 💙"
+    ),
+    'sensorial': (
+        "🎨 *Tip del mes — Integración Sensorial*\n\n"
+        "Pueden preparar una pequeña 'caja sensorial' en casa: arroz, botones, telas diferentes, esponjas. "
+        "Dejen que {nombre_paciente} explore con las manos sin presión. Son 10 minutos que complementan directamente lo que trabaja en terapia. 💙"
+    ),
+    'comunicacion': (
+        "💡 *Tip del mes — Comunicación Aumentativa*\n\n"
+        "En casa, acompañen siempre las palabras con gestos o imágenes cuando se dirijan a {nombre_paciente}. "
+        "No es dar un paso atrás — es abrir más canales de comunicación al mismo tiempo. Eso acelera el proceso. 💙"
+    ),
+    'default': (
+        "💙 *Tip del mes — Centro Misael*\n\n"
+        "Un recordatorio simple: la constancia en casa multiplica los resultados de cada sesión. "
+        "No hace falta hacer mucho — con unos minutos diarios de atención enfocada en {nombre_paciente}, "
+        "el proceso avanza mucho más rápido. ¡Gracias por su esfuerzo y dedicación! 🙏"
+    ),
+}
+
+def _detectar_terapia(nombre_servicio: str) -> str:
+    nombre = nombre_servicio.lower()
+    if 'lenguaje' in nombre or 'fonoaudiología' in nombre or 'fono' in nombre:
+        return 'lenguaje'
+    if 'ocupacional' in nombre:
+        return 'ocupacional'
+    if 'física' in nombre or 'fisica' in nombre or 'físico' in nombre:
+        return 'fisica'
+    if 'psicolog' in nombre:
+        return 'psicologia'
+    if 'neurolog' in nombre:
+        return 'neurologia'
+    if 'aprendizaje' in nombre or 'aprender' in nombre:
+        return 'aprendizaje'
+    if 'conduct' in nombre:
+        return 'conductual'
+    if 'sensorial' in nombre or 'integración' in nombre:
+        return 'sensorial'
+    if 'comunicación' in nombre or 'comunicacion' in nombre or 'aumentativ' in nombre:
+        return 'comunicacion'
+    return 'default'
+
+@api_view(['GET'])
+def orientacion_mensual(request):
+    """
+    Detecta la terapia principal de cada paciente activo y devuelve
+    un tip práctico personalizado.
+    Agregar al cron el día 1 de cada mes.
+    GET /recordatorios/orientacion-mensual/?sucursal=3
+    """
+    from django.db.models import Count
+    sucursal_id = request.GET.get('sucursal')
+
+    # Pacientes activos con al menos una sesión realizada
+    from pacientes.models import Paciente
+    pacientes = Paciente.objects.filter(estado='activo').prefetch_related('sucursales')
+
+    data = []
+    vistos = set()  # evitar duplicados por teléfono
+
+    for paciente in pacientes:
+        telefono = paciente.telefono_tutor
+        if not telefono or telefono in vistos:
+            continue
+
+        # Filtrar por sucursal si se pide
+        if sucursal_id:
+            sucursales_ids = list(paciente.sucursales.values_list('id', flat=True))
+            if int(sucursal_id) not in sucursales_ids:
+                continue
+
+        # Servicio más frecuente del paciente
+        servicio_top = Sesion.objects.filter(
+            paciente=paciente,
+            estado__in=['realizada', 'realizada_retraso'],
+        ).values('servicio__nombre').annotate(
+            total=Count('id')
+        ).order_by('-total').first()
+
+        nombre_servicio = servicio_top['servicio__nombre'] if servicio_top else ''
+        clave_terapia = _detectar_terapia(nombre_servicio)
+        plantilla = TIPS_POR_TERAPIA[clave_terapia]
+
+        nombre_tutor = paciente.nombre_tutor or 'estimado tutor/a'
+        nombre_paciente = paciente.nombre_completo
+
+        tip = plantilla.format(nombre_paciente=nombre_paciente)
+        mensaje = f"Hola, *{nombre_tutor}*! 😊\n\n{tip}"
+
+        vistos.add(telefono)
+        data.append({
+            'tutor_nombre': nombre_tutor,
+            'tutor_telefono': telefono,
+            'paciente_nombre': nombre_paciente,
+            'terapia_detectada': clave_terapia,
+            'mensaje': mensaje,
+        })
+
+    return Response({'total': len(data), 'orientaciones': data})
