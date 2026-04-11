@@ -255,7 +255,7 @@ def _modo_conversacion(historial: list) -> str:
         )
 
 
-def get_prompt(contexto: str = '', modo_conversacion: str = '') -> str:
+def get_prompt(contexto: str = '', modo_conversacion: str = '', nombre_paciente: str = '', nombre_tutor: str = '') -> str:
     """
     Lee el prompt desde ConfigAgente en la BD.
     Si no existe, usa PROMPT_BASE_PACIENTE.
@@ -268,10 +268,15 @@ def get_prompt(contexto: str = '', modo_conversacion: str = '') -> str:
     except Exception:
         prompt = PROMPT_BASE_PACIENTE
 
-    return prompt.format(
-        contexto=contexto,
-        modo_conversacion=modo_conversacion,
-    )
+    try:
+        return prompt.format(
+            contexto=contexto,
+            modo_conversacion=modo_conversacion,
+            nombre_paciente=nombre_paciente,
+            nombre_tutor=nombre_tutor,
+        )
+    except KeyError:
+        return prompt
 
 
 def construir_contexto(paciente) -> str:
@@ -410,7 +415,7 @@ def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
         # Detectar si hay conversacion previa ANTES de agregar el mensaje actual
         # historial ya incluye el mensaje recien guardado, por eso comparamos con > 1
         modo = _modo_conversacion(historial[:-1])
-        prompt = get_prompt(contexto, modo)
+        prompt = get_prompt(contexto, modo, paciente.nombre_completo, paciente.nombre_tutor or '')
 
         modelo, etiqueta = _elegir_modelo(mensaje_usuario)
         log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | {etiqueta}')
