@@ -317,22 +317,25 @@ def hitos_asistencia(request):
     sucursal_id = request.GET.get('sucursal')
     hoy = timezone.localdate()
 
+    from django.db.models import Count
+
+    # Pacientes con sesión realizada hoy — sin distinct, usamos set para deduplicar
+    sesiones_hoy = Sesion.objects.filter(
+        estado__in=['realizada', 'realizada_retraso'],
+        fecha=hoy,
+    ).select_related('paciente', 'sucursal').order_by('paciente_id')
+
+    # Deduplicar por paciente manualmente
+    pacientes_vistos = set()
+    sesiones_unicas = []
+    for s in sesiones_hoy:
+        if s.paciente_id not in pacientes_vistos:
+            pacientes_vistos.add(s.paciente_id)
+            sesiones_unicas.append(s)
+
     data = []
     for hito, (emoji, titulo, plantilla) in HITOS.items():
-        # Pacientes cuya sesión número exacta = hito fue realizada hoy
-        from django.db.models import Count
-        pacientes_hito = Sesion.objects.filter(
-            estado__in=['realizada', 'realizada_retraso'],
-            fecha=hoy,
-        ).values('paciente').annotate(
-            total_hoy=Count('id')
-        )
-
-        # Para cada paciente con sesión hoy, contar su total histórico
-        for sesion_hoy in Sesion.objects.filter(
-            estado__in=['realizada', 'realizada_retraso'],
-            fecha=hoy,
-        ).select_related('paciente', 'sucursal').distinct('paciente'):
+        for sesion_hoy in sesiones_unicas:
 
             if sucursal_id and str(sesion_hoy.sucursal_id) != str(sucursal_id):
                 continue
