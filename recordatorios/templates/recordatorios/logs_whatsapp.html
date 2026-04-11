@@ -228,24 +228,38 @@
             <div class="flex items-center gap-3">
                 <span class="text-2xl">📋</span>
                 <div>
-                    <h2 class="text-lg font-bold text-white">Historial de Mensajes</h2>
-                    <p class="text-white/80 text-xs">Últimos mensajes enviados por ambos bots</p>
+                    <h2 class="text-lg font-bold" style="color:#1e293b;">Historial de Mensajes</h2>
+                    <p class="text-xs" style="color:#475569;">Últimos mensajes enviados por ambos bots</p>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="filtrarHistorial('todos')" id="fil-todos"
-                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/20 text-white">Todos</button>
-                <button onclick="filtrarHistorial('japon')" id="fil-japon"
-                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">Japón</button>
-                <button onclick="filtrarHistorial('camacho')" id="fil-camacho"
-                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">Camacho</button>
-                <button onclick="cargarHistorial()"
-                    class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60">🔄</button>
-            </div>
+            <button onclick="cargarHistorial()"
+                class="px-3 py-1 rounded-lg text-xs font-bold" style="background:#e2e8f0; color:#475569;">🔄</button>
+        </div>
+
+        <!-- Pestañas principales: Recordatorios / IA -->
+        <div class="flex gap-1 mb-4 p-1 rounded-xl" style="background:#e2e8f0;">
+            <button onclick="cambiarPestana('recordatorios')" id="tab-recordatorios"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all" style="background:#6366f1; color:#ffffff;">
+                🤖 Recordatorios automáticos
+            </button>
+            <button onclick="cambiarPestana('ia')" id="tab-ia"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all" style="background:transparent; color:#64748b;">
+                💬 Respuestas de IA
+            </button>
+        </div>
+
+        <!-- Filtros de sucursal -->
+        <div class="flex gap-2 mb-4">
+            <button onclick="filtrarHistorial('todos')" id="fil-todos"
+                class="px-3 py-1 rounded-lg text-xs font-bold" style="background:#6366f1; color:#ffffff;">Todos</button>
+            <button onclick="filtrarHistorial('japon')" id="fil-japon"
+                class="px-3 py-1 rounded-lg text-xs font-bold" style="background:#e2e8f0; color:#475569;">Japón</button>
+            <button onclick="filtrarHistorial('camacho')" id="fil-camacho"
+                class="px-3 py-1 rounded-lg text-xs font-bold" style="background:#e2e8f0; color:#475569;">Camacho</button>
         </div>
 
         <div id="historial-container" class="space-y-2">
-            <div class="text-center text-white/40 py-8">Cargando historial...</div>
+            <div class="text-center py-8" style="color:#94a3b8;">Cargando historial...</div>
         </div>
     </div>
 </div>
@@ -253,8 +267,26 @@
 <script>
 let historialCompleto = [];
 let filtroActual = 'todos';
+let pestanaActual = 'recordatorios';
 let paginaActual = 1;
 const POR_PAGINA = 50;
+
+function cambiarPestana(pestana) {
+    pestanaActual = pestana;
+    paginaActual = 1;
+
+    const tabRec = document.getElementById('tab-recordatorios');
+    const tabIA  = document.getElementById('tab-ia');
+
+    if (pestana === 'recordatorios') {
+        tabRec.style.cssText = 'background:#6366f1; color:#ffffff;';
+        tabIA.style.cssText  = 'background:transparent; color:#64748b;';
+    } else {
+        tabIA.style.cssText  = 'background:#6366f1; color:#ffffff;';
+        tabRec.style.cssText = 'background:transparent; color:#64748b;';
+    }
+    renderHistorial();
+}
 
 // ── Estado de los bots ──
 async function checkStatus(bot) {
@@ -392,9 +424,11 @@ function filtrarHistorial(filtro) {
     paginaActual = 1;
     ['todos','japon','camacho'].forEach(f => {
         const btn = document.getElementById(`fil-${f}`);
-        btn.className = f === filtro
-            ? 'px-3 py-1 rounded-lg text-xs font-bold bg-white/20 text-white'
-            : 'px-3 py-1 rounded-lg text-xs font-bold bg-white/10 text-white/60';
+        if (f === filtro) {
+            btn.style.cssText = 'background:#6366f1; color:#ffffff;';
+        } else {
+            btn.style.cssText = 'background:#e2e8f0; color:#475569;';
+        }
     });
     renderHistorial();
 }
@@ -403,6 +437,14 @@ function renderHistorial() {
     const container = document.getElementById('historial-container');
     let datos = historialCompleto;
 
+    // Filtrar por pestaña (tipo)
+    if (pestanaActual === 'recordatorios') {
+        datos = datos.filter(m => !m.tipo || m.tipo === 'recordatorio');
+    } else {
+        datos = datos.filter(m => m.tipo === 'ia');
+    }
+
+    // Filtrar por sucursal
     if (filtroActual === 'japon') {
         datos = datos.filter(m => m.sucursal && m.sucursal.toLowerCase().includes('japon'));
     } else if (filtroActual === 'camacho') {
@@ -427,34 +469,35 @@ function renderHistorial() {
         const sucursalColor = m.sucursal && m.sucursal.includes('Camacho') ? 'text-purple-300' : 'text-blue-300';
 
         return `
-        <div class="border ${colorBg} rounded-xl p-3 space-y-1">
+        <div class="rounded-xl p-3 space-y-1" style="background:${esExito ? '#f0fdf4' : '#fef2f2'}; border:1px solid ${esExito ? '#86efac' : '#fca5a5'};">
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center gap-2">
                     <span>${esExito ? '✅' : '❌'}</span>
-                    <span class="text-white font-semibold text-sm">${m.paciente || 'Sin nombre'}</span>
-                    <span class="text-white/70 text-xs">· ${m.telefono}</span>
+                    <span class="font-semibold text-sm" style="color:#1e293b;">${m.paciente || 'Sin nombre'}</span>
+                    <span class="text-xs" style="color:#64748b;">· ${m.telefono}</span>
+                    ${m.tipo === 'ia'
+                        ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;">💬 IA</span>'
+                        : '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;">🤖 Auto</span>'}
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold ${sucursalColor}">${m.sucursal || ''}</span>
-                    <span class="text-white/70 text-xs">${fechaStr}</span>
+                    <span class="text-xs font-bold" style="color:${m.sucursal && m.sucursal.includes('Camacho') ? '#7c3aed' : '#1d4ed8'};">${m.sucursal || ''}</span>
+                    <span class="text-xs" style="color:#64748b;">${fechaStr}</span>
                 </div>
             </div>
-            <div class="text-white/85 text-xs leading-relaxed pl-6">${m.mensaje || ''}</div>
+            <div class="text-xs leading-relaxed pl-6" style="color:#334155;">${m.mensaje || ''}</div>
         </div>`;
     }).join('');
 
     const paginacion = totalPaginas > 1 ? `
-        <div class="flex items-center justify-between pt-3 mt-2" style="border-top:1px solid rgba(255,255,255,0.08);">
-            <span class="text-xs text-white/50">
+        <div class="flex items-center justify-between pt-3 mt-2" style="border-top:1px solid #e2e8f0;">
+            <span class="text-xs" style="color:#64748b;">
                 Página ${paginaActual} de ${totalPaginas} · ${datos.length} mensajes
             </span>
             <div class="flex gap-2">
                 ${paginaActual > 1 ? `<button onclick="cambiarPagina(${paginaActual - 1})"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
-                    style="background:#1e293b; border:1px solid rgba(255,255,255,0.15);">← Anterior</button>` : ''}
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold" style="background:#e2e8f0; color:#475569; border:1px solid #cbd5e1;">← Anterior</button>` : ''}
                 ${paginaActual < totalPaginas ? `<button onclick="cambiarPagina(${paginaActual + 1})"
-                    class="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
-                    style="background:#1e293b; border:1px solid rgba(255,255,255,0.15);">Siguiente →</button>` : ''}
+                    class="px-3 py-1.5 rounded-lg text-xs font-bold" style="background:#e2e8f0; color:#475569; border:1px solid #cbd5e1;">Siguiente →</button>` : ''}
             </div>
         </div>` : '';
 
