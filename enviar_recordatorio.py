@@ -23,7 +23,7 @@ import urllib.error
 from datetime import datetime
 
 # ── Configuración ──────────────────────────────────────────────
-DJANGO_BASE = 'http://localhost:8000/recordatorios'
+DJANGO_BASE = 'http://localhost:8000/api'
 BOT_BASE    = 'http://localhost:{port}/send'
 
 # Mapa: endpoint → clave del array en la respuesta JSON
