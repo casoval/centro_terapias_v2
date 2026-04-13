@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}🤖 Agente Público{% endblock %}
+{% block title %}🤖 Agente IA — Conversaciones{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -10,14 +10,18 @@
         <div>
             <h1 class="text-xl font-black text-white flex items-center gap-2">
                 <span class="bg-violet-500/20 p-2 rounded-xl text-xl border border-violet-500/30">🤖</span>
-                Agente Público — Centro Infantil Misael
+                Agente IA — Centro Infantil Misael
             </h1>
             <p class="text-xs text-violet-300 mt-1 uppercase tracking-widest font-bold">Control de conversaciones WhatsApp con IA</p>
         </div>
         <div class="flex items-center gap-4">
             <div class="text-right">
-                <p class="text-[10px] text-white/50 uppercase tracking-wider">Conversaciones</p>
-                <p id="total-convs" class="text-2xl font-black text-white">—</p>
+                <p class="text-[10px] text-white/50 uppercase tracking-wider">Público</p>
+                <p id="total-publico" class="text-2xl font-black text-white">—</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] text-white/50 uppercase tracking-wider">Pacientes</p>
+                <p id="total-pacientes" class="text-2xl font-black text-emerald-300">—</p>
             </div>
             <div class="text-right">
                 <p class="text-[10px] text-white/50 uppercase tracking-wider">Modo humano</p>
@@ -28,8 +32,6 @@
 
     <!-- SWITCHES GLOBALES POR SUCURSAL -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-        <!-- Sede Japón -->
         <div id="card-japon" class="rounded-2xl p-4 flex items-center justify-between gap-4 transition-all"
              style="background:#0f172a; border:1px solid rgba(59,130,246,0.3);">
             <div class="flex items-center gap-3">
@@ -49,7 +51,6 @@
             </div>
         </div>
 
-        <!-- Sede Camacho -->
         <div id="card-camacho" class="rounded-2xl p-4 flex items-center justify-between gap-4 transition-all"
              style="background:#0f172a; border:1px solid rgba(139,92,246,0.3);">
             <div class="flex items-center gap-3">
@@ -68,13 +69,12 @@
                 </button>
             </div>
         </div>
-
     </div>
 
     <!-- LEYENDA -->
     <div class="flex flex-wrap gap-3 text-xs">
         <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300">
-            🤖 <span>IA activa — el bot responde automáticamente</span>
+            🤖 <span>IA activa — bot responde automáticamente</span>
         </div>
         <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-300">
             👤 <span>Modo humano — staff controla la conversación</span>
@@ -84,14 +84,29 @@
         </div>
     </div>
 
+    <!-- PESTAÑAS -->
+    <div class="flex gap-1 p-1 rounded-2xl" style="background:#0f172a; border:1px solid rgba(255,255,255,0.08);">
+        <button id="tab-publico" onclick="setTab('publico')"
+            class="tab-btn activo flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+            🌐 <span>Público</span>
+            <span id="badge-tab-publico" class="text-[10px] px-2 py-0.5 rounded-full font-black"
+                  style="background:rgba(148,163,184,0.15); color:#94a3b8;">—</span>
+        </button>
+        <button id="tab-pacientes" onclick="setTab('pacientes')"
+            class="tab-btn flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+            👶 <span>Pacientes registrados</span>
+            <span id="badge-tab-pacientes" class="text-[10px] px-2 py-0.5 rounded-full font-black"
+                  style="background:rgba(16,185,129,0.15); color:#6ee7b7;">—</span>
+        </button>
+    </div>
+
     <!-- FILTROS -->
     <div class="flex flex-wrap gap-3 items-center">
-        <input id="buscador" type="text" placeholder="🔍 Buscar por teléfono o mensaje..."
+        <input id="buscador" type="text" placeholder="🔍 Buscar por teléfono, nombre o mensaje..."
                oninput="renderConversaciones()"
                class="flex-1 min-w-[200px] px-4 py-2 rounded-xl text-sm text-white placeholder-white/40 outline-none"
                style="background:#1e293b; border:1px solid rgba(255,255,255,0.1);">
 
-        <!-- Filtro por sucursal -->
         <div class="flex gap-1.5">
             <button onclick="setFiltroSucursal('todas')" id="fsuc-todas"
                 class="filtro-btn activo px-3 py-2 rounded-xl text-xs font-bold transition-all">Todas</button>
@@ -101,7 +116,6 @@
                 class="filtro-btn px-3 py-2 rounded-xl text-xs font-bold transition-all">🏢 Camacho</button>
         </div>
 
-        <!-- Filtro por modo -->
         <div class="flex gap-1.5">
             <button onclick="setFiltroModo('todos')" id="fmodo-todos"
                 class="filtro-btn activo px-3 py-2 rounded-xl text-xs font-bold transition-all">Todos</button>
@@ -122,46 +136,57 @@
 
     <!-- MODAL HISTORIAL -->
     <div id="modal-historial" class="fixed inset-0 z-50 hidden items-center justify-center p-4"
-         style="background: rgba(0,0,0,0.8);">
+         style="background: rgba(0,0,0,0.85);">
         <div class="w-full max-w-lg rounded-2xl overflow-hidden flex flex-col"
              style="background:#0f172a; border:1px solid rgba(139,92,246,0.3); max-height:90vh;">
 
-            <!-- Modal header -->
-            <div class="flex items-center justify-between px-5 py-4"
+            <!-- Header del modal -->
+            <div class="flex items-start justify-between px-5 py-4 gap-3"
                  style="background: linear-gradient(135deg, #1e1b4b, #1e293b); border-bottom:1px solid rgba(255,255,255,0.08);">
-                <div>
+                <div class="flex-1 min-w-0">
                     <h3 id="modal-telefono" class="text-white font-black text-sm"></h3>
-                    <p id="modal-sucursal" class="text-white/50 text-xs mt-0.5"></p>
+                    <!-- Info paciente -->
+                    <div id="modal-info-paciente" class="hidden mt-1">
+                        <p id="modal-nombre-paciente" class="text-emerald-300 text-xs font-bold"></p>
+                        <p id="modal-nombre-tutor" class="text-white/45 text-xs mt-0.5"></p>
+                    </div>
+                    <p id="modal-sucursal" class="text-white/45 text-xs mt-0.5"></p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                     <div id="modal-badge" class="text-xs font-bold px-3 py-1 rounded-full"></div>
                     <button onclick="toggleModoDesdeModal()" id="btn-modal-toggle"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border">
                     </button>
                     <button onclick="cerrarModal()"
-                        class="text-white/40 hover:text-white text-xl leading-none transition-colors ml-2">✕</button>
+                        class="text-white/40 hover:text-white text-xl leading-none transition-colors">✕</button>
                 </div>
             </div>
 
             <!-- Mensajes -->
-            <div id="modal-mensajes" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div id="modal-mensajes" class="flex-1 overflow-y-auto p-4 space-y-3" style="min-height:200px;">
                 <div class="text-center text-white/40 py-8">Cargando...</div>
             </div>
 
-            <!-- Input envío manual (solo en modo humano) -->
+            <!-- Input envío manual — solo visible en modo humano -->
             <div id="modal-input-area" class="hidden px-4 py-3"
                  style="border-top:1px solid rgba(255,255,255,0.08);">
                 <div class="flex gap-2">
-                    <input id="modal-input" type="text" placeholder="Escribir mensaje manual..."
+                    <input id="modal-input" type="text"
+                           placeholder="✍ Escribe un mensaje como staff..."
                            onkeydown="if(event.key==='Enter') enviarMensajeManual()"
                            class="flex-1 px-3 py-2 rounded-xl text-sm text-white placeholder-white/40 outline-none"
-                           style="background:#1e293b; border:1px solid rgba(255,255,255,0.1);">
+                           style="background:#1e293b; border:1px solid rgba(255,255,255,0.12);">
                     <button onclick="enviarMensajeManual()"
-                        class="px-4 py-2 rounded-xl text-sm font-bold text-white"
-                        style="background:#7c3aed;">Enviar</button>
+                        class="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all"
+                        style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">
+                        Enviar
+                    </button>
                 </div>
-                <p class="text-[10px] text-white/30 mt-1.5">Este mensaje se enviará directamente por WhatsApp</p>
+                <p class="text-[10px] text-yellow-400/60 mt-1.5">
+                    👤 Modo humano activo — este mensaje se enviará directamente por WhatsApp
+                </p>
             </div>
+
         </div>
     </div>
 
@@ -178,21 +203,106 @@
     border-color: rgba(139,92,246,0.4);
     color: #c4b5fd;
 }
-.conv-card { transition: all 0.2s; cursor: pointer; }
-.conv-card:hover { transform: translateY(-1px); border-color: rgba(139,92,246,0.4) !important; }
+.tab-btn {
+    color: rgba(255,255,255,0.4);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+.tab-btn.activo {
+    background: rgba(139,92,246,0.2);
+    color: #e2e8f0;
+    box-shadow: 0 0 0 1px rgba(139,92,246,0.3);
+}
+.tab-btn:hover:not(.activo) {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.7);
+}
+.conv-card {
+    transition: all 0.25s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+.conv-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        rgba(255,255,255,0.04) 0%,
+        rgba(255,255,255,0.01) 50%,
+        rgba(0,0,0,0.15) 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+.conv-card > * { position: relative; z-index: 1; }
+.conv-card:hover {
+    transform: translateY(-2px) scale(1.005);
+}
+/* Neón cyan — IA activa público */
+.conv-neon-cyan {
+    background: linear-gradient(145deg, #0a1628 0%, #0d1f3c 60%, #091520 100%) !important;
+    border-color: rgba(0,220,255,0.55) !important;
+    box-shadow: 0 0 12px rgba(0,220,255,0.18), 0 0 1px rgba(0,220,255,0.6), inset 0 1px 0 rgba(0,220,255,0.08);
+}
+.conv-neon-cyan:hover {
+    border-color: rgba(0,220,255,0.85) !important;
+    box-shadow: 0 0 22px rgba(0,220,255,0.3), 0 0 2px rgba(0,220,255,0.9), inset 0 1px 0 rgba(0,220,255,0.12);
+}
+/* Neón magenta — IA activa paciente */
+.conv-neon-magenta {
+    background: linear-gradient(145deg, #120a28 0%, #1a0d38 60%, #0e0820 100%) !important;
+    border-color: rgba(220,0,255,0.5) !important;
+    box-shadow: 0 0 12px rgba(220,0,255,0.15), 0 0 1px rgba(220,0,255,0.55), inset 0 1px 0 rgba(220,0,255,0.07);
+}
+.conv-neon-magenta:hover {
+    border-color: rgba(220,0,255,0.85) !important;
+    box-shadow: 0 0 22px rgba(220,0,255,0.28), 0 0 2px rgba(220,0,255,0.9), inset 0 1px 0 rgba(220,0,255,0.12);
+}
+/* Neón amarillo — modo humano */
+.conv-neon-yellow {
+    background: linear-gradient(145deg, #18120a 0%, #241a08 60%, #14100a 100%) !important;
+    border-color: rgba(255,200,0,0.55) !important;
+    box-shadow: 0 0 12px rgba(255,200,0,0.18), 0 0 1px rgba(255,200,0,0.6), inset 0 1px 0 rgba(255,200,0,0.08);
+}
+.conv-neon-yellow:hover {
+    border-color: rgba(255,200,0,0.9) !important;
+    box-shadow: 0 0 22px rgba(255,200,0,0.3), 0 0 2px rgba(255,200,0,0.95), inset 0 1px 0 rgba(255,200,0,0.12);
+}
+/* Neón rojo — IA suspendida */
+.conv-neon-red {
+    background: linear-gradient(145deg, #180a0a 0%, #240d0d 60%, #140808 100%) !important;
+    border-color: rgba(255,60,60,0.45) !important;
+    box-shadow: 0 0 10px rgba(255,60,60,0.12), 0 0 1px rgba(255,60,60,0.5), inset 0 1px 0 rgba(255,60,60,0.06);
+}
+.conv-neon-red:hover {
+    border-color: rgba(255,60,60,0.8) !important;
+    box-shadow: 0 0 18px rgba(255,60,60,0.25), 0 0 2px rgba(255,60,60,0.85);
+}
 </style>
 
 <script>
 const CSRF = '{{ csrf_token }}';
 
-let todasLasConvs  = [];
-let filtroSucursal = 'todas';
-let filtroModo     = 'todos';
+let todasLasConvs    = [];
+let filtroSucursal   = 'todas';
+let filtroModo       = 'todos';
+let tabActual        = 'publico';
 let estadoSucursales = { 3: true, 4: true };
 
 let telefonoModal   = null;
 let modoHumanoModal = false;
 let sucursalModal   = 3;
+
+// ── Pestañas ──────────────────────────────────────────────────────────────
+
+function setTab(tab) {
+    tabActual = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('activo'));
+    document.getElementById('tab-' + tab).classList.add('activo');
+    renderConversaciones();
+}
 
 // ── Estado global de sucursales ───────────────────────────────────────────
 
@@ -201,8 +311,6 @@ async function cargarEstadoSucursales() {
         const res  = await fetch('/agente/api/estado-sucursales/');
         const data = await res.json();
         if (!data.ok) return;
-        estadoSucursales[3] = data.sucursales['3'].ia_activa;
-        estadoSucursales[4] = data.sucursales['4'].ia_activa;
         aplicarEstadoSucursal(3, data.sucursales['3']);
         aplicarEstadoSucursal(4, data.sucursales['4']);
     } catch(e) { console.error('Error cargando estado sucursales:', e); }
@@ -211,15 +319,14 @@ async function cargarEstadoSucursales() {
 function aplicarEstadoSucursal(sid, info) {
     const key    = sid === 3 ? 'japon' : 'camacho';
     const activa = info.ia_activa;
-
-    const card  = document.getElementById(`card-${key}`);
-    const icon  = document.getElementById(`icon-${key}`);
-    const badge = document.getElementById(`badge-${key}`);
-    const btn   = document.getElementById(`btn-${key}`);
-    const label = document.getElementById(`btn-${key}-label`);
-    const inf   = document.getElementById(`info-${key}`);
-
     estadoSucursales[sid] = activa;
+
+    const icon  = document.getElementById('icon-' + key);
+    const badge = document.getElementById('badge-' + key);
+    const btn   = document.getElementById('btn-' + key);
+    const label = document.getElementById('btn-' + key + '-label');
+    const card  = document.getElementById('card-' + key);
+    const inf   = document.getElementById('info-' + key);
 
     if (activa) {
         icon.textContent  = '🤖';
@@ -236,24 +343,20 @@ function aplicarEstadoSucursal(sid, info) {
         btn.className     = 'relative inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40';
         card.style.border = '1px solid rgba(239,68,68,0.4)';
     }
-
     if (info.cambiado_por) {
         const cuando = info.cambiado_en ? formatFecha(info.cambiado_en) : '';
-        inf.textContent = `Cambiado por ${info.cambiado_por} ${cuando}`;
+        inf.textContent = 'Cambiado por ' + info.cambiado_por + ' ' + cuando;
     }
 }
 
 async function toggleSucursal(sid) {
     const key    = sid === 3 ? 'japon' : 'camacho';
-    const btn    = document.getElementById(`btn-${key}`);
-    const label  = document.getElementById(`btn-${key}-label`);
-    const actual = estadoSucursales[sid];
-    const nuevo  = !actual;
-
+    const btn    = document.getElementById('btn-' + key);
+    const label  = document.getElementById('btn-' + key + '-label');
+    const nuevo  = !estadoSucursales[sid];
     const nombre = sid === 3 ? 'Sede Japón' : 'Sede Camacho';
-    const accion = nuevo ? 'ACTIVAR' : 'SUSPENDER';
-    const conf   = confirm(`¿Deseas ${accion} la IA para ${nombre}?\n\n${nuevo ? 'El agente volverá a responder automáticamente.' : 'El agente dejará de responder a todos los mensajes de esta sucursal.'}`);
-    if (!conf) return;
+
+    if (!confirm('¿Deseas ' + (nuevo ? 'ACTIVAR' : 'SUSPENDER') + ' la IA para ' + nombre + '?')) return;
 
     btn.disabled      = true;
     label.textContent = '⏳ Espera...';
@@ -264,15 +367,9 @@ async function toggleSucursal(sid) {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
             body: JSON.stringify({ sucursal_id: sid, ia_activa: nuevo }),
         });
-        const data = await res.json();
-        if (data.ok) {
-            await cargarEstadoSucursales();
-        }
-    } catch(e) {
-        alert('Error al cambiar estado de la IA');
-    } finally {
-        btn.disabled = false;
-    }
+        if ((await res.json()).ok) await cargarEstadoSucursales();
+    } catch(e) { alert('Error al cambiar estado de la IA'); }
+    finally    { btn.disabled = false; }
 }
 
 // ── Conversaciones ────────────────────────────────────────────────────────
@@ -289,27 +386,37 @@ async function cargarConversaciones() {
 }
 
 function actualizarContadores() {
-    document.getElementById('total-convs').textContent  = todasLasConvs.length;
-    document.getElementById('total-humano').textContent = todasLasConvs.filter(c => c.modo_humano).length;
+    const pub = todasLasConvs.filter(c => !c.es_paciente).length;
+    const pac = todasLasConvs.filter(c =>  c.es_paciente).length;
+    const hum = todasLasConvs.filter(c =>  c.modo_humano).length;
+    document.getElementById('total-publico').textContent           = pub;
+    document.getElementById('total-pacientes').textContent         = pac;
+    document.getElementById('total-humano').textContent            = hum;
+    document.getElementById('badge-tab-publico').textContent       = pub;
+    document.getElementById('badge-tab-pacientes').textContent     = pac;
 }
 
 function setFiltroSucursal(f) {
     filtroSucursal = f;
     document.querySelectorAll('[id^="fsuc-"]').forEach(b => b.classList.remove('activo'));
-    document.getElementById(`fsuc-${f}`).classList.add('activo');
+    document.getElementById('fsuc-' + f).classList.add('activo');
     renderConversaciones();
 }
 
 function setFiltroModo(f) {
     filtroModo = f;
     document.querySelectorAll('[id^="fmodo-"]').forEach(b => b.classList.remove('activo'));
-    document.getElementById(`fmodo-${f}`).classList.add('activo');
+    document.getElementById('fmodo-' + f).classList.add('activo');
     renderConversaciones();
 }
 
 function renderConversaciones() {
     const busqueda = document.getElementById('buscador').value.toLowerCase();
     let datos = [...todasLasConvs];
+
+    // Filtro por pestaña
+    if (tabActual === 'publico')   datos = datos.filter(c => !c.es_paciente);
+    if (tabActual === 'pacientes') datos = datos.filter(c =>  c.es_paciente);
 
     // Filtro sucursal
     if (filtroSucursal === 'japon')   datos = datos.filter(c => c.sucursal_id === 3);
@@ -319,22 +426,24 @@ function renderConversaciones() {
     if (filtroModo === 'bot')    datos = datos.filter(c => !c.modo_humano);
     if (filtroModo === 'humano') datos = datos.filter(c =>  c.modo_humano);
 
-    // Búsqueda
+    // Búsqueda (incluye nombre paciente/tutor)
     if (busqueda) {
         datos = datos.filter(c =>
             c.telefono.includes(busqueda) ||
-            c.ultimo_msg.toLowerCase().includes(busqueda)
+            c.ultimo_msg.toLowerCase().includes(busqueda) ||
+            (c.nombre_paciente || '').toLowerCase().includes(busqueda) ||
+            (c.nombre_tutor    || '').toLowerCase().includes(busqueda)
         );
     }
 
     const container = document.getElementById('lista-conversaciones');
 
     if (datos.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-2 text-center text-white/40 py-12">
-                <div class="text-4xl mb-3">📭</div>
-                <p class="text-sm">No hay conversaciones</p>
-            </div>`;
+        const emoji = tabActual === 'publico' ? '🌐' : '👶';
+        const texto = tabActual === 'publico'
+            ? 'No hay consultas del público en este momento'
+            : 'No hay conversaciones de pacientes registrados';
+        container.innerHTML = '<div class="col-span-2 text-center text-white/40 py-12"><div class="text-4xl mb-3">' + emoji + '</div><p class="text-sm">' + texto + '</p></div>';
         return;
     }
 
@@ -342,40 +451,62 @@ function renderConversaciones() {
 }
 
 function tarjetaConversacion(c) {
-    const esHumano    = c.modo_humano;
-    const esJapon     = c.sucursal_id === 3;
-    const sucNombre   = esJapon ? 'Sede Japón' : 'Sede Camacho';
-    const sucColor    = esJapon ? 'text-blue-300' : 'text-purple-300';
-    const sucBadge    = esJapon
+    const esHumano     = c.modo_humano;
+    const esPaciente   = c.es_paciente;
+    const esJapon      = c.sucursal_id === 3;
+    const iaSuspendida = !estadoSucursales[c.sucursal_id];
+    const sucNombre    = esJapon ? 'Sede Japón' : 'Sede Camacho';
+    const sucBadge     = esJapon
         ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
         : 'bg-purple-500/15 text-purple-300 border-purple-500/30';
-    const iaSuspendida = !estadoSucursales[c.sucursal_id];
     const fechaStr    = c.ultimo_en ? formatFecha(c.ultimo_en) : '—';
     const rolIcon     = c.ultimo_rol === 'assistant' ? '🤖' : '👤';
 
     let estadoBadge;
     if (iaSuspendida) {
-        estadoBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">⏸ IA suspendida</span>`;
+        estadoBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">⏸ IA suspendida</span>';
     } else if (esHumano) {
-        estadoBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">👤 Modo humano</span>`;
+        estadoBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">👤 Modo humano</span>';
     } else {
-        estadoBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">🤖 IA activa</span>`;
+        estadoBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">🤖 IA activa</span>';
     }
 
-    const borderColor = iaSuspendida ? 'border-red-500/20' : esHumano ? 'border-yellow-500/30' : 'border-white/10';
+    const borderColor = iaSuspendida ? 'rgba(239,68,68,0.2)' : esHumano ? 'rgba(234,179,8,0.3)' : esPaciente ? 'rgba(220,0,255,0.5)' : 'rgba(0,220,255,0.55)';
+    const avatarIcon  = iaSuspendida ? '⏸' : esHumano ? '👤' : esPaciente ? '👶' : '🌐';
+    const avatarStyle = esPaciente
+        ? 'background:rgba(220,0,255,0.15); border:1px solid rgba(220,0,255,0.35);'
+        : 'background:rgba(0,220,255,0.12); border:1px solid rgba(0,220,255,0.3);';
+
+    // Clase neón según estado
+    const neonClass = iaSuspendida ? 'conv-neon-red'
+        : esHumano    ? 'conv-neon-yellow'
+        : esPaciente  ? 'conv-neon-magenta'
+        : 'conv-neon-cyan';
+
+    const nombreBloque = esPaciente && c.nombre_paciente
+        ? '<div class="mt-0.5"><p class="text-emerald-300 text-xs font-bold leading-tight">' + escapeHtml(c.nombre_paciente) + '</p><p class="text-white/40 text-[10px]">Tutor: ' + escapeHtml(c.nombre_tutor) + '</p></div>'
+        : '';
+
+    const safeTel         = escapeHtml(c.telefono);
+    const safeNomPac      = escapeHtml(c.nombre_paciente || '');
+    const safeNomTut      = escapeHtml(c.nombre_tutor    || '');
+    const btnModoClass    = esHumano
+        ? 'bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40'
+        : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40';
+    const btnModoLabel    = esHumano ? '🤖 Devolver a IA' : '👤 Tomar control';
 
     return `
-    <div class="conv-card glass-card rounded-2xl p-4 border ${borderColor} space-y-3"
-         onclick="abrirModal('${c.telefono}', ${c.modo_humano}, ${c.sucursal_id})">
+    <div class="conv-card ${neonClass} rounded-2xl p-4 space-y-3"
+         style="border:1px solid ${borderColor};"
+         onclick="abrirModal('${safeTel}', ${esHumano}, ${c.sucursal_id}, ${esPaciente}, '${safeNomPac}', '${safeNomTut}')">
         <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
                 <div class="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                     style="background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3);">
-                    ${iaSuspendida ? '⏸' : esHumano ? '👤' : '🤖'}
-                </div>
+                     style="${avatarStyle}">${avatarIcon}</div>
                 <div class="min-w-0">
                     <p class="text-white font-bold text-sm">${formatTelefono(c.telefono)}</p>
-                    <span class="inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${sucBadge}">${sucNombre}</span>
+                    ${nombreBloque}
+                    <span class="inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${sucBadge} mt-0.5">${sucNombre}</span>
                 </div>
             </div>
             <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
@@ -383,27 +514,24 @@ function tarjetaConversacion(c) {
                 <span class="text-[10px] text-white/40">${fechaStr}</span>
             </div>
         </div>
-        <div class="text-xs text-white/60 leading-relaxed pl-11">
-            <span class="text-white/30">${rolIcon}</span> ${escapeHtml(c.ultimo_msg)}${c.ultimo_msg.length >= 80 ? '...' : ''}
+        <div class="text-xs text-white/55 leading-relaxed pl-11">
+            <span class="text-white/25">${rolIcon}</span> ${escapeHtml(c.ultimo_msg)}${c.ultimo_msg.length >= 80 ? '...' : ''}
         </div>
         <div class="flex items-center justify-between pl-11">
             <span class="text-[10px] text-white/30">${c.total_msgs} mensajes</span>
-            <button onclick="event.stopPropagation(); toggleModo('${c.telefono}', ${!esHumano})"
-                class="text-[10px] font-bold px-3 py-1 rounded-lg transition-all border
-                       ${esHumano
-                           ? 'bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40'
-                           : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40'}">
-                ${esHumano ? '🤖 Devolver a IA' : '👤 Tomar control'}
+            <button onclick="event.stopPropagation(); toggleModo('${safeTel}', ${!esHumano})"
+                class="text-[10px] font-bold px-3 py-1 rounded-lg transition-all border ${btnModoClass}">
+                ${btnModoLabel}
             </button>
         </div>
     </div>`;
 }
 
-// ── Toggle modo humano individual ─────────────────────────────────────────
+// ── Toggle modo humano ────────────────────────────────────────────────────
 
 async function toggleModo(telefono, nuevoModo) {
     try {
-        const res = await fetch('/agente/api/toggle-modo-humano/', {
+        const res  = await fetch('/agente/api/toggle-modo-humano/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
             body: JSON.stringify({ telefono, modo_humano: nuevoModo }),
@@ -420,15 +548,26 @@ async function toggleModo(telefono, nuevoModo) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 
-async function abrirModal(telefono, esHumano, sucursalId) {
+async function abrirModal(telefono, esHumano, sucursalId, esPaciente, nombrePaciente, nombreTutor) {
     telefonoModal   = telefono;
     modoHumanoModal = esHumano;
     sucursalModal   = sucursalId;
 
-    document.getElementById('modal-historial').classList.remove('hidden');
-    document.getElementById('modal-historial').classList.add('flex');
+    const modal = document.getElementById('modal-historial');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
     document.getElementById('modal-telefono').textContent = formatTelefono(telefono);
     document.getElementById('modal-sucursal').textContent = sucursalId === 4 ? 'Sede Camacho' : 'Sede Japón';
+
+    const infoPacEl = document.getElementById('modal-info-paciente');
+    if (esPaciente && nombrePaciente) {
+        document.getElementById('modal-nombre-paciente').textContent = '👶 ' + nombrePaciente;
+        document.getElementById('modal-nombre-tutor').textContent    = 'Tutor: ' + nombreTutor;
+        infoPacEl.classList.remove('hidden');
+    } else {
+        infoPacEl.classList.add('hidden');
+    }
 
     actualizarModalEstado(esHumano);
     await cargarHistorialModal(telefono);
@@ -443,29 +582,30 @@ function actualizarModalEstado(esHumano) {
         badge.textContent = '👤 Modo humano';
         badge.className   = 'text-xs font-bold px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
         btnToggle.textContent = '🤖 Devolver a IA';
-        btnToggle.className   = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all border bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40';
+        btnToggle.className   = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all border bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40';
         inputArea.classList.remove('hidden');
+        setTimeout(() => document.getElementById('modal-input').focus(), 120);
     } else {
         badge.textContent = '🤖 IA activa';
         badge.className   = 'text-xs font-bold px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30';
         btnToggle.textContent = '👤 Tomar control';
-        btnToggle.className   = 'px-4 py-1.5 rounded-xl text-xs font-bold transition-all border bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40';
+        btnToggle.className   = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all border bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40';
         inputArea.classList.add('hidden');
     }
 }
 
 async function toggleModoDesdeModal() {
-    const nuevoModo = !modoHumanoModal;
-    await toggleModo(telefonoModal, nuevoModo);
-    modoHumanoModal = nuevoModo;
-    actualizarModalEstado(nuevoModo);
+    const nuevo = !modoHumanoModal;
+    await toggleModo(telefonoModal, nuevo);
+    modoHumanoModal = nuevo;
+    actualizarModalEstado(nuevo);
 }
 
 async function cargarHistorialModal(telefono) {
     document.getElementById('modal-mensajes').innerHTML =
-        '<div class="text-center text-white/40 py-8">⏳ Cargando...</div>';
+        '<div class="text-center text-white/40 py-8">⏳ Cargando historial...</div>';
     try {
-        const res  = await fetch(`/agente/api/historial/${telefono}/`);
+        const res  = await fetch('/agente/api/historial-all/' + telefono + '/');
         const data = await res.json();
         renderMensajes(data.mensajes || []);
     } catch(e) {
@@ -475,23 +615,36 @@ async function cargarHistorialModal(telefono) {
 }
 
 function renderMensajes(mensajes) {
-    if (mensajes.length === 0) {
+    if (!mensajes.length) {
         document.getElementById('modal-mensajes').innerHTML =
-            '<div class="text-center text-white/40 py-8">📭 Sin mensajes</div>';
+            '<div class="text-center text-white/40 py-8">📭 Sin mensajes aún</div>';
         return;
     }
+
     const html = mensajes.map(m => {
         const esAsistente = m.rol === 'assistant';
         const esManual    = m.modelo === 'manual';
         const fecha       = formatFecha(m.creado);
+        let bgStyle, labelHtml;
+
+        if (esAsistente && esManual) {
+            bgStyle   = 'background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.25);';
+            labelHtml = '<span class="text-[9px] text-yellow-400/80 font-bold">✍ Staff</span>';
+        } else if (esAsistente) {
+            bgStyle   = 'background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.25);';
+            labelHtml = m.modelo ? '<span class="text-[9px] text-violet-400/60">' + m.modelo + '</span>' : '';
+        } else {
+            bgStyle   = 'background:rgba(30,41,59,1); border:1px solid rgba(255,255,255,0.1);';
+            labelHtml = '';
+        }
+
         return `
         <div class="flex ${esAsistente ? 'justify-start' : 'justify-end'}">
-            <div class="max-w-[85%] rounded-2xl px-4 py-2.5 space-y-1"
-                 style="background: ${esAsistente ? 'rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.2)' : 'rgba(30,41,59,1); border:1px solid rgba(255,255,255,0.1)'};">
-                <p class="text-white text-xs leading-relaxed">${escapeHtml(m.contenido)}</p>
+            <div class="max-w-[85%] rounded-2xl px-4 py-2.5 space-y-1" style="${bgStyle}">
+                <p class="text-white text-xs leading-relaxed whitespace-pre-wrap">${escapeHtml(m.contenido)}</p>
                 <div class="flex items-center justify-between gap-3">
                     <span class="text-[10px] text-white/30">${fecha}</span>
-                    ${esManual ? '<span class="text-[9px] text-yellow-400/60">✍ Staff</span>' : m.modelo ? `<span class="text-[9px] text-violet-400/60">${m.modelo}</span>` : ''}
+                    ${labelHtml}
                 </div>
             </div>
         </div>`;
@@ -505,6 +658,7 @@ function renderMensajes(mensajes) {
 function cerrarModal() {
     document.getElementById('modal-historial').classList.add('hidden');
     document.getElementById('modal-historial').classList.remove('flex');
+    document.getElementById('modal-input').value = '';
     telefonoModal = null;
 }
 
@@ -519,17 +673,18 @@ async function enviarMensajeManual() {
     const mensaje = input.value.trim();
     if (!mensaje || !telefonoModal) return;
 
+    const telLimpio = telefonoModal.startsWith('591') ? telefonoModal.slice(3) : telefonoModal;
     input.value    = '';
     input.disabled = true;
 
-    const telLimpio = telefonoModal.startsWith('591') ? telefonoModal.slice(3) : telefonoModal;
-
     try {
-        await fetch('/agente/api/enviar-manual/', {
+        const res  = await fetch('/agente/api/enviar-manual/', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
             body: JSON.stringify({ telefono: telLimpio, mensaje, sucursal_id: sucursalModal }),
         });
+        const data = await res.json();
+        if (!data.ok) { alert('Error: ' + (data.error || 'desconocido')); return; }
         await cargarHistorialModal(telefonoModal);
     } catch(e) {
         alert('Error al enviar mensaje');
@@ -542,7 +697,7 @@ async function enviarMensajeManual() {
 // ── Utilidades ─────────────────────────────────────────────────────────────
 
 function formatTelefono(tel) {
-    return tel.startsWith('591') && tel.length >= 11 ? `+591 ${tel.slice(3)}` : tel;
+    return (tel.startsWith('591') && tel.length >= 11) ? '+591 ' + tel.slice(3) : tel;
 }
 
 function formatFecha(iso) {
@@ -550,16 +705,17 @@ function formatFecha(iso) {
         const d    = new Date(iso);
         const diff = new Date() - d;
         if (diff < 60000)    return 'Ahora';
-        if (diff < 3600000)  return `Hace ${Math.floor(diff/60000)} min`;
-        if (diff < 86400000) return `Hace ${Math.floor(diff/3600000)}h`;
+        if (diff < 3600000)  return 'Hace ' + Math.floor(diff/60000) + ' min';
+        if (diff < 86400000) return 'Hace ' + Math.floor(diff/3600000) + 'h';
         return d.toLocaleString('es-BO', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
     } catch(e) { return iso; }
 }
 
 function escapeHtml(str) {
-    return String(str)
+    return String(str || '')
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
 }
 
 // ── Inicializar ────────────────────────────────────────────────────────────

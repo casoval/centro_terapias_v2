@@ -272,37 +272,58 @@ def api_estado_sucursales(request):
 def api_conversaciones(request):
     from agente.models import ConversacionAgente, ModoHumano
     from django.db.models import Max, Count
+    from agente.paciente_db import buscar_paciente_por_telefono
 
-    telefonos = (
+    # Incluir todos los agentes (publico y paciente)
+    telefonos_qs = (
         ConversacionAgente.objects
-        .filter(agente='publico')
         .values('telefono')
         .annotate(ultimo=Max('creado'), total=Count('id'))
         .order_by('-ultimo')
     )
 
+    # Deduplicar teléfonos preservando el más reciente
+    telefonos_dict = {}
+    for t in telefonos_qs:
+        tel = t['telefono']
+        if tel not in telefonos_dict:
+            telefonos_dict[tel] = {'ultimo': t['ultimo'], 'total': t['total']}
+        else:
+            if t['ultimo'] > telefonos_dict[tel]['ultimo']:
+                telefonos_dict[tel]['ultimo'] = t['ultimo']
+            telefonos_dict[tel]['total'] += t['total']
+
     modos = {m.telefono: m for m in ModoHumano.objects.all()}
 
     conversaciones = []
-    for t in telefonos:
-        tel = t['telefono']
+    for tel, t in telefonos_dict.items():
         ultimo_msg = (
             ConversacionAgente.objects
-            .filter(agente='publico', telefono=tel)
+            .filter(telefono=tel)
             .order_by('-creado')
             .first()
         )
         modo = modos.get(tel)
+
+        # Determinar si es paciente registrado en el sistema
+        paciente = buscar_paciente_por_telefono(tel)
+        es_paciente = paciente is not None
+
         conversaciones.append({
-            'telefono':    tel,
-            'ultimo_msg':  ultimo_msg.contenido[:80] if ultimo_msg else '',
-            'ultimo_rol':  ultimo_msg.rol if ultimo_msg else '',
-            'ultimo_en':   ultimo_msg.creado.isoformat() if ultimo_msg else '',
-            'total_msgs':  t['total'],
-            'modo_humano': modo.modo_humano if modo else False,
-            'sucursal_id': modo.sucursal_id if modo else 3,
+            'telefono':        tel,
+            'ultimo_msg':      ultimo_msg.contenido[:80] if ultimo_msg else '',
+            'ultimo_rol':      ultimo_msg.rol if ultimo_msg else '',
+            'ultimo_en':       ultimo_msg.creado.isoformat() if ultimo_msg else '',
+            'total_msgs':      t['total'],
+            'modo_humano':     modo.modo_humano if modo else False,
+            'sucursal_id':     modo.sucursal_id if modo else 3,
+            'es_paciente':     es_paciente,
+            'nombre_paciente': f'{paciente.nombre} {paciente.apellido}' if es_paciente else '',
+            'nombre_tutor':    paciente.nombre_tutor if es_paciente else '',
         })
 
+    # Ordenar por más reciente
+    conversaciones.sort(key=lambda x: x['ultimo_en'], reverse=True)
     return JsonResponse({'ok': True, 'conversaciones': conversaciones})
 
 
@@ -321,6 +342,29 @@ def api_historial_telefono(request, telefono):
             'contenido': m['contenido'],
             'modelo':  m['modelo_usado'],
             'creado':  m['creado'].isoformat(),
+        }
+        for m in mensajes
+    ]
+    return JsonResponse({'ok': True, 'telefono': telefono, 'mensajes': data})
+
+
+@login_required
+def api_historial_telefono_all(request, telefono):
+    """Historial completo (todos los agentes) para un número."""
+    from agente.models import ConversacionAgente
+    mensajes = (
+        ConversacionAgente.objects
+        .filter(telefono=telefono)
+        .order_by('creado')
+        .values('rol', 'contenido', 'modelo_usado', 'creado', 'agente')
+    )
+    data = [
+        {
+            'rol':       m['rol'],
+            'contenido': m['contenido'],
+            'modelo':    m['modelo_usado'],
+            'creado':    m['creado'].isoformat(),
+            'agente':    m['agente'],
         }
         for m in mensajes
     ]

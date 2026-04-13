@@ -13,7 +13,8 @@ urlpatterns = [
 
     # API para el panel web
     path('api/conversaciones/',             views.api_conversaciones,     name='api-conversaciones'),
-    path('api/historial/<str:telefono>/',   views.api_historial_telefono, name='api-historial'),
+    path('api/historial/<str:telefono>/',       views.api_historial_telefono,     name='api-historial'),
+    path('api/historial-all/<str:telefono>/',   views.api_historial_telefono_all, name='api-historial-all'),
     path('api/toggle-modo-humano/',         views.toggle_modo_humano,     name='toggle-modo-humano'),
     path('api/toggle-ia-sucursal/',         views.toggle_ia_sucursal,     name='toggle-ia-sucursal'),
     path('api/estado-sucursales/',          views.api_estado_sucursales,  name='api-estado-sucursales'),
