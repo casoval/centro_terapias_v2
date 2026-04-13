@@ -459,6 +459,7 @@ def _enviar_respuesta_texto(telefono: str, mensaje: str, puerto: int):
                 'paciente':   'Consulta nueva',
                 'sucursal':   'Agente Público',
                 'delay_type': 'corto',
+                'tipo':       'ia',
             },
             timeout=5,
         )
