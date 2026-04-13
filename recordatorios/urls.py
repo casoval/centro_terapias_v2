@@ -5,7 +5,6 @@ app_name = 'recordatorios'
 
 urlpatterns = [
     # ── WhatsApp ──────────────────────────────────────
-    path('citas-manana/',        api.citas_manana,          name='citas-manana'),
     path('sesiones-proximas/',   api.sesiones_proximas,     name='sesiones-proximas'),
     path('mensualidades-semana/', api.mensualidades_semana, name='mensualidades-semana'),
     path('deudas/',              api.deudas_pendientes,     name='deudas-pendientes'),

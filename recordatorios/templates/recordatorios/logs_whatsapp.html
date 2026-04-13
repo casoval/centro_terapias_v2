@@ -241,10 +241,12 @@
             <button onclick="cambiarPestana('recordatorios')" id="tab-recordatorios"
                 class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all" style="background:#6366f1; color:#ffffff;">
                 🤖 Recordatorios automáticos
+                <span id="count-recordatorios" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:rgba(255,255,255,0.25);"></span>
             </button>
             <button onclick="cambiarPestana('ia')" id="tab-ia"
                 class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all" style="background:transparent; color:#64748b;">
                 💬 Respuestas de IA
+                <span id="count-ia" class="text-[11px] font-bold px-1.5 py-0.5 rounded-full" style="background:rgba(99,102,241,0.15); color:#6366f1;"></span>
             </button>
         </div>
 
@@ -277,13 +279,19 @@ function cambiarPestana(pestana) {
 
     const tabRec = document.getElementById('tab-recordatorios');
     const tabIA  = document.getElementById('tab-ia');
+    const cRec   = document.getElementById('count-recordatorios');
+    const cIA    = document.getElementById('count-ia');
 
     if (pestana === 'recordatorios') {
         tabRec.style.cssText = 'background:#6366f1; color:#ffffff;';
         tabIA.style.cssText  = 'background:transparent; color:#64748b;';
+        if (cRec) cRec.style.cssText = 'background:rgba(255,255,255,0.25); color:#fff;';
+        if (cIA)  cIA.style.cssText  = 'background:rgba(99,102,241,0.15); color:#6366f1;';
     } else {
         tabIA.style.cssText  = 'background:#6366f1; color:#ffffff;';
         tabRec.style.cssText = 'background:transparent; color:#64748b;';
+        if (cIA)  cIA.style.cssText  = 'background:rgba(255,255,255,0.25); color:#fff;';
+        if (cRec) cRec.style.cssText = 'background:rgba(99,102,241,0.15); color:#6366f1;';
     }
     renderHistorial();
 }
@@ -412,11 +420,21 @@ async function cargarHistorial() {
     try {
         const res = await fetch('/api/whatsapp-historial/');
         historialCompleto = await res.json();
+        actualizarContadores();
         renderHistorial();
     } catch(e) {
         document.getElementById('historial-container').innerHTML =
             '<div class="text-center text-red-400 py-8">Error al cargar historial</div>';
     }
+}
+
+function actualizarContadores() {
+    const totalRec = historialCompleto.filter(m => m.tipo !== 'ia').length;
+    const totalIA  = historialCompleto.filter(m => m.tipo === 'ia').length;
+    const cRec = document.getElementById('count-recordatorios');
+    const cIA  = document.getElementById('count-ia');
+    if (cRec) cRec.textContent = totalRec || '';
+    if (cIA)  cIA.textContent  = totalIA  || '';
 }
 
 function filtrarHistorial(filtro) {
@@ -439,7 +457,7 @@ function renderHistorial() {
 
     // Filtrar por pestaña (tipo)
     if (pestanaActual === 'recordatorios') {
-        datos = datos.filter(m => !m.tipo || m.tipo === 'recordatorio');
+        datos = datos.filter(m => m.tipo !== 'ia');
     } else {
         datos = datos.filter(m => m.tipo === 'ia');
     }
@@ -465,16 +483,25 @@ function renderHistorial() {
         const fecha = new Date(m.fecha);
         const fechaStr = fecha.toLocaleString('es-BO', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
         const esExito = m.estado === 'enviado';
-        const colorBg = esExito ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20';
-        const sucursalColor = m.sucursal && m.sucursal.includes('Camacho') ? 'text-purple-300' : 'text-blue-300';
+
+        // Nombres desde la BD (si el teléfono está registrado)
+        const nombrePaciente = m.nombre_paciente_db || m.paciente || '';
+        const nombreTutor    = m.nombre_tutor_db    || '';
+        const enBD           = !!m.nombre_paciente_db;
+
+        // Línea de identidad: paciente + tutor si está en BD, solo teléfono si no
+        const identidad = enBD
+            ? `<span class="font-semibold text-sm" style="color:#1e293b;">${nombrePaciente}</span>
+               <span class="text-xs" style="color:#64748b;">· tutor: ${nombreTutor || '—'}</span>
+               <span class="text-xs" style="color:#94a3b8;">· ${m.telefono}</span>`
+            : `<span class="font-semibold text-sm" style="color:#64748b;">${m.telefono}</span>`;
 
         return `
         <div class="rounded-xl p-3 space-y-1" style="background:${esExito ? '#f0fdf4' : '#fef2f2'}; border:1px solid ${esExito ? '#86efac' : '#fca5a5'};">
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                     <span>${esExito ? '✅' : '❌'}</span>
-                    <span class="font-semibold text-sm" style="color:#1e293b;">${m.paciente || 'Sin nombre'}</span>
-                    <span class="text-xs" style="color:#64748b;">· ${m.telefono}</span>
+                    ${identidad}
                     ${m.tipo === 'ia'
                         ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;">💬 IA</span>'
                         : '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;">🤖 Auto</span>'}

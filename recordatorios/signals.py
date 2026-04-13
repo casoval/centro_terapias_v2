@@ -82,6 +82,6 @@ def notificar_post_falta(sender, instance, **kwargs):
 
     url = _bot_url(instance.sucursal_id)
     try:
-        requests.post(url, json={'phone': telefono, 'message': mensaje}, timeout=10)
+        requests.post(url, json={'phone': telefono, 'message': mensaje, 'tipo': 'recordatorio'}, timeout=10)
     except Exception:
         pass  # Si el bot no responde, no debe romper el guardado de la sesión

@@ -14,32 +14,6 @@ SUCURSAL_CAMACHO = 4
 
 
 @api_view(['GET'])
-def citas_manana(request):
-    """LEGACY - mantener por compatibilidad"""
-    manana = timezone.localdate() + timedelta(days=1)
-    sesiones = Sesion.objects.filter(
-        fecha=manana,
-        estado='programada'
-    ).select_related('paciente', 'profesional', 'servicio', 'sucursal').order_by('hora_inicio')
-
-    data = []
-    for sesion in sesiones:
-        paciente = sesion.paciente
-        data.append({
-            'paciente_nombre': paciente.nombre_completo,
-            'tutor_nombre': paciente.nombre_tutor,
-            'tutor_telefono': paciente.telefono_tutor,
-            'fecha': f"{DIAS[sesion.fecha.weekday()]}, {sesion.fecha.day} de {MESES[sesion.fecha.month - 1]} de {sesion.fecha.year}",
-            'hora_inicio': str(sesion.hora_inicio),
-            'servicio': sesion.servicio.nombre,
-            'profesional': f"{sesion.profesional.nombre} {sesion.profesional.apellido}",
-            'sucursal': sesion.sucursal.nombre,
-        })
-
-    return Response({'total_sesiones': len(data), 'sesiones': data})
-
-
-@api_view(['GET'])
 def sesiones_proximas(request):
     sucursal_id = request.GET.get('sucursal')
     ahora = timezone.localtime()
@@ -101,6 +75,7 @@ def sesiones_proximas(request):
             'tutor_telefono': telefono,
             'sucursal': tutor['sucursal'],
             'mensaje': mensaje,
+            'tipo': 'recordatorio',
         })
 
     return Response({'total': len(data), 'sesiones': data})
@@ -178,6 +153,7 @@ def mensualidades_semana(request):
         cuerpo = "\n\n".join(bloques)
         mensaje = f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n\n{cuerpo}\n\n¡Hasta pronto! 😊 neuromisael.com"
         tutor['mensaje'] = mensaje
+        tutor['tipo'] = 'recordatorio'
         data.append(tutor)
 
     return Response({
@@ -290,6 +266,7 @@ def deudas_pendientes(request):
             'sucursal': sucursal,
             'sucursal_id': tutor['sucursal_id'],
             'mensaje': mensaje,
+            'tipo': 'recordatorio',
         })
 
     return Response({'total': len(data), 'deudas': data})
@@ -374,6 +351,7 @@ def hitos_asistencia(request):
                 'hito': hito,
                 'sucursal': sesion_hoy.sucursal.nombre,
                 'mensaje': mensaje,
+                'tipo': 'ia',
             })
 
     return Response({'total': len(data), 'hitos': data})
@@ -439,6 +417,7 @@ def post_falta(request):
         'estado': sesion.estado,
         'sucursal': sesion.sucursal.nombre,
         'mensaje': mensaje,
+        'tipo': 'recordatorio',
     })
 
 
@@ -589,6 +568,7 @@ def orientacion_mensual(request):
             'paciente_nombre': nombre_paciente,
             'terapia_detectada': clave_terapia,
             'mensaje': mensaje,
+            'tipo': 'ia',
         })
 
     # Marcar como enviado para este mes (expira en 32 dias)

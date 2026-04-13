@@ -157,7 +157,69 @@ def whatsapp_historial(request):
         pass
     historial = historial_japon + historial_camacho
     historial.sort(key=lambda x: x.get('fecha', ''), reverse=True)
-    return JsonResponse(historial[:200], safe=False)
+    historial = historial[:200]
+
+    # ── Enriquecer con nombres desde la BD ──────────────────
+    # Recopilar todos los teléfonos únicos del historial
+    telefonos_raw = {item.get('telefono', '') for item in historial if item.get('telefono')}
+
+    # Normalizar: generar variantes con y sin prefijo 591
+    telefonos_buscar = set()
+    for t in telefonos_raw:
+        telefonos_buscar.add(t)
+        if t.startswith('591') and len(t) > 3:
+            telefonos_buscar.add(t[3:])   # sin prefijo
+        elif len(t) == 8:
+            telefonos_buscar.add(f'591{t}')  # con prefijo
+
+    # Una sola consulta batch a la BD
+    try:
+        from pacientes.models import Paciente
+        pacientes_qs = Paciente.objects.filter(
+            telefono_tutor__in=telefonos_buscar
+        ).values('telefono_tutor', 'nombre', 'apellido', 'nombre_tutor')
+        # También buscar por teléfono secundario
+        pacientes_qs2 = Paciente.objects.filter(
+            telefono_tutor_2__in=telefonos_buscar
+        ).values('telefono_tutor_2', 'nombre', 'apellido', 'nombre_tutor')
+
+        # Construir lookup: telefono → {nombre_paciente, nombre_tutor}
+        lookup = {}
+        for p in pacientes_qs:
+            datos = {
+                'nombre_paciente_db': f"{p['nombre']} {p['apellido']}".strip(),
+                'nombre_tutor_db': p['nombre_tutor'] or '',
+            }
+            lookup[p['telefono_tutor']] = datos
+            # También indexar con/sin 591 para facilitar match
+            t = p['telefono_tutor']
+            if t.startswith('591'):
+                lookup[t[3:]] = datos
+            else:
+                lookup[f'591{t}'] = datos
+        for p in pacientes_qs2:
+            datos = {
+                'nombre_paciente_db': f"{p['nombre']} {p['apellido']}".strip(),
+                'nombre_tutor_db': p['nombre_tutor'] or '',
+            }
+            lookup[p['telefono_tutor_2']] = datos
+            t = p['telefono_tutor_2']
+            if t.startswith('591'):
+                lookup[t[3:]] = datos
+            else:
+                lookup[f'591{t}'] = datos
+    except Exception:
+        lookup = {}
+
+    # Agregar nombres a cada item del historial
+    for item in historial:
+        tel = item.get('telefono', '')
+        info = lookup.get(tel) or lookup.get(tel[3:] if tel.startswith('591') else f'591{tel}')
+        if info:
+            item['nombre_paciente_db'] = info['nombre_paciente_db']
+            item['nombre_tutor_db']    = info['nombre_tutor_db']
+
+    return JsonResponse(historial, safe=False)
 
 
 def get_sucursal_principal(paciente):
@@ -483,6 +545,7 @@ def whatsapp_envio_masivo(request):
                     'paciente': tutor['paciente_nombre'],
                     'sucursal': tutor['sucursal'],
                     'delay_type': 'largo' if destinatarios == 'deudores' else 'corto',
+                    'tipo': 'recordatorio',
                 },
                 timeout=5
             )
