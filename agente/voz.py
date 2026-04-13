@@ -18,9 +18,14 @@ import requests
 log = logging.getLogger('agente')
 
 # Configuracion
-INWORLD_API_KEY  = os.environ.get('INWORLD_API_KEY', '')
-INWORLD_VOICE_ID = os.environ.get('INWORLD_VOICE_ID', 'default-58vxpseedhdrbc3xtv9jma__design-voice-843732bf')
-GROQ_API_KEY     = os.environ.get('GROQ_API_KEY', '')
+def _inworld_key():
+    return os.environ.get('INWORLD_API_KEY', '')
+
+def _inworld_voice():
+    return os.environ.get('INWORLD_VOICE_ID', 'default-58vxpseedhdrbc3xtv9jma__design-voice-843732bf')
+
+def _groq_key():
+    return os.environ.get('GROQ_API_KEY', '')
 
 
 def transcribir_audio(ruta_audio: str):
@@ -29,7 +34,7 @@ def transcribir_audio(ruta_audio: str):
     """
     try:
         from groq import Groq
-        client = Groq(api_key=GROQ_API_KEY)
+        client = Groq(api_key=_groq_key())
 
         with open(ruta_audio, 'rb') as f:
             transcripcion = client.audio.transcriptions.create(
@@ -57,12 +62,12 @@ def texto_a_voz(texto: str):
         r = requests.post(
             'https://api.inworld.ai/tts/v1/voice:stream',
             headers={
-                'Authorization': f'Basic {INWORLD_API_KEY}',
+                'Authorization': f'Basic {_inworld_key()}',
                 'Content-Type': 'application/json',
             },
             json={
                 'text': texto,
-                'voice_id': INWORLD_VOICE_ID,
+                'voice_id': _inworld_voice(),
                 'audio_config': {
                     'audio_encoding': 'MP3',
                     'speaking_rate': 1,
