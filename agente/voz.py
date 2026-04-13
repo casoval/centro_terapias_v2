@@ -1,37 +1,31 @@
 """
 agente/voz.py
-Módulo de voz para el Agente Público.
+Modulo de voz para el Agente Publico.
 
 Funciones:
 - transcribir_audio(): Convierte nota de voz (ogg/mp3) a texto usando Groq Whisper
-- texto_a_voz(): Convierte texto a audio ogg/opus listo para WhatsApp (via ElevenLabs + ffmpeg)
+- texto_a_voz(): Convierte texto a audio ogg/opus listo para WhatsApp (via Inworld TTS + ffmpeg)
 """
 
 import os
 import logging
 import subprocess
 import tempfile
+import base64
+import json
 import requests
 
 log = logging.getLogger('agente')
 
-# ── Configuración ─────────────────────────────────────────────────────────────
-ELEVENLABS_API_KEY  = os.environ.get('ELEVENLABS_API_KEY', '')
-ELEVENLABS_VOICE_ID = os.environ.get('ELEVENLABS_VOICE_ID', 'pNInz6obpgDQGcFmaJgB')
-GROQ_API_KEY        = os.environ.get('GROQ_API_KEY', '')
+# Configuracion
+INWORLD_API_KEY  = os.environ.get('INWORLD_API_KEY', '')
+INWORLD_VOICE_ID = os.environ.get('INWORLD_VOICE_ID', 'default-58vxpseedhdrbc3xtv9jma__design-voice-843732bf')
+GROQ_API_KEY     = os.environ.get('GROQ_API_KEY', '')
 
 
-# ── Transcripción de audio → texto (Groq Whisper) ────────────────────────────
-
-def transcribir_audio(ruta_audio: str) -> str | None:
+def transcribir_audio(ruta_audio: str):
     """
     Transcribe un archivo de audio a texto usando Groq Whisper.
-
-    Args:
-        ruta_audio: Ruta local al archivo de audio (ogg, mp3, wav, etc.)
-
-    Returns:
-        Texto transcrito o None si falla
     """
     try:
         from groq import Groq
@@ -46,7 +40,7 @@ def transcribir_audio(ruta_audio: str) -> str | None:
             )
 
         texto = transcripcion.strip() if isinstance(transcripcion, str) else transcripcion.text.strip()
-        log.info(f'[Voz] Transcripción exitosa: {texto[:60]}')
+        log.info(f'[Voz] Transcripcion exitosa: {texto[:60]}')
         return texto
 
     except Exception as e:
@@ -54,52 +48,65 @@ def transcribir_audio(ruta_audio: str) -> str | None:
         return None
 
 
-# ── Síntesis de voz → audio ogg/opus (ElevenLabs + ffmpeg) ──────────────────
-
-def texto_a_voz(texto: str) -> str | None:
+def texto_a_voz(texto: str):
     """
-    Convierte texto a audio ogg/opus listo para enviar como nota de voz en WhatsApp.
-
-    Flujo:
-        texto → ElevenLabs (mp3) → ffmpeg → ogg/opus → ruta del archivo
-
-    Args:
-        texto: Texto a convertir en voz
-
-    Returns:
-        Ruta al archivo ogg/opus temporal, o None si falla
+    Convierte texto a audio ogg/opus via Inworld TTS + ffmpeg.
+    Inworld devuelve chunks JSON con audioContent en base64.
     """
     try:
-        # 1. Generar audio mp3 con ElevenLabs
-        url = f'https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE_ID}'
         r = requests.post(
-            url,
+            'https://api.inworld.ai/tts/v1/voice:stream',
             headers={
-                'xi-api-key': ELEVENLABS_API_KEY,
+                'Authorization': f'Basic {INWORLD_API_KEY}',
                 'Content-Type': 'application/json',
             },
             json={
                 'text': texto,
-                'model_id': 'eleven_flash_v2_5',
-                'voice_settings': {
-                    'stability': 0.5,
-                    'similarity_boost': 0.75,
+                'voice_id': INWORLD_VOICE_ID,
+                'audio_config': {
+                    'audio_encoding': 'MP3',
+                    'speaking_rate': 1,
                 },
+                'temperature': 1,
+                'model_id': 'inworld-tts-1.5-max',
             },
+            stream=True,
             timeout=30,
         )
 
         if r.status_code != 200:
-            log.error(f'[Voz] Error ElevenLabs: {r.status_code} — {r.text[:200]}')
+            log.error(f'[Voz] Error Inworld TTS: {r.status_code} — {r.text[:200]}')
             return None
 
-        # 2. Guardar mp3 temporal
+        # Recolectar chunks base64 y decodificar a MP3
+        audio_bytes = bytearray()
+        for linea in r.iter_lines(decode_unicode=True):
+            if not linea:
+                continue
+            try:
+                data = json.loads(linea)
+                b64 = (
+                    data.get('result', {}).get('audioContent')
+                    or data.get('audioContent')
+                    or data.get('audio_content')
+                )
+                if b64:
+                    audio_bytes.extend(base64.b64decode(b64))
+            except Exception:
+                continue
+
+        if not audio_bytes:
+            log.error('[Voz] Inworld TTS no devolvio audio')
+            return None
+
+        log.info(f'[Voz] MP3 generado ({len(audio_bytes)} bytes) — convirtiendo a ogg/opus')
+
+        # Guardar MP3 temporal
         mp3_fd, mp3_path = tempfile.mkstemp(suffix='.mp3', dir='/tmp')
         with os.fdopen(mp3_fd, 'wb') as f:
-            f.write(r.content)
-        log.info(f'[Voz] MP3 generado ({len(r.content)} bytes) — convirtiendo a ogg/opus')
+            f.write(audio_bytes)
 
-        # 3. Convertir mp3 → ogg/opus con ffmpeg (requerido por WhatsApp)
+        # Convertir MP3 a ogg/opus con ffmpeg (requerido por WhatsApp)
         ogg_path = mp3_path.replace('.mp3', '.ogg')
         resultado = subprocess.run(
             ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'libopus', '-b:a', '64k', ogg_path],

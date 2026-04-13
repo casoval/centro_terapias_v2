@@ -25,14 +25,28 @@ def _bot_url(sucursal_id):
     return BOT_SEND_URL_CAMACHO if str(sucursal_id) == str(SUCURSAL_CAMACHO) else BOT_SEND_URL_JAPON
 
 
+# Control en memoria para evitar mensajes duplicados por la misma sesion
+_sesiones_notificadas = set()
+
+
 @receiver(post_save, sender=Sesion)
 def notificar_post_falta(sender, instance, **kwargs):
     """
     Se activa cada vez que se guarda una Sesion.
-    Solo actúa si el estado es 'falta' o 'permiso'.
+    Solo actua si el estado es 'falta' o 'permiso'.
+    Controla duplicados para no enviar el mismo mensaje dos veces.
     """
     if instance.estado not in ('falta', 'permiso'):
         return
+
+    # Clave unica por sesion + estado para evitar duplicados
+    clave = f"{instance.id}:{instance.estado}"
+    if clave in _sesiones_notificadas:
+        return
+    _sesiones_notificadas.add(clave)
+    # Limpiar cache si crece demasiado
+    if len(_sesiones_notificadas) > 1000:
+        _sesiones_notificadas.clear()
 
     paciente = instance.paciente
     telefono = paciente.telefono_tutor

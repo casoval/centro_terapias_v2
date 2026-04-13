@@ -272,19 +272,26 @@ def get_prompt(contexto: str = '', modo_conversacion: str = '', nombre_paciente:
         return prompt.format(
             contexto=contexto,
             modo_conversacion=modo_conversacion,
-            nombre_paciente=nombre_paciente,
-            nombre_tutor=nombre_tutor,
+            nombre_paciente='',
+            nombre_tutor='',
         )
     except KeyError:
         return prompt
 
 
-def construir_contexto(paciente) -> str:
+def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict = None) -> str:
+    """
+    Construye el contexto del paciente para el agente.
+    pedir_pagos: dict con claves 'mes', 'anio', 'todos' para filtrar pagos.
+    pedir_sesiones: dict con claves 'mes', 'anio', 'todos' para filtrar sesiones.
+    """
     try:
         from agente.paciente_db import (
             get_info_basica, get_sesiones_proximas,
             get_sesiones_recientes, get_cuenta_corriente,
-            get_profesionales_del_paciente
+            get_profesionales_del_paciente, get_deudas_detalle,
+            get_pagos_detalle, get_proyectos, get_mensualidades,
+            get_sesiones_completo,
         )
 
         info      = get_info_basica(paciente)
@@ -292,6 +299,8 @@ def construir_contexto(paciente) -> str:
         recientes = get_sesiones_recientes(paciente, limite=3)
         cuenta    = get_cuenta_corriente(paciente)
         profs     = get_profesionales_del_paciente(paciente)
+        proyectos = get_proyectos(paciente)
+        mensualidades = get_mensualidades(paciente)
 
         ctx = f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
         if info.get('edad'):
@@ -318,16 +327,173 @@ def construir_contexto(paciente) -> str:
             for s in recientes:
                 ctx += f"- {s['fecha']} {s['servicio']} con {s['profesional']}: {s['estado']}\n"
 
+        # ── Proyectos / Evaluaciones ──────────────────────────
+        if proyectos:
+            ctx += "\nEVALUACIONES Y PROYECTOS:\n"
+            for p in proyectos:
+                ctx += (
+                    f"- [{p['estado']}] {p['nombre']} ({p['tipo']}) | "
+                    f"{p['servicio']} con {p['profesional']} | "
+                    f"{p['sucursal']} | Inicio: {p['fecha_inicio']}"
+                )
+                if p['fecha_fin_real'] != '—':
+                    ctx += f" | Fin: {p['fecha_fin_real']}"
+                elif p['fecha_fin_est'] != '—':
+                    ctx += f" | Fin est.: {p['fecha_fin_est']}"
+                ctx += f"\n  Costo: Bs.{p['costo_total']:.0f} | Pagado: Bs.{p['pagado']:.0f} | Saldo: Bs.{p['saldo']:.0f}"
+                # El registro de entrega de informe esta disponible desde abril 2026
+                if p['informe_entregado']:
+                    ctx += f"\n  Informe: Entregado el {p['fecha_informe']}"
+                else:
+                    ctx += f"\n  Informe: Pendiente de entrega (registro disponible desde abril 2026 — evaluaciones anteriores consultar en el centro)"
+                s = p['sesiones']
+                ctx += (
+                    f"\n  Sesiones: {s['total']} total | "
+                    f"{s['realizadas']} realizadas | "
+                    f"{s['programadas']} programadas"
+                )
+                if s['con_retraso']:
+                    ctx += f" | {s['con_retraso']} con retraso"
+                if s['permisos']:
+                    ctx += f" | {s['permisos']} permisos"
+                if s['faltas']:
+                    ctx += f" | {s['faltas']} faltas"
+                ctx += "\n"
+
+        # ── Mensualidades ─────────────────────────────────────
+        if mensualidades:
+            ctx += "\nMENSUALIDADES:\n"
+            for m in mensualidades:
+                ctx += (
+                    f"- [{m['estado']}] {m['periodo']} | "
+                    f"{m['sucursal']} | "
+                    f"Costo: Bs.{m['costo_mensual']:.0f} | "
+                    f"Pagado: Bs.{m['pagado']:.0f} | "
+                    f"Saldo: Bs.{m['saldo']:.0f}\n"
+                )
+                if m['servicios']:
+                    ctx += f"  Servicios: {', '.join(m['servicios'])}\n"
+                s = m['sesiones']
+                ctx += (
+                    f"  Sesiones: {s['total']} total | "
+                    f"{s['realizadas']} realizadas | "
+                    f"{s['programadas']} programadas"
+                )
+                if s['con_retraso']:
+                    ctx += f" | {s['con_retraso']} con retraso"
+                if s['permisos']:
+                    ctx += f" | {s['permisos']} permisos"
+                if s['faltas']:
+                    ctx += f" | {s['faltas']} faltas"
+                ctx += "\n"
+
+        # ── Cuenta corriente ──────────────────────────────────
         if cuenta:
             ctx += "\nCUENTA CORRIENTE:\n"
             ctx += f"- Total pagado: Bs. {cuenta.get('total_pagado', 0):.2f}\n"
             ctx += f"- Total consumido: Bs. {cuenta.get('total_consumido', 0):.2f}\n"
             if cuenta.get('deuda', 0) > 0:
                 ctx += f"- DEUDA PENDIENTE: Bs. {cuenta['deuda']:.2f}\n"
+
+                deudas = get_deudas_detalle(paciente)
+                if deudas.get('sesiones'):
+                    ctx += "\nDETALLE DEUDA — SESIONES:\n"
+                    for s in deudas['sesiones'][:10]:
+                        ctx += (
+                            f"- {s['fecha']} | {s['descripcion']} | "
+                            f"Costo: Bs.{s['costo']:.0f} | "
+                            f"Pagado: Bs.{s['pagado']:.0f} | "
+                            f"Debe: Bs.{s['saldo']:.0f}"
+                            f"{' (programada)' if s['es_futura'] else ''}\n"
+                        )
+                    if len(deudas['sesiones']) > 10:
+                        ctx += f"  ... y {len(deudas['sesiones']) - 10} sesiones mas\n"
+
+                if deudas.get('proyectos'):
+                    ctx += "\nDETALLE DEUDA — PROYECTOS/EVALUACIONES:\n"
+                    for p in deudas['proyectos']:
+                        ctx += (
+                            f"- {p['descripcion']} | Estado: {p['estado']} | "
+                            f"Costo: Bs.{p['costo']:.0f} | "
+                            f"Pagado: Bs.{p['pagado']:.0f} | "
+                            f"Debe: Bs.{p['saldo']:.0f}\n"
+                        )
+
+                if deudas.get('mensualidades'):
+                    ctx += "\nDETALLE DEUDA — MENSUALIDADES:\n"
+                    for m in deudas['mensualidades']:
+                        ctx += (
+                            f"- {m['descripcion']} | Estado: {m['estado']} | "
+                            f"Costo: Bs.{m['costo']:.0f} | "
+                            f"Pagado: Bs.{m['pagado']:.0f} | "
+                            f"Debe: Bs.{m['saldo']:.0f}\n"
+                        )
             elif cuenta.get('credito', 0) > 0:
                 ctx += f"- CREDITO A FAVOR: Bs. {cuenta['credito']:.2f}\n"
             else:
                 ctx += "- Cuenta al dia\n"
+
+        # ── Sesiones detalladas por período ───────────────────
+        if pedir_sesiones:
+            datos_ses = get_sesiones_completo(
+                paciente,
+                mes=pedir_sesiones.get('mes'),
+                anio=pedir_sesiones.get('anio'),
+                todos=pedir_sesiones.get('todos', False),
+            )
+            if datos_ses.get('sesiones'):
+                periodo_label = 'todas las sesiones' if pedir_sesiones.get('todos') else \
+                    f"{pedir_sesiones.get('mes', '')}/{pedir_sesiones.get('anio', '')}"
+                ctx += f"\nHISTORIAL DE SESIONES ({periodo_label}):\n"
+                c = datos_ses['conteo']
+                ctx += (
+                    f"Total: {datos_ses['total']} | "
+                    f"Realizadas: {c.get('realizada', 0) + c.get('realizada_retraso', 0)} | "
+                    f"Con retraso: {c.get('realizada_retraso', 0)} | "
+                    f"Programadas: {c.get('programada', 0)} | "
+                    f"Permisos: {c.get('permiso', 0)} | "
+                    f"Faltas: {c.get('falta', 0)} | "
+                    f"Canceladas: {c.get('cancelada', 0)} | "
+                    f"Reprogramadas: {c.get('reprogramada', 0)}\n"
+                )
+                for s in datos_ses['sesiones'][:20]:
+                    ctx += f"- {s['fecha']} {s['hora']} | {s['servicio']} con {s['profesional']} | {s['estado']}"
+                    if s['minutos_retraso']:
+                        ctx += f" ({s['minutos_retraso']} min de retraso)"
+                    if s['fecha_reprogramada']:
+                        ctx += f" -> reprogramada al {s['fecha_reprogramada']}"
+                    ctx += "\n"
+                if len(datos_ses['sesiones']) > 20:
+                    ctx += f"  ... y {len(datos_ses['sesiones']) - 20} sesiones mas. Ver detalle en neuromisael.com\n"
+            else:
+                ctx += "\nHISTORIAL DE SESIONES: No se encontraron sesiones para el periodo indicado.\n"
+
+        # ── Pagos detallados por período ──────────────────────
+        if pedir_pagos:
+            pagos = get_pagos_detalle(
+                paciente,
+                mes=pedir_pagos.get('mes'),
+                anio=pedir_pagos.get('anio'),
+                todos=pedir_pagos.get('todos', False),
+            )
+            if pagos.get('pagos'):
+                periodo_label = 'todos los periodos' if pedir_pagos.get('todos') else \
+                    f"{pedir_pagos.get('mes', '')}/{pedir_pagos.get('anio', '')}"
+                ctx += f"\nHISTORIAL DE PAGOS ({periodo_label}):\n"
+                ctx += f"Total pagado: Bs.{pagos['total_pagado']:.2f} | "
+                ctx += f"Devoluciones: Bs.{pagos['total_devoluciones']:.2f} | "
+                ctx += f"Neto: Bs.{pagos['total_neto']:.2f}\n"
+                for p in pagos['pagos'][:15]:
+                    tipo = "DEVOLUCION" if p['es_devolucion'] else "Pago"
+                    ctx += (
+                        f"- {p['fecha']} | Recibo: {p['recibo']} | "
+                        f"{p['metodo']} | {p['concepto']} | "
+                        f"{tipo}: Bs.{p['monto']:.2f}\n"
+                    )
+                if len(pagos['pagos']) > 15:
+                    ctx += f"  ... y {len(pagos['pagos']) - 15} pagos mas. Ver detalle en neuromisael.com\n"
+            else:
+                ctx += "\nHISTORIAL DE PAGOS: No se encontraron pagos para el periodo indicado.\n"
 
         return ctx
 
@@ -405,9 +571,101 @@ def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     return 'claude-haiku-4-5-20251001', 'Haiku'
 
 
+def _detectar_solicitud_pagos(mensaje: str) -> dict | None:
+    """
+    Detecta si el tutor pide ver sus pagos y qué período.
+    Retorna dict con mes/anio/todos, o None si no pide pagos.
+    """
+    import re
+    msg = mensaje.lower()
+    palabras_pago = ('pago', 'pagos', 'recibo', 'recibos', 'historial', 'devolucion', 'devoluciones', 'pagado', 'pague')
+    if not any(p in msg for p in palabras_pago):
+        return None
+
+    # Detectar "todos" o "todo"
+    if any(p in msg for p in ('todos', 'todo', 'siempre', 'historial completo', 'todos los pagos')):
+        return {'todos': True}
+
+    # Detectar mes y año mencionados
+    MESES = {
+        'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+        'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+    }
+    mes_encontrado = None
+    for nombre, num in MESES.items():
+        if nombre in msg:
+            mes_encontrado = num
+            break
+
+    anio_encontrado = None
+    match_anio = re.search(r'\b(202[0-9])\b', msg)
+    if match_anio:
+        anio_encontrado = int(match_anio.group(1))
+
+    hoy = date.today()
+    return {
+        'mes': mes_encontrado or hoy.month,
+        'anio': anio_encontrado or hoy.year,
+        'todos': False,
+    }
+
+
+def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
+    """
+    Detecta si el tutor pide ver historial de sesiones y qué período.
+    """
+    import re
+    msg = mensaje.lower()
+    palabras_sesion = (
+        'historial de sesiones', 'mis sesiones', 'sesiones realizadas',
+        'sesiones que tuve', 'cuantas sesiones', 'sesiones del mes',
+        'sesiones de enero', 'sesiones de febrero', 'sesiones de marzo',
+        'sesiones de abril', 'sesiones de mayo', 'sesiones de junio',
+        'sesiones de julio', 'sesiones de agosto', 'sesiones de septiembre',
+        'sesiones de octubre', 'sesiones de noviembre', 'sesiones de diciembre',
+        'faltas que tuve', 'permisos que tuve', 'cuantas faltas', 'cuantos permisos',
+        'sesiones pasadas', 'todas mis sesiones',
+    )
+    if not any(p in msg for p in palabras_sesion):
+        return None
+
+    if any(p in msg for p in ('todas', 'todo', 'siempre', 'historial completo', 'todas mis sesiones')):
+        return {'todos': True}
+
+    MESES = {
+        'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+        'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+    }
+    mes_encontrado = None
+    for nombre, num in MESES.items():
+        if nombre in msg:
+            mes_encontrado = num
+            break
+
+    anio_encontrado = None
+    match_anio = re.search(r'\b(202[0-9])\b', msg)
+    if match_anio:
+        anio_encontrado = int(match_anio.group(1))
+
+    hoy = date.today()
+    return {
+        'mes': mes_encontrado or hoy.month,
+        'anio': anio_encontrado or hoy.year,
+        'todos': False,
+    }
+
+
 def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
     try:
-        contexto  = construir_contexto(paciente)
+        solicitud_pagos    = _detectar_solicitud_pagos(mensaje_usuario)
+        solicitud_sesiones = _detectar_solicitud_sesiones(mensaje_usuario)
+        contexto = construir_contexto(
+            paciente,
+            pedir_pagos=solicitud_pagos,
+            pedir_sesiones=solicitud_sesiones,
+        )
 
         guardar_mensaje(telefono, 'user', mensaje_usuario)
         historial = get_historial_db(telefono)

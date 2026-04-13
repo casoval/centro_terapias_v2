@@ -529,19 +529,29 @@ def _detectar_terapia(nombre_servicio: str) -> str:
 def orientacion_mensual(request):
     """
     Detecta la terapia principal de cada paciente activo y devuelve
-    un tip práctico personalizado.
-    Agregar al cron el día 1 de cada mes.
+    un tip practico personalizado.
+    Controla duplicados usando cache en Django para evitar envios dobles.
+    Agregar al cron el dia 1 de cada mes.
     GET /recordatorios/orientacion-mensual/?sucursal=3
     """
     from django.db.models import Count
+    from django.core.cache import cache
     sucursal_id = request.GET.get('sucursal')
 
-    # Pacientes activos con al menos una sesión realizada
+    # Clave de cache para este mes y sucursal
+    from django.utils import timezone
+    hoy = timezone.localdate()
+    cache_key = f"orientacion_mensual_{hoy.year}_{hoy.month}_suc{sucursal_id or 'todas'}"
+
+    if cache.get(cache_key):
+        return Response({'total': 0, 'orientaciones': [], 'nota': 'Ya enviado este mes para esta sucursal'})
+
+    # Pacientes activos con al menos una sesion realizada
     from pacientes.models import Paciente
     pacientes = Paciente.objects.filter(estado='activo').prefetch_related('sucursales')
 
     data = []
-    vistos = set()  # evitar duplicados por teléfono
+    vistos = set()  # evitar duplicados por telefono
 
     for paciente in pacientes:
         telefono = paciente.telefono_tutor
@@ -554,7 +564,7 @@ def orientacion_mensual(request):
             if int(sucursal_id) not in sucursales_ids:
                 continue
 
-        # Servicio más frecuente del paciente
+        # Servicio mas frecuente del paciente
         servicio_top = Sesion.objects.filter(
             paciente=paciente,
             estado__in=['realizada', 'realizada_retraso'],
@@ -580,5 +590,9 @@ def orientacion_mensual(request):
             'terapia_detectada': clave_terapia,
             'mensaje': mensaje,
         })
+
+    # Marcar como enviado para este mes (expira en 32 dias)
+    if data:
+        cache.set(cache_key, True, 60 * 60 * 24 * 32)
 
     return Response({'total': len(data), 'orientaciones': data})

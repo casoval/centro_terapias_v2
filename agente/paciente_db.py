@@ -120,6 +120,347 @@ def get_cuenta_corriente(paciente) -> dict:
         return {}
 
 
+def get_deudas_detalle(paciente) -> dict:
+    """
+    Retorna el detalle completo de deudas igual a lo que ve el tutor
+    en la pagina mis_deudas — sesiones, proyectos y mensualidades.
+    """
+    try:
+        from agenda.models import Sesion
+        from decimal import Decimal
+
+        sesiones_deuda = []
+        proyectos_deuda = []
+        mensualidades_deuda = []
+
+        total_sesiones = Decimal('0')
+        total_proyectos = Decimal('0')
+        total_mensualidades = Decimal('0')
+
+        # ── Sesiones normales con deuda ──────────────────────
+        sesiones = Sesion.objects.filter(
+            paciente=paciente,
+            mensualidad__isnull=True,
+            proyecto__isnull=True,
+        ).select_related('servicio', 'profesional', 'sucursal').order_by('fecha')
+
+        for s in sesiones:
+            costo  = Decimal(str(s.monto_cobrado or 0))
+            pagado = Decimal(str(s.monto_pagado or 0))
+            saldo  = costo - pagado
+            if saldo > 0:
+                sesiones_deuda.append({
+                    'id':        s.id,
+                    'fecha':     s.fecha.strftime('%d/%m/%Y'),
+                    'descripcion': f"{s.servicio.nombre if s.servicio else '—'} con {s.profesional.nombre_completo if s.profesional else '—'}",
+                    'estado':    s.get_estado_display() if hasattr(s, 'get_estado_display') else s.estado,
+                    'sucursal':  s.sucursal.nombre if s.sucursal else '—',
+                    'costo':     float(costo),
+                    'pagado':    float(pagado),
+                    'saldo':     float(saldo),
+                    'es_futura': s.fecha >= date.today(),
+                })
+                total_sesiones += saldo
+
+        # ── Proyectos/Evaluaciones con deuda ─────────────────
+        try:
+            from agenda.models import Proyecto
+            proyectos = Proyecto.objects.filter(
+                paciente=paciente,
+            ).prefetch_related('sesiones').order_by('fecha_inicio')
+
+            for p in proyectos:
+                costo  = Decimal(str(p.monto_total or 0))
+                pagado = Decimal(str(p.monto_pagado or 0))
+                saldo  = costo - pagado
+                if saldo > 0:
+                    proyectos_deuda.append({
+                        'descripcion': p.nombre or 'Proyecto/Evaluacion',
+                        'estado':      p.estado if hasattr(p, 'estado') else '—',
+                        'costo':       float(costo),
+                        'pagado':      float(pagado),
+                        'saldo':       float(saldo),
+                    })
+                    total_proyectos += saldo
+        except Exception:
+            pass
+
+        # ── Mensualidades con deuda ───────────────────────────
+        try:
+            from facturacion.models import Mensualidad
+            mensualidades = Mensualidad.objects.filter(
+                paciente=paciente,
+            ).order_by('-periodo_inicio')
+
+            for m in mensualidades:
+                costo  = Decimal(str(m.monto_total or 0))
+                pagado = Decimal(str(m.monto_pagado or 0))
+                saldo  = costo - pagado
+                if saldo > 0:
+                    periodo = ''
+                    if hasattr(m, 'periodo_inicio') and m.periodo_inicio:
+                        periodo = m.periodo_inicio.strftime('%B %Y')
+                    mensualidades_deuda.append({
+                        'descripcion': periodo or 'Mensualidad',
+                        'estado':      m.estado if hasattr(m, 'estado') else '—',
+                        'costo':       float(costo),
+                        'pagado':      float(pagado),
+                        'saldo':       float(saldo),
+                    })
+                    total_mensualidades += saldo
+        except Exception:
+            pass
+
+        total_general = total_sesiones + total_proyectos + total_mensualidades
+
+        return {
+            'total_general':        float(total_general),
+            'total_sesiones':       float(total_sesiones),
+            'total_proyectos':      float(total_proyectos),
+            'total_mensualidades':  float(total_mensualidades),
+            'sesiones':             sesiones_deuda,
+            'proyectos':            proyectos_deuda,
+            'mensualidades':        mensualidades_deuda,
+        }
+
+    except Exception as e:
+        log.error(f'[PacienteDB] Error get_deudas_detalle: {e}')
+        return {}
+
+
+def get_pagos_detalle(paciente, mes: int = None, anio: int = None, todos: bool = False) -> dict:
+    """
+    Retorna el historial de pagos igual a lo que ve el tutor en mis_pagos.
+    Filtra por mes/anio si se indica, o trae todos si todos=True.
+    Por defecto retorna el mes actual.
+    """
+    try:
+        from facturacion.models import Pago
+        from decimal import Decimal
+
+        hoy = date.today()
+        if todos:
+            pagos_qs = Pago.objects.filter(paciente=paciente, anulado=False)
+        else:
+            m = mes or hoy.month
+            a = anio or hoy.year
+            pagos_qs = Pago.objects.filter(
+                paciente=paciente,
+                anulado=False,
+                fecha_pago__month=m,
+                fecha_pago__year=a,
+            )
+
+        pagos_qs = pagos_qs.select_related('metodo_pago').order_by('-fecha_pago')
+
+        pagos_lista = []
+        total_pagado = Decimal('0')
+        total_devoluciones = Decimal('0')
+
+        for p in pagos_qs:
+            monto = Decimal(str(p.monto or 0))
+            es_devolucion = monto < 0
+
+            pagos_lista.append({
+                'fecha':         p.fecha_pago.strftime('%d/%m/%Y') if p.fecha_pago else '—',
+                'recibo':        p.numero_recibo or '—',
+                'metodo':        p.metodo_pago.nombre if p.metodo_pago else '—',
+                'concepto':      p.concepto or '—',
+                'monto':         float(abs(monto)),
+                'es_devolucion': es_devolucion,
+            })
+
+            if es_devolucion:
+                total_devoluciones += abs(monto)
+            else:
+                total_pagado += monto
+
+        return {
+            'pagos':              pagos_lista,
+            'total_pagado':       float(total_pagado),
+            'total_devoluciones': float(total_devoluciones),
+            'total_neto':         float(total_pagado - total_devoluciones),
+            'cantidad':           len(pagos_lista),
+        }
+
+    except Exception as e:
+        log.error(f'[PacienteDB] Error get_pagos_detalle: {e}')
+        return {}
+
+
+def get_proyectos(paciente) -> list:
+    """
+    Retorna todos los proyectos/evaluaciones del paciente con detalle completo.
+    NO incluye observaciones ni notas clinicas internas.
+    """
+    try:
+        from agenda.models import Proyecto
+        proyectos = Proyecto.objects.filter(
+            paciente=paciente,
+        ).select_related(
+            'servicio_base', 'profesional_responsable', 'sucursal'
+        ).prefetch_related('sesiones').order_by('-fecha_inicio')
+
+        resultado = []
+        for p in proyectos:
+            sesiones = p.sesiones.all()
+            conteo = {
+                'total':        sesiones.count(),
+                'programadas':  sesiones.filter(estado='programada').count(),
+                'realizadas':   sesiones.filter(estado__in=['realizada', 'realizada_retraso']).count(),
+                'con_retraso':  sesiones.filter(estado='realizada_retraso').count(),
+                'permisos':     sesiones.filter(estado='permiso').count(),
+                'faltas':       sesiones.filter(estado='falta').count(),
+                'canceladas':   sesiones.filter(estado='cancelada').count(),
+                'reprogramadas':sesiones.filter(estado='reprogramada').count(),
+            }
+            resultado.append({
+                'codigo':           p.codigo,
+                'nombre':           p.nombre,
+                'tipo':             p.get_tipo_display(),
+                'estado':           p.get_estado_display(),
+                'servicio':         p.servicio_base.nombre if p.servicio_base else '—',
+                'profesional':      f"{p.profesional_responsable.nombre} {p.profesional_responsable.apellido}" if p.profesional_responsable else '—',
+                'sucursal':         p.sucursal.nombre if p.sucursal else '—',
+                'fecha_inicio':     p.fecha_inicio.strftime('%d/%m/%Y'),
+                'fecha_fin_est':    p.fecha_fin_estimada.strftime('%d/%m/%Y') if p.fecha_fin_estimada else '—',
+                'fecha_fin_real':   p.fecha_fin_real.strftime('%d/%m/%Y') if p.fecha_fin_real else '—',
+                'costo_total':      float(p.costo_total),
+                'pagado':           float(p.pagado_neto),
+                'saldo':            float(p.saldo_pendiente),
+                'pagado_completo':  p.pagado_completo,
+                'informe_entregado': p.informe_entregado,
+                'fecha_informe':    p.fecha_entrega_informe.strftime('%d/%m/%Y') if p.fecha_entrega_informe else '—',
+                'sesiones':         conteo,
+            })
+        return resultado
+    except Exception as e:
+        log.error(f'[PacienteDB] Error get_proyectos: {e}')
+        return []
+
+
+def get_mensualidades(paciente) -> list:
+    """
+    Retorna todas las mensualidades del paciente con detalle completo.
+    Incluye servicios, profesionales, sesiones por estado y pagos.
+    """
+    try:
+        from agenda.models import Mensualidad
+        mensualidades = Mensualidad.objects.filter(
+            paciente=paciente,
+        ).prefetch_related(
+            'servicios_profesionales__servicio',
+            'servicios_profesionales__profesional',
+            'sesiones',
+        ).select_related('sucursal').order_by('-anio', '-mes')
+
+        resultado = []
+        for m in mensualidades:
+            sesiones = m.sesiones.all()
+            conteo = {
+                'total':        sesiones.count(),
+                'programadas':  sesiones.filter(estado='programada').count(),
+                'realizadas':   sesiones.filter(estado__in=['realizada', 'realizada_retraso']).count(),
+                'con_retraso':  sesiones.filter(estado='realizada_retraso').count(),
+                'permisos':     sesiones.filter(estado='permiso').count(),
+                'faltas':       sesiones.filter(estado='falta').count(),
+                'canceladas':   sesiones.filter(estado='cancelada').count(),
+                'reprogramadas':sesiones.filter(estado='reprogramada').count(),
+            }
+
+            servicios = []
+            for sp in m.servicios_profesionales.select_related('servicio', 'profesional'):
+                servicios.append(
+                    f"{sp.servicio.nombre} con {sp.profesional.nombre} {sp.profesional.apellido}"
+                )
+
+            resultado.append({
+                'codigo':       m.codigo,
+                'periodo':      m.periodo_display,
+                'mes':          m.mes,
+                'anio':         m.anio,
+                'estado':       m.get_estado_display(),
+                'sucursal':     m.sucursal.nombre if m.sucursal else '—',
+                'servicios':    servicios,
+                'costo_mensual':float(m.costo_mensual),
+                'pagado':       float(m.pagado_neto),
+                'saldo':        float(m.saldo_pendiente),
+                'pagado_completo': m.pagado_completo,
+                'sesiones':     conteo,
+            })
+        return resultado
+    except Exception as e:
+        log.error(f'[PacienteDB] Error get_mensualidades: {e}')
+        return []
+
+
+def get_sesiones_completo(paciente, mes: int = None, anio: int = None, todos: bool = False) -> dict:
+    """
+    Retorna el historial completo de sesiones del paciente con conteo por estado.
+    Filtra por mes/anio o trae todas. NO incluye notas clinicas ni observaciones internas.
+    """
+    try:
+        from agenda.models import Sesion
+
+        hoy = date.today()
+        if todos:
+            sesiones_qs = Sesion.objects.filter(paciente=paciente)
+        else:
+            m = mes or hoy.month
+            a = anio or hoy.year
+            sesiones_qs = Sesion.objects.filter(
+                paciente=paciente,
+                fecha__month=m,
+                fecha__year=a,
+            )
+
+        sesiones_qs = sesiones_qs.select_related(
+            'servicio', 'profesional', 'sucursal'
+        ).order_by('-fecha', '-hora_inicio')
+
+        ESTADOS_LABEL = {
+            'programada':        'Programada',
+            'realizada':         'Realizada',
+            'realizada_retraso': 'Realizada con retraso',
+            'falta':             'Falta sin aviso',
+            'permiso':           'Permiso',
+            'cancelada':         'Cancelada',
+            'reprogramada':      'Reprogramada',
+        }
+
+        lista = []
+        conteo = {k: 0 for k in ESTADOS_LABEL}
+
+        for s in sesiones_qs:
+            conteo[s.estado] = conteo.get(s.estado, 0) + 1
+
+            item = {
+                'id':        s.id,
+                'fecha':     s.fecha.strftime('%d/%m/%Y'),
+                'hora':      s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
+                'servicio':  s.servicio.nombre if s.servicio else '—',
+                'profesional': f"{s.profesional.nombre} {s.profesional.apellido}" if s.profesional else '—',
+                'sucursal':  s.sucursal.nombre if s.sucursal else '—',
+                'estado':    ESTADOS_LABEL.get(s.estado, s.estado),
+                'monto':     float(s.monto_cobrado or 0),
+                # Retraso — solo si aplica
+                'minutos_retraso': s.minutos_retraso if s.estado == 'realizada_retraso' else None,
+                # Reprogramacion — solo si aplica
+                'fecha_reprogramada': s.fecha_reprogramada.strftime('%d/%m/%Y') if s.fecha_reprogramada else None,
+                # NUNCA incluir: notas_sesion, observaciones (datos clinicos internos)
+            }
+            lista.append(item)
+
+        return {
+            'sesiones':  lista,
+            'conteo':    conteo,
+            'total':     len(lista),
+        }
+    except Exception as e:
+        log.error(f'[PacienteDB] Error get_sesiones_completo: {e}')
+        return {}
+
+
 def get_pagos_recientes(paciente, limite: int = 5) -> list:
     try:
         from facturacion.models import Pago
