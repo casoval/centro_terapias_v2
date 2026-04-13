@@ -84,4 +84,19 @@ def notificar_post_falta(sender, instance, **kwargs):
     try:
         requests.post(url, json={'phone': telefono, 'message': mensaje, 'tipo': 'recordatorio'}, timeout=10)
     except Exception:
-        pass  # Si el bot no responde, no debe romper el guardado de la sesión
+        pass  # Si el bot no responde, no debe romper el guardado de la sesion
+
+    # ── Guardar en historial del panel de conversaciones ────────────────
+    try:
+        from agente.models import ConversacionAgente
+        tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+        tipo_label   = 'permiso' if instance.estado == 'permiso' else 'falta'
+        ConversacionAgente.objects.create(
+            agente       = 'paciente',
+            telefono     = tel_completo,
+            rol          = 'assistant',
+            contenido    = mensaje,
+            modelo_usado = f'recordatorio-{tipo_label}',
+        )
+    except Exception:
+        pass  # No debe romper el flujo principal

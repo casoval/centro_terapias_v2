@@ -145,6 +145,21 @@ def whatsapp_entrante(request):
 
 @csrf_exempt
 def staff_respondio(request):
+    """
+    Webhook llamado por el bot Node.js cuando el staff responde
+    desde su celular físico (NUMEROS_IGNORAR con msg.to).
+
+    Payload:
+    {
+        "telefono":    "59176543210",   ← destinatario (el tutor)
+        "sucursal_id": 3,
+        "mensaje":     "Texto enviado"  ← contenido del mensaje (nuevo)
+    }
+
+    Hace dos cosas:
+    1. Activa modo humano para ese número
+    2. Guarda el mensaje en ConversacionAgente para verlo en el panel
+    """
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
 
@@ -155,23 +170,41 @@ def staff_respondio(request):
 
     telefono    = data.get('telefono', '').strip()
     sucursal_id = int(data.get('sucursal_id', 3))
+    mensaje     = data.get('mensaje', '').strip()   # nuevo campo
 
     if not telefono:
         return JsonResponse({'ok': False, 'error': 'Falta telefono'}, status=400)
 
-    from agente.models import ModoHumano
+    from agente.models import ModoHumano, ConversacionAgente
+    from agente.paciente_db import buscar_paciente_por_telefono
+
+    # 1. Activar modo humano
     modo, _ = ModoHumano.objects.get_or_create(
         telefono=telefono,
         defaults={'sucursal_id': sucursal_id}
     )
-
     if not modo.modo_humano:
         modo.modo_humano  = True
         modo.sucursal_id  = sucursal_id
-        modo.activado_por = 'staff (automático)'
+        modo.activado_por = 'staff (celular físico)'
         modo.activado_en  = timezone.now()
         modo.save()
         log.info(f'[ModoHumano] Activado automáticamente para {telefono}')
+
+    # 2. Guardar el mensaje en el historial si viene con contenido
+    if mensaje:
+        tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+        # Determinar si es paciente o público para la etiqueta correcta
+        paciente = buscar_paciente_por_telefono(tel_completo)
+        tipo_agente = 'paciente' if paciente else 'publico'
+        ConversacionAgente.objects.create(
+            agente       = tipo_agente,
+            telefono     = tel_completo,
+            rol          = 'assistant',
+            contenido    = f'[Celular] {mensaje}',
+            modelo_usado = 'celular',
+        )
+        log.info(f'[Staff-Celular] Mensaje guardado para {telefono} ({tipo_agente})')
 
     return JsonResponse({'ok': True, 'telefono': telefono, 'modo_humano': True})
 
@@ -406,15 +439,18 @@ def api_enviar_manual(request):
             },
             timeout=5,
         )
-        # Guardar en historial
+        # Guardar en historial — detectar si es paciente o público
         from agente.models import ConversacionAgente
+        from agente.paciente_db import buscar_paciente_por_telefono
         tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+        paciente_db  = buscar_paciente_por_telefono(tel_completo)
+        tipo_agente  = 'paciente' if paciente_db else 'publico'
         ConversacionAgente.objects.create(
-            agente='publico',
-            telefono=tel_completo,
-            rol='assistant',
-            contenido=f'[Staff] {mensaje}',
-            modelo_usado='manual',
+            agente       = tipo_agente,
+            telefono     = tel_completo,
+            rol          = 'assistant',
+            contenido    = f'[Staff] {mensaje}',
+            modelo_usado = 'manual',
         )
         return JsonResponse({'ok': True})
     except Exception as e:

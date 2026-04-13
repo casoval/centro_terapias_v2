@@ -550,6 +550,31 @@ def whatsapp_envio_masivo(request):
                 timeout=5
             )
             enviados += 1
+            # ── Guardar en historial del panel de conversaciones ──────────
+            try:
+                from agente.models import ConversacionAgente
+                tel = tutor['telefono']
+                tel_completo = f'591{tel}' if not tel.startswith('591') else tel
+                # Mapear el tipo de destinatario a una etiqueta descriptiva
+                tipo_label_map = {
+                    'deudores':                'recordatorio-deuda',
+                    'semana':                  'recordatorio-semana',
+                    'hoy':                     'recordatorio-cita',
+                    'manana':                  'recordatorio-cita',
+                    'todos':                   'recordatorio-masivo',
+                    'todos_incluido_inactivos': 'recordatorio-masivo',
+                    'mensualidades_semana':    'recordatorio-mensualidades',
+                }
+                tipo_label = tipo_label_map.get(destinatarios, f'recordatorio-{destinatarios}')
+                ConversacionAgente.objects.create(
+                    agente       = 'paciente',
+                    telefono     = tel_completo,
+                    rol          = 'assistant',
+                    contenido    = tutor['mensaje'],
+                    modelo_usado = tipo_label,
+                )
+            except Exception:
+                pass
         except Exception:
             errores += 1
 

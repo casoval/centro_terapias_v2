@@ -81,6 +81,22 @@ def sesiones_proximas(request):
     return Response({'total': len(data), 'sesiones': data})
 
 
+def _guardar_recordatorio(telefono: str, mensaje: str, tipo: str):
+    """Helper: guarda un recordatorio enviado en ConversacionAgente."""
+    try:
+        from agente.models import ConversacionAgente
+        tel = f'591{telefono}' if not telefono.startswith('591') else telefono
+        ConversacionAgente.objects.create(
+            agente       = 'paciente',
+            telefono     = tel,
+            rol          = 'assistant',
+            contenido    = mensaje,
+            modelo_usado = tipo,
+        )
+    except Exception:
+        pass
+
+
 @api_view(['GET'])
 def mensualidades_semana(request):
     """
@@ -576,3 +592,53 @@ def orientacion_mensual(request):
         cache.set(cache_key, True, 60 * 60 * 24 * 32)
 
     return Response({'total': len(data), 'orientaciones': data})
+
+# ─────────────────────────────────────────────────────────────
+# RECEPTOR — el bot Node.js llama aquí después de enviar
+# un recordatorio generado por los endpoints de esta API.
+# POST /recordatorios/api/registrar-enviado/
+# Body: { "telefono": "59176543210", "mensaje": "...", "tipo": "recordatorio-cita" }
+# ─────────────────────────────────────────────────────────────
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json as _json
+
+@csrf_exempt
+def registrar_recordatorio_enviado(request):
+    """
+    Llamar desde Node.js justo después de enviar cada recordatorio.
+    Registra el mensaje en ConversacionAgente para que sea visible
+    en el panel de conversaciones del agente.
+
+    Ejemplo en Node.js (agregar después de cada client.sendMessage):
+        await fetch('http://localhost:8000/recordatorios/api/registrar-enviado/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telefono: '59176543210',
+                mensaje: mensajeEnviado,
+                tipo: 'recordatorio-cita',
+                // tipo puede ser: recordatorio-cita | recordatorio-deuda |
+                //                 recordatorio-hito | recordatorio-orientacion |
+                //                 recordatorio-mensualidades
+            })
+        });
+    """
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Metodo no permitido'}, status=405)
+
+    try:
+        data = _json.loads(request.body)
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'JSON invalido'}, status=400)
+
+    telefono = data.get('telefono', '').strip()
+    mensaje  = data.get('mensaje',  '').strip()
+    tipo     = data.get('tipo',     'recordatorio').strip()
+
+    if not telefono or not mensaje:
+        return JsonResponse({'ok': False, 'error': 'Faltan campos: telefono y mensaje son requeridos'}, status=400)
+
+    _guardar_recordatorio(telefono, mensaje, tipo)
+    return JsonResponse({'ok': True})
