@@ -351,7 +351,7 @@ def hitos_asistencia(request):
                 'hito': hito,
                 'sucursal': sesion_hoy.sucursal.nombre,
                 'mensaje': mensaje,
-                'tipo': 'ia',
+                'tipo': 'recordatorio',
             })
 
     return Response({'total': len(data), 'hitos': data})
@@ -568,7 +568,7 @@ def orientacion_mensual(request):
             'paciente_nombre': nombre_paciente,
             'terapia_detectada': clave_terapia,
             'mensaje': mensaje,
-            'tipo': 'ia',
+            'tipo': 'recordatorio',
         })
 
     # Marcar como enviado para este mes (expira en 32 dias)
