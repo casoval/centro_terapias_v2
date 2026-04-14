@@ -10,19 +10,80 @@ from datetime import date, timedelta
 log = logging.getLogger('agente')
 
 
-def buscar_paciente_por_telefono(telefono: str):
+def _normalizar_telefono(telefono: str) -> str:
+    """
+    Normaliza un número de teléfono a su forma canónica sin prefijo de país.
+    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones.
+    """
+    tel = telefono.strip().replace(' ', '').replace('-', '')
+    if tel.startswith('+591'):
+        tel = tel[4:]
+    elif tel.startswith('591') and len(tel) > 9:
+        # Solo strip 591 si el resultado tiene al menos 8 dígitos (evita falsos positivos)
+        tel = tel[3:]
+    return tel
+
+
+def buscar_paciente_y_tutor(telefono: str):
+    """
+    Busca el paciente por teléfono del tutor e indica cuál tutor escribió.
+
+    Retorna: (paciente, cual_tutor) donde cual_tutor es 'tutor_1' o 'tutor_2',
+             o (None, None) si no se encontró ningún paciente registrado.
+
+    Seguridad:
+    - Solo números exactamente registrados en telefono_tutor o telefono_tutor_2.
+    - Si el mismo número está en múltiples pacientes, logea advertencia y retorna None
+      (caso de datos corruptos — no se puede saber a quién atender con certeza).
+    """
     try:
         from pacientes.models import Paciente
-        tel = telefono.strip()
-        if tel.startswith('591'):
-            tel = tel[3:]
-        paciente = Paciente.objects.filter(telefono_tutor=tel, estado='activo').first()
-        if not paciente:
-            paciente = Paciente.objects.filter(telefono_tutor_2=tel, estado='activo').first()
-        return paciente
+        tel = _normalizar_telefono(telefono)
+
+        if not tel or not tel.isdigit():
+            log.warning(f'[PacienteDB] Teléfono con formato inválido rechazado: {telefono!r}')
+            return None, None
+
+        # Buscar como tutor principal
+        matches_t1 = list(Paciente.objects.filter(telefono_tutor=tel, estado='activo'))
+        if len(matches_t1) > 1:
+            ids = [p.id for p in matches_t1]
+            log.error(
+                f'[PacienteDB] ALERTA SEGURIDAD: número {tel} registrado como tutor_1 '
+                f'en {len(matches_t1)} pacientes (IDs: {ids}). Se rechaza para evitar '
+                f'exponer datos incorrectos.'
+            )
+            return None, None
+        if len(matches_t1) == 1:
+            return matches_t1[0], 'tutor_1'
+
+        # Buscar como tutor secundario
+        matches_t2 = list(Paciente.objects.filter(telefono_tutor_2=tel, estado='activo'))
+        if len(matches_t2) > 1:
+            ids = [p.id for p in matches_t2]
+            log.error(
+                f'[PacienteDB] ALERTA SEGURIDAD: número {tel} registrado como tutor_2 '
+                f'en {len(matches_t2)} pacientes (IDs: {ids}). Se rechaza para evitar '
+                f'exponer datos incorrectos.'
+            )
+            return None, None
+        if len(matches_t2) == 1:
+            return matches_t2[0], 'tutor_2'
+
+        return None, None
+
     except Exception as e:
         log.error(f'[PacienteDB] Error buscando por teléfono {telefono}: {e}')
-        return None
+        return None, None
+
+
+def buscar_paciente_por_telefono(telefono: str):
+    """
+    Wrapper de compatibilidad. Retorna solo el paciente (o None).
+    Usar buscar_paciente_y_tutor() cuando se necesite saber qué tutor escribe.
+    """
+    paciente, _ = buscar_paciente_y_tutor(telefono)
+    return paciente
 
 
 def get_info_basica(paciente) -> dict:
@@ -33,11 +94,13 @@ def get_info_basica(paciente) -> dict:
             fn  = paciente.fecha_nacimiento
             edad = hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))
         return {
-            'nombre':       paciente.nombre,
-            'apellido':     paciente.apellido,
-            'nombre_tutor': paciente.nombre_tutor,
-            'edad':         edad,
-            'estado':       paciente.estado,
+            'nombre':        paciente.nombre,
+            'apellido':      paciente.apellido,
+            'nombre_tutor':  paciente.nombre_tutor,
+            'nombre_tutor_2': getattr(paciente, 'nombre_tutor_2', None) or '',
+            'telefono_tutor_2': getattr(paciente, 'telefono_tutor_2', None) or '',
+            'edad':          edad,
+            'estado':        paciente.estado,
         }
     except Exception as e:
         log.error(f'[PacienteDB] Error get_info_basica: {e}')

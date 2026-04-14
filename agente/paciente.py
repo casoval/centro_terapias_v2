@@ -279,9 +279,10 @@ def get_prompt(contexto: str = '', modo_conversacion: str = '', nombre_paciente:
         return prompt
 
 
-def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict = None) -> str:
+def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict = None, cual_tutor: str = 'tutor_1') -> str:
     """
     Construye el contexto del paciente para el agente.
+    cual_tutor: 'tutor_1' o 'tutor_2' — indica qué número envió el mensaje.
     pedir_pagos: dict con claves 'mes', 'anio', 'todos' para filtrar pagos.
     pedir_sesiones: dict con claves 'mes', 'anio', 'todos' para filtrar sesiones.
     """
@@ -305,7 +306,25 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
         ctx = f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
         if info.get('edad'):
             ctx += f" ({info['edad']} anios)"
-        ctx += f"\nTUTOR: {info.get('nombre_tutor', '—')}\n"
+
+        # ── Identificar qué tutor está escribiendo ────────────
+        nombre_tutor_principal = info.get('nombre_tutor', '—')
+        nombre_tutor_2         = info.get('nombre_tutor_2', '')
+
+        if cual_tutor == 'tutor_2':
+            nombre_quien_escribe = nombre_tutor_2 if nombre_tutor_2 else 'Tutor secundario'
+            ctx += f"\nTUTOR PRINCIPAL: {nombre_tutor_principal}"
+            ctx += f"\nQUIEN ESCRIBE AHORA: {nombre_quien_escribe} (tutor secundario registrado)"
+            ctx += (
+                "\n⚠️ IMPORTANTE: Quien escribe es el tutor SECUNDARIO del paciente. "
+                "Dirígete por su nombre si lo tienes, o usa un saludo neutro. "
+                "Tiene el mismo acceso que el tutor principal — puede consultar datos y hacer solicitudes."
+            )
+        else:
+            ctx += f"\nTUTOR: {nombre_tutor_principal}"
+            if nombre_tutor_2:
+                ctx += f" (tutor secundario registrado: {nombre_tutor_2})"
+        ctx += "\n"
 
         if profs:
             ctx += "\nPROFESIONALES QUE LO ATIENDEN:\n"
@@ -657,7 +676,7 @@ def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
     }
 
 
-def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
+def responder(telefono: str, mensaje_usuario: str, paciente, cual_tutor: str = 'tutor_1') -> str:
     try:
         solicitud_pagos    = _detectar_solicitud_pagos(mensaje_usuario)
         solicitud_sesiones = _detectar_solicitud_sesiones(mensaje_usuario)
@@ -665,6 +684,7 @@ def responder(telefono: str, mensaje_usuario: str, paciente) -> str:
             paciente,
             pedir_pagos=solicitud_pagos,
             pedir_sesiones=solicitud_sesiones,
+            cual_tutor=cual_tutor,
         )
 
         guardar_mensaje(telefono, 'user', mensaje_usuario)

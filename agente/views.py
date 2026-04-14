@@ -103,17 +103,20 @@ def whatsapp_entrante(request):
         log.info(f'[Entrante] {telefono}: {mensaje[:80]}')
  
     # 4. Detectar si es paciente registrado o público
-    from agente.paciente_db import buscar_paciente_por_telefono
- 
-    paciente = buscar_paciente_por_telefono(telefono)
- 
+    from agente.paciente_db import buscar_paciente_y_tutor
+
+    paciente, cual_tutor = buscar_paciente_y_tutor(telefono)
+
     if paciente:
         # Agente Paciente — tutor registrado en el sistema
-        log.info(f'[Entrante] {telefono} identificado como paciente: {paciente.nombre} {paciente.apellido}')
+        log.info(
+            f'[Entrante] {telefono} identificado como paciente: '
+            f'{paciente.nombre} {paciente.apellido} ({cual_tutor})'
+        )
         from agente.paciente import responder as responder_paciente
-        respuesta_texto = responder_paciente(telefono, mensaje, paciente)
+        respuesta_texto = responder_paciente(telefono, mensaje, paciente, cual_tutor=cual_tutor)
     else:
-        # Agente Público — consulta nueva
+        # Agente Público — consulta nueva o número no registrado
         log.info(f'[Entrante] {telefono} no registrado — Agente Público')
         from agente.publico import responder
         respuesta_texto = responder(telefono, mensaje)
