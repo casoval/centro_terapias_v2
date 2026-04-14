@@ -484,12 +484,18 @@ function tarjetaConversacion(c) {
         : 'conv-neon-cyan';
 
     const nombreBloque = esPaciente && c.nombre_paciente
-        ? '<div class="mt-0.5"><p class="text-emerald-300 text-xs font-bold leading-tight">' + escapeHtml(c.nombre_paciente) + '</p><p class="text-white/40 text-[10px]">Tutor: ' + escapeHtml(c.nombre_tutor) + '</p></div>'
+        ? `<div class="mt-0.5">
+            <p class="text-emerald-300 text-xs font-bold leading-tight">${escapeHtml(c.nombre_paciente)}</p>
+            <p class="text-white/40 text-[10px]">
+                ${c.cual_tutor === 'tutor_2' ? '👥 Tutor 2: ' : 'Tutor: '}${escapeHtml(c.nombre_tutor)}
+            </p>
+           </div>`
         : '';
 
-    const safeTel         = escapeHtml(c.telefono);
-    const safeNomPac      = escapeHtml(c.nombre_paciente || '');
-    const safeNomTut      = escapeHtml(c.nombre_tutor    || '');
+    const safeTel      = escapeHtml(c.telefono);
+    const safeNomPac   = escapeHtml(c.nombre_paciente || '');
+    const safeNomTut   = escapeHtml(c.nombre_tutor    || '');
+    const safeCualTut  = escapeHtml(c.cual_tutor       || '');
     const btnModoClass    = esHumano
         ? 'bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/40'
         : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40';
@@ -498,7 +504,7 @@ function tarjetaConversacion(c) {
     return `
     <div class="conv-card ${neonClass} rounded-2xl p-4 space-y-3"
          style="border:1px solid ${borderColor};"
-         onclick="abrirModal('${safeTel}', ${esHumano}, ${c.sucursal_id}, ${esPaciente}, '${safeNomPac}', '${safeNomTut}')">
+         onclick="abrirModal('${safeTel}', ${esHumano}, ${c.sucursal_id}, ${esPaciente}, '${safeNomPac}', '${safeNomTut}', '${safeCualTut}')">
         <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
                 <div class="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
@@ -548,7 +554,7 @@ async function toggleModo(telefono, nuevoModo) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 
-async function abrirModal(telefono, esHumano, sucursalId, esPaciente, nombrePaciente, nombreTutor) {
+async function abrirModal(telefono, esHumano, sucursalId, esPaciente, nombrePaciente, nombreTutor, cualTutor) {
     telefonoModal   = telefono;
     modoHumanoModal = esHumano;
     sucursalModal   = sucursalId;
@@ -563,7 +569,8 @@ async function abrirModal(telefono, esHumano, sucursalId, esPaciente, nombrePaci
     const infoPacEl = document.getElementById('modal-info-paciente');
     if (esPaciente && nombrePaciente) {
         document.getElementById('modal-nombre-paciente').textContent = '👶 ' + nombrePaciente;
-        document.getElementById('modal-nombre-tutor').textContent    = 'Tutor: ' + nombreTutor;
+        const etiquetaTutor = cualTutor === 'tutor_2' ? '👥 Tutor 2: ' : 'Tutor: ';
+        document.getElementById('modal-nombre-tutor').textContent = etiquetaTutor + nombreTutor;
         infoPacEl.classList.remove('hidden');
     } else {
         infoPacEl.classList.add('hidden');
@@ -627,7 +634,12 @@ function renderMensajes(mensajes) {
         const fecha       = formatFecha(m.creado);
         let bgStyle, labelHtml;
 
-        if (esAsistente && esManual) {
+        const esCelular = m.modelo === 'celular';
+
+        if (esAsistente && esCelular) {
+            bgStyle   = 'background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.3);';
+            labelHtml = '<span class="text-[9px] text-orange-400/90 font-bold">📱 Celular</span>';
+        } else if (esAsistente && esManual) {
             bgStyle   = 'background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.25);';
             labelHtml = '<span class="text-[9px] text-yellow-400/80 font-bold">✍ Staff</span>';
         } else if (esAsistente) {

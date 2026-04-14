@@ -308,7 +308,7 @@ def api_estado_sucursales(request):
 def api_conversaciones(request):
     from agente.models import ConversacionAgente, ModoHumano
     from django.db.models import Max, Count
-    from agente.paciente_db import buscar_paciente_por_telefono
+    from agente.paciente_db import buscar_paciente_y_tutor
 
     # Incluir todos los agentes (publico y paciente)
     telefonos_qs = (
@@ -341,9 +341,18 @@ def api_conversaciones(request):
         )
         modo = modos.get(tel)
 
-        # Determinar si es paciente registrado en el sistema
-        paciente = buscar_paciente_por_telefono(tel)
+        # Determinar si es paciente registrado y qué tutor es
+        paciente, cual_tutor = buscar_paciente_y_tutor(tel)
         es_paciente = paciente is not None
+
+        # Mostrar el nombre del tutor que corresponde a ese número
+        if es_paciente:
+            if cual_tutor == 'tutor_2':
+                nombre_tutor_display = getattr(paciente, 'nombre_tutor_2', None) or paciente.nombre_tutor
+            else:
+                nombre_tutor_display = paciente.nombre_tutor
+        else:
+            nombre_tutor_display = ''
 
         conversaciones.append({
             'telefono':        tel,
@@ -355,7 +364,8 @@ def api_conversaciones(request):
             'sucursal_id':     modo.sucursal_id if modo else 3,
             'es_paciente':     es_paciente,
             'nombre_paciente': f'{paciente.nombre} {paciente.apellido}' if es_paciente else '',
-            'nombre_tutor':    paciente.nombre_tutor if es_paciente else '',
+            'nombre_tutor':    nombre_tutor_display,
+            'cual_tutor':      cual_tutor or '',
         })
 
     # Ordenar por más reciente
