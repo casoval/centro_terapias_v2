@@ -120,6 +120,19 @@ class Proyecto(models.Model):
         help_text="Observaciones sobre la entrega del informe físico"
     )
     
+    # Archivo digital del informe en Google Drive
+    archivo_informe_drive_url = models.URLField(
+        blank=True,
+        default='',
+        help_text="Enlace al PDF del informe subido en Google Drive"
+    )
+    archivo_informe_nombre = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Nombre del archivo subido"
+    )
+
     # Control
     creado_por = models.ForeignKey(
         User,

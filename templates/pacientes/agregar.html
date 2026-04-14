@@ -304,6 +304,73 @@
         </div>
     </div>
 
+
+    <div class="seccion-card bg-white rounded-3xl shadow-md border border-yellow-100 p-4 sm:p-5">
+        <div class="flex items-center gap-3 mb-3 pb-2 border-b border-yellow-100">
+            <div class="w-7 h-7 rounded-lg bg-yellow-100 flex items-center justify-center text-base text-yellow-600 shadow-sm">🏫</div>
+            <div>
+                <h2 class="text-lg font-bold text-gray-800">Información Educativa</h2>
+                <p class="text-xs text-gray-500 font-medium">Centro educativo donde asiste el paciente <span class="text-gray-400 font-normal">(opcional)</span></p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_escuela.label }} <span class="text-gray-400 font-normal">(opcional)</span></label>
+                {{ form.nombre_escuela }}
+                {% if form.nombre_escuela.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_escuela.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.grado_curso.label }}</label>
+                {{ form.grado_curso }}
+                {% if form.grado_curso.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.grado_curso.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.turno_escolar.label }}</label>
+                {{ form.turno_escolar }}
+                {% if form.turno_escolar.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.turno_escolar.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.nombre_maestro.label }}</label>
+                {{ form.nombre_maestro }}
+                {% if form.nombre_maestro.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.nombre_maestro.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.telefono_escuela.label }}</label>
+                {{ form.telefono_escuela }}
+                {% if form.telefono_escuela.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.telefono_escuela.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.email_escuela.label }}</label>
+                {{ form.email_escuela }}
+                {% if form.email_escuela.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.email_escuela.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="mt-3">
+            <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.direccion_escuela.label }}</label>
+            {{ form.direccion_escuela }}
+            {% if form.direccion_escuela.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.direccion_escuela.errors.0 }}</p>{% endif %}
+        </div>
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-bold text-gray-700 mb-1">{{ form.observaciones_escuela.label }}</label>
+                {{ form.observaciones_escuela }}
+                {% if form.observaciones_escuela.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.observaciones_escuela.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-xl cursor-pointer hover:bg-yellow-100 transition-colors mt-5">
+                    {{ form.apoyo_escolar }}
+                    <div>
+                        <span class="block text-xs font-bold text-gray-700">{{ form.apoyo_escolar.label }}</span>
+                        <span class="block text-[10px] text-gray-500 mt-0.5 font-medium">Adaptaciones o NEE en la escuela</span>
+                    </div>
+                </label>
+                {% if form.apoyo_escolar.errors %}<p class="text-red-500 text-[10px] font-bold mt-1">{{ form.apoyo_escolar.errors.0 }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="seccion-card bg-white rounded-3xl shadow-md border border-gray-100 p-4 sm:p-5">
         <div class="flex items-center gap-3 mb-3 pb-2 border-b border-indigo-50">
             <div class="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-base text-indigo-600 shadow-sm">🎯</div>
@@ -375,6 +442,8 @@
         'id_email_tutor','id_direccion',
         'id_nombre_tutor_2','id_parentesco_2','id_telefono_tutor_2','id_email_tutor_2',
         'id_diagnostico','id_observaciones_medicas','id_alergias',
+        'id_nombre_escuela','id_grado_curso','id_turno_escolar','id_nombre_maestro',
+        'id_telefono_escuela','id_email_escuela','id_observaciones_escuela','id_direccion_escuela',
         'id_estado','id_user'
     ];
 
@@ -387,6 +456,8 @@
         document.querySelectorAll('input[name="sucursales"]').forEach(cb => {
             data['sucursal_' + cb.value] = cb.checked;
         });
+        const apoyoCb = document.getElementById('id_apoyo_escolar');
+        if (apoyoCb) data['apoyo_escolar'] = apoyoCb.checked;
         document.querySelectorAll('input[type="checkbox"][name^="servicio_"]').forEach(cb => {
             data[cb.name] = cb.checked;
             const sid = cb.name.replace('servicio_', '');
@@ -416,6 +487,8 @@
             const key = 'sucursal_' + cb.value;
             if (data[key] !== undefined) cb.checked = data[key];
         });
+        const apoyoCb = document.getElementById('id_apoyo_escolar');
+        if (apoyoCb && data['apoyo_escolar'] !== undefined) apoyoCb.checked = data['apoyo_escolar'];
         document.querySelectorAll('input[type="checkbox"][name^="servicio_"]').forEach(cb => {
             if (data[cb.name] === undefined) return;
             cb.checked = data[cb.name];

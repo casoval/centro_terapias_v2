@@ -23,12 +23,13 @@ class PacienteServicioInline(admin.TabularInline):
 
 @admin.register(Paciente)
 class PacienteAdmin(admin.ModelAdmin):
-    list_display = ['get_foto_thumbnail_admin', 'nombre_completo', 'get_sucursales', 
-                    'edad', 'parentesco', 'nombre_tutor', 'telefono_tutor', 
-                    'get_segundo_tutor', 'estado', 'fecha_registro']
-    list_filter = ['estado', 'genero', 'parentesco', 'fecha_registro', 'sucursales']
-    search_fields = ['nombre', 'apellido', 'nombre_tutor', 'telefono_tutor', 
-                     'nombre_tutor_2', 'telefono_tutor_2']
+    list_display = ['get_foto_thumbnail_admin', 'nombre_completo', 'get_sucursales',
+                    'edad', 'parentesco', 'nombre_tutor', 'telefono_tutor',
+                    'get_segundo_tutor', 'get_info_educativa', 'estado', 'fecha_registro']
+    list_filter = ['estado', 'genero', 'parentesco', 'fecha_registro', 'sucursales',
+                   'turno_escolar', 'apoyo_escolar']
+    search_fields = ['nombre', 'apellido', 'nombre_tutor', 'telefono_tutor',
+                     'nombre_tutor_2', 'telefono_tutor_2', 'nombre_escuela', 'nombre_maestro']
     filter_horizontal = ['sucursales']
     inlines = [PacienteServicioInline]
     
@@ -56,6 +57,21 @@ class PacienteAdmin(admin.ModelAdmin):
         }),
         ('🥼 Información Clínica', {
             'fields': ('diagnostico', 'observaciones_medicas', 'alergias')
+        }),
+        ('🏫 Información Educativa (Opcional)', {
+            'fields': (
+                'nombre_escuela',
+                'grado_curso',
+                'turno_escolar',
+                'nombre_maestro',
+                'telefono_escuela',
+                'email_escuela',
+                'direccion_escuela',
+                'apoyo_escolar',
+                'observaciones_escuela',
+            ),
+            'description': 'Datos del centro educativo donde asiste el paciente. Útil para coordinación con maestros.',
+            'classes': ('collapse',)
         }),
         ('📊 Estado', {
             'fields': ('estado',)
@@ -87,7 +103,6 @@ class PacienteAdmin(admin.ModelAdmin):
         return self._get_placeholder()
     
     def _get_placeholder(self):
-        """Retorna el HTML del placeholder - USA mark_safe porque no hay variables"""
         return mark_safe(
             '<div style="width: 40px; height: 40px; border-radius: 50%; background: #e5e7eb; '
             'display: flex; align-items: center; justify-content: center; font-size: 18px;">👤</div>'
@@ -126,7 +141,6 @@ class PacienteAdmin(admin.ModelAdmin):
         return self._get_sin_foto_message()
     
     def _get_sin_foto_message(self):
-        """Retorna el mensaje cuando no hay foto - USA mark_safe porque no hay variables"""
         return mark_safe(
             '<p style="color: #9ca3af; font-style: italic;">Sin foto. Sube una imagen para verla aquí.</p>'
         )
@@ -161,10 +175,23 @@ class PacienteAdmin(admin.ModelAdmin):
     
     get_segundo_tutor.short_description = '2do Tutor'
 
+    def get_info_educativa(self, obj):
+        """Mostrar resumen de info educativa en el listado"""
+        if not obj:
+            return "—"
+
+        if obj.tiene_info_educativa:
+            turno = f" ({obj.get_turno_escolar_display()})" if obj.turno_escolar else ""
+            apoyo = " 🎯" if obj.apoyo_escolar else ""
+            return f"🏫 {obj.nombre_escuela}{turno}{apoyo}"
+        return "➖"
+
+    get_info_educativa.short_description = 'Escuela'
+
 
 @admin.register(PacienteServicio)
 class PacienteServicioAdmin(admin.ModelAdmin):
-    list_display = ['paciente', 'servicio', 'costo_sesion', 'get_costo_base', 
+    list_display = ['paciente', 'servicio', 'costo_sesion', 'get_costo_base',
                     'get_diferencia', 'activo', 'fecha_inicio']
     list_filter = ['activo', 'servicio']
     search_fields = ['paciente__nombre', 'paciente__apellido']
@@ -191,7 +218,6 @@ class PacienteServicioAdmin(admin.ModelAdmin):
         
         diferencia = obj.costo_sesion - obj.servicio.costo_base if obj.costo_sesion else 0
         
-        # Construir el HTML con format_html usando placeholders
         if diferencia > 0:
             mensaje_diferencia = format_html(
                 '<p style="margin: 5px 0 0 0; color: #059669;">✅ Precio personalizado: +Bs. {}</p>',
@@ -221,7 +247,6 @@ class PacienteServicioAdmin(admin.ModelAdmin):
     get_precio_base_info.short_description = 'Información de Precio'
     
     def get_costo_base(self, obj):
-        """Mostrar costo base del servicio"""
         if obj and obj.servicio:
             return f"Bs. {obj.servicio.costo_base}"
         return "—"
@@ -229,7 +254,6 @@ class PacienteServicioAdmin(admin.ModelAdmin):
     get_costo_base.short_description = 'Precio Base'
     
     def get_diferencia(self, obj):
-        """Mostrar diferencia con precio base"""
         if not obj or not obj.costo_sesion or not obj.servicio:
             return "—"
         

@@ -10,67 +10,53 @@ class PacienteForm(forms.ModelForm):
     Formulario personalizado para crear/editar pacientes
     ✅ CON FILTRADO DE SUCURSALES SEGÚN ROL DEL USUARIO
     ✅ SIN procesamiento de servicios (se hace en la vista)
+    ✅ CON SECCIÓN DE INFORMACIÓN EDUCATIVA (OPCIONAL)
     """
     
     def __init__(self, *args, **kwargs):
-        # ✅ RECIBIR USUARIO PARA FILTRAR SUCURSALES
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
         # ✅ FILTRADO DE SUCURSALES SEGÚN ROL DEL USUARIO
         if user:
             if user.is_superuser:
-                # Superadmin: Todas las sucursales activas
                 self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
             elif hasattr(user, 'perfil'):
                 if user.perfil.es_gerente():
-                    # Gerente: Todas las sucursales activas
                     self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
                 elif user.perfil.es_recepcionista():
-                    # ✅ RECEPCIONISTA: Solo sus sucursales asignadas
                     mis_sucursales = user.perfil.sucursales.filter(activa=True)
                     self.fields['sucursales'].queryset = mis_sucursales.order_by('nombre')
-                    
-                    # ✅ MENSAJE INFORMATIVO si no tiene sucursales
                     if not mis_sucursales.exists():
                         self.fields['sucursales'].help_text = '⚠️ No tienes sucursales asignadas. Contacta al administrador.'
                 else:
-                    # Otros roles: Sin sucursales
                     self.fields['sucursales'].queryset = Sucursal.objects.none()
             else:
                 self.fields['sucursales'].queryset = Sucursal.objects.none()
         else:
-            # Sin usuario: Todas las sucursales (fallback para compatibilidad)
             self.fields['sucursales'].queryset = Sucursal.objects.filter(activa=True).order_by('nombre')
         
-        # Filtrar: Solo usuarios con rol 'paciente', con perfil valido, sin superuser
         from core.models import PerfilUsuario
         from django.contrib.auth.models import User
 
-        # Base: usuarios con perfil valido de rol paciente (excluye Users huerfanos sin perfil)
         usuarios_base = User.objects.filter(
             perfil__rol='paciente',
-            perfil__isnull=False  # excluye Users huerfanos sin PerfilUsuario
+            perfil__isnull=False
         ).exclude(is_superuser=True)
 
-        # Filtrar segun si estamos creando o editando
         if self.instance and self.instance.pk and self.instance.user_id:
-            # EDITANDO: mostrar usuarios libres + el usuario actual del paciente
-            # Usar user_id (no self.instance.user) para evitar DoesNotExist si fue eliminado
             usuarios_disponibles = usuarios_base.filter(
                 paciente__isnull=True
             ) | usuarios_base.filter(
                 id=self.instance.user_id
             )
         else:
-            # CREANDO nuevo paciente O editando uno sin user
             usuarios_disponibles = usuarios_base.filter(
                 paciente__isnull=True
             )
         
         self.fields['user'].queryset = usuarios_disponibles.distinct()
         
-        # ✅ Personalizar cómo se muestra cada usuario en el dropdown
         def label_usuario(obj):
             try:
                 if hasattr(obj, 'paciente') and obj.paciente:
@@ -110,6 +96,16 @@ class PacienteForm(forms.ModelForm):
             'diagnostico',
             'observaciones_medicas',
             'alergias',
+            # ✅ Información educativa
+            'nombre_escuela',
+            'grado_curso',
+            'turno_escolar',
+            'nombre_maestro',
+            'telefono_escuela',
+            'email_escuela',
+            'direccion_escuela',
+            'apoyo_escolar',
+            'observaciones_escuela',
             # Estado
             'estado',
         ]
@@ -192,6 +188,43 @@ class PacienteForm(forms.ModelForm):
                 'placeholder': 'Alergias conocidas...',
                 'rows': 2
             }),
+            # ✅ Widgets para Información Educativa
+            'nombre_escuela': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Ej: Unidad Educativa San Calixto'
+            }),
+            'grado_curso': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Ej: 3° de Primaria, Kínder, Inicial 2'
+            }),
+            'turno_escolar': forms.Select(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold'
+            }),
+            'nombre_maestro': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Ej: Prof. Ana Mamani'
+            }),
+            'telefono_escuela': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Ej: 2-2345678'
+            }),
+            'email_escuela': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'contacto@escuela.edu.bo'
+            }),
+            'direccion_escuela': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Ej: Av. Arce #123, Zona Central...',
+                'rows': 2
+            }),
+            'apoyo_escolar': forms.CheckboxInput(attrs={
+                'class': 'w-5 h-5 text-yellow-500 border-2 border-gray-300 rounded focus:ring-yellow-400'
+            }),
+            'observaciones_escuela': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 font-bold',
+                'placeholder': 'Notas sobre desempeño escolar, coordinación con el centro...',
+                'rows': 3
+            }),
             'estado': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold'
             }),
@@ -203,8 +236,6 @@ class PacienteForm(forms.ModelForm):
         
         if fecha:
             hoy = date.today()
-            
-            # No puede ser fecha futura
             if fecha > hoy:
                 raise ValidationError('❌ La fecha de nacimiento no puede ser futura')
         
@@ -215,10 +246,7 @@ class PacienteForm(forms.ModelForm):
         telefono = self.cleaned_data.get('telefono_tutor')
         
         if telefono:
-            # Remover espacios y guiones
             telefono_limpio = telefono.replace(' ', '').replace('-', '')
-            
-            # Debe tener al menos 7 dígitos
             if len(telefono_limpio) < 7:
                 raise ValidationError('⚠️ El teléfono debe tener al menos 7 dígitos')
         
@@ -242,11 +270,18 @@ class PacienteForm(forms.ModelForm):
         telefono_tutor_2 = cleaned_data.get('telefono_tutor_2')
         
         if nombre_tutor_2 and not telefono_tutor_2:
-            self.add_error('telefono_tutor_2', 
+            self.add_error('telefono_tutor_2',
                           '⚠️ Si registras un segundo tutor, debes incluir su teléfono')
+
+        # ✅ Si hay info educativa parcial, validar coherencia mínima
+        nombre_escuela = cleaned_data.get('nombre_escuela')
+        telefono_escuela = cleaned_data.get('telefono_escuela')
+
+        if telefono_escuela and not nombre_escuela:
+            self.add_error('nombre_escuela',
+                          '⚠️ Si ingresas teléfono de escuela, debes indicar también el nombre de la escuela')
         
         return cleaned_data
-    
+
     # ✅ REMOVIDO: El método save() ya no procesa servicios
     # Los servicios se manejan directamente en las vistas (agregar_paciente y editar_paciente)
-    # Esto evita duplicación y conflictos

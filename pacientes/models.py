@@ -28,6 +28,12 @@ class Paciente(models.Model):
         ('activo', 'Activo'),
         ('inactivo', 'Inactivo'),
     ]
+
+    TURNO_CHOICES = [
+        ('manana', 'Mañana'),
+        ('tarde', 'Tarde'),
+        ('completo', 'Completo'),
+    ]
     
     # ✅ NUEVO: Usuario del sistema vinculado
     user = models.OneToOneField(
@@ -51,14 +57,14 @@ class Paciente(models.Model):
         'foto',
         blank=True,
         null=True,
-        folder='pacientes',  # Carpeta en Cloudinary
+        folder='pacientes',
         transformation={
             'width': 400,
             'height': 400,
             'crop': 'fill',
-            'gravity': 'face',  # Enfoque en rostro
-            'quality': 'auto',  # Calidad automática
-            'fetch_format': 'auto'  # Formato óptimo (WebP, etc)
+            'gravity': 'face',
+            'quality': 'auto',
+            'fetch_format': 'auto'
         },
         help_text='Foto del paciente (se optimizará automáticamente)'
     )
@@ -78,14 +84,14 @@ class Paciente(models.Model):
     
     # ==================== SEGUNDO TUTOR (OPCIONAL) ====================
     nombre_tutor_2 = models.CharField(
-        max_length=200, 
-        blank=True, 
+        max_length=200,
+        blank=True,
         null=True,
         verbose_name='Nombre del Segundo Tutor',
         help_text='Información del segundo tutor o contacto de emergencia (opcional)'
     )
     parentesco_2 = models.CharField(
-        max_length=20, 
+        max_length=20,
         choices=PARENTESCO_CHOICES,
         blank=True,
         null=True,
@@ -98,7 +104,7 @@ class Paciente(models.Model):
         verbose_name='Teléfono del Segundo Tutor'
     )
     email_tutor_2 = models.EmailField(
-        blank=True, 
+        blank=True,
         null=True,
         verbose_name='Email del Segundo Tutor'
     )
@@ -107,7 +113,66 @@ class Paciente(models.Model):
     diagnostico = models.TextField(blank=True, help_text='Diagnóstico o motivo de consulta')
     observaciones_medicas = models.TextField(blank=True)
     alergias = models.TextField(blank=True)
-    
+
+    # ==================== INFORMACIÓN EDUCATIVA (OPCIONAL) ====================
+    nombre_escuela = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Nombre de la Escuela / Centro Educativo',
+        help_text='Nombre del colegio, escuela o centro educativo donde asiste'
+    )
+    grado_curso = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Grado o Curso',
+        help_text='Ej: 3° de Primaria, Kínder, Inicial 2'
+    )
+    turno_escolar = models.CharField(
+        max_length=10,
+        choices=TURNO_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name='Turno Escolar',
+        help_text='Turno en el que asiste al centro educativo'
+    )
+    nombre_maestro = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='Nombre del Maestro/a de Referencia',
+        help_text='Maestro/a principal o tutor educativo de referencia'
+    )
+    telefono_escuela = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='Teléfono de la Escuela'
+    )
+    email_escuela = models.EmailField(
+        blank=True,
+        null=True,
+        verbose_name='Email de la Escuela o Maestro/a',
+        help_text='Email institucional del centro educativo o del maestro/a de referencia'
+    )
+    direccion_escuela = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Dirección del Centro Educativo',
+        help_text='Dirección o ubicación del colegio/escuela'
+    )
+    apoyo_escolar = models.BooleanField(
+        default=False,
+        verbose_name='¿Recibe apoyo o adaptaciones curriculares?',
+        help_text='Indica si el paciente cuenta con apoyos, adaptaciones o necesidades educativas especiales en la escuela'
+    )
+    observaciones_escuela = models.TextField(
+        blank=True,
+        verbose_name='Observaciones Educativas',
+        help_text='Notas sobre desempeño escolar, coordinación con el centro o información relevante del entorno educativo'
+    )
+
     # Estado
     estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='activo')
     
@@ -134,7 +199,6 @@ class Paciente(models.Model):
         hoy = date.today()
         edad = hoy.year - self.fecha_nacimiento.year
         
-        # Ajustar si aún no cumplió años este año
         if hoy.month < self.fecha_nacimiento.month or \
            (hoy.month == self.fecha_nacimiento.month and hoy.day < self.fecha_nacimiento.day):
             edad -= 1
@@ -145,6 +209,11 @@ class Paciente(models.Model):
     def tiene_segundo_tutor(self):
         """Verifica si tiene segundo tutor registrado"""
         return bool(self.nombre_tutor_2 and self.nombre_tutor_2.strip())
+
+    @property
+    def tiene_info_educativa(self):
+        """Verifica si tiene información educativa registrada"""
+        return bool(self.nombre_escuela and self.nombre_escuela.strip())
     
     @property
     def tiene_foto(self):
@@ -152,9 +221,7 @@ class Paciente(models.Model):
         return bool(self.foto)
     
     def get_foto_url(self, width=400, height=400):
-        """
-        Obtiene URL de la foto con transformaciones específicas
-        """
+        """Obtiene URL de la foto con transformaciones específicas"""
         if self.foto:
             try:
                 return self.foto.build_url(
@@ -166,7 +233,6 @@ class Paciente(models.Model):
                     fetch_format='auto'
                 )
             except Exception as e:
-                # Si falla la transformación, retornar URL básica
                 return self.foto.url if hasattr(self.foto, 'url') else None
         return None
 
@@ -175,21 +241,17 @@ class Paciente(models.Model):
         return self.get_foto_url(width=100, height=100)
 
     def tiene_sucursal(self, sucursal):
-        """
-        ✅ Verifica si el paciente puede ser atendido en una sucursal específica
-        """
+        """Verifica si el paciente puede ser atendido en una sucursal específica"""
         return self.sucursales.filter(id=sucursal.id).exists()
     
     def tiene_servicio_activo(self, servicio):
-        """
-        Verifica si el paciente tiene un servicio específico activo
-        """
+        """Verifica si el paciente tiene un servicio específico activo"""
         return self.servicios.filter(servicio=servicio, activo=True).exists()
     
     def get_costo_servicio(self, servicio):
         """
-        Obtiene el costo personalizado del servicio para este paciente
-        Retorna None si no tiene el servicio configurado
+        Obtiene el costo personalizado del servicio para este paciente.
+        Retorna None si no tiene el servicio configurado.
         """
         try:
             paciente_servicio = self.servicios.get(servicio=servicio, activo=True)
@@ -200,8 +262,8 @@ class Paciente(models.Model):
 
 class PacienteServicio(models.Model):
     """
-    Relación entre Paciente y Servicio con costo personalizado
-    Permite que cada paciente tenga un precio diferente por servicio
+    Relación entre Paciente y Servicio con costo personalizado.
+    Permite que cada paciente tenga un precio diferente por servicio.
     """
     
     paciente = models.ForeignKey(
@@ -216,7 +278,6 @@ class PacienteServicio(models.Model):
         related_name='pacientes'
     )
     
-    # Costo personalizado para este paciente
     costo_sesion = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -225,7 +286,6 @@ class PacienteServicio(models.Model):
         help_text='Costo por sesión para este paciente (se autocompleta con el precio base)'
     )
     
-    # Estado
     activo = models.BooleanField(
         default=True,
         help_text='Si está inactivo, no se puede programar sesiones con este servicio'
@@ -236,7 +296,6 @@ class PacienteServicio(models.Model):
         help_text='Observaciones específicas sobre este servicio para el paciente'
     )
     
-    # Metadata
     fecha_inicio = models.DateTimeField(auto_now_add=True)
     fecha_modificacion = models.DateTimeField(auto_now=True)
     
@@ -250,13 +309,9 @@ class PacienteServicio(models.Model):
         return f"{self.paciente.nombre_completo} - {self.servicio.nombre}"
     
     def save(self, *args, **kwargs):
-        """
-        ✅ CRÍTICO: Autocompletar costo_sesion con el precio base si está vacío
-        """
-        # Si costo_sesion es None o 0, usar el precio base del servicio
+        """Autocompletar costo_sesion con el precio base si está vacío"""
         if (self.costo_sesion is None or self.costo_sesion == 0) and self.servicio:
             self.costo_sesion = self.servicio.costo_base
-        
         super().save(*args, **kwargs)
     
     @property
@@ -268,15 +323,12 @@ class PacienteServicio(models.Model):
     
     @property
     def tiene_descuento(self):
-        """Verifica si tiene descuento aplicado"""
         return self.diferencia_precio < 0
     
     @property
     def tiene_recargo(self):
-        """Verifica si tiene recargo aplicado"""
         return self.diferencia_precio > 0
     
     @property
     def es_precio_estandar(self):
-        """Verifica si usa el precio estándar"""
         return self.diferencia_precio == 0

@@ -182,6 +182,68 @@
                         {% endif %}
                     </div>
                 </div>
+
+                {% if paciente.tiene_info_educativa %}
+                <div class="mt-6 pt-4 border-t border-gray-100">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
+                        🏫 Información Educativa
+                    </h3>
+                    <div class="bg-yellow-50 rounded-2xl p-4 border border-yellow-100 space-y-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-sm font-bold text-gray-900">{{ paciente.nombre_escuela }}</span>
+                                {% if paciente.grado_curso %}
+                                <p class="text-xs text-yellow-700 font-bold mt-0.5">📚 {{ paciente.grado_curso }}</p>
+                                {% endif %}
+                                {% if paciente.direccion_escuela %}
+                                <p class="text-xs text-gray-500 font-medium mt-0.5 flex items-start gap-1">
+                                    <span class="mt-0.5">📍</span> {{ paciente.direccion_escuela }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            {% if paciente.turno_escolar %}
+                            <span class="text-[10px] font-bold text-yellow-700 bg-white px-2 py-0.5 rounded border border-yellow-200 shadow-sm whitespace-nowrap">
+                                🕐 {{ paciente.get_turno_escolar_display }}
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        {% if paciente.apoyo_escolar %}
+                        <div class="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-lg px-3 py-1.5">
+                            <span class="text-sm">🎯</span>
+                            <span class="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Recibe apoyo / adaptaciones curriculares</span>
+                        </div>
+                        {% endif %}
+
+                        {% if paciente.nombre_maestro %}
+                        <div class="pt-2 border-t border-yellow-200">
+                            <p class="text-[10px] uppercase text-yellow-600 font-bold tracking-wide mb-1">Maestro/a de referencia</p>
+                            <p class="text-xs font-bold text-gray-800">{{ paciente.nombre_maestro }}</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="space-y-1 pt-1">
+                            {% if paciente.telefono_escuela %}
+                            <a href="tel:{{ paciente.telefono_escuela }}" class="text-xs text-gray-600 flex items-center gap-2 hover:text-yellow-700 font-medium transition-colors">
+                                📞 {{ paciente.telefono_escuela }}
+                            </a>
+                            {% endif %}
+                            {% if paciente.email_escuela %}
+                            <a href="mailto:{{ paciente.email_escuela }}" class="text-xs text-gray-600 flex items-center gap-2 hover:text-yellow-700 truncate transition-colors">
+                                📧 {{ paciente.email_escuela }}
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        {% if paciente.observaciones_escuela %}
+                        <div class="bg-white border border-yellow-200 rounded-xl p-3 mt-1">
+                            <p class="text-[10px] uppercase font-bold text-yellow-600 mb-1">Observaciones</p>
+                            <p class="text-xs text-gray-700 font-medium whitespace-pre-line leading-relaxed">{{ paciente.observaciones_escuela }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
                 {% endif %}
             </div>
         </div>

@@ -135,6 +135,13 @@
                         <span class="px-1.5 py-0.5 text-[8px] text-rose-400 font-bold">SIN SUCURSAL</span>
                     {% endfor %}
                 </div>
+                {% if paciente.nombre_escuela %}
+                <div class="mt-1 flex items-center justify-center gap-1">
+                    <span class="px-2 py-0.5 text-[8px] font-bold bg-yellow-50 text-yellow-700 rounded border border-yellow-200 flex items-center gap-1 max-w-[140px] truncate">
+                        🏫 {{ paciente.nombre_escuela }}
+                    </span>
+                </div>
+                {% endif %}
             </div>
             
             <div class="p-3 pt-0 flex-1 space-y-2">
@@ -226,6 +233,7 @@
                             <th class="p-3 font-black">Tutor</th>
                             <th class="p-3 font-black">Usuario</th>
                             <th class="p-3 font-black">Sucursales</th>
+                            <th class="p-3 font-black">Escuela</th>
                             <th class="p-3 font-black text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -277,6 +285,22 @@
                                 </div>
                             </td>
                             <td class="p-3">
+                                {% if paciente.nombre_escuela %}
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-[10px]">🏫</span>
+                                        <span class="text-xs font-bold text-gray-700 max-w-[120px] truncate" title="{{ paciente.nombre_escuela }}">{{ paciente.nombre_escuela }}</span>
+                                    </div>
+                                    {% if paciente.grado_curso %}
+                                        <span class="text-[9px] text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-100 font-bold mt-0.5 inline-block">{{ paciente.grado_curso }}</span>
+                                    {% endif %}
+                                    {% if paciente.apoyo_escolar %}
+                                        <span class="text-[8px] text-purple-700 bg-purple-50 px-1 py-0.5 rounded border border-purple-100 font-bold ml-1">🎯 Apoyo</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-[9px] text-gray-400 italic">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3">
                                 <div class="flex items-center justify-center gap-1.5">
                                     <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors text-xs" title="Ver">
                                         👁️
@@ -294,7 +318,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="p-6 text-center text-slate-500 text-xs font-bold">
+                            <td colspan="8" class="p-6 text-center text-slate-500 text-xs font-bold">
                                 No se encontraron resultados
                             </td>
                         </tr>
