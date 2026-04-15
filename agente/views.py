@@ -11,6 +11,14 @@ from django.utils import timezone
 log = logging.getLogger(__name__)
 
 
+def _normalizar_telefono(telefono: str) -> str:
+    """Normaliza el teléfono al formato canónico '591XXXXXXX' usado en toda la BD."""
+    tel = telefono.strip()
+    if not tel.startswith('591'):
+        tel = '591' + tel
+    return tel
+
+
 # ─────────────────────────────────────────────────────────────
 # WEBHOOK — recibe mensajes entrantes desde el bot Node.js
 # ─────────────────────────────────────────────────────────────
@@ -196,7 +204,7 @@ def staff_respondio(request):
 
     # 2. Guardar el mensaje en el historial si viene con contenido
     if mensaje:
-        tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+        tel_completo = _normalizar_telefono(telefono)
         # Determinar si es paciente o público para la etiqueta correcta
         paciente = buscar_paciente_por_telefono(tel_completo)
         tipo_agente = 'paciente' if paciente else 'publico'
@@ -398,9 +406,10 @@ def api_historial_telefono(request, telefono):
 def api_historial_telefono_all(request, telefono):
     """Historial completo (todos los agentes) para un número."""
     from agente.models import ConversacionAgente
+    tel = _normalizar_telefono(telefono)
     mensajes = (
         ConversacionAgente.objects
-        .filter(telefono=telefono)
+        .filter(telefono=tel)
         .order_by('creado')
         .values('rol', 'contenido', 'modelo_usado', 'creado', 'agente')
     )
@@ -444,7 +453,7 @@ def api_enviar_manual(request):
     # Guardar en historial SIEMPRE, antes de intentar enviar al bot
     from agente.models import ConversacionAgente
     from agente.paciente_db import buscar_paciente_por_telefono
-    tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+    tel_completo = _normalizar_telefono(telefono)
     try:
         paciente_db = buscar_paciente_por_telefono(tel_completo)
         tipo_agente = 'paciente' if paciente_db else 'publico'

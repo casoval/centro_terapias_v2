@@ -685,6 +685,7 @@ async function enviarMensajeManual() {
     const mensaje = input.value.trim();
     if (!mensaje || !telefonoModal) return;
 
+    // Enviamos siempre sin prefijo 591 — el backend normaliza
     const telLimpio = telefonoModal.startsWith('591') ? telefonoModal.slice(3) : telefonoModal;
     input.value    = '';
     input.disabled = true;
@@ -697,7 +698,8 @@ async function enviarMensajeManual() {
         });
         const data = await res.json();
         if (!data.ok) { alert('Error: ' + (data.error || 'desconocido')); return; }
-        await cargarHistorialModal(telefonoModal);
+        // Recargar historial con el teléfono normalizado (con 591)
+        await cargarHistorialModal(telefonoModal.startsWith('591') ? telefonoModal : '591' + telefonoModal);
     } catch(e) {
         alert('Error al enviar mensaje');
     } finally {
