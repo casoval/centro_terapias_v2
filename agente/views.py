@@ -440,6 +440,26 @@ def api_enviar_manual(request):
         return JsonResponse({'ok': False, 'error': 'Faltan datos'}, status=400)
 
     puerto = 3000 if sucursal_id == 3 else 3001
+
+    # Guardar en historial SIEMPRE, antes de intentar enviar al bot
+    from agente.models import ConversacionAgente
+    from agente.paciente_db import buscar_paciente_por_telefono
+    tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
+    try:
+        paciente_db = buscar_paciente_por_telefono(tel_completo)
+        tipo_agente = 'paciente' if paciente_db else 'publico'
+        ConversacionAgente.objects.create(
+            agente       = tipo_agente,
+            telefono     = tel_completo,
+            rol          = 'assistant',
+            contenido    = f'[Staff] {mensaje}',
+            modelo_usado = 'manual',
+        )
+    except Exception as e:
+        log.error(f'[Staff Manual] Error guardando mensaje en BD: {e}', exc_info=True)
+        return JsonResponse({'ok': False, 'error': f'Error al guardar en historial: {e}'}, status=500)
+
+    # Enviar al bot — si falla, el mensaje ya quedó guardado en BD
     try:
         requests.post(
             f'http://localhost:{puerto}/send',
@@ -452,22 +472,14 @@ def api_enviar_manual(request):
             },
             timeout=5,
         )
-        # Guardar en historial — detectar si es paciente o público
-        from agente.models import ConversacionAgente
-        from agente.paciente_db import buscar_paciente_por_telefono
-        tel_completo = f'591{telefono}' if not telefono.startswith('591') else telefono
-        paciente_db  = buscar_paciente_por_telefono(tel_completo)
-        tipo_agente  = 'paciente' if paciente_db else 'publico'
-        ConversacionAgente.objects.create(
-            agente       = tipo_agente,
-            telefono     = tel_completo,
-            rol          = 'assistant',
-            contenido    = f'[Staff] {mensaje}',
-            modelo_usado = 'manual',
-        )
-        return JsonResponse({'ok': True})
     except Exception as e:
-        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+        log.warning(f'[Staff Manual] Bot no respondio (mensaje guardado en BD): {e}')
+        return JsonResponse({
+            'ok': True,
+            'aviso': 'Guardado en historial, pero el bot no respondio. Verifica que el bot Node.js este activo.',
+        })
+
+    return JsonResponse({'ok': True})
 
 
 # ─────────────────────────────────────────────────────────────

@@ -520,10 +520,12 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
         return respuesta
 
     except Exception as e:
-        log.error(f'[Agente Publico] Error procesando mensaje de {telefono}: {e}')
-        return (
+        log.error(f'[Agente Publico] Error procesando mensaje de {telefono}: {e}', exc_info=True)
+        fallback = (
             'Disculpe, tuve un problema tecnico en este momento. '
             'Por favor comuniquese directamente con nosotros:\n'
             'Sede Japon: +591 76175352\n'
             'Sede Central: +591 78633975'
         )
+        guardar_mensaje(telefono, 'assistant', fallback, 'error')
+        return fallback
