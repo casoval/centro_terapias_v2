@@ -738,6 +738,7 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
         'reprogramacion':       '🔄 SOLICITUD DE REPROGRAMACION',
         'peticion_profesional': '⚡ PETICION AL PROFESIONAL',
         'peticion_centro':      '📩 PETICION AL CENTRO',
+        'aviso_pago':           '💰 AVISO DE PAGO',
     }
 
     mensaje = (
@@ -749,7 +750,7 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
     )
 
     # peticion_centro: solo recepcion + gerencia + admin, sin profesional
-    if tipo == 'peticion_centro':
+    if tipo in ('peticion_centro', 'aviso_pago'):
         usuarios = _get_usuarios_sin_profesional(paciente)
     else:
         usuarios = _get_usuarios_a_notificar(paciente, detalle)

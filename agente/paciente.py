@@ -11,6 +11,7 @@ Atiende tutores que ya son pacientes registrados.
 import os
 import logging
 import re
+from datetime import date
 import anthropic
 
 log = logging.getLogger('agente')
@@ -364,7 +365,7 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                 if p['informe_entregado']:
                     ctx += f"\n  Informe: Entregado el {p['fecha_informe']}"
                 else:
-                    ctx += f"\n  Informe: Pendiente de entrega (registro disponible desde abril 2026 — evaluaciones anteriores consultar en el centro)"
+                    ctx += "\n  Informe: Pendiente de entrega (registro disponible desde abril 2026 — evaluaciones anteriores consultar en el centro)"
                 s = p['sesiones']
                 ctx += (
                     f"\n  Sesiones: {s['total']} total | "
@@ -561,7 +562,7 @@ def procesar_notificaciones(respuesta: str, paciente) -> int:
         detalle = match.group(2).strip()
 
         if tipo in ('permiso', 'cancelacion', 'reprogramacion',
-                    'peticion_profesional', 'peticion_centro'):
+            'peticion_profesional', 'peticion_centro', 'aviso_pago'):
             notificados = notificar_solicitud(paciente, tipo, detalle)
             total += notificados
             log.info(f'[Agente Paciente] Notificacion {tipo} enviada a {notificados} usuarios')
@@ -586,7 +587,7 @@ PALABRAS_SOLICITUD = (
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     msg = mensaje.lower()
     if any(p in msg for p in PALABRAS_SOLICITUD):
-        return 'claude-sonnet-4-5-20250929', 'Sonnet'
+        return 'claude-sonnet-4-6', 'Sonnet'
     return 'claude-haiku-4-5-20251001', 'Haiku'
 
 
