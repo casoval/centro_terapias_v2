@@ -586,7 +586,7 @@ PALABRAS_SOLICITUD = (
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     msg = mensaje.lower()
     if any(p in msg for p in PALABRAS_SOLICITUD):
-        return 'claude-sonnet-4-5-20251001', 'Sonnet'
+        return 'claude-sonnet-4-5-20250929', 'Sonnet'
     return 'claude-haiku-4-5-20251001', 'Haiku'
 
 
