@@ -182,6 +182,16 @@
                 </div>
             </div>
             {% endif %}
+
+            {% if usuario.perfil.rol in 'recepcionista,gerente' and usuario.perfil.telefono %}
+            <div class="flex items-center gap-2 bg-teal-50 p-2 rounded-xl border border-teal-100">
+                <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-teal-400 shadow-sm text-xs">📞</div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[9px] uppercase tracking-wide text-teal-400 font-bold mb-0.5">Teléfono</p>
+                    <p class="text-xs font-bold text-teal-700 truncate">{{ usuario.perfil.telefono }}</p>
+                </div>
+            </div>
+            {% endif %}
             
             {% if usuario.perfil.profesional or usuario.perfil.paciente %}
             <div class="flex flex-col items-center p-1.5 bg-indigo-50 rounded-xl border border-indigo-100">
@@ -237,6 +247,7 @@
                         <th class="p-4 font-bold text-sm">Usuario</th>
                         <th class="p-4 font-bold text-sm">Rol Asignado</th>
                         <th class="p-4 font-bold text-sm">Estado</th>
+                        <th class="p-4 font-bold text-sm">Contacto</th>
                         <th class="p-4 font-bold text-sm">Vinculación</th>
                         <th class="p-4 font-bold text-sm text-center">Acciones</th>
                     </tr>
@@ -296,6 +307,28 @@
                             </div>
                         </td>
                         <td class="p-4">
+                            {% if usuario.perfil.rol == 'recepcionista' or usuario.perfil.rol == 'gerente' %}
+                                <div class="flex flex-col gap-1">
+                                    {% if usuario.email %}
+                                    <span class="flex items-center gap-1 text-xs text-gray-600 font-bold">
+                                        <span class="text-gray-400">📧</span>
+                                        <span class="truncate max-w-[140px]" title="{{ usuario.email }}">{{ usuario.email }}</span>
+                                    </span>
+                                    {% endif %}
+                                    {% if usuario.perfil.telefono %}
+                                    <span class="flex items-center gap-1 text-xs text-teal-700 font-bold">
+                                        <span class="text-teal-400">📞</span> {{ usuario.perfil.telefono }}
+                                    </span>
+                                    {% endif %}
+                                    {% if not usuario.email and not usuario.perfil.telefono %}
+                                    <span class="text-xs text-gray-400">-</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="text-xs text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4">
                             {% if usuario.perfil.profesional %}
                                 <span class="text-xs font-bold text-gray-700 flex items-center gap-1">👨‍⚕️ {{ usuario.perfil.profesional }}</span>
                             {% elif usuario.perfil.paciente %}
@@ -319,7 +352,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="p-8 text-center text-gray-500">
+                        <td colspan="7" class="p-8 text-center text-gray-500">
                             No se encontraron usuarios
                         </td>
                     </tr>

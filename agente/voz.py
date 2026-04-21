@@ -106,22 +106,32 @@ def texto_a_voz(texto: str):
 
         log.info(f'[Voz] MP3 generado ({len(audio_bytes)} bytes) — convirtiendo a ogg/opus')
 
-        # Guardar MP3 temporal
+        # Guardar MP3 temporal y convertir a ogg/opus con ffmpeg
         mp3_fd, mp3_path = tempfile.mkstemp(suffix='.mp3', dir='/tmp')
-        with os.fdopen(mp3_fd, 'wb') as f:
-            f.write(audio_bytes)
-
-        # Convertir MP3 a ogg/opus con ffmpeg (requerido por WhatsApp)
         ogg_path = mp3_path.replace('.mp3', '.ogg')
-        resultado = subprocess.run(
-            ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'libopus', '-b:a', '64k', ogg_path],
-            capture_output=True,
-            text=True,
-        )
-        os.unlink(mp3_path)
+        try:
+            with os.fdopen(mp3_fd, 'wb') as f:
+                f.write(audio_bytes)
+
+            resultado = subprocess.run(
+                ['ffmpeg', '-y', '-i', mp3_path, '-c:a', 'libopus', '-b:a', '64k', ogg_path],
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            # Siempre limpiar el MP3 temporal, haya fallado o no
+            try:
+                os.unlink(mp3_path)
+            except Exception:
+                pass
 
         if resultado.returncode != 0:
             log.error(f'[Voz] Error ffmpeg: {resultado.stderr[-300:]}')
+            # Limpiar ogg si quedó a medias
+            try:
+                os.unlink(ogg_path)
+            except Exception:
+                pass
             return None
 
         log.info(f'[Voz] Audio ogg/opus listo: {ogg_path}')

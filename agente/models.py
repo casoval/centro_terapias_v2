@@ -1,12 +1,30 @@
 from django.db import models
 
 
+# ── Lista centralizada de agentes ────────────────────────────────────────────
+# Definida UNA SOLA VEZ aquí para que todos los modelos la reutilicen.
+# Al agregar un nuevo agente solo se modifica este lugar.
+TIPO_AGENTE = [
+    ('publico',       'Agente Público'),
+    ('paciente',      'Agente Paciente'),
+    ('superusuario',  'Agente Superusuario'),
+    ('recepcionista', 'Agente Recepcionista'),
+    ('profesional',   'Agente Profesional'),
+    ('gerente',       'Agente Gerente'),
+]
+
+# Límites de historial por defecto para cada agente (editable desde ConfigAgente)
+MAX_HISTORIAL_DEFAULTS = {
+    'publico':       20,
+    'paciente':      30,
+    'recepcionista': 15,
+    'profesional':   20,
+    'gerente':       15,
+    'superusuario':  10,
+}
+
+
 class ConversacionAgente(models.Model):
-    TIPO_AGENTE = [
-        ('publico',      'Agente Público'),
-        ('paciente',     'Agente Paciente'),
-        ('superusuario', 'Agente Superusuario'),
-    ]
     ROL_CHOICES = [
         ('user',      'Usuario'),
         ('assistant', 'Asistente'),
@@ -29,16 +47,19 @@ class ConversacionAgente(models.Model):
 
 
 class ConfigAgente(models.Model):
-    TIPO_AGENTE = [
-        ('publico',      'Agente Público'),
-        ('paciente',     'Agente Paciente'),
-        ('superusuario', 'Agente Superusuario'),
-    ]
-
-    agente      = models.CharField(max_length=20, choices=TIPO_AGENTE, unique=True)
-    activo      = models.BooleanField(default=True)
-    prompt      = models.TextField(help_text='Prompt del sistema para este agente')
-    actualizado = models.DateTimeField(auto_now=True)
+    agente        = models.CharField(max_length=20, choices=TIPO_AGENTE, unique=True)
+    activo        = models.BooleanField(default=True)
+    prompt        = models.TextField(help_text='Prompt del sistema para este agente')
+    max_historial = models.PositiveIntegerField(
+        default=20,
+        help_text=(
+            'Número máximo de mensajes del historial que se envían a la IA. '
+            'Más mensajes = más contexto pero mayor costo. '
+            'Recomendado: Público 20, Paciente 30, Recepcionista 15, '
+            'Profesional 20, Gerente 15, Superusuario 10.'
+        )
+    )
+    actualizado   = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = 'Configuración de Agente'
@@ -46,7 +67,68 @@ class ConfigAgente(models.Model):
 
     def __str__(self):
         estado = '✅' if self.activo else '❌'
-        return f"{estado} {self.get_agente_display()}"
+        return f"{estado} {self.get_agente_display()} (historial: {self.max_historial} msgs)"
+
+    @classmethod
+    def get_max_historial(cls, tipo_agente: str) -> int:
+        """
+        Devuelve el límite de historial configurado para un agente.
+        Si no existe configuración en BD, usa el valor por defecto del diccionario.
+        """
+        try:
+            config = cls.objects.get(agente=tipo_agente)
+            return config.max_historial
+        except cls.DoesNotExist:
+            return MAX_HISTORIAL_DEFAULTS.get(tipo_agente, 20)
+
+
+class StaffAgente(models.Model):
+    """
+    Registra el número de WhatsApp del dueño del centro (Superusuario).
+    Solo debe existir UN registro.
+
+    Recepcionistas y Gerentes se identifican por PerfilUsuario.telefono
+    y no necesitan registro aquí.
+    """
+    telefono  = models.CharField(
+        max_length=20,
+        unique=True,
+        db_index=True,
+        help_text='Número SIN prefijo de país. Ej: 76543210',
+    )
+    nombre    = models.CharField(
+        max_length=100,
+        help_text='Nombre de referencia — solo para identificar en el admin',
+    )
+    activo    = models.BooleanField(default=True)
+    creado    = models.DateTimeField(auto_now_add=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Superusuario WhatsApp (Dueño)'
+        verbose_name_plural = 'Superusuario WhatsApp (Dueño)'
+
+    def __str__(self):
+        estado = '✅' if self.activo else '❌'
+        return f"{estado} {self.nombre} ({self.telefono}) — Superusuario"
+
+    @classmethod
+    def buscar_por_telefono(cls, telefono: str):
+        """
+        Busca el superusuario por teléfono.
+        Retorna (instancia, 'superusuario') o (None, None).
+        """
+        tel = telefono.strip().replace(' ', '').replace('-', '')
+        if tel.startswith('+591'):
+            tel = tel[4:]
+        elif tel.startswith('591') and len(tel) > 9:
+            tel = tel[3:]
+
+        try:
+            staff = cls.objects.get(telefono=tel, activo=True)
+            return staff, 'superusuario'
+        except cls.DoesNotExist:
+            return None, None
 
 
 class ModoHumano(models.Model):

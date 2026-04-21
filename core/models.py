@@ -92,6 +92,14 @@ class PerfilUsuario(models.Model):
         blank=True,
         help_text='Tema visual del calendario mágico elegido por el usuario'
     )
+
+    # Teléfono de contacto (solo relevante para Recepcionistas y Gerentes)
+    telefono = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True,
+        help_text='Número de teléfono (opcional, principalmente para Recepcionistas y Gerentes)'
+    )
     
     # Relación con Profesional (si aplica)
     profesional = models.OneToOneField(

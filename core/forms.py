@@ -174,7 +174,7 @@ class PerfilUsuarioForm(forms.ModelForm):
     
     class Meta:
         model = PerfilUsuario
-        fields = ['rol', 'profesional', 'paciente', 'sucursales', 'activo']
+        fields = ['rol', 'profesional', 'paciente', 'sucursales', 'activo', 'telefono']
         widgets = {
             'rol': forms.Select(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold'
@@ -191,6 +191,10 @@ class PerfilUsuarioForm(forms.ModelForm):
             'activo': forms.CheckboxInput(attrs={
                 'class': 'w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500'
             }),
+            'telefono': forms.TextInput(attrs={
+                'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 text-sm font-bold',
+                'placeholder': '+591 7XXXXXXX'
+            }),
         }
         labels = {
             'rol': 'Rol del Usuario',
@@ -198,6 +202,7 @@ class PerfilUsuarioForm(forms.ModelForm):
             'paciente': 'Vincular con Paciente',
             'sucursales': 'Sucursales Asignadas',
             'activo': 'Perfil Activo',
+            'telefono': 'Teléfono de Contacto',
         }
     
     def clean(self):

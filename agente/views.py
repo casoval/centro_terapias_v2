@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import requests
 
 from django.http import JsonResponse
@@ -9,6 +10,19 @@ from django.shortcuts import render
 from django.utils import timezone
 
 log = logging.getLogger(__name__)
+
+# Token secreto para autenticar webhooks del bot Node.js.
+# Configurar: WEBHOOK_SECRET_TOKEN en variables de entorno.
+# El bot Node.js debe enviar header: X-Webhook-Token: <token>
+WEBHOOK_SECRET_TOKEN = os.environ.get('WEBHOOK_SECRET_TOKEN', '')
+
+
+def _verificar_token(request) -> bool:
+    """Verifica que el request venga del bot autorizado."""
+    if not WEBHOOK_SECRET_TOKEN:
+        log.warning('[Webhook] WEBHOOK_SECRET_TOKEN no configurado — sin autenticación')
+        return True
+    return request.headers.get('X-Webhook-Token', '') == WEBHOOK_SECRET_TOKEN
 
 
 def _normalizar_telefono(telefono: str) -> str:
@@ -46,27 +60,32 @@ def whatsapp_entrante(request):
     """
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
- 
+
+    # Autenticación
+    if not _verificar_token(request):
+        log.warning(f'[Entrante] Token inválido desde {request.META.get("REMOTE_ADDR")}')
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=401)
+
     try:
         data = json.loads(request.body)
     except Exception:
         return JsonResponse({'ok': False, 'error': 'JSON inválido'}, status=400)
- 
+
     telefono    = data.get('telefono', '').strip()
     sucursal_id = int(data.get('sucursal_id', 3))
-    tipo        = data.get('tipo', 'texto')  # 'texto' o 'audio'
- 
+    tipo        = data.get('tipo', 'texto')
+
     if not telefono:
         return JsonResponse({'ok': False, 'error': 'Falta telefono'}, status=400)
- 
+
     from agente.models import ModoHumano, SucursalIA
- 
-    # 1. Verificar control global de la sucursal
+
+    # 1. Control global de sucursal
     if not SucursalIA.esta_activa(sucursal_id):
-        log.info(f'[Entrante] IA suspendida para sucursal {sucursal_id} — ignorado')
+        log.info(f'[Entrante] IA suspendida sucursal {sucursal_id}')
         return JsonResponse({'ok': True, 'modo': 'suspendido', 'telefono': telefono})
- 
-    # 2. Verificar modo humano individual
+
+    # 2. Modo humano individual
     modo, _ = ModoHumano.objects.get_or_create(
         telefono=telefono,
         defaults={'sucursal_id': sucursal_id, 'modo_humano': False}
@@ -74,81 +93,135 @@ def whatsapp_entrante(request):
     if modo.modo_humano:
         log.info(f'[Entrante] {telefono} en modo humano — ignorado')
         return JsonResponse({'ok': True, 'modo': 'humano', 'telefono': telefono})
- 
-    es_audio = tipo == 'audio'
-    mensaje  = None
+
+    es_audio           = tipo == 'audio'
+    mensaje            = None
     ruta_audio_entrada = None
- 
-    # 3. Procesar según tipo de mensaje
+
+    # 3. Procesar tipo de mensaje
     if es_audio:
         audio_url = data.get('audio_url', '').strip()
         if not audio_url:
             return JsonResponse({'ok': False, 'error': 'Falta audio_url'}, status=400)
- 
-        log.info(f'[Entrante] Nota de voz de {telefono} — transcribiendo...')
- 
-        # Descargar el audio desde el bot Node.js
+
         ruta_audio_entrada = _descargar_audio(audio_url)
         if not ruta_audio_entrada:
             return JsonResponse({'ok': False, 'error': 'No se pudo descargar el audio'}, status=500)
- 
-        # Transcribir con Groq Whisper
+
         from agente.voz import transcribir_audio
         mensaje = transcribir_audio(ruta_audio_entrada)
- 
+
         if not mensaje:
-            # Si falla la transcripción, responder con texto
+            # Fallback: avisar al usuario en lugar de ignorar
             es_audio = False
-            mensaje  = '[Nota de voz no transcrita]'
             log.warning(f'[Entrante] Transcripción fallida para {telefono}')
+            puerto = 3000 if sucursal_id == 3 else 3001
+            tel_limpio = telefono[3:] if telefono.startswith('591') else telefono
+            _enviar_respuesta_texto(
+                tel_limpio,
+                'No pude escuchar tu nota de voz. ¿Puedes escribirme tu consulta? 🎙️',
+                puerto,
+            )
+            if ruta_audio_entrada:
+                import os as _os
+                try: _os.unlink(ruta_audio_entrada)
+                except Exception: pass
+            return JsonResponse({'ok': True, 'telefono': telefono, 'fallback': 'audio_no_transcrito'})
         else:
             log.info(f'[Entrante] {telefono} transcrito: {mensaje[:80]}')
- 
     else:
         mensaje = data.get('mensaje', '').strip()
         if not mensaje:
             return JsonResponse({'ok': False, 'error': 'Falta mensaje'}, status=400)
         log.info(f'[Entrante] {telefono}: {mensaje[:80]}')
- 
-    # 4. Detectar si es paciente registrado o público
-    from agente.paciente_db import buscar_paciente_y_tutor
 
-    paciente, cual_tutor = buscar_paciente_y_tutor(telefono)
+    # 4. Ruteo inteligente de agentes
+    respuesta_texto = _rutear_agente(telefono, mensaje)
 
-    if paciente:
-        # Agente Paciente — tutor registrado en el sistema
-        log.info(
-            f'[Entrante] {telefono} identificado como paciente: '
-            f'{paciente.nombre} {paciente.apellido} ({cual_tutor})'
-        )
-        from agente.paciente import responder as responder_paciente
-        respuesta_texto = responder_paciente(telefono, mensaje, paciente, cual_tutor=cual_tutor)
-    else:
-        # Agente Público — consulta nueva o número no registrado
-        log.info(f'[Entrante] {telefono} no registrado — Agente Público')
-        from agente.publico import responder
-        respuesta_texto = responder(telefono, mensaje)
- 
     # 5. Enviar respuesta
-    puerto = 3000 if sucursal_id == 3 else 3001
-    telefono_limpio = telefono[3:] if telefono.startswith('591') else telefono
- 
+    puerto      = 3000 if sucursal_id == 3 else 3001
+    tel_limpio  = telefono[3:] if telefono.startswith('591') else telefono
+
     if es_audio:
-        # Convertir respuesta a audio y enviar nota de voz
-        _enviar_respuesta_voz(telefono_limpio, respuesta_texto, puerto)
+        _enviar_respuesta_voz(tel_limpio, respuesta_texto, puerto)
     else:
-        # Enviar respuesta como texto
-        _enviar_respuesta_texto(telefono_limpio, respuesta_texto, puerto)
- 
-    # Limpiar archivo temporal si existe
+        _enviar_respuesta_texto(tel_limpio, respuesta_texto, puerto)
+
     if ruta_audio_entrada:
         import os as _os
-        try:
-            _os.unlink(ruta_audio_entrada)
-        except Exception:
-            pass
- 
+        try: _os.unlink(ruta_audio_entrada)
+        except Exception: pass
+
     return JsonResponse({'ok': True, 'telefono': telefono, 'respuesta': respuesta_texto[:100]})
+
+# ─────────────────────────────────────────────────────────────
+# RUTEO DE AGENTES — lógica central de identificación
+# ─────────────────────────────────────────────────────────────
+
+def _rutear_agente(telefono: str, mensaje: str) -> str:
+    """
+    Identifica quién escribe y despacha al agente correcto.
+
+    Orden de prioridad:
+      1. Staff identificado (superusuario > gerente > recepcionista+prof > recepcionista > profesional)
+      2. Paciente activo con tutor registrado
+      3. Público (desconocido o inactivo)
+    """
+    from agente.staff_db import identificar_staff
+
+    staff = identificar_staff(telefono)
+
+    if staff.tipo_agente:
+        log.info(f'[Ruteo] {telefono} → {staff.tipo_agente} ({staff.nombre})')
+
+        if staff.tipo_agente == 'superusuario':
+            from agente.superusuario import responder
+            return responder(telefono, mensaje, staff=staff)
+
+        elif staff.tipo_agente == 'gerente':
+            from agente.gerente import responder
+            return responder(telefono, mensaje, staff=staff)
+
+        elif staff.tipo_agente == 'recepcionista_profesional':
+            # Combinado: acceso clínico (profesional) + financiero (recepcionista)
+            from agente.superusuario import responder_combinado
+            return responder_combinado(telefono, mensaje, staff=staff)
+
+        elif staff.tipo_agente == 'recepcionista':
+            from agente.recepcionista import responder
+            return responder(telefono, mensaje, staff=staff)
+
+        elif staff.tipo_agente == 'profesional':
+            from agente.profesional import responder
+            return responder(telefono, mensaje, staff=staff)
+
+    # No es staff — verificar si es tutor de paciente ACTIVO
+    try:
+        from agente.paciente_db import buscar_paciente_y_tutor
+        paciente, cual_tutor = buscar_paciente_y_tutor(telefono)
+
+        if paciente:
+            # Verificar que el paciente sigue activo
+            if getattr(paciente, 'estado', 'activo') != 'activo':
+                log.info(
+                    f'[Ruteo] {telefono} → Paciente INACTIVO '
+                    f'({paciente.nombre} {paciente.apellido}) → Agente Público'
+                )
+            else:
+                log.info(
+                    f'[Ruteo] {telefono} → Agente Paciente '
+                    f'({paciente.nombre} {paciente.apellido}, {cual_tutor})'
+                )
+                from agente.paciente import responder
+                return responder(telefono, mensaje, paciente, cual_tutor=cual_tutor)
+    except Exception as e:
+        log.error(f'[Ruteo] Error verificando paciente: {e}')
+
+    # Número desconocido, inactivo o sin identificar → Agente Público
+    log.info(f'[Ruteo] {telefono} → Agente Público')
+    from agente.publico import responder
+    return responder(telefono, mensaje)
+
 
 # ─────────────────────────────────────────────────────────────
 # WEBHOOK — staff respondió manualmente → activa modo humano
@@ -173,6 +246,10 @@ def staff_respondio(request):
     """
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+    if not _verificar_token(request):
+        log.warning(f'[Staff] Token inválido desde {request.META.get("REMOTE_ADDR")}')
+        return JsonResponse({'ok': False, 'error': 'No autorizado'}, status=401)
 
     try:
         data = json.loads(request.body)

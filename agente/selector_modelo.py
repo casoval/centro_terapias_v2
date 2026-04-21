@@ -146,8 +146,9 @@ def analizar_mensaje(mensaje: str, telefono: str) -> ResultadoSelector:
         razones.append(f'{num_preguntas} preguntas')
 
     # ── Decisión final ────────────────────────────────────────────────────────
-    # Umbral: puntaje >= 3 → Sonnet
-    es_sonnet = puntaje >= 3
+    # Umbral: puntaje >= 5 → Sonnet
+    # (subido de 3 a 5 para evitar que la primera vez sola active Sonnet)
+    es_sonnet = puntaje >= 5
     modelo = MODELO_COMPLETO if es_sonnet else MODELO_RAPIDO
     razon_final = ' | '.join(razones) if razones else 'mensaje simple'
 
