@@ -61,6 +61,9 @@ def notificar_post_falta(sender, instance, **kwargs):
         f"{instance.fecha.day} de {MESES[instance.fecha.month - 1]}"
     )
 
+    # Nombre de sucursal para el historial del bot
+    sucursal_nombre = instance.sucursal.nombre if hasattr(instance, 'sucursal') and instance.sucursal else ''
+
     if instance.estado == 'permiso':
         mensaje = (
             f"Hola, *{nombre_tutor}*. 😊\n\n"
@@ -82,7 +85,15 @@ def notificar_post_falta(sender, instance, **kwargs):
 
     url = _bot_url(instance.sucursal_id)
     try:
-        requests.post(url, json={'phone': telefono, 'message': mensaje, 'tipo': 'recordatorio'}, timeout=10)
+        # ✅ Campos corregidos: telefono/mensaje en lugar de phone/message
+        requests.post(url, json={
+            'telefono':   telefono,
+            'mensaje':    mensaje,
+            'paciente':   nombre_paciente,
+            'sucursal':   sucursal_nombre,
+            'delay_type': 'corto',
+            'tipo':       'recordatorio',
+        }, timeout=10)
     except Exception:
         pass  # Si el bot no responde, no debe romper el guardado de la sesion
 
