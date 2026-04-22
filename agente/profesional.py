@@ -31,7 +31,8 @@ PALABRAS_SONNET = (
     'notas', 'sesiones pasadas', 'detalla', 'explica',
 )
 
-PROMPT_SISTEMA = """Eres el asistente clínico de apoyo para los profesionales del Centro Infantil Misael.
+# Prompt de respaldo si no hay configuración en BD
+PROMPT_FALLBACK = """Eres el asistente clínico de apoyo para los profesionales del Centro Infantil Misael.
 
 Asistes a {nombre} ({especialidad}) con información completa de sus pacientes:
 - Historial de sesiones realizadas y próximas
@@ -184,12 +185,24 @@ class AgenteProfesional(AgenteBase):
             contexto = _construir_contexto(staff, mensaje)
             modelo, etiqueta = _elegir_modelo(mensaje)
 
-            prompt = PROMPT_SISTEMA.format(
-                nombre       = nombre,
-                especialidad = espec,
-                sucursales   = sucs,
-                contexto     = contexto,
-            )
+            # ── Prompt desde BD, con fallback al hardcodeado ──────────────────
+            prompt_base = self.get_prompt()
+            if prompt_base:
+                # El prompt de BD debe contener {nombre}, {especialidad}, {sucursales}, {contexto}
+                prompt = prompt_base.format(
+                    nombre       = nombre,
+                    especialidad = espec,
+                    sucursales   = sucs,
+                    contexto     = contexto,
+                )
+            else:
+                log.warning('[Profesional] Usando prompt hardcodeado — configura el prompt en el admin')
+                prompt = PROMPT_FALLBACK.format(
+                    nombre       = nombre,
+                    especialidad = espec,
+                    sucursales   = sucs,
+                    contexto     = contexto,
+                )
 
             self.guardar_mensaje(telefono, 'user', mensaje)
             historial = self.get_historial(telefono)

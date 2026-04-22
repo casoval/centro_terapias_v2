@@ -8,13 +8,14 @@ Modelos:
   - Sonnet: consultas rápidas del día a día
   - Opus:   informes detallados, análisis estratégico, asesoría compleja
 
-Roles del agente:
-  - Informador: datos en tiempo real de todo el centro
-  - Asesor financiero: ingresos, deudas, flujo de caja, rentabilidad
-  - Asesor estratégico: crecimiento, marketing, captación de pacientes
-  - Asesor operativo: productividad, asistencia, eficiencia
-  - Asesor legal/contable: orientación general (no reemplaza profesionales)
-  - Generador de informes: reportes completos y detallados con Opus
+El prompt se lee desde ConfigAgente en el admin de Django.
+Se admiten dos entradas en BD:
+  - agente='superusuario'  → prompt Sonnet (consultas rápidas)
+  - Si el prompt de BD contiene la palabra OPUS_PROMPT: se usa para Opus
+    (o se puede gestionar con un segundo campo en el futuro)
+
+Por simplicidad actual: un solo prompt en BD que se usa tanto para Sonnet
+como para Opus. El código fallback mantiene los dos prompts hardcodeados.
 """
 
 import logging
@@ -26,7 +27,6 @@ log = logging.getLogger('agente')
 MODELO_SONNET = 'claude-sonnet-4-6'
 MODELO_OPUS   = 'claude-opus-4-6'
 
-# Palabras que activan Opus (análisis complejo / informes / asesoría estratégica)
 PALABRAS_OPUS = (
     'informe', 'reporte', 'análisis', 'analisis', 'detallado', 'detalla',
     'completo', 'completa', 'resumen ejecutivo', 'genera', 'generar',
@@ -44,7 +44,9 @@ PALABRAS_OPUS = (
     'todos los pacientes', 'todos los profesionales',
 )
 
-PROMPT_SONNET = """Eres el asistente privado e inteligente del dueño del Centro Infantil Misael.
+# ── Prompts de respaldo (se usan solo si NO hay config en BD) ─────────────────
+
+PROMPT_SONNET_FALLBACK = """Eres el asistente privado e inteligente de {nombre}, dueño del Centro Infantil Misael.
 
 Eres sus "ojos en tiempo real" sobre el negocio. Acceso total y sin restricciones a:
 pacientes, sesiones, pagos, ingresos, deudas, profesionales, mensualidades y más.
@@ -56,17 +58,17 @@ ROLES:
 - Asesor operativo: productividad del equipo, asistencia, eficiencia
 - Orientación legal/contable general (siempre recomendando profesionales certificados para decisiones importantes)
 
-TONO: Directo, ejecutivo. Si ves algo preocupante en los datos, menciónalo proactivamente.
-Usa números concretos. Sé conciso para consultas simples, profundo para análisis.
+TONO: Directo, ejecutivo. Llama a {nombre} por su nombre. Si ves algo preocupante en los datos,
+menciónalo proactivamente. Usa números concretos. Sé conciso para consultas simples, profundo para análisis.
 
 DATOS ACTUALIZADOS:
 {contexto}
 """
 
-PROMPT_OPUS = """Eres el asesor estratégico e inteligente del dueño del Centro Infantil Misael.
+PROMPT_OPUS_FALLBACK = """Eres el asesor estratégico e inteligente de {nombre}, dueño del Centro Infantil Misael.
 
 Tienes acceso TOTAL a todos los datos del centro. Tu misión ahora es generar un análisis profundo,
-detallado y de alto valor. Actúas como:
+detallado y de alto valor para {nombre}. Actúas como:
 
 🏦 ASESOR FINANCIERO: Analiza ingresos, deudas, flujo de caja, rentabilidad por servicio/sucursal.
    Detecta tendencias, riesgos financieros y oportunidades de mejora.
@@ -94,7 +96,6 @@ DATOS COMPLETOS DEL CENTRO:
 
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     msg = mensaje.lower()
-    # Opus si el mensaje es largo O contiene palabras clave de análisis profundo
     if any(p in msg for p in PALABRAS_OPUS) or len(mensaje.split()) > 30:
         return MODELO_OPUS, 'Opus'
     return MODELO_SONNET, 'Sonnet'
@@ -105,19 +106,26 @@ class AgenteSuper(AgenteBase):
 
     def responder(self, telefono: str, mensaje: str, staff=None) -> str:
         try:
+            # Leer nombre del dueño desde StaffAgente (admin de Django)
+            nombre = 'estimado'
+            if staff and hasattr(staff, 'nombre') and staff.nombre:
+                nombre = staff.nombre.split()[0]  # Solo el primer nombre
+
             contexto = construir_contexto_superusuario(mensaje)
             modelo, etiqueta = _elegir_modelo(mensaje)
+            max_tokens = 2000 if etiqueta == 'Opus' else 800
 
-            # Elegir el prompt según el modelo
-            prompt_template = PROMPT_OPUS if etiqueta == 'Opus' else PROMPT_SONNET
-            prompt = prompt_template.format(contexto=contexto)
+            # ── Prompt desde BD, con fallback hardcodeado ─────────────────────
+            prompt_base = self.get_prompt()
+            if prompt_base:
+                prompt = prompt_base.format(nombre=nombre, contexto=contexto)
+            else:
+                log.warning('[Superusuario] Usando prompt hardcodeado — configura el prompt en el admin')
+                fallback = PROMPT_OPUS_FALLBACK if etiqueta == 'Opus' else PROMPT_SONNET_FALLBACK
+                prompt = fallback.format(nombre=nombre, contexto=contexto)
 
             self.guardar_mensaje(telefono, 'user', mensaje)
             historial = self.get_historial(telefono)
-
-            # Opus necesita más tokens para informes detallados
-            max_tokens = 2000 if etiqueta == 'Opus' else 800
-
             log.info(f'[Superusuario] {telefono} | {etiqueta} | max_tokens={max_tokens} | {mensaje[:50]}')
 
             respuesta = self.llamar_claude(
@@ -136,16 +144,14 @@ class AgenteSuper(AgenteBase):
             return fallback
 
 
-# Agente combinado Recepcionista+Profesional
-# Tiene acceso a TODO: clínica (profesional) + finanzas (recepcionista)
 class AgenteRecepcionistaProfesional(AgenteBase):
     """
     Agente combinado para usuarios con rol recepcionista + profesional vinculado.
     Combina el acceso clínico del profesional con el financiero de la recepcionista.
     """
-    TIPO = 'recepcionista'  # Guarda en historial como recepcionista
+    TIPO = 'recepcionista'
 
-    PROMPT = """Eres el asistente del Centro Infantil Misael para {nombre},
+    PROMPT_FALLBACK = """Eres el asistente del Centro Infantil Misael para {nombre},
 quien cumple doble función: recepcionista y profesional ({especialidad}).
 
 Como RECEPCIONISTA tienes acceso a:
@@ -177,7 +183,6 @@ Sucursal: {sucursal_propia}
             espec    = prof.especialidad if prof else '—'
             suc_prop = get_nombre_sucursales(staff) if staff else '—'
 
-            # Combinar contextos: recepcionista (finanzas) + profesional (clínica)
             ctx_r = ctx_recep(staff, mensaje)
             ctx_p = ctx_prof(staff, mensaje) if prof else ''
             contexto = ctx_r
@@ -185,12 +190,23 @@ Sucursal: {sucursal_propia}
                 contexto += f'\n\n--- INFORMACIÓN CLÍNICA (como profesional) ---\n{ctx_p}'
 
             modelo, etiqueta = _elegir_modelo(mensaje)
-            prompt = self.PROMPT.format(
-                nombre          = nombre,
-                especialidad    = espec,
-                sucursal_propia = suc_prop,
-                contexto        = contexto,
-            )
+
+            # ── Prompt desde BD (usa el de recepcionista), con fallback ───────
+            prompt_base = self.get_prompt()
+            if prompt_base:
+                prompt = prompt_base.format(
+                    nombre          = nombre,
+                    especialidad    = espec,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
+            else:
+                prompt = self.PROMPT_FALLBACK.format(
+                    nombre          = nombre,
+                    especialidad    = espec,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
 
             self.guardar_mensaje(telefono, 'user', mensaje)
             historial = self.get_historial(telefono)

@@ -33,7 +33,8 @@ PALABRAS_SONNET = (
     'pendiente', 'pendientes', 'balance',
 )
 
-PROMPT_SISTEMA = """Eres el asistente de recepción del Centro Infantil Misael.
+# Prompt de respaldo si no hay configuración en BD
+PROMPT_FALLBACK = """Eres el asistente de recepción del Centro Infantil Misael.
 
 Asistes a {nombre} (recepcionista) en sus tareas operativas y administrativas:
 - Agenda del día: sesiones programadas, cancelaciones, permisos, faltas
@@ -59,7 +60,6 @@ LÍMITES ESTRICTOS:
 
 
 def _get_sucursal_ids_propios(staff) -> list:
-    """IDs de sucursales propias. Vacío = todas."""
     if not staff or not staff.sucursales:
         return []
     try:
@@ -69,7 +69,6 @@ def _get_sucursal_ids_propios(staff) -> list:
 
 
 def _pide_otra_sucursal(mensaje: str) -> bool:
-    """Detecta si la recepcionista pide datos de otra sucursal."""
     msg = mensaje.lower()
     return any(p in msg for p in (
         'otra sucursal', 'todas las sucursales', 'todas sucursales',
@@ -87,7 +86,6 @@ def _construir_contexto(staff, mensaje: str) -> str:
     hoy  = date.today()
 
     suc_ids = _get_sucursal_ids_propios(staff)
-    # Si pide otra sucursal, no filtrar
     filtrar_sucursal = bool(suc_ids) and not _pide_otra_sucursal(mensaje)
 
     partes.append(f"Fecha: {hoy:%d/%m/%Y}")
@@ -111,7 +109,6 @@ def _construir_contexto(staff, mensaje: str) -> str:
             f"Canceladas: {por_estado.get('cancelada', 0)}"
         )
 
-        # Detalle de sesiones programadas
         if any(p in msg for p in ('quién', 'quien', 'lista', 'detalle', 'sesiones de hoy', 'agenda')):
             sesiones_det = qs.filter(estado='programada').select_related(
                 'paciente', 'profesional', 'servicio', 'sucursal'
@@ -133,14 +130,12 @@ def _construir_contexto(staff, mensaje: str) -> str:
                                'debe', 'pendiente', 'cobro', 'balance', 'cuenta')):
         try:
             from facturacion.models import Pago, CuentaCorriente
-            # Ingresos del día
             qs_pagos = Pago.objects.filter(fecha=hoy)
             if filtrar_sucursal:
                 qs_pagos = qs_pagos.filter(sucursal__id__in=suc_ids)
             total_hoy = qs_pagos.aggregate(t=Sum('monto'))['t'] or 0
             partes.append(f"=== INGRESOS DE HOY ===\nTotal cobrado: Bs. {float(total_hoy):.2f}")
 
-            # Deudas pendientes
             deudas = CuentaCorriente.objects.filter(
                 saldo_actual__lt=0
             ).select_related('paciente').order_by('saldo_actual')[:10]
@@ -171,7 +166,6 @@ def _construir_contexto(staff, mensaje: str) -> str:
         except Exception as e:
             log.error(f'[Recepcionista] Error mensualidades: {e}')
 
-    # Búsqueda de paciente
     if any(p in msg for p in ('paciente', 'tutor', 'contacto', 'teléfono', 'telefono', 'buscar')):
         partes.append("=== NOTA ===\nPara buscar un paciente específico, indícame su nombre o teléfono.")
 
@@ -196,11 +190,21 @@ class AgenteRecepcionista(AgenteBase):
             contexto = _construir_contexto(staff, mensaje)
             modelo, etiqueta = _elegir_modelo(mensaje)
 
-            prompt = PROMPT_SISTEMA.format(
-                nombre         = nombre,
-                sucursal_propia = suc_prop,
-                contexto       = contexto,
-            )
+            # ── Prompt desde BD, con fallback al hardcodeado ──────────────────
+            prompt_base = self.get_prompt()
+            if prompt_base:
+                prompt = prompt_base.format(
+                    nombre          = nombre,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
+            else:
+                log.warning('[Recepcionista] Usando prompt hardcodeado — configura el prompt en el admin')
+                prompt = PROMPT_FALLBACK.format(
+                    nombre          = nombre,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
 
             self.guardar_mensaje(telefono, 'user', mensaje)
             historial = self.get_historial(telefono)

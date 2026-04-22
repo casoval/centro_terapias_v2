@@ -28,7 +28,8 @@ PALABRAS_SONNET = (
     'semana', 'mes', 'todos', 'todas', 'general',
 )
 
-PROMPT_SISTEMA = """Eres el asistente de gestión del Centro Infantil Misael, trabajando con {nombre} (gerente).
+# Prompt de respaldo si no hay configuración en BD
+PROMPT_FALLBACK = """Eres el asistente de gestión del Centro Infantil Misael, trabajando con {nombre} (gerente).
 
 Tienes acceso COMPLETO a toda la información del centro:
 
@@ -157,7 +158,7 @@ def _construir_contexto(staff, mensaje: str) -> str:
         except Exception as e:
             log.error(f'[Gerente] Error rendimiento: {e}')
 
-    # Resumen clínico (sin detalle terapéutico privado)
+    # Resumen clínico
     if any(p in msg for p in ('evaluación', 'evaluacion', 'diagnóstico', 'diagnostico',
                                'informe', 'clínico', 'clinico', 'evolución', 'evolucion')):
         try:
@@ -218,11 +219,21 @@ class AgenteGerente(AgenteBase):
             contexto = _construir_contexto(staff, mensaje)
             modelo, etiqueta = _elegir_modelo(mensaje)
 
-            prompt = PROMPT_SISTEMA.format(
-                nombre          = nombre,
-                sucursal_propia = suc_prop,
-                contexto        = contexto,
-            )
+            # ── Prompt desde BD, con fallback al hardcodeado ──────────────────
+            prompt_base = self.get_prompt()
+            if prompt_base:
+                prompt = prompt_base.format(
+                    nombre          = nombre,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
+            else:
+                log.warning('[Gerente] Usando prompt hardcodeado — configura el prompt en el admin')
+                prompt = PROMPT_FALLBACK.format(
+                    nombre          = nombre,
+                    sucursal_propia = suc_prop,
+                    contexto        = contexto,
+                )
 
             self.guardar_mensaje(telefono, 'user', mensaje)
             historial = self.get_historial(telefono)
