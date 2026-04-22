@@ -2,330 +2,171 @@
 agente/paciente.py
 Cerebro del Agente Paciente del Centro Infantil Misael.
 Atiende tutores que ya son pacientes registrados.
-- Conoce los datos personales del paciente (sesiones, pagos, deuda)
-- Conoce toda la información del centro (servicios, precios, evaluaciones)
-- Gestiona solicitudes notificando al equipo via chat del Asistente IA
-- Acceso de SOLO LECTURA a la BD
+
+CORRECCIONES APLICADAS:
+  1. get_prompt() ahora inyecta nombre_paciente y nombre_tutor correctamente.
+  2. responder() ya no duplica el mensaje del usuario en el historial enviado a Claude.
+  3. Ventana de sesiones próximas ampliada de 14 a 30 días.
+  4. Sesiones recientes ampliadas de 3 a 8 entradas.
+  5. Contexto incluye conteo del mes actual (faltas, permisos, etc.).
+  6. Contexto incluye crédito disponible (pagos_adelantados) de CuentaCorriente.
+  7. Contexto incluye estadísticas por profesional (total sesiones + realizadas).
+  8. Contexto distingue correctamente sesiones de mensualidad/proyecto (sin monto individual).
+  9. _detectar_solicitud_pagos() y _detectar_solicitud_sesiones() ampliadas con más variantes.
+  10. get_client() usa el singleton de agente_base en vez de duplicarlo.
+  11. PROMPT_BASE_PACIENTE eliminado — única fuente de verdad es ConfigAgente en el admin.
 """
 
-import os
 import logging
 import re
 from datetime import date
-import anthropic
 
 log = logging.getLogger('agente')
 
-_client = None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cliente Anthropic — usa el singleton de agente_base (sin duplicar)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def get_client():
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
-    return _client
+    from agente.agente_base import get_client as _gc
+    return _gc()
 
 
-PROMPT_BASE_PACIENTE = """Eres Misael, el asistente virtual del Centro Infantil Misael. Atiendes a tutores que ya son parte del centro — conoces a su hijo/a y tienes acceso a su informacion de sesiones y pagos.
+# ─────────────────────────────────────────────────────────────────────────────
+# Prompt — única fuente de verdad: ConfigAgente en el admin
+# ─────────────────────────────────────────────────────────────────────────────
 
-Hablas en espanol boliviano con un tono calido, empatico y profesional. El tutor debe sentir que habla con alguien que conoce a su hijo y entiende su situacion.
+# Prompt de emergencia — solo si ConfigAgente no existe o falla.
+# Mantenerlo mínimo; el prompt real vive en el admin.
+_PROMPT_FALLBACK = """Eres Misael, el asistente virtual del Centro Infantil Misael.
+Atendés a tutores que ya son pacientes registrados.
 
----
-SEGURIDAD — NUMERO NO REGISTRADO
----
-Si por algun error tecnico recibes un mensaje de un numero que NO esta en los datos del paciente, o si el contexto del paciente no esta disponible o dice CONTEXTO NO DISPONIBLE, NO respondas con ningun dato personal. Responde:
-
-"Para consultar informacion de tu cuenta o realizar solicitudes relacionadas con las sesiones de tu hijo, necesitas escribir desde el numero que tienes registrado en el centro. Si cambiaste de numero o necesitas actualizarlo, acercate personalmente a cualquiera de nuestras sucursales — nuestro personal te ayudara a actualizarlo de forma segura. Es un dato sensible y lo manejamos con cuidado para proteger tu privacidad 🔒"
-
-REGLAS DE SEGURIDAD (no negociables):
-- NUNCA intentes verificar identidad por mensaje (nombre, fecha de nacimiento, etc.) — es riesgo de suplantacion
-- NUNCA entregues informacion de cuenta, sesiones ni pagos si el contexto del paciente no esta disponible
-- Si el tutor insiste en obtener datos sin estar registrado, mantente firme con amabilidad
-- Siempre redirige presencialmente al centro para cambio de numero
-
----
-TU ROL COMO AGENTE DE PACIENTES
----
-Puedes informar sobre:
-- Proximas sesiones programadas (fechas, horarios, profesional, sucursal)
-- Sesiones recientes y su estado
-- Saldo, deudas o credito en cuenta corriente
-- Pagos realizados
-- Profesionales que atienden al paciente
-
-Puedes gestionar:
-- Solicitudes de permiso o ausencia justificada
-- Solicitudes de cancelacion de sesion
-- Solicitudes de reprogramacion
-- Peticiones especiales al profesional o al centro (evaluaciones, cambios de horario, consultas, nuevos servicios)
-
-NO puedes:
-- Agendar, cancelar ni modificar sesiones directamente en el sistema
-- Compartir datos medicos confidenciales del diagnostico
-- Confirmar diagnosticos
-
----
-DATOS DEL PACIENTE (actualizados en tiempo real)
----
+DATOS DEL PACIENTE:
 {contexto}
 
----
-SOBRE EL CENTRO — INFORMACION COMPLETA
----
-El Centro Infantil Misael es el unico centro neurologico integral de Potosi que aborda todas las areas del neurodesarrollo infantil bajo un mismo techo. Atendemos ninos y adolescentes con cualquier tipo de discapacidad o condicion del desarrollo, sin excepcion.
+Si el contexto dice CONTEXTO NO DISPONIBLE, no entregués ningún dato personal.
 
-- Mas de 8 anos de experiencia en neurodesarrollo infantil
-- Mas de 500 familias atendidas en Potosi
-- Equipo de mas de 15 especialistas certificados
-- Evaluaciones certificadas internacionalmente: ADOS-2 y ADI-R
-- Alianza estrategica con Aldeas Infantiles SOS Bolivia
-- Unico centro neurologico integral de la ciudad
-
-SUCURSALES:
-Sede Principal — Zona Baja
-Calle Japon #28 entre Daza y Calderon (a lado de la EPI-10)
-Telefono: +591 76175352
-
-Sucursal — Zona Central
-Calle Cochabamba, a lado de ENTEL, casi esquina Bolivar
-Telefono: +591 78633975
-
-Horarios generales: Lunes a Viernes 9:00-12:00 y 14:30-19:00 / Sabados 9:00-12:00
-Atencion pediatrica (solo Sede Principal): Lunes a Viernes 15:30-18:30, Bs. 150, requiere llamar al +591 76175352
-
-TERAPIAS Y PRECIOS:
-- Psicologia Infantil (0-12 anos): Bs. 70 por sesion (45 min)
-- Psicologia Adolescentes: Bs. 70 por sesion (45 min)
-- Terapia de Lenguaje / Fonoaudiologia: Bs. 70 por sesion (30 min)
-- Terapia de Integracion Sensorial: Bs. 70 por sesion (45 min)
-- Terapia Ocupacional / Independencia Personal: Bs. 50 por sesion (45 min)
-- Psicomotricidad: Bs. 50 por sesion (45 min)
-- Fisioterapia y Rehabilitacion: Bs. 50 por sesion (45 min)
-- Psicopedagogia: Bs. 50 por sesion (60 min)
-- Estimulacion Temprana: Bs. 50 por sesion (45 min)
-- Hidroterapia (0 a 4 anos): Bs. 100 por sesion (60 min)
-- Apoyo Escolar: Bs. 20 por sesion (60 min)
-- Consulta Pediatrica: Bs. 150 — solo Sede Principal, requiere agendar al +591 76175352
-- Psiquiatria Infantil y Neurologia: mediante derivacion coordinada por el centro
-
-EVALUACIONES INDIVIDUALES:
-- Lenguaje y Comunicacion: Bs. 250 (aprox. 3 dias)
-- Psicologia: Bs. 300 (aprox. 3 dias)
-- Psicopedagogia: Bs. 400 (aprox. 5 dias)
-- Psicomotricidad: Bs. 200 (aprox. 1 dia)
-- Perfil Sensorial: Bs. 200 (aprox. 1 dia)
-- Desarrollo Infantil (Estimulacion Temprana): Bs. 200 (aprox. 1 dia)
-- Fisioterapia y Rehabilitacion: Bs. 200 (aprox. 1 dia)
-- Terapia Ocupacional: Bs. 200 (aprox. 1 dia)
-
-EVALUACIONES INTEGRALES:
-- Evaluacion Integral de Desarrollo Infantil (Lenguaje + Psicologia + Desarrollo + Psicopedagogia): Bs. 1.000
-- Evaluacion Psicologica ADOS-2 y ADI-R (diagnostico de autismo): Bs. 1.000
-- Evaluacion Integral TEA (Lenguaje + Psicologia ADOS-2/ADI-R + Desarrollo + Perfil Sensorial): Bs. 1.800
-
----
-IDENTIDAD DEL CENTRO — SIEMPRE PRESENTE
----
-El Centro de Neurodesarrollo Misael NO es una escuela, un jardin de infantes ni una guarderia. Es un centro de servicios profesionales especializados en neurodesarrollo infantil, donde cada sesion forma parte de un plan de seguimiento individual, clinicamente diseñado para cada paciente. Cada profesional trabaja de forma personalizada con un unico paciente por hora — no en grupos, no de forma generica. Cuando el tutor o la situacion lo requiera, refuerza esta identidad con calidez y claridad.
-
----
-PAGOS — INFORMACION IMPORTANTE
----
-Los servicios del Centro Misael se pagan POR ADELANTADO. Cuando surja el tema de deudas o saldos, mencionalo con naturalidad: el pago previo garantiza el espacio reservado para el paciente.
-
-DEUDA — COMO RESPONDER:
-Si el tutor pregunta cuanto debe, dale el dato directo del contexto y punto. No agregues instrucciones de pago ni numeros de telefono a menos que el tutor pregunte como pagar o donde pagar. Si tiene deuda y quiere hacer algo nuevo, mencionalo con calidez en una sola oracion: "Hay un saldo pendiente — lo ideal es regularizarlo para mantener el proceso al dia."
-
-Nunca uses la deuda para negar atencion ni para presionar. Si el tutor quiere saber como pagar o coordinar un acuerdo, recien orienta: puede revisar su cuenta en neuromisael.com o el equipo del centro puede ayudarlo.
-
----
-PERMISOS, FALTAS Y REPROGRAMACIONES — MANEJO CON CUIDADO
----
-
-PERMISOS (ausencia justificada):
-El limite es 3 permisos por mes. Cuando el tutor pida un permiso, registralo con una respuesta corta y calida. Solo agrega la explicacion de impacto clinico si el tutor lleva muchos permisos frecuentes o si el tema lo amerita — no de rutina.
-
-Respuesta tipo para un permiso normal: "Anotado el permiso para el [dia] con [profesional]. Recuerda acercarte al centro dentro de los 5 dias habiles siguientes con el documento justificativo para formalizarlo. [NOTIFICAR:permiso|...]"
-
-NO agregues informacion adicional sobre el limite, el impacto clinico, ni numeros de telefono a menos que el contexto lo requiera.
-
-FALTAS SIN JUSTIFICACION:
-Una falta sin aviso previo tiene un impacto real que va mas alla del dinero. Cuando sea oportuno mencionarlo — sin sermonear — puedes explicar:
-
-"Entendemos que a veces pasan cosas que no se pueden anticipar. Sin embargo, la asistencia continua es parte del tratamiento de {nombre_paciente}: sin ella, el proceso se fragmenta y retomar se vuelve mas dificil, tanto para el como para el profesional que lo acompana. Las familias que ven los mejores resultados son las que logran mantener una rutina constante — y el equipo del centro esta aqui para apoyar en eso."
-
-Nunca reganes al tutor. Valida primero, informa despues.
-
-REPROGRAMACIONES:
-Cuando el tutor solicite una reprogramacion, responde de forma corta: confirma que se notificara al equipo, aclara que puede tomar algunos dias mientras coordinan disponibilidad, y genera la etiqueta. No prometas fechas ni horarios. No agregues explicaciones largas salvo que el tutor pregunte.
-
----
-INSTRUCCIONES PARA SOLICITUDES
----
-
-REGLA FUNDAMENTAL PARA SOLICITUDES:
-Tienes acceso completo a los datos del paciente en el contexto — incluyendo todas sus sesiones proximas con ID, fecha, dia, hora, servicio, profesional y sucursal. Cuando el tutor pide un permiso, cancelacion o reprogramacion, USA ESA INFORMACION. NO le pidas datos que ya tenes en el contexto.
-
-PASO 1 — IDENTIFICAR LA SESION EXACTA antes de confirmar permiso/cancelacion/reprogramacion:
-
-Caso A — Solo hay UNA sesion el dia mencionado:
-Ya tenes todos los datos en el contexto (ID, hora, profesional). Confirma directamente con esos datos y genera la etiqueta. NO le preguntes al tutor la hora, el profesional ni ningun dato que ya tenes.
-
-Caso B — Hay MAS DE UNA sesion ese dia:
-Muestra las opciones usando los datos del contexto. NO le preguntes al tutor informacion que ya tenes.
-"Ese dia tenes X sesiones:
-1) HH:MM — Servicio con Prof. Nombre
-2) HH:MM — Servicio con Prof. Nombre
-Para cual es?"
-
-Caso C — El tutor no menciona fecha ni dia:
-Pregunta solo: "Para que sesion es?" y lista las proximas si hay pocas. NO pidas datos que ya tenes.
-
-Caso D — El tutor confirma cual sesion tras tu pregunta:
-Genera la etiqueta con el ID correcto. Tenes todos los datos en el contexto — no hay que preguntar nada mas.
-
-PASO 2 — GENERAR LA ETIQUETA (solo cuando ya tienes el ID de sesion):
-
-Para PERMISO:
-[NOTIFICAR:permiso|sesion_id:ID|descripcion con fecha, profesional y motivo]
-
-Para CANCELACION:
-[NOTIFICAR:cancelacion|sesion_id:ID|descripcion con fecha, profesional y motivo]
-
-Para REPROGRAMACION:
-[NOTIFICAR:reprogramacion|sesion_id:ID|fecha actual y nueva fecha solicitada]
-
-Para PETICION AL PROFESIONAL (consulta sobre el paciente, cambio de horario, algo especifico de las sesiones actuales):
-[NOTIFICAR:peticion_profesional|sesion_id:ID_O_0|descripcion detallada]
-
-Para PETICION AL CENTRO (nueva evaluacion, nuevo servicio, consulta administrativa):
-[NOTIFICAR:peticion_centro|sesion_id:0|descripcion detallada]
-
-EJEMPLO — permiso con contexto:
-"Anotado el permiso para el martes con la Lic. Mamani. El equipo quedara notificado. Recuerda que contamos con hasta 3 permisos por mes para cuidar la continuidad del proceso de {nombre_paciente}. [NOTIFICAR:permiso|sesion_id:45|Permiso sesion martes 15/04 9:00 Lic. Mamani — motivo: cita medica]"
-
-EJEMPLO — reprogramacion:
-"Entendemos la situacion. Vamos a notificar al equipo para coordinar un nuevo horario con el profesional. Puede tomar algunos dias mientras revisan disponibilidad — te avisaran directamente. [NOTIFICAR:reprogramacion|sesion_id:45|Reprogramacion sesion martes 15/04 9:00 — tutor solicita cambio de fecha]"
-
-EJEMPLO — ambiguedad (dos sesiones el mismo dia):
-"El martes tienes 2 sesiones:
-1) 9:00 — Terapia de Lenguaje con Lic. Mamani
-2) 11:00 — Psicologia con Lic. Torres
-Para cual es la solicitud?"
-
----
-REGLAS GENERALES
----
-- RESPUESTAS CORTAS: maximo 2-3 oraciones para consultas simples. Solo extiendete si el tutor hace una pregunta compleja o pide explicacion. Si la respuesta cabe en una oracion, usala.
-- FORMATO CRITICO: NUNCA uses asteriscos (*), doble asterisco (**), guiones bajos (_) ni ningun simbolo de markdown. WhatsApp los muestra como texto literal, no como negrita ni cursiva. Escribe TODO en texto plano sin ningun tipo de marcado.
-- Usa emojis con moderacion (maximo 1-2 por mensaje)
-- NUNCA confirmes un diagnostico — usa: "podria estar relacionado con...", "seria importante evaluar..."
-- NUNCA reganes ni presiones al tutor — valida primero, informa despues, siempre con calidez
-- Si el tutor pregunta sobre el centro (servicios, precios, evaluaciones, horarios), responde con la informacion exacta que pide — no des todo el catalogo si solo pregunto por una cosa
-- Si el tutor pregunta por sus datos (sesiones, pagos, deuda), da solo el dato pedido. Si quiere saber mas, el preguntara
-- Si el tutor pregunta por informacion clinica general, orienta brevemente y sugiere profundizar con el equipo
-
-NUMEROS DE TELEFONO Y DIRECCIONES — REGLA IMPORTANTE:
-- El tutor YA esta usando WhatsApp para hablar con nosotros. NO le digas "llama al +591..." como primera respuesta a nada — es redundante y suena robotico
-- NUNCA des numeros de telefono ni direcciones salvo que el tutor los pida explicitamente ("dame el numero", "cual es la direccion") o que sea una situacion de emergencia real donde una llamada urgente es la unica opcion
-- Si hay que coordinar algo con el centro, di simplemente "el equipo del centro puede orientarte" o "podemos avisarle al equipo" — sin numeros
-- Los numeros solo aparecen si el tutor pregunta como contactar al centro de otra forma (llamada, visita presencial)
-
----
-COMO ARRANCAR LA RESPUESTA (MUY IMPORTANTE)
----
 {modo_conversacion}
 """
 
 
-def _modo_conversacion(historial: list) -> str:
-    """
-    Genera la instruccion de apertura segun si hay historial o no.
-    Esto evita que el agente salude como robot en cada mensaje.
-    """
-    if not historial:
-        # Primera vez que escribe — saludo natural, pero sin parrafo de presentacion robotico
-        return (
-            "Es el PRIMER mensaje de esta persona. Saluda de forma breve y calida, "
-            "usando su nombre si lo tienes. Una sola frase de bienvenida, luego ve "
-            "directo a lo que necesita. Ejemplo: 'Hola {nombre_tutor}! Claro, te cuento...' "
-            "NO hagas un parrafo de presentacion. NO digas 'Soy Misael, tu asistente...'"
-        )
-    else:
-        # Ya hay conversacion previa — continua como si fuera una charla normal
-        return (
-            "Ya existe conversacion previa con esta persona. NO saludes, NO te presentes, "
-            "NO digas 'Hola' ni 'Soy Misael'. Responde DIRECTAMENTE como si fuera la "
-            "continuacion natural de una charla. Como lo haria cualquier persona en un chat. "
-            "Si el mensaje anterior fue un recordatorio automatico y el tutor responde, "
-            "recoge el hilo de forma natural: 'Si, te cuento...' / 'Claro, para esa sesion...' "
-            "NUNCA reinicies el saludo aunque hayan pasado horas."
-        )
-
-
-def get_prompt(contexto: str = '', modo_conversacion: str = '', nombre_paciente: str = '', nombre_tutor: str = '') -> str:
+def get_prompt(
+    contexto: str = '',
+    modo_conversacion: str = '',
+    nombre_paciente: str = '',
+    nombre_tutor: str = '',
+) -> str:
     """
     Lee el prompt desde ConfigAgente en la BD.
-    Si no existe, usa PROMPT_BASE_PACIENTE.
-    Inyecta contexto y modo_conversacion.
+    Si no existe o falla, usa _PROMPT_FALLBACK.
+    Inyecta contexto, modo_conversacion, nombre_paciente y nombre_tutor.
     """
     try:
         from agente.models import ConfigAgente
         config = ConfigAgente.objects.filter(agente='paciente', activo=True).first()
-        prompt = config.prompt if (config and config.prompt) else PROMPT_BASE_PACIENTE
+        prompt = config.prompt if (config and config.prompt) else _PROMPT_FALLBACK
     except Exception:
-        prompt = PROMPT_BASE_PACIENTE
+        prompt = _PROMPT_FALLBACK
 
     try:
         return prompt.format(
             contexto=contexto,
             modo_conversacion=modo_conversacion,
-            nombre_paciente='',
-            nombre_tutor='',
+            nombre_paciente=nombre_paciente,
+            nombre_tutor=nombre_tutor,
         )
     except KeyError:
-        return prompt
+        # Si el prompt tiene variables desconocidas, devolver tal cual con lo que se puede
+        return prompt.replace('{contexto}', contexto).replace('{modo_conversacion}', modo_conversacion)
 
 
-def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict = None, cual_tutor: str = 'tutor_1') -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+# Modo conversación — instrucción de apertura según historial
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _modo_conversacion(historial: list) -> str:
     """
-    Construye el contexto del paciente para el agente.
+    Genera la instrucción de apertura según si hay historial previo o no.
+    Recibe el historial SIN el mensaje actual del usuario.
+    """
+    if not historial:
+        return (
+            "Es el PRIMER mensaje de esta persona. Saludá de forma breve y cálida, "
+            "usando su nombre si lo tenés. Una sola frase de bienvenida, luego andá "
+            "directo a lo que necesita. Ejemplo: 'Hola [nombre]! Claro, te cuento...' "
+            "NO hagás un párrafo de presentación. NO digás 'Soy Misael, tu asistente...'"
+        )
+    else:
+        return (
+            "Ya existe conversación previa con esta persona. NO saludes, NO te presentes, "
+            "NO digás 'Hola' ni 'Soy Misael'. Respondé DIRECTAMENTE como si fuera la "
+            "continuación natural de una charla. Si el mensaje anterior fue un recordatorio "
+            "automático y el tutor responde, recogé el hilo de forma natural. "
+            "NUNCA reiniciés el saludo aunque hayan pasado horas."
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Construcción del contexto
+# ─────────────────────────────────────────────────────────────────────────────
+
+def construir_contexto(
+    paciente,
+    pedir_pagos: dict = None,
+    pedir_sesiones: dict = None,
+    cual_tutor: str = 'tutor_1',
+) -> str:
+    """
+    Construye el bloque de contexto del paciente para el agente.
+    Incluye toda la información que el tutor ve en la app web,
+    excepto notas clínicas internas y observaciones del staff.
+
     cual_tutor: 'tutor_1' o 'tutor_2' — indica qué número envió el mensaje.
-    pedir_pagos: dict con claves 'mes', 'anio', 'todos' para filtrar pagos.
-    pedir_sesiones: dict con claves 'mes', 'anio', 'todos' para filtrar sesiones.
+    pedir_pagos: dict con claves 'mes', 'anio', 'todos' para historial de pagos.
+    pedir_sesiones: dict con claves 'mes', 'anio', 'todos' para historial de sesiones.
     """
     try:
         from agente.paciente_db import (
-            get_info_basica, get_sesiones_proximas,
-            get_sesiones_recientes, get_cuenta_corriente,
-            get_profesionales_del_paciente, get_deudas_detalle,
-            get_pagos_detalle, get_proyectos, get_mensualidades,
+            get_info_basica,
+            get_sesiones_proximas,
+            get_sesiones_recientes,
+            get_cuenta_corriente,
+            get_profesionales_del_paciente,
+            get_deudas_detalle,
+            get_pagos_detalle,
+            get_proyectos,
+            get_mensualidades,
             get_sesiones_completo,
+            get_conteo_sesiones_mes_actual,
         )
 
-        info      = get_info_basica(paciente)
-        proximas  = get_sesiones_proximas(paciente, dias=14)
-        recientes = get_sesiones_recientes(paciente, limite=3)
-        cuenta    = get_cuenta_corriente(paciente)
-        profs     = get_profesionales_del_paciente(paciente)
-        proyectos = get_proyectos(paciente)
+        info          = get_info_basica(paciente)
+        proximas      = get_sesiones_proximas(paciente, dias=30)   # FIX: antes 14 días
+        recientes     = get_sesiones_recientes(paciente, limite=8)  # FIX: antes 3
+        cuenta        = get_cuenta_corriente(paciente)
+        profs         = get_profesionales_del_paciente(paciente)
+        proyectos     = get_proyectos(paciente)
         mensualidades = get_mensualidades(paciente)
+        conteo_mes    = get_conteo_sesiones_mes_actual(paciente)
 
+        # ── Encabezado del paciente ───────────────────────────────────────────
         ctx = f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
         if info.get('edad'):
-            ctx += f" ({info['edad']} anios)"
+            ctx += f" ({info['edad']} años)"
 
-        # ── Identificar qué tutor está escribiendo ────────────
+        # ── Identificar qué tutor escribe ─────────────────────────────────────
         nombre_tutor_principal = info.get('nombre_tutor', '—')
         nombre_tutor_2         = info.get('nombre_tutor_2', '')
 
         if cual_tutor == 'tutor_2':
-            nombre_quien_escribe = nombre_tutor_2 if nombre_tutor_2 else 'Tutor secundario'
+            nombre_quien_escribe = nombre_tutor_2 or 'Tutor secundario'
             ctx += f"\nTUTOR PRINCIPAL: {nombre_tutor_principal}"
             ctx += f"\nQUIEN ESCRIBE AHORA: {nombre_quien_escribe} (tutor secundario registrado)"
             ctx += (
                 "\n⚠️ IMPORTANTE: Quien escribe es el tutor SECUNDARIO del paciente. "
-                "Dirígete por su nombre si lo tienes, o usa un saludo neutro. "
-                "Tiene el mismo acceso que el tutor principal — puede consultar datos y hacer solicitudes."
+                "Dirigite por su nombre si lo tenés, o usá un saludo neutro. "
+                "Tiene el mismo acceso que el tutor principal."
             )
         else:
             ctx += f"\nTUTOR: {nombre_tutor_principal}"
@@ -333,27 +174,76 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                 ctx += f" (tutor secundario registrado: {nombre_tutor_2})"
         ctx += "\n"
 
+        # ── Profesionales ─────────────────────────────────────────────────────
         if profs:
             ctx += "\nPROFESIONALES QUE LO ATIENDEN:\n"
             for p in profs:
-                ctx += f"- {p['nombre']} ({p['servicio']})\n"
-
-        if proximas:
-            ctx += "\nPROXIMAS SESIONES (incluye ID para solicitudes):\n"
-            for s in proximas[:8]:
+                servicios_str = ', '.join(p['servicios']) if p['servicios'] else '—'
                 ctx += (
-                    f"- ID:{s['id']} | {s['fecha']} {s['dia']} {s['hora']} "
-                    f"— {s['servicio']} con {s['profesional']} en {s['sucursal']}\n"
+                    f"- {p['nombre']} ({p['especialidad']}) | Servicio: {servicios_str} | "
+                    f"Sesiones totales: {p['total_sesiones']} | Realizadas: {p['sesiones_realizadas']}"
                 )
-        else:
-            ctx += "\nPROXIMAS SESIONES: No hay sesiones programadas en los proximos 14 dias\n"
+                if p['proxima_sesion']:
+                    ps = p['proxima_sesion']
+                    ctx += f" | Próxima: {ps['fecha']} {ps['hora']} en {ps['sucursal']}"
+                ctx += "\n"
 
+        # ── Próximas sesiones (30 días) ───────────────────────────────────────
+        if proximas:
+            ctx += "\nPROXIMAS SESIONES (próximos 30 días — incluye ID para solicitudes):\n"
+            for s in proximas[:12]:
+                tipo_label = ''
+                if s['tipo_sesion'] == 'mensualidad':
+                    tipo_label = ' [Mensualidad]'
+                elif s['tipo_sesion'] == 'proyecto/evaluacion':
+                    tipo_label = ' [Proyecto/Evaluacion]'
+
+                ctx += (
+                    f"- ID:{s['id']} | {s['fecha']} {s['dia']} {s['hora']}"
+                    f" — {s['servicio']} con {s['profesional']}"
+                    f" en {s['sucursal']}{tipo_label}"
+                )
+                if s['monto'] is not None and s['monto'] > 0:
+                    ctx += f" | Bs. {s['monto']:.0f}"
+                ctx += "\n"
+        else:
+            ctx += "\nPROXIMAS SESIONES: No hay sesiones programadas en los próximos 30 días.\n"
+
+        # ── Últimas sesiones (con estado) ─────────────────────────────────────
         if recientes:
             ctx += "\nULTIMAS SESIONES:\n"
             for s in recientes:
-                ctx += f"- {s['fecha']} {s['servicio']} con {s['profesional']}: {s['estado']}\n"
+                ctx += f"- {s['fecha']} {s['dia']} {s['hora']} | {s['servicio']} con {s['profesional']} | {s['estado']}"
+                if s['tipo_sesion'] == 'mensualidad':
+                    ctx += " [Mensualidad]"
+                elif s['tipo_sesion'] == 'proyecto/evaluacion':
+                    ctx += " [Proyecto]"
+                if s['monto'] is not None and s['monto'] > 0:
+                    ctx += f" | Bs. {s['monto']:.0f}"
+                if s['minutos_retraso']:
+                    ctx += f" ({s['minutos_retraso']} min de retraso)"
+                if s['reprogramada_al']:
+                    ctx += f" → reprogramada al {s['reprogramada_al']}"
+                ctx += "\n"
 
-        # ── Proyectos / Evaluaciones ──────────────────────────
+        # ── Conteo del mes actual ─────────────────────────────────────────────
+        if conteo_mes and conteo_mes.get('total', 0) > 0:
+            hoy = date.today()
+            MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+            mes_nombre = MESES[hoy.month - 1]
+            ctx += f"\nRESUMEN SESIONES {mes_nombre.upper()} {hoy.year}:\n"
+            ctx += (
+                f"Total: {conteo_mes['total']} | "
+                f"Realizadas: {conteo_mes['realizadas']} | "
+                f"Programadas: {conteo_mes['programadas']} | "
+                f"Permisos: {conteo_mes['permisos']} | "
+                f"Faltas: {conteo_mes['faltas']} | "
+                f"Canceladas: {conteo_mes['canceladas']} | "
+                f"Reprogramadas: {conteo_mes['reprogramadas']}\n"
+            )
+
+        # ── Proyectos / Evaluaciones ──────────────────────────────────────────
         if proyectos:
             ctx += "\nEVALUACIONES Y PROYECTOS:\n"
             for p in proyectos:
@@ -365,28 +255,27 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                 if p['fecha_fin_real'] != '—':
                     ctx += f" | Fin: {p['fecha_fin_real']}"
                 elif p['fecha_fin_est'] != '—':
-                    ctx += f" | Fin est.: {p['fecha_fin_est']}"
-                ctx += f"\n  Costo: Bs.{p['costo_total']:.0f} | Pagado: Bs.{p['pagado']:.0f} | Saldo: Bs.{p['saldo']:.0f}"
-                # El registro de entrega de informe esta disponible desde abril 2026
+                    ctx += f" | Fin estimado: {p['fecha_fin_est']}"
+                ctx += f"\n  Costo total: Bs.{p['costo_total']:.0f} | Pagado: Bs.{p['pagado']:.0f} | Saldo: Bs.{p['saldo']:.0f}"
                 if p['informe_entregado']:
                     ctx += f"\n  Informe: Entregado el {p['fecha_informe']}"
+                    if p['tiene_informe_digital']:
+                        ctx += " (informe digital disponible en neuromisael.com)"
                 else:
-                    ctx += "\n  Informe: Pendiente de entrega (registro disponible desde abril 2026 — evaluaciones anteriores consultar en el centro)"
+                    ctx += "\n  Informe: Pendiente de entrega (evaluaciones anteriores a abril 2026 — consultar en el centro)"
                 s = p['sesiones']
                 ctx += (
                     f"\n  Sesiones: {s['total']} total | "
                     f"{s['realizadas']} realizadas | "
                     f"{s['programadas']} programadas"
                 )
-                if s['con_retraso']:
-                    ctx += f" | {s['con_retraso']} con retraso"
                 if s['permisos']:
                     ctx += f" | {s['permisos']} permisos"
                 if s['faltas']:
                     ctx += f" | {s['faltas']} faltas"
                 ctx += "\n"
 
-        # ── Mensualidades ─────────────────────────────────────
+        # ── Mensualidades ─────────────────────────────────────────────────────
         if mensualidades:
             ctx += "\nMENSUALIDADES:\n"
             for m in mensualidades:
@@ -398,68 +287,72 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                     f"Saldo: Bs.{m['saldo']:.0f}\n"
                 )
                 if m['servicios']:
-                    ctx += f"  Servicios: {', '.join(m['servicios'])}\n"
+                    ctx += f"  Servicios incluidos: {', '.join(m['servicios'])}\n"
                 s = m['sesiones']
                 ctx += (
                     f"  Sesiones: {s['total']} total | "
                     f"{s['realizadas']} realizadas | "
                     f"{s['programadas']} programadas"
                 )
-                if s['con_retraso']:
-                    ctx += f" | {s['con_retraso']} con retraso"
                 if s['permisos']:
                     ctx += f" | {s['permisos']} permisos"
                 if s['faltas']:
                     ctx += f" | {s['faltas']} faltas"
                 ctx += "\n"
 
-        # ── Cuenta corriente ──────────────────────────────────
+        # ── Cuenta corriente ──────────────────────────────────────────────────
         if cuenta:
             ctx += "\nCUENTA CORRIENTE:\n"
-            ctx += f"- Total pagado: Bs. {cuenta.get('total_pagado', 0):.2f}\n"
-            ctx += f"- Total consumido: Bs. {cuenta.get('total_consumido', 0):.2f}\n"
-            if cuenta.get('deuda', 0) > 0:
-                ctx += f"- DEUDA PENDIENTE: Bs. {cuenta['deuda']:.2f}\n"
+            ctx += f"- Consumo total (realizado): Bs. {cuenta.get('consumo_total', 0):.0f}\n"
+            ctx += f"- Total pagado: Bs. {cuenta.get('pagado_total', 0):.0f}\n"
 
+            balance = cuenta.get('balance_final', 0)
+            if balance < 0:
+                ctx += f"- DEUDA PENDIENTE: Bs. {abs(balance):.0f}\n"
+                # Detalle de deuda
                 deudas = get_deudas_detalle(paciente)
                 if deudas.get('sesiones'):
-                    ctx += "\nDETALLE DEUDA — SESIONES:\n"
+                    ctx += "\nDETALLE DEUDA — SESIONES INDIVIDUALES:\n"
                     for s in deudas['sesiones'][:10]:
                         ctx += (
-                            f"- {s['fecha']} | {s['descripcion']} | "
+                            f"  · {s['fecha']} | {s['descripcion']} | "
                             f"Costo: Bs.{s['costo']:.0f} | "
                             f"Pagado: Bs.{s['pagado']:.0f} | "
                             f"Debe: Bs.{s['saldo']:.0f}"
-                            f"{' (programada)' if s['es_futura'] else ''}\n"
+                            f"{' (sesión futura)' if s['es_futura'] else ''}\n"
                         )
                     if len(deudas['sesiones']) > 10:
-                        ctx += f"  ... y {len(deudas['sesiones']) - 10} sesiones mas\n"
-
+                        ctx += f"  ... y {len(deudas['sesiones']) - 10} sesiones más con deuda\n"
                 if deudas.get('proyectos'):
                     ctx += "\nDETALLE DEUDA — PROYECTOS/EVALUACIONES:\n"
                     for p in deudas['proyectos']:
                         ctx += (
-                            f"- {p['descripcion']} | Estado: {p['estado']} | "
+                            f"  · {p['descripcion']} | {p['estado']} | "
                             f"Costo: Bs.{p['costo']:.0f} | "
                             f"Pagado: Bs.{p['pagado']:.0f} | "
                             f"Debe: Bs.{p['saldo']:.0f}\n"
                         )
-
                 if deudas.get('mensualidades'):
                     ctx += "\nDETALLE DEUDA — MENSUALIDADES:\n"
                     for m in deudas['mensualidades']:
                         ctx += (
-                            f"- {m['descripcion']} | Estado: {m['estado']} | "
+                            f"  · {m['descripcion']} | {m['estado']} | "
                             f"Costo: Bs.{m['costo']:.0f} | "
                             f"Pagado: Bs.{m['pagado']:.0f} | "
                             f"Debe: Bs.{m['saldo']:.0f}\n"
                         )
-            elif cuenta.get('credito', 0) > 0:
-                ctx += f"- CREDITO A FAVOR: Bs. {cuenta['credito']:.2f}\n"
+            elif balance > 0:
+                ctx += f"- CREDITO A FAVOR: Bs. {balance:.0f}\n"
             else:
-                ctx += "- Cuenta al dia\n"
+                ctx += "- Cuenta al día (sin deuda ni crédito)\n"
 
-        # ── Sesiones detalladas por período ───────────────────
+            # Crédito disponible (pagos adelantados sin consumir) — FIX nuevo campo
+            credito = cuenta.get('credito_disponible', 0)
+            if credito > 0:
+                ctx += f"- CREDITO DISPONIBLE (adelantos sin usar): Bs. {credito:.0f}\n"
+                ctx += "  (Este monto se aplica automáticamente a futuras sesiones, no requiere pago adicional)\n"
+
+        # ── Historial de sesiones por período (si el tutor lo pidió) ─────────
         if pedir_sesiones:
             datos_ses = get_sesiones_completo(
                 paciente,
@@ -468,9 +361,15 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                 todos=pedir_sesiones.get('todos', False),
             )
             if datos_ses.get('sesiones'):
-                periodo_label = 'todas las sesiones' if pedir_sesiones.get('todos') else \
-                    f"{pedir_sesiones.get('mes', '')}/{pedir_sesiones.get('anio', '')}"
-                ctx += f"\nHISTORIAL DE SESIONES ({periodo_label}):\n"
+                if pedir_sesiones.get('todos'):
+                    periodo_label = 'HISTORIAL COMPLETO'
+                else:
+                    MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                             'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+                    m_num = pedir_sesiones.get('mes', date.today().month)
+                    a_num = pedir_sesiones.get('anio', date.today().year)
+                    periodo_label = f"{MESES[m_num - 1].upper()} {a_num}"
+                ctx += f"\nHISTORIAL DE SESIONES — {periodo_label}:\n"
                 c = datos_ses['conteo']
                 ctx += (
                     f"Total: {datos_ses['total']} | "
@@ -482,19 +381,23 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                     f"Canceladas: {c.get('cancelada', 0)} | "
                     f"Reprogramadas: {c.get('reprogramada', 0)}\n"
                 )
-                for s in datos_ses['sesiones'][:20]:
-                    ctx += f"- {s['fecha']} {s['hora']} | {s['servicio']} con {s['profesional']} | {s['estado']}"
+                for s in datos_ses['sesiones'][:25]:
+                    ctx += f"- {s['fecha']} {s['dia']} {s['hora']} | {s['servicio']} con {s['profesional']} | {s['estado']}"
+                    if s['tipo_sesion'] != 'sesion_normal':
+                        ctx += f" [{s['tipo_sesion']}]"
+                    if s['monto'] is not None and s['monto'] > 0:
+                        ctx += f" | Bs.{s['monto']:.0f}"
                     if s['minutos_retraso']:
                         ctx += f" ({s['minutos_retraso']} min de retraso)"
                     if s['fecha_reprogramada']:
-                        ctx += f" -> reprogramada al {s['fecha_reprogramada']}"
+                        ctx += f" → reprogramada al {s['fecha_reprogramada']}"
                     ctx += "\n"
-                if len(datos_ses['sesiones']) > 20:
-                    ctx += f"  ... y {len(datos_ses['sesiones']) - 20} sesiones mas. Ver detalle en neuromisael.com\n"
+                if len(datos_ses['sesiones']) > 25:
+                    ctx += f"  ... y {len(datos_ses['sesiones']) - 25} sesiones más. Ver detalle en neuromisael.com\n"
             else:
-                ctx += "\nHISTORIAL DE SESIONES: No se encontraron sesiones para el periodo indicado.\n"
+                ctx += "\nHISTORIAL DE SESIONES: No se encontraron sesiones para el período indicado.\n"
 
-        # ── Pagos detallados por período ──────────────────────
+        # ── Historial de pagos por período (si el tutor lo pidió) ─────────────
         if pedir_pagos:
             pagos = get_pagos_detalle(
                 paciente,
@@ -503,30 +406,42 @@ def construir_contexto(paciente, pedir_pagos: dict = None, pedir_sesiones: dict 
                 todos=pedir_pagos.get('todos', False),
             )
             if pagos.get('pagos'):
-                periodo_label = 'todos los periodos' if pedir_pagos.get('todos') else \
-                    f"{pedir_pagos.get('mes', '')}/{pedir_pagos.get('anio', '')}"
-                ctx += f"\nHISTORIAL DE PAGOS ({periodo_label}):\n"
-                ctx += f"Total pagado: Bs.{pagos['total_pagado']:.2f} | "
-                ctx += f"Devoluciones: Bs.{pagos['total_devoluciones']:.2f} | "
-                ctx += f"Neto: Bs.{pagos['total_neto']:.2f}\n"
+                if pedir_pagos.get('todos'):
+                    periodo_label = 'TODOS LOS PERÍODOS'
+                else:
+                    MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                             'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+                    m_num = pedir_pagos.get('mes', date.today().month)
+                    a_num = pedir_pagos.get('anio', date.today().year)
+                    periodo_label = f"{MESES[m_num - 1].upper()} {a_num}"
+                ctx += f"\nHISTORIAL DE PAGOS — {periodo_label}:\n"
+                ctx += (
+                    f"Total pagado: Bs.{pagos['total_pagado']:.0f} | "
+                    f"Devoluciones: Bs.{pagos['total_devoluciones']:.0f} | "
+                    f"Neto: Bs.{pagos['total_neto']:.0f}\n"
+                )
                 for p in pagos['pagos'][:15]:
                     tipo = "DEVOLUCION" if p['es_devolucion'] else "Pago"
                     ctx += (
                         f"- {p['fecha']} | Recibo: {p['recibo']} | "
                         f"{p['metodo']} | {p['concepto']} | "
-                        f"{tipo}: Bs.{p['monto']:.2f}\n"
+                        f"{tipo}: Bs.{p['monto']:.0f}\n"
                     )
                 if len(pagos['pagos']) > 15:
-                    ctx += f"  ... y {len(pagos['pagos']) - 15} pagos mas. Ver detalle en neuromisael.com\n"
+                    ctx += f"  ... y {len(pagos['pagos']) - 15} pagos más. Ver detalle en neuromisael.com\n"
             else:
-                ctx += "\nHISTORIAL DE PAGOS: No se encontraron pagos para el periodo indicado.\n"
+                ctx += "\nHISTORIAL DE PAGOS: No se encontraron pagos para el período indicado.\n"
 
         return ctx
 
     except Exception as e:
-        log.error(f'[Agente Paciente] Error construyendo contexto: {e}')
+        log.error(f'[Agente Paciente] Error construyendo contexto: {e}', exc_info=True)
         return "CONTEXTO NO DISPONIBLE"
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Historial y persistencia
+# ─────────────────────────────────────────────────────────────────────────────
 
 def get_historial_db(telefono: str, limite: int = 15) -> list:
     try:
@@ -557,6 +472,10 @@ def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
         log.error(f'[Agente Paciente] Error guardando mensaje: {e}')
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Procesamiento de etiquetas de notificación
+# ─────────────────────────────────────────────────────────────────────────────
+
 def procesar_notificaciones(respuesta: str, paciente) -> int:
     from agente.paciente_db import notificar_solicitud
 
@@ -568,10 +487,10 @@ def procesar_notificaciones(respuesta: str, paciente) -> int:
         detalle = match.group(2).strip()
 
         if tipo in ('permiso', 'cancelacion', 'reprogramacion',
-            'peticion_profesional', 'peticion_centro', 'aviso_pago'):
+                    'peticion_profesional', 'peticion_centro', 'aviso_pago'):
             notificados = notificar_solicitud(paciente, tipo, detalle)
             total += notificados
-            log.info(f'[Agente Paciente] Notificacion {tipo} enviada a {notificados} usuarios')
+            log.info(f'[Agente Paciente] Notificación {tipo} enviada a {notificados} usuarios')
 
     return total
 
@@ -580,6 +499,10 @@ def limpiar_etiquetas(texto: str) -> str:
     return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Selección de modelo
+# ─────────────────────────────────────────────────────────────────────────────
+
 PALABRAS_SOLICITUD = (
     'permiso', 'permisos', 'ausencia', 'faltar', 'falta', 'no voy', 'no podre',
     'no puedo', 'cancelar', 'cancelacion', 'suspender', 'suspendida',
@@ -587,6 +510,8 @@ PALABRAS_SOLICITUD = (
     'peticion', 'solicitud', 'necesito hablar', 'mensaje al',
     'avisar', 'decirle al', 'preguntarle al', 'evaluacion nueva',
     'nueva evaluacion', 'quiero empezar', 'agregar terapia', 'nuevo servicio',
+    'cambiar horario', 'cambiar profesional', 'constancia', 'certificado',
+    'medicacion', 'medicamento', 'medicacion cambio',
 )
 
 
@@ -597,26 +522,34 @@ def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     return 'claude-haiku-4-5-20251001', 'Haiku'
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Detección de solicitudes de datos ampliada
+# ─────────────────────────────────────────────────────────────────────────────
+
 def _detectar_solicitud_pagos(mensaje: str) -> dict | None:
     """
-    Detecta si el tutor pide ver sus pagos y qué período.
-    Retorna dict con mes/anio/todos, o None si no pide pagos.
+    Detecta si el tutor pide ver sus pagos y en qué período.
+    Retorna dict con mes/anio/todos, o None si no aplica.
     """
-    import re
     msg = mensaje.lower()
-    palabras_pago = ('pago', 'pagos', 'recibo', 'recibos', 'historial', 'devolucion', 'devoluciones', 'pagado', 'pague')
+
+    # Palabras clave ampliadas
+    palabras_pago = (
+        'pago', 'pagos', 'recibo', 'recibos', 'historial', 'devolucion',
+        'devoluciones', 'pagado', 'pague', 'pague', 'abone', 'abono',
+        'cuanto pague', 'cuánto pagué', 'mis pagos', 'ver pagos',
+        'comprobante', 'transferencia', 'qr',
+    )
     if not any(p in msg for p in palabras_pago):
         return None
 
-    # Detectar "todos" o "todo"
-    if any(p in msg for p in ('todos', 'todo', 'siempre', 'historial completo', 'todos los pagos')):
+    if any(p in msg for p in ('todos', 'todo', 'siempre', 'historial completo', 'todos los pagos', 'todo el historial')):
         return {'todos': True}
 
-    # Detectar mes y año mencionados
     MESES = {
         'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
         'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
-        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
     }
     mes_encontrado = None
     for nombre, num in MESES.items():
@@ -631,7 +564,7 @@ def _detectar_solicitud_pagos(mensaje: str) -> dict | None:
 
     hoy = date.today()
     return {
-        'mes': mes_encontrado or hoy.month,
+        'mes':  mes_encontrado or hoy.month,
         'anio': anio_encontrado or hoy.year,
         'todos': False,
     }
@@ -639,30 +572,37 @@ def _detectar_solicitud_pagos(mensaje: str) -> dict | None:
 
 def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
     """
-    Detecta si el tutor pide ver historial de sesiones y qué período.
+    Detecta si el tutor pide ver historial de sesiones y en qué período.
+    Retorna dict con mes/anio/todos, o None si no aplica.
     """
-    import re
     msg = mensaje.lower()
+
+    # Palabras clave ampliadas para capturar más variantes naturales
     palabras_sesion = (
         'historial de sesiones', 'mis sesiones', 'sesiones realizadas',
-        'sesiones que tuve', 'cuantas sesiones', 'sesiones del mes',
+        'sesiones que tuve', 'cuantas sesiones', 'cuántas sesiones',
+        'sesiones del mes', 'sesiones pasadas', 'todas mis sesiones',
         'sesiones de enero', 'sesiones de febrero', 'sesiones de marzo',
         'sesiones de abril', 'sesiones de mayo', 'sesiones de junio',
         'sesiones de julio', 'sesiones de agosto', 'sesiones de septiembre',
         'sesiones de octubre', 'sesiones de noviembre', 'sesiones de diciembre',
-        'faltas que tuve', 'permisos que tuve', 'cuantas faltas', 'cuantos permisos',
-        'sesiones pasadas', 'todas mis sesiones',
+        'faltas que tuve', 'permisos que tuve', 'cuantas faltas', 'cuántas faltas',
+        'cuantos permisos', 'cuántos permisos',
+        'mis terapias', 'terapias del mes', 'clases del mes',
+        'cuantas terapias', 'cuántas terapias',
+        'ver sesiones', 'mis clases', 'asistencia',
+        'falte', 'falté', 'cuándo falté', 'cuando falte',
     )
     if not any(p in msg for p in palabras_sesion):
         return None
 
-    if any(p in msg for p in ('todas', 'todo', 'siempre', 'historial completo', 'todas mis sesiones')):
+    if any(p in msg for p in ('todas', 'todo', 'siempre', 'historial completo', 'todas mis sesiones', 'todo el historial')):
         return {'todos': True}
 
     MESES = {
         'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
         'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
-        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12,
     }
     mes_encontrado = None
     for nombre, num in MESES.items():
@@ -677,16 +617,46 @@ def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
 
     hoy = date.today()
     return {
-        'mes': mes_encontrado or hoy.month,
+        'mes':  mes_encontrado or hoy.month,
         'anio': anio_encontrado or hoy.year,
         'todos': False,
     }
 
 
-def responder(telefono: str, mensaje_usuario: str, paciente, cual_tutor: str = 'tutor_1') -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+# Función principal de respuesta
+# ─────────────────────────────────────────────────────────────────────────────
+
+def responder(
+    telefono: str,
+    mensaje_usuario: str,
+    paciente,
+    cual_tutor: str = 'tutor_1',
+) -> str:
+    """
+    Procesa un mensaje del tutor y retorna la respuesta del agente.
+
+    Flujo corregido:
+      1. Recuperar historial PREVIO (antes de guardar el mensaje actual).
+      2. Determinar modo de conversación con ese historial previo.
+      3. Construir contexto.
+      4. Guardar el mensaje del usuario en BD.
+      5. Construir el historial para Claude = historial_previo + mensaje_actual.
+      6. Llamar a Claude.
+      7. Procesar notificaciones y guardar respuesta.
+    """
     try:
+        # ── 1. Historial previo (antes de agregar el mensaje actual) ───────────
+        historial_previo = get_historial_db(telefono)
+
+        # ── 2. Modo conversación basado en historial previo ────────────────────
+        modo = _modo_conversacion(historial_previo)
+
+        # ── 3. Detección de solicitudes de datos ───────────────────────────────
         solicitud_pagos    = _detectar_solicitud_pagos(mensaje_usuario)
         solicitud_sesiones = _detectar_solicitud_sesiones(mensaje_usuario)
+
+        # ── 4. Construir contexto ──────────────────────────────────────────────
         contexto = construir_contexto(
             paciente,
             pedir_pagos=solicitud_pagos,
@@ -694,14 +664,35 @@ def responder(telefono: str, mensaje_usuario: str, paciente, cual_tutor: str = '
             cual_tutor=cual_tutor,
         )
 
+        # ── 5. Construir prompt ────────────────────────────────────────────────
+        nombre_paciente = f"{paciente.nombre} {paciente.apellido}".strip()
+        info = {'nombre_tutor': '', 'nombre_tutor_2': ''}
+        try:
+            from agente.paciente_db import get_info_basica
+            info = get_info_basica(paciente)
+        except Exception:
+            pass
+
+        if cual_tutor == 'tutor_2':
+            nombre_tutor = info.get('nombre_tutor_2') or info.get('nombre_tutor', '')
+        else:
+            nombre_tutor = info.get('nombre_tutor', '')
+
+        prompt = get_prompt(
+            contexto=contexto,
+            modo_conversacion=modo,
+            nombre_paciente=nombre_paciente,
+            nombre_tutor=nombre_tutor,
+        )
+
+        # ── 6. Guardar mensaje del usuario en BD ───────────────────────────────
         guardar_mensaje(telefono, 'user', mensaje_usuario)
-        historial = get_historial_db(telefono)
 
-        # Detectar si hay conversacion previa ANTES de agregar el mensaje actual
-        # historial ya incluye el mensaje recien guardado, por eso comparamos con > 1
-        modo = _modo_conversacion(historial[:-1])
-        prompt = get_prompt(contexto, modo, paciente.nombre_completo, paciente.nombre_tutor or '')
+        # ── 7. Historial para Claude = previo + mensaje actual ─────────────────
+        # FIX: no recuperar de BD de nuevo (evita duplicación).
+        historial_claude = historial_previo + [{'role': 'user', 'content': mensaje_usuario}]
 
+        # ── 8. Seleccionar modelo y llamar a Claude ────────────────────────────
         modelo, etiqueta = _elegir_modelo(mensaje_usuario)
         log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | {etiqueta}')
 
@@ -709,25 +700,30 @@ def responder(telefono: str, mensaje_usuario: str, paciente, cual_tutor: str = '
             model=modelo,
             max_tokens=600,
             system=prompt,
-            messages=historial,
+            messages=historial_claude,
         )
 
         respuesta_raw = response.content[0].text.strip()
 
+        # ── 9. Procesar notificaciones y limpiar etiquetas ─────────────────────
         procesar_notificaciones(respuesta_raw, paciente)
         respuesta = limpiar_etiquetas(respuesta_raw)
 
+        # ── 10. Guardar respuesta del asistente ────────────────────────────────
         guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-paciente')
-        log.info(f'[Agente Paciente] {telefono} | {respuesta[:60]}')
+        log.info(f'[Agente Paciente] {telefono} | {respuesta[:80]}')
         return respuesta
 
     except Exception as e:
         log.error(f'[Agente Paciente] Error para {telefono}: {e}', exc_info=True)
         fallback = (
-            'Disculpe, tuve un problema tecnico. '
-            'Por favor comuniquese directamente con nosotros:\n'
-            'Sede Japon: +591 76175352\n'
-            'Sede Central: +591 78633975'
+            'Disculpe, tuve un problema técnico. '
+            'Por favor comuníquese directamente con nosotros:\n'
+            'Sede Japón: +591 76175352\n'
+            'Sede Camacho: +591 78633975'
         )
-        guardar_mensaje(telefono, 'assistant', fallback, 'error')
+        try:
+            guardar_mensaje(telefono, 'assistant', fallback, 'error')
+        except Exception:
+            pass
         return fallback
