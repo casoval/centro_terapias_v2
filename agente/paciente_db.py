@@ -201,6 +201,8 @@ def get_deudas_detalle(paciente) -> dict:
         total_mensualidades = Decimal('0')
 
         # ── Sesiones normales con deuda ──────────────────────
+        from facturacion.models import Pago as PagoModel
+        from django.db.models import Sum as SumAgg
         sesiones = Sesion.objects.filter(
             paciente=paciente,
             mensualidad__isnull=True,
@@ -209,7 +211,9 @@ def get_deudas_detalle(paciente) -> dict:
 
         for s in sesiones:
             costo  = Decimal(str(s.monto_cobrado or 0))
-            pagado = Decimal(str(s.monto_pagado or 0))
+            # monto_pagado no existe en Sesion — se suma desde facturacion_pago
+            pagado_result = PagoModel.objects.filter(sesion=s, anulado=False).aggregate(total=SumAgg('monto'))
+            pagado = Decimal(str(pagado_result['total'] or 0))
             saldo  = costo - pagado
             if saldo > 0:
                 sesiones_deuda.append({
@@ -233,13 +237,14 @@ def get_deudas_detalle(paciente) -> dict:
             ).prefetch_related('sesiones').order_by('fecha_inicio')
 
             for p in proyectos:
-                costo  = Decimal(str(p.monto_total or 0))
-                pagado = Decimal(str(p.monto_pagado or 0))
-                saldo  = costo - pagado
+                # Usar propiedades del modelo (costo_total, pagado_neto, saldo_pendiente)
+                costo  = Decimal(str(getattr(p, 'costo_total', None) or 0))
+                pagado = Decimal(str(getattr(p, 'pagado_neto', None) or 0))
+                saldo  = Decimal(str(getattr(p, 'saldo_pendiente', None) or (costo - pagado)))
                 if saldo > 0:
                     proyectos_deuda.append({
                         'descripcion': p.nombre or 'Proyecto/Evaluacion',
-                        'estado':      p.estado if hasattr(p, 'estado') else '—',
+                        'estado':      p.get_estado_display() if hasattr(p, 'get_estado_display') else getattr(p, 'estado', '—'),
                         'costo':       float(costo),
                         'pagado':      float(pagado),
                         'saldo':       float(saldo),
@@ -250,22 +255,22 @@ def get_deudas_detalle(paciente) -> dict:
 
         # ── Mensualidades con deuda ───────────────────────────
         try:
-            from facturacion.models import Mensualidad
+            from agenda.models import Mensualidad  # correcto: agenda, no facturacion
             mensualidades = Mensualidad.objects.filter(
                 paciente=paciente,
-            ).order_by('-periodo_inicio')
+            ).order_by('-anio', '-mes')
 
             for m in mensualidades:
-                costo  = Decimal(str(m.monto_total or 0))
-                pagado = Decimal(str(m.monto_pagado or 0))
-                saldo  = costo - pagado
+                # Usar propiedades del modelo (costo_mensual, pagado_neto, saldo_pendiente)
+                costo  = Decimal(str(getattr(m, 'costo_mensual', None) or 0))
+                pagado = Decimal(str(getattr(m, 'pagado_neto', None) or 0))
+                saldo  = Decimal(str(getattr(m, 'saldo_pendiente', None) or (costo - pagado)))
                 if saldo > 0:
-                    periodo = ''
-                    if hasattr(m, 'periodo_inicio') and m.periodo_inicio:
-                        periodo = m.periodo_inicio.strftime('%B %Y')
+                    # periodo_display es propiedad del modelo definida en get_mensualidades
+                    periodo = getattr(m, 'periodo_display', None) or f"{m.mes}/{m.anio}"
                     mensualidades_deuda.append({
-                        'descripcion': periodo or 'Mensualidad',
-                        'estado':      m.estado if hasattr(m, 'estado') else '—',
+                        'descripcion': periodo,
+                        'estado':      m.get_estado_display() if hasattr(m, 'get_estado_display') else getattr(m, 'estado', '—'),
                         'costo':       float(costo),
                         'pagado':      float(pagado),
                         'saldo':       float(saldo),
