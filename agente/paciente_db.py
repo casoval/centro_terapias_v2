@@ -765,6 +765,73 @@ def notificar_solicitud(paciente, tipo: str, detalle: str) -> int:
     return notificados
 
 
+def notificar_solicitud_publico(telefono: str, tipo: str, detalle: str) -> int:
+    """
+    Notifica una solicitud de un usuario PÚBLICO (no registrado como paciente)
+    al chat interno del Asistente IA de recepcionistas, gerentes y admins.
+
+    A diferencia de notificar_solicitud(), no requiere un objeto paciente.
+
+    Tipos:
+      solicitud_visita — tutor quiere visitar el centro o pedir evaluación
+      caso_urgente     — tutor en crisis emocional evidente
+
+    Retorna el número de usuarios notificados.
+    """
+    from django.contrib.auth.models import User
+
+    TITULOS = {
+        'solicitud_visita': '📅 NUEVO CONTACTO — Solicita visitar el centro',
+        'caso_urgente':     '🚨 CONSULTA URGENTE — Canal WhatsApp Público',
+    }
+
+    mensaje = (
+        f"{TITULOS.get(tipo, '📩 CONTACTO PÚBLICO')}\n"
+        f"Teléfono: {telefono}\n"
+        f"Detalle: {detalle}\n"
+        f"Recibido por WhatsApp (canal público) — requiere seguimiento manual"
+    )
+
+    usuarios = []
+    vistos   = set()
+
+    def agregar(user):
+        if user and user.id not in vistos:
+            vistos.add(user.id)
+            usuarios.append(user)
+
+    # Recepcionistas y gerentes de todas las sucursales
+    try:
+        for u in User.objects.filter(
+            perfil__rol__in=['recepcionista', 'gerente'],
+            is_active=True,
+        ).distinct():
+            agregar(u)
+    except Exception as e:
+        log.error(f'[PacienteDB] Error obteniendo recep/gerentes (público): {e}')
+
+    # Superusuarios/admins
+    try:
+        for u in User.objects.filter(is_superuser=True, is_active=True):
+            agregar(u)
+    except Exception as e:
+        log.error(f'[PacienteDB] Error obteniendo admins (público): {e}')
+
+    notificados = 0
+    for usuario in usuarios:
+        if _enviar_notificacion_via_ia(usuario, mensaje):
+            notificados += 1
+            log.info(
+                f'[PacienteDB] Notificado público via IA: '
+                f'{usuario.get_full_name() or usuario.username}'
+            )
+
+    log.info(
+        f'[PacienteDB] {tipo} público ({telefono}) — {notificados} usuarios notificados'
+    )
+    return notificados
+
+
 def _get_usuarios_sin_profesional(paciente) -> list:
     """Recepcionistas + gerentes de la sucursal + admins. Sin profesionales."""
     from django.contrib.auth.models import User

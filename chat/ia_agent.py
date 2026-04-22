@@ -8,7 +8,11 @@ Acceso a BD: via tools que el agente llama dinámicamente
 
 import json
 import os
+import re
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 from django.contrib.auth.models import User
 from django.db.models import Q, Sum, Count, Avg
 from django.utils import timezone
@@ -774,24 +778,104 @@ ESTILO: Tono ejecutivo y analítico."""
 # LÓGICA PRINCIPAL — Llamada a Anthropic con tool use
 # ============================================================
 
+# ============================================================
+# HELPERS PARA ETIQUETAS [NOTIFICAR:...]
+# ============================================================
+
+def _limpiar_etiquetas(texto: str) -> str:
+    """
+    Elimina las etiquetas [NOTIFICAR:...] del texto visible en el chat.
+    El paciente nunca debe ver esas marcas internas.
+    """
+    return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
+
+
+def _procesar_notificaciones_ia(respuesta: str, usuario_humano) -> int:
+    """
+    Detecta etiquetas [NOTIFICAR:tipo|sesion_id:X|detalle] en la respuesta
+    del agente y despacha las notificaciones al chat interno de los
+    involucrados (profesional, recepción, gerencia, admin).
+
+    Solo actúa cuando el usuario es un paciente — los demás roles no
+    generan este tipo de etiquetas.
+
+    Retorna el número total de usuarios notificados.
+    """
+    # Solo aplica para pacientes
+    if not hasattr(usuario_humano, 'perfil') or not usuario_humano.perfil.es_paciente():
+        return 0
+
+    paciente = getattr(usuario_humano, 'paciente', None)
+    if not paciente:
+        logger.warning(
+            f'[IA Agent] Usuario {usuario_humano.username} tiene perfil paciente '
+            f'pero no tiene objeto paciente asociado.'
+        )
+        return 0
+
+    try:
+        from agente.paciente_db import notificar_solicitud
+    except ImportError:
+        logger.error('[IA Agent] No se pudo importar agente.paciente_db.notificar_solicitud')
+        return 0
+
+    total = 0
+    patron = r'\[NOTIFICAR:(\w+)\|([^\]]+)\]'
+
+    for match in re.finditer(patron, respuesta):
+        tipo    = match.group(1).strip()
+        detalle = match.group(2).strip()
+
+        if tipo in ('permiso', 'cancelacion', 'reprogramacion',
+                    'peticion_profesional', 'peticion_centro', 'aviso_pago'):
+            try:
+                notificados = notificar_solicitud(paciente, tipo, detalle)
+                total += notificados
+                logger.info(
+                    f'[IA Agent] Notificación [{tipo}] enviada a {notificados} usuario(s) '
+                    f'— paciente: {paciente.nombre} {paciente.apellido}'
+                )
+            except Exception as exc:
+                logger.error(
+                    f'[IA Agent] Error al notificar [{tipo}] para paciente {paciente.id}: {exc}',
+                    exc_info=True
+                )
+
+    return total
+
+
+# ============================================================
+# LÓGICA PRINCIPAL — Llamada a Anthropic con tool use
+# ============================================================
+
 def responder_con_ia(conversacion, usuario_humano):
     """
     Función principal. Llama a Claude con el historial de la conversación
     y ejecuta las tools necesarias. Guarda la respuesta como Mensaje.
+
+    ✅ CORREGIDO: procesa etiquetas [NOTIFICAR:...] para enviar
+    notificaciones al chat interno de los involucrados, y limpia
+    esas etiquetas antes de mostrar el texto al paciente.
     """
     from .models import Mensaje, NotificacionChat
 
-    usuario_ia     = get_o_crear_usuario_ia()
-    historial      = _construir_historial(conversacion, usuario_ia)
-    system_prompt  = _get_system_prompt(usuario_humano)
+    usuario_ia       = get_o_crear_usuario_ia()
+    historial        = _construir_historial(conversacion, usuario_ia)
+    system_prompt    = _get_system_prompt(usuario_humano)
     tools_permitidas = _get_tools_para_rol(usuario_humano)
 
-    respuesta_texto = _llamar_claude_con_tools(historial, system_prompt, tools_permitidas)
+    respuesta_raw = _llamar_claude_con_tools(historial, system_prompt, tools_permitidas)
+
+    # ✅ 1. Despachar notificaciones al chat interno de los involucrados
+    _procesar_notificaciones_ia(respuesta_raw, usuario_humano)
+
+    # ✅ 2. Limpiar etiquetas antes de guardar — el paciente no debe verlas
+    respuesta_limpia = _limpiar_etiquetas(respuesta_raw)
 
     mensaje_ia = Mensaje.objects.create(
         conversacion=conversacion,
         remitente=usuario_ia,
-        contenido=respuesta_texto
+        contenido=respuesta_limpia
     )
     NotificacionChat.objects.create(
         usuario=usuario_humano,

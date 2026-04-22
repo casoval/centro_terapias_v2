@@ -6,6 +6,7 @@ Usa Claude (Anthropic) con selector híbrido inteligente Haiku/Sonnet.
 """
 
 import os
+import re
 import logging
 import anthropic
 
@@ -409,6 +410,23 @@ El centro trabaja con los profesores del colegio?
 
 Tiene sentido evaluar si el nino es pequeno?
 "Totalmente. De hecho cuanto mas temprano mejor — el cerebro en los primeros anos tiene una plasticidad extraordinaria."
+
+---
+NOTIFICACIONES AL EQUIPO (INTERNO — EL TUTOR NUNCA VE ESTO)
+---
+Usa estas etiquetas SOLO cuando aplique. El tutor nunca las ve: se eliminan antes de enviar.
+
+Cuando el tutor exprese intencion CLARA de visitar el centro, pida como ir, solicite una evaluacion o pida que lo contacten, agrega UNA SOLA VEZ al final de tu respuesta:
+[NOTIFICAR:solicitud_visita|Tutor interesado. Motivo: (resumen max 15 palabras)]
+
+Cuando el tutor presente una crisis emocional evidente (llanto, desesperacion, "ya no se que hacer", "al limite", "no aguanto"):
+[NOTIFICAR:caso_urgente|Tutor en situacion urgente. Contexto: (resumen max 15 palabras)]
+
+REGLAS ESTRICTAS:
+- Genera la etiqueta SOLO cuando aplique. NO la uses en conversaciones informativas normales.
+- NUNCA mas de una etiqueta por respuesta.
+- La etiqueta va siempre al FINAL del mensaje, pegada al ultimo parrafo, sin linea en blanco antes.
+- El detalle debe estar en la misma linea que la etiqueta, sin saltos de linea internos.
 """
 
 
@@ -481,6 +499,55 @@ def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
         log.error(f'[Agente Publico] Error al guardar mensaje: {e}')
 
 
+def _limpiar_etiquetas(texto: str) -> str:
+    """
+    Elimina etiquetas [NOTIFICAR:...] del texto visible al usuario.
+    El tutor nunca debe ver esas marcas internas.
+    """
+    return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
+
+
+def _procesar_notificaciones_publico(respuesta: str, telefono: str) -> int:
+    """
+    Detecta etiquetas [NOTIFICAR:tipo|detalle] en la respuesta del agente público
+    y las envía como notificaciones al chat interno del Asistente IA.
+
+    Tipos soportados:
+      solicitud_visita — tutor quiere visitar el centro / pedir evaluación
+      caso_urgente     — tutor en crisis emocional evidente
+
+    Retorna el número de usuarios notificados.
+    """
+    try:
+        from agente.paciente_db import notificar_solicitud_publico
+    except ImportError:
+        log.error('[Agente Publico] No se pudo importar notificar_solicitud_publico')
+        return 0
+
+    total  = 0
+    patron = r'\[NOTIFICAR:(\w+)\|([^\]]+)\]'
+
+    for match in re.finditer(patron, respuesta):
+        tipo    = match.group(1).strip()
+        detalle = match.group(2).strip()
+
+        if tipo in ('solicitud_visita', 'caso_urgente'):
+            try:
+                notificados = notificar_solicitud_publico(telefono, tipo, detalle)
+                total += notificados
+                log.info(
+                    f'[Agente Publico] Notificación [{tipo}] enviada a {notificados} usuario(s) '
+                    f'— {telefono}'
+                )
+            except Exception as exc:
+                log.error(
+                    f'[Agente Publico] Error al notificar [{tipo}] para {telefono}: {exc}',
+                    exc_info=True
+                )
+
+    return total
+
+
 def responder(telefono: str, mensaje_usuario: str) -> str:
     try:
         # Selector inteligente de modelo
@@ -510,7 +577,13 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
             messages=historial,
         )
 
-        respuesta = response.content[0].text.strip()
+        respuesta_raw = response.content[0].text.strip()
+
+        # ✅ 1. Despachar notificaciones al chat interno de los involucrados
+        _procesar_notificaciones_publico(respuesta_raw, telefono)
+
+        # ✅ 2. Limpiar etiquetas — el tutor nunca debe verlas
+        respuesta = _limpiar_etiquetas(respuesta_raw)
 
         # Guardar respuesta
         modelo_label = 'sonnet' if resultado.es_sonnet else 'haiku'
