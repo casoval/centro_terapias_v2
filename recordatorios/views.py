@@ -1,3 +1,4 @@
+import json
 import time
 import logging
 import subprocess
@@ -20,36 +21,141 @@ log = logging.getLogger(__name__)
 
 @login_required
 def logs_whatsapp(request):
-    logs = []
-    try:
-        if platform.system() == 'Windows':
-            logs = [{'texto': 'ℹ️ Los logs solo están disponibles en el servidor de producción.', 'tipo': 'info'}]
-        else:
-            resultado = subprocess.run(
-                ['tail', '-n', '300', '/var/log/whatsapp-bot/out.log'],
-                capture_output=True, text=True
-            )
-            for linea in reversed(resultado.stdout.strip().split('\n')):
-                if linea.strip() and any(x in linea for x in ['✅', '❌', '🚀', '📱']):
-                    logs.append({
-                        'texto': linea.strip(),
-                        'tipo': 'success' if '✅' in linea else 'error' if '❌' in linea else 'info'
-                    })
-    except Exception as e:
-        logs = [{'texto': f'Error al leer logs: {str(e)}', 'tipo': 'error'}]
+    return render(request, 'recordatorios/logs_whatsapp.html')
 
-    return render(request, 'recordatorios/logs_whatsapp.html', {'logs': logs})
+
+@login_required
+def bots_monitor(request):
+    """Vista del panel de monitorización de bots WhatsApp."""
+    return render(request, 'recordatorios/bots_monitor.html')
+
+
+@login_required
+def whatsapp_logs_stream(request):
+    """
+    Devuelve las últimas N líneas de los logs reales de PM2.
+    GET ?lineas=100&bot=japon|camacho|ambos
+    Respuesta: {ok, lineas: [{hora, bot, texto, tipo}]}
+    """
+    n_lineas = int(request.GET.get('lineas', 150))
+    bot_filtro = request.GET.get('bot', 'ambos')  # japon | camacho | ambos
+
+    LOG_FILES = {
+        'japon':   '/var/log/whatsapp-bot/out.log',
+        'camacho': '/var/log/whatsapp-bot/camacho-out.log',
+    }
+
+    resultados = []
+
+    archivos_a_leer = (
+        [('japon', LOG_FILES['japon']), ('camacho', LOG_FILES['camacho'])]
+        if bot_filtro == 'ambos'
+        else [(bot_filtro, LOG_FILES.get(bot_filtro, LOG_FILES['japon']))]
+    )
+
+    for bot_key, log_path in archivos_a_leer:
+        try:
+            resultado = subprocess.run(
+                ['tail', '-n', str(n_lineas), log_path],
+                capture_output=True, text=True, timeout=5
+            )
+            for linea in resultado.stdout.strip().split('\n'):
+                linea = linea.strip()
+                if not linea:
+                    continue
+
+                # Detectar tipo por contenido
+                if any(x in linea for x in ['❌', 'error', 'Error', 'ERROR', 'ECONNREFUSED', 'ETIMEDOUT']):
+                    tipo = 'log-error'
+                elif any(x in linea for x in ['✅', 'enviado', 'conectado', 'ok ']):
+                    tipo = 'log-ok'
+                elif any(x in linea for x in ['PAUSADO', 'REANUDADO', 'pausa', '⏸', '▶']):
+                    tipo = 'log-warn'
+                elif any(x in linea for x in ['msg ', 'Texto de', 'recibido', '📩', 'entrante']):
+                    tipo = 'log-msg'
+                else:
+                    tipo = 'log-info'
+
+                # Extraer hora si el log la tiene (formato PM2: HH:MM:SS o timestamp ISO)
+                hora = ''
+                import re
+                m = re.search(r'(\d{2}:\d{2}:\d{2})', linea)
+                if m:
+                    hora = m.group(1)
+                else:
+                    # Timestamp epoch al inicio (PM2 sin tiempo legible)
+                    hora = ''
+
+                # Limpiar prefijo PM2 como "0|whatsapp | " o "1|whatsapp-bot-camacho | "
+                texto = re.sub(r'^\d+\|[\w\-]+\s*\|\s*', '', linea)
+
+                resultados.append({
+                    'bot':   bot_key,
+                    'hora':  hora,
+                    'texto': texto,
+                    'tipo':  tipo,
+                })
+        except Exception as e:
+            resultados.append({
+                'bot':   bot_key,
+                'hora':  '',
+                'texto': f'[Error al leer logs: {e}]',
+                'tipo':  'log-error',
+            })
+
+    # Mezclar y mantener orden cronológico (los más recientes al final)
+    return JsonResponse({'ok': True, 'lineas': resultados})
 
 
 @login_required
 def whatsapp_status(request):
-    bot = request.GET.get('bot', 'japon')
-    puerto = 3000 if bot == 'japon' else 3001
+    """
+    Devuelve el estado del bot Node.js enriquecido con datos de PM2.
+    GET ?bot=japon|camacho
+    Respuesta: {status, cola, reinicios, memoria, cpu, pid, uptime, uptime_segundos}
+    """
+    bot      = request.GET.get('bot', 'japon')
+    puerto   = 3000 if bot == 'japon' else 3001
+    pm2_name = 'whatsapp-bot' if bot == 'japon' else 'whatsapp-bot-camacho'
+
+    # ── Estado del bot Node.js ──
+    datos = {'status': 'desconectado', 'cola': 0}
     try:
         res = requests.get(f'http://localhost:{puerto}/status', timeout=5)
-        return JsonResponse(res.json())
+        datos.update(res.json())
     except Exception:
-        return JsonResponse({'status': 'desconectado'})
+        pass
+
+    # ── Datos de PM2 ──
+    try:
+        result = subprocess.run(
+            ['pm2', 'jlist'],
+            capture_output=True, text=True, timeout=8
+        )
+        procesos = json.loads(result.stdout)
+        for proc in procesos:
+            if proc.get('name') == pm2_name:
+                mem_bytes = proc.get('monit', {}).get('memory', 0)
+                mem_mb    = round(mem_bytes / 1024 / 1024, 1)
+
+                datos['reinicios'] = proc.get('pm2_env', {}).get('restart_time', 0)
+                datos['memoria']   = f'{mem_mb} MB'
+                datos['cpu']       = proc.get('monit', {}).get('cpu', 0)
+                datos['pid']       = proc.get('pid', '—')
+
+                # Calcular uptime legible + segundos para la barra
+                created_at = proc.get('pm2_env', {}).get('created_at', 0)
+                if created_at:
+                    segundos = int((timezone.now().timestamp() * 1000 - created_at) / 1000)
+                    h = segundos // 3600
+                    m = (segundos % 3600) // 60
+                    datos['uptime']         = f'{h}h {m}m'
+                    datos['uptime_segundos'] = segundos
+                break
+    except Exception as e:
+        log.warning(f'[whatsapp_status] Error consultando PM2: {e}')
+
+    return JsonResponse(datos)
 
 
 @login_required
@@ -67,8 +173,7 @@ def whatsapp_qr(request):
 @login_required
 def whatsapp_reconectar(request):
     if request.method == 'POST':
-        import json as json_lib
-        data = json_lib.loads(request.body)
+        data = json.loads(request.body)
         bot = data.get('bot', 'japon')
         subprocess.Popen(['pm2', 'restart', f'whatsapp-bot{"-camacho" if bot == "camacho" else ""}'])
         return JsonResponse({'ok': True})
@@ -89,7 +194,6 @@ def whatsapp_pausa(request):
     GET  ?bot=japon|camacho  → devuelve {bot, pausado: true|false}
     POST {bot, pausar: true|false} → activa o desactiva la pausa y notifica al bot Node.js
     """
-    import json as json_lib
     from pathlib import Path
 
     if request.method == 'GET':
@@ -99,7 +203,7 @@ def whatsapp_pausa(request):
         return JsonResponse({'bot': bot, 'pausado': pausado})
 
     if request.method == 'POST':
-        data = json_lib.loads(request.body)
+        data   = json.loads(request.body)
         bot    = data.get('bot', 'japon')
         pausar = bool(data.get('pausar', True))
         flag   = _PAUSA_FILES.get(bot)
@@ -111,7 +215,6 @@ def whatsapp_pausa(request):
 
         try:
             if pausar:
-                # Crear el archivo de bandera con timestamp y usuario
                 flag_path.parent.mkdir(parents=True, exist_ok=True)
                 flag_path.write_text(
                     f"pausado_por={request.user.username}\n"
@@ -123,7 +226,7 @@ def whatsapp_pausa(request):
             log.error(f"Error al {'crear' if pausar else 'eliminar'} flag de pausa para {bot}: {e}")
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
-        # Notificar al bot Node.js vía su endpoint /pausa (si está disponible)
+        # Notificar al bot Node.js vía su endpoint /pausa
         puerto = 3000 if bot == 'japon' else 3001
         try:
             requests.post(
@@ -132,7 +235,6 @@ def whatsapp_pausa(request):
                 timeout=3,
             )
         except Exception:
-            # El bot puede estar desconectado; el archivo flag es suficiente para cuando se reconecte
             pass
 
         accion = 'pausado' if pausar else 'reanudado'
@@ -142,7 +244,6 @@ def whatsapp_pausa(request):
 
 @login_required
 def whatsapp_historial(request):
-    import json
     historial_japon = []
     historial_camacho = []
     try:
@@ -160,30 +261,25 @@ def whatsapp_historial(request):
     historial = historial[:200]
 
     # ── Enriquecer con nombres desde la BD ──────────────────
-    # Recopilar todos los teléfonos únicos del historial
     telefonos_raw = {item.get('telefono', '') for item in historial if item.get('telefono')}
 
-    # Normalizar: generar variantes con y sin prefijo 591
     telefonos_buscar = set()
     for t in telefonos_raw:
         telefonos_buscar.add(t)
         if t.startswith('591') and len(t) > 3:
-            telefonos_buscar.add(t[3:])   # sin prefijo
+            telefonos_buscar.add(t[3:])
         elif len(t) == 8:
-            telefonos_buscar.add(f'591{t}')  # con prefijo
+            telefonos_buscar.add(f'591{t}')
 
-    # Una sola consulta batch a la BD
     try:
         from pacientes.models import Paciente
         pacientes_qs = Paciente.objects.filter(
             telefono_tutor__in=telefonos_buscar
         ).values('telefono_tutor', 'nombre', 'apellido', 'nombre_tutor')
-        # También buscar por teléfono secundario
         pacientes_qs2 = Paciente.objects.filter(
             telefono_tutor_2__in=telefonos_buscar
         ).values('telefono_tutor_2', 'nombre', 'apellido', 'nombre_tutor')
 
-        # Construir lookup: telefono → {nombre_paciente, nombre_tutor}
         lookup = {}
         for p in pacientes_qs:
             datos = {
@@ -191,7 +287,6 @@ def whatsapp_historial(request):
                 'nombre_tutor_db': p['nombre_tutor'] or '',
             }
             lookup[p['telefono_tutor']] = datos
-            # También indexar con/sin 591 para facilitar match
             t = p['telefono_tutor']
             if t.startswith('591'):
                 lookup[t[3:]] = datos
@@ -211,7 +306,6 @@ def whatsapp_historial(request):
     except Exception:
         lookup = {}
 
-    # Agregar nombres a cada item del historial
     for item in historial:
         tel = item.get('telefono', '')
         info = lookup.get(tel) or lookup.get(tel[3:] if tel.startswith('591') else f'591{tel}')
@@ -249,8 +343,7 @@ def whatsapp_envio_masivo(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False})
 
-    import json as json_lib
-    data = json_lib.loads(request.body)
+    data = json.loads(request.body)
     mensaje = data.get('mensaje', '').strip()
     sucursal_filtro = data.get('sucursal', 'todas')
     destinatarios = data.get('destinatarios', 'semana')
@@ -260,7 +353,6 @@ def whatsapp_envio_masivo(request):
 
     from agenda.models import Sesion
     from pacientes.models import Paciente
-    from django.utils import timezone
     from datetime import timedelta
 
     tutores = {}
@@ -402,7 +494,7 @@ def whatsapp_envio_masivo(request):
                        'septiembre','octubre','noviembre','diciembre']
 
         hoy     = timezone.localdate()
-        lunes   = hoy + timedelta(days=(7 - hoy.weekday()))  # próximo lunes
+        lunes   = hoy + timedelta(days=(7 - hoy.weekday()))
         domingo = lunes + timedelta(days=6)
 
         sesiones_mens = SesionLocal.objects.filter(
@@ -442,7 +534,6 @@ def whatsapp_envio_masivo(request):
             })
 
         for telefono, tutor in grupos.items():
-            # Agrupar sesiones por paciente
             pacientes_dict = {}
             for s in tutor['sesiones']:
                 nombre = s['paciente_nombre']
@@ -463,7 +554,6 @@ def whatsapp_envio_masivo(request):
                 f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n\n"
                 f"{cuerpo}\n\n¡Hasta pronto! 😊 neuromisael.com"
             )
-            tutores[telefono] = tutor
 
     elif destinatarios == 'deudores':
         from facturacion.models import CuentaCorriente
@@ -550,12 +640,10 @@ def whatsapp_envio_masivo(request):
                 timeout=5
             )
             enviados += 1
-            # ── Guardar en historial del panel de conversaciones ──────────
             try:
                 from agente.models import ConversacionAgente
                 tel = tutor['telefono']
                 tel_completo = f'591{tel}' if not tel.startswith('591') else tel
-                # Mapear el tipo de destinatario a una etiqueta descriptiva
                 tipo_label_map = {
                     'deudores':                'recordatorio-deuda',
                     'semana':                  'recordatorio-semana',

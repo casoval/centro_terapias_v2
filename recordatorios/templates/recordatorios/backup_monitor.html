@@ -1,14 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
-
 {% block title %}Monitor de Respaldos{% endblock %}
 
 {% block extra_css %}
 <style>
-  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
   @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  @keyframes slideOut { to { transform: translateX(120%); opacity: 0; } }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+  @keyframes slideOut{ to   { transform: translateX(120%); opacity: 0; } }
+  @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.35} }
 
   .spinner {
     width: 14px; height: 14px;
@@ -18,66 +17,56 @@
     animation: spin .7s linear infinite;
     display: none;
   }
-  .btn-loading .spinner { display: inline-block; }
+  .btn-loading .spinner  { display: inline-block; }
   .btn-loading .btn-icon { display: none; }
 
   .pulse-icon { animation: blink 2s ease-in-out infinite; }
 
-  .mono { font-family: 'JetBrains Mono', monospace; }
-
-  /* Fondo sólido base para todas las cards */
-  .card-solid {
-    background: #1a1f35;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 16px;
-  }
-
-  /* Stat cards con borde superior de color */
+  /* ── STAT CARDS — misma paleta que conversaciones ── */
   .stat-card {
-    background: #1a1f35;
-    border: 1px solid rgba(255,255,255,0.12);
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     border-top: 3px solid;
     overflow: hidden;
   }
-  .stat-card.cyan   { border-top-color: #00d4ff; }
+  .stat-card.cyan   { border-top-color: #22d3a0; }
   .stat-card.green  { border-top-color: #4ade80; }
   .stat-card.red    { border-top-color: #f87171; }
   .stat-card.purple { border-top-color: #a78bfa; }
 
-  /* Thead */
-  .thead-dark { background: #111527; }
+  /* ── TABLE ── */
+  .thead-dark { background: #111827; }
+  .tr-odd     { background: #0f172a; }
+  .tr-even    { background: #1e293b; }
+  .tr-odd:hover, .tr-even:hover { background: #1e2d4a; transition: background .15s; }
 
-  /* Filas alternadas con fondos sólidos */
-  .tr-odd  { background: #1a1f35; }
-  .tr-even { background: #1e2440; }
-  .tr-odd:hover, .tr-even:hover { background: #252c4a; }
+  /* ── BADGES con mismos colores que logs_whatsapp ── */
+  .badge-manual  { background: rgba(34,211,160,0.08);  color: #22d3a0; border: 1px solid rgba(34,211,160,0.3);  border-radius: 999px; font-size: 10px; font-weight: 700; padding: 2px 10px; }
+  .badge-auto    { background: rgba(167,139,250,0.12); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.3); border-radius: 999px; font-size: 10px; font-weight: 700; padding: 2px 10px; }
+  .badge-exitoso { background: rgba(74,222,128,0.1);   color: #4ade80; border: 1px solid rgba(74,222,128,0.3);  border-radius: 999px; font-size: 10px; font-weight: 700; padding: 2px 10px; }
+  .badge-fallido { background: rgba(248,113,113,0.1);  color: #f87171; border: 1px solid rgba(248,113,113,0.3); border-radius: 999px; font-size: 10px; font-weight: 700; padding: 2px 10px; }
 
-  /* Badges con fondos opacos */
-  .badge-manual  { background:#0e3a45; color:#00d4ff; border:1px solid rgba(0,212,255,0.35); }
-  .badge-auto    { background:#2d1f55; color:#c4b5fd; border:1px solid rgba(167,139,250,0.35); }
-  .badge-exitoso { background:#0d3320; color:#4ade80; border:1px solid rgba(74,222,128,0.35); }
-  .badge-fallido { background:#3a1515; color:#f87171; border:1px solid rgba(248,113,113,0.35); }
-
-  @media (max-width: 640px) {
-    .col-hide { display: none; }
-  }
+  @media (max-width: 640px) { .col-hide { display: none; } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-6 space-y-4">
+<div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
   <!-- HEADER -->
-  <div class="card-solid px-5 py-4 flex items-center justify-between flex-wrap gap-3">
+  <div class="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl"
+       style="background: linear-gradient(135deg, #0a1628 0%, #111827 60%, #0a0f1a 100%); border: 1px solid rgba(167,139,250,0.25);">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-           style="background: linear-gradient(135deg,#7c3aed,#00d4ff); box-shadow:0 0 18px rgba(0,212,255,.25);">
+           style="background: linear-gradient(135deg, #7c3aed, #22d3a0); box-shadow: 0 0 18px rgba(34,211,160,.2);">
         🗄️
       </div>
       <div>
-        <h1 class="text-lg font-bold text-white leading-tight">Monitor de Respaldos</h1>
-        <p class="text-white/70 text-xs mono">centro_misael · PostgreSQL · Hostinger VPS</p>
+        <h1 class="text-xl font-black text-white">Monitor de Respaldos</h1>
+        <p class="text-xs mt-0.5 uppercase tracking-widest font-bold" style="color:rgba(167,139,250,0.7);">
+          centro_misael · PostgreSQL · Hostinger VPS
+        </p>
       </div>
     </div>
 
@@ -85,7 +74,7 @@
       {% csrf_token %}
       <button type="submit" id="btn-backup"
         class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all hover:-translate-y-0.5"
-        style="background:linear-gradient(135deg,#7c3aed,#00d4ff); box-shadow:0 0 16px rgba(0,212,255,.2);">
+        style="background: linear-gradient(135deg, #7c3aed, #22d3a0); box-shadow: 0 0 16px rgba(34,211,160,.15);">
         <span class="spinner"></span>
         <span class="btn-icon">💾</span>
         Hacer Respaldo Ahora
@@ -97,107 +86,116 @@
   <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
 
     <div class="stat-card cyan p-4">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-1">Total</p>
-      <p class="text-2xl font-bold" style="color:#00d4ff">{{ stats.total }}</p>
-      <p class="text-white/65 text-xs mono mt-0.5">registrados</p>
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Total</p>
+      <p class="text-2xl font-black text-emerald-300">{{ stats.total }}</p>
+      <p class="text-white/50 text-xs mt-0.5">registrados</p>
     </div>
 
     <div class="stat-card green p-4">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-1">Exitosos</p>
-      <p class="text-2xl font-bold text-green-400">{{ stats.exitosos }}</p>
-      <p class="text-white/65 text-xs mono mt-0.5">sin error</p>
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Exitosos</p>
+      <p class="text-2xl font-black text-green-400">{{ stats.exitosos }}</p>
+      <p class="text-white/50 text-xs mt-0.5">sin error</p>
     </div>
 
     <div class="stat-card {% if stats.fallidos > 0 %}red{% else %}green{% endif %} p-4">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-1">Fallidos</p>
-      <p class="text-2xl font-bold {% if stats.fallidos > 0 %}text-red-400{% else %}text-green-400{% endif %}">
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Fallidos</p>
+      <p class="text-2xl font-black {% if stats.fallidos > 0 %}text-red-400{% else %}text-green-400{% endif %}">
         {{ stats.fallidos }}
       </p>
-      <p class="text-white/65 text-xs mono mt-0.5">con error</p>
+      <p class="text-white/50 text-xs mt-0.5">con error</p>
     </div>
 
     <div class="stat-card cyan p-4">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-1">Tamaño</p>
-      <p class="text-2xl font-bold" style="color:#00d4ff">{{ stats.ultimo_tamanio|default:"—" }}</p>
-      <p class="text-white/65 text-xs mono mt-0.5">archivo .dump</p>
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Tamaño</p>
+      <p class="text-2xl font-black text-emerald-300">{{ stats.ultimo_tamanio|default:"—" }}</p>
+      <p class="text-white/50 text-xs mt-0.5">archivo .dump</p>
     </div>
 
     <div class="stat-card purple p-4 col-span-2 md:col-span-1">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-1">Último</p>
-      <p class="text-sm font-bold text-white leading-snug mono">{{ stats.ultimo_fecha|default:"Nunca" }}</p>
-      <p class="text-white/65 text-xs mono mt-0.5">{{ stats.ultimo_tipo|default:"—" }}</p>
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Último</p>
+      <p class="text-sm font-bold text-white leading-snug">{{ stats.ultimo_fecha|default:"Nunca" }}</p>
+      <p class="text-white/50 text-xs mt-0.5">{{ stats.ultimo_tipo|default:"—" }}</p>
     </div>
 
   </div>
 
   <!-- PRÓXIMO BACKUP AUTOMÁTICO -->
-  <div class="card-solid px-5 py-4 flex items-center gap-3 flex-wrap">
+  <div class="rounded-2xl p-4 flex items-center gap-3 flex-wrap"
+       style="background:#0d1220; border:1px solid rgba(34,211,160,0.2);">
     <span class="text-xl pulse-icon">⏰</span>
     <div class="flex-1">
-      <p class="text-white/75 text-xs font-semibold uppercase tracking-widest mono mb-0.5">Próximo respaldo automático</p>
-      <p class="text-sm font-bold mono" style="color:#00d4ff">Todos los días a las 03:00 AM (hora del servidor)</p>
+      <p class="text-white/60 text-xs font-semibold uppercase tracking-widest mb-0.5">Próximo respaldo automático</p>
+      <p class="text-sm font-bold" style="color:#22d3a0;">Todos los días a las 03:00 AM (hora del servidor)</p>
     </div>
     <div id="countdown"
-         class="mono text-sm font-semibold px-4 py-2 rounded-xl text-white"
-         style="background:#0e3a45; border:1px solid rgba(0,212,255,0.35);">
+         class="text-sm font-bold px-4 py-2 rounded-xl text-white"
+         style="background:rgba(34,211,160,0.08); border:1px solid rgba(34,211,160,0.25); font-family:monospace; letter-spacing:.5px;">
       Calculando...
     </div>
   </div>
 
-
-  <!-- AUTOMATIZACIONES BACKUP -->
-  <div class="card-solid overflow-hidden">
+  <!-- ¿CÓMO FUNCIONA? — colapasble igual que logs_whatsapp -->
+  <div class="rounded-2xl overflow-hidden" style="background:#0d1220; border:1px solid rgba(255,255,255,0.07);">
     <button onclick="toggleInfoBackup()" class="w-full flex items-center justify-between px-5 py-4 text-left">
       <div class="flex items-center gap-3">
         <span class="text-xl">ℹ️</span>
         <div>
           <h2 class="text-sm font-bold text-white">¿Cómo funciona el sistema de respaldos?</h2>
-          <p class="text-white/60 text-xs mono">Automatizaciones, horarios y detalles técnicos</p>
+          <p class="text-xs" style="color:rgba(255,255,255,0.4);">Automatizaciones, horarios y detalles técnicos</p>
         </div>
       </div>
-      <span id="chevron-backup" class="text-white/60 text-lg transition-transform duration-300">▼</span>
+      <span id="chevron-backup" class="text-lg transition-transform duration-300" style="color:rgba(255,255,255,0.4);">▼</span>
     </button>
 
     <div id="panel-info-backup" class="hidden px-5 pb-5 space-y-3">
 
-      <div class="rounded-xl p-4 border border-white/10" style="background:#111527;">
+      <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(255,255,255,0.08);">
         <div class="flex items-start gap-3">
           <span class="text-2xl">⏰</span>
           <div class="flex-1">
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
               <h3 class="text-white font-bold text-sm">Respaldo automático diario</h3>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 mono">Cron · 03:00 AM</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style="background:rgba(167,139,250,0.15); color:#c4b5fd; border:1px solid rgba(167,139,250,0.3);">
+                Cron · 03:00 AM
+              </span>
             </div>
-            <p class="text-white/70 text-xs mb-2">Todos los días a las <strong class="text-white">3:00 AM (hora del servidor)</strong> se ejecuta automáticamente un respaldo completo de la base de datos PostgreSQL. El proceso genera un archivo <code class="text-blue-300">.dump</code> comprimido y lo envía por correo.</p>
-            <div class="rounded-lg p-3 text-xs font-mono text-purple-300" style="background:#1a0f2e; border:1px solid rgba(167,139,250,0.2);">
+            <p class="text-xs mb-2" style="color:rgba(255,255,255,0.6);">
+              Todos los días a las <strong class="text-white">3:00 AM (hora del servidor)</strong> se ejecuta automáticamente un respaldo completo de la base de datos PostgreSQL. Genera un archivo <code class="text-blue-300">.dump</code> comprimido y lo envía por correo.
+            </p>
+            <div class="rounded-lg p-3 text-xs font-mono" style="background:#1a0f2e; border:1px solid rgba(167,139,250,0.2); color:#c4b5fd;">
               0 3 * * * /var/www/centro_terapias/venv/bin/python /var/www/centro_terapias/backup_db.py
             </div>
           </div>
         </div>
       </div>
 
-      <div class="rounded-xl p-4 border border-white/10" style="background:#111527;">
+      <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(255,255,255,0.08);">
         <div class="flex items-start gap-3">
           <span class="text-2xl">📧</span>
           <div class="flex-1">
             <h3 class="text-white font-bold text-sm mb-1">Envío por correo</h3>
-            <p class="text-white/70 text-xs mb-2">El archivo de respaldo se adjunta y envía a los correos configurados vía Gmail SMTP. El correo incluye la fecha, tamaño del archivo y las instrucciones para restaurar la base de datos.</p>
-            <div class="grid grid-cols-1 gap-2 text-[11px]">
-              <div class="rounded-lg px-3 py-2 text-white/70 mono" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">📨 centroinfantilmisaelbolivia@gmail.com</div>
-              <div class="rounded-lg px-3 py-2 text-white/70 mono" style="background:#1a2030; border:1px solid rgba(255,255,255,0.08);">📨 jorgeosvaldoch111@gmail.com</div>
+            <p class="text-xs mb-2" style="color:rgba(255,255,255,0.6);">El archivo de respaldo se adjunta y envía a los correos configurados vía Gmail SMTP. El correo incluye fecha, tamaño e instrucciones para restaurar.</p>
+            <div class="space-y-1">
+              <div class="rounded-lg px-3 py-2 text-xs font-mono" style="background:#0d1f0d; border:1px solid rgba(34,211,160,0.2); color:#86efac;">
+                📨 centroinfantilmisaelbolivia@gmail.com
+              </div>
+              <div class="rounded-lg px-3 py-2 text-xs font-mono" style="background:#0d1f0d; border:1px solid rgba(34,211,160,0.2); color:#86efac;">
+                📨 jorgeosvaldoch111@gmail.com
+              </div>
             </div>
-            <p class="text-white/50 text-[11px] mt-2">⚠️ Gmail rechaza adjuntos mayores a 25 MB. El archivo actual pesa menos de 1 MB.</p>
+            <p class="text-[10px] mt-2" style="color:rgba(255,255,255,0.35);">⚠️ Gmail rechaza adjuntos mayores a 25 MB. El archivo actual pesa menos de 1 MB.</p>
           </div>
         </div>
       </div>
 
-      <div class="rounded-xl p-4 border border-white/10" style="background:#111527;">
+      <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(255,255,255,0.08);">
         <div class="flex items-start gap-3">
           <span class="text-2xl">🗄️</span>
           <div class="flex-1">
             <h3 class="text-white font-bold text-sm mb-1">Formato del archivo</h3>
-            <p class="text-white/70 text-xs mb-2">Se usa el formato <strong class="text-white">PostgreSQL Custom (.dump)</strong> con compresión zlib nivel 6. Este formato permite restaurar tablas específicas sin necesidad de restaurar toda la base de datos.</p>
-            <div class="rounded-lg p-3 text-xs font-mono text-green-300" style="background:#0d1f0d; border:1px solid rgba(74,222,128,0.2);">
+            <p class="text-xs mb-2" style="color:rgba(255,255,255,0.6);">Se usa el formato <strong class="text-white">PostgreSQL Custom (.dump)</strong> con compresión zlib nivel 6. Permite restaurar tablas específicas sin restaurar toda la base.</p>
+            <div class="rounded-lg p-3 text-xs font-mono" style="background:#0d1f0d; border:1px solid rgba(74,222,128,0.2); color:#86efac;">
               # Restaurar base de datos completa:<br>
               pg_restore -h HOST -U centro_user -d centro_misael backup_centro_misael_FECHA.dump<br><br>
               # Restaurar solo una tabla:<br>
@@ -207,12 +205,12 @@
         </div>
       </div>
 
-      <div class="rounded-xl p-4 border border-white/10" style="background:#111527;">
+      <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(255,255,255,0.08);">
         <div class="flex items-start gap-3">
           <span class="text-2xl">💾</span>
-          <div class="flex-1">
+          <div>
             <h3 class="text-white font-bold text-sm mb-1">Archivos locales</h3>
-            <p class="text-white/70 text-xs">Se conservan los últimos <strong class="text-white">3 respaldos</strong> en el servidor en <code class="text-blue-300 mono">/tmp/db_backups/</code>. Los más antiguos se eliminan automáticamente. El respaldo manual desde esta página genera un archivo adicional de tipo <strong class="text-white">Manual</strong> registrado en el historial.</p>
+            <p class="text-xs" style="color:rgba(255,255,255,0.6);">Se conservan los últimos <strong class="text-white">3 respaldos</strong> en el servidor en <code class="text-blue-300 font-mono">/tmp/db_backups/</code>. Los más antiguos se eliminan automáticamente. El respaldo manual genera un archivo de tipo <strong class="text-white">Manual</strong> en el historial.</p>
           </div>
         </div>
       </div>
@@ -221,12 +219,12 @@
   </div>
 
   <!-- HISTORIAL -->
-  <div class="card-solid overflow-hidden">
+  <div class="rounded-2xl overflow-hidden" style="background:#0d1220; border:1px solid rgba(255,255,255,0.07);">
 
-    <div class="flex items-center justify-between px-5 py-3"
-         style="background:#111527; border-bottom:1px solid rgba(255,255,255,0.1);">
+    <div class="flex items-center justify-between px-5 py-3" style="background:#111827; border-bottom:1px solid rgba(255,255,255,0.08);">
       <h2 class="text-sm font-bold text-white">Historial de Respaldos</h2>
-      <span class="mono text-xs font-bold px-3 py-0.5 rounded-full badge-auto">
+      <span class="text-[10px] font-bold px-3 py-1 rounded-full"
+            style="background:rgba(167,139,250,0.12); color:#c4b5fd; border:1px solid rgba(167,139,250,0.3);">
         {{ backups|length }} registro{% if backups|length != 1 %}s{% endif %}
       </span>
     </div>
@@ -235,47 +233,47 @@
     <div class="overflow-x-auto">
       <table class="w-full border-collapse text-sm">
         <thead>
-          <tr class="thead-dark" style="border-bottom:1px solid rgba(255,255,255,0.12);">
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80">#</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80">Fecha y hora</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80 col-hide">Tipo</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80">Estado</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80 col-hide">Tamaño</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80">Dur.</th>
-            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider mono text-white/80 col-hide">Enviado a</th>
+          <tr class="thead-dark" style="border-bottom:1px solid rgba(255,255,255,0.1);">
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60">#</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60">Fecha y hora</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60 col-hide">Tipo</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60">Estado</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60 col-hide">Tamaño</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60">Dur.</th>
+            <th class="text-left px-5 py-3 text-xs font-bold uppercase tracking-wider text-white/60 col-hide">Enviado a</th>
           </tr>
         </thead>
         <tbody>
           {% for b in backups %}
-          <tr class="{% if forloop.counter|divisibleby:2 %}tr-even{% else %}tr-odd{% endif %} transition-colors"
-              style="border-bottom:1px solid rgba(255,255,255,0.06);">
-            <td class="px-5 py-3 mono text-xs text-white/60">{{ forloop.counter }}</td>
-            <td class="px-5 py-3 mono text-xs text-white font-semibold">{{ b.fecha|date:"d/m/Y H:i:s" }}</td>
+          <tr class="{% if forloop.counter|divisibleby:2 %}tr-even{% else %}tr-odd{% endif %}"
+              style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td class="px-5 py-3 text-xs text-white/40 font-mono">{{ forloop.counter }}</td>
+            <td class="px-5 py-3 text-xs text-white font-semibold font-mono">{{ b.fecha|date:"d/m/Y H:i:s" }}</td>
             <td class="px-5 py-3 col-hide">
               {% if b.tipo == 'automatico' %}
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mono badge-auto">
+                <span class="badge-auto inline-flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Automático
                 </span>
               {% else %}
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mono badge-manual">
+                <span class="badge-manual inline-flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Manual
                 </span>
               {% endif %}
             </td>
             <td class="px-5 py-3">
               {% if b.exitoso %}
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mono badge-exitoso">
+                <span class="badge-exitoso inline-flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Exitoso
                 </span>
               {% else %}
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mono badge-fallido">
+                <span class="badge-fallido inline-flex items-center gap-1.5">
                   <span class="w-1.5 h-1.5 rounded-full bg-current"></span>Fallido
                 </span>
               {% endif %}
             </td>
-            <td class="px-5 py-3 mono text-xs text-white/85 col-hide">{{ b.tamanio_mb|default:"—" }}</td>
-            <td class="px-5 py-3 mono text-xs text-white/85">{{ b.duracion_segundos|default:"—" }}{% if b.duracion_segundos %}s{% endif %}</td>
-            <td class="px-5 py-3 mono text-xs text-white/75 col-hide">{{ b.destinatarios|default:"—" }}</td>
+            <td class="px-5 py-3 text-xs text-white/75 font-mono col-hide">{{ b.tamanio_mb|default:"—" }}</td>
+            <td class="px-5 py-3 text-xs text-white/75 font-mono">{{ b.duracion_segundos|default:"—" }}{% if b.duracion_segundos %}s{% endif %}</td>
+            <td class="px-5 py-3 text-xs text-white/55 font-mono col-hide">{{ b.destinatarios|default:"—" }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -283,30 +281,30 @@
     </div>
 
     {% else %}
-    <div class="text-center py-16" style="background:#1a1f35;">
+    <div class="text-center py-16" style="background:#1e293b;">
       <div class="text-4xl mb-3">📭</div>
-      <p class="mono text-sm text-white/70">Aún no hay respaldos registrados.<br>Haz clic en "Hacer Respaldo Ahora" para crear el primero.</p>
+      <p class="text-sm text-white/60">Aún no hay respaldos registrados.<br>Haz clic en "Hacer Respaldo Ahora" para crear el primero.</p>
     </div>
     {% endif %}
 
     {% if backups.paginator.num_pages > 1 %}
-    <div class="flex items-center justify-between px-5 py-3" style="border-top:1px solid rgba(255,255,255,0.08);">
-      <span class="mono text-xs text-white/50">
+    <div class="flex items-center justify-between px-5 py-3" style="border-top:1px solid rgba(255,255,255,0.07);">
+      <span class="text-xs text-white/40 font-mono">
         Página {{ backups.number }} de {{ backups.paginator.num_pages }}
         &nbsp;·&nbsp; {{ backups.paginator.count }} registros en total
       </span>
       <div class="flex gap-2">
         {% if backups.has_previous %}
           <a href="?page={{ backups.previous_page_number }}"
-             class="px-3 py-1.5 rounded-lg text-xs font-bold mono text-white transition-all"
-             style="background:#1e2440; border:1px solid rgba(255,255,255,0.15);">
+             class="px-3 py-1.5 rounded-lg text-xs font-bold text-white/60 transition-all hover:text-white"
+             style="background:#1e293b; border:1px solid rgba(255,255,255,0.1);">
             ← Anterior
           </a>
         {% endif %}
         {% if backups.has_next %}
           <a href="?page={{ backups.next_page_number }}"
-             class="px-3 py-1.5 rounded-lg text-xs font-bold mono text-white transition-all"
-             style="background:#1e2440; border:1px solid rgba(255,255,255,0.15);">
+             class="px-3 py-1.5 rounded-lg text-xs font-bold text-white/60 transition-all hover:text-white"
+             style="background:#1e293b; border:1px solid rgba(255,255,255,0.1);">
             Siguiente →
           </a>
         {% endif %}
@@ -334,17 +332,16 @@
 
 {% block extra_js %}
 <script>
-
   function toggleInfoBackup() {
-    const panel = document.getElementById('panel-info-backup');
+    const panel   = document.getElementById('panel-info-backup');
     const chevron = document.getElementById('chevron-backup');
-    const hidden = panel.classList.toggle('hidden');
+    const hidden  = panel.classList.toggle('hidden');
     chevron.style.transform = hidden ? '' : 'rotate(180deg)';
   }
 
   // ── Countdown al próximo backup (3 AM hora servidor) ──
   function updateCountdown() {
-    const now = new Date();
+    const now  = new Date();
     const next = new Date();
     next.setHours(3, 0, 0, 0);
     if (now >= next) next.setDate(next.getDate() + 1);
@@ -354,7 +351,7 @@
     const s = Math.floor((diff % 60000) / 1000);
     const pad = n => String(n).padStart(2, '0');
     document.getElementById('countdown').innerHTML =
-      `En <span style="color:#00d4ff;font-weight:bold;">${pad(h)}:${pad(m)}:${pad(s)}</span>`;
+      `En <span style="color:#22d3a0; font-weight:800;">${pad(h)}:${pad(m)}:${pad(s)}</span>`;
   }
   updateCountdown();
   setInterval(updateCountdown, 1000);
@@ -369,13 +366,13 @@
   // ── Toast ──
   function showToast(msg, type) {
     const container = document.getElementById('toasts');
-    const isError = type && type.includes('error');
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    const toast = document.createElement('div');
+    const isError   = type && type.includes('error');
+    const icons     = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const toast     = document.createElement('div');
     toast.className = 'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-white';
     toast.style.cssText = isError
-      ? 'min-width:260px;max-width:360px;background:#3a1515;border:1px solid rgba(248,113,113,0.4);box-shadow:0 8px 24px rgba(0,0,0,.5);animation:slideIn .3s ease'
-      : 'min-width:260px;max-width:360px;background:#0d3320;border:1px solid rgba(74,222,128,0.4);box-shadow:0 8px 24px rgba(0,0,0,.5);animation:slideIn .3s ease';
+      ? 'min-width:260px; max-width:360px; background:#1a0a0a; border:1px solid rgba(248,113,113,0.4); box-shadow:0 8px 24px rgba(0,0,0,.5); animation:slideIn .3s ease;'
+      : 'min-width:260px; max-width:360px; background:#0a1a10; border:1px solid rgba(34,211,160,0.4); box-shadow:0 8px 24px rgba(0,0,0,.5); animation:slideIn .3s ease;';
     toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
     container.appendChild(toast);
     setTimeout(() => {

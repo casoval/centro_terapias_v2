@@ -1,0 +1,864 @@
+{% extends 'base.html' %}
+{% block title %}🤖 Monitor de Bots WhatsApp{% endblock %}
+
+{% block content %}
+<style>
+  /* ── ANIMATIONS ── */
+  @keyframes spin       { to { transform: rotate(360deg); } }
+  @keyframes slide-in   { from { transform: translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+  @keyframes blink-badge{ 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  @keyframes pulse-dot  { 0%,100% { opacity:1; box-shadow:0 0 8px #22d3a0; } 50% { opacity:.7; box-shadow:0 0 20px #22d3a0; } }
+
+  /* ── BOT CARDS ── */
+  .bot-card {
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 20px;
+    transition: border-color .3s, box-shadow .3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .bot-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    opacity: 0;
+    transition: opacity .4s;
+  }
+  .bot-card.conectado    { border-color: rgba(34,211,160,0.4); box-shadow: 0 0 20px rgba(34,211,160,0.08); }
+  .bot-card.conectado::before { background: linear-gradient(90deg, transparent, #22d3a0, transparent); opacity:1; }
+  .bot-card.desconectado { border-color: rgba(248,113,113,0.4); box-shadow: 0 0 20px rgba(248,113,113,0.08); }
+  .bot-card.desconectado::before { background: linear-gradient(90deg, transparent, #f87171, transparent); opacity:1; }
+  .bot-card.esperando_qr { border-color: rgba(251,191,36,0.4); box-shadow: 0 0 20px rgba(251,191,36,0.08); }
+  .bot-card.esperando_qr::before { background: linear-gradient(90deg, transparent, #fbbf24, transparent); opacity:1; }
+
+  /* ── BOT STATUS BADGES ── */
+  .bot-status-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 999px; letter-spacing: .5px; white-space: nowrap; }
+  .badge-green  { background: rgba(34,211,160,0.12);  color: #22d3a0; border: 1px solid rgba(34,211,160,0.3); }
+  .badge-red    { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .badge-yellow { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .badge-gray   { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
+
+  /* ── BOT STATS ── */
+  .bot-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 14px; }
+  .bot-stat { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .bot-stat-val { font-size: 15px; font-weight: 700; color: #fff; line-height: 1; }
+  .bot-stat-lbl { font-size: 9px; color: rgba(255,255,255,0.35); margin-top: 3px; letter-spacing: .5px; text-transform: uppercase; }
+
+  /* ── UPTIME BAR ── */
+  .uptime-bar-wrap { margin-bottom: 14px; }
+  .uptime-bar-top  { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.35); margin-bottom: 5px; letter-spacing: .5px; }
+  .uptime-bar      { height: 4px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .uptime-fill     { height: 100%; border-radius: 4px; background: #22d3a0; transition: width .8s ease; box-shadow: 0 0 8px #22d3a0; }
+  .uptime-fill.red    { background: #f87171; box-shadow: 0 0 8px #f87171; }
+  .uptime-fill.yellow { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+
+  /* ── BOT ACTIONS ── */
+  .bot-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-action {
+    flex: 1; min-width: 90px; padding: 8px 12px; border-radius: 9px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+    border: 1px solid transparent; transition: all .2s; text-align: center;
+  }
+  .btn-reconect { background: rgba(34,211,160,0.1);  color: #22d3a0; border-color: rgba(34,211,160,0.3); }
+  .btn-reconect:hover { background: rgba(34,211,160,0.2); transform: translateY(-1px); }
+  .btn-pause    { background: rgba(251,191,36,0.1);  color: #fbbf24; border-color: rgba(251,191,36,0.3); }
+  .btn-pause:hover { background: rgba(251,191,36,0.2); transform: translateY(-1px); }
+  .btn-resume   { background: rgba(34,211,160,0.1);  color: #22d3a0; border-color: rgba(34,211,160,0.3); }
+  .btn-resume:hover { background: rgba(34,211,160,0.2); transform: translateY(-1px); }
+  .btn-disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+  /* ── QR CARD ── */
+  .qr-card { display: none; text-align: center; padding: 24px; border-radius: 16px; background: #0f172a; border: 1px solid rgba(251,191,36,0.3); }
+  .qr-card.visible { display: block; }
+  .qr-title { font-size: 15px; font-weight: 800; color: #fbbf24; margin-bottom: 4px; }
+  .qr-sub   { font-size: 10px; color: rgba(255,255,255,0.4); margin-bottom: 16px; letter-spacing: .5px; }
+  .qr-img   { max-width: 200px; border-radius: 12px; margin: 0 auto; display: block; border: 2px solid rgba(251,191,36,0.3); }
+  .qr-steps { display: flex; justify-content: center; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+  .qr-step  { font-size: 10px; color: rgba(255,255,255,0.5); background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px 10px; }
+
+  /* ── COLLAPSIBLE SECTION ── */
+  .section-card { background: #0d1220; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; overflow: hidden; }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; cursor: pointer; user-select: none; gap: 12px;
+    transition: background .2s;
+  }
+  .section-head:hover { background: rgba(255,255,255,0.02); }
+  .section-head-left  { display: flex; align-items: center; gap: 10px; }
+  .section-icon  { width: 32px; height: 32px; border-radius: 8px; background: #111827; border: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .section-title { font-size: 13px; font-weight: 800; color: #fff; }
+  .section-desc  { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px; letter-spacing: .5px; }
+  .section-chevron { color: rgba(255,255,255,0.35); font-size: 12px; transition: transform .3s; }
+  .section-chevron.open { transform: rotate(180deg); }
+  .section-body { display: none; padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .section-body.open { display: block; }
+
+  /* ── LOG TABS ── */
+  .log-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #111827; margin-bottom: 12px; flex-wrap: wrap; }
+  .log-tab {
+    padding: 6px 14px; border-radius: 7px; font-size: 11px; font-weight: 700;
+    cursor: pointer; background: transparent; color: rgba(255,255,255,0.35);
+    border: none; transition: all .2s;
+  }
+  .log-tab:hover { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.65); }
+  .log-tab.active { background: rgba(34,211,160,0.15); color: #22d3a0; box-shadow: 0 0 0 1px rgba(34,211,160,0.3); }
+  .log-tab.err-tab { color: rgba(248,113,113,0.6); }
+  .log-tab.err-tab.active { background: rgba(248,113,113,0.12); color: #f87171; box-shadow: 0 0 0 1px rgba(248,113,113,0.3); }
+
+  /* ── LOG STREAM ── */
+  .log-stream {
+    background: #060a0f;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    height: 340px;
+    overflow-y: auto;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34,211,160,0.25) transparent;
+  }
+  .log-stream::-webkit-scrollbar { width: 4px; }
+  .log-stream::-webkit-scrollbar-track { background: transparent; }
+  .log-stream::-webkit-scrollbar-thumb { background: rgba(34,211,160,0.25); border-radius: 4px; }
+  .log-line { display: flex; gap: 8px; padding: 1px 0; border-bottom: 1px solid rgba(255,255,255,0.025); }
+  .log-time { color: rgba(255,255,255,0.2); flex-shrink: 0; min-width: 56px; }
+  .log-bot  { flex-shrink: 0; font-weight: 700; min-width: 36px; }
+  .log-bot.japon   { color: #60a5fa; }
+  .log-bot.camacho { color: #c084fc; }
+  .log-text { color: rgba(255,255,255,0.65); word-break: break-all; }
+  .log-ok    .log-text { color: #22d3a0; }
+  .log-error .log-text { color: #f87171; }
+  .log-msg   .log-text { color: rgba(255,255,255,0.85); }
+  .log-warn  .log-text { color: #fbbf24; }
+  .log-info  .log-text { color: rgba(255,255,255,0.4); }
+
+  .log-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .log-autoscroll { display: flex; align-items: center; gap: 6px; font-size: 10px; color: rgba(255,255,255,0.4); cursor: pointer; }
+  .log-autoscroll input { accent-color: #22d3a0; }
+  .log-count { font-size: 10px; color: rgba(255,255,255,0.3); }
+  .btn-clear-log  { font-size: 10px; padding: 4px 10px; border-radius: 6px; cursor: pointer; background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.3); font-weight: 700; transition: all .2s; }
+  .btn-clear-log:hover { background: rgba(248,113,113,0.2); }
+  .btn-refresh-log{ font-size: 10px; padding: 4px 10px; border-radius: 6px; cursor: pointer; background: rgba(34,211,160,0.1); color: #22d3a0; border: 1px solid rgba(34,211,160,0.3); font-weight: 700; transition: all .2s; }
+  .btn-refresh-log:hover { background: rgba(34,211,160,0.2); }
+  .log-new-badge { display: none; font-size: 9px; font-weight: 700; padding: 2px 8px; background: rgba(34,211,160,0.1); color: #22d3a0; border: 1px solid rgba(34,211,160,0.3); border-radius: 10px; animation: blink-badge .8s ease infinite; cursor: pointer; }
+  .log-new-badge.visible { display: inline-block; }
+
+  /* ── PM2 ── */
+  .pm2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:640px) { .pm2-grid { grid-template-columns: 1fr; } }
+  .pm2-card  { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; }
+  .pm2-name  { font-size: 13px; font-weight: 800; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .pm2-rows  { display: flex; flex-direction: column; gap: 5px; }
+  .pm2-row   { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 6px 10px; border-radius: 7px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
+  .pm2-key   { color: rgba(255,255,255,0.35); letter-spacing: .5px; }
+  .pm2-val   { color: #fff; font-weight: 600; }
+  .pm2-val.green  { color: #22d3a0; }
+  .pm2-val.red    { color: #f87171; }
+  .pm2-val.yellow { color: #fbbf24; }
+
+  /* ── HISTORIAL ── */
+  .hist-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); background: #111827; margin-bottom: 6px; font-size: 11px; transition: background .15s; }
+  .hist-item:hover { background: #1e293b; }
+  .hist-status { flex-shrink: 0; font-size: 14px; }
+  .hist-body   { flex: 1; min-width: 0; }
+  .hist-phone  { color: #fff; font-weight: 700; }
+  .hist-msg    { color: rgba(255,255,255,0.45); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-meta   { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .hist-tag    { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: .3px; }
+  .tag-japon   { background: rgba(96,165,250,0.1);   color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+  .tag-camacho { background: rgba(192,132,252,0.1);  color: #c084fc; border: 1px solid rgba(192,132,252,0.3); }
+  .tag-ok      { background: rgba(34,211,160,0.1);   color: #22d3a0; border: 1px solid rgba(34,211,160,0.3); }
+  .tag-err     { background: rgba(248,113,113,0.1);  color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+  .hist-time   { color: rgba(255,255,255,0.25); font-size: 10px; white-space: nowrap; }
+  .hist-pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 10px; color: rgba(255,255,255,0.35); flex-wrap: wrap; gap: 8px; }
+  .btn-page { padding: 5px 12px; border-radius: 7px; font-size: 10px; font-weight: 700; cursor: pointer; background: #111827; color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.1); transition: all .2s; }
+  .btn-page:hover { border-color: rgba(34,211,160,0.4); color: #22d3a0; }
+
+  .hist-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .hist-filter-btn { padding: 5px 12px; border-radius: 7px; font-size: 10px; font-weight: 700; cursor: pointer; background: #111827; color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.08); transition: all .2s; }
+  .hist-filter-btn.active { background: rgba(34,211,160,0.1); color: #22d3a0; border-color: rgba(34,211,160,0.3); }
+
+  /* ── TOAST ── */
+  #toast-container { position: fixed; top: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { pointer-events: all; padding: 10px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; animation: slide-in .3s ease; max-width: 300px; }
+  .toast.ok   { background: #0d1220; border: 1px solid rgba(34,211,160,0.3); color: #22d3a0; }
+  .toast.err  { background: #0d1220; border: 1px solid rgba(248,113,113,0.3); color: #f87171; }
+  .toast.warn { background: #0d1220; border: 1px solid rgba(251,191,36,0.3); color: #fbbf24; }
+
+  /* ── REFRESH RING ── */
+  .refresh-ring { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(34,211,160,0.3); border-top-color: #22d3a0; animation: spin .7s linear infinite; display: none; }
+  .refreshing .refresh-ring { display: inline-block; }
+
+  /* ── SEC DIVIDER ── */
+  .sec-divider { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.2); letter-spacing: 2px; text-transform: uppercase; padding: 6px 0 10px; display: flex; align-items: center; gap: 10px; }
+  .sec-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+
+  @media(max-width:640px) { .bots-grid { grid-template-columns: 1fr !important; } }
+</style>
+
+<div class="max-w-5xl mx-auto px-4 py-8 space-y-5">
+
+  <!-- HEADER -->
+  <div class="flex flex-wrap justify-between items-center p-4 rounded-2xl gap-3"
+       style="background: linear-gradient(135deg, #0a1628 0%, #111827 60%, #0a0f1a 100%); border: 1px solid rgba(34,211,160,0.25);">
+    <div>
+      <h1 class="text-xl font-black text-white flex items-center gap-3">
+        <span class="relative">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"
+                style="box-shadow:0 0 10px #22d3a0; animation: pulse-dot 2s ease-in-out infinite;"></span>
+        </span>
+        Monitor de Bots WhatsApp
+      </h1>
+      <p class="text-xs mt-1 uppercase tracking-widest font-bold" style="color:rgba(34,211,160,0.6);">
+        Centro Infantil Misael · Sistema de automatización
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="refresh-ring" id="refresh-ring"></div>
+      <div class="text-sm font-bold px-4 py-2 rounded-xl"
+           id="reloj"
+           style="background:rgba(34,211,160,0.1); color:#22d3a0; border:1px solid rgba(34,211,160,0.25); font-family:monospace; letter-spacing:1px;">
+        --:--:--
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTS GRID -->
+  <div class="sec-divider">Estado de Bots</div>
+  <div class="bots-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+    <!-- BOT JAPÓN -->
+    <div class="bot-card" id="card-japon">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+               style="background:#111827; border:1px solid rgba(255,255,255,0.08);" id="icon-japon">🤖</div>
+          <div>
+            <p class="text-white font-black text-sm">Bot Suc. Japón</p>
+            <p class="text-xs" style="color:rgba(255,255,255,0.35);">PUERTO 3000 · PID <span id="pid-japon">—</span></p>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-1.5">
+          <span class="bot-status-badge badge-gray" id="badge-japon">⏳ Verificando</span>
+          <div id="badge-pausa-japon" style="display:none;">
+            <span class="bot-status-badge badge-yellow">⏸ Bot pausado</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bot-stats">
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-reinicios-japon">—</div><div class="bot-stat-lbl">Reinicios</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-memoria-japon">—</div><div class="bot-stat-lbl">Memoria</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-cpu-japon">—</div><div class="bot-stat-lbl">CPU %</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-uptime-japon">—</div><div class="bot-stat-lbl">Uptime</div></div>
+      </div>
+
+      <div class="uptime-bar-wrap">
+        <div class="uptime-bar-top">
+          <span>DISPONIBILIDAD DE SESIÓN</span>
+          <span id="uptime-pct-japon">—</span>
+        </div>
+        <div class="uptime-bar"><div class="uptime-fill" id="uptime-fill-japon" style="width:0%"></div></div>
+      </div>
+
+      <div class="bot-actions">
+        <button class="btn-action btn-reconect" onclick="reconectar('japon')" id="btn-reconect-japon">🔄 Reconectar</button>
+        <button class="btn-action btn-pause"    onclick="togglePausa('japon')" id="btn-pausa-japon">⏸ Pausar bot</button>
+      </div>
+    </div>
+
+    <!-- BOT CAMACHO -->
+    <div class="bot-card" id="card-camacho">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+               style="background:#111827; border:1px solid rgba(255,255,255,0.08);" id="icon-camacho">🤖</div>
+          <div>
+            <p class="text-white font-black text-sm">Bot Suc. Camacho</p>
+            <p class="text-xs" style="color:rgba(255,255,255,0.35);">PUERTO 3001 · PID <span id="pid-camacho">—</span></p>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-1.5">
+          <span class="bot-status-badge badge-gray" id="badge-camacho">⏳ Verificando</span>
+          <div id="badge-pausa-camacho" style="display:none;">
+            <span class="bot-status-badge badge-yellow">⏸ Bot pausado</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bot-stats">
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-reinicios-camacho">—</div><div class="bot-stat-lbl">Reinicios</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-memoria-camacho">—</div><div class="bot-stat-lbl">Memoria</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-cpu-camacho">—</div><div class="bot-stat-lbl">CPU %</div></div>
+        <div class="bot-stat"><div class="bot-stat-val" id="stat-uptime-camacho">—</div><div class="bot-stat-lbl">Uptime</div></div>
+      </div>
+
+      <div class="uptime-bar-wrap">
+        <div class="uptime-bar-top">
+          <span>DISPONIBILIDAD DE SESIÓN</span>
+          <span id="uptime-pct-camacho">—</span>
+        </div>
+        <div class="uptime-bar"><div class="uptime-fill" id="uptime-fill-camacho" style="width:0%"></div></div>
+      </div>
+
+      <div class="bot-actions">
+        <button class="btn-action btn-reconect" onclick="reconectar('camacho')" id="btn-reconect-camacho">🔄 Reconectar</button>
+        <button class="btn-action btn-pause"    onclick="togglePausa('camacho')" id="btn-pausa-camacho">⏸ Pausar bot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR CARDS -->
+  <div class="qr-card" id="qr-japon">
+    <div class="qr-title">📱 Escanear QR — Bot Japón</div>
+    <div class="qr-sub">EL QR EXPIRA CADA 20 SEGUNDOS · ACTUALIZACIÓN AUTOMÁTICA</div>
+    <img class="qr-img" id="qr-img-japon" src="" alt="QR Japón">
+    <div class="qr-steps">
+      <span class="qr-step">1. Abre WhatsApp</span>
+      <span class="qr-step">2. Dispositivos vinculados</span>
+      <span class="qr-step">3. Vincular dispositivo</span>
+      <span class="qr-step">4. Escanea este QR</span>
+    </div>
+  </div>
+
+  <div class="qr-card" id="qr-camacho">
+    <div class="qr-title">📱 Escanear QR — Bot Camacho</div>
+    <div class="qr-sub">EL QR EXPIRA CADA 20 SEGUNDOS · ACTUALIZACIÓN AUTOMÁTICA</div>
+    <img class="qr-img" id="qr-img-camacho" src="" alt="QR Camacho">
+    <div class="qr-steps">
+      <span class="qr-step">1. Abre WhatsApp</span>
+      <span class="qr-step">2. Dispositivos vinculados</span>
+      <span class="qr-step">3. Vincular dispositivo</span>
+      <span class="qr-step">4. Escanea este QR</span>
+    </div>
+  </div>
+
+  <!-- TERMINAL DE LOGS -->
+  <div class="sec-divider">Logs en Tiempo Real</div>
+  <div class="section-card">
+    <div class="section-head" onclick="toggleSection('logs')">
+      <div class="section-head-left">
+        <div class="section-icon">📟</div>
+        <div>
+          <div class="section-title">Terminal de Logs</div>
+          <div class="section-desc" id="logs-desc">SALIDA REAL DE PM2 · ACTUALIZACIÓN CADA 8 SEG</div>
+        </div>
+      </div>
+      <span class="section-chevron open" id="chevron-logs">▼</span>
+    </div>
+    <div class="section-body open" id="body-logs">
+
+      <div class="log-tabs">
+        <button class="log-tab active" onclick="setLogTab('ambos')"   id="ltab-ambos">Ambos bots</button>
+        <button class="log-tab"        onclick="setLogTab('japon')"   id="ltab-japon">🏠 Japón</button>
+        <button class="log-tab"        onclick="setLogTab('camacho')" id="ltab-camacho">🏢 Camacho</button>
+        <button class="log-tab err-tab" onclick="setLogTab('errores')" id="ltab-errores">Solo errores</button>
+      </div>
+
+      <div class="log-controls">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <label class="log-autoscroll">
+            <input type="checkbox" id="chk-autoscroll" checked>
+            AUTO-SCROLL
+          </label>
+          <span class="log-count" id="log-count">0 líneas</span>
+          <span class="log-new-badge" id="log-new-badge" onclick="scrollToBottom()">↓ Nuevas líneas</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-refresh-log" onclick="fetchLogsNow()">🔄 Actualizar</button>
+          <button class="btn-clear-log"   onclick="clearLogs()">🗑 Limpiar</button>
+        </div>
+      </div>
+
+      <div class="log-stream" id="log-stream" onscroll="onLogScroll()">
+        <div class="log-line log-info">
+          <span class="log-time">--:--:--</span>
+          <span class="log-bot japon">[JAP]</span>
+          <span class="log-text">Conectando con los bots...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROCESOS PM2 -->
+  <div class="section-card">
+    <div class="section-head" onclick="toggleSection('pm2')">
+      <div class="section-head-left">
+        <div class="section-icon">⚙️</div>
+        <div>
+          <div class="section-title">Procesos PM2</div>
+          <div class="section-desc">CPU · MEMORIA · REINICIOS · PID</div>
+        </div>
+      </div>
+      <span class="section-chevron" id="chevron-pm2">▼</span>
+    </div>
+    <div class="section-body" id="body-pm2">
+      <div class="pm2-grid">
+        <div class="pm2-card">
+          <div class="pm2-name">🏠 Bot Japón <span class="bot-status-badge badge-gray" id="pm2-badge-japon" style="font-size:9px;">—</span></div>
+          <div class="pm2-rows">
+            <div class="pm2-row"><span class="pm2-key">PROCESO</span><span class="pm2-val" id="pm2-nombre-japon">whatsapp-bot</span></div>
+            <div class="pm2-row"><span class="pm2-key">STATUS</span><span class="pm2-val green" id="pm2-status-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">CPU</span><span class="pm2-val" id="pm2-cpu-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">MEMORIA</span><span class="pm2-val" id="pm2-mem-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">REINICIOS</span><span class="pm2-val yellow" id="pm2-restart-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">UPTIME</span><span class="pm2-val" id="pm2-uptime-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">PID</span><span class="pm2-val" id="pm2-pid-japon">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">PUERTO</span><span class="pm2-val">3000</span></div>
+          </div>
+        </div>
+        <div class="pm2-card">
+          <div class="pm2-name">🏢 Bot Camacho <span class="bot-status-badge badge-gray" id="pm2-badge-camacho" style="font-size:9px;">—</span></div>
+          <div class="pm2-rows">
+            <div class="pm2-row"><span class="pm2-key">PROCESO</span><span class="pm2-val" id="pm2-nombre-camacho">whatsapp-bot-camacho</span></div>
+            <div class="pm2-row"><span class="pm2-key">STATUS</span><span class="pm2-val green" id="pm2-status-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">CPU</span><span class="pm2-val" id="pm2-cpu-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">MEMORIA</span><span class="pm2-val" id="pm2-mem-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">REINICIOS</span><span class="pm2-val yellow" id="pm2-restart-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">UPTIME</span><span class="pm2-val" id="pm2-uptime-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">PID</span><span class="pm2-val" id="pm2-pid-camacho">—</span></div>
+            <div class="pm2-row"><span class="pm2-key">PUERTO</span><span class="pm2-val">3001</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORIAL DE MENSAJES -->
+  <div class="section-card">
+    <div class="section-head" onclick="toggleSection('hist')">
+      <div class="section-head-left">
+        <div class="section-icon">📋</div>
+        <div>
+          <div class="section-title">Historial de Mensajes</div>
+          <div class="section-desc" id="hist-desc">ÚLTIMOS MENSAJES ENVIADOS POR LOS BOTS</div>
+        </div>
+      </div>
+      <span class="section-chevron" id="chevron-hist">▼</span>
+    </div>
+    <div class="section-body" id="body-hist">
+
+      <div class="hist-filters">
+        <button class="hist-filter-btn active" onclick="setHistFiltro('todos')"    id="hf-todos">Todos</button>
+        <button class="hist-filter-btn"         onclick="setHistFiltro('japon')"   id="hf-japon">🏠 Japón</button>
+        <button class="hist-filter-btn"         onclick="setHistFiltro('camacho')" id="hf-camacho">🏢 Camacho</button>
+        <button class="hist-filter-btn"         onclick="setHistFiltro('ok')"      id="hf-ok">✅ Enviados</button>
+        <button class="hist-filter-btn"         onclick="setHistFiltro('error')"   id="hf-error" style="color:#f87171;">❌ Errores</button>
+        <button class="btn-action btn-reconect" onclick="cargarHistorial()" style="flex:none; min-width:unset; padding:5px 12px; font-size:10px;">🔄 Actualizar</button>
+      </div>
+
+      <div id="hist-container">
+        <div style="text-align:center; color:rgba(255,255,255,0.3); padding:30px; font-size:12px;">⏳ Cargando historial...</div>
+      </div>
+
+      <div class="hist-pagination" id="hist-pagination" style="display:none;">
+        <span id="hist-info-text">—</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-page" id="btn-prev" onclick="cambiarPaginaHist(-1)">← Anterior</button>
+          <button class="btn-page" id="btn-next" onclick="cambiarPaginaHist(1)">Siguiente →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+
+const estadoBots   = { japon: 'desconocido', camacho: 'desconocido' };
+const estadoPausa  = { japon: false, camacho: false };
+let   historialData = [];
+let   histFiltro    = 'todos';
+let   histPagina    = 1;
+const HIST_POR_PAG  = 20;
+let   logTabActual  = 'ambos';
+let todasLasLineas  = [];
+let usuarioScrolleando = false;
+
+// ── Reloj ──
+function tickReloj() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('reloj').textContent =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+tickReloj();
+setInterval(tickReloj, 1000);
+
+// ── Toast ──
+function toast(msg, tipo = 'ok') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${tipo}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+// ── Secciones colapsables ──
+function toggleSection(id) {
+  const body    = document.getElementById(`body-${id}`);
+  const chevron = document.getElementById(`chevron-${id}`);
+  const isOpen  = body.classList.toggle('open');
+  chevron.classList.toggle('open', isOpen);
+}
+
+// ── Estado de bots ──
+async function checkStatus(bot) {
+  try {
+    const res  = await fetch(`/api/whatsapp-status/?bot=${bot}`);
+    const data = await res.json();
+    aplicarEstado(bot, data.status || 'desconectado');
+    actualizarPM2(bot, data);
+    if (data.status === 'esperando_qr') {
+      document.getElementById(`qr-${bot}`).classList.add('visible');
+      loadQR(bot);
+    } else {
+      document.getElementById(`qr-${bot}`).classList.remove('visible');
+    }
+  } catch(e) {
+    aplicarEstado(bot, 'desconectado');
+  }
+}
+
+function aplicarEstado(bot, status) {
+  estadoBots[bot] = status;
+  const card  = document.getElementById(`card-${bot}`);
+  const icon  = document.getElementById(`icon-${bot}`);
+  const badge = document.getElementById(`badge-${bot}`);
+  card.className = `bot-card ${status}`;
+  const configs = {
+    conectado:    { icon: '🟢', text: '● Conectado',    cls: 'badge-green' },
+    esperando_qr: { icon: '📱', text: '◌ Esperando QR', cls: 'badge-yellow' },
+    desconectado: { icon: '🔴', text: '○ Desconectado', cls: 'badge-red' },
+  };
+  const cfg = configs[status] || { icon: '⚪', text: '? Desconocido', cls: 'badge-gray' };
+  icon.textContent  = cfg.icon;
+  badge.textContent = cfg.text;
+  badge.className   = `bot-status-badge ${cfg.cls}`;
+}
+
+function actualizarPM2(bot, data) {
+  const s = data.status || 'desconectado';
+  if (data.reinicios !== undefined) {
+    document.getElementById(`stat-reinicios-${bot}`).textContent = data.reinicios;
+    document.getElementById(`pm2-restart-${bot}`).textContent    = data.reinicios;
+  }
+  if (data.memoria) {
+    document.getElementById(`stat-memoria-${bot}`).textContent = data.memoria;
+    document.getElementById(`pm2-mem-${bot}`).textContent      = data.memoria;
+  }
+  if (data.cpu !== undefined) {
+    document.getElementById(`stat-cpu-${bot}`).textContent = data.cpu + '%';
+    document.getElementById(`pm2-cpu-${bot}`).textContent  = data.cpu + '%';
+  }
+  if (data.uptime) {
+    document.getElementById(`stat-uptime-${bot}`).textContent = data.uptime;
+    document.getElementById(`pm2-uptime-${bot}`).textContent  = data.uptime;
+  }
+  if (data.pid) {
+    document.getElementById(`pid-${bot}`).textContent      = data.pid;
+    document.getElementById(`pm2-pid-${bot}`).textContent  = data.pid;
+  }
+  const UPTIME_REF = 86400;
+  const seg = data.uptime_segundos || 0;
+  const pct = s === 'conectado' ? Math.min(100, Math.round((seg / UPTIME_REF) * 100)) : 0;
+  const fill = document.getElementById(`uptime-fill-${bot}`);
+  fill.style.width = `${pct}%`;
+  fill.className = 'uptime-fill' + (pct < 30 ? ' red' : pct < 70 ? ' yellow' : '');
+  document.getElementById(`uptime-pct-${bot}`).textContent = s === 'conectado' ? `${pct}% (${data.uptime || '—'})` : '0%';
+  const pmBadge  = document.getElementById(`pm2-badge-${bot}`);
+  const statusEl = document.getElementById(`pm2-status-${bot}`);
+  statusEl.textContent = s.toUpperCase();
+  statusEl.className   = `pm2-val ${s === 'conectado' ? 'green' : 'red'}`;
+  if (s === 'conectado') {
+    pmBadge.textContent = '● online';
+    pmBadge.className   = 'bot-status-badge badge-green';
+  } else {
+    pmBadge.textContent = '○ offline';
+    pmBadge.className   = 'bot-status-badge badge-red';
+  }
+}
+
+async function loadQR(bot) {
+  try {
+    const res  = await fetch(`/api/whatsapp-qr/?bot=${bot}`);
+    const data = await res.json();
+    if (data.qr) document.getElementById(`qr-img-${bot}`).src = data.qr;
+  } catch(e) {}
+}
+
+async function reconectar(bot) {
+  if (!confirm(`¿Reiniciar el bot ${bot === 'japon' ? 'Japón' : 'Camacho'}?\nEl proceso tardará ~30 segundos.`)) return;
+  const btn = document.getElementById(`btn-reconect-${bot}`);
+  btn.classList.add('btn-disabled');
+  btn.textContent = '⏳ Reiniciando...';
+  try {
+    await fetch('/api/whatsapp-reconectar/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ bot }),
+    });
+    toast(`Bot ${bot === 'japon' ? 'Japón' : 'Camacho'} reiniciándose...`, 'warn');
+    setTimeout(() => {
+      btn.classList.remove('btn-disabled');
+      btn.textContent = '🔄 Reconectar';
+      checkStatus(bot);
+    }, 12000);
+  } catch(e) {
+    toast('Error al reconectar', 'err');
+    btn.classList.remove('btn-disabled');
+    btn.textContent = '🔄 Reconectar';
+  }
+}
+
+async function checkPausa(bot) {
+  try {
+    const res  = await fetch(`/api/whatsapp-pausa/?bot=${bot}`);
+    const data = await res.json();
+    aplicarPausa(bot, data.pausado);
+  } catch(e) {}
+}
+
+function aplicarPausa(bot, pausado) {
+  estadoPausa[bot] = pausado;
+  const btn   = document.getElementById(`btn-pausa-${bot}`);
+  const badge = document.getElementById(`badge-pausa-${bot}`);
+  badge.style.display = pausado ? 'block' : 'none';
+  if (pausado) {
+    btn.className   = 'btn-action btn-resume';
+    btn.textContent = '▶ Reanudar bot';
+  } else {
+    btn.className   = 'btn-action btn-pause';
+    btn.textContent = '⏸ Pausar bot';
+  }
+}
+
+async function togglePausa(bot) {
+  const pausar = !estadoPausa[bot];
+  const btn    = document.getElementById(`btn-pausa-${bot}`);
+  btn.classList.add('btn-disabled');
+  btn.textContent = '⏳ Espera...';
+  try {
+    const res  = await fetch('/api/whatsapp-pausa/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ bot, pausar }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      aplicarPausa(bot, data.pausado);
+      toast(
+        data.pausado ? `Bot ${bot === 'japon' ? 'Japón' : 'Camacho'} pausado ⏸` : `Bot ${bot === 'japon' ? 'Japón' : 'Camacho'} reanudado ▶`,
+        data.pausado ? 'warn' : 'ok'
+      );
+    }
+  } catch(e) {
+    toast('Error al cambiar pausa', 'err');
+  } finally {
+    btn.classList.remove('btn-disabled');
+  }
+}
+
+// ── LOGS ──
+function setLogTab(tab) {
+  logTabActual = tab;
+  document.querySelectorAll('.log-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(`ltab-${tab}`).classList.add('active');
+  renderLogs();
+}
+
+function clearLogs() {
+  todasLasLineas = [];
+  renderLogs();
+  toast('Logs limpiados', 'ok');
+}
+
+function scrollToBottom() {
+  const stream = document.getElementById('log-stream');
+  stream.scrollTop = stream.scrollHeight;
+  usuarioScrolleando = false;
+  document.getElementById('log-new-badge').classList.remove('visible');
+}
+
+function onLogScroll() {
+  const stream = document.getElementById('log-stream');
+  const atBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 30;
+  if (atBottom) {
+    usuarioScrolleando = false;
+    document.getElementById('log-new-badge').classList.remove('visible');
+  } else {
+    usuarioScrolleando = true;
+  }
+}
+
+async function fetchLogsNow() {
+  const bot = logTabActual === 'ambos' ? 'ambos' : logTabActual === 'errores' ? 'ambos' : logTabActual;
+  try {
+    const res  = await fetch(`/api/whatsapp-logs/?bot=${bot}&lineas=200`);
+    const data = await res.json();
+    if (!data.ok) return;
+    todasLasLineas = data.lineas;
+    document.getElementById('logs-desc').textContent =
+      `LOGS REALES DE PM2 · ${data.lineas.length} LÍNEAS · ÚLT. ACTUALIZACIÓN ${new Date().toLocaleTimeString('es-BO')}`;
+    const huboNuevas = data.lineas.length > 0;
+    renderLogs(huboNuevas);
+  } catch(e) {}
+}
+
+function renderLogs(huboNuevas = false) {
+  const stream = document.getElementById('log-stream');
+  let lineas   = [...todasLasLineas];
+  if (logTabActual === 'japon')   lineas = lineas.filter(l => l.bot === 'japon');
+  if (logTabActual === 'camacho') lineas = lineas.filter(l => l.bot === 'camacho');
+  if (logTabActual === 'errores') lineas = lineas.filter(l => l.tipo === 'log-error');
+  document.getElementById('log-count').textContent = `${lineas.length} líneas`;
+  if (lineas.length === 0) {
+    stream.innerHTML = '<div class="log-line log-info"><span class="log-text">Sin actividad en los logs...</span></div>';
+    return;
+  }
+  stream.innerHTML = lineas.map(l => `
+    <div class="log-line ${l.tipo}">
+      <span class="log-time">${l.hora || '——:——:——'}</span>
+      <span class="log-bot ${l.bot}">[${l.bot === 'japon' ? 'JAP' : 'CAM'}]</span>
+      <span class="log-text">${escapeHtml(l.texto)}</span>
+    </div>
+  `).join('');
+  if (!usuarioScrolleando || document.getElementById('chk-autoscroll').checked) {
+    stream.scrollTop = stream.scrollHeight;
+  } else if (huboNuevas) {
+    document.getElementById('log-new-badge').classList.add('visible');
+  }
+}
+
+// ── Historial ──
+async function cargarHistorial() {
+  const ring = document.getElementById('refresh-ring');
+  ring.parentElement.classList.add('refreshing');
+  try {
+    const res  = await fetch('/api/whatsapp-historial/');
+    historialData = await res.json();
+    document.getElementById('hist-desc').textContent =
+      `ÚLTIMOS ${historialData.length} MENSAJES ENVIADOS POR LOS BOTS`;
+    histPagina = 1;
+    renderHistorial();
+  } catch(e) {
+    document.getElementById('hist-container').innerHTML =
+      '<div style="text-align:center;color:#f87171;padding:20px;font-size:12px;">❌ Error al cargar historial</div>';
+  } finally {
+    ring.parentElement.classList.remove('refreshing');
+  }
+}
+
+function setHistFiltro(f) {
+  histFiltro = f;
+  histPagina = 1;
+  document.querySelectorAll('.hist-filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`hf-${f}`).classList.add('active');
+  renderHistorial();
+}
+
+function cambiarPaginaHist(delta) {
+  const total  = historialFiltrado().length;
+  const maxPag = Math.ceil(total / HIST_POR_PAG);
+  histPagina   = Math.max(1, Math.min(histPagina + delta, maxPag));
+  renderHistorial();
+}
+
+function historialFiltrado() {
+  let d = [...historialData];
+  if (histFiltro === 'japon')   d = d.filter(m => m.sucursal?.toLowerCase().includes('japon') || m.sucursal?.toLowerCase().includes('japón'));
+  if (histFiltro === 'camacho') d = d.filter(m => m.sucursal?.toLowerCase().includes('camacho'));
+  if (histFiltro === 'ok')      d = d.filter(m => m.estado === 'enviado');
+  if (histFiltro === 'error')   d = d.filter(m => m.estado !== 'enviado');
+  return d;
+}
+
+function renderHistorial() {
+  const container = document.getElementById('hist-container');
+  const pag_el    = document.getElementById('hist-pagination');
+  const datos     = historialFiltrado();
+  const total     = datos.length;
+  const maxPag    = Math.ceil(total / HIST_POR_PAG) || 1;
+  if (histPagina > maxPag) histPagina = maxPag;
+  const inicio = (histPagina - 1) * HIST_POR_PAG;
+  const pagina = datos.slice(inicio, inicio + HIST_POR_PAG);
+  if (pagina.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,0.25);padding:30px;font-size:12px;">📭 Sin mensajes en este filtro</div>';
+    pag_el.style.display = 'none';
+    return;
+  }
+  container.innerHTML = pagina.map(m => {
+    const esOk  = m.estado === 'enviado';
+    const esJap = m.sucursal?.toLowerCase().includes('japon') || m.sucursal?.toLowerCase().includes('japón');
+    const fecha  = formatFechaHist(m.fecha);
+    const nombre = m.nombre_paciente_db || m.paciente || '';
+    const tutor  = m.nombre_tutor_db    || '';
+    return `
+      <div class="hist-item">
+        <div class="hist-status">${esOk ? '✅' : '❌'}</div>
+        <div class="hist-body">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="hist-phone">${m.telefono || '—'}</span>
+            ${nombre ? `<span style="color:#22d3a0; font-size:10px; font-weight:700;">${escapeHtml(nombre)}</span>` : ''}
+            ${tutor  ? `<span style="color:rgba(255,255,255,0.35); font-size:10px;">Tutor: ${escapeHtml(tutor)}</span>` : ''}
+          </div>
+          <div class="hist-msg">${escapeHtml((m.mensaje || '').slice(0, 80))}${(m.mensaje || '').length > 80 ? '…' : ''}</div>
+          <div class="hist-meta">
+            <span class="hist-tag ${esJap ? 'tag-japon' : 'tag-camacho'}">${m.sucursal || '—'}</span>
+            <span class="hist-tag ${esOk ? 'tag-ok' : 'tag-err'}">${esOk ? 'Enviado' : 'Error'}</span>
+            ${m.tipo ? `<span class="hist-tag" style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.4);border:1px solid rgba(255,255,255,0.08);">${m.tipo}</span>` : ''}
+          </div>
+        </div>
+        <div class="hist-time">${fecha}</div>
+      </div>`;
+  }).join('');
+  pag_el.style.display = total > HIST_POR_PAG ? 'flex' : 'none';
+  document.getElementById('hist-info-text').textContent = `Pág. ${histPagina} de ${maxPag} · ${total} mensajes`;
+  document.getElementById('btn-prev').style.display = histPagina > 1     ? '' : 'none';
+  document.getElementById('btn-next').style.display = histPagina < maxPag ? '' : 'none';
+}
+
+function formatFechaHist(iso) {
+  try {
+    const d    = new Date(iso);
+    const diff = new Date() - d;
+    if (diff < 60000)    return `Ahora`;
+    if (diff < 3600000)  return `Hace ${Math.floor(diff/60000)} min`;
+    if (diff < 86400000) return `Hace ${Math.floor(diff/3600000)}h`;
+    const p = n => String(n).padStart(2,'0');
+    return `${p(d.getDate())}/${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  } catch(e) { return '—'; }
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function init() {
+  await Promise.all([
+    checkStatus('japon'),
+    checkStatus('camacho'),
+    checkPausa('japon'),
+    checkPausa('camacho'),
+    cargarHistorial(),
+  ]);
+  await fetchLogsNow();
+}
+init();
+
+setInterval(() => { checkStatus('japon'); checkStatus('camacho'); }, 10000);
+setInterval(() => { checkPausa('japon'); checkPausa('camacho'); }, 15000);
+setInterval(fetchLogsNow, 8000);
+setInterval(cargarHistorial, 30000);
+</script>
+{% endblock %}
