@@ -15,13 +15,46 @@ CORRECCIONES APLICADAS:
   9. _detectar_solicitud_pagos() y _detectar_solicitud_sesiones() ampliadas con más variantes.
   10. get_client() usa el singleton de agente_base en vez de duplicarlo.
   11. PROMPT_BASE_PACIENTE eliminado — única fuente de verdad es ConfigAgente en el admin.
+  12. Fecha y hora actual de Bolivia inyectada en el contexto — corrige errores de día/hora.
+  13. Sesiones de hoy que ya pasaron marcadas como "ya realizada hoy" — no aparecen como futuras.
+  14. Deuda verificada con campo correcto (balance_final / saldo_actual) directamente en contexto.
 """
 
 import logging
 import re
-from datetime import date
+from datetime import date, datetime
+import pytz
 
 log = logging.getLogger('agente')
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Zona horaria y helpers de fecha/hora
+# ─────────────────────────────────────────────────────────────────────────────
+
+_TZ_BOLIVIA = pytz.timezone('America/La_Paz')
+
+DIAS_ES  = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+
+def _ahora_bolivia() -> datetime:
+    """Retorna el datetime actual en zona horaria de Bolivia (UTC-4)."""
+    return datetime.now(_TZ_BOLIVIA)
+
+
+def _encabezado_fecha_hora() -> str:
+    """
+    Bloque de fecha y hora actual que va al inicio de cada contexto.
+    Permite que Claude sepa exactamente cuándo es 'ahora' en Bolivia.
+    """
+    ahora   = _ahora_bolivia()
+    dia_sem = DIAS_ES[ahora.weekday()]
+    mes_nom = MESES_ES[ahora.month - 1]
+    return (
+        f"FECHA Y HORA ACTUAL (Bolivia, UTC-4):\n"
+        f"{dia_sem} {ahora.day} de {mes_nom} de {ahora.year} — {ahora.strftime('%H:%M')} hs\n"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -150,8 +183,13 @@ def construir_contexto(
         mensualidades = get_mensualidades(paciente)
         conteo_mes    = get_conteo_sesiones_mes_actual(paciente)
 
+        # ── Fecha y hora actual (primera línea del contexto) ──────────────────
+        # Claude no tiene acceso al reloj. Sin este dato, adivina el día y la
+        # hora, y comete errores al hablar de sesiones pasadas/futuras.
+        ctx = _encabezado_fecha_hora() + "\n"
+
         # ── Encabezado del paciente ───────────────────────────────────────────
-        ctx = f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
+        ctx += f"PACIENTE: {info.get('nombre', '')} {info.get('apellido', '')}"
         if info.get('edad'):
             ctx += f" ({info['edad']} años)"
 
@@ -189,9 +227,28 @@ def construir_contexto(
                 ctx += "\n"
 
         # ── Próximas sesiones (30 días) ───────────────────────────────────────
-        if proximas:
+        # Separar: las de hoy cuya hora ya pasó vs las genuinamente futuras.
+        # Esto evita que el agente hable en futuro de sesiones que ya ocurrieron.
+        proximas_futuras     = [s for s in proximas if not s.get('ya_paso_hoy')]
+        proximas_pasadas_hoy = [s for s in proximas if s.get('ya_paso_hoy')]
+
+        if proximas_pasadas_hoy:
+            ctx += "\nSESIONES DE HOY YA REALIZADAS (su horario ya pasó — hablar en pasado):\n"
+            for s in proximas_pasadas_hoy:
+                tipo_label = ''
+                if s['tipo_sesion'] == 'mensualidad':
+                    tipo_label = ' [Mensualidad]'
+                elif s['tipo_sesion'] == 'proyecto/evaluacion':
+                    tipo_label = ' [Proyecto/Evaluacion]'
+                ctx += (
+                    f"- ID:{s['id']} | HOY {s['hora']}-{s['hora_fin']}"
+                    f" — {s['servicio']} con {s['profesional']}"
+                    f" en {s['sucursal']}{tipo_label}\n"
+                )
+
+        if proximas_futuras:
             ctx += "\nPROXIMAS SESIONES (próximos 30 días — incluye ID para solicitudes):\n"
-            for s in proximas[:12]:
+            for s in proximas_futuras[:12]:
                 tipo_label = ''
                 if s['tipo_sesion'] == 'mensualidad':
                     tipo_label = ' [Mensualidad]'
@@ -207,7 +264,7 @@ def construir_contexto(
                     ctx += f" | Bs. {s['monto']:.0f}"
                 ctx += "\n"
         else:
-            ctx += "\nPROXIMAS SESIONES: No hay sesiones programadas en los próximos 30 días.\n"
+            ctx += "\nPROXIMAS SESIONES: No hay sesiones programadas próximamente.\n"
 
         # ── Últimas sesiones (con estado) ─────────────────────────────────────
         if recientes:

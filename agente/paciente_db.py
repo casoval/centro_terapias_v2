@@ -113,11 +113,20 @@ def get_sesiones_proximas(paciente, dias: int = 30) -> list:
     """
     Sesiones programadas en los próximos N días (default 30).
     Incluye tipo de sesión (normal / mensualidad / proyecto).
+    Las sesiones de hoy que ya pasaron en horario se marcan como
+    'ya_pasada_hoy' para que el agente no las trate como futuras.
     """
     try:
         from agenda.models import Sesion
-        hoy    = date.today()
-        limite = hoy + timedelta(days=dias)
+        from datetime import datetime
+        import pytz
+
+        TZ_BOLIVIA = pytz.timezone('America/La_Paz')
+        ahora_bo   = datetime.now(TZ_BOLIVIA)
+        hoy        = ahora_bo.date()
+        hora_ahora = ahora_bo.time()
+        limite     = hoy + timedelta(days=dias)
+
         sesiones = Sesion.objects.filter(
             paciente=paciente, estado='programada',
             fecha__gte=hoy, fecha__lte=limite,
@@ -127,16 +136,21 @@ def get_sesiones_proximas(paciente, dias: int = 30) -> list:
 
         resultado = []
         for s in sesiones:
-            # Determinar tipo y si el monto aplica individualmente
             if s.mensualidad:
-                tipo_sesion = 'mensualidad'
-                monto_display = None  # el monto es del paquete mensual, no por sesión
+                tipo_sesion   = 'mensualidad'
+                monto_display = None
             elif s.proyecto:
-                tipo_sesion = 'proyecto/evaluacion'
-                monto_display = None  # el monto es del proyecto total
+                tipo_sesion   = 'proyecto/evaluacion'
+                monto_display = None
             else:
-                tipo_sesion = 'sesion_normal'
+                tipo_sesion   = 'sesion_normal'
                 monto_display = float(s.monto_cobrado) if s.monto_cobrado else 0
+
+            # Sesiones de HOY cuya hora_fin ya pasó → marcar para que el agente
+            # no las presente como "próximas" sino como ya ocurridas.
+            ya_paso = False
+            if s.fecha == hoy and s.hora_fin and s.hora_fin <= hora_ahora:
+                ya_paso = True
 
             resultado.append({
                 'id':             s.id,
@@ -152,7 +166,7 @@ def get_sesiones_proximas(paciente, dias: int = 30) -> list:
                 'sucursal_id':    s.sucursal.id if s.sucursal else None,
                 'tipo_sesion':    tipo_sesion,
                 'monto':          monto_display,
-                # Referencias para solicitudes
+                'ya_paso_hoy':    ya_paso,  # True si la hora de fin ya pasó hoy
                 'mensualidad_id': s.mensualidad.id if s.mensualidad else None,
                 'proyecto_id':    s.proyecto.id if s.proyecto else None,
             })
