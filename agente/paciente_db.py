@@ -47,13 +47,13 @@ def buscar_paciente_y_tutor(telefono: str):
     """
     Busca el paciente por teléfono del tutor e indica cuál tutor escribió.
 
-    Retorna: (paciente, cual_tutor) donde cual_tutor es 'tutor_1' o 'tutor_2',
-             o (None, None) si no se encontró ningún paciente registrado.
+    Retorna:
+      - (paciente, cual_tutor)  → tutor con UN solo hijo activo
+      - ('multiples', lista)    → tutor con VARIOS hijos activos (lista de dicts)
+      - (None, None)            → número desconocido o error de datos
 
-    Seguridad:
-    - Solo números exactamente registrados en telefono_tutor o telefono_tutor_2.
-    - Si el mismo número está en múltiples pacientes, logea advertencia y retorna None
-      (caso de datos corruptos — no se puede saber a quién atender con certeza).
+    La lista de 'multiples' contiene dicts con:
+      {'paciente': obj, 'cual_tutor': 'tutor_1'|'tutor_2'}
     """
     try:
         from pacientes.models import Paciente
@@ -63,42 +63,68 @@ def buscar_paciente_y_tutor(telefono: str):
             log.warning(f'[PacienteDB] Teléfono con formato inválido rechazado: {telefono!r}')
             return None, None
 
-        # Construir todas las variantes del número para cubrir
-        # inconsistencias de formato en la BD (con/sin prefijo 591, con/sin +).
         variantes = _tel_variantes(telefono)
 
-        # Buscar como tutor principal (cualquier variante del número)
+        # Buscar en tutor_1 y tutor_2 con todas las variantes
         matches_t1 = list(
-            Paciente.objects.filter(telefono_tutor__in=variantes, estado='activo')
+            Paciente.objects.filter(telefono_tutor__in=variantes, estado='activo').distinct()
         )
-        if len(matches_t1) > 1:
-            ids = [p.id for p in matches_t1]
-            log.error(
-                f'[PacienteDB] ALERTA SEGURIDAD: número {tel} registrado como tutor_1 '
-                f'en {len(matches_t1)} pacientes (IDs: {ids}). Se rechaza.'
-            )
-            return None, None
-        if len(matches_t1) == 1:
-            return matches_t1[0], 'tutor_1'
-
-        # Buscar como tutor secundario (cualquier variante del número)
         matches_t2 = list(
-            Paciente.objects.filter(telefono_tutor_2__in=variantes, estado='activo')
+            Paciente.objects.filter(telefono_tutor_2__in=variantes, estado='activo').distinct()
         )
-        if len(matches_t2) > 1:
-            ids = [p.id for p in matches_t2]
-            log.error(
-                f'[PacienteDB] ALERTA SEGURIDAD: número {tel} registrado como tutor_2 '
-                f'en {len(matches_t2)} pacientes (IDs: {ids}). Se rechaza.'
-            )
-            return None, None
-        if len(matches_t2) == 1:
-            return matches_t2[0], 'tutor_2'
 
-        return None, None
+        # Deduplicar por ID (por si aparece en ambas listas)
+        vistos = set()
+        todos = []
+        for p in matches_t1:
+            if p.id not in vistos:
+                vistos.add(p.id)
+                todos.append({'paciente': p, 'cual_tutor': 'tutor_1'})
+        for p in matches_t2:
+            if p.id not in vistos:
+                vistos.add(p.id)
+                todos.append({'paciente': p, 'cual_tutor': 'tutor_2'})
+
+        if len(todos) == 0:
+            return None, None
+
+        if len(todos) == 1:
+            return todos[0]['paciente'], todos[0]['cual_tutor']
+
+        # Múltiples hijos — el llamador debe manejar la selección
+        log.info(
+            f'[PacienteDB] {tel} es tutor de {len(todos)} pacientes activos: '
+            f'{[d["paciente"].id for d in todos]}'
+        )
+        return 'multiples', todos
 
     except Exception as e:
         log.error(f'[PacienteDB] Error buscando por teléfono {telefono}: {e}')
+        return None, None
+
+
+def buscar_paciente_por_id(paciente_id: int, telefono: str):
+    """
+    Verifica que el teléfono sea tutor del paciente con ese ID.
+    Retorna (paciente, cual_tutor) o (None, None) si no corresponde.
+    Usado para validar la selección guardada en SelectorPaciente.
+    """
+    try:
+        from pacientes.models import Paciente
+        variantes = _tel_variantes(telefono)
+
+        paciente = Paciente.objects.filter(id=paciente_id, estado='activo').first()
+        if not paciente:
+            return None, None
+
+        if paciente.telefono_tutor in variantes:
+            return paciente, 'tutor_1'
+        if getattr(paciente, 'telefono_tutor_2', None) and paciente.telefono_tutor_2 in variantes:
+            return paciente, 'tutor_2'
+
+        return None, None
+    except Exception as e:
+        log.error(f'[PacienteDB] Error en buscar_paciente_por_id: {e}')
         return None, None
 
 

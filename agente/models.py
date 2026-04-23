@@ -159,6 +159,51 @@ class ModoHumano(models.Model):
         return f"{estado} — {self.telefono}"
 
 
+class SelectorPaciente(models.Model):
+    """
+    Guarda qué paciente eligió un tutor cuando tiene múltiples hijos en el centro.
+    Se activa cuando buscar_paciente_y_tutor detecta más de un hijo para el mismo número.
+
+    - telefono:    formato canónico 591XXXXXXXX
+    - paciente_id: ID del paciente elegido
+    - cual_tutor:  'tutor_1' o 'tutor_2'
+    - actualizado: se renueva cada vez que el tutor confirma o cambia la selección
+    """
+    telefono    = models.CharField(max_length=20, unique=True, db_index=True)
+    paciente_id = models.IntegerField()
+    cual_tutor  = models.CharField(max_length=10, default='tutor_1')
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Selector de Paciente (tutor con varios hijos)'
+        verbose_name_plural = 'Selectores de Paciente (tutores con varios hijos)'
+
+    def __str__(self):
+        return f'{self.telefono} → paciente_id={self.paciente_id} ({self.cual_tutor})'
+
+    @classmethod
+    def get_seleccion(cls, telefono: str):
+        """Retorna (paciente_id, cual_tutor) si ya eligió, o (None, None)."""
+        try:
+            sel = cls.objects.get(telefono=telefono)
+            return sel.paciente_id, sel.cual_tutor
+        except cls.DoesNotExist:
+            return None, None
+
+    @classmethod
+    def guardar_seleccion(cls, telefono: str, paciente_id: int, cual_tutor: str):
+        """Guarda o actualiza la selección del tutor."""
+        cls.objects.update_or_create(
+            telefono=telefono,
+            defaults={'paciente_id': paciente_id, 'cual_tutor': cual_tutor},
+        )
+
+    @classmethod
+    def limpiar_seleccion(cls, telefono: str):
+        """Elimina la selección para forzar que vuelva a elegir."""
+        cls.objects.filter(telefono=telefono).delete()
+
+
 class SucursalIA(models.Model):
     """
     Control global de la IA por sucursal.

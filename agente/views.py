@@ -165,6 +165,20 @@ def whatsapp_entrante(request):
 # RUTEO DE AGENTES — lógica central de identificación
 # ─────────────────────────────────────────────────────────────
 
+def _mensaje_pide_cambio(mensaje: str) -> bool:
+    """
+    Detecta si el tutor quiere cambiar de hijo seleccionado.
+    Frases naturales como 'quiero consultar por mi otro hijo', 'cambiar hijo', etc.
+    """
+    msg = mensaje.lower()
+    frases = [
+        'cambiar hijo', 'otro hijo', 'mi otra hija', 'mi otro hijo',
+        'consultar por', 'preguntar por', 'cambiar paciente',
+        'el otro', 'la otra', 'cambiar de hijo', 'cambiar de paciente',
+    ]
+    return any(f in msg for f in frases)
+
+
 def _rutear_agente(telefono: str, mensaje: str) -> str:
     """
     Identifica quién escribe y despacha al agente correcto.
@@ -208,11 +222,43 @@ def _rutear_agente(telefono: str, mensaje: str) -> str:
 
     # No es staff — verificar si es tutor de paciente ACTIVO
     try:
-        from agente.paciente_db import buscar_paciente_y_tutor
-        paciente, cual_tutor = buscar_paciente_y_tutor(telefono)
+        from agente.paciente_db import buscar_paciente_y_tutor, buscar_paciente_por_id
+        from agente.models import SelectorPaciente
 
-        if paciente:
-            # Verificar que el paciente sigue activo
+        resultado, datos = buscar_paciente_y_tutor(telefono)
+
+        if resultado == 'multiples':
+            # Tutor con varios hijos — ver si ya eligió uno antes
+            paciente_id, cual_tutor = SelectorPaciente.get_seleccion(telefono)
+
+            if paciente_id:
+                # Verificar que la selección guardada sigue siendo válida
+                paciente, cual_tutor = buscar_paciente_por_id(paciente_id, telefono)
+                if paciente:
+                    # Ver si el mensaje actual es para cambiar de hijo
+                    if _mensaje_pide_cambio(mensaje):
+                        SelectorPaciente.limpiar_seleccion(telefono)
+                        from agente.paciente import responder_seleccion
+                        return responder_seleccion(telefono, mensaje, datos)
+                    log.info(
+                        f'[Ruteo] {telefono} → Agente Paciente '
+                        f'({paciente.nombre} {paciente.apellido}, selección guardada)'
+                    )
+                    from agente.paciente import responder
+                    return responder(telefono, mensaje, paciente, cual_tutor=cual_tutor)
+                else:
+                    # Selección inválida (paciente dado de alta, etc.) — limpiar y preguntar
+                    SelectorPaciente.limpiar_seleccion(telefono)
+
+            # Sin selección válida — preguntar por cuál hijo
+            log.info(f'[Ruteo] {telefono} → Tutor con múltiples hijos — pidiendo selección')
+            from agente.paciente import responder_seleccion
+            return responder_seleccion(telefono, mensaje, datos)
+
+        elif resultado is not None:
+            # Tutor con un solo hijo
+            paciente = resultado
+            cual_tutor = datos
             if getattr(paciente, 'estado', 'activo') != 'activo':
                 log.info(
                     f'[Ruteo] {telefono} → Paciente INACTIVO '
@@ -225,6 +271,7 @@ def _rutear_agente(telefono: str, mensaje: str) -> str:
                 )
                 from agente.paciente import responder
                 return responder(telefono, mensaje, paciente, cual_tutor=cual_tutor)
+
     except Exception as e:
         log.error(f'[Ruteo] Error verificando paciente: {e}')
 

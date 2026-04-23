@@ -704,6 +704,115 @@ def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
 # Función principal de respuesta
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Selección de hijo para tutores con múltiples pacientes
+# ─────────────────────────────────────────────────────────────────────────────
+
+def responder_seleccion(
+    telefono: str,
+    mensaje_usuario: str,
+    hijos: list,
+) -> str:
+    """
+    Maneja el flujo de selección de hijo para tutores con múltiples hijos.
+
+    Flujo:
+      1. Si el tutor aún no eligió (o el mensaje no indica un hijo):
+         → Guarda el mensaje en historial y devuelve la pregunta de selección.
+      2. Si el mensaje indica un hijo válido:
+         → Guarda la selección en SelectorPaciente.
+         → Llama a responder() normalmente con ese paciente.
+
+    hijos: lista de dicts {'paciente': obj, 'cual_tutor': str}
+            devuelta por buscar_paciente_y_tutor cuando retorna 'multiples'.
+    """
+    try:
+        from agente.models import SelectorPaciente
+
+        # Intentar detectar qué hijo eligió en este mensaje
+        paciente_elegido, cual_tutor_elegido = _detectar_eleccion(mensaje_usuario, hijos)
+
+        if paciente_elegido:
+            # Guardar selección y derivar al agente paciente normal
+            tel_canon = _normalizar_tel(telefono)
+            SelectorPaciente.guardar_seleccion(tel_canon, paciente_elegido.id, cual_tutor_elegido)
+            log.info(
+                f'[Agente Paciente] {telefono} eligió: '
+                f'{paciente_elegido.nombre} {paciente_elegido.apellido}'
+            )
+            return responder(telefono, mensaje_usuario, paciente_elegido, cual_tutor=cual_tutor_elegido)
+
+        # No eligió aún — guardar su mensaje y preguntar
+        guardar_mensaje(telefono, 'user', mensaje_usuario)
+        pregunta = _construir_pregunta_seleccion(hijos)
+        guardar_mensaje(telefono, 'assistant', pregunta, 'selector')
+        log.info(f'[Agente Paciente] {telefono} → preguntando por selección de hijo')
+        return pregunta
+
+    except Exception as e:
+        log.error(f'[Agente Paciente] Error en responder_seleccion para {telefono}: {e}', exc_info=True)
+        return (
+            'Disculpe, tuve un problema técnico. '
+            'Por favor comuníquese directamente con nosotros:\n'
+            'Sede Japón: +591 76175352\n'
+            'Sede Camacho: +591 78633975'
+        )
+
+
+def _construir_pregunta_seleccion(hijos: list) -> str:
+    """
+    Construye el mensaje de pregunta listando los hijos del tutor.
+    Ejemplo:
+      Hola! Veo que tiene más de un hijo en el centro. ¿Por cuál me consulta?
+      1. Mateo García
+      2. Sofía García
+      Responda con el número o el nombre del niño/a.
+    """
+    lineas = [
+        'Hola! Veo que tiene más de un hijo/a en nuestro centro. '
+        '¿Por cuál me está consultando?'
+    ]
+    for i, d in enumerate(hijos, 1):
+        p = d['paciente']
+        lineas.append(f'{i}. {p.nombre} {p.apellido}')
+    lineas.append('\nResponda con el número o el nombre del niño/a.')
+    return '\n'.join(lineas)
+
+
+def _detectar_eleccion(mensaje: str, hijos: list):
+    """
+    Intenta detectar qué hijo eligió el tutor en su mensaje.
+    Acepta:
+      - Número ("1", "2", etc.)
+      - Nombre o apellido del paciente (parcial, sin importar mayúsculas)
+    Retorna (paciente, cual_tutor) o (None, None) si no se pudo determinar.
+    """
+    msg = mensaje.strip().lower()
+
+    # Por número
+    if msg.isdigit():
+        idx = int(msg) - 1
+        if 0 <= idx < len(hijos):
+            d = hijos[idx]
+            return d['paciente'], d['cual_tutor']
+        return None, None
+
+    # Por nombre o apellido
+    for d in hijos:
+        p = d['paciente']
+        nombre_lower    = p.nombre.lower()
+        apellido_lower  = p.apellido.lower()
+        nombre_completo = f'{nombre_lower} {apellido_lower}'
+
+        if (nombre_lower in msg or
+                apellido_lower in msg or
+                any(parte in msg for parte in nombre_lower.split()) or
+                any(parte in msg for parte in apellido_lower.split())):
+            return p, d['cual_tutor']
+
+    return None, None
+
+
 def responder(
     telefono: str,
     mensaje_usuario: str,
