@@ -19,15 +19,28 @@ log = logging.getLogger('agente')
 
 def _normalizar_telefono(telefono: str) -> str:
     """
-    Normaliza un número de teléfono a su forma canónica sin prefijo de país.
-    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones.
+    Normaliza un número de teléfono a su forma canónica SIN prefijo de país.
+    Resultado: XXXXXXXX (8 dígitos bolivianos, sin 591 ni +591).
+    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones, paréntesis.
     """
-    tel = telefono.strip().replace(' ', '').replace('-', '')
+    tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
     if tel.startswith('+591'):
         tel = tel[4:]
     elif tel.startswith('591') and len(tel) > 9:
         tel = tel[3:]
     return tel
+
+
+def _tel_variantes(telefono: str) -> list:
+    """
+    Genera todas las variantes de formato posibles para un número,
+    cubriendo cómo puede estar guardado en la BD.
+    Cubre: XXXXXXXX | 591XXXXXXXX | +591XXXXXXXX
+    """
+    base = _normalizar_telefono(telefono)
+    if not base:
+        return []
+    return list(dict.fromkeys([base, f'591{base}', f'+591{base}']))
 
 
 def buscar_paciente_y_tutor(telefono: str):
@@ -51,12 +64,8 @@ def buscar_paciente_y_tutor(telefono: str):
             return None, None
 
         # Construir todas las variantes del número para cubrir
-        # inconsistencias de formato en la BD (con/sin prefijo 591).
-        variantes = list(dict.fromkeys([
-            tel,
-            f'591{tel}' if not tel.startswith('591') else tel,
-            tel[3:] if tel.startswith('591') and len(tel) > 9 else tel,
-        ]))
+        # inconsistencias de formato en la BD (con/sin prefijo 591, con/sin +).
+        variantes = _tel_variantes(telefono)
 
         # Buscar como tutor principal (cualquier variante del número)
         matches_t1 = list(

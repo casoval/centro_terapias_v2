@@ -469,12 +469,28 @@ def get_prompt(modo_conversacion: str = '') -> str:
         return prompt
 
 
+def _normalizar_tel(telefono: str) -> str:
+    """
+    Normaliza a formato canónico 591XXXXXXXX para guardar en BD.
+    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones, paréntesis.
+    """
+    tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+    if tel.startswith('+591'):
+        tel = tel[4:]
+    elif tel.startswith('591') and len(tel) > 9:
+        tel = tel[3:]
+    if not tel.startswith('591'):
+        tel = f'591{tel}'
+    return tel
+
+
 def get_historial_db(telefono: str, limite: int = 20) -> list:
     try:
         from agente.models import ConversacionAgente
+        tel = _normalizar_tel(telefono)
         mensajes = ConversacionAgente.objects.filter(
             agente='publico',
-            telefono=telefono
+            telefono=tel
         ).order_by('-creado')[:limite]
         return [
             {'role': m.rol, 'content': m.contenido}
@@ -488,9 +504,10 @@ def get_historial_db(telefono: str, limite: int = 20) -> list:
 def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
     try:
         from agente.models import ConversacionAgente
+        tel = _normalizar_tel(telefono)
         ConversacionAgente.objects.create(
             agente='publico',
-            telefono=telefono,
+            telefono=tel,
             rol=rol,
             contenido=contenido,
             modelo_usado=modelo,

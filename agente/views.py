@@ -26,8 +26,15 @@ def _verificar_token(request) -> bool:
 
 
 def _normalizar_telefono(telefono: str) -> str:
-    """Normaliza el teléfono al formato canónico '591XXXXXXX' usado en toda la BD."""
-    tel = telefono.strip()
+    """
+    Normaliza el teléfono al formato canónico '591XXXXXXXX' usado en toda la BD.
+    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones, paréntesis.
+    """
+    tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+    if tel.startswith('+591'):
+        tel = tel[4:]
+    elif tel.startswith('591') and len(tel) > 9:
+        tel = tel[3:]
     if not tel.startswith('591'):
         tel = '591' + tel
     return tel
@@ -167,6 +174,10 @@ def _rutear_agente(telefono: str, mensaje: str) -> str:
       2. Paciente activo con tutor registrado
       3. Público (desconocido o inactivo)
     """
+    # Normalizar a 591XXXXXXXX antes de cualquier consulta — garantiza
+    # que todos los agentes y búsquedas en BD reciban el mismo formato.
+    telefono = _normalizar_telefono(telefono)
+
     from agente.staff_db import identificar_staff
 
     staff = identificar_staff(telefono)
