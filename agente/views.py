@@ -426,7 +426,9 @@ def api_conversaciones(request):
         )
         modo = modos.get(tel)
 
-        # Determinar si es paciente registrado y qué tutor es
+        # Determinar si es paciente registrado y qué tutor es.
+        # buscar_paciente_y_tutor normaliza el número internamente,
+        # por lo que acepta el teléfono en cualquier formato.
         paciente, cual_tutor = buscar_paciente_y_tutor(tel)
         es_paciente = paciente is not None
 
@@ -461,11 +463,12 @@ def api_conversaciones(request):
 @login_required
 def api_historial_telefono(request, telefono):
     from agente.models import ConversacionAgente
+    tel = _normalizar_telefono(telefono)
     mensajes = (
         ConversacionAgente.objects
-        .filter(agente='publico', telefono=telefono)
+        .filter(telefono=tel)
         .order_by('creado')
-        .values('rol', 'contenido', 'modelo_usado', 'creado')
+        .values('rol', 'contenido', 'modelo_usado', 'creado', 'agente')
     )
     data = [
         {
@@ -473,6 +476,7 @@ def api_historial_telefono(request, telefono):
             'contenido': m['contenido'],
             'modelo':  m['modelo_usado'],
             'creado':  m['creado'].isoformat(),
+            'agente':  m['agente'],
         }
         for m in mensajes
     ]

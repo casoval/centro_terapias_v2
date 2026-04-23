@@ -50,8 +50,18 @@ def buscar_paciente_y_tutor(telefono: str):
             log.warning(f'[PacienteDB] Teléfono con formato inválido rechazado: {telefono!r}')
             return None, None
 
-        # Buscar como tutor principal
-        matches_t1 = list(Paciente.objects.filter(telefono_tutor=tel, estado='activo'))
+        # Construir todas las variantes del número para cubrir
+        # inconsistencias de formato en la BD (con/sin prefijo 591).
+        variantes = list(dict.fromkeys([
+            tel,
+            f'591{tel}' if not tel.startswith('591') else tel,
+            tel[3:] if tel.startswith('591') and len(tel) > 9 else tel,
+        ]))
+
+        # Buscar como tutor principal (cualquier variante del número)
+        matches_t1 = list(
+            Paciente.objects.filter(telefono_tutor__in=variantes, estado='activo')
+        )
         if len(matches_t1) > 1:
             ids = [p.id for p in matches_t1]
             log.error(
@@ -62,8 +72,10 @@ def buscar_paciente_y_tutor(telefono: str):
         if len(matches_t1) == 1:
             return matches_t1[0], 'tutor_1'
 
-        # Buscar como tutor secundario
-        matches_t2 = list(Paciente.objects.filter(telefono_tutor_2=tel, estado='activo'))
+        # Buscar como tutor secundario (cualquier variante del número)
+        matches_t2 = list(
+            Paciente.objects.filter(telefono_tutor_2__in=variantes, estado='activo')
+        )
         if len(matches_t2) > 1:
             ids = [p.id for p in matches_t2]
             log.error(
