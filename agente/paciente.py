@@ -331,6 +331,18 @@ def construir_contexto(
                 if s['faltas']:
                     ctx += f" | {s['faltas']} faltas"
                 ctx += "\n"
+                # Detalle individual de sesiones del proyecto
+                if p.get('sesiones_detalle'):
+                    ctx += "  Detalle de sesiones:\n"
+                    for sd in p['sesiones_detalle']:
+                        ctx += (
+                            f"    · {sd['fecha']} {sd['dia']} {sd['hora']}"
+                            f" | {sd['servicio']} con {sd['profesional']}"
+                            f" | {sd['estado']}"
+                        )
+                        if sd.get('minutos_retraso'):
+                            ctx += f" ({sd['minutos_retraso']} min de retraso)"
+                        ctx += "\n"
 
         # ── Mensualidades ─────────────────────────────────────────────────────
         if mensualidades:
@@ -356,6 +368,18 @@ def construir_contexto(
                 if s['faltas']:
                     ctx += f" | {s['faltas']} faltas"
                 ctx += "\n"
+                # Detalle individual de sesiones de la mensualidad
+                if m.get('sesiones_detalle'):
+                    ctx += "  Detalle de sesiones:\n"
+                    for sd in m['sesiones_detalle']:
+                        ctx += (
+                            f"    · {sd['fecha']} {sd['dia']} {sd['hora']}"
+                            f" | {sd['servicio']} con {sd['profesional']}"
+                            f" | {sd['estado']}"
+                        )
+                        if sd.get('minutos_retraso'):
+                            ctx += f" ({sd['minutos_retraso']} min de retraso)"
+                        ctx += "\n"
 
         # ── Cuenta corriente ──────────────────────────────────────────────────
         if cuenta:
@@ -605,22 +629,40 @@ def _elegir_modelo(mensaje: str) -> tuple[str, str]:
 
 def _detectar_solicitud_pagos(mensaje: str) -> dict | None:
     """
-    Detecta si el tutor pide ver sus pagos y en qué período.
+    Detecta si el tutor pide ver sus pagos, deuda o saldo y en qué período.
     Retorna dict con mes/anio/todos, o None si no aplica.
+
+    CORRECCIÓN: incluye palabras de deuda y saldo para que consultas como
+    "cuánto debo?", "tengo deuda?", "mi saldo?" también carguen el detalle
+    completo de pagos en el contexto, dándole a Claude más datos para responder.
     """
     msg = mensaje.lower()
 
-    # Palabras clave ampliadas
+    # Palabras clave de pagos + deuda + saldo (unificadas)
     palabras_pago = (
-        'pago', 'pagos', 'recibo', 'recibos', 'historial', 'devolucion',
-        'devoluciones', 'pagado', 'pague', 'pague', 'abone', 'abono',
+        # Pagos explícitos
+        'pago', 'pagos', 'recibo', 'recibos', 'devolucion', 'devoluciones',
+        'pagado', 'pague', 'pagué', 'abone', 'abono',
         'cuanto pague', 'cuánto pagué', 'mis pagos', 'ver pagos',
         'comprobante', 'transferencia', 'qr',
+        # Deuda y saldo — NUEVO: estas consultas también necesitan el historial
+        'deuda', 'debo', 'cuanto debo', 'cuánto debo', 'saldo', 'balance',
+        'credito', 'crédito', 'cuenta corriente', 'cuanto tengo', 'cuánto tengo',
+        'cuanto me falta', 'cuánto me falta', 'tengo deuda', 'mi deuda',
+        'mi cuenta', 'estado de cuenta', 'cuanto adeudo', 'cuánto adeudo',
+        # Historial general
+        'historial de pagos', 'ver mis pagos', 'mis recibos',
+        'cuanto he pagado', 'cuánto he pagado', 'total pagado',
     )
     if not any(p in msg for p in palabras_pago):
         return None
 
-    if any(p in msg for p in ('todos', 'todo', 'siempre', 'historial completo', 'todos los pagos', 'todo el historial')):
+    if any(p in msg for p in (
+        'todos', 'todo', 'siempre', 'historial completo',
+        'todos los pagos', 'todo el historial', 'desde el inicio',
+        'desde que empece', 'desde que empecé', 'todo lo que pague',
+        'todo lo que pagué',
+    )):
         return {'todos': True}
 
     MESES = {
@@ -651,29 +693,57 @@ def _detectar_solicitud_sesiones(mensaje: str) -> dict | None:
     """
     Detecta si el tutor pide ver historial de sesiones y en qué período.
     Retorna dict con mes/anio/todos, o None si no aplica.
+
+    CORRECCIÓN: ampliadas las variantes para capturar solicitudes de detalle
+    de permisos ("en qué días tuve permiso"), faltas ("cuándo falté"),
+    y asistencia general que antes no activaban el historial completo.
     """
     msg = mensaje.lower()
 
-    # Palabras clave ampliadas para capturar más variantes naturales
     palabras_sesion = (
+        # Historial de sesiones genérico
         'historial de sesiones', 'mis sesiones', 'sesiones realizadas',
         'sesiones que tuve', 'cuantas sesiones', 'cuántas sesiones',
         'sesiones del mes', 'sesiones pasadas', 'todas mis sesiones',
+        'ver sesiones', 'mis clases', 'mis terapias', 'terapias del mes',
+        'clases del mes', 'cuantas terapias', 'cuántas terapias',
+        # Sesiones por mes explícito
         'sesiones de enero', 'sesiones de febrero', 'sesiones de marzo',
         'sesiones de abril', 'sesiones de mayo', 'sesiones de junio',
         'sesiones de julio', 'sesiones de agosto', 'sesiones de septiembre',
         'sesiones de octubre', 'sesiones de noviembre', 'sesiones de diciembre',
-        'faltas que tuve', 'permisos que tuve', 'cuantas faltas', 'cuántas faltas',
+        # Permisos — NUEVO: variantes para pedir DETALLE, no solo el conteo
         'cuantos permisos', 'cuántos permisos',
-        'mis terapias', 'terapias del mes', 'clases del mes',
-        'cuantas terapias', 'cuántas terapias',
-        'ver sesiones', 'mis clases', 'asistencia',
+        'permisos que tuve', 'mis permisos', 'ver mis permisos',
+        'detalle de permisos', 'que permisos', 'qué permisos',
+        'cuando tuve permiso', 'cuándo tuve permiso',
+        'dias de permiso', 'días de permiso',
+        'que dias tuve permiso', 'qué días tuve permiso',
+        'en que dias pedi permiso', 'en qué días pedí permiso',
+        # Faltas — NUEVO: variantes para pedir DETALLE de ausencias
+        'cuantas faltas', 'cuántas faltas',
+        'faltas que tuve', 'mis faltas', 'ver mis faltas',
+        'detalle de faltas', 'que faltas', 'qué faltas',
         'falte', 'falté', 'cuándo falté', 'cuando falte',
+        'dias que falte', 'días que falté', 'cuando falto', 'cuándo faltó',
+        'fallas', 'inasistencias',
+        # Asistencia general — NUEVO
+        'asistencia', 'ver mi asistencia', 'historial de asistencia',
+        'mi asistencia', 'como fue mi asistencia', 'cómo fue mi asistencia',
+        'registro de asistencia',
+        # Resumen del mes/período
+        'resumen del mes', 'resumen de sesiones', 'como me fue', 'cómo me fue',
+        'cuantas veces fui', 'cuántas veces fui', 'cuantas veces asistio',
     )
     if not any(p in msg for p in palabras_sesion):
         return None
 
-    if any(p in msg for p in ('todas', 'todo', 'siempre', 'historial completo', 'todas mis sesiones', 'todo el historial')):
+    if any(p in msg for p in (
+        'todas', 'todo', 'siempre', 'historial completo',
+        'todas mis sesiones', 'todo el historial', 'desde el inicio',
+        'desde que empece', 'desde que empecé', 'todo mi historial',
+        'todos los meses', 'todas las sesiones',
+    )):
         return {'todos': True}
 
     MESES = {

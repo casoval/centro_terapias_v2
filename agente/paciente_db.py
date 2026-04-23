@@ -501,9 +501,21 @@ def get_proyectos(paciente) -> list:
             'servicio_base', 'profesional_responsable', 'sucursal'
         ).prefetch_related('sesiones').order_by('-fecha_inicio')
 
+        ESTADOS_LABEL = {
+            'programada':        'Programada',
+            'realizada':         'Realizada',
+            'realizada_retraso': 'Realizada con retraso',
+            'falta':             'Falta sin aviso',
+            'permiso':           'Permiso',
+            'cancelada':         'Cancelada',
+            'reprogramada':      'Reprogramada',
+        }
+
         resultado = []
         for p in proyectos:
-            sesiones = p.sesiones.all()
+            sesiones = p.sesiones.select_related(
+                'servicio', 'profesional'
+            ).order_by('fecha', 'hora_inicio')
             conteo = {
                 'total':         sesiones.count(),
                 'programadas':   sesiones.filter(estado='programada').count(),
@@ -514,6 +526,23 @@ def get_proyectos(paciente) -> list:
                 'canceladas':    sesiones.filter(estado='cancelada').count(),
                 'reprogramadas': sesiones.filter(estado='reprogramada').count(),
             }
+
+            # Detalle individual de cada sesión del proyecto (sin notas ni observaciones)
+            sesiones_detalle = []
+            for s in sesiones:
+                sesiones_detalle.append({
+                    'fecha':      s.fecha.strftime('%d/%m/%Y'),
+                    'dia':        _nombre_dia(s.fecha.weekday()),
+                    'hora':       s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
+                    'servicio':   s.servicio.nombre if s.servicio else '—',
+                    'profesional': (
+                        f"{s.profesional.nombre} {s.profesional.apellido}"
+                        if s.profesional else '—'
+                    ),
+                    'estado':     ESTADOS_LABEL.get(s.estado, s.estado),
+                    'minutos_retraso': s.minutos_retraso if s.estado == 'realizada_retraso' else None,
+                })
+
             resultado.append({
                 'codigo':             p.codigo,
                 'nombre':             p.nombre,
@@ -531,9 +560,9 @@ def get_proyectos(paciente) -> list:
                 'pagado_completo':    p.pagado_completo,
                 'informe_entregado':  p.informe_entregado,
                 'fecha_informe':      p.fecha_entrega_informe.strftime('%d/%m/%Y') if p.fecha_entrega_informe else '—',
-                # Enlace al informe digital si existe (solo URL, no datos clínicos)
                 'tiene_informe_digital': bool(getattr(p, 'archivo_informe_drive_url', '')),
                 'sesiones':           conteo,
+                'sesiones_detalle':   sesiones_detalle,  # fechas individuales de cada sesión
             })
         return resultado
     except Exception as e:
@@ -557,9 +586,21 @@ def get_mensualidades(paciente) -> list:
             'sesiones',
         ).select_related('sucursal').order_by('-anio', '-mes')
 
+        ESTADOS_LABEL = {
+            'programada':        'Programada',
+            'realizada':         'Realizada',
+            'realizada_retraso': 'Realizada con retraso',
+            'falta':             'Falta sin aviso',
+            'permiso':           'Permiso',
+            'cancelada':         'Cancelada',
+            'reprogramada':      'Reprogramada',
+        }
+
         resultado = []
         for m in mensualidades:
-            sesiones = m.sesiones.all()
+            sesiones = m.sesiones.select_related(
+                'servicio', 'profesional'
+            ).order_by('fecha', 'hora_inicio')
             conteo = {
                 'total':         sesiones.count(),
                 'programadas':   sesiones.filter(estado='programada').count(),
@@ -570,6 +611,22 @@ def get_mensualidades(paciente) -> list:
                 'canceladas':    sesiones.filter(estado='cancelada').count(),
                 'reprogramadas': sesiones.filter(estado='reprogramada').count(),
             }
+
+            # Detalle individual de cada sesión de la mensualidad (sin notas ni observaciones)
+            sesiones_detalle = []
+            for s in sesiones:
+                sesiones_detalle.append({
+                    'fecha':       s.fecha.strftime('%d/%m/%Y'),
+                    'dia':         _nombre_dia(s.fecha.weekday()),
+                    'hora':        s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
+                    'servicio':    s.servicio.nombre if s.servicio else '—',
+                    'profesional': (
+                        f"{s.profesional.nombre} {s.profesional.apellido}"
+                        if s.profesional else '—'
+                    ),
+                    'estado':      ESTADOS_LABEL.get(s.estado, s.estado),
+                    'minutos_retraso': s.minutos_retraso if s.estado == 'realizada_retraso' else None,
+                })
 
             servicios = []
             for sp in m.servicios_profesionales.select_related('servicio', 'profesional'):
@@ -590,6 +647,7 @@ def get_mensualidades(paciente) -> list:
                 'saldo':            float(m.saldo_pendiente),
                 'pagado_completo':  m.pagado_completo,
                 'sesiones':         conteo,
+                'sesiones_detalle': sesiones_detalle,  # fechas individuales de cada sesión
             })
         return resultado
     except Exception as e:
