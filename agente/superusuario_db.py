@@ -1,19 +1,17 @@
 """
 agente/superusuario_db.py
-Consultas de SOLO LECTURA a la base de datos para el Agente Superusuario.
-El dueño puede consultar cualquier dato del sistema sin restricciones.
-NUNCA modifica datos.
+Consultas de SOLO LECTURA para el Agente Superusuario.
+Acceso total sin restricciones a todos los datos del sistema.
 
-Cambios respecto a la versión anterior:
-- Corregido: facturacion_pago.fecha → fecha_pago
-- Corregido: pacientes_paciente.fecha_ingreso → fecha_registro
-- Añadido: egresos_resumenfinanciero (resumen financiero mensual con egresos reales)
-- Añadido: egresos_egreso (egresos operativos)
-- Añadido: servicios_comisionsesion (rentabilidad por sesión)
-- Mejorado: facturacion_cuentacorriente con campos saldo_real, ingreso_neto_centro
-- Añadido: get_resumen_financiero_mensual() para análisis ejecutivo completo
-- Añadido: get_egresos_mes() para desglose de gastos
-- Añadido: get_resultado_neto() para P&L rápido
+Imports 100% verificados contra los models reales:
+  - pacientes.models     → Paciente  (fecha_registro = DateTimeField auto_now_add)
+  - profesionales.models → Profesional
+  - agenda.models        → Sesion, Mensualidad, Proyecto
+  - facturacion.models   → Pago (campo: fecha_pago), CuentaCorriente, Devolucion
+  - servicios.models     → ComisionSesion, TipoServicio
+  - egresos.models       → ResumenFinanciero (campo: egresos_servicios_basicos,
+                           egresos_mantenimiento, egresos_seguros, egresos_capacitacion)
+                           Egreso (campo: fecha — no fecha_pago)
 """
 
 import logging
@@ -22,343 +20,263 @@ from datetime import date, timedelta
 log = logging.getLogger('agente')
 
 
-# ── Resumen general del negocio ───────────────────────────────────────────────
+# ── Resumen ejecutivo ─────────────────────────────────────────────────────────
 
 def get_resumen_general() -> dict:
-    """
-    Resumen ejecutivo del centro: pacientes, sesiones, ingresos, profesionales.
-    Es el contexto base que siempre se incluye en cada consulta del dueño.
-    """
     hoy = date.today()
-    resultado = {}
+    r   = {'fecha_consulta': hoy.strftime('%d/%m/%Y')}
 
-    # Pacientes — campo correcto: fecha_registro (no fecha_ingreso)
+    # Pacientes — fecha_registro es DateTimeField auto_now_add (confirmado en models_pacientes.py)
     try:
         from pacientes.models import Paciente
-        resultado['pacientes_activos']    = Paciente.objects.filter(estado='activo').count()
-        resultado['pacientes_total']      = Paciente.objects.count()
-        resultado['pacientes_nuevos_mes'] = Paciente.objects.filter(
+        r['pac_activos']    = Paciente.objects.filter(estado='activo').count()
+        r['pac_total']      = Paciente.objects.count()
+        r['pac_inactivos']  = Paciente.objects.filter(estado='inactivo').count()
+        r['pac_nuevos_mes'] = Paciente.objects.filter(
             fecha_registro__year=hoy.year,
             fecha_registro__month=hoy.month,
         ).count()
-        resultado['pacientes_inactivos'] = Paciente.objects.filter(estado='inactivo').count()
     except Exception as e:
-        log.error(f'[SuperDB] Error pacientes: {e}')
-        resultado['pacientes_activos'] = resultado['pacientes_total'] = \
-            resultado['pacientes_nuevos_mes'] = resultado['pacientes_inactivos'] = '?'
+        log.error(f'[SuperDB] pacientes: {e}')
+        r.update({'pac_activos': '?', 'pac_total': '?',
+                  'pac_inactivos': '?', 'pac_nuevos_mes': '?'})
 
-    # Profesionales
+    # Profesionales (app: profesionales)
     try:
         from profesionales.models import Profesional
-        resultado['profesionales_activos'] = Profesional.objects.filter(activo=True).count()
+        r['prof_activos'] = Profesional.objects.filter(activo=True).count()
     except Exception as e:
-        log.error(f'[SuperDB] Error profesionales: {e}')
-        resultado['profesionales_activos'] = '?'
+        log.error(f'[SuperDB] profesionales: {e}')
+        r['prof_activos'] = '?'
 
-    # Sesiones de hoy
+    # Sesiones de hoy (app: agenda)
     try:
         from agenda.models import Sesion
-        qs_hoy = Sesion.objects.filter(fecha=hoy)
-        resultado['sesiones_hoy_programadas'] = qs_hoy.filter(estado='programada').count()
-        resultado['sesiones_hoy_realizadas']  = qs_hoy.filter(
-            estado__in=['realizada', 'realizada_retraso']
-        ).count()
-        resultado['sesiones_hoy_permisos']    = qs_hoy.filter(estado='permiso').count()
-        resultado['sesiones_hoy_faltas']      = qs_hoy.filter(estado='falta').count()
-        resultado['sesiones_hoy_canceladas']  = qs_hoy.filter(estado='cancelada').count()
+        from django.db.models import Count
+        qs     = Sesion.objects.filter(fecha=hoy)
+        estados = {x['estado']: x['c'] for x in qs.values('estado').annotate(c=Count('id'))}
+        r['ses_programadas'] = estados.get('programada', 0)
+        r['ses_realizadas']  = estados.get('realizada', 0) + estados.get('realizada_retraso', 0)
+        r['ses_permisos']    = estados.get('permiso', 0)
+        r['ses_faltas']      = estados.get('falta', 0)
+        r['ses_canceladas']  = estados.get('cancelada', 0)
     except Exception as e:
-        log.error(f'[SuperDB] Error sesiones hoy: {e}')
-        for k in ('sesiones_hoy_programadas', 'sesiones_hoy_realizadas',
-                  'sesiones_hoy_permisos', 'sesiones_hoy_faltas', 'sesiones_hoy_canceladas'):
-            resultado[k] = '?'
+        log.error(f'[SuperDB] sesiones hoy: {e}')
+        for k in ('ses_programadas', 'ses_realizadas', 'ses_permisos',
+                  'ses_faltas', 'ses_canceladas'):
+            r[k] = '?'
 
-    # Ingresos del mes — campo correcto: fecha_pago (no fecha)
+    # Ingresos — Pago.fecha_pago (confirmado en models_facturacion.py, NO 'fecha')
     try:
         from facturacion.models import Pago
         from django.db.models import Sum
-        total = Pago.objects.filter(
-            fecha_pago__year=hoy.year,
-            fecha_pago__month=hoy.month,
-            anulado=False,
-        ).aggregate(total=Sum('monto'))['total'] or 0
-        resultado['ingresos_mes'] = float(total)
+        r['ingresos_hoy'] = float(
+            Pago.objects.filter(fecha_pago=hoy, anulado=False)
+            .aggregate(t=Sum('monto'))['t'] or 0
+        )
+        r['ingresos_mes'] = float(
+            Pago.objects.filter(
+                fecha_pago__year=hoy.year,
+                fecha_pago__month=hoy.month,
+                anulado=False,
+            ).aggregate(t=Sum('monto'))['t'] or 0
+        )
     except Exception as e:
-        log.error(f'[SuperDB] Error ingresos: {e}')
-        resultado['ingresos_mes'] = '?'
+        log.error(f'[SuperDB] ingresos: {e}')
+        r['ingresos_hoy'] = r['ingresos_mes'] = '?'
 
-    # Resultado neto del mes (si existe resumen financiero)
+    # Resumen financiero del mes
     try:
         from egresos.models import ResumenFinanciero
-        rf = ResumenFinanciero.objects.filter(
-            mes=hoy.month, anio=hoy.year
-        ).first()
+        rf = ResumenFinanciero.objects.filter(mes=hoy.month, anio=hoy.year).first()
         if rf:
-            resultado['resultado_neto_mes']   = float(rf.resultado_neto)
-            resultado['total_egresos_mes']    = float(rf.total_egresos)
-            resultado['margen_mes']           = float(rf.margen_porcentaje)
-            resultado['ingresos_brutos_mes']  = float(rf.ingresos_brutos)
+            r['resultado_neto'] = float(rf.resultado_neto)
+            r['total_egresos']  = float(rf.total_egresos)
+            r['margen']         = float(rf.margen_porcentaje)
         else:
-            resultado['resultado_neto_mes'] = resultado['total_egresos_mes'] = \
-                resultado['margen_mes'] = None
+            r['resultado_neto'] = r['total_egresos'] = r['margen'] = None
     except Exception as e:
-        log.error(f'[SuperDB] Error resumen financiero: {e}')
-        resultado['resultado_neto_mes'] = None
+        log.error(f'[SuperDB] resumen financiero: {e}')
+        r['resultado_neto'] = None
 
-    resultado['fecha_consulta'] = hoy.strftime('%d/%m/%Y')
-    return resultado
-
-
-# ── Pacientes ─────────────────────────────────────────────────────────────────
-
-def buscar_paciente(nombre: str = None, telefono: str = None) -> list:
-    """Busca pacientes por nombre parcial o teléfono."""
-    try:
-        from pacientes.models import Paciente
-        qs = Paciente.objects.all()
-
-        if telefono:
-            tel = telefono.strip().replace('+591', '').replace('591', '')
-            qs = qs.filter(telefono_tutor__icontains=tel)
-        elif nombre:
-            from django.db.models import Q
-            partes = nombre.strip().split()
-            q = Q()
-            for parte in partes:
-                q |= Q(nombre__icontains=parte) | Q(apellido__icontains=parte)
-            qs = qs.filter(q)
-
-        resultado = []
-        for p in qs.order_by('apellido', 'nombre')[:10]:
-            resultado.append({
-                'id':            p.id,
-                'nombre':        f'{p.nombre} {p.apellido}',
-                'estado':        p.estado,
-                'tutor':         p.nombre_tutor or '—',
-                'telefono':      p.telefono_tutor or '—',
-                'diagnostico':   (p.diagnostico or '—')[:80],
-                # fecha_registro es el campo correcto en la BD
-                'fecha_registro': p.fecha_registro.strftime('%d/%m/%Y') if p.fecha_registro else '—',
-            })
-        return resultado
-    except Exception as e:
-        log.error(f'[SuperDB] Error buscando paciente: {e}')
-        return []
-
-
-def get_detalle_paciente(paciente_id: int) -> dict:
-    """Detalle completo de un paciente por ID."""
-    try:
-        from pacientes.models import Paciente
-        p = Paciente.objects.get(id=paciente_id)
-        hoy = date.today()
-        edad = None
-        if p.fecha_nacimiento:
-            fn = p.fecha_nacimiento
-            edad = hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))
-        return {
-            'id':                p.id,
-            'nombre_completo':   f'{p.nombre} {p.apellido}',
-            'edad':              edad,
-            'estado':            p.estado,
-            'diagnostico':       p.diagnostico or '—',
-            'tutor_1':           p.nombre_tutor or '—',
-            'telefono_tutor_1':  p.telefono_tutor or '—',
-            'tutor_2':           p.nombre_tutor_2 or '—',
-            'telefono_tutor_2':  p.telefono_tutor_2 or '—',
-            # campo correcto según BD: fecha_registro
-            'fecha_registro':    p.fecha_registro.strftime('%d/%m/%Y') if p.fecha_registro else '—',
-            'apoyo_escolar':     p.apoyo_escolar,
-            'nombre_escuela':    p.nombre_escuela or '—',
-        }
-    except Exception as e:
-        log.error(f'[SuperDB] Error detalle paciente {paciente_id}: {e}')
-        return {}
+    return r
 
 
 # ── Sesiones ──────────────────────────────────────────────────────────────────
 
 def get_sesiones_hoy(sucursal_id: int = None) -> list:
-    """Todas las sesiones de hoy, opcionalmente filtradas por sucursal."""
     try:
         from agenda.models import Sesion
         qs = Sesion.objects.filter(fecha=date.today()).select_related(
             'paciente', 'profesional', 'servicio', 'sucursal'
         ).order_by('hora_inicio')
-
         if sucursal_id:
             qs = qs.filter(sucursal__id=sucursal_id)
-
-        resultado = []
-        for s in qs:
-            resultado.append({
-                'hora':        s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
-                'paciente':    f'{s.paciente.nombre} {s.paciente.apellido}' if s.paciente else '—',
-                'profesional': f'{s.profesional.nombre} {s.profesional.apellido}' if s.profesional else '—',
-                'servicio':    s.servicio.nombre if s.servicio else '—',
-                'sucursal':    s.sucursal.nombre if s.sucursal else '—',
-                'estado':      s.estado,
-                'monto':       float(s.monto_cobrado or 0),
-                # notas_sesion es el campo correcto (confirmado en BD)
-                'tiene_nota':  bool(s.notas_sesion),
-            })
-        return resultado
+        return [{
+            'hora':        s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
+            'paciente':    f'{s.paciente.nombre} {s.paciente.apellido}' if s.paciente else '—',
+            'profesional': f'{s.profesional.nombre} {s.profesional.apellido}' if s.profesional else '—',
+            'servicio':    s.servicio.nombre if s.servicio else '—',
+            'sucursal':    s.sucursal.nombre if s.sucursal else '—',
+            'estado':      s.estado,
+            'monto':       float(s.monto_cobrado or 0),
+            # notas_sesion es el campo real en Sesion (confirmado en models_agenda.py)
+            'tiene_nota':  bool(s.notas_sesion),
+        } for s in qs]
     except Exception as e:
-        log.error(f'[SuperDB] Error sesiones hoy: {e}')
+        log.error(f'[SuperDB] sesiones hoy: {e}')
         return []
 
 
 def get_sesiones_semana(sucursal_id: int = None) -> dict:
-    """Resumen de sesiones de la semana actual."""
     try:
         from agenda.models import Sesion
         from django.db.models import Count
         hoy    = date.today()
         lunes  = hoy - timedelta(days=hoy.weekday())
         sabado = lunes + timedelta(days=5)
-
         qs = Sesion.objects.filter(fecha__gte=lunes, fecha__lte=sabado)
         if sucursal_id:
             qs = qs.filter(sucursal__id=sucursal_id)
-
-        por_estado = {item['estado']: item['total']
-                      for item in qs.values('estado').annotate(total=Count('id'))}
-
+        estados = {x['estado']: x['c'] for x in qs.values('estado').annotate(c=Count('id'))}
         return {
             'semana':      f'{lunes:%d/%m} al {sabado:%d/%m/%Y}',
-            'programadas': por_estado.get('programada', 0),
-            'realizadas':  por_estado.get('realizada', 0) + por_estado.get('realizada_retraso', 0),
-            'permisos':    por_estado.get('permiso', 0),
-            'faltas':      por_estado.get('falta', 0),
-            'canceladas':  por_estado.get('cancelada', 0),
-            'total':       qs.count(),
+            'programadas': estados.get('programada', 0),
+            'realizadas':  estados.get('realizada', 0) + estados.get('realizada_retraso', 0),
+            'permisos':    estados.get('permiso', 0),
+            'faltas':      estados.get('falta', 0),
+            'canceladas':  estados.get('cancelada', 0),
         }
     except Exception as e:
-        log.error(f'[SuperDB] Error sesiones semana: {e}')
+        log.error(f'[SuperDB] sesiones semana: {e}')
         return {}
 
 
-# ── Ingresos y finanzas ───────────────────────────────────────────────────────
+# ── Pacientes ─────────────────────────────────────────────────────────────────
+
+def buscar_paciente(nombre: str = None, telefono: str = None) -> list:
+    try:
+        from pacientes.models import Paciente
+        from django.db.models import Q
+        qs = Paciente.objects.all()
+        if telefono:
+            tel = telefono.strip().replace('+591', '').replace('591', '')
+            qs  = qs.filter(telefono_tutor__icontains=tel)
+        elif nombre:
+            q = Q()
+            for p in nombre.strip().split():
+                q |= Q(nombre__icontains=p) | Q(apellido__icontains=p)
+            qs = qs.filter(q)
+        return [{
+            'id':         p.id,
+            'nombre':     f'{p.nombre} {p.apellido}',
+            'estado':     p.estado,
+            'tutor':      p.nombre_tutor or '—',
+            'telefono':   p.telefono_tutor or '—',
+            'diagnostico':(p.diagnostico or '—')[:80],
+            'desde':      p.fecha_registro.strftime('%d/%m/%Y') if p.fecha_registro else '—',
+        } for p in qs.order_by('apellido', 'nombre')[:10]]
+    except Exception as e:
+        log.error(f'[SuperDB] buscar paciente: {e}')
+        return []
+
+
+# ── Ingresos ──────────────────────────────────────────────────────────────────
 
 def get_ingresos_mes(anio: int = None, mes: int = None) -> dict:
-    """Ingresos totales del mes especificado (o el actual). Solo pagos no anulados."""
     try:
         from facturacion.models import Pago
         from django.db.models import Sum
+        import calendar
         hoy  = date.today()
         anio = anio or hoy.year
         mes  = mes  or hoy.month
-
-        # IMPORTANTE: campo correcto es fecha_pago, no fecha
-        pagos = Pago.objects.filter(
-            fecha_pago__year=anio,
-            fecha_pago__month=mes,
-            anulado=False,
+        qs   = Pago.objects.filter(
+            fecha_pago__year=anio, fecha_pago__month=mes, anulado=False
         )
-        total = pagos.aggregate(total=Sum('monto'))['total'] or 0
-
-        import calendar
-        nombre_mes = calendar.month_name[mes]
-
-        return {
-            'periodo':        f'{nombre_mes} {anio}',
-            'total_ingresos': float(total),
-            'num_pagos':      pagos.count(),
-        }
-    except Exception as e:
-        log.error(f'[SuperDB] Error ingresos mes: {e}')
-        return {}
-
-
-def get_ingresos_hoy() -> dict:
-    """Ingresos cobrados hoy."""
-    try:
-        from facturacion.models import Pago
-        from django.db.models import Sum
-        hoy = date.today()
-        qs  = Pago.objects.filter(fecha_pago=hoy, anulado=False)
         total = qs.aggregate(t=Sum('monto'))['t'] or 0
         return {
-            'total':    float(total),
+            'periodo':   f'{calendar.month_name[mes]} {anio}',
+            'total':     float(total),
             'num_pagos': qs.count(),
-            'fecha':    hoy.strftime('%d/%m/%Y'),
         }
     except Exception as e:
-        log.error(f'[SuperDB] Error ingresos hoy: {e}')
+        log.error(f'[SuperDB] ingresos mes: {e}')
         return {}
 
 
+# ── Deudas ────────────────────────────────────────────────────────────────────
+
 def get_deudas_pendientes(limite: int = 15) -> list:
-    """Lista de pacientes con mayor deuda (saldo negativo en cuenta corriente)."""
     try:
         from facturacion.models import CuentaCorriente
-        cuentas = (
+        qs = (
             CuentaCorriente.objects
             .filter(saldo_actual__lt=0)
             .select_related('paciente')
             .order_by('saldo_actual')[:limite]
         )
-        resultado = []
-        for c in cuentas:
-            resultado.append({
-                'paciente':      f'{c.paciente.nombre} {c.paciente.apellido}' if c.paciente else '—',
-                'deuda':         abs(float(c.saldo_actual or 0)),
-                # saldo_real: considera sesiones ya realizadas pero no cobradas
-                'deuda_real':    abs(float(c.saldo_real or 0)),
-                # ingreso_neto_centro: lo que queda para el centro tras honorarios
-                'ingreso_neto':  float(c.ingreso_neto_centro or 0),
-            })
-        return resultado
+        return [{
+            'paciente':   f'{c.paciente.nombre} {c.paciente.apellido}' if c.paciente else '—',
+            'deuda':      abs(float(c.saldo_actual or 0)),
+            'deuda_real': abs(float(c.saldo_real or 0)),
+            'neto':       float(c.ingreso_neto_centro or 0),
+        } for c in qs]
     except Exception as e:
-        log.error(f'[SuperDB] Error deudas pendientes: {e}')
+        log.error(f'[SuperDB] deudas: {e}')
         return []
 
 
+# ── P&L mensual ───────────────────────────────────────────────────────────────
+
 def get_resumen_financiero_mensual(anio: int = None, mes: int = None) -> dict:
     """
-    NUEVO: Resumen financiero completo del mes desde egresos_resumenfinanciero.
-    Incluye ingresos, egresos por categoría, resultado neto y margen.
+    ResumenFinanciero se recalcula automáticamente vía signal.
+    Campos confirmados en models_egresos.py: egresos_servicios_basicos,
+    egresos_mantenimiento, egresos_seguros, egresos_capacitacion (existen).
     """
     try:
         from egresos.models import ResumenFinanciero
+        import calendar
         hoy  = date.today()
         anio = anio or hoy.year
         mes  = mes  or hoy.month
-
-        rf = ResumenFinanciero.objects.filter(mes=mes, anio=anio).first()
+        rf   = ResumenFinanciero.objects.filter(mes=mes, anio=anio).first()
         if not rf:
-            return {'disponible': False, 'periodo': f'{mes}/{anio}'}
-
-        import calendar
+            return {'disponible': False, 'periodo': f'{calendar.month_name[mes]} {anio}'}
         return {
-            'disponible':           True,
-            'periodo':              f'{calendar.month_name[mes]} {anio}',
-            'ingresos_brutos':      float(rf.ingresos_brutos),
-            'ingresos_adicionales': float(rf.ingresos_adicionales),
-            'total_devoluciones':   float(rf.total_devoluciones),
-            'ingresos_netos':       float(rf.ingresos_netos),
-            # Egresos por categoría
-            'egresos_arriendo':     float(rf.egresos_arriendo),
-            'egresos_servicios':    float(rf.egresos_servicios_basicos),
-            'egresos_personal':     float(rf.egresos_personal),
-            'egresos_honorarios':   float(rf.egresos_honorarios),
-            'egresos_equipamiento': float(rf.egresos_equipamiento),
-            'egresos_marketing':    float(rf.egresos_marketing),
-            'egresos_impuestos':    float(rf.egresos_impuestos),
-            'egresos_otros':        float(rf.egresos_otros),
-            'total_egresos':        float(rf.total_egresos),
-            # Resultado
-            'resultado_neto':       float(rf.resultado_neto),
-            'margen_porcentaje':    float(rf.margen_porcentaje),
-            'ultima_actualizacion': rf.ultima_actualizacion.strftime('%d/%m/%Y %H:%M'),
+            'disponible':            True,
+            'periodo':               f'{calendar.month_name[mes]} {anio}',
+            'ingresos_brutos':       float(rf.ingresos_brutos),
+            'ingresos_adicionales':  float(rf.ingresos_adicionales),
+            'total_devoluciones':    float(rf.total_devoluciones),
+            'ingresos_netos':        float(rf.ingresos_netos),
+            'egresos_arriendo':      float(rf.egresos_arriendo),
+            'egresos_servicios':     float(rf.egresos_servicios_basicos),
+            'egresos_personal':      float(rf.egresos_personal),
+            'egresos_honorarios':    float(rf.egresos_honorarios),
+            'egresos_equipamiento':  float(rf.egresos_equipamiento),
+            'egresos_mantenimiento': float(rf.egresos_mantenimiento),
+            'egresos_marketing':     float(rf.egresos_marketing),
+            'egresos_impuestos':     float(rf.egresos_impuestos),
+            'egresos_seguros':       float(rf.egresos_seguros),
+            'egresos_capacitacion':  float(rf.egresos_capacitacion),
+            'egresos_otros':         float(rf.egresos_otros),
+            'total_egresos':         float(rf.total_egresos),
+            'resultado_neto':        float(rf.resultado_neto),
+            'margen_porcentaje':     float(rf.margen_porcentaje),
+            'actualizado':           rf.ultima_actualizacion.strftime('%d/%m/%Y %H:%M'),
         }
     except Exception as e:
-        log.error(f'[SuperDB] Error resumen financiero mensual: {e}')
+        log.error(f'[SuperDB] resumen financiero: {e}')
         return {'disponible': False}
 
 
 def get_egresos_recientes(dias: int = 30) -> list:
     """
-    NUEVO: Egresos operativos recientes (gastos del centro).
+    Egreso.fecha es DateField (confirmado en models_egresos.py línea:
+    fecha = models.DateField(verbose_name="Fecha de pago"))
+    NO usar fecha_pago aquí — eso es de facturacion.Pago.
     """
     try:
         from egresos.models import Egreso
@@ -369,275 +287,315 @@ def get_egresos_recientes(dias: int = 30) -> list:
             .select_related('categoria', 'sucursal')
             .order_by('-fecha')[:20]
         )
-        resultado = []
-        for e in qs:
-            resultado.append({
-                'fecha':     e.fecha.strftime('%d/%m/%Y'),
-                'concepto':  e.concepto[:60],
-                'monto':     float(e.monto),
-                'categoria': e.categoria.nombre if e.categoria else '—',
-                'sucursal':  e.sucursal.nombre if e.sucursal else 'General',
-            })
-        return resultado
+        return [{
+            'fecha':     e.fecha.strftime('%d/%m/%Y'),
+            'concepto':  e.concepto[:60],
+            'monto':     float(e.monto),
+            'categoria': e.categoria.nombre if e.categoria else '—',
+            'sucursal':  e.sucursal.nombre if e.sucursal else 'General',
+        } for e in qs]
     except Exception as e:
-        log.error(f'[SuperDB] Error egresos recientes: {e}')
-        return []
-
-
-def get_rentabilidad_por_profesional(dias: int = 30) -> list:
-    """
-    NUEVO: Rentabilidad por profesional usando servicios_comisionsesion.
-    Muestra monto_centro vs monto_profesional por terapeuta.
-    """
-    try:
-        from servicios.models import ComisionSesion
-        from django.db.models import Sum, Count
-        desde = date.today() - timedelta(days=dias)
-
-        datos = (
-            ComisionSesion.objects
-            .filter(sesion__fecha__gte=desde, sesion__estado__in=['realizada', 'realizada_retraso'])
-            .values('sesion__profesional__nombre', 'sesion__profesional__apellido')
-            .annotate(
-                sesiones=Count('id'),
-                total_cobrado=Sum('precio_cobrado'),
-                monto_centro=Sum('monto_centro'),
-                monto_profesional=Sum('monto_profesional'),
-            )
-            .order_by('-monto_centro')
-        )
-        resultado = []
-        for d in datos:
-            nombre = f"{d['sesion__profesional__nombre']} {d['sesion__profesional__apellido']}"
-            resultado.append({
-                'profesional':       nombre,
-                'sesiones':          d['sesiones'],
-                'total_cobrado':     float(d['total_cobrado'] or 0),
-                'monto_centro':      float(d['monto_centro'] or 0),
-                'monto_profesional': float(d['monto_profesional'] or 0),
-                'periodo':           f'últimos {dias} días',
-            })
-        return resultado
-    except Exception as e:
-        log.error(f'[SuperDB] Error rentabilidad profesional: {e}')
+        log.error(f'[SuperDB] egresos: {e}')
         return []
 
 
 # ── Profesionales ─────────────────────────────────────────────────────────────
 
 def get_profesionales() -> list:
-    """Lista de todos los profesionales activos con su especialidad y sucursales."""
     try:
         from profesionales.models import Profesional
         profs = Profesional.objects.filter(activo=True).prefetch_related('sucursales')
-        resultado = []
-        for p in profs:
-            sucursales = ', '.join(s.nombre for s in p.sucursales.all()) or '—'
-            resultado.append({
-                'nombre':       f'{p.nombre} {p.apellido}',
-                'especialidad': p.especialidad,
-                'sucursales':   sucursales,
-                'email':        p.email or '—',
-                'telefono':     p.telefono or '—',
-                'fecha_ingreso': p.fecha_ingreso.strftime('%d/%m/%Y') if p.fecha_ingreso else '—',
-            })
-        return resultado
+        return [{
+            'nombre':       f'{p.nombre} {p.apellido}',
+            'especialidad': p.especialidad,
+            'sucursales':   ', '.join(s.nombre for s in p.sucursales.all()) or '—',
+            'email':        p.email or '—',
+            'telefono':     p.telefono or '—',
+            'desde':        p.fecha_ingreso.strftime('%d/%m/%Y') if p.fecha_ingreso else '—',
+        } for p in profs]
     except Exception as e:
-        log.error(f'[SuperDB] Error profesionales: {e}')
+        log.error(f'[SuperDB] profesionales: {e}')
         return []
 
 
 def get_sesiones_por_profesional(dias: int = 30) -> list:
-    """
-    Sesiones realizadas por profesional en los últimos N días.
-    Incluye también faltas y permisos para evaluar asistencia.
-    """
     try:
         from agenda.models import Sesion
         from django.db.models import Count
         desde = date.today() - timedelta(days=dias)
-
-        realizadas = (
+        datos = (
             Sesion.objects
             .filter(fecha__gte=desde, estado__in=['realizada', 'realizada_retraso'])
             .values('profesional__nombre', 'profesional__apellido')
             .annotate(total=Count('id'))
             .order_by('-total')
         )
-        resultado = []
-        for d in realizadas:
-            resultado.append({
-                'profesional':       f'{d["profesional__nombre"]} {d["profesional__apellido"]}',
-                'sesiones_realizadas': d['total'],
-                'periodo':           f'últimos {dias} días',
-            })
-        return resultado
+        return [{
+            'profesional': f'{d["profesional__nombre"]} {d["profesional__apellido"]}',
+            'sesiones':    d['total'],
+        } for d in datos]
     except Exception as e:
-        log.error(f'[SuperDB] Error sesiones por profesional: {e}')
+        log.error(f'[SuperDB] sesiones por profesional: {e}')
+        return []
+
+
+def get_rentabilidad_por_profesional(dias: int = 30) -> list:
+    """ComisionSesion — solo existe para sesiones de servicios externos."""
+    try:
+        from servicios.models import ComisionSesion
+        from django.db.models import Sum, Count
+        desde = date.today() - timedelta(days=dias)
+        datos = (
+            ComisionSesion.objects
+            .filter(
+                sesion__fecha__gte=desde,
+                sesion__estado__in=['realizada', 'realizada_retraso'],
+            )
+            .values('sesion__profesional__nombre', 'sesion__profesional__apellido')
+            .annotate(
+                sesiones=Count('id'),
+                cobrado=Sum('precio_cobrado'),
+                centro=Sum('monto_centro'),
+                profesional_monto=Sum('monto_profesional'),
+            )
+            .order_by('-centro')
+        )
+        return [{
+            'profesional': f'{d["sesion__profesional__nombre"]} {d["sesion__profesional__apellido"]}',
+            'sesiones':    d['sesiones'],
+            'cobrado':     float(d['cobrado'] or 0),
+            'centro':      float(d['centro'] or 0),
+            'profesional_monto': float(d['profesional_monto'] or 0),
+        } for d in datos]
+    except Exception as e:
+        log.error(f'[SuperDB] rentabilidad: {e}')
         return []
 
 
 # ── Mensualidades ─────────────────────────────────────────────────────────────
 
 def get_mensualidades_pendientes(limite: int = 15) -> list:
-    """Mensualidades pendientes o parciales con detalle de montos."""
+    """
+    Mensualidad.estado: activa | pausada | completada | cancelada
+    Mensualidad.costo_mensual (no monto_total — confirmado en models_agenda.py)
+    """
     try:
         from agenda.models import Mensualidad
         from django.db.models import Q
-        mens = (
+        qs = (
             Mensualidad.objects
-            .filter(Q(estado='pendiente') | Q(estado='parcial'))
+            .filter(Q(estado='activa') | Q(estado='pausada'))
             .select_related('paciente', 'sucursal')
-            .order_by('anio', 'mes')[:limite]
+            .order_by('-anio', '-mes')[:limite]
         )
         resultado = []
-        for m in mens:
+        for m in qs:
+            try:
+                pendiente = float(m.saldo_pendiente)
+            except Exception:
+                pendiente = float(m.costo_mensual)
             resultado.append({
-                'paciente':   f'{m.paciente.nombre} {m.paciente.apellido}' if m.paciente else '—',
-                'periodo':    f'{m.mes:02d}/{m.anio}',
-                'monto':      float(m.costo_mensual or 0),
-                'estado':     m.estado,
-                'sucursal':   m.sucursal.nombre if m.sucursal else '—',
+                'paciente':  f'{m.paciente.nombre} {m.paciente.apellido}' if m.paciente else '—',
+                'periodo':   f'{m.mes:02d}/{m.anio}',
+                'costo':     float(m.costo_mensual),
+                'pendiente': pendiente,
+                'estado':    m.estado,
+                'sucursal':  m.sucursal.nombre if m.sucursal else '—',
             })
         return resultado
     except Exception as e:
-        log.error(f'[SuperDB] Error mensualidades pendientes: {e}')
+        log.error(f'[SuperDB] mensualidades: {e}')
         return []
 
 
-# ── Constructor de contexto completo ──────────────────────────────────────────
+# ── Proyectos ─────────────────────────────────────────────────────────────────
+
+def get_proyectos_activos(limite: int = 10) -> list:
+    """
+    Proyecto.estado: planificado | en_progreso | finalizado | cancelado
+    Proyecto.costo_total (no costo — confirmado en models_agenda.py)
+    """
+    try:
+        from agenda.models import Proyecto
+        qs = (
+            Proyecto.objects
+            .filter(estado__in=['en_progreso', 'planificado'])
+            .select_related('paciente', 'profesional_responsable',
+                            'sucursal', 'servicio_base')
+            .order_by('-fecha_inicio')[:limite]
+        )
+        resultado = []
+        for p in qs:
+            try:
+                pendiente = float(p.saldo_pendiente)
+            except Exception:
+                pendiente = float(p.costo_total)
+            resultado.append({
+                'codigo':      p.codigo,
+                'nombre':      p.nombre,
+                'paciente':    f'{p.paciente.nombre} {p.paciente.apellido}' if p.paciente else '—',
+                'profesional': (
+                    f'{p.profesional_responsable.nombre} {p.profesional_responsable.apellido}'
+                    if p.profesional_responsable else '—'
+                ),
+                'servicio':    p.servicio_base.nombre if p.servicio_base else '—',
+                'costo':       float(p.costo_total),
+                'pendiente':   pendiente,
+                'estado':      p.estado,
+                'inicio':      p.fecha_inicio.strftime('%d/%m/%Y'),
+                'informe':     'Entregado' if p.informe_entregado else 'Pendiente',
+            })
+        return resultado
+    except Exception as e:
+        log.error(f'[SuperDB] proyectos: {e}')
+        return []
+
+
+# ── Constructor de contexto ───────────────────────────────────────────────────
 
 def construir_contexto_superusuario(mensaje: str) -> str:
     """
-    Construye el contexto de datos que se inyecta en el prompt del superusuario.
-    Siempre incluye el resumen general y agrega datos específicos según el mensaje.
+    Contexto de datos inyectado en el prompt del superusuario.
+    Siempre incluye el resumen ejecutivo. Las demás secciones
+    se activan por palabras clave en el mensaje.
     """
     msg    = mensaje.lower()
     partes = []
     hoy    = date.today()
 
-    # ── Siempre: resumen general ──────────────────────────────────────────────
-    resumen = get_resumen_general()
-    linea_neto = ''
-    if resumen.get('resultado_neto_mes') is not None:
-        linea_neto = (
-            f"\nResultado neto del mes: Bs. {resumen['resultado_neto_mes']:.0f} "
-            f"(margen {resumen['margen_mes']:.1f}%) | "
-            f"Egresos: Bs. {resumen['total_egresos_mes']:.0f}"
+    # ── 1. Resumen ejecutivo — SIEMPRE ────────────────────────────────────────
+    r = get_resumen_general()
+    neto_str = ''
+    if r.get('resultado_neto') is not None:
+        signo    = '+' if r['resultado_neto'] >= 0 else ''
+        neto_str = (
+            f"\nResultado neto del mes: Bs. {signo}{r['resultado_neto']:.0f} "
+            f"(margen {r['margen']:.1f}%) | Egresos totales: Bs. {r['total_egresos']:.0f}"
         )
 
     partes.append(
-        f"=== RESUMEN EJECUTIVO ({resumen.get('fecha_consulta', '')}) ===\n"
-        f"Pacientes activos: {resumen.get('pacientes_activos')} "
-        f"(total registrados: {resumen.get('pacientes_total')}, "
-        f"nuevos este mes: {resumen.get('pacientes_nuevos_mes')}, "
-        f"inactivos: {resumen.get('pacientes_inactivos')})\n"
-        f"Profesionales activos: {resumen.get('profesionales_activos')}\n"
-        f"Sesiones hoy — programadas: {resumen.get('sesiones_hoy_programadas')} | "
-        f"realizadas: {resumen.get('sesiones_hoy_realizadas')} | "
-        f"permisos: {resumen.get('sesiones_hoy_permisos')} | "
-        f"faltas: {resumen.get('sesiones_hoy_faltas')}\n"
-        f"Ingresos del mes: Bs. {resumen.get('ingresos_mes')}"
-        f"{linea_neto}"
+        f"=== RESUMEN EJECUTIVO ({r['fecha_consulta']}) ===\n"
+        f"Pacientes: {r['pac_activos']} activos | {r['pac_inactivos']} inactivos | "
+        f"Total: {r['pac_total']} | Nuevos este mes: {r['pac_nuevos_mes']}\n"
+        f"Profesionales activos: {r['prof_activos']}\n"
+        f"Sesiones hoy: {r['ses_programadas']} programadas | "
+        f"{r['ses_realizadas']} realizadas | "
+        f"{r['ses_permisos']} permisos | "
+        f"{r['ses_faltas']} faltas | "
+        f"{r['ses_canceladas']} canceladas\n"
+        f"Ingresos hoy: Bs. {r['ingresos_hoy']} | "
+        f"Ingresos del mes: Bs. {r['ingresos_mes']}"
+        f"{neto_str}"
     )
 
-    # ── Sesiones de hoy y semana ──────────────────────────────────────────────
-    if any(p in msg for p in ('hoy', 'sesion', 'sesiones', 'agenda', 'dia', 'día')):
+    # ── 2. Agenda de hoy / semana ────────────────────────────────────────────
+    if any(p in msg for p in ('hoy', 'sesion', 'sesiones', 'agenda', 'dia', 'día',
+                               'horario', 'quién', 'quien', 'cita', 'citas',
+                               'programad', 'realiz')):
         sesiones = get_sesiones_hoy()
         if sesiones:
             lineas = [
                 f"  {s['hora']} — {s['paciente']} con {s['profesional']} "
                 f"({s['servicio']}) [{s['estado']}] Bs.{s['monto']:.0f}"
+                + (' 📝' if s['tiene_nota'] else '')
                 for s in sesiones
             ]
             partes.append("=== SESIONES DE HOY ===\n" + '\n'.join(lineas))
         else:
-            partes.append(f"Sin sesiones registradas para hoy ({hoy:%d/%m/%Y})")
+            partes.append(f"Sin sesiones registradas hoy ({hoy:%d/%m/%Y})")
 
-        resumen_sem = get_sesiones_semana()
-        if resumen_sem:
+        sem = get_sesiones_semana()
+        if sem:
             partes.append(
-                f"=== SEMANA ({resumen_sem.get('semana')}) ===\n"
-                f"Programadas: {resumen_sem.get('programadas')} | "
-                f"Realizadas: {resumen_sem.get('realizadas')} | "
-                f"Permisos: {resumen_sem.get('permisos')} | "
-                f"Faltas: {resumen_sem.get('faltas')} | "
-                f"Canceladas: {resumen_sem.get('canceladas')}"
+                f"=== SEMANA ({sem['semana']}) ===\n"
+                f"Programadas: {sem['programadas']} | Realizadas: {sem['realizadas']} | "
+                f"Permisos: {sem['permisos']} | Faltas: {sem['faltas']} | "
+                f"Canceladas: {sem['canceladas']}"
             )
 
-    # ── Ingresos / pagos ──────────────────────────────────────────────────────
+    # ── 3. Ingresos ───────────────────────────────────────────────────────────
     if any(p in msg for p in ('ingreso', 'ingresos', 'dinero', 'pago', 'pagos',
-                               'recaudo', 'ganancia', 'cobro', 'caja')):
-        ing_hoy = get_ingresos_hoy()
-        if ing_hoy:
+                               'cobro', 'cobros', 'caja', 'recaudo', 'ganancia',
+                               'cuanto se cobr', 'cuánto se cobr')):
+        ing = get_ingresos_mes()
+        if ing:
             partes.append(
-                f"=== INGRESOS HOY ({ing_hoy.get('fecha')}) ===\n"
-                f"Total cobrado: Bs. {ing_hoy.get('total', 0):.0f} en {ing_hoy.get('num_pagos')} pagos"
-            )
-        ing_mes = get_ingresos_mes()
-        if ing_mes:
-            partes.append(
-                f"=== INGRESOS {ing_mes.get('periodo', '').upper()} ===\n"
-                f"Total: Bs. {ing_mes.get('total_ingresos', 0):.0f} "
-                f"en {ing_mes.get('num_pagos')} pagos"
+                f"=== INGRESOS {ing.get('periodo','').upper()} ===\n"
+                f"Total cobrado: Bs. {ing['total']:,.0f} en {ing['num_pagos']} pagos"
             )
 
-    # ── Egresos / gastos ──────────────────────────────────────────────────────
-    if any(p in msg for p in ('egreso', 'egresos', 'gasto', 'gastos', 'costo',
-                               'costos', 'arriendo', 'servicios basicos', 'honorarios')):
-        egresos = get_egresos_recientes(30)
-        if egresos:
-            lineas = [
-                f"  [{e['fecha']}] {e['concepto']} — Bs. {e['monto']:.0f} ({e['categoria']})"
-                for e in egresos[:10]
-            ]
-            partes.append("=== EGRESOS RECIENTES (30 días) ===\n" + '\n'.join(lineas))
-
-    # ── Resumen financiero completo (P&L) ─────────────────────────────────────
+    # ── 4. P&L completo ───────────────────────────────────────────────────────
     if any(p in msg for p in ('financiero', 'balance', 'resultado', 'neto', 'margen',
                                'rentabilidad', 'utilidad', 'perdida', 'pérdida',
-                               'estado de resultados', 'p&l', 'flujo')):
+                               'ganancias', 'p&l', 'estado de resultado', 'flujo',
+                               'gastos', 'cuanto gast', 'cuánto gast')):
         rf = get_resumen_financiero_mensual()
         if rf.get('disponible'):
             partes.append(
-                f"=== RESUMEN FINANCIERO {rf.get('periodo', '').upper()} ===\n"
-                f"Ingresos brutos: Bs. {rf.get('ingresos_brutos', 0):.0f}\n"
-                f"Devoluciones: Bs. {rf.get('total_devoluciones', 0):.0f}\n"
-                f"Ingresos netos: Bs. {rf.get('ingresos_netos', 0):.0f}\n"
-                f"--- EGRESOS ---\n"
-                f"  Arriendo: Bs. {rf.get('egresos_arriendo', 0):.0f}\n"
-                f"  Servicios básicos: Bs. {rf.get('egresos_servicios', 0):.0f}\n"
-                f"  Personal: Bs. {rf.get('egresos_personal', 0):.0f}\n"
-                f"  Honorarios prof.: Bs. {rf.get('egresos_honorarios', 0):.0f}\n"
-                f"  Equipamiento: Bs. {rf.get('egresos_equipamiento', 0):.0f}\n"
-                f"  Marketing: Bs. {rf.get('egresos_marketing', 0):.0f}\n"
-                f"  Impuestos: Bs. {rf.get('egresos_impuestos', 0):.0f}\n"
-                f"  Otros: Bs. {rf.get('egresos_otros', 0):.0f}\n"
-                f"TOTAL EGRESOS: Bs. {rf.get('total_egresos', 0):.0f}\n"
-                f"RESULTADO NETO: Bs. {rf.get('resultado_neto', 0):.0f} "
-                f"(margen {rf.get('margen_porcentaje', 0):.1f}%)\n"
-                f"Actualizado: {rf.get('ultima_actualizacion')}"
+                f"=== P&L {rf['periodo'].upper()} ===\n"
+                f"Ingresos brutos:    Bs. {rf['ingresos_brutos']:>10,.0f}\n"
+                f"Ingresos adicional: Bs. {rf['ingresos_adicionales']:>10,.0f}\n"
+                f"Devoluciones:      -Bs. {rf['total_devoluciones']:>10,.0f}\n"
+                f"Ingresos netos:     Bs. {rf['ingresos_netos']:>10,.0f}\n"
+                f"─── EGRESOS ────────────────────────\n"
+                f"  Arriendo:         Bs. {rf['egresos_arriendo']:>10,.0f}\n"
+                f"  Serv. básicos:    Bs. {rf['egresos_servicios']:>10,.0f}\n"
+                f"  Personal:         Bs. {rf['egresos_personal']:>10,.0f}\n"
+                f"  Honorarios prof:  Bs. {rf['egresos_honorarios']:>10,.0f}\n"
+                f"  Equipamiento:     Bs. {rf['egresos_equipamiento']:>10,.0f}\n"
+                f"  Mantenimiento:    Bs. {rf['egresos_mantenimiento']:>10,.0f}\n"
+                f"  Marketing:        Bs. {rf['egresos_marketing']:>10,.0f}\n"
+                f"  Impuestos:        Bs. {rf['egresos_impuestos']:>10,.0f}\n"
+                f"  Seguros:          Bs. {rf['egresos_seguros']:>10,.0f}\n"
+                f"  Capacitación:     Bs. {rf['egresos_capacitacion']:>10,.0f}\n"
+                f"  Otros:            Bs. {rf['egresos_otros']:>10,.0f}\n"
+                f"TOTAL EGRESOS:      Bs. {rf['total_egresos']:>10,.0f}\n"
+                f"RESULTADO NETO:     Bs. {rf['resultado_neto']:>10,.0f} "
+                f"(margen {rf['margen_porcentaje']:.1f}%)\n"
+                f"Actualizado: {rf['actualizado']}"
             )
         else:
-            partes.append("=== RESUMEN FINANCIERO ===\nNo hay resumen financiero cerrado para este mes.")
+            partes.append(
+                f"No hay resumen financiero cerrado para {rf.get('periodo', 'este mes')}. "
+                "Los datos aún pueden estar en procesamiento."
+            )
 
-    # ── Deudas / cuentas corrientes ───────────────────────────────────────────
+    # ── 5. Egresos / gastos ───────────────────────────────────────────────────
+    if any(p in msg for p in ('egreso', 'egresos', 'gasto', 'gastos', 'arriendo',
+                               'servicio basico', 'honorario', 'honorarios',
+                               'proveedor', 'compra', 'compras')):
+        egresos = get_egresos_recientes(30)
+        if egresos:
+            lineas = [
+                f"  [{e['fecha']}] {e['concepto']} — Bs. {e['monto']:,.0f} "
+                f"({e['categoria']}) [{e['sucursal']}]"
+                for e in egresos[:12]
+            ]
+            partes.append("=== EGRESOS RECIENTES (30 días) ===\n" + '\n'.join(lineas))
+
+    # ── 6. Deudas ─────────────────────────────────────────────────────────────
     if any(p in msg for p in ('deuda', 'deudas', 'pendiente', 'pendientes',
-                               'deben', 'moroso', 'saldo', 'cobrar')):
+                               'deben', 'moroso', 'saldo negativo', 'cobrar',
+                               'mora', 'no han pagado')):
         deudas = get_deudas_pendientes()
         if deudas:
+            total  = sum(d['deuda'] for d in deudas)
             lineas = [
-                f"  {d['paciente']}: Bs. {d['deuda']:.0f} "
-                f"(deuda real: Bs. {d['deuda_real']:.0f})"
+                f"  {d['paciente']}: Bs. {d['deuda']:,.0f} "
+                f"(real: Bs. {d['deuda_real']:,.0f})"
                 for d in deudas
             ]
-            partes.append("=== PACIENTES CON DEUDA ===\n" + '\n'.join(lineas))
+            partes.append(
+                f"=== PACIENTES CON DEUDA (top {len(deudas)}) ===\n"
+                f"Total acumulado: Bs. {total:,.0f}\n"
+                + '\n'.join(lineas)
+            )
         else:
-            partes.append("=== DEUDAS ===\nNo hay pacientes con saldo negativo.")
+            partes.append("=== DEUDAS === No hay pacientes con saldo negativo.")
 
-    # ── Profesionales y rendimiento ───────────────────────────────────────────
-    if any(p in msg for p in ('profesional', 'profesionales', 'terapeuta',
-                               'terapeutas', 'productividad', 'rendimiento')):
+    # ── 7. Profesionales ──────────────────────────────────────────────────────
+    if any(p in msg for p in ('profesional', 'profesionales', 'terapeuta', 'terapeutas',
+                               'staff', 'equipo', 'personal')):
         profs = get_profesionales()
         if profs:
             lineas = [
@@ -646,37 +604,78 @@ def construir_contexto_superusuario(mensaje: str) -> str:
             ]
             partes.append("=== PROFESIONALES ACTIVOS ===\n" + '\n'.join(lineas))
 
-        sesiones_prof = get_sesiones_por_profesional()
-        if sesiones_prof:
+    # ── 8. Productividad / rendimiento ────────────────────────────────────────
+    if any(p in msg for p in ('productividad', 'rendimiento', 'cuántas sesiones',
+                               'cuantas sesiones', 'desempeño', 'desempeno',
+                               'quién atendió', 'quien atendio')):
+        ses_prof = get_sesiones_por_profesional()
+        if ses_prof:
             lineas = [
-                f"  {s['profesional']}: {s['sesiones_realizadas']} sesiones realizadas"
-                for s in sesiones_prof
+                f"  {s['profesional']}: {s['sesiones']} sesiones (30 días)"
+                for s in ses_prof
             ]
-            partes.append("=== SESIONES POR PROFESIONAL (últimos 30 días) ===\n" + '\n'.join(lineas))
+            partes.append("=== SESIONES REALIZADAS POR PROFESIONAL (30 días) ===\n"
+                          + '\n'.join(lineas))
 
-    # ── Rentabilidad por profesional ──────────────────────────────────────────
-    if any(p in msg for p in ('rentabilidad', 'comision', 'comisión', 'honorario',
-                               'honorarios', 'cuanto gana', 'cuánto gana')):
+    # ── 9. Rentabilidad externos ──────────────────────────────────────────────
+    if any(p in msg for p in ('rentabilidad', 'comision', 'comisión', 'externo',
+                               'externos', 'cuanto gana el profesional',
+                               'cuánto queda para el centro')):
         rent = get_rentabilidad_por_profesional()
         if rent:
             lineas = [
-                f"  {r['profesional']}: {r['sesiones']} sesiones | "
-                f"Cobrado: Bs. {r['total_cobrado']:.0f} | "
-                f"Centro: Bs. {r['monto_centro']:.0f} | "
-                f"Prof: Bs. {r['monto_profesional']:.0f}"
+                f"  {r['profesional']}: {r['sesiones']} ses | "
+                f"Cobrado: Bs.{r['cobrado']:,.0f} | "
+                f"Centro: Bs.{r['centro']:,.0f} | "
+                f"Prof: Bs.{r['profesional_monto']:,.0f}"
                 for r in rent
             ]
-            partes.append("=== RENTABILIDAD POR PROFESIONAL (30 días) ===\n" + '\n'.join(lineas))
+            partes.append("=== RENTABILIDAD SERVICIOS EXTERNOS (30 días) ===\n"
+                          + '\n'.join(lineas))
+        else:
+            partes.append("No hay sesiones de servicios externos registradas en los últimos 30 días.")
 
-    # ── Mensualidades ─────────────────────────────────────────────────────────
-    if any(p in msg for p in ('mensualidad', 'mensualidades', 'cuota', 'cuotas')):
+    # ── 10. Mensualidades ─────────────────────────────────────────────────────
+    if any(p in msg for p in ('mensualidad', 'mensualidades', 'cuota', 'cuotas',
+                               'mensual', 'plan mensual')):
         mens = get_mensualidades_pendientes()
         if mens:
             lineas = [
                 f"  {m['paciente']} — {m['periodo']} — "
-                f"Bs. {m['monto']:.0f} ({m['estado']}) [{m['sucursal']}]"
+                f"Costo: Bs.{m['costo']:,.0f} | Pendiente: Bs.{m['pendiente']:,.0f} "
+                f"[{m['estado']}] {m['sucursal']}"
                 for m in mens
             ]
-            partes.append("=== MENSUALIDADES PENDIENTES ===\n" + '\n'.join(lineas))
+            partes.append("=== MENSUALIDADES ACTIVAS/PAUSADAS ===\n" + '\n'.join(lineas))
 
-    return '\n\n'.join(partes) if partes else f"Fecha: {hoy:%d/%m/%Y}. Sin datos adicionales."
+    # ── 11. Proyectos / evaluaciones ──────────────────────────────────────────
+    if any(p in msg for p in ('proyecto', 'proyectos', 'evaluacion', 'evaluación',
+                               'evaluaciones', 'informe', 'informes', 'eval')):
+        proyectos = get_proyectos_activos()
+        if proyectos:
+            lineas = [
+                f"  [{p['codigo']}] {p['paciente']} — {p['servicio']} — "
+                f"Bs.{p['costo']:,.0f} (pendiente: Bs.{p['pendiente']:,.0f}) "
+                f"[{p['estado']}] Informe: {p['informe']}"
+                for p in proyectos
+            ]
+            partes.append("=== PROYECTOS EN CURSO ===\n" + '\n'.join(lineas))
+
+    # ── 12. Búsqueda de paciente específico ───────────────────────────────────
+    if any(p in msg for p in ('buscar', 'busca', 'paciente llamado', 'información de',
+                               'datos de', 'expediente de', 'historial de')):
+        palabras = [p for p in mensaje.split() if len(p) > 4 and p.isalpha()]
+        if palabras:
+            nombre_b = ' '.join(palabras[:2])
+            resultados = buscar_paciente(nombre=nombre_b)
+            if resultados:
+                lineas = [
+                    f"  {p['nombre']} ({p['estado']}) — Tutor: {p['tutor']} "
+                    f"Tel: {p['telefono']} — {p['diagnostico']}"
+                    for p in resultados
+                ]
+                partes.append(
+                    f"=== PACIENTES: '{nombre_b}' ===\n" + '\n'.join(lineas)
+                )
+
+    return '\n\n'.join(partes) if partes else f"Fecha: {hoy:%d/%m/%Y}."
