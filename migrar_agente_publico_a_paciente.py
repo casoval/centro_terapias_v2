@@ -1,59 +1,23 @@
 """
 migrar_agente_publico_a_paciente.py
 ====================================
-Script de migración para corregir registros de ConversacionAgente que
-fueron guardados con agente='publico' pero pertenecen a tutores de pacientes
-registrados.
-
-PROBLEMA:
-  Antes de los fixes de normalización de teléfonos, los tutores registrados
-  podían ser mal identificados y sus mensajes se guardaban con agente='publico'
-  en lugar de agente='paciente'. Esto causaba:
-    - Sus conversaciones aparecían en la pestaña "Público" del panel.
-    - El agente paciente no encontraba su historial previo (filtraba agente='paciente').
-
-SOLUCIÓN:
-  Este script:
-    1. Lee todos los teléfonos únicos con agente='publico'.
-    2. Para cada uno, verifica si corresponde a un tutor activo en la BD de Pacientes
-       (buscando con todas las variantes de formato del número).
-    3. Si es tutor registrado, actualiza sus registros a agente='paciente'.
-    4. También normaliza el campo telefono al formato canónico 591XXXXXXXX.
+Corrige registros de ConversacionAgente guardados con agente='publico'
+que pertenecen a tutores de pacientes registrados.
 
 USO:
-  Ejecutar como management command de Django:
-    python manage.py shell < migrar_agente_publico_a_paciente.py
+  # Ver qué cambiaría SIN aplicar (dry-run):
+  python3 manage.py shell < migrar_agente_publico_a_paciente.py
 
-  O copiar este archivo a:
-    tu_app/management/commands/migrar_historial_agente.py
-  y ejecutar:
-    python manage.py migrar_historial_agente
-
-  Para ver qué cambiaría SIN aplicar cambios (modo dry-run):
-    python manage.py shell
-    >>> DRY_RUN = True
-    >>> exec(open('migrar_agente_publico_a_paciente.py').read())
-
-SEGURIDAD:
-  - Solo modifica registros con agente='publico'.
-  - No toca registros de staff (superusuario, gerente, recepcionista, profesional).
-  - Hace un dry-run por defecto — cambiar DRY_RUN = False para aplicar.
-  - Imprime resumen detallado antes y después.
+  # Aplicar cambios: cambiar DRY_RUN = False y ejecutar de nuevo.
 """
 
-import os
-import sys
-import django
-
-# ── Configuración ─────────────────────────────────────────────────────────────
-# Cambiar a False para aplicar los cambios realmente.
-DRY_RUN = True
+DRY_RUN = True   # <- cambiar a False para aplicar
 
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _normalizar_tel(telefono: str) -> str:
-    """Normaliza a formato canónico 591XXXXXXXX."""
-    tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+def _normalizar_tel(telefono):
+    """Normaliza a formato canonico 591XXXXXXXX."""
+    tel = telefono.strip().replace(' ','').replace('-','').replace('(','').replace(')','')
     if tel.startswith('+591'):
         tel = tel[4:]
     elif tel.startswith('591') and len(tel) > 9:
@@ -63,9 +27,9 @@ def _normalizar_tel(telefono: str) -> str:
     return tel
 
 
-def _tel_variantes(telefono: str) -> list:
-    """Genera todas las variantes de formato para búsqueda robusta en BD."""
-    tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+def _tel_variantes(telefono):
+    """Genera las 3 variantes de formato posibles para un numero."""
+    tel = telefono.strip().replace(' ','').replace('-','').replace('(','').replace(')','')
     if tel.startswith('+591'):
         base = tel[4:]
     elif tel.startswith('591') and len(tel) > 9:
@@ -75,26 +39,41 @@ def _tel_variantes(telefono: str) -> list:
     return list(dict.fromkeys([base, f'591{base}', f'+591{base}']))
 
 
-def es_tutor_registrado(telefono: str):
+def buscar_tutor(telefono):
     """
-    Verifica si el teléfono corresponde a un tutor activo.
+    Busca si el telefono es tutor activo en la BD de Pacientes.
     Retorna (paciente, cual_tutor) o (None, None).
+    Usa distinct() para evitar duplicados por variantes de formato.
     """
     from pacientes.models import Paciente
     variantes = _tel_variantes(telefono)
 
-    matches_t1 = list(Paciente.objects.filter(telefono_tutor__in=variantes, estado='activo'))
+    matches_t1 = list(
+        Paciente.objects
+        .filter(telefono_tutor__in=variantes, estado='activo')
+        .distinct()
+    )
     if len(matches_t1) == 1:
         return matches_t1[0], 'tutor_1'
     if len(matches_t1) > 1:
-        print(f'  ⚠️  ALERTA: {telefono} aparece como tutor_1 en {len(matches_t1)} pacientes — omitido')
+        ids = list({p.id for p in matches_t1})
+        if len(ids) == 1:
+            return matches_t1[0], 'tutor_1'
+        print(f'  ALERTA: {telefono} es tutor_1 en {len(ids)} pacientes distintos (IDs: {ids}) -- omitido')
         return None, None
 
-    matches_t2 = list(Paciente.objects.filter(telefono_tutor_2__in=variantes, estado='activo'))
+    matches_t2 = list(
+        Paciente.objects
+        .filter(telefono_tutor_2__in=variantes, estado='activo')
+        .distinct()
+    )
     if len(matches_t2) == 1:
         return matches_t2[0], 'tutor_2'
     if len(matches_t2) > 1:
-        print(f'  ⚠️  ALERTA: {telefono} aparece como tutor_2 en {len(matches_t2)} pacientes — omitido')
+        ids = list({p.id for p in matches_t2})
+        if len(ids) == 1:
+            return matches_t2[0], 'tutor_2'
+        print(f'  ALERTA: {telefono} es tutor_2 en {len(ids)} pacientes distintos (IDs: {ids}) -- omitido')
         return None, None
 
     return None, None
@@ -104,109 +83,114 @@ def migrar():
     from agente.models import ConversacionAgente
 
     print('=' * 65)
-    print('MIGRACIÓN: publico → paciente en ConversacionAgente')
-    print(f'MODO: {"DRY-RUN (sin cambios reales)" if DRY_RUN else "⚡ APLICANDO CAMBIOS"}')
+    print('MIGRACION: publico -> paciente en ConversacionAgente')
+    print(f'MODO: {"DRY-RUN (sin cambios reales)" if DRY_RUN else "APLICANDO CAMBIOS"}')
     print('=' * 65)
 
-    # ── 1. Obtener teléfonos únicos con agente='publico' ──────────────────
-    telefonos_publico = (
+    # 1. Telefonos unicos con agente='publico'
+    telefonos_raw = list(
         ConversacionAgente.objects
         .filter(agente='publico')
         .values_list('telefono', flat=True)
         .distinct()
     )
-    telefonos_publico = list(telefonos_publico)
-    print(f'\nTeléfonos únicos con agente="publico": {len(telefonos_publico)}')
+    print(f'\nTelefonos unicos con agente="publico": {len(telefonos_raw)}')
 
-    # ── 2. Analizar cada teléfono ─────────────────────────────────────────
-    a_migrar        = []   # (telefono_original, tel_canonico, paciente, cual_tutor, count)
-    ya_canonicos    = []   # teléfonos que ya están en formato 591XXXXXXXX
-    no_son_paciente = []   # teléfonos que no son tutores registrados
+    # 2. Agrupar por numero canonico para no procesar variantes del mismo
+    #    numero como entradas separadas
+    grupos = {}
+    for tel in telefonos_raw:
+        canon = _normalizar_tel(tel)
+        grupos.setdefault(canon, []).append(tel)
 
-    for tel in telefonos_publico:
-        paciente, cual_tutor = es_tutor_registrado(tel)
-        tel_canonico         = _normalizar_tel(tel)
-        count                = ConversacionAgente.objects.filter(
-            agente='publico', telefono=tel
+    print(f'Numeros unicos (normalizados):         {len(grupos)}')
+
+    # 3. Analizar cada numero canonico
+    a_migrar        = []
+    no_son_paciente = []
+
+    for canon, originales in grupos.items():
+        paciente, cual_tutor = buscar_tutor(canon)
+        total_msgs = ConversacionAgente.objects.filter(
+            agente='publico',
+            telefono__in=originales,
         ).count()
 
         if paciente:
-            a_migrar.append((tel, tel_canonico, paciente, cual_tutor, count))
+            a_migrar.append((originales, canon, paciente, cual_tutor, total_msgs))
         else:
-            no_son_paciente.append((tel, count))
+            no_son_paciente.append((canon, total_msgs))
 
-    # ── 3. Mostrar resumen ────────────────────────────────────────────────
-    print(f'\n📋 RESUMEN DE ANÁLISIS:')
-    print(f'  Tutores registrados (a migrar):  {len(a_migrar)}')
-    print(f'  Desconocidos (se quedan en público): {len(no_son_paciente)}')
+    # 4. Resumen
+    total_msgs_migrar = sum(x[4] for x in a_migrar)
+
+    print(f'\nRESUMEN DE ANALISIS:')
+    print(f'  Tutores registrados (a migrar):      {len(a_migrar)} numeros')
+    print(f'  Mensajes a reclasificar:             {total_msgs_migrar}')
+    print(f'  Desconocidos (se quedan en publico): {len(no_son_paciente)} numeros')
 
     if a_migrar:
-        print(f'\n🔄 REGISTROS A MIGRAR:')
-        total_mensajes = 0
-        for tel_orig, tel_canon, paciente, cual_tutor, count in a_migrar:
-            normalizado_str = f' → {tel_canon}' if tel_orig != tel_canon else ' (ya canónico)'
-            tutor_nombre = paciente.nombre_tutor if cual_tutor == 'tutor_1' else getattr(paciente, 'nombre_tutor_2', '—')
+        print(f'\nDETALLE A MIGRAR:')
+        for originales, canon, paciente, cual_tutor, total_msgs in a_migrar:
+            tutor_nombre = (
+                getattr(paciente, 'nombre_tutor_2', '-')
+                if cual_tutor == 'tutor_2'
+                else paciente.nombre_tutor
+            )
+            formatos_str = ', '.join(originales)
             print(
-                f'  📱 {tel_orig}{normalizado_str} | '
+                f'  {canon} | '
                 f'Paciente: {paciente.nombre} {paciente.apellido} | '
                 f'Tutor: {tutor_nombre} ({cual_tutor}) | '
-                f'{count} mensajes'
+                f'{total_msgs} msgs'
+                + (f' [formatos en BD: {formatos_str}]' if len(originales) > 1 else '')
             )
-            total_mensajes += count
-        print(f'\n  Total mensajes a reclasificar: {total_mensajes}')
 
-    # ── 4. Aplicar cambios ────────────────────────────────────────────────
+    # 5. Salir si dry-run o sin datos
     if not a_migrar:
-        print('\n✅ No hay registros a migrar.')
+        print('\nNo hay registros a migrar.')
         return
 
     if DRY_RUN:
-        print('\n⏸  DRY-RUN activo — no se aplicaron cambios.')
-        print('   Cambia DRY_RUN = False y ejecuta de nuevo para aplicar.')
+        print('\nDRY-RUN activo -- no se aplicaron cambios.')
+        print('Cambia DRY_RUN = False y ejecuta de nuevo para aplicar.')
         return
 
-    print(f'\n⚡ Aplicando cambios...')
+    # 6. Aplicar cambios
+    print(f'\nAplicando cambios...')
     total_actualizados = 0
 
-    for tel_orig, tel_canon, paciente, cual_tutor, count in a_migrar:
-        # Actualizar agente y normalizar teléfono en un solo UPDATE
+    for originales, canon, paciente, cual_tutor, total_msgs in a_migrar:
         updated = ConversacionAgente.objects.filter(
             agente='publico',
-            telefono=tel_orig,
+            telefono__in=originales,
         ).update(
             agente='paciente',
-            telefono=tel_canon,
+            telefono=canon,
         )
         total_actualizados += updated
-        print(f'  ✅ {tel_orig} → {tel_canon} | {updated} registros actualizados')
+        print(f'  OK {canon} | {updated} registros actualizados')
 
-    print(f'\n✅ MIGRACIÓN COMPLETADA')
-    print(f'   Total registros actualizados: {total_actualizados}')
-    print(f'   Teléfonos migrados:           {len(a_migrar)}')
+    print(f'\nMIGRACION COMPLETADA')
+    print(f'  Registros actualizados: {total_actualizados}')
+    print(f'  Numeros migrados:       {len(a_migrar)}')
 
-    # ── 5. Verificación post-migración ────────────────────────────────────
-    print('\n🔍 VERIFICACIÓN POST-MIGRACIÓN:')
-    for tel_orig, tel_canon, paciente, cual_tutor, count in a_migrar:
-        en_paciente = ConversacionAgente.objects.filter(
-            agente='paciente', telefono=tel_canon
-        ).count()
-        en_publico  = ConversacionAgente.objects.filter(
-            agente='publico', telefono__in=[tel_orig, tel_canon]
-        ).count()
-        estado = '✅' if en_publico == 0 else '❌ PROBLEMA'
-        print(
-            f'  {estado} {tel_canon} | '
-            f'en paciente: {en_paciente} | '
-            f'en publico: {en_publico}'
-        )
+    # 7. Verificacion post-migracion
+    print('\nVERIFICACION:')
+    errores = 0
+    for originales, canon, paciente, cual_tutor, _ in a_migrar:
+        en_paciente = ConversacionAgente.objects.filter(agente='paciente', telefono=canon).count()
+        en_publico  = ConversacionAgente.objects.filter(agente='publico', telefono__in=originales).count()
+        ok = en_publico == 0
+        if not ok:
+            errores += 1
+        estado = 'OK' if ok else 'ERROR'
+        print(f'  {estado} {canon} | paciente: {en_paciente} msgs | publico restante: {en_publico}')
 
+    if errores == 0:
+        print('\nTodo correcto -- ningun registro quedo en publico.')
+    else:
+        print(f'\n{errores} numeros con registros que no se pudieron mover. Revisar manualmente.')
 
-# ── Entry point ───────────────────────────────────────────────────────────────
-if __name__ == '__main__':
-    # Si se ejecuta directamente (no desde manage.py shell), configurar Django.
-    # Ajustar DJANGO_SETTINGS_MODULE según tu proyecto.
-    if 'DJANGO_SETTINGS_MODULE' not in os.environ:
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-        django.setup()
 
 migrar()
