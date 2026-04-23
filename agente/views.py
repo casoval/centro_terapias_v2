@@ -485,19 +485,38 @@ def api_conversaciones(request):
         modo = modos.get(tel)
 
         # Determinar si es paciente registrado y qué tutor es.
-        # buscar_paciente_y_tutor normaliza el número internamente,
-        # por lo que acepta el teléfono en cualquier formato.
-        paciente, cual_tutor = buscar_paciente_y_tutor(tel)
-        es_paciente = paciente is not None
+        # buscar_paciente_y_tutor puede retornar:
+        #   (paciente, cual_tutor)  → un solo hijo
+        #   ('multiples', lista)    → tutor con varios hijos
+        #   (None, None)            → desconocido
+        resultado, datos = buscar_paciente_y_tutor(tel)
 
-        # Mostrar el nombre del tutor que corresponde a ese número
-        if es_paciente:
+        if resultado == 'multiples':
+            # Tutor con varios hijos — mostrar en pestaña pacientes
+            # con los nombres de todos sus hijos
+            es_paciente = True
+            hijos = datos  # lista de dicts {'paciente': obj, 'cual_tutor': str}
+            nombres = ' / '.join(
+                f'{d["paciente"].nombre} {d["paciente"].apellido}'
+                for d in hijos
+            )
+            nombre_paciente_display = nombres
+            nombre_tutor_display    = hijos[0]['paciente'].nombre_tutor
+            cual_tutor              = 'tutor_1'
+        elif resultado is not None:
+            paciente    = resultado
+            cual_tutor  = datos
+            es_paciente = True
             if cual_tutor == 'tutor_2':
                 nombre_tutor_display = getattr(paciente, 'nombre_tutor_2', None) or paciente.nombre_tutor
             else:
                 nombre_tutor_display = paciente.nombre_tutor
+            nombre_paciente_display = f'{paciente.nombre} {paciente.apellido}'
         else:
-            nombre_tutor_display = ''
+            es_paciente             = False
+            nombre_paciente_display = ''
+            nombre_tutor_display    = ''
+            cual_tutor              = ''
 
         conversaciones.append({
             'telefono':        tel,
@@ -508,7 +527,7 @@ def api_conversaciones(request):
             'modo_humano':     modo.modo_humano if modo else False,
             'sucursal_id':     modo.sucursal_id if modo else 3,
             'es_paciente':     es_paciente,
-            'nombre_paciente': f'{paciente.nombre} {paciente.apellido}' if es_paciente else '',
+            'nombre_paciente': nombre_paciente_display,
             'nombre_tutor':    nombre_tutor_display,
             'cual_tutor':      cual_tutor or '',
         })
