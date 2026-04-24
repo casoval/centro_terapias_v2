@@ -1,17 +1,17 @@
 """
 agente/superusuario_db.py
 Consultas de SOLO LECTURA para el Agente Superusuario.
-Acceso total sin restricciones a todos los datos del sistema.
+Acceso TOTAL sin restricciones a todos los datos del sistema.
 
-Imports 100% verificados contra los models reales:
+Modelos confirmados:
   - pacientes.models     → Paciente  (fecha_registro = DateTimeField auto_now_add)
   - profesionales.models → Profesional
   - agenda.models        → Sesion, Mensualidad, Proyecto
-  - facturacion.models   → Pago (campo: fecha_pago), CuentaCorriente, Devolucion
-  - servicios.models     → ComisionSesion, TipoServicio
-  - egresos.models       → ResumenFinanciero (campo: egresos_servicios_basicos,
-                           egresos_mantenimiento, egresos_seguros, egresos_capacitacion)
-                           Egreso (campo: fecha — no fecha_pago)
+  - facturacion.models   → Pago (registrado_por=FK User, fecha_pago=DateField),
+                           CuentaCorriente, Devolucion, DetallePagoMasivo
+  - servicios.models     → ComisionSesion, TipoServicio, Sucursal
+  - egresos.models       → ResumenFinanciero, Egreso
+  - core.models          → PerfilUsuario (telefono, rol, sucursales)
 """
 
 import logging
@@ -20,13 +20,14 @@ from datetime import date, timedelta
 log = logging.getLogger('agente')
 
 
-# ── Resumen ejecutivo ─────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# RESUMEN EJECUTIVO
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_resumen_general() -> dict:
     hoy = date.today()
     r   = {'fecha_consulta': hoy.strftime('%d/%m/%Y')}
 
-    # Pacientes — fecha_registro es DateTimeField auto_now_add (confirmado en models_pacientes.py)
     try:
         from pacientes.models import Paciente
         r['pac_activos']    = Paciente.objects.filter(estado='activo').count()
@@ -41,7 +42,6 @@ def get_resumen_general() -> dict:
         r.update({'pac_activos': '?', 'pac_total': '?',
                   'pac_inactivos': '?', 'pac_nuevos_mes': '?'})
 
-    # Profesionales (app: profesionales)
     try:
         from profesionales.models import Profesional
         r['prof_activos'] = Profesional.objects.filter(activo=True).count()
@@ -49,11 +49,10 @@ def get_resumen_general() -> dict:
         log.error(f'[SuperDB] profesionales: {e}')
         r['prof_activos'] = '?'
 
-    # Sesiones de hoy (app: agenda)
     try:
         from agenda.models import Sesion
         from django.db.models import Count
-        qs     = Sesion.objects.filter(fecha=hoy)
+        qs      = Sesion.objects.filter(fecha=hoy)
         estados = {x['estado']: x['c'] for x in qs.values('estado').annotate(c=Count('id'))}
         r['ses_programadas'] = estados.get('programada', 0)
         r['ses_realizadas']  = estados.get('realizada', 0) + estados.get('realizada_retraso', 0)
@@ -66,7 +65,6 @@ def get_resumen_general() -> dict:
                   'ses_faltas', 'ses_canceladas'):
             r[k] = '?'
 
-    # Ingresos — Pago.fecha_pago (confirmado en models_facturacion.py, NO 'fecha')
     try:
         from facturacion.models import Pago
         from django.db.models import Sum
@@ -85,7 +83,6 @@ def get_resumen_general() -> dict:
         log.error(f'[SuperDB] ingresos: {e}')
         r['ingresos_hoy'] = r['ingresos_mes'] = '?'
 
-    # Resumen financiero del mes
     try:
         from egresos.models import ResumenFinanciero
         rf = ResumenFinanciero.objects.filter(mes=hoy.month, anio=hoy.year).first()
@@ -102,7 +99,9 @@ def get_resumen_general() -> dict:
     return r
 
 
-# ── Sesiones ──────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# SESIONES
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_sesiones_hoy(sucursal_id: int = None) -> list:
     try:
@@ -120,7 +119,6 @@ def get_sesiones_hoy(sucursal_id: int = None) -> list:
             'sucursal':    s.sucursal.nombre if s.sucursal else '—',
             'estado':      s.estado,
             'monto':       float(s.monto_cobrado or 0),
-            # notas_sesion es el campo real en Sesion (confirmado en models_agenda.py)
             'tiene_nota':  bool(s.notas_sesion),
         } for s in qs]
     except Exception as e:
@@ -152,7 +150,33 @@ def get_sesiones_semana(sucursal_id: int = None) -> dict:
         return {}
 
 
-# ── Pacientes ─────────────────────────────────────────────────────────────────
+def get_sesiones_futuras(dias: int = 7) -> list:
+    """Próximas sesiones programadas."""
+    try:
+        from agenda.models import Sesion
+        hoy    = date.today()
+        limite = hoy + timedelta(days=dias)
+        qs = Sesion.objects.filter(
+            fecha__gte=hoy, fecha__lte=limite,
+            estado__in=['programada', 'retraso', 'con_retraso'],
+        ).select_related('paciente', 'profesional', 'servicio', 'sucursal').order_by('fecha', 'hora_inicio')
+        return [{
+            'fecha':       s.fecha.strftime('%d/%m/%Y'),
+            'hora':        s.hora_inicio.strftime('%H:%M') if s.hora_inicio else '—',
+            'paciente':    f'{s.paciente.nombre} {s.paciente.apellido}' if s.paciente else '—',
+            'profesional': f'{s.profesional.nombre} {s.profesional.apellido}' if s.profesional else '—',
+            'servicio':    s.servicio.nombre if s.servicio else '—',
+            'sucursal':    s.sucursal.nombre if s.sucursal else '—',
+            'monto':       float(s.monto_cobrado or 0),
+        } for s in qs]
+    except Exception as e:
+        log.error(f'[SuperDB] sesiones futuras: {e}')
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PACIENTES
+# ══════════════════════════════════════════════════════════════════════════════
 
 def buscar_paciente(nombre: str = None, telefono: str = None) -> list:
     try:
@@ -175,13 +199,264 @@ def buscar_paciente(nombre: str = None, telefono: str = None) -> list:
             'telefono':   p.telefono_tutor or '—',
             'diagnostico':(p.diagnostico or '—')[:80],
             'desde':      p.fecha_registro.strftime('%d/%m/%Y') if p.fecha_registro else '—',
-        } for p in qs.order_by('apellido', 'nombre')[:10]]
+        } for p in qs.order_by('apellido', 'nombre')[:15]]
     except Exception as e:
         log.error(f'[SuperDB] buscar paciente: {e}')
         return []
 
 
-# ── Ingresos ──────────────────────────────────────────────────────────────────
+def get_cuenta_corriente_paciente(nombre: str) -> dict | None:
+    """
+    Devuelve el detalle completo de cuenta corriente de un paciente.
+    Busca por nombre (parcial) y retorna el primero que coincide.
+    """
+    try:
+        from pacientes.models import Paciente
+        from django.db.models import Q
+        q = Q()
+        for p in nombre.strip().split():
+            q |= Q(nombre__icontains=p) | Q(apellido__icontains=p)
+        pac = Paciente.objects.filter(q).first()
+        if not pac:
+            return None
+
+        cc = getattr(pac, 'cuenta_corriente', None)
+        if not cc:
+            return {
+                'paciente': f'{pac.nombre} {pac.apellido}',
+                'sin_cuenta': True,
+            }
+
+        return {
+            'paciente':            f'{pac.nombre} {pac.apellido}',
+            'estado':              pac.estado,
+            'total_consumido':     float(cc.total_consumido_actual),
+            'total_pagado':        float(cc.total_pagado),
+            'saldo_actual':        float(cc.saldo_actual),
+            'saldo_real':          float(cc.saldo_real),
+            'credito_disponible':  float(cc.pagos_adelantados),
+            'total_devoluciones':  float(cc.total_devoluciones),
+            'sesiones_pagadas':    float(cc.pagos_sesiones),
+            'mensualidades_pagadas': float(cc.pagos_mensualidades),
+            'proyectos_pagados':   float(cc.pagos_proyectos),
+            'ingreso_neto_centro': float(cc.ingreso_neto_centro),
+            'actualizado':         cc.ultima_actualizacion.strftime('%d/%m/%Y %H:%M'),
+        }
+    except Exception as e:
+        log.error(f'[SuperDB] cuenta corriente paciente: {e}')
+        return None
+
+
+def get_historial_pagos_paciente(nombre: str, limite: int = 20) -> list:
+    """Lista los pagos individuales de un paciente específico."""
+    try:
+        from pacientes.models import Paciente
+        from facturacion.models import Pago
+        from django.db.models import Q
+        q = Q()
+        for p in nombre.strip().split():
+            q |= Q(nombre__icontains=p) | Q(apellido__icontains=p)
+        pac = Paciente.objects.filter(q).first()
+        if not pac:
+            return []
+
+        pagos = (
+            Pago.objects
+            .filter(paciente=pac, anulado=False)
+            .select_related('metodo_pago', 'registrado_por', 'sesion', 'proyecto', 'mensualidad')
+            .order_by('-fecha_pago')[:limite]
+        )
+        return [{
+            'recibo':       p.numero_recibo,
+            'fecha':        p.fecha_pago.strftime('%d/%m/%Y'),
+            'monto':        float(p.monto),
+            'metodo':       p.metodo_pago.nombre if p.metodo_pago else '—',
+            'concepto':     p.concepto[:80],
+            'tipo':         p.tipo_pago,
+            'registrado_por': p.registrado_por.get_full_name() or p.registrado_por.username if p.registrado_por else '—',
+        } for p in pagos]
+    except Exception as e:
+        log.error(f'[SuperDB] historial pagos paciente: {e}')
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGOS — DETALLE Y DESGLOSE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_pagos_del_dia() -> list:
+    """Lista individual de cada pago registrado hoy."""
+    try:
+        from facturacion.models import Pago
+        hoy = date.today()
+        qs  = (
+            Pago.objects
+            .filter(fecha_pago=hoy, anulado=False)
+            .select_related('paciente', 'metodo_pago', 'registrado_por',
+                            'sesion__sucursal', 'sesion__servicio')
+            .order_by('fecha_registro')
+        )
+        resultado = []
+        for p in qs:
+            sucursal = '—'
+            if p.sesion and p.sesion.sucursal:
+                sucursal = p.sesion.sucursal.nombre
+            resultado.append({
+                'recibo':         p.numero_recibo,
+                'hora':           p.fecha_registro.strftime('%H:%M') if p.fecha_registro else '—',
+                'paciente':       f'{p.paciente.nombre} {p.paciente.apellido}' if p.paciente else '—',
+                'monto':          float(p.monto),
+                'metodo':         p.metodo_pago.nombre if p.metodo_pago else '—',
+                'concepto':       p.concepto[:60],
+                'tipo':           p.tipo_pago,
+                'sucursal':       sucursal,
+                'registrado_por': (
+                    p.registrado_por.get_full_name() or p.registrado_por.username
+                    if p.registrado_por else '—'
+                ),
+            })
+        return resultado
+    except Exception as e:
+        log.error(f'[SuperDB] pagos del dia: {e}')
+        return []
+
+
+def get_pagos_detallados(dias: int = 30, sucursal_nombre: str = None) -> list:
+    """
+    Lista individual de pagos de los últimos N días.
+    Opcionalmente filtra por nombre de sucursal (parcial).
+    Incluye quién los registró.
+    """
+    try:
+        from facturacion.models import Pago
+        desde = date.today() - timedelta(days=dias)
+        qs = (
+            Pago.objects
+            .filter(fecha_pago__gte=desde, anulado=False)
+            .select_related('paciente', 'metodo_pago', 'registrado_por',
+                            'sesion__sucursal', 'sesion__servicio',
+                            'proyecto__sucursal', 'mensualidad__sucursal')
+            .order_by('-fecha_pago', '-fecha_registro')
+        )
+
+        resultado = []
+        for p in qs:
+            # Resolver sucursal desde la relación que tenga
+            sucursal = '—'
+            if p.sesion and getattr(p.sesion, 'sucursal', None):
+                sucursal = p.sesion.sucursal.nombre
+            elif p.proyecto and getattr(p.proyecto, 'sucursal', None):
+                sucursal = p.proyecto.sucursal.nombre
+            elif p.mensualidad and getattr(p.mensualidad, 'sucursal', None):
+                sucursal = p.mensualidad.sucursal.nombre
+
+            if sucursal_nombre and sucursal_nombre.lower() not in sucursal.lower():
+                continue
+
+            resultado.append({
+                'recibo':         p.numero_recibo,
+                'fecha':          p.fecha_pago.strftime('%d/%m/%Y'),
+                'paciente':       f'{p.paciente.nombre} {p.paciente.apellido}' if p.paciente else '—',
+                'monto':          float(p.monto),
+                'metodo':         p.metodo_pago.nombre if p.metodo_pago else '—',
+                'concepto':       p.concepto[:80],
+                'tipo':           p.tipo_pago,
+                'sucursal':       sucursal,
+                'registrado_por': (
+                    p.registrado_por.get_full_name() or p.registrado_por.username
+                    if p.registrado_por else '—'
+                ),
+            })
+        return resultado[:60]  # máx 60 para no saturar el contexto
+    except Exception as e:
+        log.error(f'[SuperDB] pagos detallados: {e}')
+        return []
+
+
+def get_pagos_por_recepcionista(dias: int = 30) -> list:
+    """
+    Agrupa y suma los pagos por la persona que los registró.
+    Útil para saber cuánto cobró cada recepcionista.
+    """
+    try:
+        from facturacion.models import Pago
+        from django.db.models import Sum, Count
+        desde = date.today() - timedelta(days=dias)
+        datos = (
+            Pago.objects
+            .filter(fecha_pago__gte=desde, anulado=False)
+            .values(
+                'registrado_por__first_name',
+                'registrado_por__last_name',
+                'registrado_por__username',
+            )
+            .annotate(total=Sum('monto'), num_pagos=Count('id'))
+            .order_by('-total')
+        )
+        resultado = []
+        for d in datos:
+            nombre = (
+                f'{d["registrado_por__first_name"]} {d["registrado_por__last_name"]}'.strip()
+                or d['registrado_por__username']
+                or 'Desconocido'
+            )
+            resultado.append({
+                'recepcionista': nombre,
+                'total':         float(d['total'] or 0),
+                'num_pagos':     d['num_pagos'],
+            })
+        return resultado
+    except Exception as e:
+        log.error(f'[SuperDB] pagos por recepcionista: {e}')
+        return []
+
+
+def get_ingresos_por_sucursal(dias: int = 30) -> list:
+    """
+    Suma los ingresos desglosados por sucursal.
+    Resuelve la sucursal desde sesion, proyecto o mensualidad del pago.
+    """
+    try:
+        from facturacion.models import Pago
+        from django.db.models import Sum, Value
+        from django.db.models.functions import Coalesce
+        desde = date.today() - timedelta(days=dias)
+
+        # Pagos vinculados a sesiones
+        from django.db.models import F
+        qs = (
+            Pago.objects
+            .filter(fecha_pago__gte=desde, anulado=False)
+            .select_related('sesion__sucursal', 'proyecto__sucursal', 'mensualidad__sucursal')
+        )
+
+        por_sucursal: dict = {}
+        for p in qs:
+            sucursal = '—'
+            if p.sesion and getattr(p.sesion, 'sucursal', None):
+                sucursal = p.sesion.sucursal.nombre
+            elif p.proyecto and getattr(p.proyecto, 'sucursal', None):
+                sucursal = p.proyecto.sucursal.nombre
+            elif p.mensualidad and getattr(p.mensualidad, 'sucursal', None):
+                sucursal = p.mensualidad.sucursal.nombre
+
+            if sucursal not in por_sucursal:
+                por_sucursal[sucursal] = {'total': 0.0, 'num_pagos': 0}
+            por_sucursal[sucursal]['total']     += float(p.monto)
+            por_sucursal[sucursal]['num_pagos'] += 1
+
+        return [
+            {'sucursal': suc, 'total': v['total'], 'num_pagos': v['num_pagos']}
+            for suc, v in sorted(por_sucursal.items(), key=lambda x: -x[1]['total'])
+        ]
+    except Exception as e:
+        log.error(f'[SuperDB] ingresos por sucursal: {e}')
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INGRESOS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_ingresos_mes(anio: int = None, mes: int = None) -> dict:
     try:
@@ -205,7 +480,9 @@ def get_ingresos_mes(anio: int = None, mes: int = None) -> dict:
         return {}
 
 
-# ── Deudas ────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# DEUDAS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_deudas_pendientes(limite: int = 15) -> list:
     try:
@@ -227,14 +504,11 @@ def get_deudas_pendientes(limite: int = 15) -> list:
         return []
 
 
-# ── P&L mensual ───────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# P&L MENSUAL / EGRESOS
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_resumen_financiero_mensual(anio: int = None, mes: int = None) -> dict:
-    """
-    ResumenFinanciero se recalcula automáticamente vía signal.
-    Campos confirmados en models_egresos.py: egresos_servicios_basicos,
-    egresos_mantenimiento, egresos_seguros, egresos_capacitacion (existen).
-    """
     try:
         from egresos.models import ResumenFinanciero
         import calendar
@@ -273,11 +547,7 @@ def get_resumen_financiero_mensual(anio: int = None, mes: int = None) -> dict:
 
 
 def get_egresos_recientes(dias: int = 30) -> list:
-    """
-    Egreso.fecha es DateField (confirmado en models_egresos.py línea:
-    fecha = models.DateField(verbose_name="Fecha de pago"))
-    NO usar fecha_pago aquí — eso es de facturacion.Pago.
-    """
+    """Egreso.fecha es DateField (NO fecha_pago)."""
     try:
         from egresos.models import Egreso
         desde = date.today() - timedelta(days=dias)
@@ -299,7 +569,9 @@ def get_egresos_recientes(dias: int = 30) -> list:
         return []
 
 
-# ── Profesionales ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# PROFESIONALES
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_profesionales() -> list:
     try:
@@ -340,7 +612,7 @@ def get_sesiones_por_profesional(dias: int = 30) -> list:
 
 
 def get_rentabilidad_por_profesional(dias: int = 30) -> list:
-    """ComisionSesion — solo existe para sesiones de servicios externos."""
+    """ComisionSesion — solo para sesiones de servicios externos."""
     try:
         from servicios.models import ComisionSesion
         from django.db.models import Sum, Count
@@ -361,10 +633,12 @@ def get_rentabilidad_por_profesional(dias: int = 30) -> list:
             .order_by('-centro')
         )
         return [{
-            'profesional': f'{d["sesion__profesional__nombre"]} {d["sesion__profesional__apellido"]}',
-            'sesiones':    d['sesiones'],
-            'cobrado':     float(d['cobrado'] or 0),
-            'centro':      float(d['centro'] or 0),
+            'profesional': (
+                f'{d["sesion__profesional__nombre"]} {d["sesion__profesional__apellido"]}'
+            ),
+            'sesiones':          d['sesiones'],
+            'cobrado':           float(d['cobrado'] or 0),
+            'centro':            float(d['centro'] or 0),
             'profesional_monto': float(d['profesional_monto'] or 0),
         } for d in datos]
     except Exception as e:
@@ -372,13 +646,11 @@ def get_rentabilidad_por_profesional(dias: int = 30) -> list:
         return []
 
 
-# ── Mensualidades ─────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# MENSUALIDADES / PROYECTOS
+# ══════════════════════════════════════════════════════════════════════════════
 
-def get_mensualidades_pendientes(limite: int = 15) -> list:
-    """
-    Mensualidad.estado: activa | pausada | completada | cancelada
-    Mensualidad.costo_mensual (no monto_total — confirmado en models_agenda.py)
-    """
+def get_mensualidades_pendientes(limite: int = 20) -> list:
     try:
         from agenda.models import Mensualidad
         from django.db.models import Q
@@ -408,13 +680,7 @@ def get_mensualidades_pendientes(limite: int = 15) -> list:
         return []
 
 
-# ── Proyectos ─────────────────────────────────────────────────────────────────
-
-def get_proyectos_activos(limite: int = 10) -> list:
-    """
-    Proyecto.estado: planificado | en_progreso | finalizado | cancelado
-    Proyecto.costo_total (no costo — confirmado en models_agenda.py)
-    """
+def get_proyectos_activos(limite: int = 15) -> list:
     try:
         from agenda.models import Proyecto
         qs = (
@@ -443,6 +709,7 @@ def get_proyectos_activos(limite: int = 10) -> list:
                 'pendiente':   pendiente,
                 'estado':      p.estado,
                 'inicio':      p.fecha_inicio.strftime('%d/%m/%Y'),
+                'sucursal':    p.sucursal.nombre if p.sucursal else '—',
                 'informe':     'Entregado' if p.informe_entregado else 'Pendiente',
             })
         return resultado
@@ -451,15 +718,46 @@ def get_proyectos_activos(limite: int = 10) -> list:
         return []
 
 
-# ── Constructor de contexto ───────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# STAFF / RECEPCIONISTAS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_lista_staff() -> list:
+    """
+    Lista todos los usuarios con rol activo: recepcionista, gerente, profesional.
+    Útil para saber quiénes están registrando pagos.
+    """
+    try:
+        from core.models import PerfilUsuario
+        perfiles = (
+            PerfilUsuario.objects
+            .filter(activo=True, rol__in=['recepcionista', 'gerente', 'profesional'])
+            .select_related('user')
+            .prefetch_related('sucursales')
+        )
+        return [{
+            'nombre':    p.user.get_full_name() or p.user.username,
+            'rol':       p.get_rol_display(),
+            'telefono':  p.telefono or '—',
+            'sucursales': ', '.join(s.nombre for s in p.sucursales.all()) or '—',
+            'activo':    p.activo,
+        } for p in perfiles]
+    except Exception as e:
+        log.error(f'[SuperDB] lista staff: {e}')
+        return []
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONSTRUCTOR DE CONTEXTO
+# ══════════════════════════════════════════════════════════════════════════════
 
 def construir_contexto_superusuario(mensaje: str) -> str:
     """
     Contexto de datos inyectado en el prompt del superusuario.
-    Siempre incluye el resumen ejecutivo. Las demás secciones
-    se activan por palabras clave en el mensaje.
+    Siempre incluye el resumen ejecutivo.
+    Las demás secciones se activan por palabras clave en el mensaje.
     """
-    msg    = mensaje.lower()
+    msg    = mensaje.lower().strip()
     partes = []
     hoy    = date.today()
 
@@ -488,7 +786,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
         f"{neto_str}"
     )
 
-    # ── 2. Agenda de hoy / semana ────────────────────────────────────────────
+    # ── 2. Agenda de hoy / semana ─────────────────────────────────────────────
     if any(p in msg for p in ('hoy', 'sesion', 'sesiones', 'agenda', 'dia', 'día',
                                'horario', 'quién', 'quien', 'cita', 'citas',
                                'programad', 'realiz')):
@@ -496,7 +794,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
         if sesiones:
             lineas = [
                 f"  {s['hora']} — {s['paciente']} con {s['profesional']} "
-                f"({s['servicio']}) [{s['estado']}] Bs.{s['monto']:.0f}"
+                f"({s['servicio']}) [{s['sucursal']}] [{s['estado']}] Bs.{s['monto']:.0f}"
                 + (' 📝' if s['tiene_nota'] else '')
                 for s in sesiones
             ]
@@ -513,10 +811,24 @@ def construir_contexto_superusuario(mensaje: str) -> str:
                 f"Canceladas: {sem['canceladas']}"
             )
 
-    # ── 3. Ingresos ───────────────────────────────────────────────────────────
+    # ── 3. Sesiones futuras / próximas ────────────────────────────────────────
+    if any(p in msg for p in ('mañana', 'manana', 'próxim', 'proxim', 'semana que',
+                               'futuras', 'siguiente', 'esta semana', 'próximas sesiones')):
+        futuras = get_sesiones_futuras(dias=7)
+        if futuras:
+            lineas = [
+                f"  {s['fecha']} {s['hora']} — {s['paciente']} con {s['profesional']} "
+                f"({s['servicio']}) [{s['sucursal']}] Bs.{s['monto']:.0f}"
+                for s in futuras
+            ]
+            partes.append("=== PRÓXIMAS SESIONES (7 días) ===\n" + '\n'.join(lineas))
+        else:
+            partes.append("No hay sesiones programadas para los próximos 7 días.")
+
+    # ── 4. Ingresos totales del mes ───────────────────────────────────────────
     if any(p in msg for p in ('ingreso', 'ingresos', 'dinero', 'pago', 'pagos',
                                'cobro', 'cobros', 'caja', 'recaudo', 'ganancia',
-                               'cuanto se cobr', 'cuánto se cobr')):
+                               'cuanto se cobr', 'cuánto se cobr', 'total cobrado')):
         ing = get_ingresos_mes()
         if ing:
             partes.append(
@@ -524,7 +836,71 @@ def construir_contexto_superusuario(mensaje: str) -> str:
                 f"Total cobrado: Bs. {ing['total']:,.0f} en {ing['num_pagos']} pagos"
             )
 
-    # ── 4. P&L completo ───────────────────────────────────────────────────────
+    # ── 5. Pagos del día — DETALLE individual ─────────────────────────────────
+    if any(p in msg for p in ('pagos de hoy', 'cobros de hoy', 'recibos de hoy',
+                               'qué se cobró hoy', 'que se cobro hoy',
+                               'detalle de hoy', 'desglose de hoy',
+                               'pagos hoy', 'cobros hoy')):
+        pagos_dia = get_pagos_del_dia()
+        if pagos_dia:
+            total_dia = sum(p['monto'] for p in pagos_dia)
+            lineas = [
+                f"  {p['hora']} | {p['recibo']} | {p['paciente']} | "
+                f"Bs.{p['monto']:.0f} | {p['metodo']} | {p['tipo']} | "
+                f"{p['sucursal']} | Registró: {p['registrado_por']}"
+                for p in pagos_dia
+            ]
+            partes.append(
+                f"=== PAGOS REGISTRADOS HOY ({len(pagos_dia)} recibos | "
+                f"Total: Bs.{total_dia:,.0f}) ===\n" + '\n'.join(lineas)
+            )
+        else:
+            partes.append(f"No se registraron pagos hoy ({hoy:%d/%m/%Y}).")
+
+    # ── 6. Pagos detallados / desglosados por recepcionista ──────────────────
+    if any(p in msg for p in (
+        'recepcionista', 'recepcionistas',
+        'quién cobró', 'quien cobro', 'quién registró', 'quien registro',
+        'desglos', 'detall', 'individual', 'recibo por recibo',
+        'listado de pagos', 'lista de pagos', 'cada pago',
+        'cuánto cobró', 'cuanto cobro', 'qué cobró', 'que cobro',
+        'cobró cada', 'registro cada',
+    )):
+        # Desglose por recepcionista (últimos 30 días)
+        por_recep = get_pagos_por_recepcionista(dias=30)
+        if por_recep:
+            lineas = [
+                f"  {r['recepcionista']}: {r['num_pagos']} pagos — Bs. {r['total']:,.0f}"
+                for r in por_recep
+            ]
+            partes.append("=== PAGOS POR RECEPCIONISTA (últimos 30 días) ===\n" + '\n'.join(lineas))
+
+        # Detalle individual de pagos (últimos 30 días)
+        pagos_det = get_pagos_detallados(dias=30)
+        if pagos_det:
+            lineas = [
+                f"  [{p['fecha']}] {p['recibo']} | {p['paciente']} | "
+                f"Bs.{p['monto']:.0f} | {p['metodo']} | {p['tipo']} | "
+                f"{p['sucursal']} | Registró: {p['registrado_por']}"
+                for p in pagos_det
+            ]
+            partes.append(
+                f"=== DETALLE DE PAGOS (últimos 30 días — {len(pagos_det)} registros) ===\n"
+                + '\n'.join(lineas)
+            )
+
+    # ── 7. Ingresos por sucursal ──────────────────────────────────────────────
+    if any(p in msg for p in ('sucursal', 'sucursales', 'sede', 'sedes',
+                               'japón', 'japon', 'camacho', 'por sede')):
+        por_suc = get_ingresos_por_sucursal(dias=30)
+        if por_suc:
+            lineas = [
+                f"  {s['sucursal']}: Bs. {s['total']:,.0f} en {s['num_pagos']} pagos"
+                for s in por_suc
+            ]
+            partes.append("=== INGRESOS POR SUCURSAL (últimos 30 días) ===\n" + '\n'.join(lineas))
+
+    # ── 8. P&L completo ───────────────────────────────────────────────────────
     if any(p in msg for p in ('financiero', 'balance', 'resultado', 'neto', 'margen',
                                'rentabilidad', 'utilidad', 'perdida', 'pérdida',
                                'ganancias', 'p&l', 'estado de resultado', 'flujo',
@@ -560,7 +936,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
                 "Los datos aún pueden estar en procesamiento."
             )
 
-    # ── 5. Egresos / gastos ───────────────────────────────────────────────────
+    # ── 9. Egresos / gastos ───────────────────────────────────────────────────
     if any(p in msg for p in ('egreso', 'egresos', 'gasto', 'gastos', 'arriendo',
                                'servicio basico', 'honorario', 'honorarios',
                                'proveedor', 'compra', 'compras')):
@@ -573,7 +949,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
             ]
             partes.append("=== EGRESOS RECIENTES (30 días) ===\n" + '\n'.join(lineas))
 
-    # ── 6. Deudas ─────────────────────────────────────────────────────────────
+    # ── 10. Deudas ────────────────────────────────────────────────────────────
     if any(p in msg for p in ('deuda', 'deudas', 'pendiente', 'pendientes',
                                'deben', 'moroso', 'saldo negativo', 'cobrar',
                                'mora', 'no han pagado')):
@@ -593,7 +969,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
         else:
             partes.append("=== DEUDAS === No hay pacientes con saldo negativo.")
 
-    # ── 7. Profesionales ──────────────────────────────────────────────────────
+    # ── 11. Profesionales ────────────────────────────────────────────────────
     if any(p in msg for p in ('profesional', 'profesionales', 'terapeuta', 'terapeutas',
                                'staff', 'equipo', 'personal')):
         profs = get_profesionales()
@@ -604,7 +980,17 @@ def construir_contexto_superusuario(mensaje: str) -> str:
             ]
             partes.append("=== PROFESIONALES ACTIVOS ===\n" + '\n'.join(lineas))
 
-    # ── 8. Productividad / rendimiento ────────────────────────────────────────
+        # Si además pregunta quién registró pagos, mostrar staff
+        if any(p in msg for p in ('recepcionista', 'cobró', 'cobro', 'registró', 'registro')):
+            staff = get_lista_staff()
+            if staff:
+                lineas = [
+                    f"  {s['nombre']} | {s['rol']} | {s['sucursales']}"
+                    for s in staff
+                ]
+                partes.append("=== STAFF ACTIVO ===\n" + '\n'.join(lineas))
+
+    # ── 12. Productividad / rendimiento ──────────────────────────────────────
     if any(p in msg for p in ('productividad', 'rendimiento', 'cuántas sesiones',
                                'cuantas sesiones', 'desempeño', 'desempeno',
                                'quién atendió', 'quien atendio')):
@@ -617,7 +1003,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
             partes.append("=== SESIONES REALIZADAS POR PROFESIONAL (30 días) ===\n"
                           + '\n'.join(lineas))
 
-    # ── 9. Rentabilidad externos ──────────────────────────────────────────────
+    # ── 13. Rentabilidad externos ─────────────────────────────────────────────
     if any(p in msg for p in ('rentabilidad', 'comision', 'comisión', 'externo',
                                'externos', 'cuanto gana el profesional',
                                'cuánto queda para el centro')):
@@ -635,7 +1021,7 @@ def construir_contexto_superusuario(mensaje: str) -> str:
         else:
             partes.append("No hay sesiones de servicios externos registradas en los últimos 30 días.")
 
-    # ── 10. Mensualidades ─────────────────────────────────────────────────────
+    # ── 14. Mensualidades ─────────────────────────────────────────────────────
     if any(p in msg for p in ('mensualidad', 'mensualidades', 'cuota', 'cuotas',
                                'mensual', 'plan mensual')):
         mens = get_mensualidades_pendientes()
@@ -648,25 +1034,30 @@ def construir_contexto_superusuario(mensaje: str) -> str:
             ]
             partes.append("=== MENSUALIDADES ACTIVAS/PAUSADAS ===\n" + '\n'.join(lineas))
 
-    # ── 11. Proyectos / evaluaciones ──────────────────────────────────────────
+    # ── 15. Proyectos / evaluaciones ──────────────────────────────────────────
     if any(p in msg for p in ('proyecto', 'proyectos', 'evaluacion', 'evaluación',
                                'evaluaciones', 'informe', 'informes', 'eval')):
         proyectos = get_proyectos_activos()
         if proyectos:
             lineas = [
-                f"  [{p['codigo']}] {p['paciente']} — {p['servicio']} — "
+                f"  [{p['codigo']}] {p['paciente']} — {p['servicio']} [{p['sucursal']}] — "
                 f"Bs.{p['costo']:,.0f} (pendiente: Bs.{p['pendiente']:,.0f}) "
                 f"[{p['estado']}] Informe: {p['informe']}"
                 for p in proyectos
             ]
             partes.append("=== PROYECTOS EN CURSO ===\n" + '\n'.join(lineas))
 
-    # ── 12. Búsqueda de paciente específico ───────────────────────────────────
+    # ── 16. Búsqueda de paciente específico + cuenta corriente ───────────────
     if any(p in msg for p in ('buscar', 'busca', 'paciente llamado', 'información de',
-                               'datos de', 'expediente de', 'historial de')):
-        palabras = [p for p in mensaje.split() if len(p) > 4 and p.isalpha()]
+                               'datos de', 'expediente de', 'historial de',
+                               'cuenta de', 'saldo de', 'cuánto debe', 'cuanto debe',
+                               'cuánto ha pagado', 'cuanto ha pagado')):
+        # Extraer nombre candidato del mensaje
+        palabras = [p for p in mensaje.split() if len(p) > 3 and p.isalpha()]
         if palabras:
-            nombre_b = ' '.join(palabras[:2])
+            nombre_b = ' '.join(palabras[:3])
+
+            # Datos básicos del paciente
             resultados = buscar_paciente(nombre=nombre_b)
             if resultados:
                 lineas = [
@@ -676,6 +1067,43 @@ def construir_contexto_superusuario(mensaje: str) -> str:
                 ]
                 partes.append(
                     f"=== PACIENTES: '{nombre_b}' ===\n" + '\n'.join(lineas)
+                )
+
+            # Cuenta corriente del primero que coincide
+            cc = get_cuenta_corriente_paciente(nombre_b)
+            if cc and not cc.get('sin_cuenta'):
+                s = cc['saldo_actual']
+                estado_saldo = (
+                    f"EN DEUDA: Bs.{abs(s):,.0f}" if s < 0 else
+                    f"A FAVOR: Bs.{s:,.0f}"       if s > 0 else
+                    "AL DÍA (saldo cero)"
+                )
+                partes.append(
+                    f"=== CUENTA CORRIENTE: {cc['paciente']} ===\n"
+                    f"Estado: {estado_saldo}\n"
+                    f"Total consumido: Bs. {cc['total_consumido']:,.0f}\n"
+                    f"Total pagado:    Bs. {cc['total_pagado']:,.0f}\n"
+                    f"Saldo actual:    Bs. {cc['saldo_actual']:,.0f}\n"
+                    f"Crédito disp.:   Bs. {cc['credito_disponible']:,.0f}\n"
+                    f"Devoluciones:    Bs. {cc['total_devoluciones']:,.0f}\n"
+                    f"  — Sesiones pagadas:      Bs. {cc['sesiones_pagadas']:,.0f}\n"
+                    f"  — Mensualidades pagadas: Bs. {cc['mensualidades_pagadas']:,.0f}\n"
+                    f"  — Proyectos pagados:     Bs. {cc['proyectos_pagados']:,.0f}\n"
+                    f"Ingreso neto centro: Bs. {cc['ingreso_neto_centro']:,.0f}\n"
+                    f"Actualizado: {cc['actualizado']}"
+                )
+
+            # Historial de pagos del paciente
+            pagos_pac = get_historial_pagos_paciente(nombre_b, limite=15)
+            if pagos_pac:
+                lineas = [
+                    f"  [{p['fecha']}] {p['recibo']} — Bs.{p['monto']:,.0f} "
+                    f"| {p['metodo']} | {p['tipo']} | Registró: {p['registrado_por']}"
+                    for p in pagos_pac
+                ]
+                partes.append(
+                    f"=== HISTORIAL DE PAGOS: {nombre_b} (últimos 15) ===\n"
+                    + '\n'.join(lineas)
                 )
 
     return '\n\n'.join(partes) if partes else f"Fecha: {hoy:%d/%m/%Y}."
