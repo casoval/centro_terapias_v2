@@ -524,6 +524,26 @@ def _limpiar_etiquetas(texto: str) -> str:
     return re.sub(r'\[NOTIFICAR:[^\]]*\]', '', texto).strip()
 
 
+# Patrones que indican que el usuario no entendió la respuesta anterior
+_PATRONES_CONFUSION = re.compile(
+    r'^[\?\s\!\¿\¡\.]+$'                          # solo signos de interrogación/exclamación
+    r'|^(no\s+entend|no\s+comprend)'               # "no entendí", "no comprendo"
+    r'|^(qu[eé]\s*\?+|qu[eé]\s+dij|qu[eé]\s+significa)'  # "qué?", "qué dijiste"
+    r'|^(c[oó]mo\s*\?+|c[oó]mo\s+as[ií])'         # "cómo?", "cómo así"
+    r'|^(no\s+s[eé]\s+(de qu[eé]|a qu[eé]|qu[eé]))'  # "no sé de qué"
+    r'|^(perdona?|perdn|no\s+te\s+entend)',         # "perdona", "no te entendí"
+    re.IGNORECASE,
+)
+
+
+def _es_mensaje_confuso(mensaje: str) -> bool:
+    """
+    Detecta si el mensaje del tutor indica que no entendió la respuesta anterior.
+    Cubre: signos de interrogación solos (????), frases de no comprensión, etc.
+    """
+    return bool(_PATRONES_CONFUSION.search(mensaje.strip()))
+
+
 def _procesar_notificaciones_publico(respuesta: str, telefono: str) -> int:
     """
     Detecta etiquetas [NOTIFICAR:tipo|detalle] en la respuesta del agente público
@@ -585,6 +605,20 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
         # Detectar si habia conversacion previa (historial sin el mensaje actual)
         modo = _modo_conversacion_publico(historial[:-1])
         prompt = get_prompt(modo)
+
+        # Si el mensaje indica confusión (?????, "no entendí", etc.) y hay
+        # historial previo, inyectamos una instrucción para que el agente
+        # pida al tutor que reformule con más contexto en vez de repetir.
+        if _es_mensaje_confuso(mensaje_usuario) and len(historial) > 1:
+            prompt += (
+                "\n\n---\nINSTRUCCIÓN ESPECIAL — MENSAJE DE CONFUSIÓN DETECTADO:\n"
+                "El tutor acaba de enviar un mensaje que indica que no entendió tu respuesta anterior "
+                "(signos de interrogación, 'no entendí', 'qué?', 'no comprendo', etc.). "
+                "NO repitas la misma explicación. En cambio, pedile con calidez que te cuente "
+                "con sus propias palabras qué parte no quedó clara o qué es lo que quiere saber. "
+                "Ejemplo: 'Claro, contame: ¿qué parte no quedó clara? Así te explico mejor.' "
+                "Sé breve, cálido y no asumas qué confundió al tutor — preguntale directamente.\n---"
+            )
 
         # Llamar a Claude
         response = get_client().messages.create(

@@ -615,6 +615,26 @@ PALABRAS_SOLICITUD = (
     'medicacion', 'medicamento', 'medicacion cambio',
 )
 
+# Patrones que indican que el usuario no entendió la respuesta anterior
+_PATRONES_CONFUSION = re.compile(
+    r'^[\?\s\!\¿\¡\.]+$'                          # solo signos de interrogación/exclamación
+    r'|^(no\s+entend|no\s+comprend)'               # "no entendí", "no comprendo"
+    r'|^(qu[eé]\s*\?+|qu[eé]\s+dij|qu[eé]\s+significa)'  # "qué?", "qué dijiste"
+    r'|^(c[oó]mo\s*\?+|c[oó]mo\s+as[ií])'         # "cómo?", "cómo así"
+    r'|^(no\s+s[eé]\s+(de qu[eé]|a qu[eé]|qu[eé]))'  # "no sé de qué"
+    r'|^(perdona?|perdn|no\s+te\s+entend)',         # "perdona", "no te entendí"
+    re.IGNORECASE,
+)
+
+
+def _es_mensaje_confuso(mensaje: str) -> bool:
+    """
+    Detecta si el mensaje del tutor indica que no entendió la respuesta anterior.
+    Cubre: signos de interrogación solos (????), frases de no comprensión, etc.
+    """
+    msg = mensaje.strip()
+    return bool(_PATRONES_CONFUSION.search(msg))
+
 
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
     msg = mensaje.lower()
@@ -949,6 +969,20 @@ def responder(
         historial_claude = historial_previo + [{'role': 'user', 'content': mensaje_usuario}]
 
         # ── 8. Seleccionar modelo y llamar a Claude ────────────────────────────
+        # Si el mensaje indica confusión (?????, "no entendí", etc.) y hay
+        # historial previo, inyectamos una instrucción extra para que el agente
+        # pida al tutor que reformule su pregunta con más contexto.
+        if _es_mensaje_confuso(mensaje_usuario) and historial_previo:
+            prompt += (
+                "\n\n---\nINSTRUCCIÓN ESPECIAL — MENSAJE DE CONFUSIÓN DETECTADO:\n"
+                "El tutor acaba de enviar un mensaje que indica que no entendió tu respuesta anterior "
+                "(signos de interrogación, 'no entendí', 'qué?', 'no comprendo', etc.). "
+                "NO repitas la misma explicación. En cambio, pedile con calidez que te cuente "
+                "con sus propias palabras qué parte no quedó clara o qué es lo que quiere saber. "
+                "Ejemplo: 'Claro, contame: ¿qué parte no quedó clara? Así te explico mejor.' "
+                "Sé breve, cálido y no asumas qué confundió al tutor — preguntale directamente.\n---"
+            )
+
         modelo, etiqueta = _elegir_modelo(mensaje_usuario)
         log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | {etiqueta}')
 
