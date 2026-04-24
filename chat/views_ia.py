@@ -1,8 +1,20 @@
 """
 Vistas para el chat con Agente IA.
 Se integran al sistema de chat existente.
-✅ CORREGIDO: El hilo background siempre guarda una respuesta en BD,
-   incluso si hay error — el usuario nunca se queda con "pensando..." eternamente.
+
+✅ AGENTES ESPECIALIZADOS POR ROL:
+   Gerente, Recepcionista, Profesional y Superusuario reciben respuestas
+   del agente especializado que ya usan en WhatsApp (con acceso real a BD:
+   agenda, pagos, pacientes, estadísticas, etc.).
+   Pacientes y otros roles siguen usando el agente genérico (ia_agent.py).
+
+✅ HISTORIAL SEPARADO:
+   El historial del chat interno se guarda con clave 'chat_interno:<user_id>'
+   en ConversacionAgente, completamente independiente del historial de WhatsApp.
+
+✅ GARANTÍA DE RESPUESTA:
+   El hilo background siempre guarda una respuesta en BD, incluso si hay
+   error — el usuario nunca se queda con "pensando..." eternamente.
 """
 
 import threading
@@ -29,7 +41,7 @@ def _mensaje_error_amigable(excepcion: Exception) -> str:
     """
     texto = str(excepcion).lower()
 
-    if 'groq_api_key' in texto or 'api key' in texto or 'authentication' in texto:
+    if 'api key' in texto or 'authentication' in texto or 'anthropic_api_key' in texto:
         return (
             '⚠️ No se ha configurado la clave de acceso a la IA.\n'
             'Por favor contacta al administrador del sistema.'
@@ -47,13 +59,12 @@ def _mensaje_error_amigable(excepcion: Exception) -> str:
             'Verifica tu conexión e intenta de nuevo.'
         )
 
-    if 'groq' in texto and ('import' in texto or 'module' in texto):
+    if 'import' in texto or 'module' in texto:
         return (
             '⚠️ El módulo de IA no está instalado correctamente.\n'
             'Contacta al administrador del sistema.'
         )
 
-    # Error genérico
     return (
         '😓 Ocurrió un error al procesar tu mensaje.\n'
         'Por favor intenta de nuevo en unos momentos.'
@@ -64,14 +75,20 @@ def _mensaje_error_amigable(excepcion: Exception) -> str:
 # HILO BACKGROUND — SIEMPRE GUARDA RESPUESTA
 # ============================================================
 
-def _responder_en_background(conversacion_id: int, usuario_humano_id: int):
+def _responder_en_background(conversacion_id: int, usuario_humano_id: int, contenido_mensaje: str):
     """
     Ejecuta la respuesta de la IA en un hilo separado.
 
+    LÓGICA DE DESPACHO POR ROL:
+      - Superusuario → agente.superusuario (Sonnet/Opus, contexto total)
+      - Gerente       → agente.gerente     (Haiku/Sonnet, finanzas + operativo)
+      - Recepcionista → agente.recepcionista (Haiku/Sonnet, agenda + pagos)
+      - Recepcionista + Profesional → agente combinado
+      - Profesional   → agente.profesional (Haiku/Sonnet, clínico)
+      - Paciente / otros → ia_agent.responder_con_ia (agente genérico)
+
     ✅ GARANTÍA: Siempre guarda un mensaje en la BD al terminar,
     ya sea la respuesta real o un mensaje de error amigable.
-    Así el polling del frontend siempre recibe algo y el
-    indicador "pensando..." nunca queda colgado.
     """
     from django.contrib.auth.models import User
 
@@ -83,11 +100,14 @@ def _responder_en_background(conversacion_id: int, usuario_humano_id: int):
         usuario = User.objects.get(id=usuario_humano_id)
         usuario_ia = get_o_crear_usuario_ia()
 
-        # Intento principal: llamar a la IA
-        responder_con_ia(conversacion, usuario)
+        # ── Intentar agente especializado según rol ───────────────────────────
+        usó_especializado = _despachar_agente(conversacion, usuario, contenido_mensaje)
+
+        if not usó_especializado:
+            # Paciente u otro rol sin agente especializado → agente genérico
+            responder_con_ia(conversacion, usuario)
 
     except Exception as exc:
-        # Loguear el error real para el administrador
         logger.error(
             f'[IA Agent Error] conversacion_id={conversacion_id} '
             f'usuario_id={usuario_humano_id} | {type(exc).__name__}: {exc}',
@@ -108,21 +128,59 @@ def _responder_en_background(conversacion_id: int, usuario_humano_id: int):
                 remitente=usuario_ia,
                 contenido=_mensaje_error_amigable(exc)
             )
-
             NotificacionChat.objects.create(
                 usuario=usuario,
                 conversacion=conversacion,
                 mensaje=mensaje_error
             )
-
             conversacion.save()
 
         except Exception as exc_fallback:
-            # Si ni siquiera podemos guardar el error, solo logueamos
             logger.critical(
                 f'[IA Agent] No se pudo guardar mensaje de error en BD: {exc_fallback}',
                 exc_info=True
             )
+
+
+def _despachar_agente(conversacion, usuario, contenido_mensaje: str) -> bool:
+    """
+    Decide qué agente usar según el rol del usuario y ejecuta la respuesta.
+
+    Retorna True  → se usó un agente especializado (la respuesta ya está guardada).
+    Retorna False → debe usarse el agente genérico (ia_agent.responder_con_ia).
+    """
+    try:
+        from .ia_bridge import (
+            responder_con_agente_especializado,
+            guardar_mensaje_usuario_en_historial,
+            _staff_desde_user,
+            _tipo_agente_para_historial,
+        )
+
+        staff = _staff_desde_user(usuario)
+
+        if not staff.tipo_agente:
+            # Paciente u otro rol → agente genérico
+            return False
+
+        # Guardar el mensaje del usuario en ConversacionAgente ANTES de despachar
+        # para que el agente lo encuentre al construir el historial.
+        guardar_mensaje_usuario_en_historial(
+            usuario,
+            _tipo_agente_para_historial(staff.tipo_agente),
+            contenido_mensaje,
+        )
+
+        # Llamar al agente especializado (guarda la respuesta en chat.Mensaje)
+        responder_con_agente_especializado(conversacion, usuario)
+        return True
+
+    except Exception as exc:
+        logger.error(
+            f'[IA Dispatch] Error al despachar agente para {usuario.username}: {exc}',
+            exc_info=True
+        )
+        raise  # el bloque except de _responder_en_background maneja el fallback
 
 
 # ============================================================
@@ -138,7 +196,6 @@ def chat_con_ia(request):
     usuario = request.user
     usuario_ia = get_o_crear_usuario_ia()
 
-    # Buscar conversación existente
     conversacion = Conversacion.objects.filter(
         Q(usuario_1=usuario, usuario_2=usuario_ia) |
         Q(usuario_1=usuario_ia, usuario_2=usuario)
@@ -149,8 +206,6 @@ def chat_con_ia(request):
             usuario_1=usuario,
             usuario_2=usuario_ia,
         )
-
-        # ✅ Mensaje de bienvenida personalizado por rol
         Mensaje.objects.create(
             conversacion=conversacion,
             remitente=usuario_ia,
@@ -164,6 +219,7 @@ def chat_con_ia(request):
 def _get_bienvenida(usuario) -> str:
     """
     Genera un mensaje de bienvenida personalizado según el rol del usuario.
+    Refleja las capacidades del agente especializado que le corresponde.
     """
     nombre = usuario.get_full_name() or usuario.username
 
@@ -173,8 +229,9 @@ def _get_bienvenida(usuario) -> str:
             '🔓 Tienes acceso completo a todos los módulos:\n'
             '• 👥 Pacientes y profesionales\n'
             '• 📅 Agenda y sesiones\n'
-            '• 💰 Facturación e informes\n'
-            '• 📊 Estadísticas globales\n\n'
+            '• 💰 Facturación e informes financieros\n'
+            '• 📊 Estadísticas globales y rendimiento\n\n'
+            '💡 Para consultas rápidas uso Sonnet. Para informes y análisis detallados activo Opus automáticamente.\n\n'
             '🎤 Puedes escribirme o usar el micrófono. ¿En qué te ayudo?'
         )
 
@@ -200,31 +257,36 @@ def _get_bienvenida(usuario) -> str:
     if perfil.es_profesional():
         return (
             f'👋 ¡Hola, {nombre}! Soy tu Asistente IA.\n\n'
-            'Puedo ayudarte con:\n'
+            'Tengo acceso en tiempo real a tu información clínica:\n'
             '• 📅 Tu agenda del día y próximas sesiones\n'
-            '• 👥 Información de tus pacientes\n'
-            '• 📊 Estadísticas de tu actividad\n\n'
+            '• 👥 Información de tus pacientes asignados\n'
+            '• 📝 Notas de evolución e historial clínico\n'
+            '• 📊 Evaluaciones e informes recientes\n\n'
+            '💡 Para consultas simples uso Haiku. Para análisis clínicos detallados activo Sonnet.\n\n'
             '🎤 Puedes escribirme o usar el micrófono. ¿En qué te ayudo?'
         )
 
     if perfil.es_recepcionista():
         return (
             f'👋 ¡Hola, {nombre}! Soy el Asistente IA.\n\n'
-            'Puedo ayudarte con:\n'
-            '• 📅 Consultar y gestionar la agenda\n'
-            '• 🔍 Buscar pacientes y profesionales\n'
-            '• ✅ Verificar citas del día\n\n'
+            'Tengo acceso en tiempo real a tu sucursal:\n'
+            '• 📅 Agenda del día: programadas, realizadas, cancelaciones\n'
+            '• 🔍 Búsqueda de pacientes y profesionales\n'
+            '• 💰 Pagos del día, deudas y mensualidades\n'
+            '• ✅ Estado de citas y sesiones\n\n'
+            '💡 Para consultas rápidas uso Haiku. Para informes y resúmenes activo Sonnet.\n\n'
             '🎤 También puedes hablarme con el micrófono. ¿Qué necesitas?'
         )
 
     if perfil.es_gerente():
         return (
             f'👋 ¡Hola, {nombre}! Soy el Asistente IA.\n\n'
-            'Puedo ayudarte con:\n'
+            'Tengo acceso en tiempo real a toda la operación:\n'
             '• 📊 Informes y estadísticas globales\n'
-            '• 💰 Facturación y análisis financiero\n'
-            '• 👥 Actividad de pacientes y profesionales\n'
+            '• 💰 Facturación, ingresos, deudas y análisis financiero\n'
+            '• 👥 Actividad y rendimiento de pacientes y profesionales\n'
             '• 📅 Agenda general de la clínica\n\n'
+            '💡 Para consultas rápidas uso Haiku. Para informes ejecutivos y análisis activo Sonnet.\n\n'
             '🎤 Puedes escribirme o usar el micrófono. ¿Qué informe necesitas?'
         )
 
@@ -239,6 +301,10 @@ def enviar_mensaje_ia(request, conversacion_id):
     """
     Versión especial de enviar_mensaje que detecta si la conversación
     es con el agente IA y dispara la respuesta automática en background.
+
+    El hilo background despacha al agente especializado según el rol del usuario:
+      - Staff (gerente, recepcionista, profesional, superusuario) → agente de WhatsApp
+      - Paciente / otros → agente genérico (ia_agent.responder_con_ia)
 
     ✅ El hilo siempre garantiza una respuesta en BD (real o de error).
     """
@@ -257,7 +323,7 @@ def enviar_mensaje_ia(request, conversacion_id):
     if len(contenido) > 2000:
         return JsonResponse({'error': 'Mensaje demasiado largo (máx 2000 caracteres)'}, status=400)
 
-    # Guardar el mensaje del usuario
+    # Guardar el mensaje del usuario en el chat
     mensaje = Mensaje.objects.create(
         conversacion=conversacion,
         remitente=usuario,
@@ -270,10 +336,12 @@ def enviar_mensaje_ia(request, conversacion_id):
     usuario_ia = get_o_crear_usuario_ia()
 
     if otro == usuario_ia:
-        # ✅ Lanzar respuesta en hilo separado (siempre guarda algo en BD)
+        # Lanzar respuesta en hilo separado — pasa el contenido del mensaje
+        # para que _despachar_agente pueda guardarlo en ConversacionAgente
+        # antes de llamar al agente especializado.
         hilo = threading.Thread(
             target=_responder_en_background,
-            args=(conversacion.id, usuario.id),
+            args=(conversacion.id, usuario.id, contenido),
             daemon=True
         )
         hilo.start()
