@@ -14,6 +14,13 @@ from django.utils import timezone
 
 log = logging.getLogger(__name__)
 
+# Entorno mínimo para que pm2 encuentre su socket en /root/.pm2
+PM2_ENV = {
+    'HOME': '/root',
+    'PATH': '/usr/bin:/usr/local/bin:/bin:/usr/sbin:/sbin',
+    'PM2_HOME': '/root/.pm2',
+}
+
 
 # ══════════════════════════════════════════════════════
 # WHATSAPP
@@ -83,7 +90,6 @@ def whatsapp_logs_stream(request):
                 if m:
                     hora = m.group(1)
                 else:
-                    # Timestamp epoch al inicio (PM2 sin tiempo legible)
                     hora = ''
 
                 # Limpiar prefijo PM2 como "0|whatsapp | " o "1|whatsapp-bot-camacho | "
@@ -126,11 +132,12 @@ def whatsapp_status(request):
     except Exception:
         pass
 
-    # ── Datos de PM2 ──
+    # ── Datos de PM2 usando ruta absoluta y entorno correcto ──
     try:
         result = subprocess.run(
-            ['pm2', 'jlist'],
-            capture_output=True, text=True, timeout=8
+            ['/usr/bin/pm2', 'jlist'],
+            capture_output=True, text=True, timeout=8,
+            env=PM2_ENV,
         )
         procesos = json.loads(result.stdout)
         for proc in procesos:
@@ -175,7 +182,10 @@ def whatsapp_reconectar(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         bot = data.get('bot', 'japon')
-        subprocess.Popen(['pm2', 'restart', f'whatsapp-bot{"-camacho" if bot == "camacho" else ""}'])
+        subprocess.Popen(
+            ['/usr/bin/pm2', 'restart', f'whatsapp-bot{"-camacho" if bot == "camacho" else ""}'],
+            env=PM2_ENV,
+        )
         return JsonResponse({'ok': True})
     return JsonResponse({'ok': False})
 
@@ -554,6 +564,7 @@ def whatsapp_envio_masivo(request):
                 f"👋 Hola! Le recordamos los horarios de la próxima semana en {tutor['sucursal']}:\n\n"
                 f"{cuerpo}\n\n¡Hasta pronto! 😊 neuromisael.com"
             )
+            tutores[telefono] = tutor
 
     elif destinatarios == 'deudores':
         from facturacion.models import CuentaCorriente
