@@ -14,6 +14,129 @@
   @keyframes scanline-anim{ 0%{transform:translateY(-100%)} 100%{transform:translateY(500%)} }
   @keyframes blink-error { 0%,100%{border-color:rgba(248,113,113,0.5)} 50%{border-color:rgba(248,113,113,1)} }
 
+  /* ── WIDGET IA ── */
+  @keyframes orbit       { from{transform:rotate(0deg) translateX(28px) rotate(0deg)} to{transform:rotate(360deg) translateX(28px) rotate(-360deg)} }
+  @keyframes orbit2      { from{transform:rotate(120deg) translateX(20px) rotate(-120deg)} to{transform:rotate(480deg) translateX(20px) rotate(-480deg)} }
+  @keyframes orbit3      { from{transform:rotate(240deg) translateX(34px) rotate(-240deg)} to{transform:rotate(600deg) translateX(34px) rotate(-600deg)} }
+  @keyframes core-pulse  { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.12);opacity:.8} }
+  @keyframes ring-spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes ring-spin-r { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+  @keyframes wave-bar    { 0%,100%{height:4px;opacity:.4} 50%{height:20px;opacity:1} }
+  @keyframes think-text  { 0%{opacity:0;transform:translateX(-6px)} 100%{opacity:1;transform:translateX(0)} }
+  @keyframes err-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.4)} 50%{box-shadow:0 0 0 12px rgba(248,113,113,0)} }
+  @keyframes err-shake   { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-8deg)} 75%{transform:rotate(8deg)} }
+  @keyframes warn-spin   { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+  @keyframes data-stream { 0%{opacity:0;transform:translateY(-8px)} 20%{opacity:1} 80%{opacity:1} 100%{opacity:0;transform:translateY(8px)} }
+
+  .ai-widget {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px 10px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(34,211,160,.2);
+    background: rgba(0,0,0,.25);
+    min-width: 280px; flex-shrink: 0;
+    position: relative; overflow: hidden;
+  }
+  .ai-widget.ai-ok   { border-color: rgba(34,211,160,.3); }
+  .ai-widget.ai-err  { border-color: rgba(248,113,113,.4); }
+  .ai-widget.ai-warn { border-color: rgba(251,191,36,.3); }
+
+  /* Núcleo central */
+  .ai-core-wrap {
+    position: relative; width: 72px; height: 72px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ai-ring {
+    position: absolute; border-radius: 50%;
+    border: 1px solid transparent; top: 50%; left: 50%;
+  }
+  .ai-ring-1 {
+    width: 64px; height: 64px; margin: -32px 0 0 -32px;
+    border-color: rgba(34,211,160,.25) rgba(34,211,160,.05) rgba(34,211,160,.25) rgba(34,211,160,.05);
+    animation: ring-spin 3s linear infinite;
+  }
+  .ai-ring-2 {
+    width: 50px; height: 50px; margin: -25px 0 0 -25px;
+    border-color: rgba(34,211,160,.1) rgba(34,211,160,.35) rgba(34,211,160,.1) rgba(34,211,160,.35);
+    animation: ring-spin-r 2s linear infinite;
+  }
+  .ai-ring-err-1 { border-color: rgba(248,113,113,.3) rgba(248,113,113,.06) rgba(248,113,113,.3) rgba(248,113,113,.06); }
+  .ai-ring-err-2 { border-color: rgba(248,113,113,.08) rgba(248,113,113,.4) rgba(248,113,113,.08) rgba(248,113,113,.4); }
+  .ai-ring-warn-1{ border-color: rgba(251,191,36,.25) rgba(251,191,36,.05) rgba(251,191,36,.25) rgba(251,191,36,.05); }
+  .ai-ring-warn-2{ border-color: rgba(251,191,36,.08) rgba(251,191,36,.35) rgba(251,191,36,.08) rgba(251,191,36,.35); }
+
+  .ai-core {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: radial-gradient(circle, #22d3a0 0%, #0d9e75 60%, #065e45 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; position: relative; z-index: 2;
+    animation: core-pulse 2s ease-in-out infinite;
+    box-shadow: 0 0 14px rgba(34,211,160,.5);
+  }
+  .ai-core.core-err  { background: radial-gradient(circle,#f87171,#dc2626,#7f1d1d); box-shadow: 0 0 14px rgba(248,113,113,.5); animation: core-pulse 0.8s ease-in-out infinite, err-pulse 1.5s ease-in-out infinite; }
+  .ai-core.core-warn { background: radial-gradient(circle,#fbbf24,#d97706,#78350f); box-shadow: 0 0 14px rgba(251,191,36,.5); animation: core-pulse 1.5s ease-in-out infinite; }
+
+  /* Partículas orbitando */
+  .ai-particle { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; border-radius: 50%; margin: -2.5px 0 0 -2.5px; }
+  .ai-p1 { background: #22d3a0; animation: orbit  4s linear infinite; }
+  .ai-p2 { background: #22d3a0; animation: orbit2 3s linear infinite; opacity:.7; }
+  .ai-p3 { background: rgba(34,211,160,.5); animation: orbit3 5s linear infinite; }
+  .ai-p-err1 { background: #f87171; }
+  .ai-p-err2 { background: #f87171; opacity:.7; }
+  .ai-p-err3 { background: rgba(248,113,113,.5); }
+  .ai-p-warn1{ background: #fbbf24; }
+  .ai-p-warn2{ background: #fbbf24; opacity:.7; }
+  .ai-p-warn3{ background: rgba(251,191,36,.5); }
+
+  /* Panel derecho del widget */
+  .ai-info { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+  .ai-label {
+    font-size: 10px; font-weight: 800; letter-spacing: 1px;
+    color: rgba(34,211,160,.8); text-transform: uppercase;
+  }
+  .ai-label.err-label  { color: rgba(248,113,113,.8); }
+  .ai-label.warn-label { color: rgba(251,191,36,.8); }
+
+  .ai-thought {
+    font-size: 11px; color: rgba(255,255,255,.75); font-family: monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    animation: think-text .4s ease forwards;
+    min-height: 16px;
+  }
+
+  /* Barras de onda (ecualizador) */
+  .ai-wave {
+    display: flex; align-items: flex-end; gap: 3px; height: 22px;
+  }
+  .ai-bar {
+    width: 3px; border-radius: 2px; background: #22d3a0;
+    animation: wave-bar 1s ease-in-out infinite;
+  }
+  .ai-bar:nth-child(1) { animation-delay: 0s; }
+  .ai-bar:nth-child(2) { animation-delay: .1s; }
+  .ai-bar:nth-child(3) { animation-delay: .2s; }
+  .ai-bar:nth-child(4) { animation-delay: .3s; }
+  .ai-bar:nth-child(5) { animation-delay: .15s; }
+  .ai-bar:nth-child(6) { animation-delay: .25s; }
+  .ai-bar:nth-child(7) { animation-delay: .05s; }
+  .ai-bar.err-bar  { background: #f87171; animation-duration: .4s; }
+  .ai-bar.warn-bar { background: #fbbf24; animation-duration: .8s; }
+  .ai-bar.stopped  { height: 4px !important; animation: none; opacity: .3; }
+
+  /* Stream de datos flotando */
+  .ai-data-stream {
+    position: absolute; right: 8px; top: 0; bottom: 0;
+    display: flex; flex-direction: column; justify-content: space-around;
+    pointer-events: none; opacity: .35;
+  }
+  .ai-data-bit {
+    font-size: 8px; font-family: monospace; color: #22d3a0;
+    animation: data-stream 3s ease-in-out infinite;
+  }
+  .ai-data-bit:nth-child(2) { animation-delay: 1s; }
+  .ai-data-bit:nth-child(3) { animation-delay: 2s; }
+
   /* ── BANNER DE ESTADO GLOBAL ── */
   .status-banner-global {
     border-radius: 14px;
@@ -329,7 +452,36 @@
       </div>
     </div>
     <div class="sbg-right">
-      <div class="sbg-stream" id="sbg-stream"></div>
+      <!-- WIDGET IA -->
+      <div class="ai-widget ai-ok" id="ai-widget">
+        <div class="ai-core-wrap">
+          <div class="ai-ring ai-ring-1" id="ai-ring-1"></div>
+          <div class="ai-ring ai-ring-2" id="ai-ring-2"></div>
+          <div class="ai-particle ai-p1" id="ai-p1"></div>
+          <div class="ai-particle ai-p2" id="ai-p2"></div>
+          <div class="ai-particle ai-p3" id="ai-p3"></div>
+          <div class="ai-core" id="ai-core">🤖</div>
+        </div>
+        <div class="ai-info">
+          <div class="ai-label" id="ai-label">AGENTE ACTIVO</div>
+          <div class="ai-thought" id="ai-thought">Procesando mensajes entrantes...</div>
+          <div class="ai-wave" id="ai-wave">
+            <div class="ai-bar" id="ai-bar-1"></div>
+            <div class="ai-bar" id="ai-bar-2"></div>
+            <div class="ai-bar" id="ai-bar-3"></div>
+            <div class="ai-bar" id="ai-bar-4"></div>
+            <div class="ai-bar" id="ai-bar-5"></div>
+            <div class="ai-bar" id="ai-bar-6"></div>
+            <div class="ai-bar" id="ai-bar-7"></div>
+          </div>
+        </div>
+        <div class="ai-data-stream" id="ai-data-stream">
+          <div class="ai-data-bit">01101</div>
+          <div class="ai-data-bit">10010</div>
+          <div class="ai-data-bit">11001</div>
+        </div>
+      </div>
+      <!-- PILLS -->
       <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
         <div class="sbg-pill gray-pill" id="sbg-pill-japon">
           <span class="sbg-dot" style="background:rgba(255,255,255,.2);"></span>
@@ -628,6 +780,123 @@ function toggleSection(id) {
   chevron.classList.toggle('open', isOpen);
 }
 
+// ── Widget IA ────────────────────────────────────────────────────────────────
+const AI_THOUGHTS_OK = [
+  'Analizando consultas entrantes...',
+  'Generando respuesta personalizada...',
+  'Procesando nota de voz...',
+  'Enviando recordatorio de sesión...',
+  'Clasificando intención del mensaje...',
+  'Respondiendo sobre terapias disponibles...',
+  'Verificando disponibilidad de agenda...',
+  'Procesando mensaje de tutor...',
+];
+const AI_THOUGHTS_ERR = [
+  'Error de conexión con WhatsApp...',
+  'Reintentando reconexión...',
+  'Protocolo interrumpido — timeout',
+  'Sesión desconectada inesperadamente...',
+];
+const AI_THOUGHTS_WARN = [
+  'Esperando escaneo de código QR...',
+  'Vinculación de dispositivo pendiente...',
+  'Aguardando autorización de WhatsApp...',
+];
+let aiThoughtInterval = null;
+let aiThoughtIdx = 0;
+
+function setAiMode(mode) {
+  const widget  = document.getElementById('ai-widget');
+  const core    = document.getElementById('ai-core');
+  const ring1   = document.getElementById('ai-ring-1');
+  const ring2   = document.getElementById('ai-ring-2');
+  const label   = document.getElementById('ai-label');
+  const p1 = document.getElementById('ai-p1');
+  const p2 = document.getElementById('ai-p2');
+  const p3 = document.getElementById('ai-p3');
+  const bars    = document.querySelectorAll('.ai-bar');
+  const stream  = document.getElementById('ai-data-stream');
+
+  if (aiThoughtInterval) clearInterval(aiThoughtInterval);
+
+  if (mode === 'ok') {
+    widget.className = 'ai-widget ai-ok';
+    core.className   = 'ai-core';
+    core.textContent = '🤖';
+    ring1.className  = 'ai-ring ai-ring-1';
+    ring2.className  = 'ai-ring ai-ring-2';
+    p1.className = 'ai-particle ai-p1';
+    p2.className = 'ai-particle ai-p2';
+    p3.className = 'ai-particle ai-p3';
+    label.className  = 'ai-label';
+    label.textContent = 'AGENTE ACTIVO';
+    bars.forEach(b => { b.className = 'ai-bar'; });
+    stream.style.display = '';
+    stream.querySelectorAll('.ai-data-bit').forEach(b => { b.style.color = '#22d3a0'; });
+    aiThoughtIdx = 0;
+    setAiThought(AI_THOUGHTS_OK[0]);
+    aiThoughtInterval = setInterval(() => {
+      aiThoughtIdx = (aiThoughtIdx + 1) % AI_THOUGHTS_OK.length;
+      setAiThought(AI_THOUGHTS_OK[aiThoughtIdx]);
+    }, 3000);
+
+  } else if (mode === 'err') {
+    widget.className = 'ai-widget ai-err';
+    core.className   = 'ai-core core-err';
+    core.textContent = '⚠️';
+    ring1.className  = 'ai-ring ai-ring-1 ai-ring-err-1';
+    ring2.className  = 'ai-ring ai-ring-2 ai-ring-err-2';
+    p1.className = 'ai-particle ai-p1 ai-p-err1';
+    p2.className = 'ai-particle ai-p2 ai-p-err2';
+    p3.className = 'ai-particle ai-p3 ai-p-err3';
+    label.className  = 'ai-label err-label';
+    label.textContent = 'SISTEMA INTERRUMPIDO';
+    bars.forEach(b => { b.className = 'ai-bar err-bar'; });
+    stream.style.display = 'none';
+    aiThoughtIdx = 0;
+    setAiThought(AI_THOUGHTS_ERR[0]);
+    aiThoughtInterval = setInterval(() => {
+      aiThoughtIdx = (aiThoughtIdx + 1) % AI_THOUGHTS_ERR.length;
+      setAiThought(AI_THOUGHTS_ERR[aiThoughtIdx]);
+    }, 1800);
+
+  } else if (mode === 'warn') {
+    widget.className = 'ai-widget ai-warn';
+    core.className   = 'ai-core core-warn';
+    core.textContent = '📱';
+    ring1.className  = 'ai-ring ai-ring-1 ai-ring-warn-1';
+    ring2.className  = 'ai-ring ai-ring-2 ai-ring-warn-2';
+    p1.className = 'ai-particle ai-p1 ai-p-warn1';
+    p2.className = 'ai-particle ai-p2 ai-p-warn2';
+    p3.className = 'ai-particle ai-p3 ai-p-warn3';
+    label.className  = 'ai-label warn-label';
+    label.textContent = 'VINCULACIÓN PENDIENTE';
+    bars.forEach(b => { b.className = 'ai-bar warn-bar'; });
+    stream.style.display = 'none';
+    aiThoughtIdx = 0;
+    setAiThought(AI_THOUGHTS_WARN[0]);
+    aiThoughtInterval = setInterval(() => {
+      aiThoughtIdx = (aiThoughtIdx + 1) % AI_THOUGHTS_WARN.length;
+      setAiThought(AI_THOUGHTS_WARN[aiThoughtIdx]);
+    }, 2500);
+
+  } else {
+    widget.className = 'ai-widget';
+    core.textContent = '⏳';
+    label.textContent = 'INICIALIZANDO';
+    bars.forEach(b => { b.className = 'ai-bar stopped'; });
+    setAiThought('Conectando con los bots...');
+  }
+}
+
+function setAiThought(text) {
+  const el = document.getElementById('ai-thought');
+  el.style.animation = 'none';
+  el.offsetHeight; // reflow
+  el.style.animation = '';
+  el.textContent = text;
+}
+
 // ── Banner de estado global ──────────────────────────────────────────────────
 const SBG_MSGS_OK = [
   'ok Mensaje enviado correctamente',
@@ -689,10 +958,7 @@ function updateBannerGlobal() {
     sub.textContent   = 'MENSAJES SIENDO ENVIADOS · AGENTE ACTIVO · RECORDATORIOS ACTIVADOS';
     scanline.style.display = '';
     alertBox.innerHTML = '';
-    // Stream de actividad simulada
-    sbgMsgInterval = setInterval(() => {
-      addSbgMsg(SBG_MSGS_OK[Math.floor(Math.random() * SBG_MSGS_OK.length)], 'ok');
-    }, 2200);
+    setAiMode('ok');
 
   } else if (anyErr) {
     banner.className = 'status-banner-global estado-error';
@@ -711,9 +977,7 @@ function updateBannerGlobal() {
         <span class="alert-strip-icon">⚠️</span>
         El bot ${botsFallidos} no está enviando mensajes ni respondiendo. Usa el botón <strong>Reconectar</strong> en la tarjeta correspondiente para reiniciarlo.
       </div>`;
-    sbgMsgInterval = setInterval(() => {
-      addSbgMsg(SBG_MSGS_ERR[Math.floor(Math.random() * SBG_MSGS_ERR.length)], 'err');
-    }, 1500);
+    setAiMode('err');
 
   } else if (anyQr) {
     banner.className = 'status-banner-global estado-warn';
@@ -728,6 +992,7 @@ function updateBannerGlobal() {
         <span class="alert-strip-icon">📲</span>
         Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular dispositivo → Escanea el QR que aparece abajo.
       </div>`;
+    setAiMode('warn');
 
   } else {
     banner.className = 'status-banner-global estado-desc';
@@ -738,6 +1003,7 @@ function updateBannerGlobal() {
     sub.textContent   = 'CONECTANDO CON LOS BOTS';
     scanline.style.display = 'none';
     alertBox.innerHTML = '';
+    setAiMode('init');
   }
 }
 
