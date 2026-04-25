@@ -499,14 +499,22 @@ function tarjetaConversacion(c) {
         estadoBadge = '<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">🤖 IA activa</span>';
     }
 
-    const borderColor = iaSuspendida ? 'rgba(239,68,68,0.2)' : esHumano ? 'rgba(234,179,8,0.3)' : esPaciente ? 'rgba(220,0,255,0.5)' : 'rgba(0,220,255,0.55)';
-    const avatarIcon  = iaSuspendida ? '⏸' : esHumano ? '👤' : esStaffConv ? '👥' : esPaciente ? '👶' : '🌐';
-    const avatarStyle = esPaciente
+    const esStaffConv = esStaff(c);   // ← sube aquí primero
+    const borderColor = iaSuspendida ? 'rgba(239,68,68,0.2)'
+        : esHumano    ? 'rgba(234,179,8,0.3)'
+        : esStaffConv ? 'rgba(249,115,22,0.5)'
+        : esPaciente  ? 'rgba(220,0,255,0.5)'
+        : 'rgba(0,220,255,0.55)';
+    const avatarIcon  = iaSuspendida ? '⏸'
+        : esHumano    ? '👤'
+        : esStaffConv ? '👥'
+        : esPaciente  ? '👶'
+        : '🌐';
+    const avatarStyle = esStaffConv
+        ? 'background:rgba(249,115,22,0.15); border:1px solid rgba(249,115,22,0.35);'
+        : esPaciente
         ? 'background:rgba(220,0,255,0.15); border:1px solid rgba(220,0,255,0.35);'
         : 'background:rgba(0,220,255,0.12); border:1px solid rgba(0,220,255,0.3);';
-
-    // Clase neón según estado
-    const esStaffConv = esStaff(c);
     const neonClass = iaSuspendida ? 'conv-neon-red'
         : esHumano    ? 'conv-neon-yellow'
         : esStaffConv ? 'conv-neon-orange'
