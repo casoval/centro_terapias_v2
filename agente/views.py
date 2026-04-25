@@ -531,6 +531,7 @@ def api_conversaciones(request):
             'nombre_paciente': nombre_paciente_display,
             'nombre_tutor':    nombre_tutor_display,
             'cual_tutor':      cual_tutor or '',
+            'agente':          ultimo_msg.agente if ultimo_msg else '',   # ← nuevo
         })
 
     # Ordenar por más reciente

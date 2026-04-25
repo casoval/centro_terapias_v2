@@ -24,6 +24,10 @@
                 <p id="total-pacientes" class="text-2xl font-black text-emerald-300">—</p>
             </div>
             <div class="text-right">
+                <p class="text-[10px] text-white/50 uppercase tracking-wider">Staff</p>
+                <p id="total-staff" class="text-2xl font-black text-orange-300">—</p>
+            </div>
+            <div class="text-right">
                 <p class="text-[10px] text-white/50 uppercase tracking-wider">Modo humano</p>
                 <p id="total-humano" class="text-2xl font-black text-yellow-300">—</p>
             </div>
@@ -90,13 +94,19 @@
             class="tab-btn activo flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all">
             🌐 <span>Público</span>
             <span id="badge-tab-publico" class="text-[10px] px-2 py-0.5 rounded-full font-black"
-                  style="background:rgba(148,163,184,0.15); color:#94a3b8;">—</span>
+                style="background:rgba(148,163,184,0.15); color:#94a3b8;">—</span>
         </button>
         <button id="tab-pacientes" onclick="setTab('pacientes')"
             class="tab-btn flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all">
             👶 <span>Pacientes registrados</span>
             <span id="badge-tab-pacientes" class="text-[10px] px-2 py-0.5 rounded-full font-black"
-                  style="background:rgba(16,185,129,0.15); color:#6ee7b7;">—</span>
+                style="background:rgba(16,185,129,0.15); color:#6ee7b7;">—</span>
+        </button>
+        <button id="tab-staff" onclick="setTab('staff')"
+            class="tab-btn flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+            👥 <span>Staff</span>
+            <span id="badge-tab-staff" class="text-[10px] px-2 py-0.5 rounded-full font-black"
+                style="background:rgba(249,115,22,0.15); color:#fdba74;">—</span>
         </button>
     </div>
 
@@ -280,6 +290,15 @@
     border-color: rgba(255,60,60,0.8) !important;
     box-shadow: 0 0 18px rgba(255,60,60,0.25), 0 0 2px rgba(255,60,60,0.85);
 }
+.conv-neon-orange {
+    background: linear-gradient(145deg, #1a0f00 0%, #261500 60%, #180c00 100%) !important;
+    border-color: rgba(249,115,22,0.5) !important;
+    box-shadow: 0 0 12px rgba(249,115,22,0.15), 0 0 1px rgba(249,115,22,0.55), inset 0 1px 0 rgba(249,115,22,0.07);
+}
+.conv-neon-orange:hover {
+    border-color: rgba(249,115,22,0.85) !important;
+    box-shadow: 0 0 22px rgba(249,115,22,0.28), 0 0 2px rgba(249,115,22,0.9);
+}
 </style>
 
 <script>
@@ -294,6 +313,9 @@ let estadoSucursales = { 3: true, 4: true };
 let telefonoModal   = null;
 let modoHumanoModal = false;
 let sucursalModal   = 3;
+
+const AGENTES_STAFF = ['superusuario', 'gerente', 'recepcionista', 'profesional'];
+function esStaff(c) { return AGENTES_STAFF.includes(c.agente); }
 
 // ── Pestañas ──────────────────────────────────────────────────────────────
 
@@ -386,14 +408,17 @@ async function cargarConversaciones() {
 }
 
 function actualizarContadores() {
-    const pub = todasLasConvs.filter(c => !c.es_paciente).length;
-    const pac = todasLasConvs.filter(c =>  c.es_paciente).length;
+    const pub = todasLasConvs.filter(c => !c.es_paciente && !esStaff(c)).length;
+    const pac = todasLasConvs.filter(c =>  c.es_paciente && !esStaff(c)).length;
+    const sta = todasLasConvs.filter(c =>  esStaff(c)).length;
     const hum = todasLasConvs.filter(c =>  c.modo_humano).length;
-    document.getElementById('total-publico').textContent           = pub;
-    document.getElementById('total-pacientes').textContent         = pac;
-    document.getElementById('total-humano').textContent            = hum;
-    document.getElementById('badge-tab-publico').textContent       = pub;
-    document.getElementById('badge-tab-pacientes').textContent     = pac;
+    document.getElementById('total-publico').textContent       = pub;
+    document.getElementById('total-pacientes').textContent     = pac;
+    document.getElementById('total-staff').textContent         = sta;
+    document.getElementById('total-humano').textContent        = hum;
+    document.getElementById('badge-tab-publico').textContent   = pub;
+    document.getElementById('badge-tab-pacientes').textContent = pac;
+    document.getElementById('badge-tab-staff').textContent     = sta;
 }
 
 function setFiltroSucursal(f) {
@@ -415,8 +440,9 @@ function renderConversaciones() {
     let datos = [...todasLasConvs];
 
     // Filtro por pestaña
-    if (tabActual === 'publico')   datos = datos.filter(c => !c.es_paciente);
-    if (tabActual === 'pacientes') datos = datos.filter(c =>  c.es_paciente);
+    if (tabActual === 'publico')   datos = datos.filter(c => !c.es_paciente && !esStaff(c));
+    if (tabActual === 'pacientes') datos = datos.filter(c =>  c.es_paciente && !esStaff(c));
+    if (tabActual === 'staff')     datos = datos.filter(c =>  esStaff(c));
 
     // Filtro sucursal
     if (filtroSucursal === 'japon')   datos = datos.filter(c => c.sucursal_id === 3);
@@ -439,10 +465,12 @@ function renderConversaciones() {
     const container = document.getElementById('lista-conversaciones');
 
     if (datos.length === 0) {
-        const emoji = tabActual === 'publico' ? '🌐' : '👶';
+        const emoji = tabActual === 'publico' ? '🌐' : tabActual === 'pacientes' ? '👶' : '👥';
         const texto = tabActual === 'publico'
             ? 'No hay consultas del público en este momento'
-            : 'No hay conversaciones de pacientes registrados';
+            : tabActual === 'pacientes'
+            ? 'No hay conversaciones de pacientes registrados'
+            : 'No hay conversaciones de staff por WhatsApp';
         container.innerHTML = '<div class="col-span-2 text-center text-white/40 py-12"><div class="text-4xl mb-3">' + emoji + '</div><p class="text-sm">' + texto + '</p></div>';
         return;
     }
@@ -472,14 +500,16 @@ function tarjetaConversacion(c) {
     }
 
     const borderColor = iaSuspendida ? 'rgba(239,68,68,0.2)' : esHumano ? 'rgba(234,179,8,0.3)' : esPaciente ? 'rgba(220,0,255,0.5)' : 'rgba(0,220,255,0.55)';
-    const avatarIcon  = iaSuspendida ? '⏸' : esHumano ? '👤' : esPaciente ? '👶' : '🌐';
+    const avatarIcon  = iaSuspendida ? '⏸' : esHumano ? '👤' : esStaffConv ? '👥' : esPaciente ? '👶' : '🌐';
     const avatarStyle = esPaciente
         ? 'background:rgba(220,0,255,0.15); border:1px solid rgba(220,0,255,0.35);'
         : 'background:rgba(0,220,255,0.12); border:1px solid rgba(0,220,255,0.3);';
 
     // Clase neón según estado
+    const esStaffConv = esStaff(c);
     const neonClass = iaSuspendida ? 'conv-neon-red'
         : esHumano    ? 'conv-neon-yellow'
+        : esStaffConv ? 'conv-neon-orange'
         : esPaciente  ? 'conv-neon-magenta'
         : 'conv-neon-cyan';
 

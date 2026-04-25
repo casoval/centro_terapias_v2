@@ -405,7 +405,7 @@ class AgenteProfesional(AgenteBase):
                     contexto     = contexto,
                 )
 
-            self.guardar_mensaje(telefono, 'user', mensaje)
+            self.guardar_mensaje(telefono, 'user', mensaje, origen='interno')
             historial = self.get_historial(telefono)
             log.info(f'[Profesional] {telefono} | {nombre} | {etiqueta} | {mensaje[:50]}')
 
@@ -413,14 +413,14 @@ class AgenteProfesional(AgenteBase):
                 historial=historial, system_prompt=prompt,
                 modelo=modelo, max_tokens=600,
             )
-            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-profesional')
+            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-profesional', origen='interno')
             self.log_respuesta(telefono, respuesta)
             return respuesta
 
         except Exception as e:
             log.error(f'[Profesional] Error para {telefono}: {e}', exc_info=True)
             fallback = self.fallback_mensaje()
-            self.guardar_mensaje(telefono, 'assistant', fallback, 'error')
+            self.guardar_mensaje(telefono, 'assistant', fallback, 'error', origen='interno')
             return fallback
 
 
