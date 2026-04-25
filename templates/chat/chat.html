@@ -113,7 +113,6 @@
         border: 1px solid #e2e8f0;
         box-shadow: 0 2px 8px rgba(0,0,0,.05);
     }
-    /* Burbuja IA en tema default: gradiente violeta distintivo */
     .mensaje-ia .bubble {
         background: linear-gradient(135deg, #f5f3ff, #ede9fe) !important;
         color: #3b0764 !important;
@@ -218,6 +217,27 @@
         margin-top: 4px; display: inline-flex; align-items: center; gap: 3px;
     }
     .btn-escuchar:hover { opacity: 1; }
+
+    /* ============================================================
+       SEPARADOR DE FECHA
+    ============================================================ */
+    .fecha-separador {
+        display: flex; align-items: center; gap: 12px;
+        margin: 20px 0 12px;
+        color: {% if tema_chat == 'default' %}#94a3b8{% else %}rgba(255,255,255,0.7){% endif %};
+        font-size: .72rem; font-weight: 600; letter-spacing: .4px;
+        text-transform: uppercase;
+    }
+    .fecha-separador::before,
+    .fecha-separador::after {
+        content: ''; flex: 1; height: 1px;
+        background: {% if tema_chat == 'default' %}#e2e8f0{% else %}rgba(255,255,255,0.25){% endif %};
+    }
+    .fecha-separador span {
+        background: {% if tema_chat == 'default' %}#f1f5f9{% else %}rgba(0,0,0,0.2){% endif %};
+        padding: 3px 12px; border-radius: 999px;
+        {% if tema_chat != 'default' %}color: white;{% endif %}
+    }
 </style>
 {% endblock %}
 
@@ -288,16 +308,16 @@
             </div>
 
             <!-- Botón voz automática (solo IA) -->
-                {% if es_chat_ia %}
-                <button id="btn-toggle-voz"
-                        onclick="toggleVozAutomatica()"
-                        title="Activar/desactivar respuesta en voz"
-                        class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2 text-lg">
-                    🔇
-                </button>
-                {% endif %}
+            {% if es_chat_ia %}
+            <button id="btn-toggle-voz"
+                    onclick="toggleVozAutomatica()"
+                    title="Activar/desactivar respuesta en voz"
+                    class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2 text-lg">
+                🔇
+            </button>
+            {% endif %}
 
-                <!-- Botón temas -->
+            <!-- Botón temas -->
             <button onclick="mostrarSelectorTema()"
                     class="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-all flex-shrink-0 ml-2">
                 <svg class="w-5 h-5 {% if tema_chat == 'default' %}text-slate-600{% else %}text-white{% endif %}"
@@ -313,11 +333,29 @@
          MENSAJES
     ================================================================ -->
     <div id="chat-mensajes" class="flex-1 overflow-y-auto p-3 sm:p-6">
-        <div class="max-w-5xl mx-auto">
+        <div class="max-w-5xl mx-auto" id="mensajes-contenedor">
 
             {% for mensaje in mensajes %}
+
+            {# ── Separador de fecha: se muestra cuando cambia el día ── #}
+            {% ifchanged mensaje.fecha_envio|date:"Y-m-d" %}
+            <div class="fecha-separador">
+                <span>
+                    {% now "Y-m-d" as hoy_str %}
+                    {% with dia=mensaje.fecha_envio|date:"Y-m-d" %}
+                        {% if dia == hoy_str %}
+                            Hoy · {{ mensaje.fecha_envio|date:"d \d\e N" }}
+                        {% else %}
+                            {{ mensaje.fecha_envio|date:"l, d \d\e N \d\e Y" }}
+                        {% endif %}
+                    {% endwith %}
+                </span>
+            </div>
+            {% endifchanged %}
+
             <div class="mensaje mb-4 flex {% if mensaje.remitente == user %}justify-end mensaje-mio{% elif es_chat_ia %}justify-start mensaje-ia{% else %}justify-start mensaje-otro{% endif %}"
-                 data-mensaje-id="{{ mensaje.id }}">
+                 data-mensaje-id="{{ mensaje.id }}"
+                 data-fecha="{{ mensaje.fecha_envio|date:'Y-m-d' }}">
 
                 {% if es_chat_ia and mensaje.remitente != user %}
                 <!-- Mini avatar IA -->
@@ -328,16 +366,20 @@
 
                 <div class="max-w-[85%] sm:max-w-[70%]">
                     <div class="bubble shadow-xl">
-                        <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">{{ mensaje.contenido }}</p>
+                        <p class="texto-mensaje text-sm sm:text-base break-words whitespace-pre-wrap font-medium">{{ mensaje.contenido }}</p>
                     </div>
 
                     <div class="flex items-center gap-2 mt-1 px-2 {% if mensaje.remitente == user %}justify-end{% else %}justify-start{% endif %}">
                         {% if es_chat_ia and mensaje.remitente != user %}
-                        <button class="btn-escuchar" onclick="leerEnVoz(this)">
+                        <button class="btn-escuchar" onclick="leerEnVoz(this)" title="Escuchar este mensaje">
                             🔊 <span>Escuchar</span>
                         </button>
                         {% endif %}
-                        <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">{{ mensaje.fecha_envio|date:"H:i" }}</span>
+                        {# Hora + fecha completa en tooltip #}
+                        <span class="text-xs bg-white/90 px-2 py-1 rounded-lg"
+                              title="{{ mensaje.fecha_envio|date:'l, d \d\e N \d\e Y' }}">
+                            {{ mensaje.fecha_envio|date:"H:i" }}
+                        </span>
                         {% if mensaje.remitente == user %}
                         <span class="text-sm {% if mensaje.leido %}text-green-500{% else %}text-gray-400{% endif %}">✓✓</span>
                         {% endif %}
@@ -496,12 +538,55 @@ let ultimoMensajeId = {% if mensajes %}{{ mensajes.last.id }}{% else %}0{% endif
 let pollingTimer    = null;
 let estaEscuchando  = false;
 let reconocimiento  = null;
-let vozActivada     = false;  // 🔊 Auto-TTS: desactivado por defecto
+let vozActivada     = false;
 const sintesis      = window.speechSynthesis;
 
-const formEnviar   = document.getElementById('form-enviar-mensaje');
-const inputMensaje = document.getElementById('input-mensaje');
-const chatMensajes = document.getElementById('chat-mensajes');
+const formEnviar    = document.getElementById('form-enviar-mensaje');
+const inputMensaje  = document.getElementById('input-mensaje');
+const chatMensajes  = document.getElementById('chat-mensajes');
+const contenedor    = document.getElementById('mensajes-contenedor');
+
+// ================================================================
+// SEPARADORES DE FECHA — lógica JS
+// ================================================================
+
+// Guarda la última fecha mostrada para evitar separadores duplicados
+// al agregar mensajes via polling.
+let ultimaFechaMostrada = null;
+
+// Inicializar con la fecha del último mensaje ya renderizado por Django
+(function() {
+    const msgs = contenedor.querySelectorAll('[data-fecha]');
+    if (msgs.length) {
+        ultimaFechaMostrada = msgs[msgs.length - 1].getAttribute('data-fecha');
+    }
+})();
+
+function _etiquetaFecha(fechaISO) {
+    // fechaISO: 'YYYY-MM-DD'
+    const hoy   = new Date();
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+    if (fechaISO === hoyStr) {
+        // "Hoy · 24 de abril"
+        const [y, m, d] = fechaISO.split('-').map(Number);
+        const fecha = new Date(y, m-1, d);
+        const dia   = fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+        return `Hoy · ${dia}`;
+    }
+    // "viernes, 18 de abril de 2025"
+    const [y, m, d] = fechaISO.split('-').map(Number);
+    return new Date(y, m-1, d).toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+}
+
+function _insertarSeparadorFecha(fechaISO) {
+    const sep = document.createElement('div');
+    sep.className = 'fecha-separador';
+    sep.innerHTML = `<span>${_etiquetaFecha(fechaISO)}</span>`;
+    contenedor.appendChild(sep);
+    ultimaFechaMostrada = fechaISO;
+}
 
 // ================================================================
 // SCROLL
@@ -520,33 +605,45 @@ function escapeHtml(text) {
 }
 
 // ================================================================
-// AGREGAR BURBUJA AL DOM (compatible con tu estructura original)
+// AGREGAR BURBUJA AL DOM
 // ================================================================
 function agregarMensaje(msg, esMio) {
-    const contenedor = chatMensajes.querySelector('.max-w-5xl');
-    const div = document.createElement('div');
+    // msg.fecha_iso debe venir del polling ('YYYY-MM-DD')
+    // msg.fecha_envio es la hora formateada ('HH:MM')
+    const fechaISO = msg.fecha_iso || null;
 
+    // Separador de fecha si cambió el día
+    if (fechaISO && fechaISO !== ultimaFechaMostrada) {
+        _insertarSeparadorFecha(fechaISO);
+    }
+
+    const div = document.createElement('div');
     const esIA = ES_CHAT_IA && !esMio;
+
     div.className = `mensaje mb-4 flex ${esMio ? 'justify-end mensaje-mio' : (esIA ? 'justify-start mensaje-ia' : 'justify-start mensaje-otro')}`;
     div.setAttribute('data-mensaje-id', msg.id);
+    if (fechaISO) div.setAttribute('data-fecha', fechaISO);
 
     const miniAvatarHtml = esIA
         ? `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-sm mr-2 flex-shrink-0 self-end mb-8">🤖</div>`
         : '';
 
     const escucharHtml = esIA
-        ? `<button class="btn-escuchar" onclick="leerEnVoz(this)">🔊 <span>Escuchar</span></button>`
+        ? `<button class="btn-escuchar" onclick="leerEnVoz(this)" title="Escuchar este mensaje">🔊 <span>Escuchar</span></button>`
         : '';
+
+    // Tooltip con fecha completa en la hora
+    const tooltipFecha = fechaISO ? `title="${_etiquetaFecha(fechaISO)}"` : '';
 
     div.innerHTML = `
         ${miniAvatarHtml}
         <div class="max-w-[85%] sm:max-w-[70%]">
             <div class="bubble shadow-xl">
-                <p class="text-sm sm:text-base break-words whitespace-pre-wrap font-medium">${escapeHtml(msg.contenido)}</p>
+                <p class="texto-mensaje text-sm sm:text-base break-words whitespace-pre-wrap font-medium">${escapeHtml(msg.contenido)}</p>
             </div>
             <div class="flex items-center gap-2 mt-1 px-2 ${esMio ? 'justify-end' : 'justify-start'}">
                 ${escucharHtml}
-                <span class="text-xs bg-white/90 px-2 py-1 rounded-lg">${msg.fecha_envio}</span>
+                <span class="text-xs bg-white/90 px-2 py-1 rounded-lg" ${tooltipFecha}>${msg.fecha_envio}</span>
                 ${esMio ? '<span class="text-sm text-gray-400">✓✓</span>' : ''}
             </div>
         </div>`;
@@ -554,10 +651,8 @@ function agregarMensaje(msg, esMio) {
     contenedor.appendChild(div);
     scrollToBottom();
 
-    // Auto-TTS: leer en voz alta si el usuario activó el modo voz
-    if (esIA && vozActivada) {
-        leerTexto(msg.contenido);
-    }
+    // Auto-TTS
+    if (esIA && vozActivada) leerTexto(msg.contenido);
 }
 
 // ================================================================
@@ -571,7 +666,7 @@ function mostrarTyping(visible) {
 }
 
 // ================================================================
-// POLLING
+// POLLING — ahora el servidor devuelve también fecha_iso
 // ================================================================
 function checkNuevosMensajes() {
     fetch(`/chat/nuevos/${CONVERSACION_ID}/?ultimo_mensaje_id=${ultimoMensajeId}`)
@@ -599,7 +694,6 @@ formEnviar.addEventListener('submit', function(e) {
 
     const formData = new FormData(this);
 
-    // Ocultar sugerencias tras primer mensaje
     const sugs = document.getElementById('sugerencias-ia');
     if (sugs) sugs.style.display = 'none';
 
@@ -617,6 +711,7 @@ formEnviar.addEventListener('submit', function(e) {
                 id: data.mensaje_id,
                 contenido: contenido,
                 fecha_envio: data.fecha_envio,
+                fecha_iso: data.fecha_iso,
                 remitente_id: USUARIO_ACTUAL_ID
             }, true);
             inputMensaje.value = '';
@@ -637,7 +732,7 @@ function usarSugerencia(texto) {
 }
 
 // ================================================================
-// TEMAS (idéntico a tu original)
+// TEMAS
 // ================================================================
 function mostrarSelectorTema()  { document.getElementById('modal-temas').classList.remove('hidden'); }
 function cerrarSelectorTema()   { document.getElementById('modal-temas').classList.add('hidden'); }
@@ -668,7 +763,6 @@ function toggleVozAutomatica() {
     vozActivada = !vozActivada;
     const btn = document.getElementById('btn-toggle-voz');
     if (!btn) return;
-
     if (vozActivada) {
         btn.textContent = '🔊';
         btn.title = 'Voz automática activada (clic para desactivar)';
@@ -682,32 +776,61 @@ function toggleVozAutomatica() {
 }
 
 // ================================================================
-// TEXT-TO-SPEECH (TTS del navegador — gratis)
+// TEXT-TO-SPEECH (TTS)
 // ================================================================
+
+// ✅ FIX: guardamos las voces cuando el navegador las carga de forma asíncrona
+let vocesDisponibles = [];
+if (sintesis) {
+    const cargarVoces = () => { vocesDisponibles = sintesis.getVoices(); };
+    cargarVoces();
+    sintesis.addEventListener('voiceschanged', cargarVoces);
+}
+
+function _elegirVozEspanol() {
+    // Prioridad: voz local en español > voz remota en español > cualquier voz
+    return vocesDisponibles.find(v => v.lang.startsWith('es') && v.localService)
+        || vocesDisponibles.find(v => v.lang.startsWith('es'))
+        || null;
+}
+
+// ✅ FIX: leerEnVoz ahora busca el <p class="texto-mensaje"> dentro de la burbuja
+// usando el árbol DOM correctamente, sin depender de `.closest('div')` genérico.
 function leerEnVoz(btn) {
-    const p = btn.closest('div').querySelector('p');
-    if (p) leerTexto(p.innerText);
+    // Subir al contenedor del mensaje y buscar el párrafo del texto
+    const msgDiv  = btn.closest('.mensaje');
+    const parrafo = msgDiv ? msgDiv.querySelector('.texto-mensaje') : null;
+    if (parrafo) leerTexto(parrafo.innerText);
 }
 
 function leerTexto(texto) {
     if (!sintesis) return;
-    sintesis.cancel();
+    sintesis.cancel(); // detener cualquier locución previa
 
-    const utt = new SpeechSynthesisUtterance(texto);
-    utt.lang  = 'es-ES';
-    utt.rate  = 1.0;
+    // ✅ FIX: crear el utterance DESPUÉS de cancel() y en el mismo tick
+    // para evitar el bug de Chrome donde speak() se ignora tras cancel()
+    setTimeout(() => {
+        const utt = new SpeechSynthesisUtterance(texto);
+        utt.lang  = 'es-ES';
+        utt.rate  = 1.0;
+        utt.pitch = 1.0;
 
-    // Elegir voz en español si existe
-    const voces = sintesis.getVoices();
-    const vozEs = voces.find(v => v.lang.startsWith('es'));
-    if (vozEs) utt.voice = vozEs;
+        const voz = _elegirVozEspanol();
+        if (voz) utt.voice = voz;
 
-    const btnStop = document.getElementById('btn-stop-tts');
-    utt.onstart = () => { if (btnStop) btnStop.style.display = 'flex'; };
-    utt.onend   = () => { if (btnStop) btnStop.style.display = 'none'; };
-    utt.onerror = () => { if (btnStop) btnStop.style.display = 'none'; };
+        const btnStop = document.getElementById('btn-stop-tts');
+        utt.onstart = () => { if (btnStop) btnStop.style.display = 'flex'; };
+        utt.onend   = () => { if (btnStop) btnStop.style.display = 'none'; };
+        utt.onerror = (ev) => {
+            if (btnStop) btnStop.style.display = 'none';
+            // 'interrupted' no es un error real — ocurre al cancelar manualmente
+            if (ev.error !== 'interrupted' && ev.error !== 'canceled') {
+                console.warn('[TTS] Error:', ev.error);
+            }
+        };
 
-    sintesis.speak(utt);
+        sintesis.speak(utt);
+    }, 50);
 }
 
 function detenerVoz() {
@@ -717,7 +840,7 @@ function detenerVoz() {
 }
 
 // ================================================================
-// RECONOCIMIENTO DE VOZ (Web Speech API — gratis)
+// RECONOCIMIENTO DE VOZ (Web Speech API)
 // ================================================================
 function inicializarReconocimiento() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -732,8 +855,8 @@ function inicializarReconocimiento() {
     }
 
     reconocimiento = new SR();
-    reconocimiento.lang = 'es-ES';
-    reconocimiento.continuous = false;
+    reconocimiento.lang          = 'es-ES';
+    reconocimiento.continuous    = false;
     reconocimiento.interimResults = true;
 
     reconocimiento.onresult = (e) => {
@@ -745,6 +868,7 @@ function inicializarReconocimiento() {
         estaEscuchando = false;
         const btn = document.getElementById('btn-mic');
         if (btn) btn.classList.remove('escuchando');
+        // Enviar automáticamente si hay texto transcripto
         if (inputMensaje.value.trim()) setTimeout(() => formEnviar.dispatchEvent(new Event('submit')), 400);
     };
 
@@ -752,7 +876,7 @@ function inicializarReconocimiento() {
         estaEscuchando = false;
         const btn = document.getElementById('btn-mic');
         if (btn) btn.classList.remove('escuchando');
-        if (e.error !== 'no-speech') console.warn('Voz error:', e.error);
+        if (e.error !== 'no-speech') console.warn('[STT] Error:', e.error);
     };
 
     return true;
@@ -760,17 +884,16 @@ function inicializarReconocimiento() {
 
 function toggleMic() {
     if (!reconocimiento && !inicializarReconocimiento()) return;
-
     const btn = document.getElementById('btn-mic');
     if (estaEscuchando) {
         reconocimiento.stop();
         estaEscuchando = false;
-        btn.classList.remove('escuchando');
+        if (btn) btn.classList.remove('escuchando');
     } else {
-        detenerVoz(); // evitar eco
+        detenerVoz(); // evitar eco TTS → micrófono
         reconocimiento.start();
         estaEscuchando = true;
-        btn.classList.add('escuchando');
+        if (btn) btn.classList.add('escuchando');
     }
 }
 
@@ -781,18 +904,10 @@ document.addEventListener('DOMContentLoaded', function () {
     scrollToBottom();
     pollingTimer = setInterval(checkNuevosMensajes, POLLING_INTERVAL);
 
-    // Cargar voces TTS
-    if (sintesis) {
-        sintesis.getVoices();
-        sintesis.onvoiceschanged = () => sintesis.getVoices();
-    }
-
-    // Pre-inicializar reconocimiento de voz si es chat IA
     if (ES_CHAT_IA) inicializarReconocimiento();
 
     inputMensaje.focus();
 
-    // Ajustar padding por la navbar (lógica original)
     function ajustarAltura() {
         const navbar = document.querySelector('nav, header, .navbar, [class*="navbar"]');
         const cont   = document.getElementById('chat-container');

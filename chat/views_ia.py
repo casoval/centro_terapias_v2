@@ -101,9 +101,9 @@ def _responder_en_background(conversacion_id: int, usuario_humano_id: int, conte
         usuario_ia = get_o_crear_usuario_ia()
 
         # ── Intentar agente especializado según rol ───────────────────────────
-        usó_especializado = _despachar_agente(conversacion, usuario, contenido_mensaje)
+        uso_especializado = _despachar_agente(conversacion, usuario, contenido_mensaje)
 
-        if not usó_especializado:
+        if not uso_especializado:
             # Paciente u otro rol sin agente especializado → agente genérico
             responder_con_ia(conversacion, usuario)
 
@@ -359,5 +359,6 @@ def enviar_mensaje_ia(request, conversacion_id):
         'success': True,
         'mensaje_id': mensaje.id,
         'fecha_envio': mensaje.fecha_envio.strftime('%H:%M'),
+        'fecha_iso': mensaje.fecha_envio.strftime('%Y-%m-%d'),  # ✅ para separadores de fecha
         'es_chat_ia': es_chat_ia,
     })

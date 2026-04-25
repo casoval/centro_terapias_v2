@@ -235,6 +235,7 @@ def enviar_mensaje(request, conversacion_id):
         'success': True,
         'mensaje_id': mensaje.id,
         'fecha_envio': mensaje.fecha_envio.strftime('%H:%M'),
+        'fecha_iso': mensaje.fecha_envio.strftime('%Y-%m-%d'),  # ✅ para separadores de fecha
     })
 
 
@@ -266,6 +267,7 @@ def obtener_nuevos_mensajes(request, conversacion_id):
             'remitente_id': msg.remitente.id,
             'remitente_nombre': msg.remitente.get_full_name() or msg.remitente.username,
             'fecha_envio': msg.fecha_envio.strftime('%H:%M'),
+            'fecha_iso': msg.fecha_envio.strftime('%Y-%m-%d'),  # ✅ para separadores de fecha
             'leido': msg.leido,
         })
 
