@@ -163,13 +163,13 @@ def _despachar_agente(conversacion, usuario, contenido_mensaje: str) -> bool:
             # Paciente u otro rol → agente genérico
             return False
 
-        # Guardar el mensaje del usuario en ConversacionAgente ANTES de despachar
-        # para que el agente lo encuentre al construir el historial.
-        guardar_mensaje_usuario_en_historial(
-            usuario,
-            _tipo_agente_para_historial(staff.tipo_agente),
-            contenido_mensaje,
-        )
+        # El agente paciente guarda el mensaje internamente — evitar duplicado
+        if staff.tipo_agente != 'paciente':
+            guardar_mensaje_usuario_en_historial(
+                usuario,
+                _tipo_agente_para_historial(staff.tipo_agente),
+                contenido_mensaje,
+            )
 
         # Llamar al agente especializado (guarda la respuesta en chat.Mensaje)
         responder_con_agente_especializado(conversacion, usuario)

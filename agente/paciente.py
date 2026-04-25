@@ -525,22 +525,17 @@ def construir_contexto(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _normalizar_tel(telefono: str) -> str:
-    """
-    Normaliza a formato canónico 591XXXXXXXX para guardar en BD.
-    Garantiza que todos los registros de ConversacionAgente usen el mismo formato,
-    evitando que el historial se fragmente por diferencias de prefijo.
-    Maneja: +591XXXXXXXX, 591XXXXXXXX, XXXXXXXX, espacios, guiones, paréntesis.
-    """
+    # Identificador del chat interno — no normalizar
+    if telefono.startswith('chat_interno:'):
+        return telefono
     tel = telefono.strip().replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
     if tel.startswith('+591'):
         tel = tel[4:]
     elif tel.startswith('591') and len(tel) > 9:
         tel = tel[3:]
-    # Asegurar prefijo 591
     if not tel.startswith('591'):
         tel = f'591{tel}'
     return tel
-
 
 def get_historial_db(telefono: str, limite: int = 15) -> list:
     try:
@@ -558,7 +553,7 @@ def get_historial_db(telefono: str, limite: int = 15) -> list:
         return []
 
 
-def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
+def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = '', origen: str = 'whatsapp'):
     try:
         from agente.models import ConversacionAgente
         tel = _normalizar_tel(telefono)
@@ -568,10 +563,10 @@ def guardar_mensaje(telefono: str, rol: str, contenido: str, modelo: str = ''):
             rol=rol,
             contenido=contenido,
             modelo_usado=modelo,
+            origen=origen,
         )
     except Exception as e:
         log.error(f'[Agente Paciente] Error guardando mensaje: {e}')
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Procesamiento de etiquetas de notificación
@@ -908,6 +903,7 @@ def responder(
     mensaje_usuario: str,
     paciente,
     cual_tutor: str = 'tutor_1',
+    origen: str = 'whatsapp',       # ← nuevo
 ) -> str:
     """
     Procesa un mensaje del tutor y retorna la respuesta del agente.
@@ -962,7 +958,7 @@ def responder(
         )
 
         # ── 6. Guardar mensaje del usuario en BD ───────────────────────────────
-        guardar_mensaje(telefono, 'user', mensaje_usuario)
+        guardar_mensaje(telefono, 'user', mensaje_usuario, origen=origen)
 
         # ── 7. Historial para Claude = previo + mensaje actual ─────────────────
         # FIX: no recuperar de BD de nuevo (evita duplicación).
@@ -1000,7 +996,7 @@ def responder(
         respuesta = limpiar_etiquetas(respuesta_raw)
 
         # ── 10. Guardar respuesta del asistente ────────────────────────────────
-        guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-paciente')
+        guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-paciente', origen=origen)
         log.info(f'[Agente Paciente] {telefono} | {respuesta[:80]}')
         return respuesta
 
@@ -1013,7 +1009,7 @@ def responder(
             'Sede Camacho: +591 78633975'
         )
         try:
-            guardar_mensaje(telefono, 'assistant', fallback, 'error')
+            guardar_mensaje(telefono, 'assistant', fallback, 'error', origen=origen)
         except Exception:
             pass
         return fallback

@@ -100,6 +100,7 @@ class AgenteBase:
         rol: str,
         contenido: str,
         modelo_usado: str = '',
+        origen: str = 'whatsapp',   # ← único cambio
     ) -> None:
         """Guarda un mensaje en ConversacionAgente."""
         from agente.models import ConversacionAgente
@@ -110,6 +111,7 @@ class AgenteBase:
                 rol          = rol,
                 contenido    = contenido,
                 modelo_usado = modelo_usado,
+                origen       = origen,          # ← único cambio
             )
         except Exception as e:
             log.error(f'[{self.TIPO}] Error guardando mensaje para {telefono}: {e}')

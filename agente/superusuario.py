@@ -124,7 +124,7 @@ class AgenteSuper(AgenteBase):
                 fallback = PROMPT_OPUS_FALLBACK if etiqueta == 'Opus' else PROMPT_SONNET_FALLBACK
                 prompt = fallback.format(nombre=nombre, contexto=contexto)
 
-            self.guardar_mensaje(telefono, 'user', mensaje)
+            self.guardar_mensaje(telefono, 'user', mensaje, origen='interno')
             historial = self.get_historial(telefono)
             log.info(f'[Superusuario] {telefono} | {etiqueta} | max_tokens={max_tokens} | {mensaje[:50]}')
 
@@ -133,14 +133,14 @@ class AgenteSuper(AgenteBase):
                 modelo=modelo, max_tokens=max_tokens,
             )
 
-            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-superusuario')
+            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-superusuario', origen='interno')
             self.log_respuesta(telefono, respuesta, extra=etiqueta)
             return respuesta
 
         except Exception as e:
             log.error(f'[Superusuario] Error para {telefono}: {e}', exc_info=True)
             fallback = self.fallback_mensaje()
-            self.guardar_mensaje(telefono, 'assistant', fallback, 'error')
+            self.guardar_mensaje(telefono, 'assistant', fallback, 'error', origen='interno')
             return fallback
 
 
@@ -208,7 +208,7 @@ Sucursal: {sucursal_propia}
                     contexto        = contexto,
                 )
 
-            self.guardar_mensaje(telefono, 'user', mensaje)
+            self.guardar_mensaje(telefono, 'user', mensaje, origen='interno')
             historial = self.get_historial(telefono)
             log.info(f'[Recep+Prof] {telefono} | {nombre} | {etiqueta} | {mensaje[:50]}')
 
@@ -216,14 +216,14 @@ Sucursal: {sucursal_propia}
                 historial=historial, system_prompt=prompt,
                 modelo=modelo, max_tokens=650,
             )
-            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-recep-prof')
+            self.guardar_mensaje(telefono, 'assistant', respuesta, f'{etiqueta.lower()}-recep-prof', origen='interno')
             self.log_respuesta(telefono, respuesta)
             return respuesta
 
         except Exception as e:
             log.error(f'[Recep+Prof] Error para {telefono}: {e}', exc_info=True)
             fallback = self.fallback_mensaje()
-            self.guardar_mensaje(telefono, 'assistant', fallback, 'error')
+            self.guardar_mensaje(telefono, 'assistant', fallback, 'error', origen='interno')
             return fallback
 
 

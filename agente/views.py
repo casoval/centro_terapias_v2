@@ -456,6 +456,7 @@ def api_conversaciones(request):
     # Incluir todos los agentes (publico y paciente)
     telefonos_qs = (
         ConversacionAgente.objects
+        .filter(origen='whatsapp')
         .values('telefono')
         .annotate(ultimo=Max('creado'), total=Count('id'))
         .order_by('-ultimo')
@@ -616,12 +617,13 @@ def api_enviar_manual(request):
         paciente_db = buscar_paciente_por_telefono(tel_completo)
         tipo_agente = 'paciente' if paciente_db else 'publico'
         ConversacionAgente.objects.create(
-            agente       = tipo_agente,
-            telefono     = tel_completo,
-            rol          = 'assistant',
-            contenido    = f'[Staff] {mensaje}',
-            modelo_usado = 'manual',
-        )
+        agente       = tipo_agente,
+        telefono     = tel_completo,
+        rol          = 'assistant',
+        contenido    = f'[Staff] {mensaje}',
+        modelo_usado = 'manual',
+        origen       = 'interno',
+    )
     except Exception as e:
         log.error(f'[Staff Manual] Error guardando mensaje en BD: {e}', exc_info=True)
         return JsonResponse({'ok': False, 'error': f'Error al guardar en historial: {e}'}, status=500)

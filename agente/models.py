@@ -35,6 +35,12 @@ class ConversacionAgente(models.Model):
     rol          = models.CharField(max_length=10, choices=ROL_CHOICES)
     contenido    = models.TextField()
     modelo_usado = models.CharField(max_length=60, blank=True)
+    origen       = models.CharField(
+        max_length=10,
+        choices=[('whatsapp', 'WhatsApp'), ('interno', 'Chat interno')],
+        default='whatsapp',
+        db_index=True,
+    )
     creado       = models.DateTimeField(auto_now_add=True)
 
     class Meta:

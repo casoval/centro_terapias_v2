@@ -118,6 +118,18 @@ def _staff_desde_user(usuario) -> StaffIdentificado:
             return StaffIdentificado()
 
     # ── 6. Paciente u otro rol → agente genérico (ia_agent.py) ───────────────
+    if rol == 'paciente':
+        paciente = getattr(usuario, 'paciente', None)
+        if paciente and getattr(paciente, 'estado', 'activo') == 'activo':
+            logger.info(f'[IABridge] {usuario.username} → Agente Paciente')
+            return StaffIdentificado(
+                tipo_agente='paciente',
+                nombre=nombre,
+            )
+        logger.info(f'[IABridge] {usuario.username} → Paciente sin datos activos, agente genérico')
+        return StaffIdentificado()
+
+    # ── 7. Otro rol no reconocido → agente genérico ───────────────────────────
     logger.info(f'[IABridge] {usuario.username} → Rol "{rol}", usará agente genérico')
     return StaffIdentificado()
 
@@ -218,9 +230,27 @@ def _despachar(staff: StaffIdentificado, telefono: str) -> str:
         from agente.profesional import responder
         return responder(telefono, mensaje_texto, staff=staff)
 
+    elif tipo == 'paciente':
+        from django.contrib.auth.models import User
+        user_id = telefono.replace('chat_interno:', '')
+        try:
+            usuario = User.objects.get(id=int(user_id))
+            paciente = getattr(usuario, 'paciente', None)
+            if not paciente:
+                raise ValueError('Usuario sin objeto paciente')
+            
+            # Detectar si es tutor_1 o tutor_2 por el User vinculado al paciente
+            cual_tutor = 'tutor_1'
+            if hasattr(paciente, 'user_tutor_2') and paciente.user_tutor_2 == usuario:
+                cual_tutor = 'tutor_2'
+
+            from agente.paciente import responder
+            return responder(telefono, mensaje_texto, paciente, cual_tutor=cual_tutor, origen='interno')
+        except Exception as e:
+            raise ValueError(f'No se pudo obtener paciente para {telefono}: {e}')
+            
     else:
         raise ValueError(f'tipo_agente desconocido: {tipo}')
-
 
 def _tipo_agente_para_historial(tipo_agente: str) -> str:
     """
@@ -233,6 +263,7 @@ def _tipo_agente_para_historial(tipo_agente: str) -> str:
         'recepcionista':             'recepcionista',
         'recepcionista_profesional': 'recepcionista',
         'profesional':               'profesional',
+        'paciente':                  'paciente',    # ← nuevo
     }
     return mapping.get(tipo_agente, 'recepcionista')
 
@@ -287,6 +318,7 @@ def guardar_mensaje_usuario_en_historial(usuario, tipo_agente: str, contenido: s
             telefono=telefono,
             rol='user',
             contenido=contenido,
+            origen='interno',    # ← nuevo
         )
     except Exception as exc:
         logger.error(f'[IABridge] Error guardando mensaje usuario en historial: {exc}')
