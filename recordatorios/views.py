@@ -132,12 +132,11 @@ def whatsapp_status(request):
     except Exception:
         pass
 
-    # ── Datos de PM2 usando ruta absoluta y entorno correcto ──
+    # ── Datos de PM2 via sudo wrapper (www-data no tiene acceso directo a /root/.pm2) ──
     try:
         result = subprocess.run(
-            ['/usr/bin/pm2', 'jlist'],
+            ['sudo', '/usr/local/bin/pm2-status.sh'],
             capture_output=True, text=True, timeout=8,
-            env=PM2_ENV,
         )
         procesos = json.loads(result.stdout)
         for proc in procesos:
@@ -182,10 +181,8 @@ def whatsapp_reconectar(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         bot = data.get('bot', 'japon')
-        subprocess.Popen(
-            ['/usr/bin/pm2', 'restart', f'whatsapp-bot{"-camacho" if bot == "camacho" else ""}'],
-            env=PM2_ENV,
-        )
+        script = '/usr/local/bin/pm2-restart-japon.sh' if bot == 'japon' else '/usr/local/bin/pm2-restart-camacho.sh'
+        subprocess.Popen(['sudo', script])
         return JsonResponse({'ok': True})
     return JsonResponse({'ok': False})
 
