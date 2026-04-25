@@ -48,8 +48,8 @@ def whatsapp_logs_stream(request):
     bot_filtro = request.GET.get('bot', 'ambos')  # japon | camacho | ambos
 
     LOG_FILES = {
-        'japon':   '/var/log/whatsapp-bot/out.log',
-        'camacho': '/var/log/whatsapp-bot/camacho-out.log',
+        'japon':   '/root/.pm2/logs/whatsapp-bot-out.log',
+        'camacho': '/root/.pm2/logs/whatsapp-bot-camacho-out.log',
     }
 
     resultados = []
@@ -63,7 +63,7 @@ def whatsapp_logs_stream(request):
     for bot_key, log_path in archivos_a_leer:
         try:
             resultado = subprocess.run(
-                ['tail', '-n', str(n_lineas), log_path],
+                ['sudo', '/usr/local/bin/pm2-logs.sh', log_path, str(n_lineas)],
                 capture_output=True, text=True, timeout=5
             )
             for linea in resultado.stdout.strip().split('\n'):
