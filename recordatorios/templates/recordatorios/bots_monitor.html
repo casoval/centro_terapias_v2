@@ -4,10 +4,100 @@
 {% block content %}
 <style>
   /* ── ANIMATIONS ── */
-  @keyframes spin       { to { transform: rotate(360deg); } }
-  @keyframes slide-in   { from { transform: translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
-  @keyframes blink-badge{ 0%,100% { opacity:1; } 50% { opacity:.5; } }
-  @keyframes pulse-dot  { 0%,100% { opacity:1; box-shadow:0 0 8px #22d3a0; } 50% { opacity:.7; box-shadow:0 0 20px #22d3a0; } }
+  @keyframes spin        { to { transform: rotate(360deg); } }
+  @keyframes slide-in    { from { transform: translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+  @keyframes blink-badge { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  @keyframes pulse-dot   { 0%,100% { opacity:1; box-shadow:0 0 8px #22d3a0; } 50% { opacity:.7; box-shadow:0 0 20px #22d3a0; } }
+  @keyframes shake-alert { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-4px)} 40%,80%{transform:translateX(4px)} }
+  @keyframes float-bubble{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+  @keyframes msg-pop-in  { 0%{opacity:0;transform:translateY(6px) scale(.95)} 70%{opacity:1;transform:translateY(-1px) scale(1.01)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+  @keyframes scanline-anim{ 0%{transform:translateY(-100%)} 100%{transform:translateY(500%)} }
+  @keyframes blink-error { 0%,100%{border-color:rgba(248,113,113,0.5)} 50%{border-color:rgba(248,113,113,1)} }
+
+  /* ── BANNER DE ESTADO GLOBAL ── */
+  .status-banner-global {
+    border-radius: 14px;
+    border: 1px solid rgba(34,211,160,0.2);
+    background: linear-gradient(135deg, #0a1a14 0%, #0d1f18 100%);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    transition: background .5s, border-color .5s;
+    position: relative;
+    overflow: hidden;
+  }
+  .status-banner-global.estado-ok    { background: linear-gradient(135deg,#071610,#0d1f18); border-color: rgba(34,211,160,.3); }
+  .status-banner-global.estado-error { background: linear-gradient(135deg,#1a0707,#1f0d0d); border-color: rgba(248,113,113,.6); animation: blink-error 1.2s ease-in-out infinite; }
+  .status-banner-global.estado-warn  { background: linear-gradient(135deg,#1a1207,#1f1a0d); border-color: rgba(251,191,36,.4); }
+  .status-banner-global.estado-desc  { background: linear-gradient(135deg,#070a14,#0a0f1a); border-color: rgba(255,255,255,.08); }
+
+  .sbg-left { display:flex; align-items:center; gap:12px; }
+  .sbg-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink:0;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  }
+  .sbg-icon.ok-icon    { background: rgba(34,211,160,.12);  border-color: rgba(34,211,160,.3); }
+  .sbg-icon.err-icon   { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.3); animation: shake-alert 1.5s ease-in-out infinite; }
+  .sbg-icon.warn-icon  { background: rgba(251,191,36,.12);  border-color: rgba(251,191,36,.3); animation: float-bubble 2s ease-in-out infinite; }
+
+  .sbg-title { font-size: 13px; font-weight: 800; color: #fff; }
+  .sbg-sub   { font-size: 10px; color: rgba(255,255,255,.4); margin-top: 2px; letter-spacing: .5px; }
+  .sbg-sub.ok-sub   { color: rgba(34,211,160,.7); }
+  .sbg-sub.err-sub  { color: rgba(248,113,113,.8); }
+  .sbg-sub.warn-sub { color: rgba(251,191,36,.7); }
+
+  .sbg-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  .sbg-pill {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 999px; font-size: 10px; font-weight: 700;
+    letter-spacing: .3px;
+  }
+  .sbg-pill.ok-pill   { background: rgba(34,211,160,.12);  color: #22d3a0; border: 1px solid rgba(34,211,160,.3); }
+  .sbg-pill.err-pill  { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.4); }
+  .sbg-pill.warn-pill { background: rgba(251,191,36,.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+  .sbg-pill.gray-pill { background: rgba(255,255,255,.05); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.1); }
+
+  .sbg-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink:0;
+  }
+  .sbg-dot.ok-dot   { background: #22d3a0; animation: pulse-dot 1.8s ease-in-out infinite; }
+  .sbg-dot.err-dot  { background: #f87171; animation: pulse-dot .6s ease-in-out infinite; }
+  .sbg-dot.warn-dot { background: #fbbf24; animation: pulse-dot 1.2s ease-in-out infinite; }
+
+  /* Mini stream de actividad en el banner */
+  .sbg-stream {
+    display: flex; flex-direction: column; gap: 3px;
+    max-height: 48px; overflow: hidden;
+    min-width: 180px;
+  }
+  .sbg-msg {
+    font-size: 9px; color: rgba(255,255,255,.4); font-family: monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    animation: msg-pop-in .35s ease forwards;
+    opacity: 0;
+  }
+  .sbg-msg.ok-msg   { color: rgba(34,211,160,.7); }
+  .sbg-msg.err-msg  { color: rgba(248,113,113,.8); }
+
+  /* Scanline decorativa (solo cuando ok) */
+  .sbg-scanline-wrap { position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;overflow:hidden; }
+  .sbg-scanline { position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,160,.15),transparent);animation:scanline-anim 4s linear infinite; }
+
+  /* Alerta de error expandida */
+  .alert-strip {
+    border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; font-weight: 700; margin-top: 8px;
+  }
+  .alert-strip.err-strip  { background: rgba(248,113,113,.1); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+  .alert-strip.warn-strip { background: rgba(251,191,36,.1);  color: #fbbf24; border: 1px solid rgba(251,191,36,.25); }
+  .alert-strip-icon { font-size: 16px; animation: shake-alert 1.8s ease-in-out infinite; flex-shrink:0; }
 
   /* ── BOT CARDS ── */
   .bot-card {
@@ -227,6 +317,32 @@
       </div>
     </div>
   </div>
+
+  <!-- BANNER DE ESTADO GLOBAL -->
+  <div class="status-banner-global estado-desc" id="status-banner-global">
+    <div class="sbg-scanline-wrap"><div class="sbg-scanline" id="sbg-scanline"></div></div>
+    <div class="sbg-left">
+      <div class="sbg-icon" id="sbg-icon">⏳</div>
+      <div>
+        <div class="sbg-title" id="sbg-title">Verificando estado del sistema...</div>
+        <div class="sbg-sub" id="sbg-sub">CONECTANDO CON LOS BOTS</div>
+      </div>
+    </div>
+    <div class="sbg-right">
+      <div class="sbg-stream" id="sbg-stream"></div>
+      <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">
+        <div class="sbg-pill gray-pill" id="sbg-pill-japon">
+          <span class="sbg-dot" style="background:rgba(255,255,255,.2);"></span>
+          <span>Japón</span>
+        </div>
+        <div class="sbg-pill gray-pill" id="sbg-pill-camacho">
+          <span class="sbg-dot" style="background:rgba(255,255,255,.2);"></span>
+          <span>Camacho</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="alert-strip-container"></div>
 
   <!-- BOTS GRID -->
   <div class="sec-divider">Estado de Bots</div>
@@ -512,6 +628,128 @@ function toggleSection(id) {
   chevron.classList.toggle('open', isOpen);
 }
 
+// ── Banner de estado global ──────────────────────────────────────────────────
+const SBG_MSGS_OK = [
+  'ok Mensaje enviado correctamente',
+  'ok Sesión activa y estable',
+  'bot Respondiendo consultas',
+  'ok @lid resuelto correctamente',
+  'mic Audio procesado y enviado',
+  'ok Recordatorio enviado',
+];
+const SBG_MSGS_ERR = [
+  'error Error enviando mensaje',
+  'error ProtocolError: timeout detectado',
+  'error Bot desconectado inesperadamente',
+];
+let sbgMsgInterval = null;
+
+function updateBannerGlobal() {
+  const banner   = document.getElementById('status-banner-global');
+  const icon     = document.getElementById('sbg-icon');
+  const title    = document.getElementById('sbg-title');
+  const sub      = document.getElementById('sbg-sub');
+  const scanline = document.getElementById('sbg-scanline');
+  const alertBox = document.getElementById('alert-strip-container');
+
+  const japOk = estadoBots.japon   === 'conectado';
+  const camOk = estadoBots.camacho === 'conectado';
+  const allOk = japOk && camOk;
+  const anyErr = estadoBots.japon === 'desconectado' || estadoBots.camacho === 'desconectado';
+  const anyQr  = estadoBots.japon === 'esperando_qr'  || estadoBots.camacho === 'esperando_qr';
+
+  // Actualizar pills de cada bot
+  ['japon','camacho'].forEach(b => {
+    const pill = document.getElementById(`sbg-pill-${b}`);
+    const s    = estadoBots[b];
+    if (s === 'conectado') {
+      pill.className = 'sbg-pill ok-pill';
+      pill.innerHTML = `<span class="sbg-dot ok-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} ✓</span>`;
+    } else if (s === 'desconectado') {
+      pill.className = 'sbg-pill err-pill';
+      pill.innerHTML = `<span class="sbg-dot err-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} ✗</span>`;
+    } else if (s === 'esperando_qr') {
+      pill.className = 'sbg-pill warn-pill';
+      pill.innerHTML = `<span class="sbg-dot warn-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} QR</span>`;
+    } else {
+      pill.className = 'sbg-pill gray-pill';
+      pill.innerHTML = `<span class="sbg-dot" style="background:rgba(255,255,255,.2);"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'}</span>`;
+    }
+  });
+
+  // Limpiar intervalo previo de mensajes
+  if (sbgMsgInterval) clearInterval(sbgMsgInterval);
+
+  if (allOk) {
+    banner.className = 'status-banner-global estado-ok';
+    icon.className   = 'sbg-icon ok-icon';
+    icon.textContent = '🟢';
+    title.textContent = 'Ambos bots operativos — Sistema funcionando con normalidad';
+    sub.className     = 'sbg-sub ok-sub';
+    sub.textContent   = 'MENSAJES SIENDO ENVIADOS · AGENTE ACTIVO · RECORDATORIOS ACTIVADOS';
+    scanline.style.display = '';
+    alertBox.innerHTML = '';
+    // Stream de actividad simulada
+    sbgMsgInterval = setInterval(() => {
+      addSbgMsg(SBG_MSGS_OK[Math.floor(Math.random() * SBG_MSGS_OK.length)], 'ok');
+    }, 2200);
+
+  } else if (anyErr) {
+    banner.className = 'status-banner-global estado-error';
+    const botsFallidos = [
+      estadoBots.japon   === 'desconectado' ? 'Japón'   : null,
+      estadoBots.camacho === 'desconectado' ? 'Camacho' : null,
+    ].filter(Boolean).join(' y ');
+    icon.className    = 'sbg-icon err-icon';
+    icon.textContent  = '🔴';
+    title.textContent = `¡Atención! Bot ${botsFallidos} desconectado`;
+    sub.className     = 'sbg-sub err-sub';
+    sub.textContent   = 'EL BOT NO ESTÁ RESPONDIENDO — ACCIÓN REQUERIDA INMEDIATAMENTE';
+    scanline.style.display = 'none';
+    alertBox.innerHTML = `
+      <div class="alert-strip err-strip">
+        <span class="alert-strip-icon">⚠️</span>
+        El bot ${botsFallidos} no está enviando mensajes ni respondiendo. Usa el botón <strong>Reconectar</strong> en la tarjeta correspondiente para reiniciarlo.
+      </div>`;
+    sbgMsgInterval = setInterval(() => {
+      addSbgMsg(SBG_MSGS_ERR[Math.floor(Math.random() * SBG_MSGS_ERR.length)], 'err');
+    }, 1500);
+
+  } else if (anyQr) {
+    banner.className = 'status-banner-global estado-warn';
+    icon.className   = 'sbg-icon warn-icon';
+    icon.textContent = '📱';
+    title.textContent = 'Escaneo de QR pendiente — El bot necesita vincularse';
+    sub.className     = 'sbg-sub warn-sub';
+    sub.textContent   = 'ABRE WHATSAPP · DISPOSITIVOS VINCULADOS · ESCANEA EL QR DE ABAJO';
+    scanline.style.display = 'none';
+    alertBox.innerHTML = `
+      <div class="alert-strip warn-strip">
+        <span class="alert-strip-icon">📲</span>
+        Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular dispositivo → Escanea el QR que aparece abajo.
+      </div>`;
+
+  } else {
+    banner.className = 'status-banner-global estado-desc';
+    icon.className   = 'sbg-icon';
+    icon.textContent = '⏳';
+    title.textContent = 'Verificando estado del sistema...';
+    sub.className     = 'sbg-sub';
+    sub.textContent   = 'CONECTANDO CON LOS BOTS';
+    scanline.style.display = 'none';
+    alertBox.innerHTML = '';
+  }
+}
+
+function addSbgMsg(texto, tipo) {
+  const stream = document.getElementById('sbg-stream');
+  const el = document.createElement('div');
+  el.className = `sbg-msg ${tipo}-msg`;
+  el.textContent = texto;
+  stream.appendChild(el);
+  if (stream.children.length > 3) stream.removeChild(stream.firstChild);
+}
+
 // ── Estado de bots ──
 async function checkStatus(bot) {
   try {
@@ -545,6 +783,7 @@ function aplicarEstado(bot, status) {
   icon.textContent  = cfg.icon;
   badge.textContent = cfg.text;
   badge.className   = `bot-status-badge ${cfg.cls}`;
+  updateBannerGlobal();
 }
 
 function actualizarPM2(bot, data) {
