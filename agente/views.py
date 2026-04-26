@@ -49,15 +49,23 @@ def whatsapp_entrante(request):
     """
     Recibe mensajes entrantes desde el bot Node.js.
     Maneja tanto mensajes de texto como notas de voz.
- 
+
     Payload para texto:
     {
         "telefono": "59176543210",
         "mensaje": "Hola quiero información...",
         "sucursal_id": 3
     }
- 
-    Payload para nota de voz:
+
+    Payload para nota de voz (opción A — ruta directa, recomendada):
+    {
+        "telefono": "59176543210",
+        "tipo": "audio",
+        "audio_path": "/tmp/audio_59176543210_1234567890.ogg",
+        "sucursal_id": 3
+    }
+
+    Payload para nota de voz (opción B — URL HTTP, compatibilidad):
     {
         "telefono": "59176543210",
         "tipo": "audio",
@@ -103,24 +111,46 @@ def whatsapp_entrante(request):
 
     es_audio           = tipo == 'audio'
     mensaje            = None
-    ruta_audio_entrada = None
+    # FIX: ruta_audio_entrada solo apunta a archivos descargados por Django
+    # (no a los servidos por Node.js via audio_path, que ya existen en disco).
+    # Solo se elimina si fue creado aquí (descarga HTTP).
+    ruta_audio_descargada = None
 
     # 3. Procesar tipo de mensaje
     if es_audio:
-        audio_url = data.get('audio_url', '').strip()
-        if not audio_url:
-            return JsonResponse({'ok': False, 'error': 'Falta audio_url'}, status=400)
+        # ── Opción A: ruta directa (Node.js y Django en mismo servidor) ──────
+        # El bot Node.js guarda el audio en /tmp y envía la ruta directa.
+        # Evita el roundtrip HTTP innecesario.
+        audio_path = data.get('audio_path', '').strip()
+        audio_url  = data.get('audio_url', '').strip()
 
-        ruta_audio_entrada = _descargar_audio(audio_url)
-        if not ruta_audio_entrada:
-            return JsonResponse({'ok': False, 'error': 'No se pudo descargar el audio'}, status=500)
+        if audio_path:
+            # Usar el archivo directamente sin descargarlo
+            ruta_para_transcribir = audio_path
+            log.info(f'[Entrante] {telefono} — audio_path directo: {audio_path}')
+        elif audio_url:
+            # ── Opción B: compatibilidad con audio_url (descarga HTTP) ───────
+            ruta_audio_descargada = _descargar_audio(audio_url)
+            if not ruta_audio_descargada:
+                return JsonResponse({'ok': False, 'error': 'No se pudo descargar el audio'}, status=500)
+            ruta_para_transcribir = ruta_audio_descargada
+        else:
+            return JsonResponse({'ok': False, 'error': 'Falta audio_path o audio_url'}, status=400)
 
         from agente.voz import transcribir_audio
-        mensaje = transcribir_audio(ruta_audio_entrada)
+        mensaje = transcribir_audio(ruta_para_transcribir)
+
+        # Limpiar archivo descargado por Django (si aplica) — el de Node.js
+        # lo limpia el propio bot después de enviarlo.
+        if ruta_audio_descargada:
+            try:
+                os.unlink(ruta_audio_descargada)
+            except Exception:
+                pass
+            ruta_audio_descargada = None
 
         if not mensaje:
             # Fallback: avisar al usuario en lugar de ignorar
-            es_audio = False
             log.warning(f'[Entrante] Transcripción fallida para {telefono}')
             puerto = 3000 if sucursal_id == 3 else 3001
             tel_limpio = telefono[3:] if telefono.startswith('591') else telefono
@@ -129,10 +159,6 @@ def whatsapp_entrante(request):
                 'No pude escuchar tu nota de voz. ¿Puedes escribirme tu consulta? 🎙️',
                 puerto,
             )
-            if ruta_audio_entrada:
-                import os as _os
-                try: _os.unlink(ruta_audio_entrada)
-                except Exception: pass
             return JsonResponse({'ok': True, 'telefono': telefono, 'fallback': 'audio_no_transcrito'})
         else:
             log.info(f'[Entrante] {telefono} transcrito: {mensaje[:80]}')
@@ -146,20 +172,16 @@ def whatsapp_entrante(request):
     respuesta_texto = _rutear_agente(telefono, mensaje)
 
     # 5. Enviar respuesta
-    puerto      = 3000 if sucursal_id == 3 else 3001
-    tel_limpio  = telefono[3:] if telefono.startswith('591') else telefono
+    puerto     = 3000 if sucursal_id == 3 else 3001
+    tel_limpio = telefono[3:] if telefono.startswith('591') else telefono
 
     if es_audio:
         _enviar_respuesta_voz(tel_limpio, respuesta_texto, puerto)
     else:
         _enviar_respuesta_texto(tel_limpio, respuesta_texto, puerto)
 
-    if ruta_audio_entrada:
-        import os as _os
-        try: _os.unlink(ruta_audio_entrada)
-        except Exception: pass
-
     return JsonResponse({'ok': True, 'telefono': telefono, 'respuesta': respuesta_texto[:100]})
+
 
 # ─────────────────────────────────────────────────────────────
 # RUTEO DE AGENTES — lógica central de identificación
@@ -316,7 +338,7 @@ def staff_respondio(request):
 
     telefono    = data.get('telefono', '').strip()
     sucursal_id = int(data.get('sucursal_id', 3))
-    mensaje     = data.get('mensaje', '').strip()   # nuevo campo
+    mensaje     = data.get('mensaje', '').strip()
 
     if not telefono:
         return JsonResponse({'ok': False, 'error': 'Falta telefono'}, status=400)
@@ -340,7 +362,6 @@ def staff_respondio(request):
     # 2. Guardar el mensaje en el historial si viene con contenido
     if mensaje:
         tel_completo = _normalizar_telefono(telefono)
-        # Determinar si es paciente o público para la etiqueta correcta
         paciente = buscar_paciente_por_telefono(tel_completo)
         tipo_agente = 'paciente' if paciente else 'publico'
         ConversacionAgente.objects.create(
@@ -485,18 +506,11 @@ def api_conversaciones(request):
         )
         modo = modos.get(tel)
 
-        # Determinar si es paciente registrado y qué tutor es.
-        # buscar_paciente_y_tutor puede retornar:
-        #   (paciente, cual_tutor)  → un solo hijo
-        #   ('multiples', lista)    → tutor con varios hijos
-        #   (None, None)            → desconocido
         resultado, datos = buscar_paciente_y_tutor(tel)
 
         if resultado == 'multiples':
-            # Tutor con varios hijos — mostrar en pestaña pacientes
-            # con los nombres de todos sus hijos
             es_paciente = True
-            hijos = datos  # lista de dicts {'paciente': obj, 'cual_tutor': str}
+            hijos = datos
             nombres = ' / '.join(
                 f'{d["paciente"].nombre} {d["paciente"].apellido}'
                 for d in hijos
@@ -531,10 +545,9 @@ def api_conversaciones(request):
             'nombre_paciente': nombre_paciente_display,
             'nombre_tutor':    nombre_tutor_display,
             'cual_tutor':      cual_tutor or '',
-            'agente':          ultimo_msg.agente if ultimo_msg else '',   # ← nuevo
+            'agente':          ultimo_msg.agente if ultimo_msg else '',
         })
 
-    # Ordenar por más reciente
     conversaciones.sort(key=lambda x: x['ultimo_en'], reverse=True)
     return JsonResponse({'ok': True, 'conversaciones': conversaciones})
 
@@ -551,11 +564,11 @@ def api_historial_telefono(request, telefono):
     )
     data = [
         {
-            'rol':     m['rol'],
+            'rol':       m['rol'],
             'contenido': m['contenido'],
-            'modelo':  m['modelo_usado'],
-            'creado':  m['creado'].isoformat(),
-            'agente':  m['agente'],
+            'modelo':    m['modelo_usado'],
+            'creado':    m['creado'].isoformat(),
+            'agente':    m['agente'],
         }
         for m in mensajes
     ]
@@ -618,13 +631,13 @@ def api_enviar_manual(request):
         paciente_db = buscar_paciente_por_telefono(tel_completo)
         tipo_agente = 'paciente' if paciente_db else 'publico'
         ConversacionAgente.objects.create(
-        agente       = tipo_agente,
-        telefono     = tel_completo,
-        rol          = 'assistant',
-        contenido    = f'[Staff] {mensaje}',
-        modelo_usado = 'manual',
-        origen       = 'interno',
-    )
+            agente       = tipo_agente,
+            telefono     = tel_completo,
+            rol          = 'assistant',
+            contenido    = f'[Staff] {mensaje}',
+            modelo_usado = 'manual',
+            origen       = 'interno',
+        )
     except Exception as e:
         log.error(f'[Staff Manual] Error guardando mensaje en BD: {e}', exc_info=True)
         return JsonResponse({'ok': False, 'error': f'Error al guardar en historial: {e}'}, status=500)
@@ -660,25 +673,51 @@ def api_enviar_manual(request):
 def panel_conversaciones(request):
     return render(request, 'agente/conversaciones.html')
 
+
+# ─────────────────────────────────────────────────────────────
+# HELPERS — audio / envío
+# ─────────────────────────────────────────────────────────────
+
 def _descargar_audio(url: str) -> str | None:
-    """Descarga un archivo de audio y lo guarda temporalmente."""
+    """
+    Descarga un archivo de audio y lo guarda temporalmente en /tmp.
+
+    FIX: Detecta la extensión usando el header Content-Type del servidor
+    en lugar de buscar subcadenas en la URL (ej: 'mp3' in url podía dar
+    falsos positivos con rutas como /audio-mp3-format/nota.ogg).
+    """
     import tempfile
     try:
         response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            ext = 'ogg'
-            if 'mp3' in url:
+        if response.status_code != 200:
+            log.error(f'[Entrante] Error descargando audio {url}: HTTP {response.status_code}')
+            return None
+
+        # Preferir Content-Type del servidor
+        content_type = response.headers.get('Content-Type', '')
+        if 'mpeg' in content_type or 'mp3' in content_type:
+            ext = 'mp3'
+        elif 'wav' in content_type:
+            ext = 'wav'
+        else:
+            # Fallback: inspeccionar la URL limpia (sin query params)
+            url_path = url.split('?')[0].lower()
+            if url_path.endswith('.mp3'):
                 ext = 'mp3'
-            elif 'wav' in url:
+            elif url_path.endswith('.wav'):
                 ext = 'wav'
-            with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False, dir='/tmp') as f:
-                f.write(response.content)
-                return f.name
+            else:
+                ext = 'ogg'  # WhatsApp envía ogg por defecto
+
+        with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False, dir='/tmp') as f:
+            f.write(response.content)
+            return f.name
+
     except Exception as e:
         log.error(f'[Entrante] Error al descargar audio: {e}')
     return None
- 
- 
+
+
 def _enviar_respuesta_texto(telefono: str, mensaje: str, puerto: int):
     """Envía respuesta de texto via bot Node.js."""
     try:
@@ -697,38 +736,61 @@ def _enviar_respuesta_texto(telefono: str, mensaje: str, puerto: int):
         log.info(f'[Entrante] Texto enviado a {telefono}')
     except Exception as e:
         log.error(f'[Entrante] Error al enviar texto a {telefono}: {e}')
- 
- 
+
+
 def _enviar_respuesta_voz(telefono: str, texto: str, puerto: int):
-    """Convierte texto a audio ogg y envía nota de voz via bot Node.js."""
-    import os as _os
+    """
+    Convierte texto a audio ogg y envía nota de voz via bot Node.js.
+
+    FIX 1 — timeout: aumentado a 30s porque el bot Node.js hace
+    await client.sendMessage() antes de responder. Con 10s (valor anterior)
+    se producía un timeout en Django → fallback de texto, y luego el bot
+    terminaba el envío → el usuario recibía DOS respuestas (texto + audio).
+
+    FIX 2 — fuga de archivo: se usa finally para garantizar que el .ogg
+    temporal siempre se elimine, incluso si requests.post lanza excepción
+    (antes el unlink quedaba sin ejecutar en ese caso).
+
+    FIX 3 — verificación de respuesta: se chequea resp.ok para detectar
+    errores del bot (500, 503, etc.) y activar el fallback de texto.
+    """
+    ruta_audio = None
     try:
         from agente.voz import texto_a_voz
 
-        # texto_a_voz ahora devuelve ruta del archivo ogg/opus
         ruta_audio = texto_a_voz(texto)
         if not ruta_audio:
             log.warning(f'[Voz] Fallo TTS para {telefono} — enviando texto como respaldo')
             _enviar_respuesta_texto(telefono, texto, puerto)
             return
 
-        # Enviar al bot Node.js
-        requests.post(
+        resp = requests.post(
             f'http://localhost:{puerto}/send-audio',
             json={
                 'telefono':   telefono,
                 'ruta_audio': ruta_audio,
             },
-            timeout=10,
+            timeout=30,  # FIX 1: era 10 — insuficiente para sendMessage de WhatsApp
         )
-        log.info(f'[Voz] Audio ogg enviado a {telefono}')
 
-        # Limpiar archivo temporal
-        try:
-            _os.unlink(ruta_audio)
-        except Exception:
-            pass
+        # FIX 3: verificar código HTTP del bot
+        if not resp.ok:
+            log.warning(
+                f'[Voz] Bot respondió {resp.status_code} para {telefono} '
+                f'— enviando texto como respaldo'
+            )
+            _enviar_respuesta_texto(telefono, texto, puerto)
+        else:
+            log.info(f'[Voz] Audio ogg enviado a {telefono}')
 
     except Exception as e:
         log.error(f'[Voz] Error al enviar audio a {telefono}: {e}')
         _enviar_respuesta_texto(telefono, texto, puerto)
+
+    finally:
+        # FIX 2: siempre limpiar el archivo temporal, pase lo que pase
+        if ruta_audio:
+            try:
+                os.unlink(ruta_audio)
+            except Exception:
+                pass
