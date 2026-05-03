@@ -12,31 +12,76 @@
         box-shadow: 0 15px 30px -5px rgba(79, 70, 229, 0.15), 0 10px 15px -6px rgba(79, 70, 229, 0.1);
         border-color: #818cf8;
     }
-    /* Estilos para la transición de vistas */
+    /* Vistas Grid / Lista */
     .view-hidden { display: none !important; }
-    .btn-view-active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+    .btn-view-active   { background-color: #4f46e5; color: white; border-color: #4f46e5; }
     .btn-view-inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; }
+
+    /* Pestañas */
+    .tab-panel { display: none; }
+    .tab-panel.tab-active { display: block; }
+
+    .tab-btn {
+        position: relative;
+        padding: 0.45rem 1.1rem;
+        font-size: 0.7rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 0.6rem 0.6rem 0 0;
+        border: 2px solid transparent;
+        border-bottom: none;
+        transition: all 0.2s;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: white;
+        color: #64748b;
+        border-color: #e2e8f0;
+    }
+    .tab-btn-activos.tab-selected {
+        color: #4f46e5;
+        border-color: #c7d2fe;
+        z-index: 1;
+    }
+    .tab-btn-inactivos.tab-selected {
+        color: #dc2626;
+        border-color: #fecaca;
+        z-index: 1;
+    }
+    .tabs-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.25rem;
+        margin-bottom: 0.5rem;
+    }
 </style>
 
 <div class="max-w-7xl mx-auto px-2 py-2">
 
+    {# ══════════════════ HEADER ══════════════════ #}
     <div class="mb-3">
         <div class="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-xl p-3 shadow-lg overflow-hidden">
             <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-pink-400 opacity-20 blur-xl"></div>
             <div class="absolute bottom-0 left-0 -ml-4 -mb-4 w-12 h-12 rounded-full bg-cyan-400 opacity-20 blur-lg"></div>
-            
             <div class="relative flex flex-row justify-between items-center gap-2">
                 <div>
                     <h1 class="text-lg font-black text-white flex items-center gap-2 flex-wrap">
-                        <span class="bg-white/20 p-1 rounded-lg backdrop-blur-sm shadow-inner text-base">👶</span> 
+                        <span class="bg-white/20 p-1 rounded-lg backdrop-blur-sm shadow-inner text-base">👶</span>
                         Pacientes
                         <span class="ml-1 px-2 py-0.5 bg-white/20 text-white text-[10px] font-bold rounded-full border border-white/30 backdrop-blur-md shadow-sm uppercase tracking-wide">
-                            {{ pacientes|length }} encontrados
+                            {{ total_activos }} activos
                         </span>
+                        {% if total_inactivos > 0 %}
+                        <span class="px-2 py-0.5 bg-red-400/30 text-white text-[10px] font-bold rounded-full border border-red-300/30 backdrop-blur-md shadow-sm uppercase tracking-wide">
+                            {{ total_inactivos }} inactivos
+                        </span>
+                        {% endif %}
                     </h1>
                     <p class="text-indigo-100 text-[10px] mt-0.5 font-bold uppercase tracking-wide opacity-80">Gestión integral de niños y tutores</p>
                 </div>
-                <a href="{% url 'pacientes:agregar' %}" 
+                <a href="{% url 'pacientes:agregar' %}"
                    class="group bg-white text-indigo-600 px-3 py-1.5 rounded-lg font-black text-[10px] shadow-md hover:shadow-lg hover:bg-indigo-50 transition-all flex items-center gap-1.5 ring-1 ring-white/50 uppercase tracking-wider transform hover:scale-105">
                     <span class="text-indigo-500 group-hover:scale-110 transition-transform text-xs">➕</span> Nuevo
                 </a>
@@ -44,9 +89,12 @@
         </div>
     </div>
 
-    <div class="mb-4">
-        <form method="get" class="relative mx-auto flex flex-col md:flex-row gap-2 items-center">
-            
+    {# ══════════════════ BARRA BÚSQUEDA + VISTA ══════════════════ #}
+    <div class="mb-3">
+        <form method="get" id="filtros-form" class="relative mx-auto flex flex-col md:flex-row gap-2 items-center">
+            {# Preservar la pestaña activa al filtrar #}
+            <input type="hidden" name="tab" id="hidden-tab" value="{{ tab_activo }}">
+
             <div class="flex-1 flex flex-col sm:flex-row gap-2 w-full">
                 <div class="relative group flex-1">
                     <div class="absolute -inset-0.5 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-200"></div>
@@ -61,13 +109,13 @@
 
                 <div class="relative group sm:w-56">
                     <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-200"></div>
-                    <div class="relative bg-white rounded-lg shadow-sm h-full flex items-center border border-slate-200 h-8">
+                    <div class="relative bg-white rounded-lg shadow-sm flex items-center border border-slate-200 h-8">
                         <span class="absolute left-2 text-cyan-500 text-xs">🏢</span>
-                        <select name="sucursal" onchange="this.form.submit()" 
+                        <select name="sucursal" onchange="this.form.submit()"
                                 class="w-full py-1 pl-7 pr-6 bg-transparent border-none rounded-lg focus:ring-0 text-slate-700 font-bold text-xs cursor-pointer h-full">
                             <option value="">Todas las Sucursales</option>
                             {% for sucursal in sucursales %}
-                                <option value="{{ sucursal.id }}" 
+                                <option value="{{ sucursal.id }}"
                                     {% if request.GET.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
                                     {{ sucursal.nombre }}
                                 </option>
@@ -76,17 +124,18 @@
                     </div>
                 </div>
 
-                <button type="submit" class="bg-indigo-600 text-white px-4 rounded-lg font-black text-[10px] hover:bg-indigo-700 transition-colors shadow-sm h-8 uppercase tracking-wider">
+                <button type="submit"
+                        class="bg-indigo-600 text-white px-4 rounded-lg font-black text-[10px] hover:bg-indigo-700 transition-colors shadow-sm h-8 uppercase tracking-wider">
                     Filtrar
                 </button>
             </div>
 
             <div class="flex items-center gap-1 bg-white p-1 rounded-lg shadow-sm border border-slate-200 self-end md:self-auto">
-                <button type="button" id="btn-grid" onclick="switchView('grid')" 
+                <button type="button" id="btn-grid" onclick="switchView('grid')"
                         class="p-1.5 px-2 rounded-md border transition-all shadow-sm flex items-center gap-1 text-[10px] font-bold btn-view-active h-7">
                     <span>📲</span> Tarjetas
                 </button>
-                <button type="button" id="btn-list" onclick="switchView('list')" 
+                <button type="button" id="btn-list" onclick="switchView('list')"
                         class="p-1.5 px-2 rounded-md border transition-all shadow-sm flex items-center gap-1 text-[10px] font-bold btn-view-inactive h-7">
                     <span>📋</span> Lista
                 </button>
@@ -94,288 +143,526 @@
         </form>
     </div>
 
-    <div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-10">
-        {% for paciente in pacientes %}
-        <div class="paciente-card bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative group overflow-visible">
-            
-            <div class="absolute top-2 right-2 z-10">
-                <span class="px-1.5 py-0.5 text-[8px] font-black tracking-wider rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase">
-                    ACTIVO
-                </span>
-            </div>
+    {# ══════════════════ PESTAÑAS ══════════════════ #}
+    <div class="tabs-container">
+        <button type="button"
+                id="tab-btn-activos"
+                class="tab-btn tab-btn-activos {% if tab_activo == 'activos' %}tab-selected{% endif %}"
+                onclick="switchTab('activos')">
+            ✅ Activos
+            <span id="badge-activos"
+                  class="px-1.5 py-0.5 text-[9px] font-black rounded-full
+                         {% if tab_activo == 'activos' %}bg-indigo-100 text-indigo-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                {{ total_activos }}
+            </span>
+        </button>
+        <button type="button"
+                id="tab-btn-inactivos"
+                class="tab-btn tab-btn-inactivos {% if tab_activo == 'inactivos' %}tab-selected{% endif %}"
+                onclick="switchTab('inactivos')">
+            🚫 Inactivos
+            <span id="badge-inactivos"
+                  class="px-1.5 py-0.5 text-[9px] font-black rounded-full
+                         {% if tab_activo == 'inactivos' %}bg-red-100 text-red-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                {{ total_inactivos }}
+            </span>
+        </button>
+    </div>
 
-            <div class="h-14 bg-gradient-to-br from-sky-200 via-blue-100 to-indigo-200 rounded-t-2xl border-b border-indigo-50"></div>
-            
-            <div class="px-3 -mt-8 mb-1 flex flex-col items-center text-center">
-                <div class="relative group-hover:scale-105 transition-transform duration-300">
-                    {% if paciente.tiene_foto %}
-                        <img src="{{ paciente.get_foto_thumbnail }}" 
-                             alt="{{ paciente.nombre_completo }}"
-                             class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md bg-white">
-                    {% else %}
-                        <div class="w-16 h-16 rounded-full bg-indigo-50 border-4 border-white shadow-md flex items-center justify-center text-xl text-indigo-300">
-                            👤
+    {# ══════════════════ CONTENIDO PESTAÑAS ══════════════════ #}
+    <div class="pt-4 pb-2 px-0 mb-4">
+
+        {# ─────────────────── PESTAÑA ACTIVOS ─────────────────── #}
+        <div id="tab-activos" class="tab-panel {% if tab_activo == 'activos' %}tab-active{% endif %}">
+
+            {# Grid — Activos #}
+            <div id="view-grid-activos" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 px-3 pb-6">
+                {% for paciente in pacientes_activos %}
+                <div class="paciente-card bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative group overflow-visible">
+
+                    <div class="absolute top-2 right-2 z-10">
+                        <span class="px-1.5 py-0.5 text-[8px] font-black tracking-wider rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm uppercase">ACTIVO</span>
+                    </div>
+
+                    <div class="h-14 bg-gradient-to-br from-sky-200 via-blue-100 to-indigo-200 rounded-t-2xl border-b border-indigo-50"></div>
+
+                    <div class="px-3 -mt-8 mb-1 flex flex-col items-center text-center">
+                        <div class="relative group-hover:scale-105 transition-transform duration-300">
+                            {% if paciente.tiene_foto %}
+                                <img src="{{ paciente.get_foto_thumbnail }}" alt="{{ paciente.nombre_completo }}"
+                                     class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md bg-white">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-full bg-indigo-50 border-4 border-white shadow-md flex items-center justify-center text-xl text-indigo-300">👤</div>
+                            {% endif %}
+                            <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                                {{ paciente.edad }} AÑOS
+                            </div>
                         </div>
-                    {% endif %}
-                    <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
-                        {{ paciente.edad }} AÑOS
-                    </div>
-                </div>
-                
-                <h3 class="text-sm font-black text-slate-800 mt-1 leading-tight px-1 group-hover:text-indigo-600 transition-colors line-clamp-2 h-8 flex items-center justify-center uppercase">
-                    {{ paciente.nombre_completo }}
-                </h3>
-                
-                <div class="flex flex-wrap justify-center gap-1 mt-1">
-                    {% for sucursal in paciente.sucursales.all %}
-                        <span class="px-1.5 py-0.5 text-[8px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100 truncate max-w-[90px]">
-                            {{ sucursal.nombre }}
-                        </span>
-                    {% empty %}
-                        <span class="px-1.5 py-0.5 text-[8px] text-rose-400 font-bold">SIN SUCURSAL</span>
-                    {% endfor %}
-                </div>
-                {% if paciente.nombre_escuela %}
-                <div class="mt-1 flex items-center justify-center gap-1">
-                    <span class="px-2 py-0.5 text-[8px] font-bold bg-yellow-50 text-yellow-700 rounded border border-yellow-200 flex items-center gap-1 max-w-[140px] truncate">
-                        🏫 {{ paciente.nombre_escuela }}
-                    </span>
-                </div>
-                {% endif %}
-            </div>
-            
-            <div class="p-3 pt-0 flex-1 space-y-2">
-                <hr class="border-indigo-50 mb-1">
-                
-                <div class="flex items-center gap-2 group/item">
-                    <div class="w-6 h-6 rounded-md bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0 text-xs border border-orange-100">
-                        👨‍👩‍👦
-                    </div>
-                    <div class="min-w-0 overflow-hidden">
-                        <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Tutor</p>
-                        <p class="text-xs font-bold text-slate-700 truncate" title="{{ paciente.nombre_tutor }}">{{ paciente.nombre_tutor }}</p>
-                    </div>
-                </div>
 
-                <div class="flex items-center gap-2 group/item">
-                    <div class="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0 text-xs border border-blue-100">
-                        📱
-                    </div>
-                    <div class="min-w-0">
-                        <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Contacto</p>
-                        <p class="text-[11px] font-bold text-slate-700">{{ paciente.telefono_tutor }}</p>
-                    </div>
-                </div>
+                        <h3 class="text-sm font-black text-slate-800 mt-1 leading-tight px-1 group-hover:text-indigo-600 transition-colors line-clamp-2 h-8 flex items-center justify-center uppercase">
+                            {{ paciente.nombre_completo }}
+                        </h3>
 
-                <div class="flex items-center gap-2 group/item">
-                    <div class="w-6 h-6 rounded-md {% if paciente.user %}bg-violet-50 text-violet-500 border border-violet-100{% else %}bg-slate-50 text-slate-400 border border-slate-100{% endif %} flex items-center justify-center flex-shrink-0 text-xs group-hover/item:bg-violet-100 transition-colors">
-                        🔐
+                        <div class="flex flex-wrap justify-center gap-1 mt-1">
+                            {% for sucursal in paciente.sucursales.all %}
+                                <span class="px-1.5 py-0.5 text-[8px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100 truncate max-w-[90px]">{{ sucursal.nombre }}</span>
+                            {% empty %}
+                                <span class="px-1.5 py-0.5 text-[8px] text-rose-400 font-bold">SIN SUCURSAL</span>
+                            {% endfor %}
+                        </div>
+                        {% if paciente.nombre_escuela %}
+                        <div class="mt-1 flex items-center justify-center gap-1">
+                            <span class="px-2 py-0.5 text-[8px] font-bold bg-yellow-50 text-yellow-700 rounded border border-yellow-200 flex items-center gap-1 max-w-[140px] truncate">
+                                🏫 {{ paciente.nombre_escuela }}
+                            </span>
+                        </div>
+                        {% endif %}
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-[8px] uppercase tracking-wide text-slate-400 font-black">Usuario</p>
-                        {% if paciente.user %}
-                            <div class="flex items-center gap-1 flex-wrap">
-                                <span class="text-[11px] font-bold text-slate-700 truncate max-w-[70px]" title="{{ paciente.user.username }}">{{ paciente.user.username }}</span>
-                                {% if paciente.user.perfil %}
-                                    <span class="px-1 py-0 text-[7px] font-black bg-violet-100 text-violet-700 rounded border border-violet-200 uppercase truncate">
-                                        {{ paciente.user.perfil.get_rol_display }}
-                                    </span>
+
+                    <div class="p-3 pt-0 flex-1 space-y-2">
+                        <hr class="border-indigo-50 mb-1">
+                        <div class="flex items-center gap-2 group/item">
+                            <div class="w-6 h-6 rounded-md bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0 text-xs border border-orange-100">👨‍👩‍👦</div>
+                            <div class="min-w-0 overflow-hidden">
+                                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Tutor</p>
+                                <p class="text-xs font-bold text-slate-700 truncate" title="{{ paciente.nombre_tutor }}">{{ paciente.nombre_tutor }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 group/item">
+                            <div class="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0 text-xs border border-blue-100">📱</div>
+                            <div class="min-w-0">
+                                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Contacto</p>
+                                <p class="text-[11px] font-bold text-slate-700">{{ paciente.telefono_tutor }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 group/item">
+                            <div class="w-6 h-6 rounded-md {% if paciente.user %}bg-violet-50 text-violet-500 border border-violet-100{% else %}bg-slate-50 text-slate-400 border border-slate-100{% endif %} flex items-center justify-center flex-shrink-0 text-xs">🔐</div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[8px] uppercase tracking-wide text-slate-400 font-black">Usuario</p>
+                                {% if paciente.user %}
+                                    <div class="flex items-center gap-1 flex-wrap">
+                                        <span class="text-[11px] font-bold text-slate-700 truncate max-w-[70px]" title="{{ paciente.user.username }}">{{ paciente.user.username }}</span>
+                                        {% if paciente.user.perfil %}
+                                            <span class="px-1 py-0 text-[7px] font-black bg-violet-100 text-violet-700 rounded border border-violet-200 uppercase truncate">{{ paciente.user.perfil.get_rol_display }}</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-[9px] text-slate-400 italic font-medium">No registrado</span>
                                 {% endif %}
                             </div>
-                        {% else %}
-                            <span class="text-[9px] text-slate-400 italic font-medium">No registrado</span>
+                        </div>
+                    </div>
+
+                    <div class="p-2 bg-slate-50/80 rounded-b-2xl border-t border-slate-100 grid {% if user.is_superuser or user.perfil.es_gerente %}grid-cols-4{% else %}grid-cols-3{% endif %} gap-1">
+                        <a href="{% url 'pacientes:detalle' paciente.id %}"
+                           class="col-span-2 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-md font-black text-[10px] shadow-sm transition-all uppercase tracking-wide">
+                            <span>👁️</span> Perfil
+                        </a>
+                        <a href="{% url 'pacientes:editar' paciente.id %}"
+                           class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-amber-500 hover:bg-amber-50 rounded-md transition-colors text-xs" title="Editar">✏️</a>
+                        {% if user.is_superuser or user.perfil.es_gerente %}
+                        <a href="{% url 'pacientes:eliminar' paciente.id %}"
+                           class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-rose-400 hover:bg-rose-50 rounded-md transition-colors text-xs" title="Eliminar">🗑️</a>
                         {% endif %}
                     </div>
                 </div>
-            </div>
-            
-            <div class="p-2 bg-slate-50/80 rounded-b-2xl border-t border-slate-100 grid {% if user.is_superuser or user.perfil.es_gerente %}grid-cols-4{% else %}grid-cols-3{% endif %} gap-1">
-                <a href="{% url 'pacientes:detalle' paciente.id %}" 
-                   class="col-span-2 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 rounded-md font-black text-[10px] shadow-sm transition-all uppercase tracking-wide">
-                    <span>👁️</span> Perfil
-                </a>
-                <a href="{% url 'pacientes:editar' paciente.id %}" 
-                   class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-amber-500 hover:bg-amber-50 rounded-md transition-colors text-xs"
-                   title="Editar">
-                    ✏️
-                </a>
-                {% if user.is_superuser or user.perfil.es_gerente %}
-                <a href="{% url 'pacientes:eliminar' paciente.id %}" 
-                   class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-rose-400 hover:bg-rose-50 rounded-md transition-colors text-xs"
-                   title="Eliminar">
-                    🗑️
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        {% empty %}
-        <div class="col-span-full py-10 px-4">
-            <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 text-center p-6 relative overflow-hidden">
-                <div class="w-16 h-16 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 border-4 border-white shadow-sm">
-                    😊
+                {% empty %}
+                <div class="col-span-full py-10 px-4">
+                    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 text-center p-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 border-4 border-white shadow-sm">😊</div>
+                        <h3 class="text-base font-black text-slate-800 mb-1">No hay pacientes activos</h3>
+                        <p class="text-slate-500 text-xs font-medium mb-4">No hay registros que coincidan con tu búsqueda.</p>
+                    </div>
                 </div>
-                <h3 class="text-base font-black text-slate-800 mb-1">No se encontraron pacientes</h3>
-                <p class="text-slate-500 text-xs font-medium mb-4">No hay registros que coincidan con tu búsqueda.</p>
+                {% endfor %}
             </div>
-        </div>
-        {% endfor %}
-    </div>
 
-    <div id="view-list" class="view-hidden pb-10">
-        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-900 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-wider">
-                            <th class="p-3 font-black text-center w-12">#</th>
-                            <th class="p-3 font-black w-16">Foto</th>
-                            <th class="p-3 font-black">Paciente</th>
-                            <th class="p-3 font-black">Tutor</th>
-                            <th class="p-3 font-black">Usuario</th>
-                            <th class="p-3 font-black">Sucursales</th>
-                            <th class="p-3 font-black">Escuela</th>
-                            <th class="p-3 font-black text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        {% for paciente in pacientes %}
-                        <tr class="hover:bg-indigo-50/50 transition-colors group">
-                            <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
-                            <td class="p-3">
-                                {% if paciente.tiene_foto %}
-                                    <img src="{{ paciente.get_foto_thumbnail }}" 
-                                         class="w-8 h-8 rounded-full object-cover border border-white shadow-sm">
-                                {% else %}
-                                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm">👤</div>
-                                {% endif %}
-                            </td>
-                            <td class="p-3">
-                                <div class="font-black text-slate-800 text-xs uppercase">{{ paciente.nombre }}</div>
-                                <div class="text-[10px] text-slate-500 font-bold uppercase">{{ paciente.apellido }}</div>
-                                <div class="text-[9px] text-blue-600 mt-0.5 bg-blue-50 inline-block px-1 rounded font-bold">{{ paciente.edad }} años</div>
-                            </td>
-                            <td class="p-3">
-                                <div class="text-xs font-bold text-slate-700">{{ paciente.nombre_tutor }}</div>
-                                <div class="text-[10px] text-slate-500">📞 {{ paciente.telefono_tutor }}</div>
-                            </td>
-                            <td class="p-3">
-                                {% if paciente.user %}
-                                    <div class="flex items-center gap-1">
-                                        <span class="text-[10px]">🔐</span>
-                                        <span class="text-xs font-bold text-slate-700">{{ paciente.user.username }}</span>
-                                    </div>
-                                    {% if paciente.user.perfil %}
-                                        <span class="px-1.5 py-0 text-[8px] font-black bg-violet-50 text-violet-700 rounded border border-violet-100 uppercase inline-block mt-0.5">
-                                            {{ paciente.user.perfil.get_rol_display }}
-                                        </span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-[10px] text-slate-400 italic">No asignado</span>
-                                {% endif %}
-                            </td>
-                            <td class="p-3">
-                                <div class="flex flex-wrap gap-1">
-                                    {% for sucursal in paciente.sucursales.all %}
-                                        <span class="px-1.5 py-0.5 text-[9px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100">
-                                            {{ sucursal.nombre }}
-                                        </span>
-                                    {% empty %}
-                                        <span class="text-[9px] text-red-400 italic">Sin asignar</span>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                            <td class="p-3">
-                                {% if paciente.nombre_escuela %}
-                                    <div class="flex items-center gap-1">
-                                        <span class="text-[10px]">🏫</span>
-                                        <span class="text-xs font-bold text-gray-700 max-w-[120px] truncate" title="{{ paciente.nombre_escuela }}">{{ paciente.nombre_escuela }}</span>
-                                    </div>
-                                    {% if paciente.grado_curso %}
-                                        <span class="text-[9px] text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-100 font-bold mt-0.5 inline-block">{{ paciente.grado_curso }}</span>
-                                    {% endif %}
-                                    {% if paciente.apoyo_escolar %}
-                                        <span class="text-[8px] text-purple-700 bg-purple-50 px-1 py-0.5 rounded border border-purple-100 font-bold ml-1">🎯 Apoyo</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-[9px] text-gray-400 italic">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="p-3">
-                                <div class="flex items-center justify-center gap-1.5">
-                                    <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors text-xs" title="Ver">
-                                        👁️
-                                    </a>
-                                    <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar">
-                                        ✏️
-                                    </a>
-                                    {% if user.is_superuser or user.perfil.es_gerente %}
-                                    <a href="{% url 'pacientes:eliminar' paciente.id %}" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors text-xs" title="Eliminar">
-                                        🗑️
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="8" class="p-6 text-center text-slate-500 text-xs font-bold">
-                                No se encontraron resultados
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            {# Lista — Activos #}
+            <div id="view-list-activos" class="view-hidden pb-6 px-3">
+                <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-wider">
+                                    <th class="p-3 font-black text-center w-12">#</th>
+                                    <th class="p-3 font-black w-16">Foto</th>
+                                    <th class="p-3 font-black">Paciente</th>
+                                    <th class="p-3 font-black">Tutor</th>
+                                    <th class="p-3 font-black">Usuario</th>
+                                    <th class="p-3 font-black">Sucursales</th>
+                                    <th class="p-3 font-black">Escuela</th>
+                                    <th class="p-3 font-black text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for paciente in pacientes_activos %}
+                                <tr class="hover:bg-indigo-50/50 transition-colors group">
+                                    <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
+                                    <td class="p-3">
+                                        {% if paciente.tiene_foto %}
+                                            <img src="{{ paciente.get_foto_thumbnail }}" class="w-8 h-8 rounded-full object-cover border border-white shadow-sm">
+                                        {% else %}
+                                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm">👤</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="font-black text-slate-800 text-xs uppercase">{{ paciente.nombre }}</div>
+                                        <div class="text-[10px] text-slate-500 font-bold uppercase">{{ paciente.apellido }}</div>
+                                        <div class="text-[9px] text-blue-600 mt-0.5 bg-blue-50 inline-block px-1 rounded font-bold">{{ paciente.edad }} años</div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="text-xs font-bold text-slate-700">{{ paciente.nombre_tutor }}</div>
+                                        <div class="text-[10px] text-slate-500">📞 {{ paciente.telefono_tutor }}</div>
+                                    </td>
+                                    <td class="p-3">
+                                        {% if paciente.user %}
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[10px]">🔐</span>
+                                                <span class="text-xs font-bold text-slate-700">{{ paciente.user.username }}</span>
+                                            </div>
+                                            {% if paciente.user.perfil %}
+                                                <span class="px-1.5 py-0 text-[8px] font-black bg-violet-50 text-violet-700 rounded border border-violet-100 uppercase inline-block mt-0.5">{{ paciente.user.perfil.get_rol_display }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-[10px] text-slate-400 italic">No asignado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex flex-wrap gap-1">
+                                            {% for sucursal in paciente.sucursales.all %}
+                                                <span class="px-1.5 py-0.5 text-[9px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100">{{ sucursal.nombre }}</span>
+                                            {% empty %}
+                                                <span class="text-[9px] text-red-400 italic">Sin asignar</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        {% if paciente.nombre_escuela %}
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[10px]">🏫</span>
+                                                <span class="text-xs font-bold text-gray-700 max-w-[120px] truncate" title="{{ paciente.nombre_escuela }}">{{ paciente.nombre_escuela }}</span>
+                                            </div>
+                                            {% if paciente.grado_curso %}
+                                                <span class="text-[9px] text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-100 font-bold mt-0.5 inline-block">{{ paciente.grado_curso }}</span>
+                                            {% endif %}
+                                            {% if paciente.apoyo_escolar %}
+                                                <span class="text-[8px] text-purple-700 bg-purple-50 px-1 py-0.5 rounded border border-purple-100 font-bold ml-1">🎯 Apoyo</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-[9px] text-gray-400 italic">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors text-xs" title="Ver">👁️</a>
+                                            <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar">✏️</a>
+                                            {% if user.is_superuser or user.perfil.es_gerente %}
+                                            <a href="{% url 'pacientes:eliminar' paciente.id %}" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors text-xs" title="Eliminar">🗑️</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="p-6 text-center text-slate-500 text-xs font-bold">No se encontraron pacientes activos</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-</div>
+        </div>{# /tab-activos #}
+
+        {# ─────────────────── PESTAÑA INACTIVOS ─────────────────── #}
+        <div id="tab-inactivos" class="tab-panel {% if tab_activo == 'inactivos' %}tab-active{% endif %}">
+
+            {# Grid — Inactivos #}
+            <div id="view-grid-inactivos" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 px-3 pb-6">
+                {% for paciente in pacientes_inactivos %}
+                <div class="paciente-card bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full relative group overflow-visible opacity-80 hover:opacity-100">
+
+                    <div class="absolute top-2 right-2 z-10">
+                        <span class="px-1.5 py-0.5 text-[8px] font-black tracking-wider rounded-md bg-rose-100 text-rose-700 border border-rose-200 shadow-sm uppercase">INACTIVO</span>
+                    </div>
+
+                    <div class="h-14 bg-gradient-to-br from-slate-200 via-gray-100 to-slate-200 rounded-t-2xl border-b border-slate-100"></div>
+
+                    <div class="px-3 -mt-8 mb-1 flex flex-col items-center text-center">
+                        <div class="relative group-hover:scale-105 transition-transform duration-300">
+                            {% if paciente.tiene_foto %}
+                                <img src="{{ paciente.get_foto_thumbnail }}" alt="{{ paciente.nombre_completo }}"
+                                     class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md bg-white grayscale">
+                            {% else %}
+                                <div class="w-16 h-16 rounded-full bg-slate-100 border-4 border-white shadow-md flex items-center justify-center text-xl text-slate-300">👤</div>
+                            {% endif %}
+                            <div class="absolute bottom-0 right-0 bg-slate-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                                {{ paciente.edad }} AÑOS
+                            </div>
+                        </div>
+
+                        <h3 class="text-sm font-black text-slate-500 mt-1 leading-tight px-1 group-hover:text-slate-700 transition-colors line-clamp-2 h-8 flex items-center justify-center uppercase">
+                            {{ paciente.nombre_completo }}
+                        </h3>
+
+                        <div class="flex flex-wrap justify-center gap-1 mt-1">
+                            {% for sucursal in paciente.sucursales.all %}
+                                <span class="px-1.5 py-0.5 text-[8px] font-bold bg-slate-100 text-slate-500 rounded border border-slate-200 truncate max-w-[90px]">{{ sucursal.nombre }}</span>
+                            {% empty %}
+                                <span class="px-1.5 py-0.5 text-[8px] text-rose-400 font-bold">SIN SUCURSAL</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="p-3 pt-0 flex-1 space-y-2">
+                        <hr class="border-slate-100 mb-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0 text-xs border border-slate-100">👨‍👩‍👦</div>
+                            <div class="min-w-0 overflow-hidden">
+                                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Tutor</p>
+                                <p class="text-xs font-bold text-slate-500 truncate" title="{{ paciente.nombre_tutor }}">{{ paciente.nombre_tutor }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-md bg-slate-50 flex items-center justify-center text-slate-400 flex-shrink-0 text-xs border border-slate-100">📱</div>
+                            <div class="min-w-0">
+                                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Contacto</p>
+                                <p class="text-[11px] font-bold text-slate-500">{{ paciente.telefono_tutor }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-2 bg-slate-50/80 rounded-b-2xl border-t border-slate-100 grid {% if user.is_superuser or user.perfil.es_gerente %}grid-cols-4{% else %}grid-cols-3{% endif %} gap-1">
+                        <a href="{% url 'pacientes:detalle' paciente.id %}"
+                           class="col-span-2 flex items-center justify-center gap-1 bg-slate-500 hover:bg-slate-600 text-white py-1.5 rounded-md font-black text-[10px] shadow-sm transition-all uppercase tracking-wide">
+                            <span>👁️</span> Perfil
+                        </a>
+                        <a href="{% url 'pacientes:editar' paciente.id %}"
+                           class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-amber-500 hover:bg-amber-50 rounded-md transition-colors text-xs" title="Editar / Reactivar">✏️</a>
+                        {% if user.is_superuser or user.perfil.es_gerente %}
+                        <a href="{% url 'pacientes:eliminar' paciente.id %}"
+                           class="col-span-1 flex items-center justify-center bg-white border border-slate-200 text-rose-400 hover:bg-rose-50 rounded-md transition-colors text-xs" title="Eliminar">🗑️</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-full py-10 px-4">
+                    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 text-center p-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-slate-50 to-gray-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 border-4 border-white shadow-sm">🎉</div>
+                        <h3 class="text-base font-black text-slate-800 mb-1">Sin pacientes inactivos</h3>
+                        <p class="text-slate-500 text-xs font-medium">Todos los pacientes están activos actualmente.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# Lista — Inactivos #}
+            <div id="view-list-inactivos" class="view-hidden pb-6 px-3">
+                <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-700 border-b border-slate-600 text-slate-300 text-[10px] uppercase tracking-wider">
+                                    <th class="p-3 font-black text-center w-12">#</th>
+                                    <th class="p-3 font-black w-16">Foto</th>
+                                    <th class="p-3 font-black">Paciente</th>
+                                    <th class="p-3 font-black">Tutor</th>
+                                    <th class="p-3 font-black">Usuario</th>
+                                    <th class="p-3 font-black">Sucursales</th>
+                                    <th class="p-3 font-black">Escuela</th>
+                                    <th class="p-3 font-black text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for paciente in pacientes_inactivos %}
+                                <tr class="hover:bg-slate-50 transition-colors opacity-80 hover:opacity-100">
+                                    <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
+                                    <td class="p-3">
+                                        {% if paciente.tiene_foto %}
+                                            <img src="{{ paciente.get_foto_thumbnail }}" class="w-8 h-8 rounded-full object-cover border border-white shadow-sm grayscale">
+                                        {% else %}
+                                            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm">👤</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="font-black text-slate-500 text-xs uppercase">{{ paciente.nombre }}</div>
+                                        <div class="text-[10px] text-slate-400 font-bold uppercase">{{ paciente.apellido }}</div>
+                                        <div class="text-[9px] text-slate-500 mt-0.5 bg-slate-100 inline-block px-1 rounded font-bold">{{ paciente.edad }} años</div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="text-xs font-bold text-slate-500">{{ paciente.nombre_tutor }}</div>
+                                        <div class="text-[10px] text-slate-400">📞 {{ paciente.telefono_tutor }}</div>
+                                    </td>
+                                    <td class="p-3">
+                                        {% if paciente.user %}
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[10px]">🔐</span>
+                                                <span class="text-xs font-bold text-slate-500">{{ paciente.user.username }}</span>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-[10px] text-slate-400 italic">No asignado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex flex-wrap gap-1">
+                                            {% for sucursal in paciente.sucursales.all %}
+                                                <span class="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded border border-slate-200">{{ sucursal.nombre }}</span>
+                                            {% empty %}
+                                                <span class="text-[9px] text-red-400 italic">Sin asignar</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        {% if paciente.nombre_escuela %}
+                                            <div class="flex items-center gap-1">
+                                                <span class="text-[10px]">🏫</span>
+                                                <span class="text-xs font-bold text-slate-500 max-w-[120px] truncate" title="{{ paciente.nombre_escuela }}">{{ paciente.nombre_escuela }}</span>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-[9px] text-gray-400 italic">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-600 hover:text-white transition-colors text-xs" title="Ver">👁️</a>
+                                            <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar / Reactivar">✏️</a>
+                                            {% if user.is_superuser or user.perfil.es_gerente %}
+                                            <a href="{% url 'pacientes:eliminar' paciente.id %}" class="w-7 h-7 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors text-xs" title="Eliminar">🗑️</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="p-6 text-center text-slate-500 text-xs font-bold">Sin pacientes inactivos</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>{# /tab-inactivos #}
+
+    </div>{# /tab-content-wrapper #}
+
+</div>{# /max-w-7xl #}
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // --- 1. Lógica de Vistas (Grid/List) ---
-        const gridView = document.getElementById('view-grid');
-        const listView = document.getElementById('view-list');
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ─── 1. Estado inicial de vista ─────────────────────────────────
+    let vistaActual = localStorage.getItem('pacientesViewMode') || 'grid';
+
+    // ─── 2. Cambiar vista (Grid / Lista) — afecta ambas pestañas ────
+    window.switchView = function (mode) {
+        vistaActual = mode;
+        localStorage.setItem('pacientesViewMode', mode);
+        applyView(mode);
+    };
+
+    function applyView(mode) {
+        const gridIds = ['view-grid-activos', 'view-grid-inactivos'];
+        const listIds = ['view-list-activos', 'view-list-inactivos'];
         const btnGrid = document.getElementById('btn-grid');
         const btnList = document.getElementById('btn-list');
-        const currentView = localStorage.getItem('pacientesViewMode') || 'grid';
-        
-        applyView(currentView);
-        window.switchView = function(mode) {
-            localStorage.setItem('pacientesViewMode', mode);
-            applyView(mode);
+
+        if (mode === 'list') {
+            gridIds.forEach(id => document.getElementById(id)?.classList.add('view-hidden'));
+            listIds.forEach(id => document.getElementById(id)?.classList.remove('view-hidden'));
+            // ✅ classList.add/remove es idempotente y no falla si la clase ya existe
+            btnList.classList.add('btn-view-active');
+            btnList.classList.remove('btn-view-inactive');
+            btnGrid.classList.add('btn-view-inactive');
+            btnGrid.classList.remove('btn-view-active');
+        } else {
+            listIds.forEach(id => document.getElementById(id)?.classList.add('view-hidden'));
+            gridIds.forEach(id => document.getElementById(id)?.classList.remove('view-hidden'));
+            btnGrid.classList.add('btn-view-active');
+            btnGrid.classList.remove('btn-view-inactive');
+            btnList.classList.add('btn-view-inactive');
+            btnList.classList.remove('btn-view-active');
+        }
+    }
+
+    // ─── 3. Cambiar pestaña ──────────────────────────────────────────
+    window.switchTab = function (tab) {
+        // Paneles: quitar de todos, poner al seleccionado
+        ['activos', 'inactivos'].forEach(t => {
+            document.getElementById('tab-' + t)?.classList.remove('tab-active');
+            document.getElementById('tab-btn-' + t)?.classList.remove('tab-selected');
+        });
+        document.getElementById('tab-' + tab)?.classList.add('tab-active');
+        document.getElementById('tab-btn-' + tab)?.classList.add('tab-selected');
+
+        // ✅ Badges: usar classList en lugar de .replace() (que falla cuando
+        //    la clase ya fue cambiada o no está en el string exacto esperado)
+        const badgeActivos   = document.getElementById('badge-activos');
+        const badgeInactivos = document.getElementById('badge-inactivos');
+
+        if (tab === 'activos') {
+            badgeActivos.classList.remove('bg-slate-100', 'text-slate-500');
+            badgeActivos.classList.add('bg-indigo-100', 'text-indigo-700');
+            badgeInactivos.classList.remove('bg-red-100', 'text-red-700');
+            badgeInactivos.classList.add('bg-slate-100', 'text-slate-500');
+        } else {
+            badgeInactivos.classList.remove('bg-slate-100', 'text-slate-500');
+            badgeInactivos.classList.add('bg-red-100', 'text-red-700');
+            badgeActivos.classList.remove('bg-indigo-100', 'text-indigo-700');
+            badgeActivos.classList.add('bg-slate-100', 'text-slate-500');
         }
 
-        function applyView(mode) {
-            if (mode === 'list') {
-                gridView.classList.add('view-hidden');
-                listView.classList.remove('view-hidden');
-                btnList.classList.add('btn-view-active');
-                btnGrid.classList.add('btn-view-inactive');
-            } else {
-                listView.classList.add('view-hidden');
-                gridView.classList.remove('view-hidden');
-                btnGrid.classList.add('btn-view-active');
-                btnList.classList.add('btn-view-inactive');
-            }
-        }
+        // El input hidden garantiza que al filtrar se mantenga la pestaña correcta
+        document.getElementById('hidden-tab').value = tab;
 
-        // --- 2. Mensajes en la esquina superior derecha (Toast) ---
-        {% if messages %}
-            {% for message in messages %}
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: '{{ message.tags }}' === 'error' ? 'error' : 'success',
-                    title: '{{ message.tags }}' === 'error' ? 'Atención' : '¡Listo!',
-                    text: '{{ message|safe }}',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-            {% endfor %}
-        {% endif %}
-    });
+        // Persistir en sessionStorage
+        sessionStorage.setItem('pacientesTab', tab);
+    };
+
+    // ─── 4. Inicializar estado correcto ──────────────────────────────
+    // Siempre aplicar la vista guardada primero
+    applyView(vistaActual);
+
+    // Determinar qué pestaña mostrar:
+    //   a) Si la URL trae ?tab=, el servidor ya renderizó correctamente → respetar
+    //   b) Si no hay ?tab= en la URL, usar sessionStorage si difiere del servidor
+    const tabFromServer = '{{ tab_activo }}';
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.has('tab')) {
+        // Tab viene de URL (después de filtrar): guardar en sessionStorage para coherencia
+        sessionStorage.setItem('pacientesTab', tabFromServer);
+        // El HTML ya viene renderizado correctamente; solo forzamos los estilos de badge/botón
+        switchTab(tabFromServer);
+    } else {
+        // Sin ?tab=: restaurar desde sessionStorage si existe y difiere
+        const tabGuardado = sessionStorage.getItem('pacientesTab');
+        if (tabGuardado && (tabGuardado === 'activos' || tabGuardado === 'inactivos')) {
+            switchTab(tabGuardado);
+        } else {
+            // Primera visita o sessionStorage vacío: inicializar con el valor del servidor
+            switchTab(tabFromServer);
+        }
+    }
+
+    // ─── 5. Mensajes Toast ───────────────────────────────────────────
+    {% if messages %}
+        {% for message in messages %}
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: '{{ message.tags }}' === 'error' ? 'error' : 'success',
+                title: '{{ message.tags }}' === 'error' ? 'Atención' : '¡Listo!',
+                text: '{{ message|safe }}',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        {% endfor %}
+    {% endif %}
+});
 </script>
 {% endblock %}

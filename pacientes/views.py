@@ -9,90 +9,96 @@ from .forms import PacienteForm
 @login_required
 def lista_pacientes(request):
     """
-    Lista de pacientes activos
+    Lista de pacientes con pestañas Activos / Inactivos
     ✅ FILTRADO POR SUCURSAL SEGÚN ROL
     """
-    # ✅ FILTRADO SEGÚN ROL DEL USUARIO
+    # ✅ FILTRADO SEGÚN ROL DEL USUARIO — base sin filtro de estado aún
     if request.user.is_superuser:
-        # Superadmin ve TODOS los pacientes
-        pacientes = Paciente.objects.filter(estado='activo')
+        pacientes_base = Paciente.objects.all()
         sucursales_disponibles = None  # Todas
     elif hasattr(request.user, 'perfil'):
         if request.user.perfil.es_gerente():
-            # Gerentes ven TODOS los pacientes
-            pacientes = Paciente.objects.filter(estado='activo')
+            pacientes_base = Paciente.objects.all()
             sucursales_disponibles = None  # Todas
         elif request.user.perfil.es_recepcionista():
             # ✅ RECEPCIONISTAS: Solo pacientes de SUS sucursales
             mis_sucursales = request.user.perfil.sucursales.all()
-            
             if mis_sucursales.exists():
-                pacientes = Paciente.objects.filter(
-                    estado='activo',
+                pacientes_base = Paciente.objects.filter(
                     sucursales__in=mis_sucursales
                 ).distinct()
                 sucursales_disponibles = mis_sucursales
             else:
-                # Sin sucursales asignadas = no ve nada
-                pacientes = Paciente.objects.none()
+                pacientes_base = Paciente.objects.none()
                 sucursales_disponibles = Paciente.objects.none()
         else:
             # Otros roles (profesionales, pacientes) no deberían estar aquí
-            pacientes = Paciente.objects.none()
+            pacientes_base = Paciente.objects.none()
             sucursales_disponibles = Paciente.objects.none()
     else:
-        pacientes = Paciente.objects.none()
+        pacientes_base = Paciente.objects.none()
         sucursales_disponibles = Paciente.objects.none()
-    
-    # Limpiar vinculaciones rotas: pacientes cuyo User no tiene PerfilUsuario valido
-    # Cubre dos casos: User eliminado (FK dangling) o User sin perfil (huerfano)
-    from django.contrib.auth.models import User as AuthUser
+
+    # Limpiar vinculaciones rotas: pacientes cuyo User no tiene PerfilUsuario válido
     from core.models import PerfilUsuario
-    # IDs de Users que SI tienen perfil valido con rol paciente
     ids_users_con_perfil = PerfilUsuario.objects.filter(
         rol='paciente'
     ).values_list('user_id', flat=True)
-    # Limpiar en toda la tabla (no solo el queryset filtrado por rol)
     Paciente.objects.filter(
         user__isnull=False
     ).exclude(
         user_id__in=ids_users_con_perfil
     ).update(user=None)
 
-    # select_related('user') para JOIN eficiente y datos frescos en template
-    pacientes = pacientes.select_related('user').order_by('nombre', 'apellido')
-    
-    # Lógica de Búsqueda
+    # JOIN eficiente + prefetch sucursales para evitar N+1 en template
+    pacientes_base = pacientes_base.select_related('user').prefetch_related('sucursales').order_by('nombre', 'apellido')
+
+    # Lógica de Búsqueda (se aplica a ambas pestañas)
     buscar = request.GET.get('q', '')
     if buscar:
-        pacientes = pacientes.filter(
-            Q(nombre__icontains=buscar) | 
+        pacientes_base = pacientes_base.filter(
+            Q(nombre__icontains=buscar) |
             Q(apellido__icontains=buscar)
-        )
-    
-    # Lógica de Filtro por Sucursal
+        ).distinct()
+
+    # Lógica de Filtro por Sucursal (se aplica a ambas pestañas)
     sucursal_id = request.GET.get('sucursal')
     if sucursal_id:
-        pacientes = pacientes.filter(sucursales__id=sucursal_id)
-    
+        # distinct() obligatorio: el JOIN con M2M duplica filas si el paciente
+        # está en múltiples sucursales que coinciden con el filtro
+        pacientes_base = pacientes_base.filter(sucursales__id=sucursal_id).distinct()
+
+    # ✅ Separar activos e inactivos DESPUÉS de todos los filtros
+    # Ambos querysets heredan el distinct(), por lo que nunca habrá duplicados
+    pacientes_activos   = pacientes_base.filter(estado='activo')
+    pacientes_inactivos = pacientes_base.filter(estado='inactivo')
+
     # ✅ Obtener sucursales para el filtro SEGÚN PERMISOS
     from servicios.models import Sucursal
-    
+
     if sucursales_disponibles is None:
-        # Superadmin/Gerente: Todas las sucursales activas
         sucursales = Sucursal.objects.filter(activa=True).order_by('nombre')
     elif hasattr(sucursales_disponibles, 'exists') and sucursales_disponibles.exists():
-        # Recepcionista: Solo sus sucursales
         sucursales = sucursales_disponibles.filter(activa=True).order_by('nombre')
     else:
-        # Sin permisos
         sucursales = Sucursal.objects.none()
-    
+
+    # Pestaña activa (activos por defecto)
+    tab_activo = request.GET.get('tab', 'activos')
+    if tab_activo not in ('activos', 'inactivos'):
+        tab_activo = 'activos'
+
     context = {
-        'pacientes': pacientes,
+        # Mantener 'pacientes' para compatibilidad (apunta a activos por defecto)
+        'pacientes': pacientes_activos,
+        'pacientes_activos': pacientes_activos,
+        'pacientes_inactivos': pacientes_inactivos,
+        'total_activos': pacientes_activos.count(),
+        'total_inactivos': pacientes_inactivos.count(),
         'buscar': buscar,
         'sucursales': sucursales,
-        'sucursal_seleccionada': int(sucursal_id) if sucursal_id else None
+        'sucursal_seleccionada': int(sucursal_id) if sucursal_id else None,
+        'tab_activo': tab_activo,
     }
     return render(request, 'pacientes/lista.html', context)
 
