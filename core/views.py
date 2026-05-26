@@ -17,6 +17,10 @@ def landing(request):
         return redirect('core:dashboard')
     return render(request, 'core/landing.html')
     
+def misael_kids(request):
+    """Vista para la página del Jardín Infantil Misael Kids"""
+    return render(request, 'core/misael_kids.html')
+    
 @login_required
 @solo_sus_sucursales  # ✅ Aplicar filtrado automático
 def dashboard(request):

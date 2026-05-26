@@ -6,6 +6,7 @@ app_name = 'core'
 
 urlpatterns = [
     path('', views.landing, name='landing'),
+    path('misael-kids/', views.misael_kids, name='misael_kids'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),
