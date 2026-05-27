@@ -2133,73 +2133,199 @@
         }
         @keyframes misael-pulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(199,125,255,0.4); }
-            50%       { box-shadow: 0 0 0 8px rgba(199,125,255,0); }
+            50%       { box-shadow: 0 0 0 6px rgba(199,125,255,0); }
         }
-        .misael-kids-banner:hover .mk-btn {
+        @keyframes mk-fadein {
+            from { opacity:0; transform: translateY(-10px) scale(0.96); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
+        }
+        @keyframes mk-float {
+            0%,100% { transform: translateY(0px); }
+            50%      { transform: translateY(-10px); }
+        }
+        @keyframes mk-shimmer {
+            0%   { left: -80%; }
+            100% { left: 140%; }
+        }
+        @keyframes mk-glow {
+            0%,100% { box-shadow: 0 0 0px rgba(139,92,246,0), 0 0 0px rgba(199,125,255,0); }
+            50%      { box-shadow: 0 0 40px rgba(139,92,246,0.55), 0 0 80px rgba(199,125,255,0.22); }
+        }
+
+        /* ── Versión MÓVIL: compacta inline ── */
+        .mk-card-mobile {
+            display: block;
+            margin-bottom: 1.8rem;
+            text-decoration: none;
+            animation: mk-float 3.8s ease-in-out infinite 1s;
+        }
+        .mk-card-mobile .mk-inner {
+            position: relative;
+            border-radius: 16px;
+            padding: 2px;
+            overflow: hidden;
+            animation: mk-glow 2.8s ease-in-out infinite 1s;
+        }
+        .mk-card-mobile .mk-rainbow {
+            position: absolute; inset: 0; border-radius: 16px;
+            background: linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff,#ff6b6b);
+            background-size: 300% 100%;
+            animation: misael-border 3.5s linear infinite;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
+        .mk-card-mobile .mk-body {
+            position: relative;
+            background: linear-gradient(135deg, rgba(18,8,55,0.97), rgba(38,16,82,0.97));
+            border-radius: 14px;
+            padding: 0.75rem 1rem;
+            display: flex; align-items: center; gap: 0.9rem;
+        }
+        /* Shimmer móvil */
+        .mk-card-mobile .mk-body::after {
+            content: '';
+            position: absolute; top: 0; left: -80%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+            animation: mk-shimmer 3.2s ease-in-out infinite 2s;
+            pointer-events: none; border-radius: 14px;
+        }
+        .mk-card-mobile .mk-avatar {
+            width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+            border: 2px solid rgba(199,125,255,0.55);
+            animation: misael-pulse 2.5s ease-in-out infinite;
+        }
+        .mk-card-mobile .mk-avatar img { width:100%; height:100%; object-fit:cover; }
+        .mk-card-mobile .mk-text { flex: 1; min-width: 0; }
+        .mk-card-mobile .mk-eyebrow {
+            font-size: 0.6rem; color: #ffd93d; font-weight: 800;
+            letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.1rem;
+        }
+        .mk-card-mobile .mk-title {
+            font-family: 'Baloo 2', cursive;
+            font-size: 1.1rem; font-weight: 900; line-height: 1; letter-spacing: 0.02em;
+        }
+        .mk-card-mobile .mk-sub {
+            font-size: 0.65rem; color: rgba(210,195,255,0.6); margin-top: 0.1rem;
+        }
+        .mk-card-mobile .mk-cta {
+            background: linear-gradient(135deg, #c77dff, #8b5cf6);
+            color: #fff; font-weight: 900; font-size: 0.72rem;
+            padding: 0.45rem 0.9rem; border-radius: 50px; white-space: nowrap;
+            box-shadow: 0 3px 14px rgba(139,92,246,0.5); flex-shrink: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .mk-card-mobile:hover .mk-cta {
+            transform: scale(1.06);
+            box-shadow: 0 5px 22px rgba(139,92,246,0.7);
+        }
+
+        /* ── Versión DESKTOP: flotante esquina superior derecha del hero ── */
+        .mk-card-desktop {
+            display: none;
+            position: absolute;
+            top: 2rem; right: 2rem;
+            z-index: 10;
+            text-decoration: none;
+            animation:
+                mk-fadein 0.7s cubic-bezier(0.34,1.56,0.64,1) both 0.4s,
+                mk-float 3.8s ease-in-out infinite 1.2s;
+        }
+        .mk-card-desktop .mk-inner-d {
+            position: relative;
+            border-radius: 22px;
+            padding: 2px;
+            overflow: hidden;
+            backdrop-filter: blur(14px);
+            animation: mk-glow 2.8s ease-in-out infinite 1.2s;
+        }
+        /* Shimmer que cruza el body */
+        .mk-card-desktop .mk-body-d::after {
+            content: '';
+            position: absolute; top: 0; left: -80%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+            animation: mk-shimmer 3.2s ease-in-out infinite 2s;
+            pointer-events: none; border-radius: 20px;
+        }
+        .mk-card-desktop .mk-rainbow-d {
+            position: absolute; inset: 0; border-radius: 22px;
+            background: linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff,#ff6b6b);
+            background-size: 300% 100%;
+            animation: misael-border 3.5s linear infinite;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+        }
+        .mk-card-desktop .mk-body-d {
+            position: relative;
+            background: rgba(12, 5, 38, 0.82);
+            border-radius: 20px;
+            padding: 1.6rem 2rem 1.6rem 1.7rem;
+            display: flex; align-items: center; gap: 1.4rem;
+            min-width: 0;
+        }
+        .mk-card-desktop .mk-avatar-d {
+            width: 96px; height: 96px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+            border: 3px solid rgba(199,125,255,0.55);
+            animation: misael-pulse 2.5s ease-in-out infinite;
+        }
+        .mk-card-desktop .mk-avatar-d img { width:100%; height:100%; object-fit:cover; }
+        .mk-card-desktop .mk-text-d { flex: 1; }
+        .mk-card-desktop .mk-eyebrow-d {
+            font-size: 0.82rem; color: #ffd93d; font-weight: 800;
+            letter-spacing: 0.13em; text-transform: uppercase; margin-bottom: 0.08rem;
+        }
+        .mk-card-desktop .mk-title-d {
+            font-family: 'Baloo 2', cursive;
+            font-size: 1.85rem; font-weight: 900; line-height: 1; letter-spacing: 0.02em;
+        }
+        .mk-card-desktop .mk-sub-d {
+            font-size: 0.92rem; color: rgba(210,195,255,0.55); margin-top: 0.2rem;
+        }
+        .mk-card-desktop .mk-cta-d {
+            background: linear-gradient(135deg, #c77dff, #8b5cf6);
+            color: #fff; font-weight: 900; font-size: 1rem;
+            padding: 0.65rem 1.4rem; border-radius: 50px; white-space: nowrap;
+            box-shadow: 0 4px 18px rgba(139,92,246,0.5); flex-shrink: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .mk-card-desktop:hover .mk-cta-d {
             transform: scale(1.07);
-            box-shadow: 0 6px 28px rgba(139,92,246,0.75);
+            box-shadow: 0 7px 30px rgba(139,92,246,0.75);
+        }
+
+        @media (min-width: 1024px) {
+            .mk-card-mobile  { display: none !important; }
+            .mk-card-desktop { display: block !important; }
         }
         </style>
 
-        <a href="/misael-kids/" class="misael-kids-banner" style="text-decoration:none; display:block; margin-bottom: 1.8rem;">
-            <div style="position:relative; border-radius:22px; padding:2.5px; overflow:hidden;">
-                <!-- Borde arcoíris animado -->
-                <div style="
-                    position:absolute; inset:0; border-radius:22px;
-                    background: linear-gradient(90deg,#ff6b6b,#ffd93d,#6bcb77,#4d96ff,#c77dff,#ff6b6b);
-                    background-size:300% 100%;
-                    animation: misael-border 3.5s linear infinite;
-                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    -webkit-mask-composite: xor; mask-composite: exclude;
-                "></div>
-                <!-- Fondo interior -->
-                <div style="
-                    position:relative;
-                    background: linear-gradient(135deg, rgba(18,8,55,0.97), rgba(38,16,82,0.97));
-                    border-radius:20px;
-                    padding: 1.1rem 1.5rem;
-                    display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;
-                ">
-                    <!-- Logo circular con pulso -->
-                    <div style="
-                        width:90px; height:90px; border-radius:50%; overflow:hidden; flex-shrink:0;
-                        border:2.5px solid rgba(199,125,255,0.6);
-                        animation: misael-pulse 2.5s ease-in-out infinite;
-                    ">
-                        <img src="{% static 'img/misael_kids.jpeg' %}" alt="Misael Kids"
-                             style="width:100%; height:100%; object-fit:cover;">
+        <!-- Versión móvil (inline, compacta) -->
+        <a href="/misael-kids/" class="mk-card-mobile" style="position:relative;">
+            <!-- Badge inscripciones -->
+            <div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); z-index:20;
+                        background:linear-gradient(135deg,#ff6b6b,#ff9f40);
+                        color:#fff; font-family:'Nunito',sans-serif; font-size:0.55rem; font-weight:900;
+                        letter-spacing:0.1em; text-transform:uppercase;
+                        padding:0.18rem 0.7rem; border-radius:50px;
+                        box-shadow:0 2px 10px rgba(255,107,107,0.45);
+                        white-space:nowrap; pointer-events:none;">
+                ✅ Inscripciones abiertas
+            </div>
+            <div class="mk-inner">
+                <div class="mk-rainbow"></div>
+                <div class="mk-body">
+                    <div class="mk-avatar">
+                        <img src="{% static 'img/misael_kids.jpeg' %}" alt="Misael Kids">
                     </div>
-                    <!-- Texto central -->
-                    <div style="flex:1; min-width:160px;">
-                        <div style="font-size:0.68rem; color:#ffd93d; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:0.1rem;">
-                            🌈 ¡NUEVO! &nbsp;·&nbsp; Únete a la familia Misael
-                        </div>
-                        <div style="font-size:0.72rem; color:rgba(220,200,255,0.75); letter-spacing:0.08em; margin-bottom:0.25rem;">
-                            JARDÍN INFANTIL &nbsp;·&nbsp; PARVULARIO
-                        </div>
-                        <div style="font-size:1.5rem; font-weight:900; line-height:1.1; margin-bottom:0.35rem; letter-spacing:0.02em;">
+                    <div class="mk-text">
+                        <div class="mk-eyebrow">🌈 ¡NUEVO!</div>
+                        <div class="mk-title">
                             <span style="color:#ff6b6b;">M</span><span style="color:#ffd93d;">I</span><span style="color:#6bcb77;">S</span><span style="color:#4d96ff;">A</span><span style="color:#c77dff;">E</span><span style="color:#ff9f40;">L</span><span style="color:#ffffff;"> KIDS</span>
                         </div>
-                        <div style="font-size:0.8rem; color:rgba(210,195,255,0.65); margin-bottom:0.65rem;">
-                            Crece · Juega · Aprende · Sueña 💜
-                        </div>
-                        <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
-                            <span style="background:rgba(255,107,107,0.2); border:1px solid rgba(255,107,107,0.45); border-radius:20px; padding:0.2rem 0.65rem; font-size:0.66rem; color:#ff8fa3;">❤️ Inclusión</span>
-                            <span style="background:rgba(107,203,119,0.2); border:1px solid rgba(107,203,119,0.45); border-radius:20px; padding:0.2rem 0.65rem; font-size:0.66rem; color:#6bcb77;">🌿 Respeto</span>
-                            <span style="background:rgba(77,150,255,0.2); border:1px solid rgba(77,150,255,0.45); border-radius:20px; padding:0.2rem 0.65rem; font-size:0.66rem; color:#4d96ff;">🧠 Desarrollo</span>
-                            <span style="background:rgba(199,125,255,0.2); border:1px solid rgba(199,125,255,0.45); border-radius:20px; padding:0.2rem 0.65rem; font-size:0.66rem; color:#c77dff;">💜 Amor</span>
-                        </div>
+                        <div class="mk-sub">Jardín infantil · Parvulario</div>
                     </div>
-                    <!-- Botón -->
-                    <div class="mk-btn" style="
-                        background: linear-gradient(135deg, #c77dff, #8b5cf6);
-                        color:#fff; font-weight:900; font-size:0.9rem;
-                        padding:0.8rem 1.5rem; border-radius:50px; white-space:nowrap;
-                        box-shadow:0 4px 20px rgba(139,92,246,0.55); flex-shrink:0;
-                        transition: transform 0.2s, box-shadow 0.2s;
-                    ">
-                        Conocer más →
-                    </div>
+                    <div class="mk-cta">Ver más →</div>
                 </div>
             </div>
         </a>
@@ -2323,6 +2449,37 @@
                          animation:floatIllus 7s ease-in-out infinite 0.7s; opacity:0.6;">♪</span>
         </div>
     </div>
+
+    <!-- Versión DESKTOP: esquina superior derecha del hero (solo ≥1024px) -->
+    <a href="/misael-kids/" class="mk-card-desktop">
+        <!-- Badge inscripciones -->
+        <div style="position:absolute; top:-11px; left:50%; transform:translateX(-50%); z-index:20;
+                    background:linear-gradient(135deg,#ff6b6b,#ff9f40);
+                    color:#fff; font-family:'Nunito',sans-serif; font-size:0.62rem; font-weight:900;
+                    letter-spacing:0.12em; text-transform:uppercase;
+                    padding:0.22rem 0.85rem; border-radius:50px;
+                    box-shadow:0 2px 12px rgba(255,107,107,0.5);
+                    white-space:nowrap; pointer-events:none;">
+            ✅ Inscripciones abiertas
+        </div>
+        <div class="mk-inner-d">
+            <div class="mk-rainbow-d"></div>
+            <div class="mk-body-d">
+                <div class="mk-avatar-d">
+                    <img src="{% static 'img/misael_kids.jpeg' %}" alt="Misael Kids">
+                </div>
+                <div class="mk-text-d">
+                    <div class="mk-eyebrow-d">🌈 ¡NUEVO!</div>
+                    <div class="mk-title-d">
+                        <span style="color:#ff6b6b;">M</span><span style="color:#ffd93d;">I</span><span style="color:#6bcb77;">S</span><span style="color:#4d96ff;">A</span><span style="color:#c77dff;">E</span><span style="color:#ff9f40;">L</span><span style="color:#ffffff;"> KIDS</span>
+                    </div>
+                    <div class="mk-sub-d">Jardín Infantil · Parvulario</div>
+                </div>
+                <div class="mk-cta-d">Ver más →</div>
+            </div>
+        </div>
+    </a>
+
 </section>
 
 
