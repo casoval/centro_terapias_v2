@@ -292,7 +292,9 @@
                 <thead>
                     <tr class="bg-gray-50 text-gray-500">
                         <th class="px-4 py-2 text-left font-semibold">Período</th>
-                        <th class="px-4 py-2 text-right font-semibold">Ing. Netos</th>
+                        <th class="px-4 py-2 text-right font-semibold">Ing. Pacientes</th>
+                        <th class="px-4 py-2 text-right font-semibold hidden md:table-cell">Ing. Adicional</th>
+                        <th class="px-4 py-2 text-right font-semibold hidden md:table-cell">Ing. Total</th>
                         <th class="px-4 py-2 text-right font-semibold">Egresos</th>
                         <th class="px-4 py-2 text-right font-semibold">Resultado</th>
                         <th class="px-4 py-2 text-right font-semibold hidden sm:table-cell">Margen</th>
@@ -308,6 +310,14 @@
                         <td class="px-4 py-2 text-right font-medium text-green-600">
                             Bs. {{ h.ingresos_netos|floatformat:0 }}
                         </td>
+                        <td class="px-4 py-2 text-right font-medium text-teal-600 hidden md:table-cell">
+                            Bs. {{ h.ingresos_adicionales|default:0|floatformat:0 }}
+                        </td>
+                        <td class="px-4 py-2 text-right font-bold text-green-700 hidden md:table-cell">
+                            {% with total_ing=h.ingresos_netos|add:h.ingresos_adicionales %}
+                            Bs. {{ total_ing|floatformat:0 }}
+                            {% endwith %}
+                        </td>
                         <td class="px-4 py-2 text-right font-medium text-red-500">
                             Bs. {{ h.total_egresos|floatformat:0 }}
                         </td>
@@ -319,7 +329,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center py-8 text-gray-400">Sin datos históricos aún</td></tr>
+                    <tr><td colspan="7" class="text-center py-8 text-gray-400">Sin datos históricos aún</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
