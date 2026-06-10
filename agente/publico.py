@@ -2,24 +2,27 @@
 agente/publico.py
 Cerebro del Agente Público del Centro Infantil Misael.
 Atiende a futuros pacientes/tutores via WhatsApp.
-Usa Claude (Anthropic) con selector híbrido inteligente Haiku/Sonnet.
+Usa Gemini 2.5 Flash (Google) vía cliente Anthropic compatible.
 """
 
 import os
 import re
 import logging
-import anthropic
+import google.generativeai as genai
 
 log = logging.getLogger(__name__)
 
-# ── Cliente Anthropic ─────────────────────────────────────────────────────────
-_client = None
+MODELO_GEMINI = 'gemini-2.5-flash'
+
+# ── Cliente Gemini ────────────────────────────────────────────────────────────
+_client_configured = False
 
 def get_client():
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
-    return _client
+    global _client_configured
+    if not _client_configured:
+        genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+        _client_configured = True
+    return genai
 
 
 # ── Prompt base ───────────────────────────────────────────────────────────────
@@ -485,6 +488,7 @@ def _normalizar_tel(telefono: str) -> str:
 
 
 def get_historial_db(telefono: str, limite: int = 20) -> list:
+    """Retorna historial en formato Gemini: {role: 'user'|'model', parts: [texto]}"""
     try:
         from agente.models import ConversacionAgente
         tel = _normalizar_tel(telefono)
@@ -493,7 +497,10 @@ def get_historial_db(telefono: str, limite: int = 20) -> list:
             telefono=tel
         ).order_by('-creado')[:limite]
         return [
-            {'role': m.rol, 'content': m.contenido}
+            {
+                'role': 'model' if m.rol == 'assistant' else 'user',
+                'parts': [m.contenido],
+            }
             for m in reversed(list(mensajes))
         ]
     except Exception as e:
@@ -592,7 +599,7 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
         resultado = analizar_mensaje(mensaje_usuario, telefono)
 
         log.info(
-            f'[Agente Publico] {"Sonnet" if resultado.es_sonnet else "Haiku"} | '
+            f'[Agente Publico] {"Gemini" if resultado.es_sonnet else "Gemini"} | '
             f'puntaje={resultado.puntaje} | {resultado.razon}'
         )
 
@@ -620,15 +627,25 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
                 "Sé breve, cálido y no asumas qué confundió al tutor — preguntale directamente.\n---"
             )
 
-        # Llamar a Claude
-        response = get_client().messages.create(
-            model=resultado.modelo,
-            max_tokens=400,
-            system=prompt,
-            messages=historial,
-        )
+        # Llamar a Gemini
+        get_client()  # asegura configuración
+        # Separar último mensaje de usuario del historial previo
+        if historial and historial[-1]['role'] == 'user':
+            ultimo_msg = historial[-1]['parts'][0]
+            historial_previo = historial[:-1]
+        else:
+            ultimo_msg = mensaje_usuario
+            historial_previo = historial
 
-        respuesta_raw = response.content[0].text.strip()
+        model = genai.GenerativeModel(
+            model_name=MODELO_GEMINI,
+            system_instruction=prompt,
+            generation_config=genai.types.GenerationConfig(max_output_tokens=400),
+        )
+        chat = model.start_chat(history=historial_previo)
+        response = chat.send_message(ultimo_msg)
+
+        respuesta_raw = response.text.strip()
 
         # ✅ 1. Despachar notificaciones al chat interno de los involucrados
         _procesar_notificaciones_publico(respuesta_raw, telefono)
@@ -637,7 +654,7 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
         respuesta = _limpiar_etiquetas(respuesta_raw)
 
         # Guardar respuesta
-        modelo_label = 'sonnet' if resultado.es_sonnet else 'haiku'
+        modelo_label = 'gemini'
         guardar_mensaje(telefono, 'assistant', respuesta, modelo_label)
 
         log.info(f'[Agente Publico] {telefono} | {modelo_label} | {respuesta[:60]}...')

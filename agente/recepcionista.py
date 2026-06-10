@@ -23,7 +23,7 @@ BUGS CORREGIDOS vs versión anterior:
   - fecha_vencimiento → no existe; Mensualidad usa mes + anio
   - Soporte de fechas históricas con extraer_rango_fechas()
 
-Modelos: Haiku (simple) / Sonnet (complejo)
+Modelos: Gemini 2.5 Flash (único modelo)
 """
 
 import re
@@ -34,8 +34,8 @@ from agente.agente_base import AgenteBase
 
 log = logging.getLogger('agente')
 
-MODELO_RAPIDO   = 'claude-haiku-4-5-20251001'
-MODELO_COMPLETO = 'claude-sonnet-4-6'
+MODELO_RAPIDO   = 'gemini-2.5-flash'
+MODELO_COMPLETO = 'gemini-2.5-flash'
 
 PALABRAS_SONNET = (
     'informe', 'reporte', 'resumen', 'detalle', 'deuda', 'deudas',
@@ -344,8 +344,8 @@ def _construir_contexto(staff, mensaje: str) -> str:
 def _elegir_modelo(mensaje: str) -> tuple:
     msg = mensaje.lower()
     if any(p in msg for p in PALABRAS_SONNET) or len(mensaje.split()) > 20:
-        return MODELO_COMPLETO, 'Sonnet'
-    return MODELO_RAPIDO, 'Haiku'
+        return MODELO_COMPLETO, 'Gemini'
+    return MODELO_RAPIDO, 'Gemini'
 
 
 class AgenteRecepcionista(AgenteBase):

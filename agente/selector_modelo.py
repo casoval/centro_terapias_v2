@@ -1,7 +1,8 @@
 """
 agente/selector_modelo.py
-Sistema inteligente de selección de modelo para el Agente Público.
-Combina múltiples criterios para elegir entre Haiku (rápido) y Sonnet (complejo).
+Selector de modelo para el Agente Público.
+Actualmente usa Gemini 2.5 Flash para todas las consultas.
+El sistema de puntaje se mantiene por si se necesita diferenciar modelos en el futuro.
 """
 
 import logging
@@ -10,8 +11,8 @@ from dataclasses import dataclass
 log = logging.getLogger(__name__)
 
 # ── Modelos ───────────────────────────────────────────────────────────────────
-MODELO_RAPIDO   = 'claude-haiku-4-5-20251001'
-MODELO_COMPLETO = 'claude-sonnet-4-6'
+MODELO_RAPIDO   = 'gemini-2.5-flash'
+MODELO_COMPLETO = 'gemini-2.5-flash'
 
 # ── Palabras clave por categoría ──────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ def analizar_mensaje(mensaje: str, telefono: str) -> ResultadoSelector:
 
     log.info(
         f'[Selector] {telefono} | puntaje={puntaje} | '
-        f'modelo={"Sonnet" if es_sonnet else "Haiku"} | {razon_final}'
+        f'modelo=Gemini | {razon_final}'
     )
 
     return ResultadoSelector(

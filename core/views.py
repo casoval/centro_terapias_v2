@@ -1,3 +1,4 @@
+from django.views.decorators.cache import cache_page
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib.auth import logout as auth_logout
@@ -10,6 +11,7 @@ from decimal import Decimal
 from calendar import monthrange
 from core.utils import solo_sus_sucursales
 
+@cache_page(60 * 15)
 def landing(request):
     # Si viene desde el admin de Django, llevar al dashboard
     referer = request.META.get('HTTP_REFERER', '')

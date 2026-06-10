@@ -3,7 +3,7 @@ agente/agente_base.py
 Clase base con lógica común para todos los agentes del sistema.
 
 Evita repetir en cada agente:
-- Inicialización del cliente Anthropic
+- Inicialización del cliente Gemini
 - Guardado de mensajes en BD
 - Recuperación del historial con límite configurable
 - Manejo de errores con fallback estándar
@@ -23,9 +23,11 @@ Uso:
 
 import os
 import logging
-import anthropic
+import google.generativeai as genai
 
 log = logging.getLogger('agente')
+
+MODELO_GEMINI = 'gemini-2.5-flash'
 
 # Mensaje de fallback estándar cuando ocurre un error técnico
 FALLBACK_ERROR = (
@@ -35,15 +37,16 @@ FALLBACK_ERROR = (
     'Sede Camacho: +591 78633975'
 )
 
-_client = None
+_client_configured = False
 
 
-def get_client() -> anthropic.Anthropic:
-    """Cliente Anthropic singleton — se inicializa una sola vez."""
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
-    return _client
+def get_client():
+    """Configura el cliente Gemini una sola vez (singleton)."""
+    global _client_configured
+    if not _client_configured:
+        genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+        _client_configured = True
+    return genai
 
 
 class AgenteBase:
@@ -63,7 +66,7 @@ class AgenteBase:
     # ── Cliente ───────────────────────────────────────────────────────────────
 
     @property
-    def client(self) -> anthropic.Anthropic:
+    def client(self):
         return get_client()
 
     # ── Historial ─────────────────────────────────────────────────────────────
@@ -77,7 +80,8 @@ class AgenteBase:
         """
         Recupera el historial de conversación del número dado,
         limitado al máximo configurado en el admin.
-        Retorna lista de dicts {role, content} lista para enviar a Claude.
+        Retorna lista de dicts {role, content} lista para enviar a Gemini.
+        Gemini usa 'user' y 'model' como roles (no 'assistant').
         """
         from agente.models import ConversacionAgente
         limite = self.get_max_historial()
@@ -86,9 +90,13 @@ class AgenteBase:
             .filter(agente=self.TIPO, telefono=telefono)
             .order_by('-creado')[:limite]
         )
-        # Invertir para que queden en orden cronológico (más antiguo primero)
+        # Invertir para orden cronológico (más antiguo primero)
+        # Gemini usa 'user' y 'model' (no 'assistant')
         return [
-            {'role': m.rol, 'content': m.contenido}
+            {
+                'role': 'model' if m.rol == 'assistant' else 'user',
+                'parts': [m.contenido],
+            }
             for m in reversed(list(mensajes))
         ]
 
@@ -100,7 +108,7 @@ class AgenteBase:
         rol: str,
         contenido: str,
         modelo_usado: str = '',
-        origen: str = 'whatsapp',   # ← único cambio
+        origen: str = 'whatsapp',
     ) -> None:
         """Guarda un mensaje en ConversacionAgente."""
         from agente.models import ConversacionAgente
@@ -111,7 +119,7 @@ class AgenteBase:
                 rol          = rol,
                 contenido    = contenido,
                 modelo_usado = modelo_usado,
-                origen       = origen,          # ← único cambio
+                origen       = origen,
             )
         except Exception as e:
             log.error(f'[{self.TIPO}] Error guardando mensaje para {telefono}: {e}')
@@ -131,27 +139,42 @@ class AgenteBase:
             log.warning(f'[{self.TIPO}] No hay ConfigAgente activo — usando prompt vacío')
             return None
 
-    # ── Llamada a Claude ──────────────────────────────────────────────────────
+    # ── Llamada a Gemini ──────────────────────────────────────────────────────
 
     def llamar_claude(
         self,
         historial: list[dict],
         system_prompt: str,
-        modelo: str,
+        modelo: str = MODELO_GEMINI,
         max_tokens: int = 600,
     ) -> str:
         """
-        Llama a Claude con el historial y el prompt del sistema.
+        Llama a Gemini con el historial y el prompt del sistema.
+        Mantiene el nombre 'llamar_claude' para no romper subclases existentes.
         Retorna el texto de la respuesta.
         Lanza excepciones — el llamador debe manejarlas.
         """
-        response = self.client.messages.create(
-            model      = modelo,
-            max_tokens = max_tokens,
-            system     = system_prompt,
-            messages   = historial,
+        get_client()  # asegura configuración
+        model = genai.GenerativeModel(
+            model_name=modelo,
+            system_instruction=system_prompt,
+            generation_config=genai.types.GenerationConfig(
+                max_output_tokens=max_tokens,
+            ),
         )
-        return response.content[0].text.strip()
+        # Gemini espera el historial sin el último mensaje del usuario
+        # El último mensaje se pasa como 'message' separado
+        if historial and historial[-1]['role'] == 'user':
+            ultimo_mensaje = historial[-1]['parts'][0]
+            historial_previo = historial[:-1]
+        else:
+            # Si no hay mensaje de usuario al final, usar historial completo
+            ultimo_mensaje = ''
+            historial_previo = historial
+
+        chat = model.start_chat(history=historial_previo)
+        response = chat.send_message(ultimo_mensaje)
+        return response.text.strip()
 
     # ── Fallback de error ─────────────────────────────────────────────────────
 
