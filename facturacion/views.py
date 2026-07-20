@@ -6082,16 +6082,17 @@ def reporte_financiero(request):
         ).order_by('-fecha', '-hora_inicio')
 
         # Calcular monto pagado y pendiente por sesión (incluye pagos masivos)
+        # ✅ FIX: NO excluir "Uso de Crédito" aquí. Esa exclusión es correcta para
+        # el total de caja recaudada (no es dinero nuevo), pero aquí se usa para
+        # decidir si ESTA sesión está pagada o pendiente, y un pago con crédito
+        # sí la salda por completo (igual que en Devolucion.clean()).
         for sesion in detalle_sesiones:
-            pagos_directos = pagos_todos.filter(sesion=sesion).exclude(
-                metodo_pago__nombre="Uso de Crédito"
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_directos = pagos_todos.filter(sesion=sesion).aggregate(
+                total=Sum('monto'))['total'] or Decimal('0.00')
             pagos_masivos_sesion = DetallePagoMasivo.objects.filter(
                 tipo='sesion',
                 sesion=sesion,
                 pago__anulado=False,
-            ).exclude(
-                pago__metodo_pago__nombre="Uso de Crédito"
             ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
             sesion.monto_pagado = pagos_directos + pagos_masivos_sesion
             sesion.monto_pendiente = max(sesion.monto_cobrado - sesion.monto_pagado, Decimal('0.00'))
@@ -6128,16 +6129,14 @@ def reporte_financiero(request):
         detalle_proyectos = proyectos.order_by('-fecha_inicio')
 
         # Calcular monto pagado y pendiente por proyecto (incluye pagos masivos, neto de devoluciones)
+        # ✅ FIX: NO excluir "Uso de Crédito" (ver nota en detalle_sesiones más arriba).
         for proyecto in detalle_proyectos:
-            pagos_directos = pagos_todos.filter(proyecto=proyecto).exclude(
-                metodo_pago__nombre="Uso de Crédito"
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_directos = pagos_todos.filter(proyecto=proyecto).aggregate(
+                total=Sum('monto'))['total'] or Decimal('0.00')
             pagos_masivos_proyecto = DetallePagoMasivo.objects.filter(
                 tipo='proyecto',
                 proyecto=proyecto,
                 pago__anulado=False,
-            ).exclude(
-                pago__metodo_pago__nombre="Uso de Crédito"
             ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
             # Devoluciones sin restricción de fecha (igual que _total_pagado_proyecto)
             devoluciones_proyecto = Devolucion.objects.filter(
@@ -6174,16 +6173,14 @@ def reporte_financiero(request):
         ).order_by('-anio', '-mes')
 
         # Calcular monto pagado y pendiente por mensualidad (incluye pagos masivos, neto de devoluciones)
+        # ✅ FIX: NO excluir "Uso de Crédito" (ver nota en detalle_sesiones más arriba).
         for mensualidad in detalle_mensualidades:
-            pagos_directos = pagos_todos.filter(mensualidad=mensualidad).exclude(
-                metodo_pago__nombre="Uso de Crédito"
-            ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
+            pagos_directos = pagos_todos.filter(mensualidad=mensualidad).aggregate(
+                total=Sum('monto'))['total'] or Decimal('0.00')
             pagos_masivos_mens = DetallePagoMasivo.objects.filter(
                 tipo='mensualidad',
                 mensualidad=mensualidad,
                 pago__anulado=False,
-            ).exclude(
-                pago__metodo_pago__nombre="Uso de Crédito"
             ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
             # Devoluciones sin restricción de fecha (igual que _total_pagado_mensualidad)
             devoluciones_mens = Devolucion.objects.filter(
