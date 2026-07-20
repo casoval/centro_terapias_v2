@@ -24,6 +24,7 @@ Uso:
 import os
 import logging
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 log = logging.getLogger('agente')
 
@@ -36,6 +37,40 @@ FALLBACK_ERROR = (
     'Sede Japón: +591 76175352\n'
     'Sede Camacho: +591 78633975'
 )
+
+# ── Safety settings ───────────────────────────────────────────────────────────
+# Sin esto, Gemini puede bloquear respuestas sobre TEA, TDAH, medicación,
+# crisis emocionales, diagnósticos, etc.
+SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT:        HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH:       HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+# ── Temperatura por tipo de agente ────────────────────────────────────────────
+# Más baja = respuestas más precisas y consistentes (agentes internos)
+# Más alta = respuestas más cálidas y naturales (agentes de cara al tutor)
+TEMPERATURA_POR_AGENTE = {
+    'publico':       0.7,   # cálido y empático con los tutores
+    'paciente':      0.7,   # ídem — atiende tutores con hijos registrados
+    'recepcionista': 0.3,   # preciso, datos operativos
+    'profesional':   0.3,   # clínico, preciso
+    'gerente':       0.2,   # ejecutivo, datos exactos
+    'superusuario':  0.2,   # máxima precisión para el dueño
+}
+
+# ── Thinking budget por tipo de agente ───────────────────────────────────────
+# Tokens de razonamiento interno de Gemini.
+# 0 = desactivado (más rápido), >0 = mejor calidad en consultas complejas.
+THINKING_BUDGET_POR_AGENTE = {
+    'publico':       2000,  # consultas emocionales y clínicas
+    'paciente':      2000,  # puede preguntar cosas complejas sobre su hijo
+    'recepcionista': 1024,  # consultas operativas
+    'profesional':   2000,  # análisis clínico
+    'gerente':       3000,  # análisis financiero y estratégico
+    'superusuario':  5000,  # máximo — informes y análisis profundos
+}
 
 _client_configured = False
 
@@ -80,8 +115,7 @@ class AgenteBase:
         """
         Recupera el historial de conversación del número dado,
         limitado al máximo configurado en el admin.
-        Retorna lista de dicts {role, content} lista para enviar a Gemini.
-        Gemini usa 'user' y 'model' como roles (no 'assistant').
+        Retorna lista en formato Gemini: {role: 'user'|'model', parts: [texto]}
         """
         from agente.models import ConversacionAgente
         limite = self.get_max_historial()
@@ -90,8 +124,6 @@ class AgenteBase:
             .filter(agente=self.TIPO, telefono=telefono)
             .order_by('-creado')[:limite]
         )
-        # Invertir para orden cronológico (más antiguo primero)
-        # Gemini usa 'user' y 'model' (no 'assistant')
         return [
             {
                 'role': 'model' if m.rol == 'assistant' else 'user',
@@ -151,28 +183,37 @@ class AgenteBase:
         """
         Llama a Gemini con el historial y el prompt del sistema.
         Mantiene el nombre 'llamar_claude' para no romper subclases existentes.
-        Retorna el texto de la respuesta.
-        Lanza excepciones — el llamador debe manejarlas.
+        Aplica temperatura y thinking budget según el tipo de agente.
         """
         get_client()  # asegura configuración
-        model = genai.GenerativeModel(
-            model_name=modelo,
-            system_instruction=system_prompt,
-            generation_config=genai.types.GenerationConfig(
-                max_output_tokens=max_tokens,
+
+        temperatura     = TEMPERATURA_POR_AGENTE.get(self.TIPO, 0.4)
+        thinking_budget = THINKING_BUDGET_POR_AGENTE.get(self.TIPO, 1024)
+
+        generation_config = genai.types.GenerationConfig(
+            max_output_tokens = max_tokens,
+            temperature       = temperatura,
+            thinking_config   = genai.types.ThinkingConfig(
+                thinking_budget = thinking_budget,
             ),
         )
-        # Gemini espera el historial sin el último mensaje del usuario
-        # El último mensaje se pasa como 'message' separado
+
+        model = genai.GenerativeModel(
+            model_name        = modelo,
+            system_instruction = system_prompt,
+            safety_settings   = SAFETY_SETTINGS,
+            generation_config = generation_config,
+        )
+
+        # Gemini: el último mensaje del usuario se pasa como 'message' separado
         if historial and historial[-1]['role'] == 'user':
-            ultimo_mensaje = historial[-1]['parts'][0]
+            ultimo_mensaje   = historial[-1]['parts'][0]
             historial_previo = historial[:-1]
         else:
-            # Si no hay mensaje de usuario al final, usar historial completo
-            ultimo_mensaje = ''
+            ultimo_mensaje   = ''
             historial_previo = historial
 
-        chat = model.start_chat(history=historial_previo)
+        chat     = model.start_chat(history=historial_previo)
         response = chat.send_message(ultimo_mensaje)
         return response.text.strip()
 

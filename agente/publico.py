@@ -9,6 +9,7 @@ import os
 import re
 import logging
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +24,22 @@ def get_client():
         genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
         _client_configured = True
     return genai
+
+# ── Safety settings ───────────────────────────────────────────────────────────
+# Sin esto Gemini puede bloquear respuestas sobre TEA, TDAH, diagnósticos,
+# crisis emocionales, medicación, etc. — temas habituales en este agente.
+SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT:        HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH:       HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+# Temperatura más alta = respuestas más cálidas y naturales con los tutores
+TEMPERATURA = 0.7
+
+# Thinking budget: razonamiento interno para consultas emocionales/complejas
+THINKING_BUDGET = 2000
 
 
 # ── Prompt base ───────────────────────────────────────────────────────────────
@@ -631,18 +648,25 @@ def responder(telefono: str, mensaje_usuario: str) -> str:
         get_client()  # asegura configuración
         # Separar último mensaje de usuario del historial previo
         if historial and historial[-1]['role'] == 'user':
-            ultimo_msg = historial[-1]['parts'][0]
+            ultimo_msg       = historial[-1]['parts'][0]
             historial_previo = historial[:-1]
         else:
-            ultimo_msg = mensaje_usuario
+            ultimo_msg       = mensaje_usuario
             historial_previo = historial
 
         model = genai.GenerativeModel(
-            model_name=MODELO_GEMINI,
-            system_instruction=prompt,
-            generation_config=genai.types.GenerationConfig(max_output_tokens=400),
+            model_name         = MODELO_GEMINI,
+            system_instruction = prompt,
+            safety_settings    = SAFETY_SETTINGS,
+            generation_config  = genai.types.GenerationConfig(
+                max_output_tokens = 400,
+                temperature       = TEMPERATURA,
+                thinking_config   = genai.types.ThinkingConfig(
+                    thinking_budget = THINKING_BUDGET,
+                ),
+            ),
         )
-        chat = model.start_chat(history=historial_previo)
+        chat     = model.start_chat(history=historial_previo)
         response = chat.send_message(ultimo_msg)
 
         respuesta_raw = response.text.strip()

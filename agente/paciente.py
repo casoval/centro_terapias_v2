@@ -24,6 +24,27 @@ import logging
 import re
 from datetime import date, datetime
 import pytz
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+log = logging.getLogger('agente')
+
+MODELO_GEMINI = 'gemini-2.5-flash'
+
+# ── Safety settings ───────────────────────────────────────────────────────────
+# Imprescindible para respuestas sobre TEA, TDAH, medicación, crisis, etc.
+SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT:        HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH:       HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+# Temperatura cálida para tutores con hijos registrados
+TEMPERATURA = 0.7
+
+# Thinking budget — ayuda en consultas complejas de sesiones, pagos y diagnósticos
+THINKING_BUDGET = 2000
 
 log = logging.getLogger('agente')
 
@@ -538,6 +559,7 @@ def _normalizar_tel(telefono: str) -> str:
     return tel
 
 def get_historial_db(telefono: str, limite: int = 15) -> list:
+    """Retorna historial en formato Gemini: {role: 'user'|'model', parts: [texto]}"""
     try:
         from agente.models import ConversacionAgente
         tel = _normalizar_tel(telefono)
@@ -545,7 +567,10 @@ def get_historial_db(telefono: str, limite: int = 15) -> list:
             agente='paciente', telefono=tel,
         ).order_by('-creado')[:limite]
         return [
-            {'role': m.rol, 'content': m.contenido}
+            {
+                'role': 'model' if m.rol == 'assistant' else 'user',
+                'parts': [m.contenido],
+            }
             for m in reversed(list(mensajes))
         ]
     except Exception as e:
@@ -632,10 +657,7 @@ def _es_mensaje_confuso(mensaje: str) -> bool:
 
 
 def _elegir_modelo(mensaje: str) -> tuple[str, str]:
-    msg = mensaje.lower()
-    if any(p in msg for p in PALABRAS_SOLICITUD):
-        return 'claude-sonnet-4-6', 'Sonnet'
-    return 'claude-haiku-4-5-20251001', 'Haiku'
+    return MODELO_GEMINI, 'Gemini'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -960,14 +982,10 @@ def responder(
         # ── 6. Guardar mensaje del usuario en BD ───────────────────────────────
         guardar_mensaje(telefono, 'user', mensaje_usuario, origen=origen)
 
-        # ── 7. Historial para Claude = previo + mensaje actual ─────────────────
-        # FIX: no recuperar de BD de nuevo (evita duplicación).
-        historial_claude = historial_previo + [{'role': 'user', 'content': mensaje_usuario}]
+        # ── 7. Historial para Gemini = previo + mensaje actual ─────────────────
+        historial_gemini = historial_previo + [{'role': 'user', 'parts': [mensaje_usuario]}]
 
-        # ── 8. Seleccionar modelo y llamar a Claude ────────────────────────────
-        # Si el mensaje indica confusión (?????, "no entendí", etc.) y hay
-        # historial previo, inyectamos una instrucción extra para que el agente
-        # pida al tutor que reformule su pregunta con más contexto.
+        # ── 8. Seleccionar modelo y llamar a Gemini ────────────────────────────
         if _es_mensaje_confuso(mensaje_usuario) and historial_previo:
             prompt += (
                 "\n\n---\nINSTRUCCIÓN ESPECIAL — MENSAJE DE CONFUSIÓN DETECTADO:\n"
@@ -982,14 +1000,30 @@ def responder(
         modelo, etiqueta = _elegir_modelo(mensaje_usuario)
         log.info(f'[Agente Paciente] {telefono} | {paciente.nombre} {paciente.apellido} | {etiqueta}')
 
-        response = get_client().messages.create(
-            model=modelo,
-            max_tokens=600,
-            system=prompt,
-            messages=historial_claude,
-        )
+        get_client()  # asegura configuración
+        if historial_gemini and historial_gemini[-1]['role'] == 'user':
+            ultimo_msg       = historial_gemini[-1]['parts'][0]
+            historial_previo_gemini = historial_gemini[:-1]
+        else:
+            ultimo_msg       = mensaje_usuario
+            historial_previo_gemini = historial_gemini
 
-        respuesta_raw = response.content[0].text.strip()
+        model = genai.GenerativeModel(
+            model_name         = modelo,
+            system_instruction = prompt,
+            safety_settings    = SAFETY_SETTINGS,
+            generation_config  = genai.types.GenerationConfig(
+                max_output_tokens = 600,
+                temperature       = TEMPERATURA,
+                thinking_config   = genai.types.ThinkingConfig(
+                    thinking_budget = THINKING_BUDGET,
+                ),
+            ),
+        )
+        chat     = model.start_chat(history=historial_previo_gemini)
+        response = chat.send_message(ultimo_msg)
+
+        respuesta_raw = response.text.strip()
 
         # ── 9. Procesar notificaciones y limpiar etiquetas ─────────────────────
         procesar_notificaciones(respuesta_raw, paciente)

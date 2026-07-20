@@ -623,9 +623,9 @@ def _kpis_portada(vista, ctx):
         tot = ctx.get('detalle_sesiones_totales') or {}
         return [
             ("Sesiones", str(count), "En el periodo seleccionado", C_VERDE_MED),
-            ("Generado", _bs(tot.get('generado', 0)), "Costo total de sesiones", C_AZUL),
-            ("Cobrado", _bs(tot.get('cobrado', 0)), "Total pagado", C_TEAL),
-            ("Pendiente", _bs(tot.get('pendiente', 0)), "Por cobrar", C_AMBER),
+            ("Generado", _bs(tot.get('total_generado', 0)), "Costo total de sesiones", C_AZUL),
+            ("Cobrado", _bs(tot.get('total_pagado', 0)), "Total pagado", C_TEAL),
+            ("Pendiente", _bs(tot.get('total_pendiente', 0)), "Por cobrar", C_AMBER),
         ]
     elif vista == 'detalle_proyectos':
         dp2 = ctx.get('detalle_proyectos')
@@ -633,9 +633,9 @@ def _kpis_portada(vista, ctx):
         tot2 = ctx.get('detalle_proyectos_totales') or {}
         return [
             ("Proyectos", str(count), "En el periodo seleccionado", C_VERDE_MED),
-            ("Costo total", _bs(tot2.get('costo_total', 0)), "Proyectos activos y finalizados", C_AZUL),
-            ("Cobrado neto", _bs(tot2.get('cobrado', 0)), "Total pagado", C_TEAL),
-            ("Pendiente", _bs(tot2.get('pendiente', 0)), "Por cobrar", C_AMBER),
+            ("Costo total", _bs(tot2.get('total_generado', 0)), "Proyectos activos y finalizados", C_AZUL),
+            ("Cobrado neto", _bs(tot2.get('total_pagado', 0)), "Total pagado", C_TEAL),
+            ("Pendiente", _bs(tot2.get('total_pendiente', 0)), "Por cobrar", C_AMBER),
         ]
     elif vista == 'detalle_mensualidades':
         dm = ctx.get('detalle_mensualidades')
@@ -643,9 +643,9 @@ def _kpis_portada(vista, ctx):
         tot3 = ctx.get('detalle_mensualidades_totales') or {}
         return [
             ("Mensualidades", str(count), "En el periodo seleccionado", C_VERDE_MED),
-            ("Costo mensual", _bs(tot3.get('costo_total', 0)), "Suma de cuotas", C_AZUL),
-            ("Cobrado", _bs(tot3.get('cobrado', 0)), "Total pagado", C_TEAL),
-            ("Pendiente", _bs(tot3.get('pendiente', 0)), "Por cobrar", C_AMBER),
+            ("Costo mensual", _bs(tot3.get('total_generado', 0)), "Suma de cuotas", C_AZUL),
+            ("Cobrado", _bs(tot3.get('total_pagado', 0)), "Total pagado", C_TEAL),
+            ("Pendiente", _bs(tot3.get('total_pendiente', 0)), "Por cobrar", C_AMBER),
         ]
     elif vista == 'analisis_creditos':
         ac = ctx.get('analisis_creditos') or {}
@@ -1085,9 +1085,9 @@ def _seccion_tabla_sesiones(pages_data, ctx, helpers):
     items = [
         ("Total sesiones", str(detalle.count() if detalle else 0),
          "En el periodo seleccionado", C_VERDE_MED),
-        ("Generado", _bs(totales.get('generado', 0)), "Costo total a cobrar", C_AZUL),
-        ("Cobrado", _bs(totales.get('cobrado', 0)), "Total pagado", C_TEAL),
-        ("Pendiente", _bs(totales.get('pendiente', 0)), "Por cobrar", C_AMBER),
+        ("Generado", _bs(totales.get('total_generado', 0)), "Costo total a cobrar", C_AZUL),
+        ("Cobrado", _bs(totales.get('total_pagado', 0)), "Total pagado", C_TEAL),
+        ("Pendiente", _bs(totales.get('total_pendiente', 0)), "Por cobrar", C_AMBER),
     ]
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
@@ -1111,8 +1111,8 @@ def _seccion_tabla_sesiones(pages_data, ctx, helpers):
     for sesion in detalle:
         from decimal import Decimal as D
         costo   = float(sesion.monto_cobrado or 0)
-        pagado  = float(getattr(sesion, '_total_pagado', 0) or 0)
-        pend    = max(0, costo - pagado)
+        pagado  = float(getattr(sesion, 'monto_pagado', 0) or 0)
+        pend    = float(getattr(sesion, 'monto_pendiente', max(0, costo - pagado)) or 0)
         estado  = ESTADOS.get(sesion.estado, sesion.estado[:6])
         prof    = sesion.profesional
         prof_n  = f"{prof.nombre} {prof.apellido}"[:18] if prof else '—'
@@ -1164,9 +1164,9 @@ def _seccion_tabla_proyectos(pages_data, ctx, helpers):
     items = [
         ("Total proyectos", str(detalle.count() if detalle else 0),
          "En el periodo seleccionado", C_VERDE_MED),
-        ("Costo total", _bs(totales.get('costo_total', 0)), "Valor acordado de todos los proyectos", C_AZUL),
-        ("Cobrado neto", _bs(totales.get('cobrado', 0)), "Total pagado (menos devoluciones)", C_TEAL),
-        ("Pendiente", _bs(totales.get('pendiente', 0)), "Por cobrar de los proyectos", C_AMBER),
+        ("Costo total", _bs(totales.get('total_generado', 0)), "Valor acordado de todos los proyectos", C_AZUL),
+        ("Cobrado neto", _bs(totales.get('total_pagado', 0)), "Total pagado (menos devoluciones)", C_TEAL),
+        ("Pendiente", _bs(totales.get('total_pendiente', 0)), "Por cobrar de los proyectos", C_AMBER),
     ]
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
@@ -1183,8 +1183,8 @@ def _seccion_tabla_proyectos(pages_data, ctx, helpers):
 
     for proy in detalle:
         costo  = float(proy.costo_total or 0)
-        cobrado= float(getattr(proy, 'total_pagado_calc', 0) or 0)
-        pend   = max(0, costo - cobrado)
+        cobrado= float(getattr(proy, 'monto_pagado', 0) or 0)
+        pend   = float(getattr(proy, 'monto_pendiente', max(0, costo - cobrado)) or 0)
         prof   = proy.profesional_responsable
         prof_n = f"{prof.nombre} {prof.apellido}"[:18] if prof else '—'
         pac    = proy.paciente
@@ -1237,9 +1237,9 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
     items = [
         ("Mensualidades", str(detalle.count() if detalle else 0),
          "En el periodo seleccionado", C_VERDE_MED),
-        ("Costo mensual total", _bs(totales.get('costo_total', 0)), "Suma de todas las cuotas", C_AZUL),
-        ("Cobrado", _bs(totales.get('cobrado', 0)), "Total pagado", C_TEAL),
-        ("Pendiente", _bs(totales.get('pendiente', 0)), "Por cobrar", C_AMBER),
+        ("Costo mensual total", _bs(totales.get('total_generado', 0)), "Suma de todas las cuotas", C_AZUL),
+        ("Cobrado", _bs(totales.get('total_pagado', 0)), "Total pagado", C_TEAL),
+        ("Pendiente", _bs(totales.get('total_pendiente', 0)), "Por cobrar", C_AMBER),
     ]
     y = _grilla_metricas(c, y, items, cols=4, box_h=1.7 * cm)
 
@@ -1256,8 +1256,8 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
 
     for mens in detalle:
         costo   = float(mens.costo_mensual or 0)
-        cobrado = float(getattr(mens, '_total_pagado', 0) or 0)
-        pend    = max(0, costo - cobrado)
+        cobrado = float(getattr(mens, 'monto_pagado', 0) or 0)
+        pend    = float(getattr(mens, 'monto_pendiente', max(0, costo - cobrado)) or 0)
         pac     = mens.paciente
         pac_n   = f"{pac.nombre} {pac.apellido}"[:22] if pac else '—'
         suc_n   = mens.sucursal.nombre[:14] if mens.sucursal else 'Global'
