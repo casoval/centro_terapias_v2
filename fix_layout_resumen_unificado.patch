@@ -1,0 +1,156 @@
+--- /mnt/user-data/uploads/informe_financiero_pdf.py	2026-07-20 20:33:12.613092000 +0000
++++ informe_financiero_pdf.py	2026-07-20 20:36:55.221872820 +0000
+@@ -208,8 +208,19 @@
+     c.setFont("Helvetica", 7)
+     c.drawString(tx, PAGE_H - 1.55 * cm, f"{DIRECCION}  |  {TELEFONO}")
+ 
+-    c.setFont("Helvetica-Bold", 8.5)
+-    c.drawRightString(PAGE_W - MR, PAGE_H - 0.9 * cm, titulo_vista)
++    # Título de la vista a la derecha: se encoge para no invadir el
++    # nombre del centro (a la izquierda) cuando el título es muy largo.
++    titulo_max_w = (PAGE_W - MR) - (tx + stringWidth(NOMBRE_CENTRO, "Helvetica-Bold", 12) + 0.6 * cm)
++    titulo_fs = 5
++    for fs in (8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5):
++        if stringWidth(titulo_vista, "Helvetica-Bold", fs) <= titulo_max_w:
++            titulo_fs = fs
++            break
++    titulo_txt = titulo_vista
++    while stringWidth(titulo_txt, "Helvetica-Bold", titulo_fs) > titulo_max_w and len(titulo_txt) > 1:
++        titulo_txt = titulo_txt[:-2] + '.'
++    c.setFont("Helvetica-Bold", titulo_fs)
++    c.drawRightString(PAGE_W - MR, PAGE_H - 0.9 * cm, titulo_txt)
+     c.setFont("Helvetica", 7)
+     c.drawRightString(PAGE_W - MR, PAGE_H - 1.45 * cm, f"Pag. {pg} de {total_pg}")
+ 
+@@ -353,9 +364,21 @@
+     c.roundRect(ML, y - row_h, total_w, row_h, 3, fill=0, stroke=1)
+     x_cur = ML
+     for i, hdr in enumerate(headers):
+-        c.setFont("Helvetica-Bold", 7)
+         c.setFillColor(C_TEXTO_SEC)
+-        c.drawString(x_cur + 0.25 * cm, y - row_h + 0.15 * cm, str(hdr).upper())
++        txt = str(hdr).upper()
++        max_w_cell = col_ws[i] - 0.4 * cm
++        fs = 7
++        # Si no cabe a tamaño normal, primero se prueba reducir el tamaño
++        # de letra antes de truncar, ya que los encabezados suelen ser cortos.
++        for cand_fs in (7, 6.3, 5.8):
++            if stringWidth(txt, "Helvetica-Bold", cand_fs) <= max_w_cell:
++                fs = cand_fs
++                break
++            fs = cand_fs
++        while stringWidth(txt, "Helvetica-Bold", fs) > max_w_cell and len(txt) > 1:
++            txt = txt[:-2] + '.'
++        c.setFont("Helvetica-Bold", fs)
++        c.drawString(x_cur + 0.25 * cm, y - row_h + 0.15 * cm, txt)
+         x_cur += col_ws[i]
+     return y - row_h
+ 
+@@ -376,10 +399,19 @@
+ 
+     x_cur = ML
+     for i, hdr in enumerate(headers):
+-        c.setFont("Helvetica-Bold", 7)
+         c.setFillColor(C_TEXTO_SEC)
+         pad = 0.25 * cm
+-        c.drawString(x_cur + pad, y - row_h + 0.15 * cm, str(hdr).upper())
++        txt = str(hdr).upper()
++        max_w_cell = col_ws[i] - 2 * pad
++        fs = 7
++        for cand_fs in (7, 6.3, 5.8):
++            fs = cand_fs
++            if stringWidth(txt, "Helvetica-Bold", cand_fs) <= max_w_cell:
++                break
++        while stringWidth(txt, "Helvetica-Bold", fs) > max_w_cell and len(txt) > 1:
++            txt = txt[:-2] + '.'
++        c.setFont("Helvetica-Bold", fs)
++        c.drawString(x_cur + pad, y - row_h + 0.15 * cm, txt)
+         x_cur += col_ws[i]
+ 
+     y -= row_h
+@@ -485,7 +517,7 @@
+ # PORTADA
+ # ─────────────────────────────────────────────────────────────────────
+ 
+-def _portada(c, titulo_vista, periodo_txt, sucursal_txt, fecha_emision, vista, ctx):
++def _portada(c, titulo_vista, periodo_txt, sucursal_txt, fecha_emision, vista, ctx, total_pg=999):
+     # Fondo
+     c.setFillColor(C_FONDO_PAG)
+     c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+@@ -516,15 +548,21 @@
+ 
+     # Título del informe
+     ty = PAGE_H - 8.0 * cm
+-    c.setFont("Helvetica-Bold", 22)
+-    c.setFillColor(C_TEXTO)
+     titulo_line1 = titulo_vista
++    titulo_max_w_portada = CW - 1.0 * cm
++    titulo_fs_portada = 12
++    for fs in (22, 20, 18, 16, 14, 12):
++        if stringWidth(titulo_line1, "Helvetica-Bold", fs) <= titulo_max_w_portada:
++            titulo_fs_portada = fs
++            break
++    c.setFont("Helvetica-Bold", titulo_fs_portada)
++    c.setFillColor(C_TEXTO)
+     c.drawCentredString(PAGE_W / 2, ty, titulo_line1)
+ 
+     # Línea verde bajo el título
+     c.setStrokeColor(C_VERDE_MED)
+     c.setLineWidth(2)
+-    tw = stringWidth(titulo_line1, "Helvetica-Bold", 22)
++    tw = stringWidth(titulo_line1, "Helvetica-Bold", titulo_fs_portada)
+     c.line(PAGE_W / 2 - tw / 2, ty - 0.3 * cm, PAGE_W / 2 + tw / 2, ty - 0.3 * cm)
+ 
+     # Período y sucursal
+@@ -569,8 +607,9 @@
+             _metrica_box(c, bx, cy - 0.55 * cm - box_h_portada - 0.35 * cm,
+                          box_w, box_h_portada, lbl, val, sub, col)
+ 
+-    # Pie de portada
+-    _pie(c, 1, 999, fecha_emision)  # total_pg se sobreescribe en la segunda pasada
++    # Pie de portada (se dibuja una única vez; total_pg llega correcto
++    # desde la llamada, sin necesidad de redibujarlo desde afuera).
++    _pie(c, 1, total_pg, fecha_emision)
+ 
+ 
+ def _kpis_portada(vista, ctx):
+@@ -1374,7 +1413,13 @@
+             for c_idx, cell in enumerate(row):
+                 c.setFont("Helvetica", 7.5)
+                 c.setFillColor(C_TEXTO)
+-                c.drawString(x_cur + 0.15 * cm, y - row_h + 0.12 * cm, str(cell))
++                txt = str(cell) if cell is not None else ''
++                # Truncar si el texto no cabe en el ancho de la columna,
++                # igual que hace _tabla(), para que no invada la columna vecina.
++                max_w_cell = col_ws[c_idx] - 0.3 * cm
++                while stringWidth(txt, "Helvetica", 7.5) > max_w_cell and len(txt) > 1:
++                    txt = txt[:-2] + '.'
++                c.drawString(x_cur + 0.15 * cm, y - row_h + 0.12 * cm, txt)
+                 x_cur += col_ws[c_idx]
+             y -= row_h
+ 
+@@ -1390,8 +1435,11 @@
+     )
+ 
+     # ---- Totales por servicio ----
++    # Columna "Servicio" ampliada: los nombres de servicio suelen ser largos
++    # (p.ej. "TERAPIA DE LENGUAJE/FONOAUDIOLOGIA"), a costa de las columnas
++    # de montos, que son más cortas.
+     headers_sv = ["Servicio", "Sesiones", "Proyectos", "Mensualidades*", "Total Generado", "Cobrado", "Pendiente"]
+-    col_ws_sv  = [3.2*cm, 2.4*cm, 2.4*cm, 2.6*cm, 2.6*cm, 2.4*cm, 2.4*cm]
++    col_ws_sv  = [5.5*cm, 2.0*cm, 2.0*cm, 2.1*cm, 2.1*cm, 2.0*cm, 2.0*cm]
+     _tabla_paginada(
+         "4. Totales por Servicio", headers_sv, col_ws_sv, por_servicio,
+         lambda f: [f.get('nombre', ''), _bs(f['sesiones']['generado']), _bs(f['proyectos']['generado']),
+@@ -1603,9 +1651,8 @@
+ 
+     c2.setFillColor(C_FONDO_PAG)
+     c2.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+-    _portada(c2, titulo_vista, periodo_txt, sucursal_txt, fecha_emision, vista, context)
+-    # Actualizar número total en pie de portada
+-    _pie(c2, 1, total_pages, fecha_emision)
++    _portada(c2, titulo_vista, periodo_txt, sucursal_txt, fecha_emision, vista, context,
++             total_pg=total_pages)
+     pages_data2.append(('portada', 1))
+ 
+     if vista in ('mensual', '', None):
