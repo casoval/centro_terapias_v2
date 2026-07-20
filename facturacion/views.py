@@ -6078,7 +6078,9 @@ def reporte_financiero(request):
             'falta', 'permiso', 'cancelada', 'reprogramada'
         ]
         detalle_sesiones = sesiones.filter(
-            estado__in=todos_estados_sesion
+            estado__in=todos_estados_sesion,
+            proyecto__isnull=True,      # ✅ FIX: excluir sesiones de proyectos
+            mensualidad__isnull=True,   # ✅ FIX: excluir sesiones de mensualidades
         ).order_by('-fecha', '-hora_inicio')
 
         # Calcular monto pagado y pendiente por sesión (incluye pagos masivos)
