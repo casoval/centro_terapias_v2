@@ -6216,6 +6216,208 @@ def reporte_financiero(request):
         return _render_o_pdf_financiero(request, context)
 
     # ══════════════════════════════════════════════════════════════════
+    # VISTA: RESUMEN UNIFICADO
+    # Consolida en un solo lugar los totales de las 3 pestañas de detalle
+    # (Sesiones, Proyectos, Mensualidades), agrupados por sucursal, por
+    # tipo y por servicio, respetando el mismo criterio (todos los estados)
+    # que cada pestaña de detalle usa individualmente.
+    # ══════════════════════════════════════════════════════════════════
+    elif vista == 'resumen_unificado':
+        from collections import defaultdict
+
+        # ---- Mismos querysets base que cada pestaña de "Detalle ..." ----
+        todos_estados_sesion = [
+            'programada', 'realizada', 'realizada_retraso',
+            'falta', 'permiso', 'cancelada', 'reprogramada'
+        ]
+        ru_sesiones = sesiones.filter(
+            estado__in=todos_estados_sesion,
+            proyecto__isnull=True,
+            mensualidad__isnull=True,
+        )
+        ru_proyectos = proyectos
+        ru_mensualidades = mensualidades.prefetch_related(
+            'servicios_profesionales__servicio'
+        )
+
+        def _acum():
+            return {'generado': Decimal('0.00'), 'pagado': Decimal('0.00'),
+                    'pendiente': Decimal('0.00'), 'cantidad': 0}
+
+        def _fila():
+            return {'nombre': '', 'sesiones': _acum(), 'proyectos': _acum(), 'mensualidades': _acum()}
+
+        por_sucursal = defaultdict(_fila)
+        por_servicio = defaultdict(_fila)
+        por_mes      = defaultdict(_fila)
+
+        def _fila_total(fila):
+            g = fila['sesiones']['generado'] + fila['proyectos']['generado'] + fila['mensualidades']['generado']
+            p = fila['sesiones']['pagado'] + fila['proyectos']['pagado'] + fila['mensualidades']['pagado']
+            q = fila['sesiones']['pendiente'] + fila['proyectos']['pendiente'] + fila['mensualidades']['pendiente']
+            c = fila['sesiones']['cantidad'] + fila['proyectos']['cantidad'] + fila['mensualidades']['cantidad']
+            return {'generado': g, 'pagado': p, 'pendiente': q, 'cantidad': c}
+
+        # ---------- SESIONES INDIVIDUALES ----------
+        tot_sesiones = _acum()
+        for s in ru_sesiones:
+            pagos_directos = pagos_todos.filter(sesion=s).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagos_masivos = DetallePagoMasivo.objects.filter(
+                tipo='sesion', sesion=s, pago__anulado=False
+            ).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagado = pagos_directos + pagos_masivos
+            generado = s.monto_cobrado or Decimal('0.00')
+            pendiente = max(generado - pagado, Decimal('0.00'))
+
+            for acc, val in (('generado', generado), ('pagado', pagado), ('pendiente', pendiente)):
+                tot_sesiones[acc] += val
+            tot_sesiones['cantidad'] += 1
+
+            suc_id = s.sucursal_id
+            fila_s = por_sucursal[suc_id]
+            fila_s['nombre'] = s.sucursal.nombre if s.sucursal_id else 'Sin sucursal'
+            fila_s['sesiones']['generado'] += generado
+            fila_s['sesiones']['pagado'] += pagado
+            fila_s['sesiones']['pendiente'] += pendiente
+            fila_s['sesiones']['cantidad'] += 1
+
+            serv_id = s.servicio_id
+            fila_sv = por_servicio[serv_id]
+            fila_sv['nombre'] = s.servicio.nombre if s.servicio_id else 'Sin servicio'
+            fila_sv['sesiones']['generado'] += generado
+            fila_sv['sesiones']['pagado'] += pagado
+            fila_sv['sesiones']['pendiente'] += pendiente
+            fila_sv['sesiones']['cantidad'] += 1
+
+            mkey = (s.fecha.year, s.fecha.month)
+            fila_m = por_mes[mkey]
+            fila_m['nombre'] = _mes_label(s.fecha)
+            fila_m['sesiones']['generado'] += generado
+            fila_m['sesiones']['pagado'] += pagado
+            fila_m['sesiones']['pendiente'] += pendiente
+            fila_m['sesiones']['cantidad'] += 1
+
+        # ---------- PROYECTOS ----------
+        tot_proyectos = _acum()
+        for p in ru_proyectos:
+            pagos_directos = pagos_todos.filter(proyecto=p).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagos_masivos = DetallePagoMasivo.objects.filter(
+                tipo='proyecto', proyecto=p, pago__anulado=False
+            ).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            devoluciones_p = Devolucion.objects.filter(proyecto=p).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagado = pagos_directos + pagos_masivos - devoluciones_p
+            generado = p.costo_total or Decimal('0.00')
+            pendiente = max(generado - pagado, Decimal('0.00'))
+
+            for acc, val in (('generado', generado), ('pagado', pagado), ('pendiente', pendiente)):
+                tot_proyectos[acc] += val
+            tot_proyectos['cantidad'] += 1
+
+            suc_id = p.sucursal_id
+            fila_s = por_sucursal[suc_id]
+            fila_s['nombre'] = p.sucursal.nombre if p.sucursal_id else 'Sin sucursal'
+            fila_s['proyectos']['generado'] += generado
+            fila_s['proyectos']['pagado'] += pagado
+            fila_s['proyectos']['pendiente'] += pendiente
+            fila_s['proyectos']['cantidad'] += 1
+
+            serv_id = p.servicio_base_id
+            fila_sv = por_servicio[serv_id]
+            fila_sv['nombre'] = p.servicio_base.nombre if p.servicio_base_id else 'Sin servicio'
+            fila_sv['proyectos']['generado'] += generado
+            fila_sv['proyectos']['pagado'] += pagado
+            fila_sv['proyectos']['pendiente'] += pendiente
+            fila_sv['proyectos']['cantidad'] += 1
+
+            mkey = (p.fecha_inicio.year, p.fecha_inicio.month)
+            fila_m = por_mes[mkey]
+            fila_m['nombre'] = _mes_label(p.fecha_inicio)
+            fila_m['proyectos']['generado'] += generado
+            fila_m['proyectos']['pagado'] += pagado
+            fila_m['proyectos']['pendiente'] += pendiente
+            fila_m['proyectos']['cantidad'] += 1
+
+        # ---------- MENSUALIDADES ----------
+        # ✅ Una mensualidad puede incluir varios servicios (tabla intermedia
+        # ServicioProfesionalMensualidad). Como "costo_mensual" es un monto
+        # único para todo el mes (no por servicio), para el desglose POR
+        # SERVICIO se reparte el monto en partes iguales entre los servicios
+        # asignados. El desglose por sucursal y por mes usa el monto completo
+        # (no se reparte), igual que en la pestaña "Detalle Mensualidades".
+        tot_mensualidades = _acum()
+        for m in ru_mensualidades:
+            pagos_directos = pagos_todos.filter(mensualidad=m).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagos_masivos = DetallePagoMasivo.objects.filter(
+                tipo='mensualidad', mensualidad=m, pago__anulado=False
+            ).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            devoluciones_m = Devolucion.objects.filter(mensualidad=m).aggregate(t=Sum('monto'))['t'] or Decimal('0.00')
+            pagado = pagos_directos + pagos_masivos - devoluciones_m
+            generado = m.costo_mensual or Decimal('0.00')
+            pendiente = max(generado - pagado, Decimal('0.00'))
+
+            for acc, val in (('generado', generado), ('pagado', pagado), ('pendiente', pendiente)):
+                tot_mensualidades[acc] += val
+            tot_mensualidades['cantidad'] += 1
+
+            suc_id = m.sucursal_id
+            fila_s = por_sucursal[suc_id]
+            fila_s['nombre'] = m.sucursal.nombre if m.sucursal_id else 'Sin sucursal'
+            fila_s['mensualidades']['generado'] += generado
+            fila_s['mensualidades']['pagado'] += pagado
+            fila_s['mensualidades']['pendiente'] += pendiente
+            fila_s['mensualidades']['cantidad'] += 1
+
+            servs = list(m.servicios_profesionales.all())
+            n = len(servs) or 1
+            claves_servicio = [(sp.servicio_id, sp.servicio.nombre) for sp in servs] or [(None, 'Sin servicio')]
+            for serv_id, serv_nombre in claves_servicio:
+                fila_sv = por_servicio[serv_id]
+                fila_sv['nombre'] = serv_nombre
+                fila_sv['mensualidades']['generado'] += generado / n
+                fila_sv['mensualidades']['pagado'] += pagado / n
+                fila_sv['mensualidades']['pendiente'] += pendiente / n
+                fila_sv['mensualidades']['cantidad'] += 1
+
+            mkey = (m.anio, m.mes)
+            fila_m = por_mes[mkey]
+            fila_m['nombre'] = f"{_MESES_ES[m.mes]} {m.anio}"
+            fila_m['mensualidades']['generado'] += generado
+            fila_m['mensualidades']['pagado'] += pagado
+            fila_m['mensualidades']['pendiente'] += pendiente
+            fila_m['mensualidades']['cantidad'] += 1
+
+        # ---------- Consolidar filas con su total y ordenarlas ----------
+        for d in (por_sucursal, por_servicio, por_mes):
+            for fila in d.values():
+                fila['total'] = _fila_total(fila)
+
+        resumen_por_sucursal = sorted(por_sucursal.values(), key=lambda f: -f['total']['generado'])
+        resumen_por_servicio = sorted(por_servicio.values(), key=lambda f: -f['total']['generado'])
+        resumen_por_mes = [por_mes[k] for k in sorted(por_mes.keys())]
+
+        resumen_por_tipo = {
+            'sesiones': tot_sesiones,
+            'proyectos': tot_proyectos,
+            'mensualidades': tot_mensualidades,
+        }
+        resumen_gran_total = _fila_total({
+            'sesiones': tot_sesiones, 'proyectos': tot_proyectos, 'mensualidades': tot_mensualidades,
+        })
+        resumen_gran_total['tasa_cobranza'] = (
+            (resumen_gran_total['pagado'] / resumen_gran_total['generado']) * 100
+            if resumen_gran_total['generado'] > 0 else 0
+        )
+
+        context.update({
+            'resumen_por_sucursal': resumen_por_sucursal,
+            'resumen_por_servicio': resumen_por_servicio,
+            'resumen_por_mes': resumen_por_mes,
+            'resumen_por_tipo': resumen_por_tipo,
+            'resumen_gran_total': resumen_gran_total,
+        })
+        return _render_o_pdf_financiero(request, context)
+
+    # ══════════════════════════════════════════════════════════════════
     # VISTA: ANÁLISIS DE CRÉDITOS
     # ══════════════════════════════════════════════════════════════════
     elif vista == 'analisis_creditos':

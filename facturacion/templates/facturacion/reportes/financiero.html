@@ -198,6 +198,8 @@
        class="tab {% if vista == 'detalle_proyectos' %}active{% endif %}">📋 Detalle Proyectos</a>
     <a href="?vista=detalle_mensualidades&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'detalle_mensualidades' %}active{% endif %}">📅 Detalle Mensualidades</a>
+    <a href="?vista=resumen_unificado&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
+       class="tab {% if vista == 'resumen_unificado' %}active{% endif %}">🔗 Resumen Unificado</a>
     <a href="?vista=analisis_creditos&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'analisis_creditos' %}active{% endif %}">💎 Análisis Créditos</a>
   </div>
@@ -1505,6 +1507,182 @@
       <div class="sm-label">Canceladas</div>
       <div class="sm-val">{{ detalle_mensualidades_totales.canceladas }}</div>
     </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- VISTA: RESUMEN UNIFICADO (totales combinados de las 3 pestañas) -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'resumen_unificado' %}
+  <p style="font-size:.72rem;color:var(--muted);margin:-6px 0 14px">
+    Consolida <strong>Detalle Sesiones + Detalle Proyectos + Detalle Mensualidades</strong> para el período
+    <strong>{{ fecha_desde }}</strong> a <strong>{{ fecha_hasta }}</strong>.
+    En mensualidades con varios servicios, el monto se reparte en partes iguales entre los servicios asignados
+    únicamente para el desglose "por servicio" (el desglose por sucursal y por mes usa el monto completo).
+  </p>
+
+  <!-- Totales generales -->
+  <div class="money-grid">
+    <div class="money-card" style="border-color:var(--green)">
+      <div class="mc-label" style="color:var(--green)">Total Generado (3 pestañas)</div>
+      <div class="mc-val">Bs. {{ resumen_gran_total.generado|floatformat:2 }}</div>
+      <div class="sm-sub">{{ resumen_gran_total.cantidad }} registros</div>
+    </div>
+    <div class="money-card" style="border-color:var(--blue)">
+      <div class="mc-label" style="color:var(--blue)">Total Cobrado / Pagado</div>
+      <div class="mc-val">Bs. {{ resumen_gran_total.pagado|floatformat:2 }}</div>
+      <div class="sm-sub">Tasa de cobranza: {{ resumen_gran_total.tasa_cobranza|floatformat:1 }}%</div>
+    </div>
+    <div class="money-card" style="border-color:var(--amber)">
+      <div class="mc-label" style="color:var(--amber)">Total Pendiente</div>
+      <div class="mc-val">Bs. {{ resumen_gran_total.pendiente|floatformat:2 }}</div>
+    </div>
+  </div>
+
+  <!-- Totales por tipo -->
+  <div class="table-card">
+    <h3>📊 Totales por Tipo</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th class="td-center">Cantidad</th>
+          <th class="td-right">Generado</th>
+          <th class="td-right">Pagado</th>
+          <th class="td-right">Pendiente</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>🏥 Sesiones individuales</strong></td>
+          <td class="td-center">{{ resumen_por_tipo.sesiones.cantidad }}</td>
+          <td class="td-right td-mono">Bs. {{ resumen_por_tipo.sesiones.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ resumen_por_tipo.sesiones.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ resumen_por_tipo.sesiones.pendiente|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td><strong>📋 Proyectos</strong></td>
+          <td class="td-center">{{ resumen_por_tipo.proyectos.cantidad }}</td>
+          <td class="td-right td-mono">Bs. {{ resumen_por_tipo.proyectos.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ resumen_por_tipo.proyectos.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ resumen_por_tipo.proyectos.pendiente|floatformat:2 }}</td>
+        </tr>
+        <tr>
+          <td><strong>📅 Mensualidades</strong></td>
+          <td class="td-center">{{ resumen_por_tipo.mensualidades.cantidad }}</td>
+          <td class="td-right td-mono">Bs. {{ resumen_por_tipo.mensualidades.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ resumen_por_tipo.mensualidades.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ resumen_por_tipo.mensualidades.pendiente|floatformat:2 }}</td>
+        </tr>
+        <tr style="background:var(--surface);font-weight:800">
+          <td>TOTAL</td>
+          <td class="td-center">{{ resumen_gran_total.cantidad }}</td>
+          <td class="td-right td-mono">Bs. {{ resumen_gran_total.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ resumen_gran_total.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ resumen_gran_total.pendiente|floatformat:2 }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totales por sucursal -->
+  <div class="table-card">
+    <h3>🏢 Totales por Sucursal<span class="badge-count">{{ resumen_por_sucursal|length }} sucursales</span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Sucursal</th>
+          <th class="td-right">Sesiones</th>
+          <th class="td-right">Proyectos</th>
+          <th class="td-right">Mensualidades</th>
+          <th class="td-right">Total Generado</th>
+          <th class="td-right">Total Pagado</th>
+          <th class="td-right">Total Pendiente</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in resumen_por_sucursal %}
+        <tr>
+          <td><strong>{{ fila.nombre }}</strong></td>
+          <td class="td-right td-mono">Bs. {{ fila.sesiones.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.proyectos.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.mensualidades.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="font-weight:800">Bs. {{ fila.total.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ fila.total.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ fila.total.pendiente|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)">Sin datos en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totales por servicio -->
+  <div class="table-card">
+    <h3>🧩 Totales por Servicio<span class="badge-count">{{ resumen_por_servicio|length }} servicios</span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Servicio</th>
+          <th class="td-right">Sesiones</th>
+          <th class="td-right">Proyectos</th>
+          <th class="td-right">Mensualidades*</th>
+          <th class="td-right">Total Generado</th>
+          <th class="td-right">Total Pagado</th>
+          <th class="td-right">Total Pendiente</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in resumen_por_servicio %}
+        <tr>
+          <td><strong>{{ fila.nombre }}</strong></td>
+          <td class="td-right td-mono">Bs. {{ fila.sesiones.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.proyectos.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.mensualidades.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="font-weight:800">Bs. {{ fila.total.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ fila.total.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ fila.total.pendiente|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)">Sin datos en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p style="font-size:.68rem;color:var(--muted);margin-top:6px">*Monto de mensualidades repartido en partes iguales entre servicios cuando la mensualidad incluye más de uno.</p>
+  </div>
+
+  <!-- Totales por mes -->
+  <div class="table-card">
+    <h3>🗓️ Totales por Mes<span class="badge-count">{{ resumen_por_mes|length }} meses</span></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th class="td-right">Sesiones</th>
+          <th class="td-right">Proyectos</th>
+          <th class="td-right">Mensualidades</th>
+          <th class="td-right">Total Generado</th>
+          <th class="td-right">Total Pagado</th>
+          <th class="td-right">Total Pendiente</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in resumen_por_mes %}
+        <tr>
+          <td><strong>{{ fila.nombre }}</strong></td>
+          <td class="td-right td-mono">Bs. {{ fila.sesiones.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.proyectos.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono">Bs. {{ fila.mensualidades.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="font-weight:800">Bs. {{ fila.total.generado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--green)">Bs. {{ fila.total.pagado|floatformat:2 }}</td>
+          <td class="td-right td-mono" style="color:var(--amber)">Bs. {{ fila.total.pendiente|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" style="padding:30px;text-align:center;color:var(--muted)">Sin datos en el período seleccionado</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% endif %}
 

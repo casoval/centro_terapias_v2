@@ -79,6 +79,7 @@ VISTA_TITULOS = {
     'detalle_sesiones':    'DETALLE DE SESIONES Y FACTURACION',
     'detalle_proyectos':   'DETALLE DE PROYECTOS Y FACTURACION',
     'detalle_mensualidades':'DETALLE DE MENSUALIDADES',
+    'resumen_unificado':   'RESUMEN UNIFICADO (SESIONES + PROYECTOS + MENSUALIDADES)',
     'analisis_creditos':   'ANALISIS DE CREDITOS Y ADELANTOS',
 }
 
@@ -654,6 +655,13 @@ def _kpis_portada(vista, ctx):
             ("Creditos usados", _bs(ac.get('total_utilizado', 0)), "Aplicados a servicios", C_AZUL),
             ("Saldo disponible", _bs(ac.get('saldo_disponible', 0) or ac.get('saldo_neto', 0)), "Credito aun sin usar", C_VERDE_MED),
             ("Pacientes con credito", str(len(ac.get('pacientes_con_credito', []))), "Con saldo a favor", C_TEAL),
+        ]
+    elif vista == 'resumen_unificado':
+        gt = ctx.get('resumen_gran_total') or {}
+        return [
+            ("Generado (3 pestanas)", _bs(gt.get('generado', 0)), f"{gt.get('cantidad', 0)} registros", C_VERDE_MED),
+            ("Cobrado / pagado", _bs(gt.get('pagado', 0)), f"Tasa cobranza: {_pct(gt.get('tasa_cobranza', 0))}", C_AZUL),
+            ("Pendiente", _bs(gt.get('pendiente', 0)), "Por cobrar", C_AMBER),
         ]
     return []
 
@@ -1289,6 +1297,124 @@ def _seccion_tabla_mensualidades(pages_data, ctx, helpers):
     pages_data.append((c, pg))
 
 
+def _seccion_resumen_unificado(pages_data, ctx, helpers):
+    """Dibuja el resumen consolidado de las 3 pestañas de detalle:
+    totales por tipo, por sucursal, por servicio y por mes."""
+    make_page = helpers['new_page']
+    gt   = ctx.get('resumen_gran_total') or {}
+    tipo = ctx.get('resumen_por_tipo') or {}
+    por_sucursal = ctx.get('resumen_por_sucursal') or []
+    por_servicio = ctx.get('resumen_por_servicio') or []
+    por_mes      = ctx.get('resumen_por_mes') or []
+
+    c, y, pg = make_page()
+    y = _titulo_seccion(c, y, "1. Totales Generales")
+    y = _explicacion(c, y,
+        "Este informe consolida en un solo lugar los totales que hoy se ven por separado en las "
+        "pestanas Detalle Sesiones, Detalle Proyectos y Detalle Mensualidades, agrupados por "
+        "sucursal, por tipo de servicio y por mes.")
+
+    items = [
+        ("Total generado", _bs(gt.get('generado', 0)), f"{gt.get('cantidad', 0)} registros", C_VERDE_MED),
+        ("Total cobrado", _bs(gt.get('pagado', 0)), f"Tasa cobranza: {_pct(gt.get('tasa_cobranza', 0))}", C_AZUL),
+        ("Total pendiente", _bs(gt.get('pendiente', 0)), "Por cobrar", C_AMBER),
+    ]
+    y = _grilla_metricas(c, y, items, cols=3, box_h=1.7 * cm)
+
+    # ---- Totales por tipo ----
+    y = _titulo_seccion(c, y, "2. Totales por Tipo")
+    headers_t = ["Tipo", "Cantidad", "Generado", "Cobrado", "Pendiente"]
+    col_ws_t  = [4.5*cm, 2.5*cm, 3.2*cm, 3.2*cm, 3.2*cm]
+    rows_t = [
+        ["Sesiones individuales", str(tipo.get('sesiones', {}).get('cantidad', 0)),
+         _bs(tipo.get('sesiones', {}).get('generado', 0)),
+         _bs(tipo.get('sesiones', {}).get('pagado', 0)),
+         _bs(tipo.get('sesiones', {}).get('pendiente', 0))],
+        ["Proyectos", str(tipo.get('proyectos', {}).get('cantidad', 0)),
+         _bs(tipo.get('proyectos', {}).get('generado', 0)),
+         _bs(tipo.get('proyectos', {}).get('pagado', 0)),
+         _bs(tipo.get('proyectos', {}).get('pendiente', 0))],
+        ["Mensualidades", str(tipo.get('mensualidades', {}).get('cantidad', 0)),
+         _bs(tipo.get('mensualidades', {}).get('generado', 0)),
+         _bs(tipo.get('mensualidades', {}).get('pagado', 0)),
+         _bs(tipo.get('mensualidades', {}).get('pendiente', 0))],
+        ["TOTAL", str(gt.get('cantidad', 0)), _bs(gt.get('generado', 0)),
+         _bs(gt.get('pagado', 0)), _bs(gt.get('pendiente', 0))],
+    ]
+    y = _tabla(c, y, headers_t, rows_t, col_ws_t)
+
+    def _tabla_paginada(titulo, headers, col_ws, filas_data, row_extractor, seccion_num):
+        nonlocal c, y, pg
+        if not filas_data:
+            return
+        needed = 0.5*cm + 0.52*cm + 0.3*cm
+        if y - needed < Y_BOTTOM:
+            _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
+            pages_data.append((c, pg))
+            c, y, pg = make_page()
+        y = _titulo_seccion(c, y, titulo)
+        y = _tabla_header(c, y, headers, col_ws)
+        row_h = 0.52 * cm
+        for idx, item in enumerate(filas_data):
+            row = row_extractor(item)
+            needed = row_h + 0.1 * cm
+            if y - needed < Y_BOTTOM:
+                _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
+                pages_data.append((c, pg))
+                c, y, pg = make_page()
+                y = _titulo_seccion(c, y, f"{titulo} (cont.)")
+                y = _tabla_header(c, y, headers, col_ws)
+            if idx % 2 == 0:
+                c.setFillColor(C_GRIS_TABLA)
+                c.rect(ML, y - row_h, sum(col_ws), row_h, fill=1, stroke=0)
+            c.setStrokeColor(C_GRIS_BORDE)
+            c.setLineWidth(0.2)
+            c.line(ML, y - row_h, ML + sum(col_ws), y - row_h)
+            x_cur = ML
+            for c_idx, cell in enumerate(row):
+                c.setFont("Helvetica", 7.5)
+                c.setFillColor(C_TEXTO)
+                c.drawString(x_cur + 0.15 * cm, y - row_h + 0.12 * cm, str(cell))
+                x_cur += col_ws[c_idx]
+            y -= row_h
+
+    # ---- Totales por sucursal ----
+    headers_s = ["Sucursal", "Sesiones", "Proyectos", "Mensualidades", "Total Generado", "Cobrado", "Pendiente"]
+    col_ws_s  = [3.2*cm, 2.4*cm, 2.4*cm, 2.6*cm, 2.6*cm, 2.4*cm, 2.4*cm]
+    _tabla_paginada(
+        "3. Totales por Sucursal", headers_s, col_ws_s, por_sucursal,
+        lambda f: [f.get('nombre', ''), _bs(f['sesiones']['generado']), _bs(f['proyectos']['generado']),
+                   _bs(f['mensualidades']['generado']), _bs(f['total']['generado']),
+                   _bs(f['total']['pagado']), _bs(f['total']['pendiente'])],
+        3
+    )
+
+    # ---- Totales por servicio ----
+    headers_sv = ["Servicio", "Sesiones", "Proyectos", "Mensualidades*", "Total Generado", "Cobrado", "Pendiente"]
+    col_ws_sv  = [3.2*cm, 2.4*cm, 2.4*cm, 2.6*cm, 2.6*cm, 2.4*cm, 2.4*cm]
+    _tabla_paginada(
+        "4. Totales por Servicio", headers_sv, col_ws_sv, por_servicio,
+        lambda f: [f.get('nombre', ''), _bs(f['sesiones']['generado']), _bs(f['proyectos']['generado']),
+                   _bs(f['mensualidades']['generado']), _bs(f['total']['generado']),
+                   _bs(f['total']['pagado']), _bs(f['total']['pendiente'])],
+        4
+    )
+
+    # ---- Totales por mes ----
+    headers_m = ["Mes", "Sesiones", "Proyectos", "Mensualidades", "Total Generado", "Cobrado", "Pendiente"]
+    col_ws_m  = [3.2*cm, 2.4*cm, 2.4*cm, 2.6*cm, 2.6*cm, 2.4*cm, 2.4*cm]
+    _tabla_paginada(
+        "5. Totales por Mes", headers_m, col_ws_m, por_mes,
+        lambda f: [f.get('nombre', ''), _bs(f['sesiones']['generado']), _bs(f['proyectos']['generado']),
+                   _bs(f['mensualidades']['generado']), _bs(f['total']['generado']),
+                   _bs(f['total']['pagado']), _bs(f['total']['pendiente'])],
+        5
+    )
+
+    _pie(c, pg, helpers["total_pg"][0], helpers['fecha'])
+    pages_data.append((c, pg))
+
+
 def _seccion_creditos(pages_data, ctx, helpers):
     make_page = helpers['new_page']
     ac = ctx.get('analisis_creditos') or {}
@@ -1437,6 +1563,8 @@ def generar_informe_financiero_pdf(context):
         _seccion_tabla_proyectos(pages_data, context, helpers)
     elif vista == 'detalle_mensualidades':
         _seccion_tabla_mensualidades(pages_data, context, helpers)
+    elif vista == 'resumen_unificado':
+        _seccion_resumen_unificado(pages_data, context, helpers)
     elif vista == 'analisis_creditos':
         _seccion_creditos(pages_data, context, helpers)
 
@@ -1492,6 +1620,8 @@ def generar_informe_financiero_pdf(context):
         _seccion_tabla_proyectos(pages_data2, context, helpers2)
     elif vista == 'detalle_mensualidades':
         _seccion_tabla_mensualidades(pages_data2, context, helpers2)
+    elif vista == 'resumen_unificado':
+        _seccion_resumen_unificado(pages_data2, context, helpers2)
     elif vista == 'analisis_creditos':
         _seccion_creditos(pages_data2, context, helpers2)
 
