@@ -36,13 +36,17 @@ C_FONDO_PAG  = colors.HexColor('#F8F9FA')
 C_ITALIC     = colors.HexColor('#9E9E9E')
 
 ESTADO_COLORES = {
-    'programada':        (colors.HexColor('#1565C0'), colors.HexColor('#E3F2FD')),
-    'realizada':         (colors.HexColor('#2E7D32'), colors.HexColor('#E8F5E9')),
-    'realizada_retraso': (colors.HexColor('#E65100'), colors.HexColor('#FFF3E0')),
-    'falta':             (colors.HexColor('#B71C1C'), colors.HexColor('#FFEBEE')),
-    'permiso':           (colors.HexColor('#6A1B9A'), colors.HexColor('#F3E5F5')),
-    'cancelada':         (colors.HexColor('#424242'), colors.HexColor('#F5F5F5')),
-    'reprogramada':      (colors.HexColor('#F57F17'), colors.HexColor('#FFFDE7')),
+    # ✅ NUEVO: paleta revisada para máxima distinción entre estados.
+    # Antes 'reprogramada' (naranja #F57F17) casi se confundía con
+    # 'realizada_retraso' (ámbar #E65100). Ahora 'reprogramada' pasa a
+    # fucsia, lejos en el círculo cromático de programada/retraso/permiso.
+    'programada':        (colors.HexColor('#2563EB'), colors.HexColor('#DBEAFE')),
+    'realizada':         (colors.HexColor('#16A34A'), colors.HexColor('#DCFCE7')),
+    'realizada_retraso': (colors.HexColor('#D97706'), colors.HexColor('#FEF3C7')),
+    'falta':             (colors.HexColor('#DC2626'), colors.HexColor('#FEE2E2')),
+    'permiso':           (colors.HexColor('#7C3AED'), colors.HexColor('#EDE9FE')),
+    'cancelada':         (colors.HexColor('#6B7280'), colors.HexColor('#F3F4F6')),
+    'reprogramada':      (colors.HexColor('#C026D3'), colors.HexColor('#FAE8FF')),
 }
 ESTADO_LABELS = {
     'programada':        'Programada',
