@@ -232,12 +232,14 @@
       <div class="value">{{ kpis.sesiones_hoy|default:"—" }}</div>
       <div class="sub">programadas para hoy</div>
     </div>
+    {% if not es_recepcionista %}
     <div class="kpi-card">
       <div class="accent" style="background:var(--green)"></div>
       <div class="label">Ingresos Hoy</div>
       <div class="value" style="font-size:1.1rem">Bs. {{ kpis.ingresos_hoy|default:"—" }}</div>
-      <div class="sub">cobrado hoy</div>
+      <div class="sub">cobrado hoy (todo el centro)</div>
     </div>
+    {% endif %}
     <div class="kpi-card">
       <div class="accent" style="background:var(--purple)"></div>
       <div class="label">Pacientes Activos</div>
@@ -529,7 +531,8 @@
     </a>
     {% endif %}{# end not es_recepcionista (prof) #}
 
-    <!-- Reporte Financiero -->
+    <!-- Reporte Financiero — reservado a gerente/superadmin -->
+    {% if not es_recepcionista %}
     <a href="{% url 'facturacion:reporte_financiero' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
       <span class="card-arrow">↗</span>
       <div class="card-header">
@@ -546,6 +549,24 @@
         <span class="feature-pill">Exportar PDF</span>
       </div>
     </a>
+    {% else %}
+    <!-- Cierre de Caja — versión acotada para recepcionista: solo lo que él cobró hoy -->
+    <a href="{% url 'facturacion:cierre_caja' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
+      <span class="card-arrow">↗</span>
+      <div class="card-header">
+        <div class="card-icon">🧾</div>
+        <div>
+          <p class="card-title">Mi Cierre de Caja</p>
+          <p class="card-desc">Lo que cobraste hoy, agrupado por método de pago, para cuadrar tu caja.</p>
+        </div>
+      </div>
+      <div class="card-features">
+        <span class="feature-pill">Solo hoy</span>
+        <span class="feature-pill">Solo tus cobros</span>
+        <span class="feature-pill">Por método de pago</span>
+      </div>
+    </a>
+    {% endif %}
 
     <!-- Reporte por Sucursal — oculto para recepcionista -->
     {% if not es_recepcionista %}

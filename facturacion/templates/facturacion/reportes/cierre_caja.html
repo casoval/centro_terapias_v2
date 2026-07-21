@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block title %}Mi Cierre de Caja{% endblock %}
+{% block content %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  :root {
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --surface: #f8fafc;
+    --white: #ffffff;
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+  }
+
+  body { font-family: 'Outfit', sans-serif; background: transparent; }
+
+  .cc-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2d4a 100%);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+  }
+  .cc-hero h1 { color: #fff; font-size: 1.5rem; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .cc-hero p { color: #94a3b8; font-size: 0.85rem; margin: 0; }
+
+  .cc-totales {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .cc-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .cc-card .label { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .cc-card .value { font-size: 1.5rem; font-weight: 800; color: var(--ink); font-family: 'JetBrains Mono', monospace; }
+  .cc-card.total-cobrado .value { color: var(--green); }
+  .cc-card.total-devuelto .value { color: var(--red); }
+  .cc-card.total-neto .value { color: var(--amber); }
+
+  .cc-section-title { font-size: 1rem; font-weight: 700; color: var(--ink); margin: 24px 0 10px; }
+
+  .cc-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .cc-tabla th {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    background: var(--surface);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cc-tabla td {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-2);
+  }
+  .cc-tabla tr:last-child td { border-bottom: none; }
+  .cc-vacio { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+
+  .cc-metodo-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .cc-metodo-row .nombre { font-weight: 600; color: var(--ink); font-size: 0.85rem; }
+  .cc-metodo-row .cantidad { font-size: 0.72rem; color: var(--muted); }
+  .cc-metodo-row .monto { font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--green); }
+</style>
+
+<div class="cc-hero">
+  <h1>🧾 Mi Cierre de Caja</h1>
+  <p>{{ hoy|date:"l, d \d\e F \d\e Y" }} — solo tus cobros y devoluciones de hoy</p>
+</div>
+
+<div class="cc-totales">
+  <div class="cc-card total-cobrado">
+    <div class="label">Total Cobrado Hoy</div>
+    <div class="value">Bs. {{ total_cobrado|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card total-devuelto">
+    <div class="label">Total Devuelto Hoy</div>
+    <div class="value">Bs. {{ total_devuelto|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card total-neto">
+    <div class="label">Neto en Caja</div>
+    <div class="value">Bs. {{ total_neto|floatformat:0 }}</div>
+  </div>
+</div>
+
+<div class="cc-section-title">💳 Por método de pago</div>
+{% if totales_por_metodo %}
+  {% for m in totales_por_metodo %}
+  <div class="cc-metodo-row">
+    <div>
+      <div class="nombre">{{ m.metodo_pago__nombre|default:"Sin método" }}</div>
+      <div class="cantidad">{{ m.cantidad }} pago{{ m.cantidad|pluralize }}</div>
+    </div>
+    <div class="monto">Bs. {{ m.total|floatformat:0 }}</div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="cc-vacio">Aún no registraste cobros hoy.</div>
+{% endif %}
+
+<div class="cc-section-title">📋 Detalle de pagos ({{ cantidad_pagos }})</div>
+{% if pagos_hoy %}
+<table class="cc-tabla">
+  <thead>
+    <tr>
+      <th>Hora</th>
+      <th>Recibo</th>
+      <th>Paciente</th>
+      <th>Concepto</th>
+      <th>Método</th>
+      <th>Monto</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for pago in pagos_hoy %}
+    <tr>
+      <td>{{ pago.fecha_registro|date:"H:i" }}</td>
+      <td>{{ pago.numero_recibo }}</td>
+      <td>{{ pago.paciente.nombre }} {{ pago.paciente.apellido }}</td>
+      <td>{{ pago.concepto }}</td>
+      <td>{{ pago.metodo_pago.nombre }}</td>
+      <td>Bs. {{ pago.monto|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="cc-vacio">No hay pagos registrados por ti el día de hoy.</div>
+{% endif %}
+
+<div class="cc-section-title">↩️ Devoluciones ({{ cantidad_devoluciones }})</div>
+{% if devoluciones_hoy %}
+<table class="cc-tabla">
+  <thead>
+    <tr>
+      <th>Hora</th>
+      <th>N° Devolución</th>
+      <th>Paciente</th>
+      <th>Motivo</th>
+      <th>Método</th>
+      <th>Monto</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for dev in devoluciones_hoy %}
+    <tr>
+      <td>{{ dev.fecha_registro|date:"H:i" }}</td>
+      <td>{{ dev.numero_devolucion }}</td>
+      <td>{{ dev.paciente.nombre }} {{ dev.paciente.apellido }}</td>
+      <td>{{ dev.motivo|truncatechars:40 }}</td>
+      <td>{{ dev.metodo_devolucion.nombre }}</td>
+      <td>Bs. {{ dev.monto|floatformat:0 }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="cc-vacio">No registraste devoluciones el día de hoy.</div>
+{% endif %}
+
+{% endblock %}

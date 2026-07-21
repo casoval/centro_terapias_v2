@@ -232,6 +232,9 @@ puede_eliminar_sesiones = lambda f: requiere_permiso('puede_eliminar_sesiones')(
 puede_eliminar_proyectos = lambda f: requiere_permiso('puede_eliminar_proyectos')(f)
 puede_anular_pagos = lambda f: requiere_permiso('puede_anular_pagos')(f)
 puede_ver_reportes = lambda f: requiere_permiso('puede_ver_reportes')(f)
+# ✅ NUEVO: reportes financieros agregados (montos, deudas globales, exportaciones)
+# quedan reservados a gerente/superadmin. Recepcionista usa 'Mi Cierre de Caja'.
+puede_ver_reportes_financieros = lambda f: requiere_permiso('puede_ver_reportes_financieros')(f)
 
 
 # ====================================

@@ -39,6 +39,7 @@ urlpatterns = [
 
     # ==================== REPORTES ====================
     path('reportes/', views.dashboard_reportes, name='dashboard_reportes'),
+    path('reportes/cierre-caja/', views.cierre_caja, name='cierre_caja'),
     path('reportes/paciente/', views.reporte_paciente, name='reporte_paciente'),
     path('reportes/profesional/', views.reporte_profesional, name='reporte_profesional'),
     path('reportes/sucursal/', views.reporte_sucursal, name='reporte_sucursal'),

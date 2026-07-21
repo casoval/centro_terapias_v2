@@ -243,6 +243,32 @@ class PerfilUsuario(models.Model):
         if self.es_superadmin():
             return True
         return self.rol == 'gerente'
+
+    def puede_ver_reportes_financieros(self):
+        """
+        Solo gerente y superadmin pueden ver reportes financieros agregados
+        (reporte financiero general, por sucursal, por profesional, exportaciones,
+        estadísticas globales de cuentas corrientes, etc.)
+        """
+        if self.es_superadmin():
+            return True
+        return self.rol == 'gerente'
+
+    def puede_ver_cierre_caja(self):
+        """
+        Recepcionista, gerente y superadmin pueden ver el cierre de caja
+        (solo lo cobrado/devuelto por el propio usuario en el día).
+        """
+        if self.es_superadmin():
+            return True
+        return self.rol in ['recepcionista', 'gerente']
+
+    def puede_ver_cuentas_de_su_sucursal(self):
+        """
+        Recepcionista solo puede consultar deudas/pagos de pacientes de sus
+        sucursales asignadas. Gerente y superadmin no tienen esta restricción.
+        """
+        return self.es_recepcionista()
     
     def puede_editar_observaciones_privadas(self):
         """Profesionales solo pueden editar observaciones privadas"""

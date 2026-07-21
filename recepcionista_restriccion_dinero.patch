@@ -1,0 +1,683 @@
+diff --git a/core/models.py b/core/models.py
+index 1aa963b..b255b62 100644
+--- a/core/models.py
++++ b/core/models.py
+@@ -243,6 +243,32 @@ class PerfilUsuario(models.Model):
+         if self.es_superadmin():
+             return True
+         return self.rol == 'gerente'
++
++    def puede_ver_reportes_financieros(self):
++        """
++        Solo gerente y superadmin pueden ver reportes financieros agregados
++        (reporte financiero general, por sucursal, por profesional, exportaciones,
++        estadísticas globales de cuentas corrientes, etc.)
++        """
++        if self.es_superadmin():
++            return True
++        return self.rol == 'gerente'
++
++    def puede_ver_cierre_caja(self):
++        """
++        Recepcionista, gerente y superadmin pueden ver el cierre de caja
++        (solo lo cobrado/devuelto por el propio usuario en el día).
++        """
++        if self.es_superadmin():
++            return True
++        return self.rol in ['recepcionista', 'gerente']
++
++    def puede_ver_cuentas_de_su_sucursal(self):
++        """
++        Recepcionista solo puede consultar deudas/pagos de pacientes de sus
++        sucursales asignadas. Gerente y superadmin no tienen esta restricción.
++        """
++        return self.es_recepcionista()
+     
+     def puede_editar_observaciones_privadas(self):
+         """Profesionales solo pueden editar observaciones privadas"""
+diff --git a/core/utils.py b/core/utils.py
+index 75aa745..d75fe44 100644
+--- a/core/utils.py
++++ b/core/utils.py
+@@ -232,6 +232,9 @@ puede_eliminar_sesiones = lambda f: requiere_permiso('puede_eliminar_sesiones')(
+ puede_eliminar_proyectos = lambda f: requiere_permiso('puede_eliminar_proyectos')(f)
+ puede_anular_pagos = lambda f: requiere_permiso('puede_anular_pagos')(f)
+ puede_ver_reportes = lambda f: requiere_permiso('puede_ver_reportes')(f)
++# ✅ NUEVO: reportes financieros agregados (montos, deudas globales, exportaciones)
++# quedan reservados a gerente/superadmin. Recepcionista usa 'Mi Cierre de Caja'.
++puede_ver_reportes_financieros = lambda f: requiere_permiso('puede_ver_reportes_financieros')(f)
+ 
+ 
+ # ====================================
+diff --git a/facturacion/templates/facturacion/historial_pagos.html b/facturacion/templates/facturacion/historial_pagos.html
+index 9128a4d..9b90a3e 100644
+--- a/facturacion/templates/facturacion/historial_pagos.html
++++ b/facturacion/templates/facturacion/historial_pagos.html
+@@ -286,7 +286,7 @@
+                         👤 Detalle
+                     </a>
+                     
+-                    {% if not item.objeto.anulado %}
++                    {% if not item.objeto.anulado and request.user.perfil.puede_anular_pagos %}
+                     <button 
+                         onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
+                         class="flex-1 text-center {% if item.objeto.numero_recibo|slice:':4' == 'CRE-' %}bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700{% else %}bg-gradient-to-r from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600{% endif %} text-white font-semibold text-[10px] py-1.5 rounded shadow-sm hover:shadow-md transition-all"
+@@ -528,7 +528,7 @@
+                                title="Ver cuenta del paciente">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                             </a>
+-                            {% if not item.objeto.anulado %}
++                            {% if not item.objeto.anulado and request.user.perfil.puede_anular_pagos %}
+                             <button 
+                                 onclick="anularRecibo({{ item.objeto.id }}, '{{ item.objeto.numero_recibo }}')"
+                                 class="p-1.5 {% if item.objeto.numero_recibo|slice:':4' == 'CRE-' %}bg-purple-500 hover:bg-purple-600{% else %}bg-orange-500 hover:bg-orange-600{% endif %} text-white rounded shadow-sm hover:shadow-md transition-all"
+diff --git a/facturacion/templates/facturacion/reportes/cierre_caja.html b/facturacion/templates/facturacion/reportes/cierre_caja.html
+new file mode 100644
+index 0000000..e422f8b
+--- /dev/null
++++ b/facturacion/templates/facturacion/reportes/cierre_caja.html
+@@ -0,0 +1,190 @@
++{% extends 'base.html' %}
++{% block title %}Mi Cierre de Caja{% endblock %}
++{% block content %}
++<style>
++  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
++
++  :root {
++    --ink: #0f172a;
++    --ink-2: #334155;
++    --muted: #64748b;
++    --border: #e2e8f0;
++    --surface: #f8fafc;
++    --white: #ffffff;
++    --green: #16a34a;
++    --green-light: #dcfce7;
++    --amber: #d97706;
++    --amber-light: #fef3c7;
++    --red: #dc2626;
++    --red-light: #fee2e2;
++  }
++
++  body { font-family: 'Outfit', sans-serif; background: transparent; }
++
++  .cc-hero {
++    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f2d4a 100%);
++    border-radius: 16px;
++    padding: 24px 28px;
++    margin-bottom: 20px;
++  }
++  .cc-hero h1 { color: #fff; font-size: 1.5rem; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.02em; }
++  .cc-hero p { color: #94a3b8; font-size: 0.85rem; margin: 0; }
++
++  .cc-totales {
++    display: grid;
++    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
++    gap: 14px;
++    margin-bottom: 24px;
++  }
++  .cc-card {
++    background: var(--white);
++    border: 1px solid var(--border);
++    border-radius: 14px;
++    padding: 18px;
++  }
++  .cc-card .label { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
++  .cc-card .value { font-size: 1.5rem; font-weight: 800; color: var(--ink); font-family: 'JetBrains Mono', monospace; }
++  .cc-card.total-cobrado .value { color: var(--green); }
++  .cc-card.total-devuelto .value { color: var(--red); }
++  .cc-card.total-neto .value { color: var(--amber); }
++
++  .cc-section-title { font-size: 1rem; font-weight: 700; color: var(--ink); margin: 24px 0 10px; }
++
++  .cc-tabla {
++    width: 100%;
++    border-collapse: collapse;
++    background: var(--white);
++    border: 1px solid var(--border);
++    border-radius: 12px;
++    overflow: hidden;
++  }
++  .cc-tabla th {
++    text-align: left;
++    font-size: 0.7rem;
++    text-transform: uppercase;
++    letter-spacing: 0.04em;
++    color: var(--muted);
++    background: var(--surface);
++    padding: 10px 12px;
++    border-bottom: 1px solid var(--border);
++  }
++  .cc-tabla td {
++    padding: 10px 12px;
++    font-size: 0.85rem;
++    border-bottom: 1px solid var(--border);
++    color: var(--ink-2);
++  }
++  .cc-tabla tr:last-child td { border-bottom: none; }
++  .cc-vacio { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
++
++  .cc-metodo-row {
++    display: flex;
++    justify-content: space-between;
++    align-items: center;
++    padding: 10px 14px;
++    background: var(--white);
++    border: 1px solid var(--border);
++    border-radius: 10px;
++    margin-bottom: 8px;
++  }
++  .cc-metodo-row .nombre { font-weight: 600; color: var(--ink); font-size: 0.85rem; }
++  .cc-metodo-row .cantidad { font-size: 0.72rem; color: var(--muted); }
++  .cc-metodo-row .monto { font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--green); }
++</style>
++
++<div class="cc-hero">
++  <h1>🧾 Mi Cierre de Caja</h1>
++  <p>{{ hoy|date:"l, d \d\e F \d\e Y" }} — solo tus cobros y devoluciones de hoy</p>
++</div>
++
++<div class="cc-totales">
++  <div class="cc-card total-cobrado">
++    <div class="label">Total Cobrado Hoy</div>
++    <div class="value">Bs. {{ total_cobrado|floatformat:0 }}</div>
++  </div>
++  <div class="cc-card total-devuelto">
++    <div class="label">Total Devuelto Hoy</div>
++    <div class="value">Bs. {{ total_devuelto|floatformat:0 }}</div>
++  </div>
++  <div class="cc-card total-neto">
++    <div class="label">Neto en Caja</div>
++    <div class="value">Bs. {{ total_neto|floatformat:0 }}</div>
++  </div>
++</div>
++
++<div class="cc-section-title">💳 Por método de pago</div>
++{% if totales_por_metodo %}
++  {% for m in totales_por_metodo %}
++  <div class="cc-metodo-row">
++    <div>
++      <div class="nombre">{{ m.metodo_pago__nombre|default:"Sin método" }}</div>
++      <div class="cantidad">{{ m.cantidad }} pago{{ m.cantidad|pluralize }}</div>
++    </div>
++    <div class="monto">Bs. {{ m.total|floatformat:0 }}</div>
++  </div>
++  {% endfor %}
++{% else %}
++  <div class="cc-vacio">Aún no registraste cobros hoy.</div>
++{% endif %}
++
++<div class="cc-section-title">📋 Detalle de pagos ({{ cantidad_pagos }})</div>
++{% if pagos_hoy %}
++<table class="cc-tabla">
++  <thead>
++    <tr>
++      <th>Hora</th>
++      <th>Recibo</th>
++      <th>Paciente</th>
++      <th>Concepto</th>
++      <th>Método</th>
++      <th>Monto</th>
++    </tr>
++  </thead>
++  <tbody>
++    {% for pago in pagos_hoy %}
++    <tr>
++      <td>{{ pago.fecha_registro|date:"H:i" }}</td>
++      <td>{{ pago.numero_recibo }}</td>
++      <td>{{ pago.paciente.nombre }} {{ pago.paciente.apellido }}</td>
++      <td>{{ pago.concepto }}</td>
++      <td>{{ pago.metodo_pago.nombre }}</td>
++      <td>Bs. {{ pago.monto|floatformat:0 }}</td>
++    </tr>
++    {% endfor %}
++  </tbody>
++</table>
++{% else %}
++<div class="cc-vacio">No hay pagos registrados por ti el día de hoy.</div>
++{% endif %}
++
++<div class="cc-section-title">↩️ Devoluciones ({{ cantidad_devoluciones }})</div>
++{% if devoluciones_hoy %}
++<table class="cc-tabla">
++  <thead>
++    <tr>
++      <th>Hora</th>
++      <th>N° Devolución</th>
++      <th>Paciente</th>
++      <th>Motivo</th>
++      <th>Método</th>
++      <th>Monto</th>
++    </tr>
++  </thead>
++  <tbody>
++    {% for dev in devoluciones_hoy %}
++    <tr>
++      <td>{{ dev.fecha_registro|date:"H:i" }}</td>
++      <td>{{ dev.numero_devolucion }}</td>
++      <td>{{ dev.paciente.nombre }} {{ dev.paciente.apellido }}</td>
++      <td>{{ dev.motivo|truncatechars:40 }}</td>
++      <td>{{ dev.metodo_devolucion.nombre }}</td>
++      <td>Bs. {{ dev.monto|floatformat:0 }}</td>
++    </tr>
++    {% endfor %}
++  </tbody>
++</table>
++{% else %}
++<div class="cc-vacio">No registraste devoluciones el día de hoy.</div>
++{% endif %}
++
++{% endblock %}
+diff --git a/facturacion/templates/facturacion/reportes/dashboard.html b/facturacion/templates/facturacion/reportes/dashboard.html
+index 542afbf..43a6dd8 100644
+--- a/facturacion/templates/facturacion/reportes/dashboard.html
++++ b/facturacion/templates/facturacion/reportes/dashboard.html
+@@ -232,12 +232,14 @@
+       <div class="value">{{ kpis.sesiones_hoy|default:"—" }}</div>
+       <div class="sub">programadas para hoy</div>
+     </div>
++    {% if not es_recepcionista %}
+     <div class="kpi-card">
+       <div class="accent" style="background:var(--green)"></div>
+       <div class="label">Ingresos Hoy</div>
+       <div class="value" style="font-size:1.1rem">Bs. {{ kpis.ingresos_hoy|default:"—" }}</div>
+-      <div class="sub">cobrado hoy</div>
++      <div class="sub">cobrado hoy (todo el centro)</div>
+     </div>
++    {% endif %}
+     <div class="kpi-card">
+       <div class="accent" style="background:var(--purple)"></div>
+       <div class="label">Pacientes Activos</div>
+@@ -529,7 +531,8 @@
+     </a>
+     {% endif %}{# end not es_recepcionista (prof) #}
+ 
+-    <!-- Reporte Financiero -->
++    <!-- Reporte Financiero — reservado a gerente/superadmin -->
++    {% if not es_recepcionista %}
+     <a href="{% url 'facturacion:reporte_financiero' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
+       <span class="card-arrow">↗</span>
+       <div class="card-header">
+@@ -546,6 +549,24 @@
+         <span class="feature-pill">Exportar PDF</span>
+       </div>
+     </a>
++    {% else %}
++    <!-- Cierre de Caja — versión acotada para recepcionista: solo lo que él cobró hoy -->
++    <a href="{% url 'facturacion:cierre_caja' %}" class="report-card" style="--card-color: var(--amber); --card-bg: var(--amber-light);">
++      <span class="card-arrow">↗</span>
++      <div class="card-header">
++        <div class="card-icon">🧾</div>
++        <div>
++          <p class="card-title">Mi Cierre de Caja</p>
++          <p class="card-desc">Lo que cobraste hoy, agrupado por método de pago, para cuadrar tu caja.</p>
++        </div>
++      </div>
++      <div class="card-features">
++        <span class="feature-pill">Solo hoy</span>
++        <span class="feature-pill">Solo tus cobros</span>
++        <span class="feature-pill">Por método de pago</span>
++      </div>
++    </a>
++    {% endif %}
+ 
+     <!-- Reporte por Sucursal — oculto para recepcionista -->
+     {% if not es_recepcionista %}
+diff --git a/facturacion/urls.py b/facturacion/urls.py
+index af3d35a..331cc74 100644
+--- a/facturacion/urls.py
++++ b/facturacion/urls.py
+@@ -39,6 +39,7 @@ urlpatterns = [
+ 
+     # ==================== REPORTES ====================
+     path('reportes/', views.dashboard_reportes, name='dashboard_reportes'),
++    path('reportes/cierre-caja/', views.cierre_caja, name='cierre_caja'),
+     path('reportes/paciente/', views.reporte_paciente, name='reporte_paciente'),
+     path('reportes/profesional/', views.reporte_profesional, name='reporte_profesional'),
+     path('reportes/sucursal/', views.reporte_sucursal, name='reporte_sucursal'),
+diff --git a/facturacion/views.py b/facturacion/views.py
+index bf799e2..bfb292b 100644
+--- a/facturacion/views.py
++++ b/facturacion/views.py
+@@ -17,6 +17,21 @@ from datetime import date, datetime
+ 
+ from django.core.cache import cache
+ from django.contrib.admin.views.decorators import staff_member_required
++from core.utils import puede_ver_reportes_financieros
++
++
++def _recepcionista_sin_acceso_a_paciente(request, paciente):
++    """
++    ✅ NUEVO: True si el usuario es recepcionista y el paciente NO pertenece
++    a ninguna de sus sucursales asignadas (mismo criterio que pacientes.views.detalle_paciente).
++    """
++    if request.user.is_superuser or not hasattr(request.user, 'perfil'):
++        return False
++    if not request.user.perfil.puede_ver_cuentas_de_su_sucursal():
++        return False
++    mis_sucursales_ids = set(request.user.perfil.sucursales.values_list('id', flat=True))
++    sucursales_paciente_ids = set(paciente.sucursales.values_list('id', flat=True))
++    return mis_sucursales_ids.isdisjoint(sucursales_paciente_ids)
+ 
+ 
+ from .models import CuentaCorriente, Pago, MetodoPago, DetallePagoMasivo, Devolucion
+@@ -162,7 +177,20 @@ def lista_cuentas_corrientes(request):
+     
+     if sucursal_id:
+         pacientes = pacientes.filter(sucursales__id=sucursal_id)
+-    
++
++    # ✅ NUEVO: recepcionista solo ve pacientes de sus sucursales asignadas
++    # (antes veía deudas/pagos de pacientes de CUALQUIER sucursal).
++    es_recepcionista_cc = (
++        not request.user.is_superuser and
++        hasattr(request.user, 'perfil') and
++        request.user.perfil.puede_ver_cuentas_de_su_sucursal()
++    )
++    if es_recepcionista_cc:
++        mis_sucursales_ids = list(request.user.perfil.sucursales.values_list('id', flat=True))
++        pacientes = pacientes.filter(sucursales__id__in=mis_sucursales_ids)
++
++    pacientes = pacientes.distinct()
++
+     # Crear cuentas faltantes (sin actualizar saldos - se hace con señales)
+     for paciente in pacientes:
+         if not hasattr(paciente, 'cuenta_corriente'):
+@@ -197,7 +225,10 @@ def lista_cuentas_corrientes(request):
+     
+     # ==================== SUCURSALES PARA FILTRO ====================
+     from servicios.models import Sucursal
+-    sucursales = Sucursal.objects.filter(activa=True)
++    if es_recepcionista_cc:
++        sucursales = Sucursal.objects.filter(activa=True, id__in=mis_sucursales_ids)
++    else:
++        sucursales = Sucursal.objects.filter(activa=True)
+     
+     context = {
+         'page_obj': page_obj,
+@@ -208,6 +239,7 @@ def lista_cuentas_corrientes(request):
+         'sucursal_id': sucursal_id,
+         'sucursales': sucursales,
+         'modo_paciente': modo_paciente,
++        'es_recepcionista_cc': es_recepcionista_cc,
+         # ✅ NUEVO: fechas para el template
+         'fecha_desde': fecha_desde,
+         'fecha_hasta': fecha_hasta,
+@@ -628,6 +660,15 @@ def cargar_estadisticas_ajax(request):
+     - ✅ DINÁMICO: Acepta y aplica filtros de búsqueda, estado y sucursal
+     """
+     try:
++        # ✅ NUEVO: estadísticas globales (deuda total del centro, etc.) reservadas
++        # a gerente/superadmin. Respuesta JSON 403 en vez de redirect (es un endpoint AJAX).
++        tiene_permiso = (
++            request.user.is_superuser or
++            (hasattr(request.user, 'perfil') and request.user.perfil.puede_ver_reportes_financieros())
++        )
++        if not tiene_permiso:
++            return JsonResponse({'success': False, 'error': 'No tienes permiso para ver estas estadísticas.'}, status=403)
++
+         # ✅ Obtener filtros de la petición
+         buscar = request.GET.get('q', '')
+         estado = request.GET.get('estado', '')
+@@ -945,6 +986,11 @@ def detalle_cuenta_ajax(request, paciente_id):
+     Se llama bajo demanda cuando el usuario hace clic en "Ver desglose"
+     """
+     paciente = get_object_or_404(Paciente, id=paciente_id)
++
++    # ✅ NUEVO: recepcionista solo puede ver la cuenta de pacientes de su sucursal
++    if _recepcionista_sin_acceso_a_paciente(request, paciente):
++        return JsonResponse({'success': False, 'error': 'No tienes permiso para ver esta cuenta.'}, status=403)
++
+     cuenta = get_object_or_404(CuentaCorriente, paciente=paciente)
+     
+     # Obtener estadísticas usando las propiedades del modelo
+@@ -1061,6 +1107,12 @@ def detalle_cuenta_corriente(request, paciente_id):
+     
+     # Obtener paciente y cuenta
+     paciente = get_object_or_404(Paciente, pk=paciente_id)
++
++    # ✅ NUEVO: recepcionista solo puede ver la cuenta de pacientes de su sucursal
++    if _recepcionista_sin_acceso_a_paciente(request, paciente):
++        messages.error(request, '⚠️ No tienes permiso para ver la cuenta de este paciente.')
++        return redirect('facturacion:cuentas_corrientes')
++
+     cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
+     
+     # ========================================
+@@ -2814,31 +2866,32 @@ def historial_pagos(request):
+     """
+     
+     # ==================== FILTROS ====================
++    # ✅ FIX: es_recepcionista() es un método, debe llamarse con paréntesis.
++    # Sin paréntesis, la variable era siempre "truthy" (una referencia a función),
++    # tratando por error a CUALQUIER usuario no-superusuario (incl. gerentes) como recepcionista.
+     es_recepcionista = (
+         not request.user.is_superuser and
+         hasattr(request.user, 'perfil') and
+-        request.user.perfil.es_recepcionista
++        request.user.perfil.es_recepcionista()
+     )
+     buscar = request.GET.get('q', '').strip()
+     metodo_id = request.GET.get('metodo', '').strip()
+     fecha_desde = request.GET.get('fecha_desde', '').strip()
+     fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+     tipo_filtro = request.GET.get('tipo', '').strip()  # pago | anulado | devolucion
+-    # Recepcionista: siempre ve solo sus propios registros
+-    if es_recepcionista:
+-        registrado_por_id = str(request.user.id)
+-    else:
+-        es_recepcionista = (
+-        not request.user.is_superuser and
+-        hasattr(request.user, 'perfil') and
+-        request.user.perfil.es_recepcionista
+-    )
+-    # Recepcionista: siempre filtrado por su propio usuario
++    # Recepcionista: siempre filtrado por su propio usuario (no puede cambiarlo por URL)
+     if es_recepcionista:
+         registrado_por_id = str(request.user.id)
+     else:
+         registrado_por_id = request.GET.get('registrado_por', '').strip()
+ 
++    # ✅ NUEVO: recepcionista no puede ver reportes financieros agregados desde aquí.
++    # Este listado combinado de pagos/devoluciones queda reservado a gerente/superadmin;
++    # el recepcionista usa su propio "Cierre de Caja" (ver vista cierre_caja).
++    if not (request.user.is_superuser or (hasattr(request.user, 'perfil') and request.user.perfil.puede_ver_reportes_financieros())):
++        messages.error(request, '⚠️ No tienes permiso para ver el historial general de pagos. Usa tu Cierre de Caja.')
++        return redirect('facturacion:cierre_caja')
++
+     # ==================== QUERY DE PAGOS ====================
+     pagos = Pago.objects.select_related(
+         'paciente',
+@@ -3132,6 +3185,13 @@ def cargar_estadisticas_pagos_ajax(request):
+     ✅ MEJORADO: Incluye pagos reales, uso de crédito, adelantados,
+                  devoluciones y anulados con filtros dinámicos.
+     """
++    # ✅ NUEVO: estadísticas agregadas de pagos reservadas a gerente/superadmin.
++    tiene_permiso = (
++        request.user.is_superuser or
++        (hasattr(request.user, 'perfil') and request.user.perfil.puede_ver_reportes_financieros())
++    )
++    if not tiene_permiso:
++        return JsonResponse({'success': False, 'error': 'No tienes permiso para ver estas estadísticas.'}, status=403)
+ 
+     # Aplicar los mismos filtros
+     buscar = request.GET.get('q', '').strip()
+@@ -3409,10 +3469,22 @@ def anular_pago(request, pago_id):
+     """
+     Vista para anular un pago
+     ✅ CORREGIDO: Maneja tanto peticiones AJAX (JSON) como formularios tradicionales (POST)
++    ✅ NUEVO: Solo gerente/superadmin pueden anular pagos (antes no había ningún chequeo).
+     """
+     if request.method != 'POST':
+         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+-    
++
++    # ✅ NUEVO: verificar permiso antes de anular
++    tiene_permiso = (
++        request.user.is_superuser or
++        (hasattr(request.user, 'perfil') and request.user.perfil.puede_anular_pagos())
++    )
++    if not tiene_permiso:
++        return JsonResponse(
++            {'success': False, 'error': 'No tienes permiso para anular pagos.'},
++            status=403
++        )
++
+     try:
+         # ✅ NUEVO: Intentar obtener datos de JSON primero, luego de POST
+         motivo = None
+@@ -3541,10 +3613,11 @@ def dashboard_reportes(request):
+         'tasa_asistencia': tasa_asistencia,
+     }
+ 
++    # ✅ FIX: llamar es_recepcionista() con paréntesis (ver nota en historial_pagos)
+     es_recepcionista = (
+         not request.user.is_superuser and
+         hasattr(request.user, 'perfil') and
+-        request.user.perfil.es_recepcionista
++        request.user.perfil.es_recepcionista()
+     )
+     return render(request, 'facturacion/reportes/dashboard.html', {
+         'kpis': kpis,
+@@ -3921,6 +3994,7 @@ def _calcular_financiero_sucursal(sucursal_id, paciente_ids, fecha_desde_obj=Non
+     }
+ 
+ @login_required
++@puede_ver_reportes_financieros
+ def reporte_paciente(request):
+     """
+     Reporte completo individual por paciente.
+@@ -4382,6 +4456,7 @@ def _fechas_rango_a(rango, today):
+ # ── Vista principal ───────────────────────────────────────────────────────────
+ 
+ @login_required
++@puede_ver_reportes_financieros
+ def reporte_asistencia(request):
+     """
+     Reporte de asistencia y cumplimiento — versión completa.
+@@ -5315,6 +5390,7 @@ def api_proyectos_filtro(request):
+ 
+ 
+ @login_required
++@puede_ver_reportes_financieros
+ def reporte_profesional(request):
+     """
+     Reporte detallado por profesional - MEJORADO
+@@ -5481,6 +5557,7 @@ def reporte_profesional(request):
+ 
+ 
+ @login_required
++@puede_ver_reportes_financieros
+ def reporte_sucursal(request):
+     """
+     Reporte detallado por sucursal - MEJORADO
+@@ -5843,29 +5920,99 @@ def _render_o_pdf_financiero(request, context):
+     return render(request, 'facturacion/reportes/financiero.html', context)
+ 
+ 
++# ==================== CIERRE DE CAJA (RECEPCIONISTA) ====================
++
++@login_required
++def cierre_caja(request):
++    """
++    Cierre de caja del día para el usuario actual.
++
++    ✅ NUEVO: pensado para el rol recepcionista — muestra ÚNICAMENTE lo que
++    el propio usuario cobró/devolvió EN EL DÍA DE HOY, agrupado por método
++    de pago, para que pueda cuadrar su caja. No expone ingresos globales del
++    centro, otras sucursales, ni datos de otros usuarios.
++
++    Gerente y superadmin también pueden usarla (para su propia caja), pero
++    ellos normalmente usarán el Reporte Financiero completo.
++    """
++    tiene_permiso = (
++        request.user.is_superuser or
++        (hasattr(request.user, 'perfil') and request.user.perfil.puede_ver_cierre_caja())
++    )
++    if not tiene_permiso:
++        messages.error(request, '⚠️ No tienes permiso para ver esta página.')
++        return redirect('core:dashboard')
++
++    hoy = date.today()
++
++    pagos_hoy = Pago.objects.filter(
++        registrado_por=request.user,
++        fecha_pago=hoy,
++        anulado=False,
++    ).select_related('metodo_pago', 'paciente').order_by('-fecha_registro')
++
++    devoluciones_hoy = Devolucion.objects.filter(
++        registrado_por=request.user,
++        fecha_devolucion=hoy,
++    ).select_related('metodo_devolucion', 'paciente').order_by('-fecha_registro')
++
++    totales_por_metodo = list(
++        pagos_hoy.values('metodo_pago__nombre')
++        .annotate(total=Sum('monto'), cantidad=Count('id'))
++        .order_by('-total')
++    )
++
++    total_cobrado = pagos_hoy.aggregate(t=Sum('monto'))['t'] or Decimal('0')
++    total_devuelto = devoluciones_hoy.aggregate(t=Sum('monto'))['t'] or Decimal('0')
++    total_neto = total_cobrado - total_devuelto
++
++    context = {
++        'hoy': hoy,
++        'pagos_hoy': pagos_hoy,
++        'devoluciones_hoy': devoluciones_hoy,
++        'totales_por_metodo': totales_por_metodo,
++        'total_cobrado': total_cobrado,
++        'total_devuelto': total_devuelto,
++        'total_neto': total_neto,
++        'cantidad_pagos': pagos_hoy.count(),
++        'cantidad_devoluciones': devoluciones_hoy.count(),
++    }
++    return render(request, 'facturacion/reportes/cierre_caja.html', context)
++
++
++@login_required
+ def reporte_financiero(request):
+     """
+     Reporte financiero completo - VERSIÓN EXTENDIDA Y CORREGIDA
+     ✅ Incluye: sesiones, proyectos, créditos, métodos de pago, cierre de caja
+     ✅ Vistas detalladas de pagos, sesiones, proyectos y créditos
+     ✅ CORREGIDO: Resta devoluciones y pagos anulados del total recaudado
++    ✅ NUEVO: Reservado a gerente/superadmin. Recepcionista usa 'Mi Cierre de Caja'.
+     """
+-    
+     from datetime import datetime, timedelta
+     from servicios.models import Sucursal
+     from agenda.models import Proyecto
+     from django.db.models import Q, Sum, Count, DecimalField
+     from django.db.models.functions import Coalesce
+-    
++
++    # ✅ NUEVO: los reportes financieros agregados quedan reservados a gerente/superadmin.
++    if not (request.user.is_superuser or (hasattr(request.user, 'perfil') and request.user.perfil.puede_ver_reportes_financieros())):
++        messages.error(request, '⚠️ No tienes permiso para ver el reporte financiero. Usa tu Cierre de Caja.')
++        return redirect('facturacion:cierre_caja')
++
+     sucursal_id       = request.GET.get('sucursal', '')
+     fecha_desde       = request.GET.get('fecha_desde', '')
+     fecha_hasta       = request.GET.get('fecha_hasta', '')
+     vista             = request.GET.get('vista', 'mensual')  # mensual, diaria, detalle_pagos, detalle_sesiones, detalle_proyectos, analisis_creditos
+ 
++    # ✅ FIX: llamar es_recepcionista() con paréntesis (ver nota en historial_pagos).
++    # A partir de este punto en el código, solo gerente/superadmin llegan aquí,
++    # así que esta variable en la práctica siempre será False, pero se conserva
++    # por si el template la usa en algún otro contexto.
+     es_recepcionista = (
+         not request.user.is_superuser and
+         hasattr(request.user, 'perfil') and
+-        request.user.perfil.es_recepcionista
++        request.user.perfil.es_recepcionista()
+     )
+     # Recepcionista: siempre filtrado por su propio usuario
+     if es_recepcionista:
+@@ -7175,6 +7322,7 @@ def reporte_financiero(request):
+     return _render_o_pdf_financiero(request, context)
+ 
+ @login_required
++@puede_ver_reportes_financieros
+ def exportar_excel(request):
+     """
+     Exportar datos a Excel
