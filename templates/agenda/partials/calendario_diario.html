@@ -176,10 +176,10 @@
                     {% endif %}
                     
                     {% for sesion in grupo.sesiones %}
-                    <div class="group relative cursor-pointer rounded-xl border-l-[5px] shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden
+                    <div class="sesion-card-live group relative cursor-pointer rounded-xl border-l-[5px] shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 overflow-hidden
                         {% if sesion.es_sesion_en_curso %}
                             bg-gradient-to-r from-red-50 to-rose-50 border-l-red-500 border-4 border-red-400 hover:border-red-500
-                            animate-pulse-border shadow-red-500/50 shadow-2xl
+                            animate-pulse-border shadow-red-500/50 shadow-2xl en-curso-live
                         {% elif sesion.es_grupal %}
                             {% if sesion.estado == 'programada' %}bg-blue-50/80 border-l-teal-500 border-t-2 border-t-teal-400 border-r border-b border-blue-100 hover:bg-blue-100
                             {% elif sesion.estado == 'realizada' %}bg-green-50/80 border-l-teal-500 border-t-2 border-t-teal-400 border-r border-b border-green-100 hover:bg-green-100
@@ -197,18 +197,22 @@
                         {% elif sesion.estado == 'cancelada' %}bg-gray-100/80 border-l-gray-400 border-t border-r border-b border-gray-200 hover:bg-gray-200 opacity-80
                         {% elif sesion.estado == 'reprogramada' %}bg-fuchsia-50/80 border-l-fuchsia-500 border-t border-r border-b border-fuchsia-100 hover:bg-fuchsia-100
                         {% endif %}"
+                         data-estado="{{ sesion.estado }}"
+                         data-fecha="{{ sesion.fecha|date:'Y-m-d' }}"
+                         data-hora-inicio="{{ sesion.hora_inicio|time:'H:i' }}"
+                         data-hora-fin="{{ sesion.hora_fin|time:'H:i' }}"
                          hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
                          hx-target="#modal-content"
                          hx-swap="innerHTML">
                         
                         <!-- Badge EN VIVO para sesiones en curso - ESQUINA INFERIOR DERECHA -->
-                        {% if sesion.es_sesion_en_curso %}
-                        <div class="absolute -bottom-1 -right-1 z-30">
+                        {# ✅ NUEVO: el badge siempre se renderiza; JS lo muestra/oculta con la clase 'hidden' para no depender de un recargue de página #}
+                        <div class="en-curso-badge absolute -bottom-1 -right-1 z-30 {% if not sesion.es_sesion_en_curso %}hidden{% endif %}">
                             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-black uppercase rounded-full shadow-lg animate-pulse border-2 border-white">
                                 🔴 EN CURSO
                             </span>
                         </div>
-                        {% endif %}
+                        
                         
                         <div class="p-3 flex items-start gap-3">
                             <div class="flex flex-col items-center justify-center min-w-[55px] py-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm">
@@ -392,6 +396,17 @@
     animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* ✅ NUEVO: clase controlada por JS (ver script al final) para reflejar
+   "en curso" sin necesidad de recargar la página. Usa !important porque
+   convive con las clases de color por estado ya renderizadas por Django. */
+.en-curso-live {
+    background-image: linear-gradient(to right, #fef2f2, #fff1f2) !important;
+    border-color: #ef4444 !important;
+    border-width: 4px !important;
+    box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.5) !important;
+    animation: pulse-border 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
 /* Efecto de brillo adicional para rojo vibrante */
 @keyframes glow {
     0%, 100% {
@@ -471,4 +486,38 @@ window.diaCambiarVista = function(vista) {
     }
 })(20);
 {% endif %}
+
+// ── ✅ NUEVO: actualizar "EN CURSO" sin recargar la página (Opción A) ──────
+// Recalcula en el navegador si cada sesión 'programada' cae dentro de su
+// horario, y prende/apaga la animación y el badge sin pedir nada al servidor.
+function actualizarSesionesEnCurso() {
+    var ahora = new Date();
+    var hoyStr = ahora.getFullYear() + '-' +
+        String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
+        String(ahora.getDate()).padStart(2, '0');
+    var minAhora = ahora.getHours() * 60 + ahora.getMinutes();
+
+    document.querySelectorAll('.sesion-card-live[data-estado="programada"]').forEach(function (card) {
+        var fecha = card.dataset.fecha;
+        var inicio = card.dataset.horaInicio;
+        var fin = card.dataset.horaFin;
+        if (!fecha || !inicio || !fin) return;
+
+        var enCurso = false;
+        if (fecha === hoyStr) {
+            var pi = inicio.split(':');
+            var pf = fin.split(':');
+            var minInicio = parseInt(pi[0], 10) * 60 + parseInt(pi[1], 10);
+            var minFin = parseInt(pf[0], 10) * 60 + parseInt(pf[1], 10);
+            enCurso = minAhora >= minInicio && minAhora < minFin;
+        }
+
+        card.classList.toggle('en-curso-live', enCurso);
+        var badge = card.querySelector('.en-curso-badge');
+        if (badge) badge.classList.toggle('hidden', !enCurso);
+    });
+}
+actualizarSesionesEnCurso();
+setInterval(actualizarSesionesEnCurso, 20000); // cada 20 segundos
+
 </script>

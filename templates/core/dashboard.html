@@ -74,6 +74,14 @@
         transition: none !important;
     }
 
+    /* ✅ NUEVO: clase controlada por JS (ver script al final del archivo)
+       para reflejar "en curso" en el dashboard sin recargar la página. */
+    .en-curso-dash-live {
+        background-image: linear-gradient(to right, #fef2f2, #fff1f2) !important;
+        border-color: #ef4444 !important;
+        animation: pulse-border 1s ease-in-out infinite !important;
+    }
+
     /* ===== ANIMACIONES PARA TARJETA MENÚ PRINCIPAL ===== */
     @keyframes text-glow {
         0%, 100% {
@@ -503,22 +511,23 @@
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-white rounded-b-2xl shadow-lg border border-slate-100 p-4">
         {% for sesion in proximas_sesiones %}
-        <div class="rounded-xl p-3 border {% if sesion.estado_tiempo == 'en_curso' %}bg-gradient-to-r from-red-50 to-rose-50 border-red-500 animate-pulse-border shadow-2xl{% else %}bg-slate-50 border-slate-100 card-hover{% endif %}">
+        <div class="sesion-dash-live rounded-xl p-3 border {% if sesion.estado_tiempo == 'en_curso' %}bg-gradient-to-r from-red-50 to-rose-50 border-red-500 animate-pulse-border shadow-2xl en-curso-dash-live{% else %}bg-slate-50 border-slate-100 card-hover{% endif %}"
+             data-fecha="{{ sesion.fecha|date:'Y-m-d' }}"
+             data-hora-inicio="{{ sesion.hora_inicio|time:'H:i' }}"
+             data-hora-fin="{{ sesion.hora_fin|time:'H:i' }}">
             <div class="flex justify-between items-start gap-3">
                 <div class="flex-1 min-w-0">
-                    {% if sesion.estado_tiempo == 'en_curso' %}
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-black mb-1.5 border-2 border-white shadow-lg animate-pulse">
+                    {# ✅ NUEVO: ambos badges siempre en el DOM; JS alterna cuál se muestra (ver script al final) #}
+                    <span class="badge-en-curso-dash inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-black mb-1.5 border-2 border-white shadow-lg animate-pulse {% if sesion.estado_tiempo != 'en_curso' %}hidden{% endif %}">
                         <span class="relative flex h-2.5 w-2.5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
                         </span>
                         🔴 EN CURSO
                     </span>
-                    {% else %}
-                    <span class="inline-flex px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black mb-1.5 border border-blue-200">
+                    <span class="badge-proxima-dash inline-flex px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black mb-1.5 border border-blue-200 {% if sesion.estado_tiempo == 'en_curso' %}hidden{% endif %}">
                         PRÓXIMA
                     </span>
-                    {% endif %}
                     
                     <div class="flex items-center gap-2">
                         <!-- ✅ FOTO DEL PACIENTE -->
@@ -739,5 +748,40 @@
         
     </div>
 </div>
+
+<script>
+// ── ✅ NUEVO: actualizar "EN CURSO" en el dashboard sin recargar la página ──
+function actualizarSesionesEnCursoDashboard() {
+    var ahora = new Date();
+    var hoyStr = ahora.getFullYear() + '-' +
+        String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
+        String(ahora.getDate()).padStart(2, '0');
+    var minAhora = ahora.getHours() * 60 + ahora.getMinutes();
+
+    document.querySelectorAll('.sesion-dash-live').forEach(function (card) {
+        var fecha = card.dataset.fecha;
+        var inicio = card.dataset.horaInicio;
+        var fin = card.dataset.horaFin;
+        if (!fecha || !inicio || !fin) return;
+
+        var enCurso = false;
+        if (fecha === hoyStr) {
+            var pi = inicio.split(':');
+            var pf = fin.split(':');
+            var minInicio = parseInt(pi[0], 10) * 60 + parseInt(pi[1], 10);
+            var minFin = parseInt(pf[0], 10) * 60 + parseInt(pf[1], 10);
+            enCurso = minAhora >= minInicio && minAhora < minFin;
+        }
+
+        card.classList.toggle('en-curso-dash-live', enCurso);
+        var badgeEnCurso = card.querySelector('.badge-en-curso-dash');
+        var badgeProxima = card.querySelector('.badge-proxima-dash');
+        if (badgeEnCurso) badgeEnCurso.classList.toggle('hidden', !enCurso);
+        if (badgeProxima) badgeProxima.classList.toggle('hidden', enCurso);
+    });
+}
+actualizarSesionesEnCursoDashboard();
+setInterval(actualizarSesionesEnCursoDashboard, 20000); // cada 20 segundos
+</script>
 
 {% endblock %}
