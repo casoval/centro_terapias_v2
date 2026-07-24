@@ -28,7 +28,18 @@
 
             <div>
                 <label class="block text-xs font-black uppercase text-slate-500 mb-1">Archivo</label>
-                {{ form.archivo }}
+                <div class="relative">
+                    {{ form.archivo }}
+                    <label for="{{ form.archivo.id_for_label }}"
+                           class="flex items-center gap-3 w-full rounded-lg border border-slate-300 px-3 py-2 cursor-pointer hover:border-indigo-400 hover:bg-slate-50 transition-all">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-black uppercase px-3 py-1.5 rounded-lg shrink-0">
+                            Seleccionar archivo
+                        </span>
+                        <span id="nombre-archivo-elegido" class="text-sm text-slate-400 truncate">
+                            Ningún archivo seleccionado
+                        </span>
+                    </label>
+                </div>
                 <p class="text-[11px] text-slate-400 mt-1">PDF, Word, Excel o imagen. Máximo 20 MB.</p>
                 {% if form.archivo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
             </div>
@@ -65,4 +76,19 @@
         </form>
     </div>
 </div>
+
+<script>
+document.getElementById('id_archivo').addEventListener('change', function (e) {
+    const span = document.getElementById('nombre-archivo-elegido');
+    if (e.target.files.length > 0) {
+        span.textContent = e.target.files[0].name;
+        span.classList.remove('text-slate-400');
+        span.classList.add('text-slate-800', 'font-bold');
+    } else {
+        span.textContent = 'Ningún archivo seleccionado';
+        span.classList.add('text-slate-400');
+        span.classList.remove('text-slate-800', 'font-bold');
+    }
+});
+</script>
 {% endblock %}

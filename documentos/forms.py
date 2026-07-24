@@ -25,7 +25,8 @@ class DocumentoPacienteForm(forms.ModelForm):
                 'placeholder': 'Opcional',
             }),
             'archivo': forms.ClearableFileInput(attrs={
-                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+                'class': 'absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10',
+                'id': 'id_archivo',
             }),
             'proyecto': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
             'mensualidad': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
