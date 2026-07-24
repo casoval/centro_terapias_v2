@@ -611,16 +611,46 @@ def detalle_paciente(request, pk):
         'profesionales_data': profesionales_data,
     }
 
-    # ✅ Documentos generales del paciente (no ligados a proyecto ni mensualidad)
+    # ✅ TODOS los documentos del paciente, organizados: Generales, Proyectos, Mensualidades
     from documentos.permissions import puede_subir_documentos, puede_eliminar_documentos
+    from documentos.models import DocumentoPaciente
+    from django.db.models import Prefetch
     from django.urls import reverse
+
+    docs_ordenados = DocumentoPaciente.objects.select_related('subido_por').order_by('-fecha_subida')
+    base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
+
     context['documentos_generales'] = paciente.documentos.filter(
         proyecto__isnull=True, mensualidad__isnull=True
     ).select_related('subido_por').order_by('-fecha_subida')
+
+    proyectos_qs = paciente.proyectos.prefetch_related(
+        Prefetch('documentos', queryset=docs_ordenados)
+    ).order_by('-fecha_inicio')
+    context['proyectos_con_documentos'] = [
+        {
+            'proyecto': p,
+            'subir_url': f'{base_url}?proyecto_id={p.id}&next={reverse("pacientes:detalle", args=[paciente.id])}',
+        }
+        for p in proyectos_qs
+    ]
+
+    mensualidades_qs = paciente.mensualidades.prefetch_related(
+        Prefetch('documentos', queryset=docs_ordenados)
+    ).order_by('-anio', '-mes')
+    context['mensualidades_con_documentos'] = [
+        {
+            'mensualidad': m,
+            'subir_url': f'{base_url}?mensualidad_id={m.id}&next={reverse("pacientes:detalle", args=[paciente.id])}',
+        }
+        for m in mensualidades_qs
+    ]
+
     context['puede_subir_docs'] = puede_subir_documentos(request.user, paciente)
     context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
-    base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
     context['subir_url_general'] = f'{base_url}?next={reverse("pacientes:detalle", args=[paciente.id])}'
+    context['subir_url_base'] = base_url
+    context['next_url_paciente'] = reverse('pacientes:detalle', args=[paciente.id])
 
     return render(request, 'pacientes/detalle.html', context)
 

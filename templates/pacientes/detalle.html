@@ -482,9 +482,68 @@
     </div>
 </div>
 
-<!-- ✅ DOCUMENTOS GENERALES DEL PACIENTE (no ligados a proyecto ni mensualidad) -->
-<div class="max-w-7xl mx-auto px-2">
+<!-- ✅ TODOS LOS DOCUMENTOS DEL PACIENTE: Generales → Proyectos → Mensualidades -->
+<div class="max-w-7xl mx-auto px-2 space-y-2">
+
+    <!-- 1) Generales -->
     {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=subir_url_general titulo_seccion="📎 Documentos Generales del Paciente" %}
+
+    <!-- 2) Proyectos -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+        <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3">
+            <h3 class="text-[12px] font-black uppercase text-white tracking-widest">📦 Documentos por Proyecto</h3>
+        </div>
+        <div class="p-4">
+            {% if proyectos_con_documentos %}
+            <div class="space-y-4">
+                {% for item in proyectos_con_documentos %}
+                <div class="border border-slate-100 rounded-xl overflow-hidden">
+                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+                        <a href="{% url 'agenda:detalle_proyecto' item.proyecto.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
+                            {{ item.proyecto.nombre }} <span class="text-slate-400 font-medium">({{ item.proyecto.codigo }})</span>
+                        </a>
+                        <span class="text-[10px] font-black uppercase text-slate-400">{{ item.proyecto.get_estado_display }}</span>
+                    </div>
+                    <div class="px-2">
+                        {% include 'documentos/_seccion_documentos.html' with documentos=item.proyecto.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene proyectos registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 3) Mensualidades -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+        <div class="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-3">
+            <h3 class="text-[12px] font-black uppercase text-white tracking-widest">💳 Documentos por Mensualidad</h3>
+        </div>
+        <div class="p-4">
+            {% if mensualidades_con_documentos %}
+            <div class="space-y-4">
+                {% for item in mensualidades_con_documentos %}
+                <div class="border border-slate-100 rounded-xl overflow-hidden">
+                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+                        <a href="{% url 'agenda:detalle_mensualidad' item.mensualidad.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
+                            {{ item.mensualidad.periodo_display }} <span class="text-slate-400 font-medium">({{ item.mensualidad.codigo }})</span>
+                        </a>
+                        <span class="text-[10px] font-black uppercase text-slate-400">{{ item.mensualidad.get_estado_display }}</span>
+                    </div>
+                    <div class="px-2">
+                        {% include 'documentos/_seccion_documentos.html' with documentos=item.mensualidad.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene mensualidades registradas.</p>
+            {% endif %}
+        </div>
+    </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
