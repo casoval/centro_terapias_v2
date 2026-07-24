@@ -610,6 +610,18 @@ def detalle_paciente(request, pk):
         'sucursales': sucursales,
         'profesionales_data': profesionales_data,
     }
+
+    # ✅ Documentos generales del paciente (no ligados a proyecto ni mensualidad)
+    from documentos.permissions import puede_subir_documentos, puede_eliminar_documentos
+    from django.urls import reverse
+    context['documentos_generales'] = paciente.documentos.filter(
+        proyecto__isnull=True, mensualidad__isnull=True
+    ).select_related('subido_por').order_by('-fecha_subida')
+    context['puede_subir_docs'] = puede_subir_documentos(request.user, paciente)
+    context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
+    base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
+    context['subir_url_general'] = f'{base_url}?next={reverse("pacientes:detalle", args=[paciente.id])}'
+
     return render(request, 'pacientes/detalle.html', context)
 
 @login_required

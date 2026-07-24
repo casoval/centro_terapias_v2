@@ -285,6 +285,53 @@ class PerfilUsuario(models.Model):
             return False
         return True
     
+    # ==================== PERMISOS: DOCUMENTOS DE PACIENTES ====================
+
+    def _atiende_a_paciente(self, paciente):
+        """
+        Determina si el profesional vinculado a este perfil atiende a `paciente`,
+        ya sea porque tiene sesiones con él o porque es responsable de algún
+        proyecto suyo. Mismo criterio usado en pacientes.views (mis_profesionales)
+        y en agenda.views (informe_evolucion_profesional).
+        """
+        if not self.profesional_id:
+            return False
+        from agenda.models import Sesion, Proyecto
+        tiene_sesiones = Sesion.objects.filter(
+            profesional=self.profesional, paciente=paciente
+        ).exists()
+        if tiene_sesiones:
+            return True
+        return Proyecto.objects.filter(
+            profesional_responsable=self.profesional, paciente=paciente
+        ).exists()
+
+    def puede_ver_documentos_paciente(self, paciente):
+        """
+        Admin, gerente y recepcionista ven los documentos de cualquier paciente.
+        El profesional solo ve los documentos de los pacientes que atiende.
+        """
+        if self.es_superadmin():
+            return True
+        if self.rol in ('gerente', 'recepcionista'):
+            return True
+        if self.rol == 'profesional':
+            return self._atiende_a_paciente(paciente)
+        return False
+
+    def puede_subir_documentos_paciente(self, paciente):
+        """
+        Admin, gerente y profesional (solo de sus pacientes) pueden subir
+        documentos, sin límite de cantidad. Recepcionista NUNCA sube (solo ve).
+        """
+        if self.rol == 'recepcionista':
+            return False
+        return self.puede_ver_documentos_paciente(paciente)
+
+    def puede_eliminar_documentos(self):
+        """Solo el superusuario (admin) puede eliminar documentos subidos."""
+        return self.es_superadmin()
+
     def get_sucursales(self):
         """
         Retorna las sucursales del usuario según su rol

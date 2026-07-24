@@ -1,0 +1,24 @@
+{% if documentos %}
+<div class="text-left divide-y divide-slate-100 max-h-80 overflow-y-auto">
+    {% for doc in documentos %}
+    <div class="flex items-center justify-between gap-2 py-2">
+        <div class="min-w-0">
+            <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener" class="text-[13px] font-bold text-indigo-700 hover:underline truncate block">
+                {{ doc.icono }} {{ doc.titulo }}
+            </a>
+            <p class="text-[10px] text-slate-400">{{ doc.fecha_subida|date:"d/m/Y" }} · {{ doc.subido_por.get_full_name|default:doc.subido_por.username }}</p>
+        </div>
+        {% if puede_eliminar %}
+        <form method="post" action="{% url 'documentos:eliminar' doc.id %}"
+              onsubmit="return confirm('¿Eliminar &quot;{{ doc.titulo }}&quot;?');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button type="submit" class="text-red-500 text-[11px] font-black">🗑️</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-[12px] text-slate-400 py-3">Sin documentos subidos.</p>
+{% endif %}

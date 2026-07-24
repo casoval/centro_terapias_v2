@@ -83,6 +83,7 @@
                         <th class="px-5 py-4 text-center">Fecha Inicio</th>
                         <th class="px-5 py-4 text-center">Estado</th>
                         <th class="px-5 py-4 text-center">Informe</th>
+                        <th class="px-5 py-4 text-center">Archivos</th>
                         <th class="px-5 py-4 text-right">Inversión</th>
                         <th class="px-5 py-4 text-center">Acciones</th>
                     </tr>
@@ -126,6 +127,17 @@
                             </span>
                             {% else %}
                             <span class="px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-full font-black text-[10px] uppercase">⏳ Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-center">
+                            {% if proyecto.num_documentos %}
+                            <button type="button"
+                                    onclick="verArchivos('proyecto_id', {{ proyecto.id }}, '{{ proyecto.nombre|escapejs }}')"
+                                    class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full font-black text-[10px] uppercase hover:bg-indigo-100 transition-all">
+                                📎 {{ proyecto.num_documentos }}
+                            </button>
+                            {% else %}
+                            <span class="px-2.5 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-full font-black text-[10px] uppercase">— Sin archivos</span>
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 text-right">
@@ -219,4 +231,23 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function verArchivos(tipoParam, id, nombre) {
+    fetch(`/documentos/popover/?${tipoParam}=${id}`)
+        .then(r => r.text())
+        .then(html => {
+            Swal.fire({
+                title: `📎 Archivos — ${nombre}`,
+                html: html,
+                width: 500,
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#4f46e5',
+            });
+        })
+        .catch(() => {
+            Swal.fire('Error', 'No se pudo cargar la lista de archivos.', 'error');
+        });
+}
+</script>
 {% endblock %}

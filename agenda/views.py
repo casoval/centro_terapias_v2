@@ -41,9 +41,10 @@ def lista_proyectos(request):
     sucursal_id = request.GET.get('sucursal', '')
     
     # Query base
+    from django.db.models import Count
     proyectos = Proyecto.objects.select_related(
         'paciente', 'servicio_base', 'profesional_responsable', 'sucursal'
-    ).all()
+    ).annotate(num_documentos=Count('documentos')).all()
     
     # Filtrar por sucursales del usuario
     sucursales_usuario = request.sucursales_usuario
@@ -184,7 +185,18 @@ def detalle_proyecto(request, proyecto_id):
         'stats': stats,
         'hoy': date.today(),
     }
-    
+
+    # ✅ Documentos digitales del proyecto (independiente de la entrega física)
+    from documentos.permissions import puede_subir_documentos, puede_eliminar_documentos
+    from django.urls import reverse
+    from urllib.parse import urlencode
+    context['documentos'] = proyecto.documentos.select_related('subido_por').order_by('-fecha_subida')
+    context['puede_subir_docs'] = puede_subir_documentos(request.user, proyecto.paciente)
+    context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
+    base_url = reverse('documentos:subir', kwargs={'paciente_id': proyecto.paciente_id})
+    qs = urlencode({'proyecto_id': proyecto.id, 'next': reverse('agenda:detalle_proyecto', args=[proyecto.id])})
+    context['subir_url_proyecto'] = f'{base_url}?{qs}'
+
     return render(request, 'agenda/detalle_proyecto.html', context)
 
 
@@ -523,13 +535,14 @@ def lista_mensualidades(request):
     sucursal_id = request.GET.get('sucursal', '')
     
     # Query base - ✅ CORREGIDO: prefetch_related para ManyToMany
+    from django.db.models import Count
     mensualidades = Mensualidad.objects.select_related(
         'paciente', 'sucursal'
     ).prefetch_related(
         'servicios_profesionales__servicio',  # ✅ Prefetch servicios a través del modelo intermedio
         'servicios_profesionales__profesional',  # ✅ Prefetch profesionales
         'sesiones'
-    )
+    ).annotate(num_documentos=Count('documentos'))
     
     # Filtrar por sucursales del usuario
     sucursales_usuario = request.sucursales_usuario
@@ -670,7 +683,18 @@ def detalle_mensualidad(request, mensualidad_id):
         'devoluciones': devoluciones,  # ✅ NUEVO
         'stats': stats,
     }
-    
+
+    # ✅ Documentos digitales de la mensualidad
+    from documentos.permissions import puede_subir_documentos, puede_eliminar_documentos
+    from django.urls import reverse
+    from urllib.parse import urlencode
+    context['documentos'] = mensualidad.documentos.select_related('subido_por').order_by('-fecha_subida')
+    context['puede_subir_docs'] = puede_subir_documentos(request.user, mensualidad.paciente)
+    context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
+    base_url = reverse('documentos:subir', kwargs={'paciente_id': mensualidad.paciente_id})
+    qs = urlencode({'mensualidad_id': mensualidad.id, 'next': reverse('agenda:detalle_mensualidad', args=[mensualidad.id])})
+    context['subir_url_mensualidad'] = f'{base_url}?{qs}'
+
     return render(request, 'agenda/detalle_mensualidad.html', context)
 
 @login_required

@@ -27,6 +27,7 @@ urlpatterns = [
     path('asistencia/', include('asistencia.urls', namespace='asistencia')),
     path('api/', include('recordatorios.urls')),
     path('agente/', include('agente.urls', namespace='agente')),
+    path('documentos/', include('documentos.urls', namespace='documentos')),
 ]
 
 if settings.DEBUG:

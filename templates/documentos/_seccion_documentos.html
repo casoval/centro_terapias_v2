@@ -1,0 +1,53 @@
+{% comment %}
+Uso: {% include 'documentos/_seccion_documentos.html' with documentos=documentos puede_subir=puede_subir puede_eliminar=puede_eliminar subir_url=subir_url titulo_seccion="📎 Documentos" %}
+{% endcomment %}
+<div class="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div class="bg-gradient-to-r from-indigo-700 to-indigo-500 px-5 py-3 flex justify-between items-center flex-wrap gap-2">
+        <h3 class="text-[12px] font-black uppercase text-white tracking-widest">{{ titulo_seccion|default:"📎 Documentos" }}</h3>
+        {% if puede_subir %}
+        <a href="{{ subir_url }}" class="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all">
+            ⬆️ Subir documento
+        </a>
+        {% endif %}
+    </div>
+    <div class="p-4">
+        {% if documentos %}
+        <div class="divide-y divide-slate-100">
+            {% for doc in documentos %}
+            <div class="flex items-center justify-between gap-3 py-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 shrink-0 bg-slate-50 rounded-lg flex items-center justify-center text-lg">{{ doc.icono }}</div>
+                    <div class="min-w-0">
+                        <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener"
+                           class="text-[13px] font-black text-slate-800 hover:text-indigo-600 truncate block">
+                            {{ doc.titulo }}
+                        </a>
+                        <p class="text-[11px] text-slate-400 font-medium">
+                            {{ doc.fecha_subida|date:"d/m/Y H:i" }} · subido por {{ doc.subido_por.get_full_name|default:doc.subido_por.username }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener"
+                       class="text-[11px] font-black text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50">
+                        Ver
+                    </a>
+                    {% if puede_eliminar %}
+                    <form method="post" action="{% url 'documentos:eliminar' doc.id %}" class="inline"
+                          onsubmit="return confirm('¿Eliminar el documento &quot;{{ doc.titulo }}&quot;? Esta acción no se puede deshacer.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button type="submit" class="text-[11px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50">
+                            🗑️
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-[12px] text-slate-400 font-medium py-2">Sin documentos subidos todavía.</p>
+        {% endif %}
+    </div>
+</div>

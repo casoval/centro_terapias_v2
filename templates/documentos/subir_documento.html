@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}📎 Subir documento — {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">📎 Subir documento</h1>
+        <p class="text-sm text-slate-500 mb-6">
+            Paciente: <span class="font-bold text-indigo-600">{{ paciente.nombre_completo }}</span>
+            {% if proyecto_id %}<span class="ml-2 text-[11px] bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg font-bold">Ligado a un proyecto</span>{% endif %}
+            {% if mensualidad_id %}<span class="ml-2 text-[11px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-bold">Ligado a una mensualidad</span>{% endif %}
+        </p>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Título</label>
+                {{ form.titulo }}
+                {% if form.titulo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.titulo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Descripción (opcional)</label>
+                {{ form.descripcion }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Archivo</label>
+                {{ form.archivo }}
+                <p class="text-[11px] text-slate-400 mt-1">PDF, Word, Excel o imagen. Máximo 20 MB.</p>
+                {% if form.archivo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            {% if not proyecto_id and not mensualidad_id %}
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Proyecto (opcional)</label>
+                    {{ form.proyecto }}
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Mensualidad (opcional)</label>
+                    {{ form.mensualidad }}
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-400">Si no eliges ninguno, quedará como documento general del paciente.</p>
+            {% else %}
+                {{ form.proyecto.as_hidden }}
+                {{ form.mensualidad.as_hidden }}
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <p class="text-red-500 text-xs">{{ form.non_field_errors|join:", " }}</p>
+            {% endif %}
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    ⬆️ Subir documento
+                </button>
+                <a href="{{ next_url|default:'javascript:history.back()' }}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

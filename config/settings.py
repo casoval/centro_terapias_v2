@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'rest_framework',    # ← nueva
     'recordatorios',     # ← nueva
     'agente',
+    'documentos',        # ← nueva: documentos/informes de pacientes
 ]
 
 MIDDLEWARE = [
@@ -349,6 +350,47 @@ else:
         'API_KEY': '447784864842837',
         'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig',
     }
+
+# --------------------------------------------------
+# CLOUDFLARE R2 (almacenamiento de documentos de pacientes)
+# --------------------------------------------------
+# Independiente de Cloudinary: las fotos de pacientes siguen en Cloudinary,
+# solo los documentos/informes (documentos.DocumentoPaciente) usan R2.
+# El bucket se mantiene PRIVADO (sin Public Access) — se accede vía URLs
+# firmadas que expiran solas (ver documentos/storage_backends.py).
+# Requiere las siguientes variables de entorno en producción:
+#   CLOUDFLARE_R2_ACCESS_KEY_ID
+#   CLOUDFLARE_R2_SECRET_ACCESS_KEY
+#   CLOUDFLARE_R2_BUCKET_NAME
+#   CLOUDFLARE_R2_ENDPOINT_URL       (ej: https://<account_id>.r2.cloudflarestorage.com)
+
+if IS_PRODUCTION:
+    CLOUDFLARE_R2_ACCESS_KEY_ID = os.environ.get('CLOUDFLARE_R2_ACCESS_KEY_ID')
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.environ.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
+    CLOUDFLARE_R2_BUCKET_NAME = os.environ.get('CLOUDFLARE_R2_BUCKET_NAME')
+    CLOUDFLARE_R2_ENDPOINT_URL = os.environ.get('CLOUDFLARE_R2_ENDPOINT_URL')
+
+    if not all([
+        CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+        CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_R2_ENDPOINT_URL,
+    ]):
+        raise ValueError(
+            "❌ Faltan variables de Cloudflare R2 en el .env de producción. "
+            "Verifica CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, "
+            "CLOUDFLARE_R2_BUCKET_NAME y CLOUDFLARE_R2_ENDPOINT_URL."
+        )
+else:
+    # En desarrollo, si no configuraste R2 localmente, los documentos caen a
+    # almacenamiento local (MEDIA_ROOT) automáticamente — no rompe el entorno de dev.
+    CLOUDFLARE_R2_ACCESS_KEY_ID = os.environ.get('CLOUDFLARE_R2_ACCESS_KEY_ID', '')
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.environ.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY', '')
+    CLOUDFLARE_R2_BUCKET_NAME = os.environ.get('CLOUDFLARE_R2_BUCKET_NAME', '')
+    CLOUDFLARE_R2_ENDPOINT_URL = os.environ.get('CLOUDFLARE_R2_ENDPOINT_URL', '')
+
+R2_CONFIGURADO = all([
+    CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+    CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_R2_ENDPOINT_URL,
+])
 
 # --------------------------------------------------
 # DEBUG TOOLBAR (solo desarrollo)

@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}📋 {{ paciente.nombre_completo }} — Resumen{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-3 py-4">
+
+    <!-- Encabezado -->
+    <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-2xl p-5 shadow-lg mb-6">
+        <p class="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Resumen del paciente</p>
+        <h1 class="text-xl font-black text-white">{{ paciente.nombre_completo }}</h1>
+        <p class="text-indigo-100 text-[12px] mt-1">Tutor: {{ paciente.nombre_tutor }}</p>
+    </div>
+
+    <!-- BLOQUE 1: Proyectos -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-6">
+        <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3">
+            <h2 class="text-[12px] font-black uppercase text-white tracking-widest">📦 Proyectos / Evaluaciones</h2>
+        </div>
+        <div class="p-4">
+            {% if proyectos %}
+            <div class="divide-y divide-slate-100">
+                {% for proyecto in proyectos %}
+                <div class="py-3 flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-[13px] font-black text-slate-800">{{ proyecto.nombre }}</p>
+                        <p class="text-[11px] text-slate-400">
+                            {{ proyecto.codigo }} · Inicio: {{ proyecto.fecha_inicio|date:"d/m/Y" }}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2 py-1 rounded-lg border text-[10px] font-black uppercase
+                            {% if proyecto.estado == 'planificado' %}bg-amber-50 text-amber-700 border-amber-200
+                            {% elif proyecto.estado == 'en_progreso' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                            {% elif proyecto.estado == 'finalizado' %}bg-purple-50 text-purple-700 border-purple-200
+                            {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
+                            {{ proyecto.get_estado_display }}
+                        </span>
+                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600">
+                            📎 {{ proyecto.num_documentos }} archivo{{ proyecto.num_documentos|pluralize }}
+                        </span>
+                        {% if puede_subir %}
+                        <a href="{% url 'documentos:subir' paciente.id %}?proyecto_id={{ proyecto.id }}&next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
+                           class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase hover:bg-indigo-100">
+                            ⬆️ Subir informe
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene proyectos registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BLOQUE 2: Mensualidades -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-6">
+        <div class="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-3">
+            <h2 class="text-[12px] font-black uppercase text-white tracking-widest">💳 Mensualidades</h2>
+        </div>
+        <div class="p-4">
+            {% if mensualidades %}
+            <div class="divide-y divide-slate-100">
+                {% for mensualidad in mensualidades %}
+                <div class="py-3 flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-[13px] font-black text-slate-800">{{ mensualidad.periodo_display }}</p>
+                        <p class="text-[11px] text-slate-400">{{ mensualidad.codigo }}</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2 py-1 rounded-lg border text-[10px] font-black uppercase
+                            {% if mensualidad.estado == 'activa' %}bg-emerald-50 text-emerald-700 border-emerald-200
+                            {% elif mensualidad.estado == 'pausada' %}bg-amber-50 text-amber-700 border-amber-200
+                            {% elif mensualidad.estado == 'completada' %}bg-purple-50 text-purple-700 border-purple-200
+                            {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
+                            {{ mensualidad.get_estado_display }}
+                        </span>
+                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600">
+                            📎 {{ mensualidad.num_documentos }} archivo{{ mensualidad.num_documentos|pluralize }}
+                        </span>
+                        {% if puede_subir %}
+                        <a href="{% url 'documentos:subir' paciente.id %}?mensualidad_id={{ mensualidad.id }}&next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
+                           class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase hover:bg-indigo-100">
+                            ⬆️ Subir informe
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene mensualidades registradas.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BLOQUE 3: Resumen de sesiones por servicio (sin montos) -->
+    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mb-6">
+        <div class="bg-gradient-to-r from-slate-700 to-slate-500 px-5 py-3">
+            <h2 class="text-[12px] font-black uppercase text-white tracking-widest">🗓️ Resumen de Sesiones por Servicio</h2>
+        </div>
+        <div class="overflow-x-auto">
+            {% if resumen_servicios %}
+            <table class="w-full text-left">
+                <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] tracking-widest">
+                    <tr>
+                        <th class="px-4 py-2">Servicio</th>
+                        <th class="px-4 py-2 text-center">Realizadas</th>
+                        <th class="px-4 py-2 text-center">Programadas</th>
+                        <th class="px-4 py-2 text-center">Faltas/Canceladas</th>
+                        <th class="px-4 py-2 text-center">Última sesión</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for grupo in resumen_servicios %}
+                    <tr>
+                        <td class="px-4 py-3 font-black text-slate-800 text-[13px]">{{ grupo.servicio__nombre }}</td>
+                        <td class="px-4 py-3 text-center font-bold text-emerald-600">{{ grupo.realizadas }}</td>
+                        <td class="px-4 py-3 text-center font-bold text-amber-600">{{ grupo.programadas }}</td>
+                        <td class="px-4 py-3 text-center font-bold text-red-500">{{ grupo.faltas_canceladas }}</td>
+                        <td class="px-4 py-3 text-center text-slate-500 text-[12px]">
+                            {{ grupo.ultima_fecha|date:"d/m/Y"|default:"—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-[12px] text-slate-400 p-4">Sin sesiones registradas todavía.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- BLOQUE 4: Documentos sueltos (generales) -->
+    {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=False puede_eliminar=False titulo_seccion="📎 Documentos Generales (no ligados a proyecto/mensualidad)" %}
+    {% if puede_subir %}
+    <div class="mt-2 text-right">
+        <a href="{% url 'documentos:subir' paciente.id %}?next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
+           class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] uppercase px-4 py-2 rounded-xl">
+            ⬆️ Subir documento general
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
