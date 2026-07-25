@@ -1,24 +1,40 @@
 {% if documentos %}
-<div class="text-left divide-y divide-slate-100 max-h-80 overflow-y-auto">
+<div class="text-left space-y-2 max-h-80 overflow-y-auto pr-1">
     {% for doc in documentos %}
-    <div class="flex items-center justify-between gap-2 py-2">
-        <div class="min-w-0">
-            <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener" class="text-[13px] font-bold text-indigo-700 hover:underline truncate block">
-                {{ doc.icono }} {{ doc.titulo }}
-            </a>
-            <p class="text-[10px] text-slate-400">{{ doc.fecha_subida|date:"d/m/Y" }} · {{ doc.subido_por.get_full_name|default:doc.subido_por.username }}</p>
+    <div class="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 hover:bg-slate-100 transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 shrink-0 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-base">
+                {{ doc.icono }}
+            </div>
+            <div class="min-w-0">
+                <p class="text-[13px] font-black text-slate-800 truncate">{{ doc.titulo }}</p>
+                <p class="text-[10px] text-slate-400 font-medium truncate">
+                    {{ doc.fecha_subida|date:"d/m/Y" }} · {{ doc.subido_por.get_full_name|default:doc.subido_por.username }}
+                </p>
+            </div>
         </div>
-        {% if puede_eliminar %}
-        <form method="post" action="{% url 'documentos:eliminar' doc.id %}"
-              onsubmit="return confirm('¿Eliminar &quot;{{ doc.titulo }}&quot;?');">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.path }}">
-            <button type="submit" class="text-red-500 text-[11px] font-black">🗑️</button>
-        </form>
-        {% endif %}
+        <div class="flex items-center gap-1.5 shrink-0">
+            <a href="{{ doc.archivo.url }}" target="_blank" rel="noopener"
+               class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-black px-3 py-1.5 rounded-lg transition-colors">
+                Ver
+            </a>
+            {% if puede_eliminar %}
+            <form method="post" action="{% url 'documentos:eliminar' doc.id %}"
+                  onsubmit="return confirm('¿Eliminar &quot;{{ doc.titulo }}&quot;?');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-black px-2.5 py-1.5 rounded-lg transition-colors">
+                    🗑️
+                </button>
+            </form>
+            {% endif %}
+        </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<p class="text-[12px] text-slate-400 py-3">Sin documentos subidos.</p>
+<div class="text-center py-6">
+    <p class="text-3xl mb-2">📂</p>
+    <p class="text-[12px] text-slate-400 font-medium">Sin documentos subidos.</p>
+</div>
 {% endif %}
