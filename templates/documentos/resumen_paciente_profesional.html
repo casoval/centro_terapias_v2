@@ -35,9 +35,17 @@
                             {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
                             {{ proyecto.get_estado_display }}
                         </span>
-                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600">
+                        {% if proyecto.num_documentos %}
+                        <button type="button"
+                                onclick="verArchivosDoc('proyecto_id', {{ proyecto.id }}, '{{ proyecto.nombre|escapejs }}')"
+                                class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all">
                             📎 {{ proyecto.num_documentos }} archivo{{ proyecto.num_documentos|pluralize }}
+                        </button>
+                        {% else %}
+                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-400">
+                            📎 0 archivos
                         </span>
+                        {% endif %}
                         {% if puede_subir %}
                         <a href="{% url 'documentos:subir' paciente.id %}?proyecto_id={{ proyecto.id }}&next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
                            class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase hover:bg-indigo-100">
@@ -76,9 +84,17 @@
                             {% else %}bg-slate-50 text-slate-500 border-slate-200{% endif %}">
                             {{ mensualidad.get_estado_display }}
                         </span>
-                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600">
+                        {% if mensualidad.num_documentos %}
+                        <button type="button"
+                                onclick="verArchivosDoc('mensualidad_id', {{ mensualidad.id }}, '{{ mensualidad.periodo_display|escapejs }}')"
+                                class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all">
                             📎 {{ mensualidad.num_documentos }} archivo{{ mensualidad.num_documentos|pluralize }}
+                        </button>
+                        {% else %}
+                        <span class="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-black text-slate-400">
+                            📎 0 archivos
                         </span>
+                        {% endif %}
                         {% if puede_subir %}
                         <a href="{% url 'documentos:subir' paciente.id %}?mensualidad_id={{ mensualidad.id }}&next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
                            class="px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase hover:bg-indigo-100">
@@ -144,4 +160,23 @@
     {% endif %}
 
 </div>
+
+<script>
+function verArchivosDoc(tipoParam, id, nombre) {
+    fetch(`/documentos/popover/?${tipoParam}=${id}`)
+        .then(r => r.text())
+        .then(html => {
+            Swal.fire({
+                title: `📎 Archivos — ${nombre}`,
+                html: html,
+                width: 500,
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#4f46e5',
+            });
+        })
+        .catch(() => {
+            Swal.fire('Error', 'No se pudo cargar la lista de archivos.', 'error');
+        });
+}
+</script>
 {% endblock %}
