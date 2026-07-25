@@ -60,7 +60,7 @@ class ArchivoCentroForm(forms.ModelForm):
             self.fields['usuarios'] = forms.ModelMultipleChoiceField(
                 queryset=User.objects.filter(is_active=True).filter(models_q_staff()).distinct().order_by('first_name', 'username'),
                 required=False,
-                widget=forms.SelectMultiple(attrs={'class': _INPUT_CLASS, 'size': 8}),
+                widget=forms.CheckboxSelectMultiple,
                 label='Usuarios con acceso',
             )
 
@@ -127,7 +127,7 @@ class PermisosArchivoForm(forms.Form):
     )
     usuarios = forms.ModelMultipleChoiceField(
         queryset=User.objects.none(), required=False,
-        widget=forms.SelectMultiple(attrs={'class': _INPUT_CLASS, 'size': 8}),
+        widget=forms.CheckboxSelectMultiple,
     )
 
     def __init__(self, *args, **kwargs):
