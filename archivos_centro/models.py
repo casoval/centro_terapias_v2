@@ -16,6 +16,13 @@ ROL_CHOICES = [
     ('gerente', 'Gerente'),
 ]
 
+# Subconjunto de ROL_CHOICES sin 'paciente': los pacientes no tienen acceso
+# a este módulo en absoluto, así que no tiene sentido ofrecerlos como opción
+# al dar permisos por rol a un archivo (a diferencia de ROL_CHOICES completo,
+# que sigue existiendo tal cual porque es el choices del CharField `rol` de
+# ArchivoRolPermitido, reutilizado en otras partes del proyecto).
+ROLES_STAFF_CHOICES = [c for c in ROL_CHOICES if c[0] != 'paciente']
+
 EXTENSIONES_PERMITIDAS = [
     'pdf', 'doc', 'docx', 'odt', 'txt',
     'jpg', 'jpeg', 'png', 'webp',

@@ -27,14 +27,34 @@
             </div>
 
             <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Archivo actual</label>
+                <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    <span class="text-lg leading-none">{{ archivo.icono }}</span>
+                    <span class="text-sm text-slate-600 truncate">{{ archivo.nombre_archivo }}</span>
+                </div>
+            </div>
+
+            <div>
                 <label class="block text-xs font-black uppercase text-slate-500 mb-1">Reemplazar archivo (opcional)</label>
-                {{ form.archivo }}
+                <div class="relative">
+                    {{ form.archivo }}
+                    <label for="{{ form.archivo.id_for_label }}"
+                           class="flex items-center gap-3 w-full rounded-lg border border-slate-300 px-3 py-2 cursor-pointer hover:border-indigo-400 hover:bg-slate-50 transition-all">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-black uppercase px-3 py-1.5 rounded-lg shrink-0">
+                            Seleccionar archivo
+                        </span>
+                        <span id="nombre-archivo-elegido" class="text-sm text-slate-400 truncate">
+                            Ningún archivo nuevo seleccionado
+                        </span>
+                    </label>
+                </div>
                 <p class="text-[11px] text-slate-400 mt-1">Déjalo vacío si solo quieres cambiar el título, descripción o permisos.</p>
+                {% if form.archivo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
             </div>
 
             <div>
                 <label class="block text-xs font-black uppercase text-slate-500 mb-2">¿Quién puede verlo?</label>
-                <div class="space-y-2">
+                <div class="space-y-2" id="grupo-visibilidad">
                     {% for radio in form.visibilidad %}
                         <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
                             {{ radio.tag }}
@@ -42,12 +62,31 @@
                         </label>
                     {% endfor %}
                 </div>
-                {% if not request.user.is_superuser %}
+                {% if not es_admin %}
                 <p class="text-[11px] text-slate-400 mt-1">
                     Para dar acceso a roles o usuarios específicos, pide a un administrador que lo configure desde "Gestionar permisos".
                 </p>
                 {% endif %}
             </div>
+
+            {% if es_admin %}
+            <div id="bloque-roles" class="hidden bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Roles con acceso</label>
+                <div class="space-y-1">
+                    {% for checkbox in form.roles %}
+                        <label class="flex items-center gap-2 text-sm text-slate-700">
+                            {{ checkbox.tag }} {{ checkbox.choice_label }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="bloque-usuarios" class="hidden bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Usuarios con acceso</label>
+                {{ form.usuarios }}
+                <p class="text-[11px] text-slate-400 mt-1">Mantén Ctrl (o Cmd) presionado para elegir varios.</p>
+            </div>
+            {% endif %}
 
             <div class="flex gap-3 pt-2">
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
@@ -60,4 +99,36 @@
         </form>
     </div>
 </div>
+
+<script>
+document.getElementById('id_archivo').addEventListener('change', function (e) {
+    const span = document.getElementById('nombre-archivo-elegido');
+    if (e.target.files.length > 0) {
+        span.textContent = e.target.files[0].name;
+        span.classList.remove('text-slate-400');
+        span.classList.add('text-slate-800', 'font-bold');
+    } else {
+        span.textContent = 'Ningún archivo nuevo seleccionado';
+        span.classList.add('text-slate-400');
+        span.classList.remove('text-slate-800', 'font-bold');
+    }
+});
+
+(function () {
+    const bloqueRoles = document.getElementById('bloque-roles');
+    const bloqueUsuarios = document.getElementById('bloque-usuarios');
+    if (!bloqueRoles && !bloqueUsuarios) return; // no es admin, no existen estos bloques
+
+    const radios = document.querySelectorAll('#grupo-visibilidad input[name="visibilidad"]');
+
+    function actualizar() {
+        const valor = document.querySelector('#grupo-visibilidad input[name="visibilidad"]:checked')?.value;
+        if (bloqueRoles) bloqueRoles.classList.toggle('hidden', valor !== 'roles');
+        if (bloqueUsuarios) bloqueUsuarios.classList.toggle('hidden', valor !== 'usuarios');
+    }
+
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    actualizar();
+})();
+</script>
 {% endblock %}

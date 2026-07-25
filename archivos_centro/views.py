@@ -86,13 +86,14 @@ def subir_archivo(request):
             archivo = form.save(commit=False)
             archivo.subido_por = request.user
             archivo.save()
+            form.guardar_permisos_avanzados(archivo)
             messages.success(request, f'✅ Archivo "{archivo.titulo}" subido correctamente.')
             return redirect('archivos_centro:lista')
         messages.error(request, '❌ Revisa los datos del formulario.')
     else:
         form = ArchivoCentroForm(es_admin=request.user.is_superuser)
 
-    return render(request, 'archivos_centro/subir.html', {'form': form})
+    return render(request, 'archivos_centro/subir.html', {'form': form, 'es_admin': request.user.is_superuser})
 
 
 @login_required
@@ -116,7 +117,8 @@ def editar_archivo(request, archivo_id):
         # Un usuario común no puede tocar el binario al editar, solo metadatos + visibilidad simple.
         form.fields['archivo'].required = False
         if form.is_valid():
-            form.save()
+            archivo_guardado = form.save()
+            form.guardar_permisos_avanzados(archivo_guardado)
             messages.success(request, f'✅ "{archivo.titulo}" actualizado.')
             return redirect('archivos_centro:lista')
         messages.error(request, '❌ Revisa los datos del formulario.')
@@ -124,7 +126,7 @@ def editar_archivo(request, archivo_id):
         form = ArchivoCentroForm(es_admin=request.user.is_superuser, instance=archivo)
         form.fields['archivo'].required = False
 
-    return render(request, 'archivos_centro/editar.html', {'form': form, 'archivo': archivo})
+    return render(request, 'archivos_centro/editar.html', {'form': form, 'archivo': archivo, 'es_admin': request.user.is_superuser})
 
 
 @login_required

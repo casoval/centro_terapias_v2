@@ -52,7 +52,7 @@
 
             <div>
                 <label class="block text-xs font-black uppercase text-slate-500 mb-2">¿Quién puede verlo?</label>
-                <div class="space-y-2">
+                <div class="space-y-2" id="grupo-visibilidad">
                     {% for radio in form.visibilidad %}
                         <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
                             {{ radio.tag }}
@@ -64,6 +64,25 @@
                     Tú siempre podrás verlo. Un administrador podrá verlo y ajustar estos permisos en cualquier momento, sin importar tu elección.
                 </p>
             </div>
+
+            {% if es_admin %}
+            <div id="bloque-roles" class="hidden bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Roles con acceso</label>
+                <div class="space-y-1">
+                    {% for checkbox in form.roles %}
+                        <label class="flex items-center gap-2 text-sm text-slate-700">
+                            {{ checkbox.tag }} {{ checkbox.choice_label }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="bloque-usuarios" class="hidden bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Usuarios con acceso</label>
+                {{ form.usuarios }}
+                <p class="text-[11px] text-slate-400 mt-1">Mantén Ctrl (o Cmd) presionado para elegir varios.</p>
+            </div>
+            {% endif %}
 
             {% if form.non_field_errors %}
                 <p class="text-red-500 text-xs">{{ form.non_field_errors|join:", " }}</p>
@@ -94,5 +113,22 @@ document.getElementById('id_archivo').addEventListener('change', function (e) {
         span.classList.remove('text-slate-800', 'font-bold');
     }
 });
+
+(function () {
+    const bloqueRoles = document.getElementById('bloque-roles');
+    const bloqueUsuarios = document.getElementById('bloque-usuarios');
+    if (!bloqueRoles && !bloqueUsuarios) return; // no es admin, no existen estos bloques
+
+    const radios = document.querySelectorAll('#grupo-visibilidad input[name="visibilidad"]');
+
+    function actualizar() {
+        const valor = document.querySelector('#grupo-visibilidad input[name="visibilidad"]:checked')?.value;
+        if (bloqueRoles) bloqueRoles.classList.toggle('hidden', valor !== 'roles');
+        if (bloqueUsuarios) bloqueUsuarios.classList.toggle('hidden', valor !== 'usuarios');
+    }
+
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    actualizar();
+})();
 </script>
 {% endblock %}
