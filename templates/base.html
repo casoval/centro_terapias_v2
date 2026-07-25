@@ -892,6 +892,33 @@
                     {% endif %}
                     <!-- ══ FIN MENÚ ASISTENCIA ══ -->
 
+                    <!-- ══ MENÚ ARCHIVOS + INVENTARIO (todo staff: profesional/recepcionista/gerente/admin) ══ -->
+                    {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-blue-700 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            Archivos
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'archivos_centro:lista' %}" class="dropdown-item"><span class="mr-2">📁</span> Archivos del Centro</a>
+                            {% if user.is_superuser or user.perfil.es_gerente %}
+                            <a href="{% url 'archivos_centro:categorias' %}" class="dropdown-item"><span class="mr-2">🏷️</span> Categorías de Archivos</a>
+                            {% endif %}
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'inventario:mi_inventario' %}" class="dropdown-item"><span class="mr-2">👤</span> Mi Inventario</a>
+                            <a href="{% url 'inventario:general' %}" class="dropdown-item"><span class="mr-2">📦</span> Inventario General</a>
+                            <a href="{% url 'inventario:transferencias' %}" class="dropdown-item"><span class="mr-2">🔁</span> Transferencias</a>
+                            {% if user.is_superuser or user.perfil.es_gerente %}
+                            <a href="{% url 'inventario:catalogo' %}" class="dropdown-item"><span class="mr-2">📋</span> Catálogo de Inventario</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    <!-- ══ FIN MENÚ ARCHIVOS + INVENTARIO ══ -->
+
                     <!-- ══ MENÚ IA ══ -->
                     {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}
                     <div class="dropdown group" style="display:flex; align-items:flex-end;">
@@ -1114,6 +1141,32 @@
                 </a>
                 {% endif %}
                 <!-- ══ FIN MENÚ ASISTENCIA MÓVIL ══ -->
+
+                <!-- ══ MENÚ ARCHIVOS + INVENTARIO MÓVIL ══ -->
+                {% if user.is_superuser or user.perfil.es_profesional or user.perfil.es_recepcionista or user.perfil.es_gerente %}
+                <div>
+                    <button onclick="toggleMobileMenu('m-archivos')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">Archivos</span>
+                        <svg id="m-archivos-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-archivos" class="hidden mt-1 ml-3 pl-3 border-l border-slate-600 space-y-1">
+                        <a href="{% url 'archivos_centro:lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📁 Archivos del Centro</a>
+                        {% if user.is_superuser or user.perfil.es_gerente %}
+                        <a href="{% url 'archivos_centro:categorias' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🏷️ Categorías de Archivos</a>
+                        {% endif %}
+                        <div class="h-px bg-slate-700 my-1"></div>
+                        <a href="{% url 'inventario:mi_inventario' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">👤 Mi Inventario</a>
+                        <a href="{% url 'inventario:general' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📦 Inventario General</a>
+                        <a href="{% url 'inventario:transferencias' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">🔁 Transferencias</a>
+                        {% if user.is_superuser or user.perfil.es_gerente %}
+                        <a href="{% url 'inventario:catalogo' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700">📋 Catálogo de Inventario</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                <!-- ══ FIN MENÚ ARCHIVOS + INVENTARIO MÓVIL ══ -->
 
                 <!-- ══ MENÚ IA MÓVIL ══ -->
                 {% if user.is_superuser or user.perfil.es_recepcionista or user.perfil.es_gerente %}

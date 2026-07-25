@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}🔁 Solicitar transferencia{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">🔁 Solicitar transferencia</h1>
+        <p class="text-sm text-slate-500 mb-6">
+            No mueve el stock al instante: queda pendiente hasta que un administrador la apruebe.
+        </p>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Desde</label>
+                {{ form.origen }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Ítem</label>
+                {{ form.item }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Cantidad</label>
+                {{ form.cantidad }}
+                {% if form.cantidad.errors %}<p class="text-red-500 text-xs mt-1">{{ form.cantidad.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">¿A dónde va?</label>
+                <div class="space-y-2">
+                    {% for radio in form.destino_tipo %}
+                        <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
+                            {{ radio.tag }}
+                            <span class="text-sm text-slate-700">{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="bloque-destino-usuario">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">¿A quién?</label>
+                {{ form.destino_usuario }}
+                {% if form.destino_usuario.errors %}<p class="text-red-500 text-xs mt-1">{{ form.destino_usuario.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Motivo</label>
+                {{ form.motivo }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Notas (opcional)</label>
+                {{ form.notas_solicitante }}
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">📨 Enviar solicitud</button>
+                <a href="{% url 'inventario:transferencias' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    const radios = document.querySelectorAll('input[name="destino_tipo"]');
+    const bloque = document.getElementById('bloque-destino-usuario');
+    function actualizar() {
+        const valor = document.querySelector('input[name="destino_tipo"]:checked')?.value;
+        bloque.style.display = valor === 'usuario' ? 'block' : 'none';
+    }
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    actualizar();
+})();
+</script>
+{% endblock %}

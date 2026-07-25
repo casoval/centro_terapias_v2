@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}➕ Agregar stock{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">➕ Agregar stock</h1>
+        <p class="text-sm text-slate-500 mb-6">Suma cantidad a un inventario. No puedes restar aquí — para eso, solicita una transferencia o pide a un administrador.</p>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">¿A cuál inventario?</label>
+                {{ form.titular }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Ítem</label>
+                {{ form.item }}
+                {% if form.item.errors %}<p class="text-red-500 text-xs mt-1">{{ form.item.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Cantidad a agregar</label>
+                {{ form.cantidad }}
+                {% if form.cantidad.errors %}<p class="text-red-500 text-xs mt-1">{{ form.cantidad.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Motivo (opcional)</label>
+                {{ form.motivo }}
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    ➕ Agregar
+                </button>
+                <a href="{% url 'inventario:general' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

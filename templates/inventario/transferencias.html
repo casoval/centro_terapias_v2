@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}🔁 Transferencias de Inventario{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 class="text-lg font-black text-slate-800">🔁 Transferencias</h1>
+        <div class="flex gap-2">
+            <a href="{% url 'inventario:general' %}" class="text-xs font-bold text-indigo-600 hover:underline self-center">← Inventario</a>
+            <a href="{% url 'inventario:solicitar_transferencia' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl">+ Nueva solicitud</a>
+        </div>
+    </div>
+
+    <div class="flex gap-2 mb-4">
+        <a href="{% url 'inventario:transferencias' %}" class="text-xs font-black px-3 py-1.5 rounded-full {% if not estado_filtro %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">Todas</a>
+        <a href="?estado=pendiente" class="text-xs font-black px-3 py-1.5 rounded-full {% if estado_filtro == 'pendiente' %}bg-amber-500 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">⏳ Pendientes</a>
+        <a href="?estado=aprobada" class="text-xs font-black px-3 py-1.5 rounded-full {% if estado_filtro == 'aprobada' %}bg-emerald-600 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">✅ Aprobadas</a>
+        <a href="?estado=rechazada" class="text-xs font-black px-3 py-1.5 rounded-full {% if estado_filtro == 'rechazada' %}bg-red-500 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">🚫 Rechazadas</a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+        {% for t in transferencias %}
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div>
+                <p class="font-bold text-slate-800 text-sm">{{ t.item.nombre }} × {{ t.cantidad }}</p>
+                <p class="text-xs text-slate-400">
+                    {{ t.origen }} → {{ t.destino_mostrado }} · {{ t.get_motivo_display }}
+                </p>
+                <p class="text-[11px] text-slate-400">
+                    Solicitado por {{ t.solicitado_por.get_full_name|default:t.solicitado_por.username }} · {{ t.fecha_solicitud|date:"d/m/Y H:i" }}
+                </p>
+                {% if t.notas_admin %}<p class="text-[11px] text-slate-400 italic">Admin: {{ t.notas_admin }}</p>{% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-black uppercase px-2 py-1 rounded-full
+                    {% if t.estado == 'aprobada' %}bg-emerald-50 text-emerald-700
+                    {% elif t.estado == 'rechazada' %}bg-red-50 text-red-600
+                    {% else %}bg-amber-50 text-amber-700{% endif %}">
+                    {{ t.get_estado_display }}
+                </span>
+                {% if puede_resolver and t.estado == 'pendiente' %}
+                <a href="{% url 'inventario:resolver_transferencia' t.id %}" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-black px-3 py-1.5 rounded-lg">Resolver</a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-16">
+            <p class="text-4xl mb-3">🔁</p>
+            <p class="text-sm text-slate-400">No hay transferencias para mostrar.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

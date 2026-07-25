@@ -28,6 +28,8 @@ urlpatterns = [
     path('api/', include('recordatorios.urls')),
     path('agente/', include('agente.urls', namespace='agente')),
     path('documentos/', include('documentos.urls', namespace='documentos')),
+    path('archivos-centro/', include('archivos_centro.urls', namespace='archivos_centro')),
+    path('inventario/', include('inventario.urls', namespace='inventario')),
 ]
 
 if settings.DEBUG:

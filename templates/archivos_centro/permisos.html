@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}🔐 Permisos — {{ archivo.titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">🔐 Gestionar permisos</h1>
+        <p class="text-sm text-slate-500 mb-6">
+            {{ archivo.icono }} <span class="font-bold">{{ archivo.titulo }}</span>
+            <span class="block text-xs text-slate-400 mt-1">Subido por {{ archivo.subido_por.get_full_name|default:archivo.subido_por.username }}</span>
+        </p>
+
+        <form method="post" class="space-y-5" id="form-permisos">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Visibilidad</label>
+                <div class="space-y-2">
+                    {% for radio in form.visibilidad %}
+                        <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 visibilidad-opcion">
+                            {{ radio.tag }}
+                            <span class="text-sm text-slate-700">{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="bloque-roles" class="hidden">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Roles con acceso</label>
+                <div class="space-y-1">
+                    {% for checkbox in form.roles %}
+                        <label class="flex items-center gap-2 text-sm text-slate-700">
+                            {{ checkbox.tag }} {{ checkbox.choice_label }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="bloque-usuarios" class="hidden">
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">Usuarios con acceso</label>
+                {{ form.usuarios }}
+                <p class="text-[11px] text-slate-400 mt-1">Mantén Ctrl (o Cmd) presionado para elegir varios.</p>
+            </div>
+
+            <p class="text-[11px] text-slate-400">
+                El administrador siempre ve y puede eliminar cualquier archivo, sin importar la visibilidad elegida aquí.
+            </p>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    💾 Guardar permisos
+                </button>
+                <a href="{% url 'archivos_centro:lista' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    const radios = document.querySelectorAll('#form-permisos input[name="visibilidad"]');
+    const bloqueRoles = document.getElementById('bloque-roles');
+    const bloqueUsuarios = document.getElementById('bloque-usuarios');
+
+    function actualizar() {
+        const valor = document.querySelector('#form-permisos input[name="visibilidad"]:checked')?.value;
+        bloqueRoles.classList.toggle('hidden', valor !== 'roles');
+        bloqueUsuarios.classList.toggle('hidden', valor !== 'usuarios');
+    }
+
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    actualizar();
+})();
+</script>
+{% endblock %}

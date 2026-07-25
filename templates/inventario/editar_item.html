@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}✏️ Editar ítem{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-6">✏️ Editar ítem del catálogo</h1>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Nombre</label>
+                {{ form.nombre }}
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Descripción</label>
+                {{ form.descripcion }}
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Categoría</label>
+                    {{ form.categoria }}
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Unidad</label>
+                    {{ form.unidad }}
+                </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                {{ form.activo }} Ítem activo (visible al agregar stock)
+            </label>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">💾 Guardar</button>
+                <a href="{% url 'inventario:catalogo' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

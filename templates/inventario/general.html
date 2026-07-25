@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}📦 Inventario del Centro{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8 px-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+            <h1 class="text-xl font-black text-slate-800">📦 Inventario del Centro</h1>
+            <p class="text-sm text-slate-500">
+                {% if ve_todo %}Vista completa: todas las sucursales, servicios y usuarios.{% else %}Tu inventario personal y el de tus sucursales asignadas.{% endif %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'inventario:transferencias' %}" class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">🔁 Transferencias</a>
+            {% if request.user.is_superuser or request.user.perfil.es_gerente %}
+            <a href="{% url 'inventario:catalogo' %}" class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">📋 Catálogo</a>
+            {% endif %}
+            <a href="{% url 'inventario:mi_inventario' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl">👤 Mi inventario</a>
+        </div>
+    </div>
+
+    {% if ve_todo %}
+    <div class="flex gap-2 mb-4">
+        <a href="{% url 'inventario:general' %}" class="text-xs font-black px-3 py-1.5 rounded-full {% if not tipo_filtro %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">Todos</a>
+        <a href="?tipo=usuario" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'usuario' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">👤 Personales</a>
+        <a href="?tipo=sucursal" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'sucursal' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">🏬 Sucursales</a>
+        <a href="?tipo=servicio" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'servicio' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">🩺 Servicios</a>
+        <a href="?tipo=centro" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'centro' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">🏢 Centro</a>
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+        {% for titular in titulares %}
+        <a href="{% url 'inventario:detalle_titular' titular.id %}" class="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
+            <div>
+                <p class="font-bold text-slate-800 text-sm">{{ titular }}</p>
+                <p class="text-xs text-slate-400">{{ titular.num_items }} ítem{{ titular.num_items|pluralize }} con stock</p>
+            </div>
+            <span class="text-slate-300">→</span>
+        </a>
+        {% empty %}
+        <div class="text-center py-16">
+            <p class="text-4xl mb-3">📭</p>
+            <p class="text-sm text-slate-400">No hay inventario para mostrar todavía.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

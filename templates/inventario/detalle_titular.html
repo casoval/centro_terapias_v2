@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}{{ titular }} — Inventario{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-8 px-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+            <a href="{% url 'inventario:general' %}" class="text-xs font-bold text-indigo-600 hover:underline">← Todo el inventario</a>
+            <h1 class="text-xl font-black text-slate-800 mt-1">{{ titular }}</h1>
+        </div>
+        <div class="flex gap-2">
+            {% if puede_transferir %}
+            <a href="{% url 'inventario:solicitar_transferencia_de' titular.id %}"
+               class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">
+                🔁 Transferir
+            </a>
+            {% endif %}
+            {% if puede_agregar %}
+            <a href="{% url 'inventario:agregar_stock_a' titular.id %}"
+               class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl">
+                ➕ Agregar stock
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="get" class="mb-4">
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar ítem..."
+               class="w-full sm:w-72 rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+    </form>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100 mb-8">
+        {% for s in stock %}
+        <div class="flex items-center justify-between px-5 py-3">
+            <div>
+                <p class="font-bold text-slate-800 text-sm">{{ s.item.nombre }}</p>
+                {% if s.item.categoria %}<p class="text-xs text-slate-400">{{ s.item.categoria.nombre }}</p>{% endif %}
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-black text-slate-700">{{ s.cantidad }} {{ s.item.get_unidad_display|lower }}</span>
+                {% if puede_ajustar %}
+                <a href="{% url 'inventario:ajustar_stock' titular.id s.item.id %}"
+                   class="bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-black px-3 py-1.5 rounded-lg">✏️ Ajustar</a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-12">
+            <p class="text-3xl mb-2">📭</p>
+            <p class="text-sm text-slate-400">Sin stock registrado todavía.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h2 class="text-sm font-black text-slate-600 mb-3">🕐 Movimientos recientes</h2>
+    <div class="bg-white rounded-2xl shadow border border-slate-200 divide-y divide-slate-100">
+        {% for m in movimientos_recientes %}
+        <div class="flex items-center justify-between px-5 py-2.5 text-xs">
+            <div>
+                <span class="font-bold text-slate-700">{{ m.get_tipo_display }}</span>
+                <span class="text-slate-400"> · {{ m.item.nombre }}</span>
+                {% if m.motivo %}<span class="text-slate-400"> · {{ m.motivo }}</span>{% endif %}
+            </div>
+            <div class="flex items-center gap-3 text-slate-400">
+                <span class="font-black {% if m.cantidad >= 0 %}text-emerald-600{% else %}text-red-500{% endif %}">
+                    {% if m.cantidad >= 0 %}+{% endif %}{{ m.cantidad }}
+                </span>
+                <span>{{ m.fecha|date:"d/m/Y H:i" }}</span>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-xs text-slate-400 px-5 py-6 text-center">Sin movimientos todavía.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

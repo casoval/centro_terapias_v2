@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar archivo{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-10 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-red-200 p-6 text-center">
+        <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🗑️</div>
+        <h1 class="text-lg font-black text-slate-800 mb-2">¿Eliminar este archivo?</h1>
+        <p class="text-sm text-slate-500 mb-1">
+            <span class="font-bold">{{ archivo.icono }} {{ archivo.titulo }}</span>
+        </p>
+        <p class="text-xs text-slate-400 mb-6">
+            Subido por {{ archivo.subido_por.get_full_name|default:archivo.subido_por.username }} · {{ archivo.fecha_subida|date:"d/m/Y H:i" }}
+        </p>
+        <p class="text-xs text-red-500 font-bold mb-6">Esta acción no se puede deshacer.</p>
+
+        <form method="post" class="flex justify-center gap-3">
+            {% csrf_token %}
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                Sí, eliminar
+            </button>
+            <a href="{% url 'archivos_centro:lista' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                Cancelar
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}

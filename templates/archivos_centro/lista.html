@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}📁 Archivos del Centro{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-8 px-4">
+
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+            <h1 class="text-xl font-black text-slate-800">📁 Archivos del Centro</h1>
+            <p class="text-sm text-slate-500">Manuales, protocolos, planillas y todo lo útil para el equipo — no son archivos de pacientes.</p>
+        </div>
+        <div class="flex gap-2">
+            {% if puede_gestionar_categorias %}
+            <a href="{% url 'archivos_centro:categorias' %}"
+               class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">
+                🏷️ Categorías
+            </a>
+            {% endif %}
+            {% if puede_subir %}
+            <a href="{% url 'archivos_centro:subir' %}"
+               class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-4 py-2.5 rounded-xl">
+                ⬆️ Subir archivo
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <form method="get" class="bg-white rounded-2xl shadow border border-slate-200 p-4 mb-6 flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Buscar</label>
+            <input type="text" name="q" value="{{ q }}" placeholder="Título o descripción..."
+                   class="w-full rounded-lg border-slate-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+        <div class="min-w-[160px]">
+            <label class="block text-[11px] font-black uppercase text-slate-400 mb-1">Categoría</label>
+            <select name="categoria" class="w-full rounded-lg border-slate-300 text-sm">
+                <option value="">Todas</option>
+                {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if categoria_actual == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-slate-600 font-bold pb-2">
+            <input type="checkbox" name="mios" value="1" {% if solo_mios %}checked{% endif %}
+                   class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+            Solo mis archivos
+        </label>
+        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-black text-sm px-4 py-2 rounded-lg">
+            Filtrar
+        </button>
+        {% if q or categoria_actual or solo_mios %}
+        <a href="{% url 'archivos_centro:lista' %}" class="text-xs font-bold text-slate-400 hover:text-slate-600 pb-2">Limpiar</a>
+        {% endif %}
+    </form>
+
+    <!-- Listado -->
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+        {% for archivo in archivos %}
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="text-2xl shrink-0">{{ archivo.icono }}</span>
+                <div class="min-w-0">
+                    <p class="font-bold text-slate-800 text-sm truncate">{{ archivo.titulo }}</p>
+                    <p class="text-xs text-slate-400 truncate">
+                        {% if archivo.categoria %}<span class="font-semibold text-slate-500">{{ archivo.categoria.nombre }}</span> · {% endif %}
+                        {{ archivo.subido_por.get_full_name|default:archivo.subido_por.username }} · {{ archivo.fecha_subida|date:"d/m/Y H:i" }}
+                    </p>
+                    {% if archivo.descripcion %}<p class="text-xs text-slate-400 truncate">{{ archivo.descripcion }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+                <span class="text-[10px] font-black uppercase px-2 py-1 rounded-full
+                    {% if archivo.visibilidad == 'todos' %}bg-emerald-50 text-emerald-700
+                    {% elif archivo.visibilidad == 'privado' %}bg-slate-100 text-slate-500
+                    {% elif archivo.visibilidad == 'roles' %}bg-amber-50 text-amber-700
+                    {% else %}bg-violet-50 text-violet-700{% endif %}">
+                    {{ archivo.get_visibilidad_display }}
+                </span>
+
+                <a href="{% url 'archivos_centro:descargar' archivo.id %}" target="_blank"
+                   class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black px-3 py-1.5 rounded-lg">
+                    ⬇️ Ver
+                </a>
+
+                {% if request.user.is_superuser or archivo.subido_por_id == request.user.id %}
+                <a href="{% url 'archivos_centro:editar' archivo.id %}"
+                   class="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-black px-3 py-1.5 rounded-lg">
+                    ✏️
+                </a>
+                {% endif %}
+
+                {% if puede_gestionar_permisos %}
+                <a href="{% url 'archivos_centro:permisos' archivo.id %}"
+                   class="bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-black px-3 py-1.5 rounded-lg">
+                    🔐
+                </a>
+                {% endif %}
+
+                {% if puede_eliminar %}
+                <form method="post" action="{% url 'archivos_centro:eliminar' archivo.id %}"
+                      onsubmit="return confirm('¿Eliminar {{ archivo.titulo }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black px-3 py-1.5 rounded-lg">
+                        🗑️
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-16">
+            <p class="text-4xl mb-3">📂</p>
+            <p class="text-sm text-slate-400">No hay archivos para mostrar.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Paginación -->
+    {% if archivos.has_other_pages %}
+    <div class="flex justify-center gap-2 mt-6">
+        {% if archivos.has_previous %}
+        <a href="?page={{ archivos.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categoria_actual %}&categoria={{ categoria_actual }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">←</a>
+        {% endif %}
+        <span class="px-3 py-1.5 text-sm font-bold text-slate-500">{{ archivos.number }} / {{ archivos.paginator.num_pages }}</span>
+        {% if archivos.has_next %}
+        <a href="?page={{ archivos.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if categoria_actual %}&categoria={{ categoria_actual }}{% endif %}"
+           class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">→</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

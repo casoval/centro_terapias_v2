@@ -69,6 +69,8 @@ INSTALLED_APPS = [
     'recordatorios',     # ← nueva
     'agente',
     'documentos',        # ← nueva: documentos/informes de pacientes
+    'archivos_centro',   # ← nueva: archivos operativos del centro (no de pacientes)
+    'inventario',        # ← nueva: inventario del centro (sucursales, servicios, usuarios)
 ]
 
 MIDDLEWARE = [

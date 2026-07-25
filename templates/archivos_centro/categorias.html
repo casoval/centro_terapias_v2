@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}🏷️ Categorías de archivos{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto py-8 px-4">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-black text-slate-800">🏷️ Categorías de Archivos</h1>
+        <a href="{% url 'archivos_centro:lista' %}" class="text-xs font-bold text-indigo-600 hover:underline">← Volver a archivos</a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
+        <h2 class="text-sm font-black text-slate-700 mb-3">Nueva categoría</h2>
+        <form method="post" class="flex flex-col sm:flex-row gap-3">
+            {% csrf_token %}
+            <div class="flex-1">
+                {{ form.nombre }}
+            </div>
+            <div class="flex-1">
+                {{ form.descripcion }}
+            </div>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl whitespace-nowrap">
+                ➕ Crear
+            </button>
+        </form>
+        {% if form.nombre.errors %}<p class="text-red-500 text-xs mt-2">{{ form.nombre.errors|join:", " }}</p>{% endif %}
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+        {% for categoria in categorias %}
+        <div class="flex items-center justify-between px-5 py-3">
+            <div>
+                <p class="font-bold text-slate-800 text-sm">{{ categoria.nombre }}</p>
+                {% if categoria.descripcion %}<p class="text-xs text-slate-400">{{ categoria.descripcion }}</p>{% endif %}
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-slate-400">{{ categoria.num_archivos }} archivo{{ categoria.num_archivos|pluralize }}</span>
+                <form method="post" action="{% url 'archivos_centro:eliminar_categoria' categoria.id %}"
+                      onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre }}? Los archivos quedarán sin categoría.');">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-bold">🗑️ Eliminar</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <p class="text-sm text-slate-400 px-5 py-6 text-center">Aún no hay categorías.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

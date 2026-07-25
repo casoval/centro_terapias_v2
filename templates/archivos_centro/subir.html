@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}📁 Subir archivo del centro{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">📁 Subir archivo del centro</h1>
+        <p class="text-sm text-slate-500 mb-6">
+            Documentos operativos del centro: manuales, protocolos, planillas, etc.
+            <span class="block text-xs text-slate-400 mt-1">(No es para archivos de pacientes — para eso usa la ficha del paciente).</span>
+        </p>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Título</label>
+                {{ form.titulo }}
+                {% if form.titulo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.titulo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Descripción (opcional)</label>
+                {{ form.descripcion }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Categoría</label>
+                {{ form.categoria }}
+                {% if not form.categoria.field.queryset.exists %}
+                    <p class="text-[11px] text-slate-400 mt-1">Aún no hay categorías creadas.</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Archivo</label>
+                <div class="relative">
+                    {{ form.archivo }}
+                    <label for="{{ form.archivo.id_for_label }}"
+                           class="flex items-center gap-3 w-full rounded-lg border border-slate-300 px-3 py-2 cursor-pointer hover:border-indigo-400 hover:bg-slate-50 transition-all">
+                        <span class="bg-slate-100 text-slate-700 text-xs font-black uppercase px-3 py-1.5 rounded-lg shrink-0">
+                            Seleccionar archivo
+                        </span>
+                        <span id="nombre-archivo-elegido" class="text-sm text-slate-400 truncate">
+                            Ningún archivo seleccionado
+                        </span>
+                    </label>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">PDF, Word, Excel, imagen, ZIP, etc. Máximo 30 MB.</p>
+                {% if form.archivo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">¿Quién puede verlo?</label>
+                <div class="space-y-2">
+                    {% for radio in form.visibilidad %}
+                        <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
+                            {{ radio.tag }}
+                            <span class="text-sm text-slate-700">{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Tú siempre podrás verlo. Un administrador podrá verlo y ajustar estos permisos en cualquier momento, sin importar tu elección.
+                </p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <p class="text-red-500 text-xs">{{ form.non_field_errors|join:", " }}</p>
+            {% endif %}
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    ⬆️ Subir archivo
+                </button>
+                <a href="{% url 'archivos_centro:lista' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('id_archivo').addEventListener('change', function (e) {
+    const span = document.getElementById('nombre-archivo-elegido');
+    if (e.target.files.length > 0) {
+        span.textContent = e.target.files[0].name;
+        span.classList.remove('text-slate-400');
+        span.classList.add('text-slate-800', 'font-bold');
+    } else {
+        span.textContent = 'Ningún archivo seleccionado';
+        span.classList.add('text-slate-400');
+        span.classList.remove('text-slate-800', 'font-bold');
+    }
+});
+</script>
+{% endblock %}

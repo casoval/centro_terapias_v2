@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Resolver transferencia{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">Resolver transferencia</h1>
+        <div class="text-sm text-slate-600 my-4 bg-slate-50 rounded-xl p-4 space-y-1">
+            <p><span class="font-black">Ítem:</span> {{ transferencia.item.nombre }} × {{ transferencia.cantidad }}</p>
+            <p><span class="font-black">Desde:</span> {{ transferencia.origen }}</p>
+            <p><span class="font-black">Hacia:</span> {{ transferencia.destino_mostrado }}</p>
+            <p><span class="font-black">Motivo:</span> {{ transferencia.get_motivo_display }}</p>
+            {% if transferencia.notas_solicitante %}<p><span class="font-black">Notas:</span> {{ transferencia.notas_solicitante }}</p>{% endif %}
+            <p><span class="font-black">Solicitado por:</span> {{ transferencia.solicitado_por.get_full_name|default:transferencia.solicitado_por.username }}</p>
+        </div>
+
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <div class="space-y-2">
+                {% for radio in form.accion %}
+                <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
+                    {{ radio.tag }}
+                    <span class="text-sm text-slate-700">{{ radio.choice_label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Notas (opcional)</label>
+                {{ form.notas_admin }}
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">Confirmar</button>
+                <a href="{% url 'inventario:transferencias' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}✏️ Editar — {{ archivo.titulo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">✏️ Editar archivo</h1>
+        <p class="text-sm text-slate-500 mb-6">{{ archivo.icono }} {{ archivo.nombre_archivo }}</p>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Título</label>
+                {{ form.titulo }}
+                {% if form.titulo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.titulo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Descripción (opcional)</label>
+                {{ form.descripcion }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Categoría</label>
+                {{ form.categoria }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Reemplazar archivo (opcional)</label>
+                {{ form.archivo }}
+                <p class="text-[11px] text-slate-400 mt-1">Déjalo vacío si solo quieres cambiar el título, descripción o permisos.</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-2">¿Quién puede verlo?</label>
+                <div class="space-y-2">
+                    {% for radio in form.visibilidad %}
+                        <label class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50">
+                            {{ radio.tag }}
+                            <span class="text-sm text-slate-700">{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {% if not request.user.is_superuser %}
+                <p class="text-[11px] text-slate-400 mt-1">
+                    Para dar acceso a roles o usuarios específicos, pide a un administrador que lo configure desde "Gestionar permisos".
+                </p>
+                {% endif %}
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    💾 Guardar cambios
+                </button>
+                <a href="{% url 'archivos_centro:lista' %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
