@@ -18,10 +18,23 @@ WEBHOOK_SECRET_TOKEN = os.environ.get('WEBHOOK_SECRET_TOKEN', '')
 
 
 def _verificar_token(request) -> bool:
-    """Verifica que el request venga del bot autorizado."""
+    """
+    Verifica que el request venga del bot autorizado.
+
+    ⚠️ SEGURIDAD: antes, si WEBHOOK_SECRET_TOKEN no estaba configurado, esta
+    función devolvía True (dejaba pasar CUALQUIER request sin autenticar,
+    "fail open"). Eso significa que si en producción se olvida configurar
+    la variable de entorno, el webhook queda abierto a internet sin ninguna
+    protección. Ahora, si falta el token, se BLOQUEA por defecto
+    ("fail closed") y se registra un error — es más seguro fallar cerrado
+    que fallar abierto.
+    """
     if not WEBHOOK_SECRET_TOKEN:
-        log.warning('[Webhook] WEBHOOK_SECRET_TOKEN no configurado — sin autenticación')
-        return True
+        log.error(
+            '[Webhook] WEBHOOK_SECRET_TOKEN no configurado — bloqueando request '
+            '(configura la variable de entorno para habilitar el webhook)'
+        )
+        return False
     return request.headers.get('X-Webhook-Token', '') == WEBHOOK_SECRET_TOKEN
 
 

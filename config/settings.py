@@ -27,7 +27,23 @@ IS_PRODUCTION = ENVIRONMENT == 'production'
 # SECURITY
 # --------------------------------------------------
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-CHANGE-IN-PRODUCTION')
+# ⚠️ SEGURIDAD: antes, si faltaba la variable de entorno SECRET_KEY, Django
+# arrancaba igual usando un valor por defecto fijo y visible en este mismo
+# archivo (público en GitHub). SECRET_KEY firma sesiones, tokens CSRF y
+# tokens de recuperación de contraseña — si alguien lo conoce, puede
+# falsificar sesiones o tokens. En producción ahora se exige explícitamente
+# y el arranque falla si no está configurado, en vez de arrancar inseguro
+# en silencio. En desarrollo se mantiene un valor por defecto (no crítico,
+# nadie expone su entorno local a internet).
+if IS_PRODUCTION:
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError(
+            "❌ Falta la variable de entorno SECRET_KEY en producción. "
+            "Nunca debe arrancar con un valor por defecto en este entorno."
+        )
+else:
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-CHANGE-IN-PRODUCTION')
 
 DEBUG = not IS_PRODUCTION
 
@@ -341,16 +357,36 @@ if IS_PRODUCTION:
     CLOUDINARY_STORAGE = {'CLOUD_NAME': _cloud_name, 'API_KEY': _api_key, 'API_SECRET': _api_secret}
 
 else:
-    cloudinary.config(
-        cloud_name='dwwfzxo3z',
-        api_key='447784864842837',
-        api_secret='WH8t6i2L3ZJLic5mFNVEmq6PNig',
-        secure=True
-    )
+    # ⚠️ SEGURIDAD: antes había credenciales reales de Cloudinary escritas
+    # directamente aquí (hardcodeadas). Como este archivo está en un
+    # repositorio público, esa API key/secret quedó expuesta a cualquiera.
+    # Se corrigió para leer también desde variables de entorno en
+    # desarrollo (igual que en producción). Si no están configuradas, no
+    # se hardcodea ningún valor real: Cloudinary queda sin credenciales
+    # válidas y las subidas de imágenes fallarán de forma visible en vez
+    # de usar una cuenta ajena o comprometida.
+    #
+    # ⚠️ IMPORTANTE: la API key/secret que estaban aquí antes deben
+    # considerarse comprometidas (estuvieron públicas en GitHub) y hay que
+    # rotarlas/regenerarlas desde el dashboard de Cloudinary cuanto antes,
+    # sin importar si se aplica este fix o no.
+    _cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+    _api_key    = os.environ.get('CLOUDINARY_API_KEY', '')
+    _api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+
+    if not all([_cloud_name, _api_key, _api_secret]):
+        print(
+            "⚠️  Cloudinary no está configurado (faltan CLOUDINARY_CLOUD_NAME / "
+            "CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET en tu .env local). "
+            "Las subidas de imágenes no funcionarán hasta que los configures. "
+            "Ver .env.example."
+        )
+
+    cloudinary.config(cloud_name=_cloud_name, api_key=_api_key, api_secret=_api_secret, secure=True)
     CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': 'dwwfzxo3z',
-        'API_KEY': '447784864842837',
-        'API_SECRET': 'WH8t6i2L3ZJLic5mFNVEmq6PNig',
+        'CLOUD_NAME': _cloud_name,
+        'API_KEY': _api_key,
+        'API_SECRET': _api_secret,
     }
 
 # --------------------------------------------------

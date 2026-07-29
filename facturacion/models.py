@@ -442,6 +442,39 @@ class CuentaCorriente(models.Model):
     def total_adeudado(self):
         """Retorna el monto adeudado (saldo_actual cuando es negativo)"""
         return abs(self.saldo_actual) if self.saldo_actual < 0 else 0
+
+    def get_stats_cached(self):
+        """
+        Devuelve un diccionario con las estadísticas más consultadas de la
+        cuenta (consumo/pagado/deuda de sesiones y proyectos), calculadas
+        una sola vez y cacheadas en la instancia.
+
+        ⚡ CORRECCIÓN: este método se llamaba desde 6 lugares del código
+        (facturacion/templatetags/facturacion_tags.py y
+        facturacion/views.py → detalle_cuenta_ajax) pero nunca estaba
+        definido en el modelo. Los template tags tenían un
+        `except (AttributeError, KeyError):` que los hacía caer de vuelta a
+        las properties individuales (más lento, pero sin romperse — por
+        eso no se notaba). `detalle_cuenta_ajax` NO tenía ese manejo de
+        errores, así que cada vez que se abría el desglose de una cuenta
+        (botón "Ver desglose") la vista devolvía un error 500.
+
+        Se cachea en la instancia (`self._stats_cache`) para que, si en el
+        mismo request se llama más de una vez sobre la misma cuenta (por
+        ejemplo desde varios template tags en la misma página), no se
+        repitan las consultas de conteo de sesiones/proyectos.
+        """
+        if not hasattr(self, '_stats_cache'):
+            self._stats_cache = {
+                'consumo_sesiones': self.consumo_sesiones,
+                'pagado_sesiones': self.pagado_sesiones,
+                'deuda_sesiones': self.deuda_sesiones,
+                'consumo_proyectos': self.consumo_proyectos,
+                'pagado_proyectos': self.pagado_proyectos,
+                'deuda_proyectos': self.deuda_proyectos,
+            }
+        return self._stats_cache
+
     
     @property
     def monto_pendiente(self):

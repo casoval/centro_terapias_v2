@@ -1,4 +1,5 @@
 from datetime import date, timedelta, datetime
+from decimal import Decimal
 from itertools import groupby
 from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, Value, DecimalField
 from django.db.models.functions import Coalesce
@@ -13,6 +14,55 @@ from servicios.models import Sucursal, TipoServicio
 logger = logging.getLogger(__name__)
 
 class CalendarService:
+
+    @staticmethod
+    def annotate_total_pagado(sesiones_qs):
+        """
+        ⚡ OPTIMIZACIÓN DE RENDIMIENTO
+        Anota `total_pagado_sesion` (pagos directos + pagos masivos) sobre el
+        QUERYSET completo en UNA sola consulta SQL, usando subqueries
+        correlacionadas independientes (evita el "fan-out" que ocurriría si
+        se sumaran ambas relaciones con JOIN en la misma anotación).
+
+        Antes de esta optimización, cada sesión mostrada en el calendario
+        (`sesion.pagado` en el template) disparaba 2 queries adicionales
+        (una para pagos directos y otra para pagos masivos). Con 100-300
+        sesiones visibles en una vista semanal/mensual, eso son 200-600
+        queries extra solo para pintar la tabla.
+
+        Al anotar aquí, la propiedad `Sesion.total_pagado` reutiliza este
+        valor (ver `agenda/models.py`) y no vuelve a golpear la base de datos.
+
+        NOTA IMPORTANTE: esto también corrige un bug previo donde el resumen
+        de "Total pagado / Total pendiente" del calendario solo sumaba pagos
+        directos y NO incluía pagos masivos (pagos que cubren varias sesiones
+        con un solo recibo), subestimando lo realmente cobrado.
+        """
+        from facturacion.models import Pago, DetallePagoMasivo
+
+        pagos_directos_sq = Pago.objects.filter(
+            sesion=OuterRef('pk'), anulado=False
+        ).order_by().values('sesion').annotate(
+            total=Sum('monto')
+        ).values('total')
+
+        pagos_masivos_sq = DetallePagoMasivo.objects.filter(
+            sesion=OuterRef('pk'), pago__anulado=False
+        ).order_by().values('sesion').annotate(
+            total=Sum('monto')
+        ).values('total')
+
+        return sesiones_qs.annotate(
+            _pagos_directos_sesion=Coalesce(
+                Subquery(pagos_directos_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+                Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+            ),
+            _pagos_masivos_sesion=Coalesce(
+                Subquery(pagos_masivos_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+                Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+            ),
+            total_pagado_sesion=F('_pagos_directos_sesion') + F('_pagos_masivos_sesion')
+        )
 
     @staticmethod
     def _marcar_sesiones_grupales(sesiones_lista):
@@ -324,6 +374,67 @@ class ProyectoMensualidadService:
     Servicio para gestionar proyectos y mensualidades
     ✅ MEJORADO: Incluye ajuste opcional para estado cancelado
     """
+
+    @staticmethod
+    def cachear_pagos_en_lista(instancias, tipo='proyecto'):
+        """
+        ⚡ OPTIMIZACIÓN: precalcula `total_pagado` y `total_devoluciones` para
+        una lista YA CARGADA de Proyectos o Mensualidades (por ejemplo, la
+        página actual de un listado paginado) en solo 3 queries EN TOTAL,
+        en vez de hasta 3 queries POR CADA fila.
+
+        Esto es lo que hacía lento (aunque de forma acotada, porque estas
+        listas ya paginan a 20 por página) a `lista_proyectos` y
+        `lista_mensualidades`: el template llama a `proyecto.pagado_completo`
+        / `mensualidad.pagado_completo`, que internamente consulta
+        total_pagado (2 queries) y total_devoluciones (1 query) por fila.
+
+        Los resultados se guardan como `_total_pagado_cache` /
+        `_total_devoluciones_cache` en cada instancia; las propiedades
+        `total_pagado` / `total_devoluciones` del modelo (ver
+        agenda/models.py) las reutilizan automáticamente si ya existen,
+        sin volver a consultar la base de datos.
+
+        Args:
+            instancias: iterable de Proyecto o Mensualidad (se materializa
+                        a lista si todavía no lo está, p. ej. page_obj.object_list)
+            tipo: 'proyecto' o 'mensualidad' (debe coincidir con el nombre
+                  del FK en Pago/DetallePagoMasivo/Devolucion)
+        """
+        from facturacion.models import Pago, DetallePagoMasivo, Devolucion
+
+        instancias = list(instancias)
+        if not instancias:
+            return instancias
+
+        ids = [obj.id for obj in instancias]
+        filtro_id = f'{tipo}_id__in'
+
+        # 1) Pagos directos, agrupados por instancia (1 query)
+        pagos_directos = Pago.objects.filter(
+            **{filtro_id: ids}, anulado=False
+        ).values(tipo).annotate(total=Sum('monto'))
+        mapa_directos = {row[tipo]: row['total'] for row in pagos_directos}
+
+        # 2) Pagos masivos, agrupados por instancia (1 query)
+        pagos_masivos = DetallePagoMasivo.objects.filter(
+            **{filtro_id: ids}, tipo=tipo, pago__anulado=False
+        ).values(tipo).annotate(total=Sum('monto'))
+        mapa_masivos = {row[tipo]: row['total'] for row in pagos_masivos}
+
+        # 3) Devoluciones, agrupadas por instancia (1 query)
+        devoluciones = Devolucion.objects.filter(
+            **{filtro_id: ids}
+        ).values(tipo).annotate(total=Sum('monto'))
+        mapa_devoluciones = {row[tipo]: row['total'] for row in devoluciones}
+
+        for obj in instancias:
+            directo = mapa_directos.get(obj.id) or Decimal('0.00')
+            masivo = mapa_masivos.get(obj.id) or Decimal('0.00')
+            obj._total_pagado_cache = directo + masivo
+            obj._total_devoluciones_cache = mapa_devoluciones.get(obj.id) or Decimal('0.00')
+
+        return instancias
     
     @staticmethod
     def ajustar_costo_al_finalizar(instancia, tipo='proyecto', forzar_ajuste=True):

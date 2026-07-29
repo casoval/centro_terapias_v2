@@ -167,7 +167,14 @@ class Proyecto(models.Model):
         """
         ✅ CORREGIDO: Total de pagos recibidos para este proyecto
         Incluye TANTO pagos directos COMO pagos masivos
+
+        ⚡ OPTIMIZACIÓN: si la vista ya calculó este valor para una lista de
+        proyectos (para evitar N+1 queries), lo reutiliza en vez de volver
+        a consultar la base de datos. Ver `_total_pagado_cache`.
         """
+        if hasattr(self, '_total_pagado_cache'):
+            return self._total_pagado_cache
+
         from facturacion.models import Pago, DetallePagoMasivo
         
         # Pagos directos (FK proyecto apunta a este proyecto)
@@ -186,7 +193,13 @@ class Proyecto(models.Model):
         return pagos_directos + pagos_masivos
     @property
     def total_devoluciones(self):
-        """Total de devoluciones realizadas para este proyecto"""
+        """
+        Total de devoluciones realizadas para este proyecto.
+        ⚡ OPTIMIZACIÓN: reutiliza `_total_devoluciones_cache` si fue precalculado.
+        """
+        if hasattr(self, '_total_devoluciones_cache'):
+            return self._total_devoluciones_cache
+
         from facturacion.models import Devolucion
         return Devolucion.objects.filter(
             proyecto=self
@@ -407,6 +420,15 @@ class Sesion(models.Model):
             models.Index(fields=['profesional', 'fecha']),
             models.Index(fields=['estado']),
             models.Index(fields=['proyecto']),
+            # ⚡ OPTIMIZACIÓN: acelera la subquery correlacionada que calcula
+            # "última sesión por paciente+servicio" en la vista `calendario`
+            # (agenda/views.py). Sin este índice, cada fila mostrada obliga
+            # a la base de datos a escanear todas las sesiones del paciente
+            # para filtrar por servicio+estado y ordenar por fecha.
+            models.Index(
+                fields=['paciente', 'servicio', 'estado', '-fecha', '-hora_inicio'],
+                name='idx_sesion_ult_pac_serv_edo'
+            ),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -425,7 +447,19 @@ class Sesion(models.Model):
         Total pagado por esta sesión (incluye TODOS los métodos de pago)
         ✅ CORREGIDO: Incluye efectivo + crédito + pagos masivos
         NOTA: Cambió de @cached_property a @property para que siempre calcule el valor actualizado
+
+        ⚡ OPTIMIZACIÓN: Si el queryset de la vista ya anotó `total_pagado_sesion`
+        (Sum de pagos directos, ver CalendarService / vista `calendario`), se
+        reutiliza ese valor en vez de lanzar 2 queries nuevas POR CADA sesión
+        mostrada. Esto es lo que hacía que el calendario con muchas sesiones
+        se sintiera muy lento: cada fila de la tabla llamaba a `sesion.pagado`
+        en el template, que a su vez llamaba a este método → 2 queries extra
+        por fila (una para pagos directos y otra para pagos masivos).
         '''
+        if hasattr(self, 'total_pagado_sesion'):
+            # Ya viene anotado (solo cubre pagos directos, ver nota abajo)
+            return self.total_pagado_sesion
+
         # ✅ Pagos directos (donde sesion=self)
         pagos_directos = self.pagos.filter(
             anulado=False
@@ -1009,7 +1043,13 @@ class Mensualidad(models.Model):
         """
         ✅ CORREGIDO: Total de pagos recibidos para esta mensualidad
         Incluye TANTO pagos directos COMO pagos masivos
+
+        ⚡ OPTIMIZACIÓN: reutiliza `_total_pagado_cache` si fue precalculado
+        por la vista para evitar N+1 queries en listados.
         """
+        if hasattr(self, '_total_pagado_cache'):
+            return self._total_pagado_cache
+
         from facturacion.models import Pago, DetallePagoMasivo
         
         # Pagos directos (FK mensualidad apunta a esta mensualidad)
@@ -1029,7 +1069,13 @@ class Mensualidad(models.Model):
     
     @property
     def total_devoluciones(self):
-        """Total de devoluciones realizadas para esta mensualidad"""
+        """
+        Total de devoluciones realizadas para esta mensualidad.
+        ⚡ OPTIMIZACIÓN: reutiliza `_total_devoluciones_cache` si fue precalculado.
+        """
+        if hasattr(self, '_total_devoluciones_cache'):
+            return self._total_devoluciones_cache
+
         from facturacion.models import Devolucion
         return Devolucion.objects.filter(
             mensualidad=self
@@ -1062,12 +1108,25 @@ class Mensualidad(models.Model):
     
     @property
     def num_sesiones(self):
-        """Cantidad total de sesiones asociadas"""
+        """
+        Cantidad total de sesiones asociadas.
+        ⚡ OPTIMIZACIÓN: si la vista anotó `num_sesiones_anotado` (vía Count en
+        el queryset), se reutiliza ese valor en vez de lanzar un COUNT nuevo
+        por cada mensualidad de la lista.
+        """
+        if hasattr(self, 'num_sesiones_anotado'):
+            return self.num_sesiones_anotado
         return self.sesiones.count()
     
     @property
     def num_sesiones_realizadas(self):
-        """Cantidad de sesiones realizadas"""
+        """
+        Cantidad de sesiones realizadas.
+        ⚡ OPTIMIZACIÓN: reutiliza `num_sesiones_realizadas_anotado` si está
+        presente (anotado por la vista con Count + filter).
+        """
+        if hasattr(self, 'num_sesiones_realizadas_anotado'):
+            return self.num_sesiones_realizadas_anotado
         return self.sesiones.filter(
             estado__in=['realizada', 'realizada_retraso']
         ).count()

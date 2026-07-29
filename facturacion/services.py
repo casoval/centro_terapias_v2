@@ -2,7 +2,7 @@
 # ✅ CORREGIDO: Cálculo de total_pagado sin duplicar pagos adelantados
 
 from decimal import Decimal
-from django.db.models import Sum, Count, Q, F
+from django.db.models import Sum, Count, Q, F, OuterRef, Subquery, DecimalField, Value
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -29,7 +29,7 @@ class AccountService:
         Returns:
             CuentaCorriente: Instancia actualizada
         """
-        from facturacion.models import CuentaCorriente, Pago, Devolucion
+        from facturacion.models import CuentaCorriente, Pago, Devolucion, DetallePagoMasivo
         from agenda.models import Sesion, Proyecto, Mensualidad
         
         # Obtener o crear cuenta
@@ -48,6 +48,43 @@ class AccountService:
         # ========================================
         
         # 1.1 Sesiones Normales Realizadas (estados con costo ya generado)
+
+        # ⚡ CORRECCIÓN: la subquery que determina si una sesión está
+        # "completamente pagada" (para excluirla del conteo de pendientes)
+        # antes solo miraba pagos directos y no reconocía pagos masivos
+        # (un solo recibo que cubre varias sesiones). Esto podía inflar
+        # `num_sesiones_realizadas_pendientes` para pacientes que pagan así,
+        # aunque el MONTO de saldo pendiente (más abajo) ya sumaba bien
+        # ambos tipos de pago. Se usan subqueries correlacionadas
+        # independientes (mismo patrón que agenda/services.py) para sumar
+        # pagos directos + masivos sin duplicar filas por el JOIN.
+        pagos_directos_sesion_sq = Pago.objects.filter(
+            sesion=OuterRef('pk'), anulado=False
+        ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
+        pagos_masivos_sesion_sq = DetallePagoMasivo.objects.filter(
+            sesion=OuterRef('pk'), tipo='sesion', pago__anulado=False
+        ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
+        sesiones_completamente_pagadas_ids = Sesion.objects.filter(
+            paciente=paciente,
+            proyecto__isnull=True,
+            mensualidad__isnull=True,
+            estado__in=['realizada', 'realizada_retraso', 'falta']
+        ).annotate(
+            _pagado_directo=Coalesce(
+                Subquery(pagos_directos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+                Value(Decimal('0'), output_field=DecimalField(max_digits=10, decimal_places=2))
+            ),
+            _pagado_masivo=Coalesce(
+                Subquery(pagos_masivos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+                Value(Decimal('0'), output_field=DecimalField(max_digits=10, decimal_places=2))
+            ),
+            pagado=F('_pagado_directo') + F('_pagado_masivo')
+        ).filter(
+            pagado__gte=F('monto_cobrado')
+        ).values_list('id', flat=True)
+
         sesiones_realizadas_stats = Sesion.objects.filter(
             paciente=paciente,
             proyecto__isnull=True,  # Solo sesiones normales
@@ -62,19 +99,8 @@ class AccountService:
                     monto_cobrado__gt=0
                 ) & ~Q(
                     # Excluir las que están completamente pagadas
-                    id__in=Sesion.objects.filter(
-                        paciente=paciente,
-                        proyecto__isnull=True,
-                        mensualidad__isnull=True,
-                        estado__in=['realizada', 'realizada_retraso', 'falta']
-                    ).annotate(
-                        pagado=Coalesce(
-                            Sum('pagos__monto', filter=Q(pagos__anulado=False)),
-                            Decimal('0')
-                        )
-                    ).filter(
-                        pagado__gte=F('monto_cobrado')
-                    ).values_list('id', flat=True)
+                    # (pagos directos + masivos)
+                    id__in=sesiones_completamente_pagadas_ids
                 )
             )
         )
@@ -554,7 +580,7 @@ class AccountService:
         Returns:
             dict con 'success', 'mensaje', 'recibos', 'monto_total', 'pago_efectivo', 'pago_credito'
         """
-        from facturacion.models import Pago, MetodoPago, CuentaCorriente
+        from facturacion.models import Pago, MetodoPago, CuentaCorriente, DetallePagoMasivo
         from agenda.models import Sesion, Proyecto, Mensualidad
         
         # Validaciones básicas
@@ -706,14 +732,29 @@ class AccountService:
             recibos.append(pago_credito.numero_recibo)
         
         # 3. Ajustar monto_cobrado si es pago completo
+        #
+        # ⚡ CORRECCIÓN: `total_pagado` aquí antes solo sumaba pagos DIRECTOS
+        # (Pago.objects.filter(sesion=... )). Si la sesión/proyecto/
+        # mensualidad ya tenía parte pagada mediante un PAGO MASIVO (un
+        # recibo que cubre varias sesiones/proyectos a la vez), ese monto
+        # no se veía aquí. Como este bloque SOBRESCRIBE monto_cobrado /
+        # costo_total / costo_mensual con el valor de `total_pagado`, un
+        # pago masivo previo podía terminar borrado silenciosamente del
+        # precio oficial. Ahora se suman también los pagos masivos
+        # (DetallePagoMasivo), igual que en el resto de cálculos de este
+        # mismo archivo (ver AccountService.update_balance más arriba).
         if es_pago_completo:
             if sesion:
-                # Calcular total pagado para esta sesión
+                # Calcular total pagado para esta sesión (directo + masivo)
                 total_pagado = Pago.objects.filter(
                     sesion=sesion,
                     anulado=False
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
-                
+                total_pagado += DetallePagoMasivo.objects.filter(
+                    sesion=sesion,
+                    tipo='sesion',
+                    pago__anulado=False
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
                 
                 # ✅ CORREGIDO: Ajustar monto_cobrado al total pagado
                 # Si es pago de 0 (Sin Cobro), condona la deuda restante
@@ -741,6 +782,11 @@ class AccountService:
                     proyecto=proyecto,
                     anulado=False
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
+                total_pagado += DetallePagoMasivo.objects.filter(
+                    proyecto=proyecto,
+                    tipo='proyecto',
+                    pago__anulado=False
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
                 
                 if proyecto.costo_total != total_pagado:
                     # ✅ Guardar precio original solo la primera vez que se ajusta (solo informativo)
@@ -753,6 +799,11 @@ class AccountService:
                 total_pagado = Pago.objects.filter(
                     mensualidad=mensualidad,
                     anulado=False
+                ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
+                total_pagado += DetallePagoMasivo.objects.filter(
+                    mensualidad=mensualidad,
+                    tipo='mensualidad',
+                    pago__anulado=False
                 ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
                 
                 if mensualidad.costo_mensual != total_pagado:
@@ -826,7 +877,7 @@ class AccountService:
         Returns:
             dict con 'success', 'mensaje', 'devolucion', 'numero_recibo'
         """
-        from facturacion.models import Devolucion, MetodoPago, Pago
+        from facturacion.models import Devolucion, MetodoPago, Pago, DetallePagoMasivo
         from agenda.models import Proyecto, Mensualidad
         
         # Validaciones
@@ -846,9 +897,18 @@ class AccountService:
             proyecto = Proyecto.objects.get(id=referencia_id)
             
             # Verificar que no se devuelva más de lo pagado
+            # ⚡ CORRECCIÓN: antes 'total_pagado' solo sumaba pagos directos.
+            # Un proyecto pagado (total o parcialmente) mediante un pago
+            # masivo aparecía con menos "disponible" del que realmente
+            # tenía, y podía bloquear devoluciones legítimas.
             total_pagado = Pago.objects.filter(
                 proyecto=proyecto,
                 anulado=False
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
+            total_pagado += DetallePagoMasivo.objects.filter(
+                proyecto=proyecto,
+                tipo='proyecto',
+                pago__anulado=False
             ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
             
             devoluciones_previas = Devolucion.objects.filter(
@@ -867,9 +927,15 @@ class AccountService:
                 raise ValidationError('Debe especificar la mensualidad')
             mensualidad = Mensualidad.objects.get(id=referencia_id)
             
+            # ⚡ CORRECCIÓN: mismo caso que arriba, ahora incluye pagos masivos.
             total_pagado = Pago.objects.filter(
                 mensualidad=mensualidad,
                 anulado=False
+            ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
+            total_pagado += DetallePagoMasivo.objects.filter(
+                mensualidad=mensualidad,
+                tipo='mensualidad',
+                pago__anulado=False
             ).aggregate(total=Sum('monto'))['total'] or Decimal('0')
             
             devoluciones_previas = Devolucion.objects.filter(

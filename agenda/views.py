@@ -44,7 +44,7 @@ def lista_proyectos(request):
     from django.db.models import Count
     proyectos = Proyecto.objects.select_related(
         'paciente', 'servicio_base', 'profesional_responsable', 'sucursal'
-    ).annotate(num_documentos=Count('documentos')).all()
+    )
     
     # Filtrar por sucursales del usuario
     sucursales_usuario = request.sucursales_usuario
@@ -73,19 +73,37 @@ def lista_proyectos(request):
         proyectos = proyectos.filter(sucursal_id=sucursal_id)
     
     proyectos = proyectos.order_by('-fecha_inicio')
-    
+
+    # ⚡ OPTIMIZACIÓN: 1 sola query con Count+filter en vez de 4 .count()
+    # separados. Se calcula sobre el queryset SIN la anotación num_documentos
+    # (evita anidar aggregate() sobre un queryset ya agrupado por join, que
+    # puede dar conteos incorrectos si un proyecto tiene varios documentos).
+    stats = proyectos.aggregate(
+        total=Count('id'),
+        en_progreso=Count('id', filter=Q(estado='en_progreso')),
+        planificados=Count('id', filter=Q(estado='planificado')),
+        finalizados=Count('id', filter=Q(estado='finalizado')),
+    )
+    estadisticas = {
+        'total': stats['total'],
+        'en_progreso': stats['en_progreso'],
+        'planificados': stats['planificados'],
+        'finalizados': stats['finalizados'],
+    }
+
+    # Anotación de num_documentos SOLO para lo que se va a mostrar/paginar
+    proyectos_para_mostrar = proyectos.annotate(num_documentos=Count('documentos'))
+
     # Paginación
-    paginator = Paginator(proyectos, 20)
+    paginator = Paginator(proyectos_para_mostrar, 20)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-    
-    # Estadísticas
-    estadisticas = {
-        'total': proyectos.count(),
-        'en_progreso': proyectos.filter(estado='en_progreso').count(),
-        'planificados': proyectos.filter(estado='planificado').count(),
-        'finalizados': proyectos.filter(estado='finalizado').count(),
-    }
+
+    # ⚡ OPTIMIZACIÓN: precalcular total_pagado/total_devoluciones SOLO para
+    # los proyectos de la página actual (20 como máximo), en 3 queries fijas
+    # en vez de hasta 3 queries por cada proyecto mostrado en la tabla.
+    from .services import ProyectoMensualidadService
+    ProyectoMensualidadService.cachear_pagos_en_lista(page_obj.object_list, tipo='proyecto')
     
     # Sucursales para filtro
     from servicios.models import Sucursal
@@ -535,14 +553,21 @@ def lista_mensualidades(request):
     sucursal_id = request.GET.get('sucursal', '')
     
     # Query base - ✅ CORREGIDO: prefetch_related para ManyToMany
-    from django.db.models import Count
+    from django.db.models import Count, Q as Qf
     mensualidades = Mensualidad.objects.select_related(
         'paciente', 'sucursal'
     ).prefetch_related(
         'servicios_profesionales__servicio',  # ✅ Prefetch servicios a través del modelo intermedio
         'servicios_profesionales__profesional',  # ✅ Prefetch profesionales
-        'sesiones'
-    ).annotate(num_documentos=Count('documentos'))
+        # ⚡ OPTIMIZACIÓN: se quitó el prefetch_related('sesiones') que traía
+        # a memoria TODAS las sesiones de cada mensualidad completas, cuando
+        # el template solo necesita un conteo (num_sesiones/num_sesiones_
+        # realizadas). Esas propiedades usan .count(), que ignora el
+        # prefetch de todas formas y vuelve a golpear la base de datos.
+        # Más abajo se anota el conteo directamente sobre la página a
+        # mostrar (1 sola query), y las propiedades del modelo reutilizan
+        # ese valor en vez de volver a consultar.
+    )
     
     # Filtrar por sucursales del usuario
     sucursales_usuario = request.sucursales_usuario
@@ -567,19 +592,45 @@ def lista_mensualidades(request):
         mensualidades = mensualidades.filter(sucursal_id=sucursal_id)
     
     mensualidades = mensualidades.order_by('-anio', '-mes', '-fecha_creacion')
-    
+
+    # ⚡ OPTIMIZACIÓN: 1 sola query con Count+filter en vez de 4 .count()
+    # separados. Se calcula sobre el queryset SIN las anotaciones de
+    # documentos/sesiones (que unen otras tablas) para evitar resultados
+    # incorrectos por "fan-out" de JOIN al anidar aggregate() sobre annotate().
+    stats = mensualidades.aggregate(
+        total=Count('id'),
+        activas=Count('id', filter=Q(estado='activa')),
+        pausadas=Count('id', filter=Q(estado='pausada')),
+        completadas=Count('id', filter=Q(estado='completada')),
+    )
+    estadisticas = {
+        'total': stats['total'],
+        'activas': stats['activas'],
+        'pausadas': stats['pausadas'],
+        'completadas': stats['completadas'],
+    }
+
+    # Anotaciones de conteo (documentos/sesiones) SOLO para lo que se va a
+    # mostrar; queryset aparte para no afectar las estadísticas de arriba.
+    mensualidades_para_mostrar = mensualidades.annotate(
+        num_documentos=Count('documentos', distinct=True),
+        num_sesiones_anotado=Count('sesiones', distinct=True),
+        num_sesiones_realizadas_anotado=Count(
+            'sesiones',
+            filter=Qf(sesiones__estado__in=['realizada', 'realizada_retraso']),
+            distinct=True
+        ),
+    )
+
     # Paginación
-    paginator = Paginator(mensualidades, 20)
+    paginator = Paginator(mensualidades_para_mostrar, 20)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
-    
-    # Estadísticas
-    estadisticas = {
-        'total': mensualidades.count(),
-        'activas': mensualidades.filter(estado='activa').count(),
-        'pausadas': mensualidades.filter(estado='pausada').count(),
-        'completadas': mensualidades.filter(estado='completada').count(),
-    }
+
+    # ⚡ OPTIMIZACIÓN: precalcular total_pagado/total_devoluciones SOLO para
+    # las mensualidades de la página actual, en 3 queries fijas.
+    from .services import ProyectoMensualidadService
+    ProyectoMensualidadService.cachear_pagos_en_lista(page_obj.object_list, tipo='mensualidad')
     
     # Sucursales para filtro
     if sucursales_usuario is not None and sucursales_usuario.exists():
@@ -927,28 +978,21 @@ def calendario(request):
     
     # ✅ ORDENAR: Las fechas más recientes primero (descendente)
     sesiones = sesiones.order_by('-fecha', '-hora_inicio')
-    
-    sesiones_lista = []
-    for sesion in sesiones:
-        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
-        
-        # ✅ DETECTAR SESIONES EN CURSO (EN VIVO)
-        from django.utils import timezone
-        
-        # CORRECCIÓN: Convertir a hora local (reloj real) antes de comparar
-        ahora = timezone.localtime(timezone.now()) 
-        
-        # Verificar si la sesión está ocurriendo AHORA
-        sesion.es_sesion_en_curso = (
-            sesion.estado == 'programada' and
-            sesion.fecha == ahora.date() and
-            # Comparamos hora local con hora de la sesión
-            sesion.hora_inicio <= ahora.time() <= sesion.hora_fin
-        )
-        
-        sesiones_lista.append(sesion)
-    
-    # ✅ NUEVO: Paginación para vista lista
+
+    # ⚡ OPTIMIZACIÓN: anotamos el total pagado (directo + masivo) de UNA vez
+    # sobre el queryset, en vez de dejar que cada sesión lo calcule sola en
+    # el template (eso generaba 2 queries extra POR CADA fila mostrada).
+    # Ver CalendarService.annotate_total_pagado para el detalle.
+    sesiones_con_pagos = CalendarService.annotate_total_pagado(sesiones)
+
+    # ✅ Paginación para vista lista
+    # ⚡ OPTIMIZACIÓN CRÍTICA: antes se traía a memoria TODO el histórico de
+    # sesiones que cumplía los filtros (sin límite de fecha en vista lista)
+    # y recién ahí se paginaba con una lista de Python. Con miles de sesiones
+    # acumuladas, eso significaba cargar y procesar todo el historial en
+    # cada carga de página, aunque solo se mostraran 50 filas.
+    # Ahora paginamos el QUERYSET (LIMIT/OFFSET a nivel de base de datos) y
+    # solo procesamos en Python las filas que realmente se van a mostrar.
     if vista == 'lista':
         # Obtener cantidad de items por página (default: 50)
         por_pagina = request.GET.get('por_pagina', '50')
@@ -959,30 +1003,53 @@ def calendario(request):
                 por_pagina = 50
         except:
             por_pagina = 50
-        
-        # Aplicar paginación
-        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-        
-        paginator = Paginator(sesiones_lista, por_pagina)
+
+        from django.core.paginator import EmptyPage, PageNotAnInteger
+
+        paginator = Paginator(sesiones_con_pagos, por_pagina)
         page_number = request.GET.get('page', 1)
-        
+
         try:
-            sesiones_paginadas = paginator.get_page(page_number)
+            page_obj = paginator.get_page(page_number)
         except PageNotAnInteger:
-            sesiones_paginadas = paginator.get_page(1)
+            page_obj = paginator.get_page(1)
         except EmptyPage:
-            sesiones_paginadas = paginator.get_page(paginator.num_pages)
-        
-        # Para vista lista, usar sesiones paginadas
-        sesiones_lista = list(sesiones_paginadas)
-        page_obj = sesiones_paginadas
+            page_obj = paginator.get_page(paginator.num_pages)
+
+        # object_list es un queryset ya recortado (LIMIT/OFFSET): solo trae
+        # de la base de datos las filas de la página actual.
+        sesiones_a_procesar = page_obj.object_list
     else:
+        # Vistas diaria/semanal/mensual ya vienen acotadas por rango de fecha
+        # (un día, una semana o un mes), así que procesarlas completas es seguro.
         page_obj = None
+        sesiones_a_procesar = sesiones_con_pagos
+
+    # ✅ DETECTAR SESIONES EN CURSO (EN VIVO)
+    # Se calcula UNA sola vez fuera del loop (antes se recalculaba en cada
+    # iteración, lo cual era innecesario ya que "ahora" no cambia dentro
+    # del mismo request).
+    from django.utils import timezone
+    ahora = timezone.localtime(timezone.now())
+
+    sesiones_lista = []
+    for sesion in sesiones_a_procesar:
+        sesion.es_ultima_sesion_paciente_servicio = (sesion.id == sesion.latest_sesion_id)
+
+        # Verificar si la sesión está ocurriendo AHORA
+        sesion.es_sesion_en_curso = (
+            sesion.estado == 'programada' and
+            sesion.fecha == ahora.date() and
+            # Comparamos hora local con hora de la sesión
+            sesion.hora_inicio <= ahora.time() <= sesion.hora_fin
+        )
+
+        sesiones_lista.append(sesion)
 
     # 3. Generar estructura del calendario
     calendario_data = CalendarService.get_calendar_data(vista, fecha_base, sesiones_lista)
     
-    # 4. Estadísticas
+    # 4. Estadísticas (sobre TODO el rango filtrado, no solo la página visible)
     estadisticas = sesiones.aggregate(
         total_monto=Sum('monto_cobrado'),
         count_programadas=Count('id', filter=Q(estado='programada')),
@@ -993,39 +1060,45 @@ def calendario(request):
         count_cancelada=Count('id', filter=Q(estado='cancelada')),
         count_reprogramada=Count('id', filter=Q(estado='reprogramada')),
     )
-    
-    # Calcular pagos
-    sesiones_con_pagos = sesiones.annotate(
-        total_pagado_sesion=Coalesce(Sum('pagos__monto', filter=Q(pagos__anulado=False)), Decimal('0.00'))
-    )
-    
-    stats_pagos = sesiones_con_pagos.aggregate(
-        total_pagado=Sum('total_pagado_sesion'),
-        total_pendiente=Sum(
-             Case(
-                 When(monto_cobrado__gt=F('total_pagado_sesion'), then=F('monto_cobrado') - F('total_pagado_sesion')),
-                 default=Decimal('0.00'),
-                 output_field=DecimalField()
-             )
-        ),
-        count_pagados=Count(
-            Case(
-                When(monto_cobrado__gt=0, total_pagado_sesion__gte=F('monto_cobrado'), then=1),
-                output_field=DecimalField()
-            )
-        ),
-        count_pendientes=Count(
-            Case(
-                When(monto_cobrado__gt=0, total_pagado_sesion__lt=F('monto_cobrado'), then=1),
-                output_field=DecimalField()
-            )
-        )
-    )
 
-    estadisticas['total_pagado'] = stats_pagos['total_pagado'] or Decimal('0.00')
-    estadisticas['total_pendiente'] = stats_pagos['total_pendiente'] or Decimal('0.00')
-    estadisticas['count_pagados'] = stats_pagos['count_pagados']
-    estadisticas['count_pendientes'] = stats_pagos['count_pendientes']
+    # Estadísticas de pagos (ya incluye pagos masivos, corrigiendo un
+    # cálculo que antes los omitía).
+    #
+    # ⚡ CORRECCIÓN DE RENDIMIENTO (detectada probando con una copia real de
+    # la base de datos, no con datos sintéticos): hacer esto con un solo
+    # `.aggregate()` que referencia `total_pagado_sesion` cuatro veces
+    # (en el Sum, y en 3 expresiones CASE) hace que Postgres vuelva a
+    # ejecutar las 2 subqueries correlacionadas (pagos directos + masivos)
+    # UNA VEZ POR CADA referencia — es decir, 3-4 pasadas completas sobre
+    # todas las sesiones filtradas en vez de 1. Con ~10.500 sesiones reales
+    # esto tardaba más de 1 segundo (confirmado con EXPLAIN ANALYZE), y era
+    # el 97% del tiempo total de la página.
+    #
+    # La solución: traer una sola vez por fila solo los 2 números que hacen
+    # falta (`monto_cobrado`, `total_pagado_sesion` ya resuelto por la
+    # subquery) — no el objeto Sesion completo con sus 6 joins — y sumar en
+    # Python. Esto evalúa cada subquery UNA sola vez por fila.
+    montos = sesiones_con_pagos.values('monto_cobrado', 'total_pagado_sesion')
+
+    total_pagado = Decimal('0.00')
+    total_pendiente = Decimal('0.00')
+    count_pagados = 0
+    count_pendientes = 0
+    for m in montos:
+        pagado = m['total_pagado_sesion'] or Decimal('0.00')
+        cobrado = m['monto_cobrado'] or Decimal('0.00')
+        total_pagado += pagado
+        if cobrado > 0:
+            if pagado >= cobrado:
+                count_pagados += 1
+            else:
+                count_pendientes += 1
+                total_pendiente += (cobrado - pagado)
+
+    estadisticas['total_pagado'] = total_pagado
+    estadisticas['total_pendiente'] = total_pendiente
+    estadisticas['count_pagados'] = count_pagados
+    estadisticas['count_pendientes'] = count_pendientes
     
     # 5. Datos para Selectores (Filtros)
     sucursales_usuario = request.sucursales_usuario

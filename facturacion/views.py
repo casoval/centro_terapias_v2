@@ -1008,7 +1008,7 @@ def detalle_cuenta_ajax(request, paciente_id):
         proyecto__isnull=True
     ).exclude(
         metodo_pago__nombre="Uso de Crédito"
-    ).aggregate(total=Sum('monto'))['monto__sum'] or Decimal('0.00')
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
     # Pagos de sesiones pendientes
     pagos_sesiones_pendientes = Pago.objects.filter(
@@ -1017,18 +1017,42 @@ def detalle_cuenta_ajax(request, paciente_id):
         sesion__estado='programada'
     ).exclude(
         metodo_pago__nombre="Uso de Crédito"
-    ).aggregate(total=Sum('monto'))['monto__sum'] or Decimal('0.00')
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
     # Excedentes
+    # ⚡ CORRECCIÓN: antes solo se sumaban pagos directos, por lo que una
+    # sesión pagada (o sobrepagada) mediante un PAGO MASIVO nunca aparecía
+    # aquí, aunque tuviera excedente real. Se usa el mismo patrón de
+    # subqueries correlacionadas independientes que en agenda/services.py
+    # y facturacion/services.py para evitar "fan-out" de JOIN.
+    from django.db.models import OuterRef, Subquery, Value
+
+    pagos_directos_sesion_sq = Pago.objects.filter(
+        sesion=OuterRef('pk'), anulado=False
+    ).exclude(
+        metodo_pago__nombre="Uso de Crédito"
+    ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
+    pagos_masivos_sesion_sq = DetallePagoMasivo.objects.filter(
+        sesion=OuterRef('pk'), tipo='sesion', pago__anulado=False
+    ).exclude(
+        pago__metodo_pago__nombre="Uso de Crédito"
+    ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
     sesiones_con_excedente = Sesion.objects.filter(
         paciente=paciente,
         proyecto__isnull=True,
         monto_cobrado__gt=0
     ).annotate(
-        total_pagado_calc=Coalesce(
-            Sum('pagos__monto', filter=Q(pagos__anulado=False) & ~Q(pagos__metodo_pago__nombre="Uso de Crédito")), 
-            Decimal('0.00')
-        )
+        _pagado_directo_calc=Coalesce(
+            Subquery(pagos_directos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        ),
+        _pagado_masivo_calc=Coalesce(
+            Subquery(pagos_masivos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        ),
+        total_pagado_calc=F('_pagado_directo_calc') + F('_pagado_masivo_calc')
     ).filter(
         total_pagado_calc__gt=F('monto_cobrado')
     )
@@ -1042,7 +1066,7 @@ def detalle_cuenta_ajax(request, paciente_id):
         paciente=paciente,
         anulado=False,
         metodo_pago__nombre="Uso de Crédito"
-    ).aggregate(total=Sum('monto'))['monto__sum'] or Decimal('0.00')
+    ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
     return JsonResponse({
         'success': True,
