@@ -253,7 +253,7 @@
                             </button>
                             
                             <!-- ✅ Botón eliminar (solo programadas sin pago, SOLO GERENTES Y SUPERADMIN) -->
-                            {% if sesion.estado == 'programada' and not sesion.pagos.exists %}
+                            {% if sesion.estado == 'programada' and not sesion.tiene_pagos %}
                                 {% if user.is_superuser or user.perfil.puede_eliminar_sesiones %}
                                 <button onclick="confirmarEliminar(event, {{ sesion.id }}, '{{ sesion.paciente.nombre|escapejs }} {{ sesion.paciente.apellido|escapejs }}', '{{ sesion.servicio.nombre|escapejs }}', '{{ sesion.fecha|date:"d/m/Y" }}', '{{ sesion.hora_inicio|time:"g:i A" }}')"
                                         class="text-red-600 hover:text-red-900 transition"

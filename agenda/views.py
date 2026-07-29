@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, Value, DecimalField
+from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Exists, Case, When, Value, DecimalField
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
@@ -972,8 +972,18 @@ def calendario(request):
         estado__in=['programada', 'realizada', 'realizada_retraso']
     ).order_by('-fecha', '-hora_inicio').values('id')[:1]
     
+    from facturacion.models import Pago
+
+    # ⚡ OPTIMIZACIÓN: anotamos si la sesión tiene algún pago asociado (incluye
+    # anulados a propósito, para no permitir borrar una sesión con historial
+    # de pagos). Antes cada tarjeta llamaba sesion.pagos.exists() en el
+    # template, disparando una consulta individual por cada sesión en estado
+    # "programada" (250+ queries extra medidas en producción, ~6s del total).
+    tiene_pagos_sq = Pago.objects.filter(sesion=OuterRef('pk'))
+
     sesiones = sesiones.annotate(
-        latest_sesion_id=Subquery(latest_sesion_sq)
+        latest_sesion_id=Subquery(latest_sesion_sq),
+        tiene_pagos=Exists(tiene_pagos_sq)
     )
     
     # ✅ ORDENAR: Las fechas más recientes primero (descendente)
