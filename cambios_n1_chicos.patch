@@ -1,0 +1,308 @@
+diff --git a/chat/views.py b/chat/views.py
+index abc6eff..3d42c55 100644
+--- a/chat/views.py
++++ b/chat/views.py
+@@ -3,7 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
+ from django.contrib.auth.decorators import login_required
+ from django.contrib import messages
+ from django.http import JsonResponse
+-from django.db.models import Q, Max, Count
++from django.db.models import Q, Max, Count, OuterRef, Subquery, IntegerField
++from django.db.models.functions import Coalesce
+ from django.utils import timezone
+ from django.contrib.auth.models import User
+ 
+@@ -41,6 +42,24 @@ def lista_conversaciones(request):
+     """
+     usuario = request.user
+ 
++    # ⚡ OPTIMIZACIÓN: antes cada conversación disparaba 2 queries propias
++    # (conv.get_ultimo_mensaje() y conv.get_mensajes_no_leidos()) dentro del
++    # loop de Python — con 30-50 conversaciones activas eso son 60-100
++    # queries extra solo para abrir el chat. Se reemplaza por 2 subqueries
++    # correlacionadas (una por conversación, sin fan-out ya que no se
++    # combinan con el Max() existente) + 1 query final en bloque para traer
++    # los mensajes de vista previa. Resultado: 3 queries totales sin
++    # importar cuántas conversaciones tenga el usuario.
++    ultimo_mensaje_id_sq = Mensaje.objects.filter(
++        conversacion=OuterRef('pk')
++    ).order_by('-fecha_envio').values('id')[:1]
++
++    no_leidos_sq = Mensaje.objects.filter(
++        conversacion=OuterRef('pk'), leido=False
++    ).exclude(remitente=usuario).values('conversacion').annotate(
++        c=Count('id')
++    ).values('c')
++
+     # ✅ MODIFICADO: excluir conversaciones con el usuario IA
+     conversaciones = Conversacion.objects.filter(
+         Q(usuario_1=usuario) | Q(usuario_2=usuario),
+@@ -51,15 +70,32 @@ def lista_conversaciones(request):
+     ).select_related(
+         'usuario_1', 'usuario_2'
+     ).annotate(
+-        ultimo_mensaje_fecha=Max('mensajes__fecha_envio')
+-    ).order_by('-ultimo_mensaje_fecha')
++        ultimo_mensaje_fecha=Max('mensajes__fecha_envio'),
++        ultimo_mensaje_id=Subquery(ultimo_mensaje_id_sq),
++        mensajes_no_leidos_anotado=Coalesce(
++            Subquery(no_leidos_sq, output_field=IntegerField()), 0
++        ),
++    # ⚡ Desempate explícito por -id: conversaciones sin mensajes (ultimo_
++    # mensaje_fecha = NULL) empatan entre sí. Sin un criterio de desempate,
++    # Postgres no garantiza un orden estable entre ellas — el orden podía
++    # variar entre ejecuciones sin que nada estuviera mal, solo indefinido.
++    ).order_by('-ultimo_mensaje_fecha', '-id')
++
++    # Traer los "últimos mensajes" de todas las conversaciones en UNA sola
++    # query (en vez de una por conversación via get_ultimo_mensaje()).
++    ids_ultimos_mensajes = [
++        c.ultimo_mensaje_id for c in conversaciones if c.ultimo_mensaje_id
++    ]
++    mensajes_por_id = {
++        m.id: m for m in Mensaje.objects.filter(id__in=ids_ultimos_mensajes)
++    }
+ 
+     # Preparar datos para la vista
+     conversaciones_data = []
+     for conv in conversaciones:
+         otro_usuario = conv.get_otro_usuario(usuario)
+-        ultimo_mensaje = conv.get_ultimo_mensaje()
+-        mensajes_no_leidos = conv.get_mensajes_no_leidos(usuario)
++        ultimo_mensaje = mensajes_por_id.get(conv.ultimo_mensaje_id)
++        mensajes_no_leidos = conv.mensajes_no_leidos_anotado
+ 
+         nombre_completo = otro_usuario.get_full_name() or otro_usuario.username
+         rol = 'Usuario'
+diff --git a/documentos/views.py b/documentos/views.py
+index 69ddc61..4301ab6 100644
+--- a/documentos/views.py
++++ b/documentos/views.py
+@@ -1,7 +1,7 @@
+ from django.shortcuts import render, redirect, get_object_or_404
+ from django.contrib.auth.decorators import login_required
+ from django.contrib import messages
+-from django.db.models import Count, Q
++from django.db.models import Count, Q, Max
+ from django.http import HttpResponseForbidden
+ 
+ from pacientes.models import Paciente
+@@ -165,6 +165,10 @@ def resumen_paciente_profesional(request, paciente_id):
+ 
+     # Resumen de sesiones agrupado por servicio (todas, de cualquier profesional)
+     sesiones_qs = Sesion.objects.filter(paciente=paciente).select_related('servicio')
++    # ⚡ OPTIMIZACIÓN: ultima_fecha se anota en la MISMA consulta agrupada
++    # (Max('fecha') sobre la misma relación ya agrupada por servicio, sin
++    # riesgo de fan-out ya que no combina relaciones distintas). Antes se
++    # hacía una query aparte POR CADA servicio para buscar su última fecha.
+     resumen_servicios = (
+         sesiones_qs.values('servicio__id', 'servicio__nombre')
+         .annotate(
+@@ -172,12 +176,10 @@ def resumen_paciente_profesional(request, paciente_id):
+             realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
+             programadas=Count('id', filter=Q(estado='programada')),
+             faltas_canceladas=Count('id', filter=Q(estado__in=['falta', 'cancelada'])),
++            ultima_fecha=Max('fecha'),
+         )
+         .order_by('servicio__nombre')
+     )
+-    for grupo in resumen_servicios:
+-        ultima = sesiones_qs.filter(servicio_id=grupo['servicio__id']).order_by('-fecha').first()
+-        grupo['ultima_fecha'] = ultima.fecha if ultima else None
+ 
+     context = {
+         'paciente': paciente,
+diff --git a/facturacion/views.py b/facturacion/views.py
+index 4541627..e494fa8 100644
+--- a/facturacion/views.py
++++ b/facturacion/views.py
+@@ -191,10 +191,20 @@ def lista_cuentas_corrientes(request):
+ 
+     pacientes = pacientes.distinct()
+ 
+-    # Crear cuentas faltantes (sin actualizar saldos - se hace con señales)
+-    for paciente in pacientes:
+-        if not hasattr(paciente, 'cuenta_corriente'):
+-            CuentaCorriente.objects.create(paciente=paciente)
++    # ⚡ OPTIMIZACIÓN: antes esto recorría en Python TODOS los pacientes
++    # filtrados (podían ser cientos) ANTES de paginar, solo para detectar
++    # cuáles no tenían cuenta corriente creada — forzando a traer a memoria
++    # pacientes que ni siquiera se iban a mostrar en esta página. Ahora es
++    # 1 query para detectar cuáles faltan + 1 bulk_create (sin signals
++    # asociados a CuentaCorriente, así que bulk_create es seguro aquí).
++    pacientes_sin_cuenta_ids = list(
++        pacientes.filter(cuenta_corriente__isnull=True).values_list('id', flat=True)
++    )
++    if pacientes_sin_cuenta_ids:
++        CuentaCorriente.objects.bulk_create(
++            [CuentaCorriente(paciente_id=pid) for pid in pacientes_sin_cuenta_ids],
++            ignore_conflicts=True,
++        )
+     
+     # ==================== FILTRADO POR ESTADO DE SALDO ====================
+     if estado == 'deudor':
+@@ -6088,11 +6098,19 @@ def reporte_financiero(request):
+         mensualidades = mensualidades.filter(sucursal_id=sucursal_id)
+     
+     # ==================== PAGOS ====================
++    # ⚡ OPTIMIZACIÓN: el PDF de este reporte (informe_financiero_pdf.py,
++    # sección de pagos) accede a pago.sesion.servicio.nombre y
++    # pago.proyecto.servicio_base.nombre — un nivel más profundo del que
++    # cubría el select_related original. Sin esto, cada pago mostrado en el
++    # PDF dispara 1-2 queries extra para traer esas relaciones.
+     pagos = Pago.objects.filter(
+         fecha_pago__gte=fecha_desde_obj,
+         fecha_pago__lte=fecha_hasta_obj,
+         anulado=False  # Solo pagos válidos
+-    ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto', 'registrado_por')
++    ).select_related(
++        'paciente', 'metodo_pago', 'sesion', 'sesion__servicio',
++        'proyecto', 'proyecto__servicio_base', 'registrado_por'
++    )
+ 
+     # Sin restricción de fecha: usado para calcular si un ítem (sesión/proyecto/
+     # mensualidad) YA está pagado, sin importar cuándo se registró el pago.
+diff --git a/pacientes/migrations/0008_alter_paciente_estado.py b/pacientes/migrations/0008_alter_paciente_estado.py
+new file mode 100644
+index 0000000..05c6da9
+--- /dev/null
++++ b/pacientes/migrations/0008_alter_paciente_estado.py
+@@ -0,0 +1,18 @@
++# Generated by Django 6.0 on 2026-08-01 01:10
++
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++
++    dependencies = [
++        ('pacientes', '0007_paciente_direccion_escuela'),
++    ]
++
++    operations = [
++        migrations.AlterField(
++            model_name='paciente',
++            name='estado',
++            field=models.CharField(choices=[('activo', 'Activo'), ('inactivo', 'Inactivo')], db_index=True, default='activo', max_length=10),
++        ),
++    ]
+diff --git a/pacientes/models.py b/pacientes/models.py
+index 7bdd177..22b9844 100644
+--- a/pacientes/models.py
++++ b/pacientes/models.py
+@@ -174,7 +174,7 @@ class Paciente(models.Model):
+     )
+ 
+     # Estado
+-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='activo')
++    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='activo', db_index=True)
+     
+     # Metadata
+     fecha_registro = models.DateTimeField(auto_now_add=True)
+diff --git a/pacientes/views.py b/pacientes/views.py
+index 4ea9fb5..0cd85dc 100644
+--- a/pacientes/views.py
++++ b/pacientes/views.py
+@@ -561,46 +561,43 @@ def detalle_paciente(request, pk):
+     ).prefetch_related('servicios', 'sucursales')
+     
+     # ✅ Agregar estadísticas por profesional
++    # ⚡ OPTIMIZACIÓN: antes cada profesional disparaba 4 queries nuevas
++    # (total_sesiones, sesiones_realizadas, proxima_sesion, servicios_ids)
++    # dentro de este loop. Ahora se trae TODA la historia de sesiones de
++    # este paciente en una sola consulta (ya con profesional y servicio
++    # precargados) y las estadísticas se calculan en Python a partir de esa
++    # misma lista — 1 query total sin importar cuántos profesionales.
++    todas_sesiones_paciente = list(
++        Sesion.objects.filter(paciente=paciente).select_related('profesional', 'servicio')
++    )
++    hoy = date.today()
++
+     profesionales_data = []
+     for profesional in profesionales:
+-        # Contar sesiones totales con este profesional
+-        total_sesiones = Sesion.objects.filter(
+-            paciente=paciente,
+-            profesional=profesional
+-        ).count()
+-        
+-        # Contar sesiones realizadas
+-        sesiones_realizadas = Sesion.objects.filter(
+-            paciente=paciente,
+-            profesional=profesional,
+-            estado__in=['realizada', 'realizada_retraso']
+-        ).count()
+-        
+-        # Próxima sesión con este profesional
+-        proxima_sesion = Sesion.objects.filter(
+-            paciente=paciente,
+-            profesional=profesional,
+-            estado__in=['programada', 'retraso', 'con_retraso'],
+-            fecha__gte=date.today()
+-        ).order_by('fecha', 'hora_inicio').first()
+-        
+-        # Servicios únicos que este profesional da a este paciente
+-        servicios_ids = Sesion.objects.filter(
+-            paciente=paciente,
+-            profesional=profesional
+-        ).values_list('servicio_id', flat=True).distinct()
+-        
+-        from servicios.models import TipoServicio
+-        servicios_profesional = TipoServicio.objects.filter(
+-            id__in=servicios_ids
+-        ).values_list('nombre', flat=True)
+-        
++        sesiones_prof = [s for s in todas_sesiones_paciente if s.profesional_id == profesional.id]
++
++        total_sesiones = len(sesiones_prof)
++        sesiones_realizadas = sum(
++            1 for s in sesiones_prof if s.estado in ('realizada', 'realizada_retraso')
++        )
++
++        proximas = sorted(
++            (s for s in sesiones_prof
++             if s.estado in ('programada', 'retraso', 'con_retraso') and s.fecha >= hoy),
++            key=lambda s: (s.fecha, s.hora_inicio)
++        )
++        proxima_sesion = proximas[0] if proximas else None
++
++        servicios_profesional = sorted({
++            s.servicio.nombre for s in sesiones_prof if s.servicio_id
++        })
++
+         profesionales_data.append({
+             'profesional': profesional,
+             'total_sesiones': total_sesiones,
+             'sesiones_realizadas': sesiones_realizadas,
+             'proxima_sesion': proxima_sesion,
+-            'servicios': list(servicios_profesional),
++            'servicios': servicios_profesional,
+         })
+     
+     context = {
+diff --git a/templates/asistencia/admin/fechas_especiales.html b/templates/asistencia/admin/fechas_especiales.html
+index 5456ac3..a0f6c24 100644
+--- a/templates/asistencia/admin/fechas_especiales.html
++++ b/templates/asistencia/admin/fechas_especiales.html
+@@ -153,7 +153,7 @@
+             <div class="text-xs text-gray-400 italic mt-0.5">"{{ fecha.motivo }}"</div>
+             {% endif %}
+             <div class="text-xs text-gray-400 mt-1">
+-              {% with count=fecha.profesionales.count %}
++              {% with count=fecha.profesionales.all|length %}
+                 {% if count == 0 %}Todos los profesionales{% else %}{{ count }} seleccionado{{ count|pluralize:"s" }}{% endif %}
+               {% endwith %}
+               · {{ fecha.creado_por.get_full_name|default:"—" }}
+diff --git a/templates/egresos/liquidar_honorarios.html b/templates/egresos/liquidar_honorarios.html
+index 377b231..785cb83 100644
+--- a/templates/egresos/liquidar_honorarios.html
++++ b/templates/egresos/liquidar_honorarios.html
+@@ -244,7 +244,7 @@
+                         </td>
+                         <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap {% if pago.egreso.anulado %}line-through{% endif %}">{{ pago.fecha|date:"d/m/Y" }}</td>
+                         <td class="px-4 py-2.5 font-medium {% if pago.egreso.anulado %}text-gray-400 line-through{% else %}text-gray-700{% endif %}">{{ pago.profesional.nombre }} {{ pago.profesional.apellido }}</td>
+-                        <td class="px-4 py-2.5 text-center text-gray-500 hidden sm:table-cell">{{ pago.sesiones.count }}</td>
++                        <td class="px-4 py-2.5 text-center text-gray-500 hidden sm:table-cell">{{ pago.sesiones.all|length }}</td>
+                         <td class="px-4 py-2.5 text-right text-gray-500 hidden md:table-cell">Bs. {{ pago.monto_deuda|floatformat:0 }}</td>
+                         <td class="px-4 py-2.5 text-right font-bold {% if pago.egreso.anulado %}text-red-400 line-through{% else %}text-purple-600{% endif %}">Bs. {{ pago.monto_pagado|floatformat:0 }}</td>
+                         <td class="px-4 py-2.5 text-right hidden md:table-cell {% if pago.egreso.anulado %}text-gray-300{% elif pago.diferencia > 0 %}text-amber-600{% elif pago.diferencia < 0 %}text-blue-600{% else %}text-gray-400{% endif %}">

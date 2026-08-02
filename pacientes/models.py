@@ -174,7 +174,7 @@ class Paciente(models.Model):
     )
 
     # Estado
-    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='activo')
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default='activo', db_index=True)
     
     # Metadata
     fecha_registro = models.DateTimeField(auto_now_add=True)

@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max
 from django.http import HttpResponseForbidden
 
 from pacientes.models import Paciente
@@ -165,6 +165,10 @@ def resumen_paciente_profesional(request, paciente_id):
 
     # Resumen de sesiones agrupado por servicio (todas, de cualquier profesional)
     sesiones_qs = Sesion.objects.filter(paciente=paciente).select_related('servicio')
+    # ⚡ OPTIMIZACIÓN: ultima_fecha se anota en la MISMA consulta agrupada
+    # (Max('fecha') sobre la misma relación ya agrupada por servicio, sin
+    # riesgo de fan-out ya que no combina relaciones distintas). Antes se
+    # hacía una query aparte POR CADA servicio para buscar su última fecha.
     resumen_servicios = (
         sesiones_qs.values('servicio__id', 'servicio__nombre')
         .annotate(
@@ -172,12 +176,10 @@ def resumen_paciente_profesional(request, paciente_id):
             realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
             programadas=Count('id', filter=Q(estado='programada')),
             faltas_canceladas=Count('id', filter=Q(estado__in=['falta', 'cancelada'])),
+            ultima_fecha=Max('fecha'),
         )
         .order_by('servicio__nombre')
     )
-    for grupo in resumen_servicios:
-        ultima = sesiones_qs.filter(servicio_id=grupo['servicio__id']).order_by('-fecha').first()
-        grupo['ultima_fecha'] = ultima.fecha if ultima else None
 
     context = {
         'paciente': paciente,

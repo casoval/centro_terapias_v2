@@ -561,46 +561,43 @@ def detalle_paciente(request, pk):
     ).prefetch_related('servicios', 'sucursales')
     
     # ✅ Agregar estadísticas por profesional
+    # ⚡ OPTIMIZACIÓN: antes cada profesional disparaba 4 queries nuevas
+    # (total_sesiones, sesiones_realizadas, proxima_sesion, servicios_ids)
+    # dentro de este loop. Ahora se trae TODA la historia de sesiones de
+    # este paciente en una sola consulta (ya con profesional y servicio
+    # precargados) y las estadísticas se calculan en Python a partir de esa
+    # misma lista — 1 query total sin importar cuántos profesionales.
+    todas_sesiones_paciente = list(
+        Sesion.objects.filter(paciente=paciente).select_related('profesional', 'servicio')
+    )
+    hoy = date.today()
+
     profesionales_data = []
     for profesional in profesionales:
-        # Contar sesiones totales con este profesional
-        total_sesiones = Sesion.objects.filter(
-            paciente=paciente,
-            profesional=profesional
-        ).count()
-        
-        # Contar sesiones realizadas
-        sesiones_realizadas = Sesion.objects.filter(
-            paciente=paciente,
-            profesional=profesional,
-            estado__in=['realizada', 'realizada_retraso']
-        ).count()
-        
-        # Próxima sesión con este profesional
-        proxima_sesion = Sesion.objects.filter(
-            paciente=paciente,
-            profesional=profesional,
-            estado__in=['programada', 'retraso', 'con_retraso'],
-            fecha__gte=date.today()
-        ).order_by('fecha', 'hora_inicio').first()
-        
-        # Servicios únicos que este profesional da a este paciente
-        servicios_ids = Sesion.objects.filter(
-            paciente=paciente,
-            profesional=profesional
-        ).values_list('servicio_id', flat=True).distinct()
-        
-        from servicios.models import TipoServicio
-        servicios_profesional = TipoServicio.objects.filter(
-            id__in=servicios_ids
-        ).values_list('nombre', flat=True)
-        
+        sesiones_prof = [s for s in todas_sesiones_paciente if s.profesional_id == profesional.id]
+
+        total_sesiones = len(sesiones_prof)
+        sesiones_realizadas = sum(
+            1 for s in sesiones_prof if s.estado in ('realizada', 'realizada_retraso')
+        )
+
+        proximas = sorted(
+            (s for s in sesiones_prof
+             if s.estado in ('programada', 'retraso', 'con_retraso') and s.fecha >= hoy),
+            key=lambda s: (s.fecha, s.hora_inicio)
+        )
+        proxima_sesion = proximas[0] if proximas else None
+
+        servicios_profesional = sorted({
+            s.servicio.nombre for s in sesiones_prof if s.servicio_id
+        })
+
         profesionales_data.append({
             'profesional': profesional,
             'total_sesiones': total_sesiones,
             'sesiones_realizadas': sesiones_realizadas,
             'proxima_sesion': proxima_sesion,
-            'servicios': list(servicios_profesional),
+            'servicios': servicios_profesional,
         })
     
     context = {

@@ -3,7 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Q, Max, Count
+from django.db.models import Q, Max, Count, OuterRef, Subquery, IntegerField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.contrib.auth.models import User
 
@@ -41,6 +42,24 @@ def lista_conversaciones(request):
     """
     usuario = request.user
 
+    # ⚡ OPTIMIZACIÓN: antes cada conversación disparaba 2 queries propias
+    # (conv.get_ultimo_mensaje() y conv.get_mensajes_no_leidos()) dentro del
+    # loop de Python — con 30-50 conversaciones activas eso son 60-100
+    # queries extra solo para abrir el chat. Se reemplaza por 2 subqueries
+    # correlacionadas (una por conversación, sin fan-out ya que no se
+    # combinan con el Max() existente) + 1 query final en bloque para traer
+    # los mensajes de vista previa. Resultado: 3 queries totales sin
+    # importar cuántas conversaciones tenga el usuario.
+    ultimo_mensaje_id_sq = Mensaje.objects.filter(
+        conversacion=OuterRef('pk')
+    ).order_by('-fecha_envio').values('id')[:1]
+
+    no_leidos_sq = Mensaje.objects.filter(
+        conversacion=OuterRef('pk'), leido=False
+    ).exclude(remitente=usuario).values('conversacion').annotate(
+        c=Count('id')
+    ).values('c')
+
     # ✅ MODIFICADO: excluir conversaciones con el usuario IA
     conversaciones = Conversacion.objects.filter(
         Q(usuario_1=usuario) | Q(usuario_2=usuario),
@@ -51,15 +70,32 @@ def lista_conversaciones(request):
     ).select_related(
         'usuario_1', 'usuario_2'
     ).annotate(
-        ultimo_mensaje_fecha=Max('mensajes__fecha_envio')
-    ).order_by('-ultimo_mensaje_fecha')
+        ultimo_mensaje_fecha=Max('mensajes__fecha_envio'),
+        ultimo_mensaje_id=Subquery(ultimo_mensaje_id_sq),
+        mensajes_no_leidos_anotado=Coalesce(
+            Subquery(no_leidos_sq, output_field=IntegerField()), 0
+        ),
+    # ⚡ Desempate explícito por -id: conversaciones sin mensajes (ultimo_
+    # mensaje_fecha = NULL) empatan entre sí. Sin un criterio de desempate,
+    # Postgres no garantiza un orden estable entre ellas — el orden podía
+    # variar entre ejecuciones sin que nada estuviera mal, solo indefinido.
+    ).order_by('-ultimo_mensaje_fecha', '-id')
+
+    # Traer los "últimos mensajes" de todas las conversaciones en UNA sola
+    # query (en vez de una por conversación via get_ultimo_mensaje()).
+    ids_ultimos_mensajes = [
+        c.ultimo_mensaje_id for c in conversaciones if c.ultimo_mensaje_id
+    ]
+    mensajes_por_id = {
+        m.id: m for m in Mensaje.objects.filter(id__in=ids_ultimos_mensajes)
+    }
 
     # Preparar datos para la vista
     conversaciones_data = []
     for conv in conversaciones:
         otro_usuario = conv.get_otro_usuario(usuario)
-        ultimo_mensaje = conv.get_ultimo_mensaje()
-        mensajes_no_leidos = conv.get_mensajes_no_leidos(usuario)
+        ultimo_mensaje = mensajes_por_id.get(conv.ultimo_mensaje_id)
+        mensajes_no_leidos = conv.mensajes_no_leidos_anotado
 
         nombre_completo = otro_usuario.get_full_name() or otro_usuario.username
         rol = 'Usuario'

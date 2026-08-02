@@ -762,6 +762,16 @@ class Sesion(models.Model):
     def _actualizar_cuenta_corriente(self):
         """Actualizar la cuenta corriente del paciente"""
         try:
+            # ⚡ Si estamos dentro de un bloque SuprimirRecalculoBalance para
+            # este paciente (agendamiento en lote), no recalculamos aquí —
+            # se hace UNA sola vez al salir del bloque. Ver
+            # SuprimirRecalculoBalance en facturacion/signals.py. Import
+            # LOCAL (no al inicio del archivo) para evitar import circular,
+            # ya que facturacion.signals importa agenda.models.
+            from facturacion.signals import _paciente_con_recalculo_suprimido
+            if _paciente_con_recalculo_suprimido(self.paciente_id):
+                return
+
             from facturacion.models import CuentaCorriente
             cuenta, created = CuentaCorriente.objects.get_or_create(
                 paciente=self.paciente

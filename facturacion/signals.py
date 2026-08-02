@@ -22,6 +22,85 @@ def _get_update_lock():
     return _thread_locals.updating_pacientes
 
 
+# ==================== SUPRESIÓN DE RECÁLCULOS REDUNDANTES EN LOTE ====================
+# ⚡ OPTIMIZACIÓN: al agendar sesiones recurrentes / patrón semanal, el código
+# guarda hasta decenas de objetos Sesion en un mismo request, uno por uno
+# (no se puede usar bulk_create: cada fecha se valida individualmente y
+# algunas pueden fallar sin afectar a las demás — es un comportamiento
+# intencional que hay que preservar). Sin este mecanismo, cada .save()
+# individual dispara una recalculación COMPLETA de la cuenta corriente
+# (~30 queries), multiplicando el costo por N sesiones del lote — confirmado
+# en producción: dos recálculos para el mismo paciente a 37ms de diferencia
+# en los logs. Con SuprimirRecalculoBalance, todo el lote se agenda con la
+# recalculación real desactivada, y se ejecuta UNA sola vez al salir del
+# bloque, reflejando el resultado final del lote completo (incluso si
+# algunas fechas individuales fallaron). No cambia CÓMO se calcula el
+# balance (AccountService.update_balance no se toca), solo CUÁNDO corre.
+#
+# Es un mecanismo independiente del _get_update_lock() de arriba (que sigue
+# funcionando exactamente igual que antes, sin cambios) — para no arriesgar
+# modificar la protección anti-bucles-infinitos que ya existe.
+_recalculo_suprimido = threading.local()
+
+
+def _paciente_con_recalculo_suprimido(paciente_id):
+    ids = getattr(_recalculo_suprimido, 'ids', None)
+    return ids is not None and paciente_id in ids
+
+
+class SuprimirRecalculoBalance:
+    """
+    Context manager: agrupa múltiples guardados de Sesion del MISMO paciente
+    en una sola recalculación de cuenta corriente al salir del bloque, en
+    vez de una por cada .save() individual dentro de él.
+
+    Uso:
+        with SuprimirRecalculoBalance(paciente.id):
+            for fecha in fechas:
+                sesion = Sesion(...)
+                sesion.save()   # no dispara recálculo individual aquí
+        # Al salir del bloque: se recalcula UNA sola vez.
+
+    Seguro de anidar o de usar más de una vez para el mismo paciente_id en
+    el mismo hilo: solo se recalcula al salir del bloque MÁS EXTERNO.
+    También recalcula si el bloque termina por una excepción, para reflejar
+    lo que sí se alcanzó a guardar antes del error.
+    """
+
+    def __init__(self, *paciente_ids):
+        self.paciente_ids = {pid for pid in paciente_ids if pid}
+
+    def __enter__(self):
+        ids = getattr(_recalculo_suprimido, 'ids', None)
+        if ids is None:
+            ids = set()
+            _recalculo_suprimido.ids = ids
+        # Solo nos hacemos responsables de recalcular los que ESTE bloque
+        # agrega — si un bloque externo ya los tenía suprimidos, que sea
+        # ese el que recalcule al salir.
+        self._agregados_por_mi = self.paciente_ids - ids
+        ids.update(self.paciente_ids)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ids = getattr(_recalculo_suprimido, 'ids', set())
+        for pid in self._agregados_por_mi:
+            ids.discard(pid)
+
+        if self._agregados_por_mi:
+            from pacientes.models import Paciente
+            from .services import AccountService
+            for pid in self._agregados_por_mi:
+                try:
+                    paciente = Paciente.objects.get(id=pid)
+                    AccountService.update_balance(paciente)
+                except Exception as e:
+                    logger.warning(
+                        f"No se pudo recalcular balance tras lote para paciente {pid}: {e}"
+                    )
+        return False  # nunca suprime la excepción original del bloque
+
+
 # ==================== SIGNALS PARA SESIONES ====================
 
 @receiver(post_save, sender=Sesion)
@@ -35,6 +114,13 @@ def actualizar_cuenta_al_guardar_sesion(sender, instance, **kwargs):
         return
     
     paciente_id = instance.paciente_id
+
+    # ⚡ Si estamos dentro de un bloque SuprimirRecalculoBalance para este
+    # paciente (agendamiento en lote), no recalculamos aquí — se hace UNA
+    # sola vez al salir del bloque. Ver SuprimirRecalculoBalance más arriba.
+    if _paciente_con_recalculo_suprimido(paciente_id):
+        return
+
     update_lock = _get_update_lock()
     
     # Si ya se está actualizando este paciente en este hilo, salir
@@ -60,6 +146,10 @@ def actualizar_cuenta_al_eliminar_sesion(sender, instance, **kwargs):
     ✅ OPTIMIZADO: Con lock para evitar bucles
     """
     paciente_id = instance.paciente_id
+
+    if _paciente_con_recalculo_suprimido(paciente_id):
+        return
+
     update_lock = _get_update_lock()
     
     if paciente_id in update_lock:

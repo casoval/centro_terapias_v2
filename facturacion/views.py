@@ -191,10 +191,20 @@ def lista_cuentas_corrientes(request):
 
     pacientes = pacientes.distinct()
 
-    # Crear cuentas faltantes (sin actualizar saldos - se hace con señales)
-    for paciente in pacientes:
-        if not hasattr(paciente, 'cuenta_corriente'):
-            CuentaCorriente.objects.create(paciente=paciente)
+    # ⚡ OPTIMIZACIÓN: antes esto recorría en Python TODOS los pacientes
+    # filtrados (podían ser cientos) ANTES de paginar, solo para detectar
+    # cuáles no tenían cuenta corriente creada — forzando a traer a memoria
+    # pacientes que ni siquiera se iban a mostrar en esta página. Ahora es
+    # 1 query para detectar cuáles faltan + 1 bulk_create (sin signals
+    # asociados a CuentaCorriente, así que bulk_create es seguro aquí).
+    pacientes_sin_cuenta_ids = list(
+        pacientes.filter(cuenta_corriente__isnull=True).values_list('id', flat=True)
+    )
+    if pacientes_sin_cuenta_ids:
+        CuentaCorriente.objects.bulk_create(
+            [CuentaCorriente(paciente_id=pid) for pid in pacientes_sin_cuenta_ids],
+            ignore_conflicts=True,
+        )
     
     # ==================== FILTRADO POR ESTADO DE SALDO ====================
     if estado == 'deudor':
@@ -6088,11 +6098,19 @@ def reporte_financiero(request):
         mensualidades = mensualidades.filter(sucursal_id=sucursal_id)
     
     # ==================== PAGOS ====================
+    # ⚡ OPTIMIZACIÓN: el PDF de este reporte (informe_financiero_pdf.py,
+    # sección de pagos) accede a pago.sesion.servicio.nombre y
+    # pago.proyecto.servicio_base.nombre — un nivel más profundo del que
+    # cubría el select_related original. Sin esto, cada pago mostrado en el
+    # PDF dispara 1-2 queries extra para traer esas relaciones.
     pagos = Pago.objects.filter(
         fecha_pago__gte=fecha_desde_obj,
         fecha_pago__lte=fecha_hasta_obj,
         anulado=False  # Solo pagos válidos
-    ).select_related('paciente', 'metodo_pago', 'sesion', 'proyecto', 'registrado_por')
+    ).select_related(
+        'paciente', 'metodo_pago', 'sesion', 'sesion__servicio',
+        'proyecto', 'proyecto__servicio_base', 'registrado_por'
+    )
 
     # Sin restricción de fecha: usado para calcular si un ítem (sesión/proyecto/
     # mensualidad) YA está pagado, sin importar cuándo se registró el pago.

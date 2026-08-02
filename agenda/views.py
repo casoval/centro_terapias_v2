@@ -1395,68 +1395,75 @@ def agendar_recurrente(request):
             sesiones_error = []
             fecha_actual = fecha_inicio
             
-            while fecha_actual <= fecha_fin:
-                # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
-                if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
-                    # 🐛 DEBUG: Fecha procesada
-                    print(f"✅ Procesando {fecha_actual.strftime("%Y-%m-%d")} - weekday={fecha_actual.weekday()}, en fechas_selec={fecha_actual in fechas_seleccionadas}")
-                    try:
-                        # ✅ CORREGIDO: Usar validar_disponibilidad_con_grupales
-                        # para respetar el checkbox de sesiones grupales
-                        # 🐛 DEBUG
-                        disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
-                            paciente, profesional, fecha_actual, hora, hora_fin,
-                            permitir_sesiones_grupales=permitir_sesiones_grupales
-                        )
-                        
-                        # 🐛 DEBUG: Resultado de validación
-                        print(f"📅 Validando {fecha_actual.strftime("%Y-%m-%d")}: disponible={disponible}, mensaje={mensaje}, permitir_grupales={permitir_sesiones_grupales}")
-                        
-                        if disponible:
-                            # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
-                            print(f"💾 Intentando crear sesión para {fecha_actual}")
-                            
-                            # ✅ Crear instancia SIN guardar
-                            sesion = Sesion(
-                                paciente=paciente,
-                                servicio=servicio,
-                                profesional=profesional,
-                                sucursal=sucursal,
-                                proyecto=proyecto,
-                                mensualidad=mensualidad,
-                                fecha=fecha_actual,
-                                hora_inicio=hora,
-                                hora_fin=hora_fin,
-                                duracion_minutos=duracion_minutos,
-                                monto_cobrado=monto,
-                                creada_por=request.user,
-                                modificada_por=request.user
+            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
+            # corriente por cada sesión individual del lote (~30 queries cada
+            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
+            # del lote completo (incluso si algunas fechas fallaron). Ver
+            # SuprimirRecalculoBalance en facturacion/signals.py.
+            from facturacion.signals import SuprimirRecalculoBalance
+            with SuprimirRecalculoBalance(paciente.id):
+                while fecha_actual <= fecha_fin:
+                    # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
+                    if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
+                        # 🐛 DEBUG: Fecha procesada
+                        print(f"✅ Procesando {fecha_actual.strftime("%Y-%m-%d")} - weekday={fecha_actual.weekday()}, en fechas_selec={fecha_actual in fechas_seleccionadas}")
+                        try:
+                            # ✅ CORREGIDO: Usar validar_disponibilidad_con_grupales
+                            # para respetar el checkbox de sesiones grupales
+                            # 🐛 DEBUG
+                            disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+                                paciente, profesional, fecha_actual, hora, hora_fin,
+                                permitir_sesiones_grupales=permitir_sesiones_grupales
                             )
+                        
+                            # 🐛 DEBUG: Resultado de validación
+                            print(f"📅 Validando {fecha_actual.strftime("%Y-%m-%d")}: disponible={disponible}, mensaje={mensaje}, permitir_grupales={permitir_sesiones_grupales}")
+                        
+                            if disponible:
+                                # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
+                                print(f"💾 Intentando crear sesión para {fecha_actual}")
                             
-                            # ✅ Si se permiten sesiones grupales, agregar flag
-                            if permitir_sesiones_grupales:
-                                sesion._permitir_sesiones_grupales = True
-                                print(f"🔓 Flag sesiones grupales establecido para {fecha_actual}")
+                                # ✅ Crear instancia SIN guardar
+                                sesion = Sesion(
+                                    paciente=paciente,
+                                    servicio=servicio,
+                                    profesional=profesional,
+                                    sucursal=sucursal,
+                                    proyecto=proyecto,
+                                    mensualidad=mensualidad,
+                                    fecha=fecha_actual,
+                                    hora_inicio=hora,
+                                    hora_fin=hora_fin,
+                                    duracion_minutos=duracion_minutos,
+                                    monto_cobrado=monto,
+                                    creada_por=request.user,
+                                    modificada_por=request.user
+                                )
                             
-                            # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
-                            sesion.save()
-                            sesiones_creadas += 1
-                            print(f"✅ Sesión creada exitosamente para {fecha_actual}. Total creadas: {sesiones_creadas}")
-                        else:
+                                # ✅ Si se permiten sesiones grupales, agregar flag
+                                if permitir_sesiones_grupales:
+                                    sesion._permitir_sesiones_grupales = True
+                                    print(f"🔓 Flag sesiones grupales establecido para {fecha_actual}")
+                            
+                                # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+                                sesion.save()
+                                sesiones_creadas += 1
+                                print(f"✅ Sesión creada exitosamente para {fecha_actual}. Total creadas: {sesiones_creadas}")
+                            else:
+                                sesiones_error.append({
+                                    'fecha': fecha_actual,
+                                    'error': mensaje
+                                })
+                        except Exception as e:
+                            print(f"❌ EXCEPCIÓN capturada para {fecha_actual}: {e}")
+                            import traceback
+                            traceback.print_exc()
                             sesiones_error.append({
                                 'fecha': fecha_actual,
-                                'error': mensaje
+                                'error': str(e)
                             })
-                    except Exception as e:
-                        print(f"❌ EXCEPCIÓN capturada para {fecha_actual}: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        sesiones_error.append({
-                            'fecha': fecha_actual,
-                            'error': str(e)
-                        })
                 
-                fecha_actual += timedelta(days=1)
+                    fecha_actual += timedelta(days=1)
             
             
             # 🐛 DEBUG: Resumen final
@@ -3280,66 +3287,73 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
         sesiones_con_conflicto = 0
         fechas_con_conflicto = []
         
-        for fecha in fechas_generadas:
-            try:
-                # ✅ VALIDAR con sesiones grupales
-                disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
-                    mensualidad.paciente,
-                    servicio_profesional.profesional,
-                    fecha,
-                    hora_inicio,
-                    hora_fin,
-                    permitir_sesiones_grupales=permitir_sesiones_grupales
-                )
-                
-                if disponible:
-                    # ✅ Crear instancia SIN guardar
-                    sesion = Sesion(
-                        paciente=mensualidad.paciente,
-                        servicio=servicio_profesional.servicio,
-                        profesional=servicio_profesional.profesional,
-                        sucursal=mensualidad.sucursal,
-                        mensualidad=mensualidad,
-                        fecha=fecha,
-                        hora_inicio=hora_inicio,
-                        hora_fin=hora_fin,
-                        duracion_minutos=duracion_minutos,
-                        estado='programada',
-                        observaciones=observaciones,
-                        creada_por=request.user,
-                        modificada_por=request.user
+        # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
+        # corriente por cada sesión individual del lote (~30 queries cada
+        # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
+        # del lote completo (incluso si algunas fechas fallaron). Ver
+        # SuprimirRecalculoBalance en facturacion/signals.py.
+        from facturacion.signals import SuprimirRecalculoBalance
+        with SuprimirRecalculoBalance(mensualidad.paciente.id):
+            for fecha in fechas_generadas:
+                try:
+                    # ✅ VALIDAR con sesiones grupales
+                    disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+                        mensualidad.paciente,
+                        servicio_profesional.profesional,
+                        fecha,
+                        hora_inicio,
+                        hora_fin,
+                        permitir_sesiones_grupales=permitir_sesiones_grupales
                     )
+                
+                    if disponible:
+                        # ✅ Crear instancia SIN guardar
+                        sesion = Sesion(
+                            paciente=mensualidad.paciente,
+                            servicio=servicio_profesional.servicio,
+                            profesional=servicio_profesional.profesional,
+                            sucursal=mensualidad.sucursal,
+                            mensualidad=mensualidad,
+                            fecha=fecha,
+                            hora_inicio=hora_inicio,
+                            hora_fin=hora_fin,
+                            duracion_minutos=duracion_minutos,
+                            estado='programada',
+                            observaciones=observaciones,
+                            creada_por=request.user,
+                            modificada_por=request.user
+                        )
                     
-                    # ✅ Si se permiten sesiones grupales, agregar flag
-                    if permitir_sesiones_grupales:
-                        sesion._permitir_sesiones_grupales = True
+                        # ✅ Si se permiten sesiones grupales, agregar flag
+                        if permitir_sesiones_grupales:
+                            sesion._permitir_sesiones_grupales = True
                     
-                    # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
-                    sesion.save()
-                    sesiones_creadas += 1
-                else:
-                    # No disponible según validación
+                        # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+                        sesion.save()
+                        sesiones_creadas += 1
+                    else:
+                        # No disponible según validación
+                        sesiones_con_conflicto += 1
+                        fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                
+                except ValidationError as e:
+                    # El modelo detectó un conflicto en clean()
                     sesiones_con_conflicto += 1
                     fechas_con_conflicto.append(fecha.strftime('%d/%m'))
                 
-            except ValidationError as e:
-                # El modelo detectó un conflicto en clean()
-                sesiones_con_conflicto += 1
-                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                    # Log del error para debugging
+                    import traceback
+                    print(f"ValidationError en fecha {fecha}: {e}")
+                    continue
                 
-                # Log del error para debugging
-                import traceback
-                print(f"ValidationError en fecha {fecha}: {e}")
-                continue
-                
-            except Exception as e:
-                # Otros errores inesperados
-                sesiones_con_conflicto += 1
-                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
-                print(f"Error inesperado en fecha {fecha}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+                except Exception as e:
+                    # Otros errores inesperados
+                    sesiones_con_conflicto += 1
+                    fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                    print(f"Error inesperado en fecha {fecha}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
         
         # ========================================
         # PREPARAR DATOS PARA CONFIRMACIÓN
@@ -4201,67 +4215,74 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
             omitidas = 0
             conflictos_detalle = []
 
-            for d in range(1, dias_en_mes + 1):
-                fecha = date(anio_destino, mes_destino, d)
-                wd    = fecha.weekday()
+            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
+            # corriente por cada sesión individual del lote (~30 queries cada
+            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
+            # del lote completo (incluso si algunas fechas fallaron). Ver
+            # SuprimirRecalculoBalance en facturacion/signals.py.
+            from facturacion.signals import SuprimirRecalculoBalance
+            with SuprimirRecalculoBalance(mensualidad_origen.paciente.id):
+                for d in range(1, dias_en_mes + 1):
+                    fecha = date(anio_destino, mes_destino, d)
+                    wd    = fecha.weekday()
 
-                if wd not in patron_wd:
-                    continue
-
-                for slot in patron_wd[wd]:
-                    servicio    = servicios_map.get(slot['servicio_id'])
-                    profesional = profesionales_map.get(slot['profesional_id'])
-
-                    if not servicio or not profesional:
-                        omitidas += 1
+                    if wd not in patron_wd:
                         continue
 
-                    hora_inicio = slot['hora_inicio']
-                    duracion    = slot['duracion']
-                    hora_fin    = (datetime.combine(fecha, hora_inicio)
-                                   + timedelta(minutes=duracion)).time()
+                    for slot in patron_wd[wd]:
+                        servicio    = servicios_map.get(slot['servicio_id'])
+                        profesional = profesionales_map.get(slot['profesional_id'])
 
-                    disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
-                        mensualidad_origen.paciente,
-                        profesional,
-                        fecha,
-                        hora_inicio,
-                        hora_fin,
-                        permitir_sesiones_grupales=permitir_grupales
-                    )
+                        if not servicio or not profesional:
+                            omitidas += 1
+                            continue
 
-                    if not disponible:
-                        omitidas += 1
-                        conflictos_detalle.append(
-                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
-                        )
-                        continue
+                        hora_inicio = slot['hora_inicio']
+                        duracion    = slot['duracion']
+                        hora_fin    = (datetime.combine(fecha, hora_inicio)
+                                       + timedelta(minutes=duracion)).time()
 
-                    try:
-                        sesion = Sesion(
-                            paciente         = mensualidad_origen.paciente,
-                            servicio         = servicio,
-                            profesional      = profesional,
-                            sucursal         = mensualidad_origen.sucursal,
-                            mensualidad      = nueva,
-                            fecha            = fecha,
-                            hora_inicio      = hora_inicio,
-                            hora_fin         = hora_fin,
-                            duracion_minutos = duracion,
-                            estado           = 'programada',
-                            monto_cobrado    = Decimal('0.00'),
-                            creada_por       = request.user,
-                            modificada_por   = request.user,
+                        disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
+                            mensualidad_origen.paciente,
+                            profesional,
+                            fecha,
+                            hora_inicio,
+                            hora_fin,
+                            permitir_sesiones_grupales=permitir_grupales
                         )
-                        if permitir_grupales:
-                            sesion._permitir_sesiones_grupales = True
-                        sesion.save()
-                        creadas += 1
-                    except ValidationError:
-                        omitidas += 1
-                        conflictos_detalle.append(
-                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}"
-                        )
+
+                        if not disponible:
+                            omitidas += 1
+                            conflictos_detalle.append(
+                                f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
+                            )
+                            continue
+
+                        try:
+                            sesion = Sesion(
+                                paciente         = mensualidad_origen.paciente,
+                                servicio         = servicio,
+                                profesional      = profesional,
+                                sucursal         = mensualidad_origen.sucursal,
+                                mensualidad      = nueva,
+                                fecha            = fecha,
+                                hora_inicio      = hora_inicio,
+                                hora_fin         = hora_fin,
+                                duracion_minutos = duracion,
+                                estado           = 'programada',
+                                monto_cobrado    = Decimal('0.00'),
+                                creada_por       = request.user,
+                                modificada_por   = request.user,
+                            )
+                            if permitir_grupales:
+                                sesion._permitir_sesiones_grupales = True
+                            sesion.save()
+                            creadas += 1
+                        except ValidationError:
+                            omitidas += 1
+                            conflictos_detalle.append(
+                                f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}"
+                            )
 
             # 4. Mensaje de resultado
             if creadas > 0:
@@ -4752,94 +4773,101 @@ def procesar_patron_semanal(request):
         errores  = []
 
         with _tx.atomic():
-            for fecha_iso in fechas_iso:
-                try:
-                    fecha = date.fromisoformat(fecha_iso)
-                except ValueError:
-                    continue
-
-                wd = fecha.weekday()
-                if wd not in patron_wd:
-                    continue
-
-                for slot in patron_wd[wd]:
-                    servicio    = servicios_map.get(slot['servicio_id'])
-                    profesional = profesionales_map.get(slot['profesional_id'])
-
-                    if not servicio or not profesional:
-                        omitidas += 1
-                        continue
-
-                    hora_inicio = slot['hora_inicio']
-                    duracion    = slot['duracion']
-                    hora_fin    = (datetime.combine(fecha, hora_inicio)
-                                   + timedelta(minutes=duracion)).time()
-
+            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
+            # corriente por cada sesión individual del lote (~30 queries cada
+            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
+            # del lote completo (incluso si algunas fechas fallaron). Ver
+            # SuprimirRecalculoBalance en facturacion/signals.py.
+            from facturacion.signals import SuprimirRecalculoBalance
+            with SuprimirRecalculoBalance(paciente.id):
+                for fecha_iso in fechas_iso:
                     try:
-                        disponible, msg = Sesion.validar_disponibilidad_con_grupales(
-                            paciente, profesional, fecha, hora_inicio, hora_fin,
-                            permitir_sesiones_grupales=perm_grupales
-                        )
-                    except Exception:
-                        disponible, msg = True, ''
-
-                    if not disponible:
-                        omitidas += 1
-                        errores.append(
-                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} — {msg}"
-                        )
+                        fecha = date.fromisoformat(fecha_iso)
+                    except ValueError:
                         continue
 
-                    # ── Resolver vínculo ───────────────────────────
-                    mensualidad_obj = None
-                    proyecto_obj    = None
-                    if tipo_agenda == 'mensualidad' and vinculo_id:
-                        mensualidad_obj = Mensualidad.objects.filter(id=vinculo_id).first()
-                    elif tipo_agenda == 'proyecto' and vinculo_id:
-                        proyecto_obj = Proyecto.objects.filter(id=vinculo_id).first()
+                    wd = fecha.weekday()
+                    if wd not in patron_wd:
+                        continue
 
-                    # ── Determinar monto ───────────────────────────
-                    # Mensualidad / Proyecto → 0 (el pago es del vínculo)
-                    # Normal → costo_sesion del PacienteServicio del paciente
-                    if tipo_agenda in ('mensualidad', 'proyecto'):
-                        monto_sesion = Decimal('0.00')
-                    else:
+                    for slot in patron_wd[wd]:
+                        servicio    = servicios_map.get(slot['servicio_id'])
+                        profesional = profesionales_map.get(slot['profesional_id'])
+
+                        if not servicio or not profesional:
+                            omitidas += 1
+                            continue
+
+                        hora_inicio = slot['hora_inicio']
+                        duracion    = slot['duracion']
+                        hora_fin    = (datetime.combine(fecha, hora_inicio)
+                                       + timedelta(minutes=duracion)).time()
+
                         try:
-                            ps = PacienteServicio.objects.get(
-                                paciente=paciente,
-                                servicio=servicio,
+                            disponible, msg = Sesion.validar_disponibilidad_con_grupales(
+                                paciente, profesional, fecha, hora_inicio, hora_fin,
+                                permitir_sesiones_grupales=perm_grupales
                             )
-                            monto_sesion = ps.costo_sesion or Decimal('0.00')
-                        except PacienteServicio.DoesNotExist:
-                            monto_sesion = Decimal('0.00')
+                        except Exception:
+                            disponible, msg = True, ''
 
-                    try:
-                        sesion = Sesion(
-                            paciente         = paciente,
-                            servicio         = servicio,
-                            profesional      = profesional,
-                            sucursal         = sucursal,
-                            mensualidad      = mensualidad_obj,
-                            proyecto         = proyecto_obj if hasattr(Sesion, 'proyecto') else None,
-                            fecha            = fecha,
-                            hora_inicio      = hora_inicio,
-                            hora_fin         = hora_fin,
-                            duracion_minutos = duracion,
-                            estado           = 'programada',
-                            monto_cobrado    = monto_sesion,
-                            creada_por       = request.user,
-                            modificada_por   = request.user,
-                        )
-                        if perm_grupales:
-                            sesion._permitir_sesiones_grupales = True
-                        sesion.save()
-                        creadas += 1
-                    except (ValidationError, Exception) as e:
-                        omitidas += 1
-                        errores.append(
-                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} "
-                            f"— Error al guardar: {str(e)[:80]}"
-                        )
+                        if not disponible:
+                            omitidas += 1
+                            errores.append(
+                                f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} — {msg}"
+                            )
+                            continue
+
+                        # ── Resolver vínculo ───────────────────────────
+                        mensualidad_obj = None
+                        proyecto_obj    = None
+                        if tipo_agenda == 'mensualidad' and vinculo_id:
+                            mensualidad_obj = Mensualidad.objects.filter(id=vinculo_id).first()
+                        elif tipo_agenda == 'proyecto' and vinculo_id:
+                            proyecto_obj = Proyecto.objects.filter(id=vinculo_id).first()
+
+                        # ── Determinar monto ───────────────────────────
+                        # Mensualidad / Proyecto → 0 (el pago es del vínculo)
+                        # Normal → costo_sesion del PacienteServicio del paciente
+                        if tipo_agenda in ('mensualidad', 'proyecto'):
+                            monto_sesion = Decimal('0.00')
+                        else:
+                            try:
+                                ps = PacienteServicio.objects.get(
+                                    paciente=paciente,
+                                    servicio=servicio,
+                                )
+                                monto_sesion = ps.costo_sesion or Decimal('0.00')
+                            except PacienteServicio.DoesNotExist:
+                                monto_sesion = Decimal('0.00')
+
+                        try:
+                            sesion = Sesion(
+                                paciente         = paciente,
+                                servicio         = servicio,
+                                profesional      = profesional,
+                                sucursal         = sucursal,
+                                mensualidad      = mensualidad_obj,
+                                proyecto         = proyecto_obj if hasattr(Sesion, 'proyecto') else None,
+                                fecha            = fecha,
+                                hora_inicio      = hora_inicio,
+                                hora_fin         = hora_fin,
+                                duracion_minutos = duracion,
+                                estado           = 'programada',
+                                monto_cobrado    = monto_sesion,
+                                creada_por       = request.user,
+                                modificada_por   = request.user,
+                            )
+                            if perm_grupales:
+                                sesion._permitir_sesiones_grupales = True
+                            sesion.save()
+                            creadas += 1
+                        except (ValidationError, Exception) as e:
+                            omitidas += 1
+                            errores.append(
+                                f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} "
+                                f"— Error al guardar: {str(e)[:80]}"
+                            )
 
         return JsonResponse({
             'success':  True,

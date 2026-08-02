@@ -1,0 +1,708 @@
+diff --git a/agenda/models.py b/agenda/models.py
+index 75ee9b5..6aede0a 100644
+--- a/agenda/models.py
++++ b/agenda/models.py
+@@ -762,6 +762,16 @@ class Sesion(models.Model):
+     def _actualizar_cuenta_corriente(self):
+         """Actualizar la cuenta corriente del paciente"""
+         try:
++            # ⚡ Si estamos dentro de un bloque SuprimirRecalculoBalance para
++            # este paciente (agendamiento en lote), no recalculamos aquí —
++            # se hace UNA sola vez al salir del bloque. Ver
++            # SuprimirRecalculoBalance en facturacion/signals.py. Import
++            # LOCAL (no al inicio del archivo) para evitar import circular,
++            # ya que facturacion.signals importa agenda.models.
++            from facturacion.signals import _paciente_con_recalculo_suprimido
++            if _paciente_con_recalculo_suprimido(self.paciente_id):
++                return
++
+             from facturacion.models import CuentaCorriente
+             cuenta, created = CuentaCorriente.objects.get_or_create(
+                 paciente=self.paciente
+diff --git a/agenda/views.py b/agenda/views.py
+index 3d91b84..b075bdf 100644
+--- a/agenda/views.py
++++ b/agenda/views.py
+@@ -1401,68 +1401,75 @@ def agendar_recurrente(request):
+             sesiones_error = []
+             fecha_actual = fecha_inicio
+             
+-            while fecha_actual <= fecha_fin:
+-                # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
+-                if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
+-                    # 🐛 DEBUG: Fecha procesada
+-                    print(f"✅ Procesando {fecha_actual.strftime("%Y-%m-%d")} - weekday={fecha_actual.weekday()}, en fechas_selec={fecha_actual in fechas_seleccionadas}")
+-                    try:
+-                        # ✅ CORREGIDO: Usar validar_disponibilidad_con_grupales
+-                        # para respetar el checkbox de sesiones grupales
+-                        # 🐛 DEBUG
+-                        disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+-                            paciente, profesional, fecha_actual, hora, hora_fin,
+-                            permitir_sesiones_grupales=permitir_sesiones_grupales
+-                        )
++            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
++            # corriente por cada sesión individual del lote (~30 queries cada
++            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
++            # del lote completo (incluso si algunas fechas fallaron). Ver
++            # SuprimirRecalculoBalance en facturacion/signals.py.
++            from facturacion.signals import SuprimirRecalculoBalance
++            with SuprimirRecalculoBalance(paciente.id):
++                while fecha_actual <= fecha_fin:
++                    # ✅ VALIDAR: Solo crear si está en días seleccionados Y en fechas seleccionadas
++                    if fecha_actual.weekday() in dias_semana and fecha_actual in fechas_seleccionadas:
++                        # 🐛 DEBUG: Fecha procesada
++                        print(f"✅ Procesando {fecha_actual.strftime("%Y-%m-%d")} - weekday={fecha_actual.weekday()}, en fechas_selec={fecha_actual in fechas_seleccionadas}")
++                        try:
++                            # ✅ CORREGIDO: Usar validar_disponibilidad_con_grupales
++                            # para respetar el checkbox de sesiones grupales
++                            # 🐛 DEBUG
++                            disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
++                                paciente, profesional, fecha_actual, hora, hora_fin,
++                                permitir_sesiones_grupales=permitir_sesiones_grupales
++                            )
+                         
+-                        # 🐛 DEBUG: Resultado de validación
+-                        print(f"📅 Validando {fecha_actual.strftime("%Y-%m-%d")}: disponible={disponible}, mensaje={mensaje}, permitir_grupales={permitir_sesiones_grupales}")
++                            # 🐛 DEBUG: Resultado de validación
++                            print(f"📅 Validando {fecha_actual.strftime("%Y-%m-%d")}: disponible={disponible}, mensaje={mensaje}, permitir_grupales={permitir_sesiones_grupales}")
+                         
+-                        if disponible:
+-                            # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
+-                            print(f"💾 Intentando crear sesión para {fecha_actual}")
++                            if disponible:
++                                # 🆕 CREAR SESIÓN CON PROYECTO Y/O MENSUALIDAD
++                                print(f"💾 Intentando crear sesión para {fecha_actual}")
+                             
+-                            # ✅ Crear instancia SIN guardar
+-                            sesion = Sesion(
+-                                paciente=paciente,
+-                                servicio=servicio,
+-                                profesional=profesional,
+-                                sucursal=sucursal,
+-                                proyecto=proyecto,
+-                                mensualidad=mensualidad,
+-                                fecha=fecha_actual,
+-                                hora_inicio=hora,
+-                                hora_fin=hora_fin,
+-                                duracion_minutos=duracion_minutos,
+-                                monto_cobrado=monto,
+-                                creada_por=request.user,
+-                                modificada_por=request.user
+-                            )
++                                # ✅ Crear instancia SIN guardar
++                                sesion = Sesion(
++                                    paciente=paciente,
++                                    servicio=servicio,
++                                    profesional=profesional,
++                                    sucursal=sucursal,
++                                    proyecto=proyecto,
++                                    mensualidad=mensualidad,
++                                    fecha=fecha_actual,
++                                    hora_inicio=hora,
++                                    hora_fin=hora_fin,
++                                    duracion_minutos=duracion_minutos,
++                                    monto_cobrado=monto,
++                                    creada_por=request.user,
++                                    modificada_por=request.user
++                                )
+                             
+-                            # ✅ Si se permiten sesiones grupales, agregar flag
+-                            if permitir_sesiones_grupales:
+-                                sesion._permitir_sesiones_grupales = True
+-                                print(f"🔓 Flag sesiones grupales establecido para {fecha_actual}")
++                                # ✅ Si se permiten sesiones grupales, agregar flag
++                                if permitir_sesiones_grupales:
++                                    sesion._permitir_sesiones_grupales = True
++                                    print(f"🔓 Flag sesiones grupales establecido para {fecha_actual}")
+                             
+-                            # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+-                            sesion.save()
+-                            sesiones_creadas += 1
+-                            print(f"✅ Sesión creada exitosamente para {fecha_actual}. Total creadas: {sesiones_creadas}")
+-                        else:
++                                # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
++                                sesion.save()
++                                sesiones_creadas += 1
++                                print(f"✅ Sesión creada exitosamente para {fecha_actual}. Total creadas: {sesiones_creadas}")
++                            else:
++                                sesiones_error.append({
++                                    'fecha': fecha_actual,
++                                    'error': mensaje
++                                })
++                        except Exception as e:
++                            print(f"❌ EXCEPCIÓN capturada para {fecha_actual}: {e}")
++                            import traceback
++                            traceback.print_exc()
+                             sesiones_error.append({
+                                 'fecha': fecha_actual,
+-                                'error': mensaje
++                                'error': str(e)
+                             })
+-                    except Exception as e:
+-                        print(f"❌ EXCEPCIÓN capturada para {fecha_actual}: {e}")
+-                        import traceback
+-                        traceback.print_exc()
+-                        sesiones_error.append({
+-                            'fecha': fecha_actual,
+-                            'error': str(e)
+-                        })
+                 
+-                fecha_actual += timedelta(days=1)
++                    fecha_actual += timedelta(days=1)
+             
+             
+             # 🐛 DEBUG: Resumen final
+@@ -3286,66 +3293,73 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
+         sesiones_con_conflicto = 0
+         fechas_con_conflicto = []
+         
+-        for fecha in fechas_generadas:
+-            try:
+-                # ✅ VALIDAR con sesiones grupales
+-                disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
+-                    mensualidad.paciente,
+-                    servicio_profesional.profesional,
+-                    fecha,
+-                    hora_inicio,
+-                    hora_fin,
+-                    permitir_sesiones_grupales=permitir_sesiones_grupales
+-                )
+-                
+-                if disponible:
+-                    # ✅ Crear instancia SIN guardar
+-                    sesion = Sesion(
+-                        paciente=mensualidad.paciente,
+-                        servicio=servicio_profesional.servicio,
+-                        profesional=servicio_profesional.profesional,
+-                        sucursal=mensualidad.sucursal,
+-                        mensualidad=mensualidad,
+-                        fecha=fecha,
+-                        hora_inicio=hora_inicio,
+-                        hora_fin=hora_fin,
+-                        duracion_minutos=duracion_minutos,
+-                        estado='programada',
+-                        observaciones=observaciones,
+-                        creada_por=request.user,
+-                        modificada_por=request.user
++        # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
++        # corriente por cada sesión individual del lote (~30 queries cada
++        # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
++        # del lote completo (incluso si algunas fechas fallaron). Ver
++        # SuprimirRecalculoBalance en facturacion/signals.py.
++        from facturacion.signals import SuprimirRecalculoBalance
++        with SuprimirRecalculoBalance(mensualidad.paciente.id):
++            for fecha in fechas_generadas:
++                try:
++                    # ✅ VALIDAR con sesiones grupales
++                    disponible, mensaje = Sesion.validar_disponibilidad_con_grupales(
++                        mensualidad.paciente,
++                        servicio_profesional.profesional,
++                        fecha,
++                        hora_inicio,
++                        hora_fin,
++                        permitir_sesiones_grupales=permitir_sesiones_grupales
+                     )
++                
++                    if disponible:
++                        # ✅ Crear instancia SIN guardar
++                        sesion = Sesion(
++                            paciente=mensualidad.paciente,
++                            servicio=servicio_profesional.servicio,
++                            profesional=servicio_profesional.profesional,
++                            sucursal=mensualidad.sucursal,
++                            mensualidad=mensualidad,
++                            fecha=fecha,
++                            hora_inicio=hora_inicio,
++                            hora_fin=hora_fin,
++                            duracion_minutos=duracion_minutos,
++                            estado='programada',
++                            observaciones=observaciones,
++                            creada_por=request.user,
++                            modificada_por=request.user
++                        )
+                     
+-                    # ✅ Si se permiten sesiones grupales, agregar flag
+-                    if permitir_sesiones_grupales:
+-                        sesion._permitir_sesiones_grupales = True
++                        # ✅ Si se permiten sesiones grupales, agregar flag
++                        if permitir_sesiones_grupales:
++                            sesion._permitir_sesiones_grupales = True
+                     
+-                    # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
+-                    sesion.save()
+-                    sesiones_creadas += 1
+-                else:
+-                    # No disponible según validación
++                        # ✅ Guardar la sesión (llamará a clean() pero respetará el flag)
++                        sesion.save()
++                        sesiones_creadas += 1
++                    else:
++                        # No disponible según validación
++                        sesiones_con_conflicto += 1
++                        fechas_con_conflicto.append(fecha.strftime('%d/%m'))
++                
++                except ValidationError as e:
++                    # El modelo detectó un conflicto en clean()
+                     sesiones_con_conflicto += 1
+                     fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+                 
+-            except ValidationError as e:
+-                # El modelo detectó un conflicto en clean()
+-                sesiones_con_conflicto += 1
+-                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+-                
+-                # Log del error para debugging
+-                import traceback
+-                print(f"ValidationError en fecha {fecha}: {e}")
+-                continue
++                    # Log del error para debugging
++                    import traceback
++                    print(f"ValidationError en fecha {fecha}: {e}")
++                    continue
+                 
+-            except Exception as e:
+-                # Otros errores inesperados
+-                sesiones_con_conflicto += 1
+-                fechas_con_conflicto.append(fecha.strftime('%d/%m'))
+-                print(f"Error inesperado en fecha {fecha}: {e}")
+-                import traceback
+-                traceback.print_exc()
+-                continue
++                except Exception as e:
++                    # Otros errores inesperados
++                    sesiones_con_conflicto += 1
++                    fechas_con_conflicto.append(fecha.strftime('%d/%m'))
++                    print(f"Error inesperado en fecha {fecha}: {e}")
++                    import traceback
++                    traceback.print_exc()
++                    continue
+         
+         # ========================================
+         # PREPARAR DATOS PARA CONFIRMACIÓN
+@@ -4207,67 +4221,74 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
+             omitidas = 0
+             conflictos_detalle = []
+ 
+-            for d in range(1, dias_en_mes + 1):
+-                fecha = date(anio_destino, mes_destino, d)
+-                wd    = fecha.weekday()
+-
+-                if wd not in patron_wd:
+-                    continue
+-
+-                for slot in patron_wd[wd]:
+-                    servicio    = servicios_map.get(slot['servicio_id'])
+-                    profesional = profesionales_map.get(slot['profesional_id'])
+-
+-                    if not servicio or not profesional:
+-                        omitidas += 1
++            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
++            # corriente por cada sesión individual del lote (~30 queries cada
++            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
++            # del lote completo (incluso si algunas fechas fallaron). Ver
++            # SuprimirRecalculoBalance en facturacion/signals.py.
++            from facturacion.signals import SuprimirRecalculoBalance
++            with SuprimirRecalculoBalance(mensualidad_origen.paciente.id):
++                for d in range(1, dias_en_mes + 1):
++                    fecha = date(anio_destino, mes_destino, d)
++                    wd    = fecha.weekday()
++
++                    if wd not in patron_wd:
+                         continue
+ 
+-                    hora_inicio = slot['hora_inicio']
+-                    duracion    = slot['duracion']
+-                    hora_fin    = (datetime.combine(fecha, hora_inicio)
+-                                   + timedelta(minutes=duracion)).time()
+-
+-                    disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
+-                        mensualidad_origen.paciente,
+-                        profesional,
+-                        fecha,
+-                        hora_inicio,
+-                        hora_fin,
+-                        permitir_sesiones_grupales=permitir_grupales
+-                    )
+-
+-                    if not disponible:
+-                        omitidas += 1
+-                        conflictos_detalle.append(
+-                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
++                    for slot in patron_wd[wd]:
++                        servicio    = servicios_map.get(slot['servicio_id'])
++                        profesional = profesionales_map.get(slot['profesional_id'])
++
++                        if not servicio or not profesional:
++                            omitidas += 1
++                            continue
++
++                        hora_inicio = slot['hora_inicio']
++                        duracion    = slot['duracion']
++                        hora_fin    = (datetime.combine(fecha, hora_inicio)
++                                       + timedelta(minutes=duracion)).time()
++
++                        disponible, msg_disp = Sesion.validar_disponibilidad_con_grupales(
++                            mensualidad_origen.paciente,
++                            profesional,
++                            fecha,
++                            hora_inicio,
++                            hora_fin,
++                            permitir_sesiones_grupales=permitir_grupales
+                         )
+-                        continue
+ 
+-                    try:
+-                        sesion = Sesion(
+-                            paciente         = mensualidad_origen.paciente,
+-                            servicio         = servicio,
+-                            profesional      = profesional,
+-                            sucursal         = mensualidad_origen.sucursal,
+-                            mensualidad      = nueva,
+-                            fecha            = fecha,
+-                            hora_inicio      = hora_inicio,
+-                            hora_fin         = hora_fin,
+-                            duracion_minutos = duracion,
+-                            estado           = 'programada',
+-                            monto_cobrado    = Decimal('0.00'),
+-                            creada_por       = request.user,
+-                            modificada_por   = request.user,
+-                        )
+-                        if permitir_grupales:
+-                            sesion._permitir_sesiones_grupales = True
+-                        sesion.save()
+-                        creadas += 1
+-                    except ValidationError:
+-                        omitidas += 1
+-                        conflictos_detalle.append(
+-                            f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}"
+-                        )
++                        if not disponible:
++                            omitidas += 1
++                            conflictos_detalle.append(
++                                f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')} – {msg_disp}"
++                            )
++                            continue
++
++                        try:
++                            sesion = Sesion(
++                                paciente         = mensualidad_origen.paciente,
++                                servicio         = servicio,
++                                profesional      = profesional,
++                                sucursal         = mensualidad_origen.sucursal,
++                                mensualidad      = nueva,
++                                fecha            = fecha,
++                                hora_inicio      = hora_inicio,
++                                hora_fin         = hora_fin,
++                                duracion_minutos = duracion,
++                                estado           = 'programada',
++                                monto_cobrado    = Decimal('0.00'),
++                                creada_por       = request.user,
++                                modificada_por   = request.user,
++                            )
++                            if permitir_grupales:
++                                sesion._permitir_sesiones_grupales = True
++                            sesion.save()
++                            creadas += 1
++                        except ValidationError:
++                            omitidas += 1
++                            conflictos_detalle.append(
++                                f"{fecha.strftime('%d/%m')} {hora_inicio.strftime('%H:%M')}"
++                            )
+ 
+             # 4. Mensaje de resultado
+             if creadas > 0:
+@@ -4758,94 +4779,101 @@ def procesar_patron_semanal(request):
+         errores  = []
+ 
+         with _tx.atomic():
+-            for fecha_iso in fechas_iso:
+-                try:
+-                    fecha = date.fromisoformat(fecha_iso)
+-                except ValueError:
+-                    continue
+-
+-                wd = fecha.weekday()
+-                if wd not in patron_wd:
+-                    continue
+-
+-                for slot in patron_wd[wd]:
+-                    servicio    = servicios_map.get(slot['servicio_id'])
+-                    profesional = profesionales_map.get(slot['profesional_id'])
++            # ⚡ OPTIMIZACIÓN: se suprime el recálculo automático de cuenta
++            # corriente por cada sesión individual del lote (~30 queries cada
++            # uno) y se ejecuta UNA sola vez al terminar, con el resultado final
++            # del lote completo (incluso si algunas fechas fallaron). Ver
++            # SuprimirRecalculoBalance en facturacion/signals.py.
++            from facturacion.signals import SuprimirRecalculoBalance
++            with SuprimirRecalculoBalance(paciente.id):
++                for fecha_iso in fechas_iso:
++                    try:
++                        fecha = date.fromisoformat(fecha_iso)
++                    except ValueError:
++                        continue
+ 
+-                    if not servicio or not profesional:
+-                        omitidas += 1
++                    wd = fecha.weekday()
++                    if wd not in patron_wd:
+                         continue
+ 
+-                    hora_inicio = slot['hora_inicio']
+-                    duracion    = slot['duracion']
+-                    hora_fin    = (datetime.combine(fecha, hora_inicio)
+-                                   + timedelta(minutes=duracion)).time()
++                    for slot in patron_wd[wd]:
++                        servicio    = servicios_map.get(slot['servicio_id'])
++                        profesional = profesionales_map.get(slot['profesional_id'])
+ 
+-                    try:
+-                        disponible, msg = Sesion.validar_disponibilidad_con_grupales(
+-                            paciente, profesional, fecha, hora_inicio, hora_fin,
+-                            permitir_sesiones_grupales=perm_grupales
+-                        )
+-                    except Exception:
+-                        disponible, msg = True, ''
++                        if not servicio or not profesional:
++                            omitidas += 1
++                            continue
+ 
+-                    if not disponible:
+-                        omitidas += 1
+-                        errores.append(
+-                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} — {msg}"
+-                        )
+-                        continue
++                        hora_inicio = slot['hora_inicio']
++                        duracion    = slot['duracion']
++                        hora_fin    = (datetime.combine(fecha, hora_inicio)
++                                       + timedelta(minutes=duracion)).time()
+ 
+-                    # ── Resolver vínculo ───────────────────────────
+-                    mensualidad_obj = None
+-                    proyecto_obj    = None
+-                    if tipo_agenda == 'mensualidad' and vinculo_id:
+-                        mensualidad_obj = Mensualidad.objects.filter(id=vinculo_id).first()
+-                    elif tipo_agenda == 'proyecto' and vinculo_id:
+-                        proyecto_obj = Proyecto.objects.filter(id=vinculo_id).first()
+-
+-                    # ── Determinar monto ───────────────────────────
+-                    # Mensualidad / Proyecto → 0 (el pago es del vínculo)
+-                    # Normal → costo_sesion del PacienteServicio del paciente
+-                    if tipo_agenda in ('mensualidad', 'proyecto'):
+-                        monto_sesion = Decimal('0.00')
+-                    else:
+                         try:
+-                            ps = PacienteServicio.objects.get(
+-                                paciente=paciente,
+-                                servicio=servicio,
++                            disponible, msg = Sesion.validar_disponibilidad_con_grupales(
++                                paciente, profesional, fecha, hora_inicio, hora_fin,
++                                permitir_sesiones_grupales=perm_grupales
+                             )
+-                            monto_sesion = ps.costo_sesion or Decimal('0.00')
+-                        except PacienteServicio.DoesNotExist:
++                        except Exception:
++                            disponible, msg = True, ''
++
++                        if not disponible:
++                            omitidas += 1
++                            errores.append(
++                                f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} — {msg}"
++                            )
++                            continue
++
++                        # ── Resolver vínculo ───────────────────────────
++                        mensualidad_obj = None
++                        proyecto_obj    = None
++                        if tipo_agenda == 'mensualidad' and vinculo_id:
++                            mensualidad_obj = Mensualidad.objects.filter(id=vinculo_id).first()
++                        elif tipo_agenda == 'proyecto' and vinculo_id:
++                            proyecto_obj = Proyecto.objects.filter(id=vinculo_id).first()
++
++                        # ── Determinar monto ───────────────────────────
++                        # Mensualidad / Proyecto → 0 (el pago es del vínculo)
++                        # Normal → costo_sesion del PacienteServicio del paciente
++                        if tipo_agenda in ('mensualidad', 'proyecto'):
+                             monto_sesion = Decimal('0.00')
++                        else:
++                            try:
++                                ps = PacienteServicio.objects.get(
++                                    paciente=paciente,
++                                    servicio=servicio,
++                                )
++                                monto_sesion = ps.costo_sesion or Decimal('0.00')
++                            except PacienteServicio.DoesNotExist:
++                                monto_sesion = Decimal('0.00')
+ 
+-                    try:
+-                        sesion = Sesion(
+-                            paciente         = paciente,
+-                            servicio         = servicio,
+-                            profesional      = profesional,
+-                            sucursal         = sucursal,
+-                            mensualidad      = mensualidad_obj,
+-                            proyecto         = proyecto_obj if hasattr(Sesion, 'proyecto') else None,
+-                            fecha            = fecha,
+-                            hora_inicio      = hora_inicio,
+-                            hora_fin         = hora_fin,
+-                            duracion_minutos = duracion,
+-                            estado           = 'programada',
+-                            monto_cobrado    = monto_sesion,
+-                            creada_por       = request.user,
+-                            modificada_por   = request.user,
+-                        )
+-                        if perm_grupales:
+-                            sesion._permitir_sesiones_grupales = True
+-                        sesion.save()
+-                        creadas += 1
+-                    except (ValidationError, Exception) as e:
+-                        omitidas += 1
+-                        errores.append(
+-                            f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} "
+-                            f"— Error al guardar: {str(e)[:80]}"
+-                        )
++                        try:
++                            sesion = Sesion(
++                                paciente         = paciente,
++                                servicio         = servicio,
++                                profesional      = profesional,
++                                sucursal         = sucursal,
++                                mensualidad      = mensualidad_obj,
++                                proyecto         = proyecto_obj if hasattr(Sesion, 'proyecto') else None,
++                                fecha            = fecha,
++                                hora_inicio      = hora_inicio,
++                                hora_fin         = hora_fin,
++                                duracion_minutos = duracion,
++                                estado           = 'programada',
++                                monto_cobrado    = monto_sesion,
++                                creada_por       = request.user,
++                                modificada_por   = request.user,
++                            )
++                            if perm_grupales:
++                                sesion._permitir_sesiones_grupales = True
++                            sesion.save()
++                            creadas += 1
++                        except (ValidationError, Exception) as e:
++                            omitidas += 1
++                            errores.append(
++                                f"{fecha.strftime('%d/%m/%Y')} {hora_inicio.strftime('%H:%M')} "
++                                f"— Error al guardar: {str(e)[:80]}"
++                            )
+ 
+         return JsonResponse({
+             'success':  True,
+diff --git a/facturacion/signals.py b/facturacion/signals.py
+index 09b99e3..c2c9b0d 100644
+--- a/facturacion/signals.py
++++ b/facturacion/signals.py
+@@ -22,6 +22,85 @@ def _get_update_lock():
+     return _thread_locals.updating_pacientes
+ 
+ 
++# ==================== SUPRESIÓN DE RECÁLCULOS REDUNDANTES EN LOTE ====================
++# ⚡ OPTIMIZACIÓN: al agendar sesiones recurrentes / patrón semanal, el código
++# guarda hasta decenas de objetos Sesion en un mismo request, uno por uno
++# (no se puede usar bulk_create: cada fecha se valida individualmente y
++# algunas pueden fallar sin afectar a las demás — es un comportamiento
++# intencional que hay que preservar). Sin este mecanismo, cada .save()
++# individual dispara una recalculación COMPLETA de la cuenta corriente
++# (~30 queries), multiplicando el costo por N sesiones del lote — confirmado
++# en producción: dos recálculos para el mismo paciente a 37ms de diferencia
++# en los logs. Con SuprimirRecalculoBalance, todo el lote se agenda con la
++# recalculación real desactivada, y se ejecuta UNA sola vez al salir del
++# bloque, reflejando el resultado final del lote completo (incluso si
++# algunas fechas individuales fallaron). No cambia CÓMO se calcula el
++# balance (AccountService.update_balance no se toca), solo CUÁNDO corre.
++#
++# Es un mecanismo independiente del _get_update_lock() de arriba (que sigue
++# funcionando exactamente igual que antes, sin cambios) — para no arriesgar
++# modificar la protección anti-bucles-infinitos que ya existe.
++_recalculo_suprimido = threading.local()
++
++
++def _paciente_con_recalculo_suprimido(paciente_id):
++    ids = getattr(_recalculo_suprimido, 'ids', None)
++    return ids is not None and paciente_id in ids
++
++
++class SuprimirRecalculoBalance:
++    """
++    Context manager: agrupa múltiples guardados de Sesion del MISMO paciente
++    en una sola recalculación de cuenta corriente al salir del bloque, en
++    vez de una por cada .save() individual dentro de él.
++
++    Uso:
++        with SuprimirRecalculoBalance(paciente.id):
++            for fecha in fechas:
++                sesion = Sesion(...)
++                sesion.save()   # no dispara recálculo individual aquí
++        # Al salir del bloque: se recalcula UNA sola vez.
++
++    Seguro de anidar o de usar más de una vez para el mismo paciente_id en
++    el mismo hilo: solo se recalcula al salir del bloque MÁS EXTERNO.
++    También recalcula si el bloque termina por una excepción, para reflejar
++    lo que sí se alcanzó a guardar antes del error.
++    """
++
++    def __init__(self, *paciente_ids):
++        self.paciente_ids = {pid for pid in paciente_ids if pid}
++
++    def __enter__(self):
++        ids = getattr(_recalculo_suprimido, 'ids', None)
++        if ids is None:
++            ids = set()
++            _recalculo_suprimido.ids = ids
++        # Solo nos hacemos responsables de recalcular los que ESTE bloque
++        # agrega — si un bloque externo ya los tenía suprimidos, que sea
++        # ese el que recalcule al salir.
++        self._agregados_por_mi = self.paciente_ids - ids
++        ids.update(self.paciente_ids)
++        return self
++
++    def __exit__(self, exc_type, exc_val, exc_tb):
++        ids = getattr(_recalculo_suprimido, 'ids', set())
++        for pid in self._agregados_por_mi:
++            ids.discard(pid)
++
++        if self._agregados_por_mi:
++            from pacientes.models import Paciente
++            from .services import AccountService
++            for pid in self._agregados_por_mi:
++                try:
++                    paciente = Paciente.objects.get(id=pid)
++                    AccountService.update_balance(paciente)
++                except Exception as e:
++                    logger.warning(
++                        f"No se pudo recalcular balance tras lote para paciente {pid}: {e}"
++                    )
++        return False  # nunca suprime la excepción original del bloque
++
++
+ # ==================== SIGNALS PARA SESIONES ====================
+ 
+ @receiver(post_save, sender=Sesion)
+@@ -35,6 +114,13 @@ def actualizar_cuenta_al_guardar_sesion(sender, instance, **kwargs):
+         return
+     
+     paciente_id = instance.paciente_id
++
++    # ⚡ Si estamos dentro de un bloque SuprimirRecalculoBalance para este
++    # paciente (agendamiento en lote), no recalculamos aquí — se hace UNA
++    # sola vez al salir del bloque. Ver SuprimirRecalculoBalance más arriba.
++    if _paciente_con_recalculo_suprimido(paciente_id):
++        return
++
+     update_lock = _get_update_lock()
+     
+     # Si ya se está actualizando este paciente en este hilo, salir
+@@ -60,6 +146,10 @@ def actualizar_cuenta_al_eliminar_sesion(sender, instance, **kwargs):
+     ✅ OPTIMIZADO: Con lock para evitar bucles
+     """
+     paciente_id = instance.paciente_id
++
++    if _paciente_con_recalculo_suprimido(paciente_id):
++        return
++
+     update_lock = _get_update_lock()
+     
+     if paciente_id in update_lock:
