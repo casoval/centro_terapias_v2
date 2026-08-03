@@ -42,8 +42,19 @@ from reportlab.pdfgen import canvas as pdf_canvas
 # DATOS DEL CENTRO (mismo patrón que los demás informes del sistema)
 # ─────────────────────────────────────────────────────────────
 NOMBRE_CENTRO = "Centro de Neurodesarrollo Infantil Misael"
-DIRECCION     = "Calle Japón #28 • Potosí, Bolivia"
-TELEFONO      = "Tel.: 76175352"
+
+SUCURSALES_CENTRO = [
+    {
+        'nombre': 'Sede Principal',
+        'direccion': 'Calle Japón #28 entre Daza y Calderón, a lado de la EPI-10 · Zona Baja',
+        'telefono': '76175352',
+    },
+    {
+        'nombre': 'Sucursal 1',
+        'direccion': 'Calle Cochabamba a lado de ENTEL, casi esq. Bolívar · Zona Central',
+        'telefono': '78633975',
+    },
+]
 
 C_AZUL_OSC   = colors.HexColor('#1565C0')
 C_AZUL_PRI   = colors.HexColor('#1E88E5')
@@ -59,7 +70,8 @@ MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
 PAGE_W, PAGE_H = landscape(letter)
 MARGIN_L = 1.3 * cm
 MARGIN_R = 1.3 * cm
-MARGIN_T = 3.1 * cm   # deja espacio para el encabezado dibujado por página
+HEADER_H = 3.15 * cm  # alto del encabezado de marca (logo + nombre + 2 sucursales)
+MARGIN_T = HEADER_H + 0.65 * cm   # deja espacio para el encabezado dibujado por página
 MARGIN_B = 1.2 * cm
 CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R
 
@@ -148,7 +160,7 @@ SESIONES_POR_BANDA = 6
 # CHIP DE SESIÓN (pastilla de color dentro de cada celda del día)
 # ─────────────────────────────────────────────────────────────
 def _chip_sesion(sesion, formato, servicio_unico, sucursal_unica, fuente_base):
-    hora = sesion.hora_inicio.strftime('%H:%M')
+    hora = f"{sesion.hora_inicio.strftime('%H:%M')}-{sesion.hora_fin.strftime('%H:%M')}"
     color_fondo = colors.white
 
     if formato == 'paciente':
@@ -357,14 +369,13 @@ def generar_horario_pdf(
         linea_contexto = "   •   ".join(partes)
 
     def _draw_encabezado(c, _doc):
-        HEADER_H = 2.4 * cm
         _grad(c, 0, PAGE_H - HEADER_H, PAGE_W, HEADER_H, C_AZUL_OSC, C_AZUL_PRI)
 
         lp = _logo()
-        lh = HEADER_H - 0.4 * cm
+        lh = HEADER_H - 0.5 * cm
         lw = lh
         lx = MARGIN_L
-        ly = PAGE_H - HEADER_H + 0.2 * cm
+        ly = PAGE_H - HEADER_H + 0.25 * cm
         if lp:
             try:
                 c.drawImage(lp, lx, ly, width=lw, height=lh,
@@ -375,14 +386,22 @@ def generar_horario_pdf(
         tx = lx + lw + 0.35 * cm
         c.setFillColor(colors.white)
         c.setFont("Helvetica-Bold", 11.5)
-        c.drawString(tx, PAGE_H - 0.85 * cm, NOMBRE_CENTRO)
-        c.setFont("Helvetica", 7)
-        c.drawString(tx, PAGE_H - 1.35 * cm, f"{DIRECCION}  •  {TELEFONO}")
+        c.drawString(tx, PAGE_H - 0.75 * cm, NOMBRE_CENTRO)
+
+        # Ambas sucursales, una línea cada una (nombre · dirección · teléfono)
+        c.setFont("Helvetica", 6.9)
+        y_suc = PAGE_H - 1.35 * cm
+        for suc in SUCURSALES_CENTRO:
+            c.drawString(
+                tx, y_suc,
+                f"{suc['nombre']} · {suc['direccion']}  ·  Tel. {suc['telefono']}"
+            )
+            y_suc -= 0.42 * cm
 
         c.setFont("Helvetica-Bold", 12)
-        c.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 0.85 * cm, titulo_vista)
+        c.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 0.75 * cm, titulo_vista)
         c.setFont("Helvetica", 8.5)
-        c.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 1.3 * cm, subtitulo)
+        c.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 1.25 * cm, subtitulo)
 
         if linea_contexto:
             c.setFillColor(C_TEXTO)
