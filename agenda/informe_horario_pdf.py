@@ -372,10 +372,10 @@ def generar_horario_pdf(
         _grad(c, 0, PAGE_H - HEADER_H, PAGE_W, HEADER_H, C_AZUL_OSC, C_AZUL_PRI)
 
         lp = _logo()
-        lh = HEADER_H - 0.5 * cm
+        lh = (HEADER_H - 0.5 * cm) / 2   # logo a la mitad del tamaño anterior
         lw = lh
         lx = MARGIN_L
-        ly = PAGE_H - HEADER_H + 0.25 * cm
+        ly = PAGE_H - HEADER_H / 2 - lh / 2   # centrado verticalmente en la franja
         if lp:
             try:
                 c.drawImage(lp, lx, ly, width=lw, height=lh,
