@@ -44,7 +44,7 @@
 
                 {# Toggle domingos #}
                 <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/20 transition-all text-xs font-bold">
-                    <input type="checkbox" id="tm-toggle-domingo" onchange="tmToggleDomingo(this.checked)" class="accent-white w-3.5 h-3.5">
+                    <input type="checkbox" id="tm-toggle-domingo" checked onchange="tmToggleDomingo(this.checked)" class="accent-white w-3.5 h-3.5">
                     Dom.
                 </label>
 
@@ -518,25 +518,8 @@
         wrapper.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
     }
 
-    // ── Detectar si hay sesiones en domingos ─────────────────────────────────
-    function checkDomingos() {
-        const colsDom  = document.querySelectorAll('.tm-col-domingo');
-        const toggle   = document.getElementById('tm-toggle-domingo');
-        let tieneSesiones = false;
-
-        colsDom.forEach(col => {
-            if (col.querySelectorAll('.tm-sesion').length > 0) {
-                tieneSesiones = true;
-            }
-        });
-
-        if (!tieneSesiones) {
-            colsDom.forEach(col => col.classList.add('tm-col-oculta'));
-            if (toggle) toggle.checked = false;
-        } else {
-            if (toggle) toggle.checked = true;
-        }
-    }
+    // Domingo se muestra por defecto (checkbox ya viene marcado en el HTML).
+    // Ya no se detecta automáticamente ni se oculta al cargar.
 
     // ── Sincronizar scroll vertical: sidebar sigue al wrapper ───────────────
     function sincronizarScrollHoras() {
@@ -578,7 +561,6 @@
         dibujarLineasFondo();
         posicionarSesiones();
         actualizarLineaAhora();
-        checkDomingos();
         sincronizarScrollHoras();
 
         setInterval(actualizarLineaAhora, 60 * 1000);

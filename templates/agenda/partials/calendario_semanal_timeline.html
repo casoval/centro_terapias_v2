@@ -40,7 +40,7 @@
 
                 {# Toggle domingo #}
                 <label class="flex items-center gap-2 cursor-pointer bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/20 transition-all text-xs font-bold">
-                    <input type="checkbox" id="tl-toggle-domingo" onchange="timelineToggleDomingo(this.checked)" class="accent-white w-3.5 h-3.5">
+                    <input type="checkbox" id="tl-toggle-domingo" checked onchange="timelineToggleDomingo(this.checked)" class="accent-white w-3.5 h-3.5">
                     Dom.
                 </label>
 
@@ -428,19 +428,9 @@
     // (Opcional: Click en zona vacía → se podría abrir modal de nueva sesión)
     // Por ahora solo visual via CSS hover en tl-slot-libre.
 
-    // ── Detectar si hay domingos con sesiones ────────────────────────────────
-    function checkDomingo() {
-        const colDom = document.querySelector('.tl-col-domingo');
-        if (!colDom) return;
-        const tieneSesiones = colDom.querySelectorAll('.tl-sesion').length > 0;
-        const toggle = document.getElementById('tl-toggle-domingo');
-        if (!tieneSesiones) {
-            colDom.classList.add('tl-col-oculta');
-            if (toggle) toggle.checked = false;
-        } else {
-            if (toggle) toggle.checked = true;
-        }
-    }
+    // Domingo se muestra por defecto (checkbox ya viene marcado en el HTML).
+    // El usuario lo oculta manualmente con el toggle; ya no se detecta ni se
+    // oculta automáticamente al cargar.
 
     // ── Tamaño de columna hora ────────────────────────────────────────────────
     function ajustarAlturaHoraCol() {
@@ -458,7 +448,6 @@
         dibujarLineasFondo();
         posicionarSesiones();
         actualizarLineaAhora();
-        checkDomingo();
 
         // Actualizar línea "ahora" cada minuto
         setInterval(actualizarLineaAhora, 60 * 1000);

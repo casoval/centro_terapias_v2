@@ -59,9 +59,17 @@
                     <input type="checkbox"
                            id="toggle-domingos-mensual"
                            class="w-4 h-4 text-blue-600 rounded focus:ring-offset-0 focus:ring-0 cursor-pointer accent-white"
+                           checked
                            onchange="toggleDomingosMensual(this.checked)">
                     <span class="text-xs text-white font-bold tracking-wide">Dom.</span>
                 </label>
+
+                {# Imprimir horario (respeta filtros y vista actual) #}
+                <button type="button"
+                        onclick="imprimirHorarioMensual()"
+                        class="no-print px-3 py-1.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-all whitespace-nowrap">
+                    🖨️ Imprimir
+                </button>
             </div>
 
         </div>
@@ -537,8 +545,16 @@
 <style>
 #header-dias-mensual, #grid-mensual .grid { transition: none !important; }
 
-.dia-celda { cursor: pointer; transition: all 0.2s ease; }
-.dia-celda:hover:not(.dia-atenuado) { background-color: rgb(249, 250, 251); transform: scale(1.02); }
+/* ⚡ Rendimiento: en meses con muchas sesiones, las filas de semana que
+   quedan fuera de la pantalla (hay que hacer scroll de la página para
+   verlas) no necesitan layout/pintado hasta que se acercan al viewport. */
+#grid-mensual > .grid {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 140px;
+}
+
+.dia-celda { cursor: pointer; }
+.dia-celda:hover:not(.dia-atenuado) { background-color: rgb(249, 250, 251); }
 .dia-celda:hover .dia-numero-header span:not(.bg-blue-600) { background-color: rgb(243, 244, 246); }
 
 /* ── Timeline ── */
@@ -558,6 +574,31 @@
 .tm-sesion.tm-tiny .tm-hora-label,
 .tm-sesion.tm-tiny .tm-servicio-label,
 .tm-sesion.tm-tiny .tm-prof-label { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   IMPRESIÓN — Horario mensual
+   ══════════════════════════════════════════════════════════════════════ */
+@media print {
+    @page { size: landscape; margin: 8mm; }
+
+    .no-print,
+    #men-vista-timeline,
+    #men-btn-ahora,
+    #men-icono { display: none !important; }
+
+    body, html { background: #fff !important; }
+
+    #men-vista-lista { display: block !important; }
+
+    .rounded-xl, .rounded-lg, .shadow-xl, .shadow-md, .shadow-sm { box-shadow: none !important; border-radius: 0 !important; }
+
+    #grid-mensual > .grid { break-inside: avoid; }
+    .dia-celda { break-inside: avoid; }
+
+    /* Cabecera azul → blanco/negro para no gastar tinta */
+    .bg-gradient-to-r.from-blue-600 { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
+    .bg-gradient-to-r.from-blue-600 * { color: #000 !important; text-shadow: none !important; }
+}
 </style>
 
 
@@ -628,6 +669,17 @@ function menCambiarVista(vista) {
 {% if subvista == 'timeline' %}
 document.addEventListener('DOMContentLoaded', function() { menCambiarVista('timeline'); });
 {% endif %}
+
+// ── Imprimir horario mensual ────────────────────────────────────────────
+// Respeta los filtros aplicados y el estado del toggle "Domingo". Si la
+// vista activa es "timeline" se cambia a "lista" antes de imprimir porque
+// es el formato que mejor encaja en una hoja.
+window.imprimirHorarioMensual = function () {
+    if (_menVistaActiva === 'timeline') {
+        menCambiarVista('lista');
+    }
+    setTimeout(function () { window.print(); }, 150);
+};
 </script>
 
 {# ── Timeline JS ──────────────────────────────────────────────────────── #}
@@ -873,20 +925,8 @@ document.addEventListener('DOMContentLoaded', function() { menCambiarVista('time
         }
     }
 
-    function tmCheckDomingos() {
-        var cols   = document.querySelectorAll('.tm-col-domingo');
-        var toggle = document.getElementById('toggle-domingos-mensual');
-        var tiene  = false;
-        cols.forEach(function(c) {
-            if (c.querySelectorAll('.tm-sesion').length > 0) tiene = true;
-        });
-        if (!tiene) {
-            cols.forEach(function(c) { c.classList.add('tm-col-oculta'); });
-            if (toggle) toggle.checked = false;
-        } else {
-            if (toggle) toggle.checked = true;
-        }
-    }
+    // Domingo se muestra por defecto (checkbox ya viene marcado en el HTML).
+    // Ya no se detecta automáticamente si hay sesiones ni se oculta al cargar.
 
     window.tmInit = function() {
         tmAjustarAlturas();
@@ -895,7 +935,6 @@ document.addEventListener('DOMContentLoaded', function() { menCambiarVista('time
         tmPosicionarSesiones();    // primero: asigna data-startMin/endMin
         tmAplicarAnchoBase();      // luego: calcula anchos según sesiones
         tmActualizarLineaAhora();
-        tmCheckDomingos();
         tmSincronizarScrollHoras();
         setInterval(tmActualizarLineaAhora, 60 * 1000);
     };
@@ -918,24 +957,9 @@ document.addEventListener('DOMContentLoaded', function() { menCambiarVista('time
 
 {# ── Domingos (ambas vistas) ──────────────────────────────────────────── #}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var toggle = document.getElementById('toggle-domingos-mensual');
-
-    // Detectar domingos con sesiones en la vista lista
-    var colsDom = document.querySelectorAll('.columna-domingo-mensual');
-    var tieneSesiones = false;
-    colsDom.forEach(function(col) {
-        if (col.getAttribute('data-dia') === '6' && col.querySelectorAll('.group').length > 0) {
-            tieneSesiones = true;
-        }
-    });
-    if (!tieneSesiones) {
-        ocultarDomingosMensual();
-        if (toggle) toggle.checked = false;
-    } else {
-        if (toggle) toggle.checked = true;
-    }
-});
+// Domingo se muestra por defecto (checkbox ya viene marcado y el grid ya
+// nace en grid-cols-7). Ya no se detecta automáticamente ni se oculta al
+// cargar la página; el usuario decide con el toggle.
 
 function toggleDomingosMensual(mostrar) {
     if (mostrar) { mostrarDomingosMensual(); } else { ocultarDomingosMensual(); }

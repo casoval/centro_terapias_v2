@@ -480,6 +480,15 @@ function irPaso2() {
 
 function irPaso3() {
     if (!estado.semana_tipo.length) { alert('⚠️ Define al menos un slot.'); return; }
+    // ✅ Bloquear avance si algún slot quedó con un profesional que ya no
+    //    está disponible (inactivo / no atiende ese servicio). Antes esto
+    //    pasaba desapercibido y la sesión se creaba igual con ese profesional.
+    const selectsProfesional = document.querySelectorAll('[data-role="profesional"]');
+    const haySlotInvalido = Array.from(selectsProfesional).some(sel => sel.selectedOptions[0]?.disabled);
+    if (haySlotInvalido) {
+        alert('⚠️ Uno o más slots tienen un profesional que ya no está disponible (inactivo). Elegí un profesional activo en cada fila marcada antes de continuar.');
+        return;
+    }
     // ✅ Si hay mensualidad, ir directo al mes del vínculo y limpiar selección previa
     if (estado.tipo_agenda === 'mensualidad' && estado.mes_vinculo && estado.anio_vinculo) {
         estado.mes_actual  = estado.mes_vinculo;
@@ -525,7 +534,10 @@ function cargarSemanasRecientes() {
 }
 
 function usarSemanaComoBase(sem) {
-    estado.semana_tipo = sem.slots.map(s=>({weekday:s.weekday,hora_inicio:s.hora_inicio,duracion:s.duracion,servicio_id:s.servicio_id,profesional_id:s.profesional_id}));
+    // ✅ Conservamos también el nombre del profesional histórico: si luego
+    //    resulta estar inactivo (no aparece en las opciones del select),
+    //    lo necesitamos para mostrarlo igual y no perder de vista cuál era.
+    estado.semana_tipo = sem.slots.map(s=>({weekday:s.weekday,hora_inicio:s.hora_inicio,duracion:s.duracion,servicio_id:s.servicio_id,profesional_id:s.profesional_id,profesional_nombre:s.profesional_nombre||null}));
     renderizarTablaSemana(); document.getElementById('tabla-semana-tipo').classList.remove('hidden');
 }
 
@@ -561,9 +573,25 @@ function agregarFilaSlot(slot, idx) {
     // Profesionales del servicio seleccionado
     const servicioActual = SERVICIOS.find(s => s.id == slot.servicio_id) || SERVICIOS[0];
     const profsActuales  = servicioActual?.profesionales || [];
-    const optsProfesional = profsActuales.length
-        ? profsActuales.map(p => `<option value="${p.id}"${slot.profesional_id==p.id?' selected':''}>${p.nombre}</option>`).join('')
-        : `<option value="${slot.profesional_id || 0}">— elige servicio primero —</option>`;
+    const profesionalSigueDisponible = profsActuales.some(p => p.id == slot.profesional_id);
+
+    let optsProfesional;
+    if (!profsActuales.length) {
+        optsProfesional = `<option value="${slot.profesional_id || 0}">— elige servicio primero —</option>`;
+    } else if (slot.profesional_id && !profesionalSigueDisponible) {
+        // ⚠️ El profesional guardado (venía del historial) YA NO está disponible
+        // para este servicio (inactivo, cambió de sucursal, etc). Antes esto
+        // hacía que el navegador seleccionara por defecto OTRO profesional en
+        // pantalla mientras el estado interno seguía guardando el viejo →
+        // la sesión se creaba con un profesional distinto al mostrado.
+        // Ahora se muestra explícitamente como opción inválida y seleccionada,
+        // forzando al usuario a elegir uno activo antes de continuar.
+        const nombreViejo = slot.profesional_nombre || `Profesional #${slot.profesional_id}`;
+        optsProfesional = `<option value="${slot.profesional_id}" selected disabled>⚠️ ${nombreViejo} (inactivo/no disponible — elegí otro)</option>`
+            + profsActuales.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+    } else {
+        optsProfesional = profsActuales.map(p => `<option value="${p.id}"${slot.profesional_id==p.id?' selected':''}>${p.nombre}</option>`).join('');
+    }
 
     fila.innerHTML = `
         <select onchange="actualizarSlot(${idx},'weekday',this.value)"

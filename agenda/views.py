@@ -4166,8 +4166,9 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
     # Precargar servicios y profesionales
     from servicios.models import TipoServicio as _TipoServicio
     from profesionales.models import Profesional as _Profesional
-    servicios_map     = {s.id: s for s in _TipoServicio.objects.all()}
-    profesionales_map = {p.id: p for p in _Profesional.objects.all()}
+    servicios_map = {s.id: s for s in _TipoServicio.objects.all()}
+    # ✅ FIX: solo profesionales ACTIVOS (ver mismo fix en procesar_patron_semanal).
+    profesionales_map = {p.id: p for p in _Profesional.objects.filter(activo=True)}
 
     dias_en_mes = monthrange(anio_destino, mes_destino)[1]
 
@@ -4235,6 +4236,11 @@ def procesar_copiar_mensualidad(request, mensualidad_id):
 
                         if not servicio or not profesional:
                             omitidas += 1
+                            conflictos_detalle.append(
+                                f"{fecha.strftime('%d/%m')} — Profesional o servicio "
+                                f"inválido/inactivo (id profesional {slot['profesional_id']}); "
+                                f"sesión omitida, elegí un profesional activo en la semana tipo."
+                            )
                             continue
 
                         hora_inicio = slot['hora_inicio']
@@ -4615,8 +4621,11 @@ def api_preview_patron(request):
     # Resolver nombres
     from servicios.models import TipoServicio as _TS
     from profesionales.models import Profesional as _Prof
-    servicios_map     = {s.id: s for s in _TS.objects.all()}
-    profesionales_map = {p.id: p for p in _Prof.objects.all()}
+    servicios_map = {s.id: s for s in _TS.objects.all()}
+    # ✅ FIX: mismos profesionales que verá procesar_patron_semanal (solo
+    # activos), para que el preview no muestre un profesional que luego no
+    # se usará al crear la sesión de verdad.
+    profesionales_map = {p.id: p for p in _Prof.objects.filter(activo=True)}
 
     DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
@@ -4764,8 +4773,12 @@ def procesar_patron_semanal(request):
 
         from servicios.models import TipoServicio as _TS
         from profesionales.models import Profesional as _Prof
-        servicios_map     = {s.id: s for s in _TS.objects.all()}
-        profesionales_map = {p.id: p for p in _Prof.objects.all()}
+        servicios_map = {s.id: s for s in _TS.objects.all()}
+        # ✅ FIX: solo profesionales ACTIVOS. Antes se usaba .all(), lo que
+        # permitía crear sesiones con un profesional inactivo si el
+        # profesional_id venía "viejo" desde el frontend (p.ej. al reusar
+        # una semana base del historial cuyo profesional ya fue dado de baja).
+        profesionales_map = {p.id: p for p in _Prof.objects.filter(activo=True)}
 
         from django.db import transaction as _tx
         creadas  = 0
@@ -4796,6 +4809,11 @@ def procesar_patron_semanal(request):
 
                         if not servicio or not profesional:
                             omitidas += 1
+                            errores.append(
+                                f"{fecha.strftime('%d/%m/%Y')} — Profesional o servicio "
+                                f"inválido/inactivo (id profesional {slot['profesional_id']}); "
+                                f"sesión omitida, elegí un profesional activo."
+                            )
                             continue
 
                         hora_inicio = slot['hora_inicio']
