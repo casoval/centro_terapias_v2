@@ -6,6 +6,7 @@ app_name = 'agenda'
 urlpatterns = [
     # Vistas principales
     path('', views.calendario, name='calendario'),
+    path('imprimir-horario/', views.imprimir_horario, name='imprimir_horario'),
     path('agendar-recurrente/', views.agendar_recurrente, name='agendar_recurrente'),
     
     # APIs HTMX para cascada de filtros (ORDEN CORRECTO)

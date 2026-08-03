@@ -452,37 +452,6 @@
 .tl-sesion.tl-tiny .tl-t-srv,
 .tl-sesion.tl-tiny .tl-t-prof { display: none; }
 .tl-sesion.tl-tiny .tl-t-pac { font-size: 7px; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   IMPRESIÓN — Horario semanal
-   ══════════════════════════════════════════════════════════════════════ */
-@media print {
-    @page { size: landscape; margin: 8mm; }
-
-    .no-print,
-    #sem-vista-timeline,
-    #btn-restaurar,
-    #sem-btn-ahora,
-    .dia-header .absolute,
-    .group-hover\:opacity-100,
-    #sem-icono { display: none !important; }
-
-    body, html { background: #fff !important; }
-
-    #sem-vista-lista { display: block !important; }
-
-    .rounded-xl, .rounded-lg, .shadow-xl, .shadow-md, .shadow-sm { box-shadow: none !important; border-radius: 0 !important; }
-
-    #header-dias, .columna-dia {
-        break-inside: avoid;
-    }
-
-    .group { break-inside: avoid; }
-
-    /* Cabecera azul → compacta y en blanco/negro para no gastar tinta */
-    .bg-gradient-to-r.from-blue-600 { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
-    .bg-gradient-to-r.from-blue-600 * { color: #000 !important; text-shadow: none !important; }
-}
 </style>
 
 
@@ -499,19 +468,20 @@
     var vistaActual = 'lista';
     var tlIniciado  = false;
 
-    // ── Toggle de vista (botón del header) ────────────────────────────────
     // ── Imprimir horario semanal ──────────────────────────────────────────
-    // Imprime respetando los filtros aplicados (profesional, servicio,
-    // sucursal, estado, etc.) y el estado actual del toggle "Domingo".
-    // Si la vista activa es "timeline" se cambia a "lista" antes de imprimir
-    // porque es el formato que mejor encaja en una hoja.
+    // Abre el PDF generado en el servidor (mismo look de los demás informes
+    // del sistema) respetando los filtros actuales de la URL y el estado
+    // del toggle "Domingo".
     window.imprimirHorarioSemanal = function () {
-        if (vistaActual === 'timeline') {
-            semCambiarVista('lista');
-        }
-        setTimeout(function () { window.print(); }, 150);
+        var toggleDom = document.getElementById('toggle-domingo');
+        var mostrarDomingo = toggleDom ? toggleDom.checked : true;
+        var params = new URLSearchParams(window.location.search);
+        params.set('vista', 'semanal');
+        params.set('mostrar_domingo', mostrarDomingo ? '1' : '0');
+        window.open('{% url "agenda:imprimir_horario" %}?' + params.toString(), '_blank');
     };
 
+    // ── Toggle de vista (botón del header) ────────────────────────────────
     window.semCambiarVista = function (vista) {
         vistaActual = vista;
         var listaEl     = document.getElementById('sem-vista-lista');

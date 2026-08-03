@@ -1261,6 +1261,123 @@ def calendario(request):
     
     return render(request, 'agenda/calendario.html', context)
 
+
+@login_required
+@solo_sus_sucursales
+def imprimir_horario(request):
+    """
+    Genera el PDF del horario imprimible (semanal o mensual), respetando
+    exactamente los mismos filtros que la vista `calendario` (se le pasa
+    la misma query string desde el botón "Imprimir").
+
+    Formato según los filtros activos:
+      - Solo profesional  -> formato 'profesional' (se repite el paciente)
+      - Solo paciente      -> formato 'paciente'     (se repite el profesional)
+      - Cualquier otro caso (ambos activos, ninguno, u otros filtros)
+        -> formato 'completo' (todos los datos en cada fila)
+    """
+    from .services import CalendarService
+    from .informe_horario_pdf import generar_horario_pdf
+
+    vista = request.GET.get('vista', 'semanal')
+    if vista not in ('semanal', 'mensual'):
+        vista = 'semanal'
+
+    fecha_str = request.GET.get('fecha', '').strip()
+    estado_filtro = request.GET.get('estado', '').strip() or None
+    paciente_id = request.GET.get('paciente', '').strip() or None
+    profesional_id = request.GET.get('profesional', '').strip() or None
+    servicio_id = request.GET.get('servicio', '').strip() or None
+    sucursal_id = request.GET.get('sucursal', '').strip() or None
+    tipo_sesion = request.GET.get('tipo_sesion', '').strip() or None
+    mostrar_domingo = request.GET.get('mostrar_domingo', '1') != '0'
+
+    # Un profesional viendo su propia agenda siempre queda fijado a su ID
+    # (igual que en `calendario`), así que el PDF también usa el formato
+    # 'profesional' automáticamente en ese caso.
+    if (hasattr(request.user, 'perfil') and request.user.perfil.es_profesional()
+            and not request.user.is_superuser and request.user.perfil.profesional):
+        profesional_id = str(request.user.perfil.profesional.id)
+
+    if fecha_str:
+        try:
+            fecha_base = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            fecha_base = date.today()
+    else:
+        fecha_base = date.today()
+
+    if vista == 'mensual':
+        primer_dia = fecha_base.replace(day=1)
+        ultimo_dia_del_mes = monthrange(fecha_base.year, fecha_base.month)[1]
+        fecha_inicio = primer_dia
+        fecha_fin = fecha_base.replace(day=ultimo_dia_del_mes)
+    else:
+        dias_desde_lunes = fecha_base.weekday()
+        fecha_inicio = fecha_base - timedelta(days=dias_desde_lunes)
+        fecha_fin = fecha_inicio + timedelta(days=6)
+
+    sesiones = CalendarService.get_filtered_sessions(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        sucursales_usuario=request.sucursales_usuario,
+        sucursal_id=sucursal_id,
+        tipo_sesion=tipo_sesion,
+        estado=estado_filtro,
+        paciente_id=paciente_id,
+        profesional_id=profesional_id,
+        servicio_id=servicio_id,
+    ).select_related('paciente', 'profesional', 'servicio', 'sucursal')
+
+    # ── Determinar formato ───────────────────────────────────────────────
+    nombre_profesional = None
+    nombre_paciente = None
+    if profesional_id and not paciente_id:
+        formato = 'profesional'
+        prof = Profesional.objects.filter(id=profesional_id).first()
+        nombre_profesional = prof.nombre_completo if prof else None
+    elif paciente_id and not profesional_id:
+        formato = 'paciente'
+        pac = Paciente.objects.filter(id=paciente_id).first()
+        nombre_paciente = pac.nombre_completo if pac else None
+    else:
+        formato = 'completo'
+
+    # ── Sucursal/Servicio únicos dentro del resultado filtrado ────────────
+    sucursal_unica = None
+    servicio_unico = None
+    if formato in ('profesional', 'paciente'):
+        sucursales_en_resultado = list(sesiones.order_by().values_list(
+            'sucursal_id', 'sucursal__nombre'
+        ).distinct())
+        if len(sucursales_en_resultado) == 1:
+            sucursal_unica = sucursales_en_resultado[0][1]
+
+        servicios_en_resultado = list(sesiones.order_by().values_list(
+            'servicio_id', 'servicio__nombre'
+        ).distinct())
+        if len(servicios_en_resultado) == 1:
+            servicio_unico = servicios_en_resultado[0][1]
+
+    buffer = generar_horario_pdf(
+        vista=vista,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        sesiones=list(sesiones),
+        formato=formato,
+        nombre_profesional=nombre_profesional,
+        nombre_paciente=nombre_paciente,
+        sucursal_unica=sucursal_unica,
+        servicio_unico=servicio_unico,
+        mostrar_domingo=mostrar_domingo,
+    )
+
+    nombre_archivo = f"horario_{vista}_{fecha_inicio.strftime('%Y-%m-%d')}.pdf"
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
+    return response
+
+
 @login_required
 @solo_sus_sucursales
 def agendar_recurrente(request):

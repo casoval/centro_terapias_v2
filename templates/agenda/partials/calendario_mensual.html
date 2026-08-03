@@ -574,31 +574,6 @@
 .tm-sesion.tm-tiny .tm-hora-label,
 .tm-sesion.tm-tiny .tm-servicio-label,
 .tm-sesion.tm-tiny .tm-prof-label { display: none; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   IMPRESIÓN — Horario mensual
-   ══════════════════════════════════════════════════════════════════════ */
-@media print {
-    @page { size: landscape; margin: 8mm; }
-
-    .no-print,
-    #men-vista-timeline,
-    #men-btn-ahora,
-    #men-icono { display: none !important; }
-
-    body, html { background: #fff !important; }
-
-    #men-vista-lista { display: block !important; }
-
-    .rounded-xl, .rounded-lg, .shadow-xl, .shadow-md, .shadow-sm { box-shadow: none !important; border-radius: 0 !important; }
-
-    #grid-mensual > .grid { break-inside: avoid; }
-    .dia-celda { break-inside: avoid; }
-
-    /* Cabecera azul → blanco/negro para no gastar tinta */
-    .bg-gradient-to-r.from-blue-600 { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
-    .bg-gradient-to-r.from-blue-600 * { color: #000 !important; text-shadow: none !important; }
-}
 </style>
 
 
@@ -671,14 +646,16 @@ document.addEventListener('DOMContentLoaded', function() { menCambiarVista('time
 {% endif %}
 
 // ── Imprimir horario mensual ────────────────────────────────────────────
-// Respeta los filtros aplicados y el estado del toggle "Domingo". Si la
-// vista activa es "timeline" se cambia a "lista" antes de imprimir porque
-// es el formato que mejor encaja en una hoja.
+// Abre el PDF generado en el servidor (mismo look de los demás informes
+// del sistema) respetando los filtros actuales de la URL y el estado del
+// toggle "Domingo".
 window.imprimirHorarioMensual = function () {
-    if (_menVistaActiva === 'timeline') {
-        menCambiarVista('lista');
-    }
-    setTimeout(function () { window.print(); }, 150);
+    var toggleDom = document.getElementById('toggle-domingos-mensual');
+    var mostrarDomingo = toggleDom ? toggleDom.checked : true;
+    var params = new URLSearchParams(window.location.search);
+    params.set('vista', 'mensual');
+    params.set('mostrar_domingo', mostrarDomingo ? '1' : '0');
+    window.open('{% url "agenda:imprimir_horario" %}?' + params.toString(), '_blank');
 };
 </script>
 
