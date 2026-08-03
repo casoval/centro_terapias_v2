@@ -1,0 +1,224 @@
+<!-- ========================================================
+     MODAL: CAMBIAR HORARIO
+     - Lista las sesiones "programada" del paciente en el mes
+     - Checkbox individual + "seleccionar todas"
+     - Se elige UNA nueva hora de inicio para aplicar a todas las
+       seleccionadas; cada sesión conserva su propia duración (la hora
+       de fin se recalcula por sesión, no se toca fecha/profesional/servicio)
+     ======================================================== -->
+
+<!-- HEADER -->
+<div class="bg-gradient-to-r from-sky-500 to-blue-500 px-4 py-3 flex items-center justify-between rounded-t-2xl sticky top-0 z-10">
+    <div class="flex items-center gap-2">
+        <span class="text-2xl">🕒</span>
+        <div>
+            <h2 class="text-base font-black text-white">Cambiar Horario</h2>
+            <p class="text-sky-50 text-[11px] mt-0.5">
+                {{ paciente.nombre_completo }} · <strong>{{ mes_display }}</strong>
+            </p>
+        </div>
+    </div>
+    <button onclick="cerrarModalCambiarHorarioMes()"
+            class="text-white hover:bg-white/20 w-7 h-7 rounded-lg transition-colors flex items-center justify-center font-bold text-lg">×</button>
+</div>
+
+<div class="p-4 space-y-3" id="cha-contenedor">
+
+{% if total_sesiones == 0 %}
+    <div class="text-center py-10">
+        <p class="text-4xl mb-2">📭</p>
+        <p class="text-slate-600 font-bold">Sin sesiones "programada" en {{ mes_display }}</p>
+        <p class="text-slate-400 text-xs mt-1">No hay nada que reprogramar este mes para este paciente.</p>
+    </div>
+{% else %}
+
+    <!-- Seleccionar todas -->
+    <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="cha-check-todas" checked
+                   onchange="chaToggleTodas(this.checked)"
+                   class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500">
+            <span class="text-xs font-black text-slate-700">Seleccionar todas ({{ total_sesiones }})</span>
+        </label>
+        <span id="cha-contador-seleccion" class="text-[11px] font-bold text-sky-700"></span>
+    </div>
+
+    <!-- Lista de sesiones -->
+    <div class="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-64 overflow-y-auto" id="cha-lista-sesiones"></div>
+
+    <!-- Selector de nueva hora -->
+    <div class="bg-sky-50 border border-sky-200 rounded-xl p-3">
+        <label class="block text-xs font-black text-sky-800 mb-1.5">🕒 Nueva hora de inicio</label>
+        <input type="time" id="cha-input-hora"
+               oninput="chaActualizarEstado()"
+               class="w-full px-2 py-2 border-2 border-sky-200 rounded-lg text-xs font-bold outline-none focus:border-sky-500 bg-white">
+        <p class="text-[10px] text-sky-700 mt-1.5">
+            Cada sesión conserva su propia duración — solo cambia la hora de inicio, no la fecha ni el profesional.
+        </p>
+    </div>
+
+    <!-- Grupales -->
+    <label class="flex items-start gap-2 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <input type="checkbox" id="cha-check-grupales" class="w-4 h-4 mt-0.5 rounded text-sky-600 focus:ring-sky-500">
+        <span class="text-[11px] text-slate-600">
+            <strong>Permitir sesiones grupales</strong> — activá esto si el profesional
+            puede atender varios pacientes a la misma hora (ignora el conflicto de horario del profesional).
+        </span>
+    </label>
+
+    <!-- Resultado -->
+    <div id="cha-resultado" class="hidden text-xs rounded-xl p-3"></div>
+
+    <!-- Acciones -->
+    <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="cerrarModalCambiarHorarioMes()"
+                class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+        <button type="button" id="cha-btn-confirmar" onclick="chaConfirmar()" disabled
+                class="px-4 py-2 rounded-xl text-xs font-black text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md">
+            🕒 Cambiar horario
+        </button>
+    </div>
+
+{% endif %}
+
+</div>
+
+<script>
+(function() {
+    const PACIENTE_ID = {{ paciente.id }};
+    const SESIONES    = {{ sesiones_json|safe }};
+
+    const listaEl = document.getElementById('cha-lista-sesiones');
+    if (!listaEl) return; // no había sesiones, nada más que hacer
+
+    function sumarMinutos(horaHHMM, minutos) {
+        const [h, m] = horaHHMM.split(':').map(Number);
+        const total = h * 60 + m + minutos;
+        const hh = String(Math.floor((total % (24 * 60)) / 60)).padStart(2, '0');
+        const mm = String(total % 60).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+
+    // ── Render de filas ────────────────────────────────────────
+    function renderFilas() {
+        listaEl.innerHTML = SESIONES.map(s => `
+            <label class="flex items-center gap-2 px-3 py-2 hover:bg-sky-50/50 cursor-pointer text-[11px]" data-fila-id="${s.id}">
+                <input type="checkbox" class="cha-check-sesion w-4 h-4 rounded text-sky-600 focus:ring-sky-500"
+                       data-id="${s.id}" checked
+                       onchange="chaActualizarEstado()">
+                <span class="font-bold text-slate-600 w-24 flex-shrink-0">${s.dia_nombre} ${s.fecha_display}</span>
+                <span class="font-bold text-slate-500 w-24 flex-shrink-0" data-hora-actual>${s.hora_inicio} - ${s.hora_fin}</span>
+                <span class="text-slate-500 flex-1 truncate">${s.servicio_nombre} · ${s.profesional_nombre}</span>
+                <span class="text-sky-600 font-bold w-24 flex-shrink-0 text-right" data-hora-preview></span>
+            </label>
+        `).join('');
+    }
+    renderFilas();
+
+    window.chaToggleTodas = function(marcar) {
+        document.querySelectorAll('.cha-check-sesion').forEach(chk => chk.checked = marcar);
+        chaActualizarEstado();
+    };
+
+    window.chaActualizarEstado = function() {
+        const checks = Array.from(document.querySelectorAll('.cha-check-sesion'));
+        const marcados = checks.filter(c => c.checked);
+        const total = checks.length;
+
+        // Sincronizar "seleccionar todas"
+        const master = document.getElementById('cha-check-todas');
+        master.checked = marcados.length === total;
+        master.indeterminate = marcados.length > 0 && marcados.length < total;
+
+        document.getElementById('cha-contador-seleccion').textContent =
+            marcados.length ? `${marcados.length} seleccionada(s)` : '';
+
+        const nuevaHora     = document.getElementById('cha-input-hora').value;
+        const btnConfirmar  = document.getElementById('cha-btn-confirmar');
+
+        // Preview por fila de la nueva hora de fin (conservando duración propia)
+        document.querySelectorAll('#cha-lista-sesiones label').forEach(fila => {
+            const id = parseInt(fila.dataset.filaId);
+            const sesion = SESIONES.find(s => s.id === id);
+            const previewEl = fila.querySelector('[data-hora-preview]');
+            const checkEl = fila.querySelector('.cha-check-sesion');
+            if (!nuevaHora || !checkEl.checked) {
+                previewEl.textContent = '';
+                return;
+            }
+            const nuevaHoraFin = sumarMinutos(nuevaHora, sesion.duracion_minutos);
+            previewEl.textContent = `→ ${nuevaHora} - ${nuevaHoraFin}`;
+        });
+
+        btnConfirmar.disabled = !(marcados.length > 0 && nuevaHora);
+    };
+
+    window.chaConfirmar = function() {
+        const seleccionadas = Array.from(document.querySelectorAll('.cha-check-sesion'))
+            .filter(c => c.checked)
+            .map(c => parseInt(c.dataset.id));
+        const nuevaHora = document.getElementById('cha-input-hora').value;
+        const permitirGrupales = document.getElementById('cha-check-grupales').checked;
+
+        if (!seleccionadas.length || !nuevaHora) return;
+
+        const btn = document.getElementById('cha-btn-confirmar');
+        btn.disabled = true;
+        btn.textContent = 'Cambiando…';
+
+        const csrfToken = getCookie('csrftoken');
+
+        fetch(`/agenda/paciente/${PACIENTE_ID}/cambiar-horario-mes/procesar/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                sesion_ids: seleccionadas,
+                nueva_hora_inicio: nuevaHora,
+                permitir_grupales: permitirGrupales,
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            const resultado = document.getElementById('cha-resultado');
+            resultado.classList.remove('hidden');
+
+            if (!data.success) {
+                resultado.className = 'text-xs rounded-xl p-3 bg-red-50 border border-red-200 text-red-700';
+                resultado.textContent = '❌ ' + (data.error || 'Error inesperado.');
+                btn.disabled = false;
+                btn.textContent = '🕒 Cambiar horario';
+                return;
+            }
+
+            const partes = [`✅ ${data.cambiadas} sesión(es) reprogramada(s).`];
+            if (data.omitidas) partes.push(`⚠️ ${data.omitidas} omitida(s).`);
+            resultado.className = 'text-xs rounded-xl p-3 ' +
+                (data.omitidas ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-emerald-50 border border-emerald-200 text-emerald-700');
+            resultado.innerHTML = partes.join(' ') +
+                (data.errores && data.errores.length ? '<ul class="mt-1.5 list-disc list-inside space-y-0.5">' +
+                    data.errores.map(e => `<li>${e}</li>`).join('') + '</ul>' : '');
+
+            btn.textContent = '✅ Listo';
+
+            if (data.cambiadas > 0) {
+                setTimeout(() => window.location.reload(), 1600);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🕒 Cambiar horario';
+            }
+        })
+        .catch(() => {
+            const resultado = document.getElementById('cha-resultado');
+            resultado.classList.remove('hidden');
+            resultado.className = 'text-xs rounded-xl p-3 bg-red-50 border border-red-200 text-red-700';
+            resultado.textContent = '❌ Error de red. Intenta nuevamente.';
+            btn.disabled = false;
+            btn.textContent = '🕒 Cambiar horario';
+        });
+    };
+
+    // Estado inicial (todas marcadas por defecto, sin hora elegida aún)
+    chaActualizarEstado();
+})();
+</script>

@@ -104,6 +104,22 @@ urlpatterns = [
          views.agendar_patron_semanal,
          name='agendar_patron_semanal'),
 
+    # CAMBIAR PROFESIONAL — sesiones "programada" de un paciente en un mes
+    path('paciente/<int:paciente_id>/cambiar-profesional-mes/',
+         views.modal_cambiar_profesional_mes,
+         name='modal_cambiar_profesional_mes'),
+    path('paciente/<int:paciente_id>/cambiar-profesional-mes/procesar/',
+         views.procesar_cambiar_profesional_mes,
+         name='procesar_cambiar_profesional_mes'),
+
+    # CAMBIAR HORARIO — sesiones "programada" de un paciente en un mes
+    path('paciente/<int:paciente_id>/cambiar-horario-mes/',
+         views.modal_cambiar_horario_mes,
+         name='modal_cambiar_horario_mes'),
+    path('paciente/<int:paciente_id>/cambiar-horario-mes/procesar/',
+         views.procesar_cambiar_horario_mes,
+         name='procesar_cambiar_horario_mes'),
+
     # INFORME DE EVOLUCIÓN
     path('informe-evolucion/<int:paciente_id>/', 
          views.informe_evolucion, 

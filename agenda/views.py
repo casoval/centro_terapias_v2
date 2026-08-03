@@ -1252,6 +1252,11 @@ def calendario(request):
             valido_hasta__gte=date.today(),
             usado=False,
         ).count() if (request.user.is_staff or request.user.is_superuser) else 0,
+        # ✅ Se calcula acá (no en el template) porque el tag {% if %} de Django
+        # no soporta paréntesis para agrupar condiciones "or" dentro de un "and"
+        # más largo — intentarlo tira TemplateSyntaxError: "Could not parse the
+        # remainder: '(user.is_superuser'...".
+        'puede_cambiar_profesional_mes': _puede_cambiar_profesional_mes(request.user),
     }
     
     return render(request, 'agenda/calendario.html', context)
@@ -4899,6 +4904,433 @@ def procesar_patron_semanal(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ══════════════════════════════════════════════════════════════
+# CAMBIAR PROFESIONAL — sesiones "programada" de un paciente en un mes
+# ══════════════════════════════════════════════════════════════
+def _puede_cambiar_profesional_mes(user):
+    """
+    Solo gerente, recepcionista o superuser pueden reasignar profesional en
+    lote. Un profesional (aunque esté logueado y tenga acceso a la agenda)
+    no debería poder cambiar sesiones a otro profesional por este camino.
+    """
+    if user.is_superuser:
+        return True
+    if not hasattr(user, 'perfil'):
+        return False
+    return user.perfil.es_gerente() or user.perfil.es_recepcionista()
+
+
+@login_required
+@solo_sus_sucursales
+def modal_cambiar_profesional_mes(request, paciente_id):
+    """
+    Modal: lista las sesiones en estado 'programada' de un paciente dentro
+    de un mes/año dado, con checkbox para elegir cuáles reasignar a otro
+    profesional (individualmente o todas de una).
+
+    Se agrupan por servicio porque el profesional nuevo debe ofrecer ese
+    mismo servicio — no tendría sentido reasignar sesiones de servicios
+    distintos a un único profesional.
+
+    Solo disponible para gerente / recepcionista / superuser.
+
+    GET params: mes, anio
+    """
+    if not _puede_cambiar_profesional_mes(request.user):
+        return HttpResponse(
+            '<div class="p-6 text-center text-red-600 font-bold">'
+            '❌ No tenés permiso para cambiar el profesional de las sesiones.</div>',
+            status=403,
+        )
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    sucursales_usuario = request.sucursales_usuario
+
+    hoy = date.today()
+    try:
+        mes  = int(request.GET.get('mes',  hoy.month))
+        anio = int(request.GET.get('anio', hoy.year))
+        if not (1 <= mes <= 12):
+            raise ValueError
+    except (ValueError, TypeError):
+        mes, anio = hoy.month, hoy.year
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    sesiones_qs = Sesion.objects.filter(
+        paciente=paciente,
+        fecha__year=anio,
+        fecha__month=mes,
+        estado='programada',
+    ).select_related('servicio', 'profesional', 'sucursal').order_by('fecha', 'hora_inicio')
+
+    # Restringir a las sucursales del usuario (defensa extra, además del
+    # decorator, para no listar sesiones de sucursales sin permiso)
+    if sucursales_usuario is not None:
+        sesiones_qs = sesiones_qs.filter(sucursal__in=sucursales_usuario)
+
+    sesiones = list(sesiones_qs)
+
+    # ── Profesionales activos disponibles por cada servicio presente ──
+    # (solo se ofrecen como "nuevo profesional" los que YA atienden ese
+    # servicio en la sucursal de la sesión, y están activos)
+    servicios_presentes = {s.servicio_id: s.servicio for s in sesiones if s.servicio_id}
+    prof_map = {}
+    for servicio_id, servicio in servicios_presentes.items():
+        sucursal_ids = {s.sucursal_id for s in sesiones if s.servicio_id == servicio_id and s.sucursal_id}
+        profs = Profesional.objects.filter(
+            activo=True,
+            servicios__id=servicio_id,
+            sucursales__id__in=sucursal_ids,
+        ).distinct().order_by('nombre', 'apellido')
+        prof_map[servicio_id] = [
+            {'id': p.id, 'nombre': f'{p.nombre} {p.apellido}'} for p in profs
+        ]
+
+    sesiones_data = [
+        {
+            'id':                s.id,
+            'fecha_iso':         s.fecha.isoformat(),
+            'fecha_display':     s.fecha.strftime('%d/%m/%Y'),
+            'dia_nombre':        ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][s.fecha.weekday()],
+            'hora_inicio':       s.hora_inicio.strftime('%H:%M'),
+            'hora_fin':          s.hora_fin.strftime('%H:%M'),
+            'servicio_id':       s.servicio_id,
+            'servicio_nombre':   s.servicio.nombre if s.servicio else '—',
+            'profesional_id':    s.profesional_id,
+            'profesional_nombre': f'{s.profesional.nombre} {s.profesional.apellido}' if s.profesional else '—',
+            'profesional_activo': bool(s.profesional and s.profesional.activo),
+        }
+        for s in sesiones
+    ]
+
+    context = {
+        'paciente':           paciente,
+        'mes':                mes,
+        'anio':               anio,
+        'mes_display':        f"{MESES[mes]} {anio}",
+        'sesiones_json':      json.dumps(sesiones_data),
+        'prof_map_json':      json.dumps(prof_map),
+        'total_sesiones':     len(sesiones_data),
+    }
+    return render(request, 'agenda/modal_cambiar_profesional_mes.html', context)
+
+
+@login_required
+@solo_sus_sucursales
+def procesar_cambiar_profesional_mes(request, paciente_id):
+    """
+    Reasigna las sesiones seleccionadas (todas 'programada', mismo mes/año,
+    mismo paciente) a un nuevo profesional.
+
+    POST JSON: { sesion_ids: [int], nuevo_profesional_id: int,
+                 permitir_grupales: bool }
+    Siempre devuelve JSON.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    if not _puede_cambiar_profesional_mes(request.user):
+        return JsonResponse({
+            'success': False,
+            'error': 'No tenés permiso para cambiar el profesional de las sesiones.'
+        }, status=403)
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    sesion_ids    = data.get('sesion_ids', [])
+    nuevo_prof_id = data.get('nuevo_profesional_id')
+    perm_grupales = data.get('permitir_grupales', False)
+
+    if not sesion_ids or not nuevo_prof_id:
+        return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+    # ✅ Solo profesionales ACTIVOS pueden recibir sesiones reasignadas
+    # (mismo criterio que en patrón semanal / copiar mensualidad — ver
+    # nota de esa corrección más arriba).
+    nuevo_profesional = Profesional.objects.filter(id=nuevo_prof_id, activo=True).first()
+    if not nuevo_profesional:
+        return JsonResponse({
+            'error': 'El profesional seleccionado no existe o está inactivo. '
+                     'Elegí un profesional activo.'
+        }, status=400)
+
+    sucursales_usuario = request.sucursales_usuario
+
+    cambiadas = 0
+    omitidas  = 0
+    errores   = []
+
+    from django.db import transaction as _transaction
+    with _transaction.atomic():
+        sesiones = (
+            Sesion.objects
+            .select_for_update()
+            .filter(id__in=sesion_ids, paciente=paciente, estado='programada')
+            .select_related('servicio', 'sucursal', 'profesional')
+        )
+
+        for sesion in sesiones:
+            # Permiso de sucursal
+            if sucursales_usuario is not None and not sucursales_usuario.filter(id=sesion.sucursal_id).exists():
+                omitidas += 1
+                errores.append(f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} — sin permiso sobre esa sucursal")
+                continue
+
+            # El nuevo profesional debe ofrecer ese servicio
+            if sesion.servicio_id and not nuevo_profesional.servicios.filter(id=sesion.servicio_id).exists():
+                omitidas += 1
+                errores.append(
+                    f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} "
+                    f"— {nuevo_profesional.nombre} {nuevo_profesional.apellido} no ofrece "
+                    f"{sesion.servicio.nombre if sesion.servicio else 'ese servicio'}"
+                )
+                continue
+
+            # Disponibilidad del profesional nuevo en ese horario
+            disponible, msg = Sesion.validar_disponibilidad_con_grupales(
+                paciente, nuevo_profesional, sesion.fecha,
+                sesion.hora_inicio, sesion.hora_fin,
+                sesion_actual=sesion,
+                permitir_sesiones_grupales=perm_grupales,
+            )
+            if not disponible:
+                omitidas += 1
+                errores.append(
+                    f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} — {msg}"
+                )
+                continue
+
+            sesion.profesional = nuevo_profesional
+            sesion.modificada_por = request.user
+            sesion.save(update_fields=['profesional', 'modificada_por'])
+            cambiadas += 1
+
+        # Sesiones pedidas que no calificaron (ya no 'programada', de otro
+        # paciente, o id inexistente) — se informan aparte para transparencia
+        ids_procesados = set(sesiones.values_list('id', flat=True))
+        ids_no_calificaron = set(int(i) for i in sesion_ids) - ids_procesados
+        if ids_no_calificaron:
+            omitidas += len(ids_no_calificaron)
+            errores.append(
+                f"{len(ids_no_calificaron)} sesión(es) ya no estaban en estado "
+                f"'programada' (se recargó la página) y no se modificaron."
+            )
+
+    return JsonResponse({
+        'success':   True,
+        'cambiadas': cambiadas,
+        'omitidas':  omitidas,
+        'errores':   errores[:15],
+    })
+
+
+@login_required
+@solo_sus_sucursales
+def modal_cambiar_horario_mes(request, paciente_id):
+    """
+    Modal: lista las sesiones en estado 'programada' de un paciente dentro
+    de un mes/año dado, con checkbox para elegir cuáles mover a una nueva
+    hora de inicio (misma duración, mismo día, mismo profesional).
+
+    Mismo patrón y mismo permiso que "Cambiar Profesional" — se reutiliza
+    _puede_cambiar_profesional_mes porque el criterio de quién puede
+    reprogramar sesiones en lote es el mismo (gerente/recepcionista/superuser).
+
+    GET params: mes, anio
+    """
+    if not _puede_cambiar_profesional_mes(request.user):
+        return HttpResponse(
+            '<div class="p-6 text-center text-red-600 font-bold">'
+            '❌ No tenés permiso para cambiar el horario de las sesiones.</div>',
+            status=403,
+        )
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    sucursales_usuario = request.sucursales_usuario
+
+    hoy = date.today()
+    try:
+        mes  = int(request.GET.get('mes',  hoy.month))
+        anio = int(request.GET.get('anio', hoy.year))
+        if not (1 <= mes <= 12):
+            raise ValueError
+    except (ValueError, TypeError):
+        mes, anio = hoy.month, hoy.year
+
+    MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+    sesiones_qs = Sesion.objects.filter(
+        paciente=paciente,
+        fecha__year=anio,
+        fecha__month=mes,
+        estado='programada',
+    ).select_related('servicio', 'profesional', 'sucursal').order_by('fecha', 'hora_inicio')
+
+    # Restringir a las sucursales del usuario (defensa extra, además del
+    # decorator, para no listar sesiones de sucursales sin permiso)
+    if sucursales_usuario is not None:
+        sesiones_qs = sesiones_qs.filter(sucursal__in=sucursales_usuario)
+
+    sesiones = list(sesiones_qs)
+
+    sesiones_data = [
+        {
+            'id':                s.id,
+            'fecha_iso':         s.fecha.isoformat(),
+            'fecha_display':     s.fecha.strftime('%d/%m/%Y'),
+            'dia_nombre':        ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][s.fecha.weekday()],
+            'hora_inicio':       s.hora_inicio.strftime('%H:%M'),
+            'hora_fin':          s.hora_fin.strftime('%H:%M'),
+            'duracion_minutos':  s.duracion_minutos,
+            'servicio_nombre':   s.servicio.nombre if s.servicio else '—',
+            'profesional_nombre': f'{s.profesional.nombre} {s.profesional.apellido}' if s.profesional else '—',
+        }
+        for s in sesiones
+    ]
+
+    context = {
+        'paciente':           paciente,
+        'mes':                mes,
+        'anio':               anio,
+        'mes_display':        f"{MESES[mes]} {anio}",
+        'sesiones_json':      json.dumps(sesiones_data),
+        'total_sesiones':     len(sesiones_data),
+    }
+    return render(request, 'agenda/modal_cambiar_horario_mes.html', context)
+
+
+@login_required
+@solo_sus_sucursales
+def procesar_cambiar_horario_mes(request, paciente_id):
+    """
+    Mueve las sesiones seleccionadas (todas 'programada', mismo mes/año,
+    mismo paciente) a una nueva hora de inicio, conservando la duración
+    propia de cada sesión (así que la hora de fin se recalcula por sesión).
+
+    No cambia fecha, profesional, servicio ni sucursal — solo el horario
+    dentro del mismo día. Valida disponibilidad con el mismo validador que
+    ya usa "Cambiar Profesional" (paciente siempre, profesional salvo
+    "permitir_grupales").
+
+    POST JSON: { sesion_ids: [int], nueva_hora_inicio: "HH:MM",
+                 permitir_grupales: bool }
+    Siempre devuelve JSON.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requerido'}, status=405)
+
+    if not _puede_cambiar_profesional_mes(request.user):
+        return JsonResponse({
+            'success': False,
+            'error': 'No tenés permiso para cambiar el horario de las sesiones.'
+        }, status=403)
+
+    paciente = get_object_or_404(Paciente, id=paciente_id)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+
+    sesion_ids          = data.get('sesion_ids', [])
+    nueva_hora_inicio_str = data.get('nueva_hora_inicio')
+    perm_grupales        = data.get('permitir_grupales', False)
+
+    if not sesion_ids or not nueva_hora_inicio_str:
+        return JsonResponse({'error': 'Datos incompletos'}, status=400)
+
+    try:
+        nueva_hora_inicio = datetime.strptime(nueva_hora_inicio_str, '%H:%M').time()
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Hora inválida. Formato esperado HH:MM.'}, status=400)
+
+    sucursales_usuario = request.sucursales_usuario
+
+    cambiadas = 0
+    omitidas  = 0
+    errores   = []
+
+    from django.db import transaction as _transaction
+    with _transaction.atomic():
+        sesiones = (
+            Sesion.objects
+            .select_for_update()
+            .filter(id__in=sesion_ids, paciente=paciente, estado='programada')
+            .select_related('servicio', 'sucursal', 'profesional')
+        )
+
+        for sesion in sesiones:
+            # Permiso de sucursal
+            if sucursales_usuario is not None and not sucursales_usuario.filter(id=sesion.sucursal_id).exists():
+                omitidas += 1
+                errores.append(f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} — sin permiso sobre esa sucursal")
+                continue
+
+            # Ya está en esa hora — no hay nada que mover
+            if sesion.hora_inicio == nueva_hora_inicio:
+                omitidas += 1
+                errores.append(
+                    f"{sesion.fecha.strftime('%d/%m/%Y')} — ya estaba a las {nueva_hora_inicio.strftime('%H:%M')}"
+                )
+                continue
+
+            # Recalcular hora_fin preservando la duración propia de la sesión
+            nueva_hora_inicio_dt = datetime.combine(sesion.fecha, nueva_hora_inicio)
+            nueva_hora_fin_dt    = nueva_hora_inicio_dt + timedelta(minutes=sesion.duracion_minutos)
+            nueva_hora_fin       = nueva_hora_fin_dt.time()
+
+            # Disponibilidad del paciente y del profesional en el nuevo horario
+            # (mismo día, mismo profesional — solo cambia la franja horaria)
+            disponible, msg = Sesion.validar_disponibilidad_con_grupales(
+                paciente, sesion.profesional, sesion.fecha,
+                nueva_hora_inicio, nueva_hora_fin,
+                sesion_actual=sesion,
+                permitir_sesiones_grupales=perm_grupales,
+            )
+            if not disponible:
+                omitidas += 1
+                errores.append(
+                    f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} — {msg}"
+                )
+                continue
+
+            sesion.hora_inicio = nueva_hora_inicio
+            sesion.hora_fin = nueva_hora_fin
+            sesion.modificada_por = request.user
+            sesion.save(update_fields=['hora_inicio', 'hora_fin', 'modificada_por'])
+            cambiadas += 1
+
+        # Sesiones pedidas que no calificaron (ya no 'programada', de otro
+        # paciente, o id inexistente) — se informan aparte para transparencia
+        ids_procesados = set(sesiones.values_list('id', flat=True))
+        ids_no_calificaron = set(int(i) for i in sesion_ids) - ids_procesados
+        if ids_no_calificaron:
+            omitidas += len(ids_no_calificaron)
+            errores.append(
+                f"{len(ids_no_calificaron)} sesión(es) ya no estaban en estado "
+                f"'programada' (se recargó la página) y no se modificaron."
+            )
+
+    return JsonResponse({
+        'success':   True,
+        'cambiadas': cambiadas,
+        'omitidas':  omitidas,
+        'errores':   errores[:15],
+    })
+
+
 @login_required
 def api_pacientes_sucursal_json(request):
     """

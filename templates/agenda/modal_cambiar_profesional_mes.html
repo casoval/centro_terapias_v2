@@ -1,0 +1,243 @@
+<!-- ========================================================
+     MODAL: CAMBIAR PROFESIONAL
+     - Lista las sesiones "programada" del paciente en el mes
+     - Checkbox individual + "seleccionar todas"
+     - El profesional nuevo se elige por servicio (deben ser del
+       mismo servicio las sesiones seleccionadas)
+     ======================================================== -->
+
+<!-- HEADER -->
+<div class="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 flex items-center justify-between rounded-t-2xl sticky top-0 z-10">
+    <div class="flex items-center gap-2">
+        <span class="text-2xl">🔄</span>
+        <div>
+            <h2 class="text-base font-black text-white">Cambiar Profesional</h2>
+            <p class="text-amber-50 text-[11px] mt-0.5">
+                {{ paciente.nombre_completo }} · <strong>{{ mes_display }}</strong>
+            </p>
+        </div>
+    </div>
+    <button onclick="cerrarModalCambiarProfesionalMes()"
+            class="text-white hover:bg-white/20 w-7 h-7 rounded-lg transition-colors flex items-center justify-center font-bold text-lg">×</button>
+</div>
+
+<div class="p-4 space-y-3" id="cpm-contenedor">
+
+{% if total_sesiones == 0 %}
+    <div class="text-center py-10">
+        <p class="text-4xl mb-2">📭</p>
+        <p class="text-slate-600 font-bold">Sin sesiones "programada" en {{ mes_display }}</p>
+        <p class="text-slate-400 text-xs mt-1">No hay nada que reasignar este mes para este paciente.</p>
+    </div>
+{% else %}
+
+    <!-- Seleccionar todas -->
+    <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="cpm-check-todas" checked
+                   onchange="cpmToggleTodas(this.checked)"
+                   class="w-4 h-4 rounded text-amber-600 focus:ring-amber-500">
+            <span class="text-xs font-black text-slate-700">Seleccionar todas ({{ total_sesiones }})</span>
+        </label>
+        <span id="cpm-contador-seleccion" class="text-[11px] font-bold text-amber-700"></span>
+    </div>
+
+    <!-- Lista de sesiones -->
+    <div class="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-64 overflow-y-auto" id="cpm-lista-sesiones"></div>
+
+    <!-- Aviso si la selección mezcla servicios distintos -->
+    <div id="cpm-aviso-mezcla" class="hidden bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold rounded-lg px-3 py-2">
+        ⚠️ Las sesiones seleccionadas son de servicios distintos. Elegí sesiones de un mismo servicio para poder cambiar el profesional en conjunto.
+    </div>
+
+    <!-- Selector de nuevo profesional -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <label class="block text-xs font-black text-amber-800 mb-1.5">👨‍⚕️ Nuevo profesional</label>
+        <select id="cpm-select-profesional"
+                class="w-full px-2 py-2 border-2 border-amber-200 rounded-lg text-xs font-bold outline-none focus:border-amber-500 bg-white" disabled>
+            <option value="">Selecciona sesiones primero…</option>
+        </select>
+    </div>
+
+    <!-- Grupales -->
+    <label class="flex items-start gap-2 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <input type="checkbox" id="cpm-check-grupales" class="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500">
+        <span class="text-[11px] text-slate-600">
+            <strong>Permitir sesiones grupales</strong> — activá esto si el nuevo profesional
+            puede atender varios pacientes a la misma hora (ignora el conflicto de horario del profesional).
+        </span>
+    </label>
+
+    <!-- Resultado -->
+    <div id="cpm-resultado" class="hidden text-xs rounded-xl p-3"></div>
+
+    <!-- Acciones -->
+    <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="cerrarModalCambiarProfesionalMes()"
+                class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+        <button type="button" id="cpm-btn-confirmar" onclick="cpmConfirmar()" disabled
+                class="px-4 py-2 rounded-xl text-xs font-black text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md">
+            🔄 Cambiar profesional
+        </button>
+    </div>
+
+{% endif %}
+
+</div>
+
+<script>
+(function() {
+    const PACIENTE_ID = {{ paciente.id }};
+    const SESIONES    = {{ sesiones_json|safe }};
+    const PROF_MAP    = {{ prof_map_json|safe }};   // { servicio_id: [{id, nombre}, ...] }
+
+    const listaEl = document.getElementById('cpm-lista-sesiones');
+    if (!listaEl) return; // no había sesiones, nada más que hacer
+
+    // ── Render de filas ────────────────────────────────────────
+    listaEl.innerHTML = SESIONES.map(s => `
+        <label class="flex items-center gap-2 px-3 py-2 hover:bg-amber-50/50 cursor-pointer text-[11px]">
+            <input type="checkbox" class="cpm-check-sesion w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                   data-id="${s.id}" data-servicio-id="${s.servicio_id}" checked
+                   onchange="cpmActualizarEstado()">
+            <span class="font-bold text-slate-600 w-24 flex-shrink-0">${s.dia_nombre} ${s.fecha_display}</span>
+            <span class="font-bold text-slate-500 w-12 flex-shrink-0">${s.hora_inicio}</span>
+            <span class="text-slate-500 flex-1 truncate">${s.servicio_nombre}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full ${s.profesional_activo ? 'bg-slate-100 text-slate-500' : 'bg-red-100 text-red-600 font-bold'}"
+                  title="${s.profesional_activo ? '' : 'Este profesional ya no está activo'}">
+                ${s.profesional_activo ? '' : '⚠️ '}${s.profesional_nombre}
+            </span>
+        </label>
+    `).join('');
+
+    window.cpmToggleTodas = function(marcar) {
+        document.querySelectorAll('.cpm-check-sesion').forEach(chk => chk.checked = marcar);
+        cpmActualizarEstado();
+    };
+
+    window.cpmActualizarEstado = function() {
+        const checks = Array.from(document.querySelectorAll('.cpm-check-sesion'));
+        const marcados = checks.filter(c => c.checked);
+        const total = checks.length;
+
+        // Sincronizar "seleccionar todas"
+        const master = document.getElementById('cpm-check-todas');
+        master.checked = marcados.length === total;
+        master.indeterminate = marcados.length > 0 && marcados.length < total;
+
+        document.getElementById('cpm-contador-seleccion').textContent =
+            marcados.length ? `${marcados.length} seleccionada(s)` : '';
+
+        const selectProf   = document.getElementById('cpm-select-profesional');
+        const avisoMezcla  = document.getElementById('cpm-aviso-mezcla');
+        const btnConfirmar = document.getElementById('cpm-btn-confirmar');
+
+        const servicioIds = new Set(marcados.map(c => c.dataset.servicioId));
+
+        if (marcados.length === 0) {
+            avisoMezcla.classList.add('hidden');
+            selectProf.disabled = true;
+            selectProf.innerHTML = '<option value="">Selecciona sesiones primero…</option>';
+            btnConfirmar.disabled = true;
+            return;
+        }
+
+        if (servicioIds.size > 1) {
+            avisoMezcla.classList.remove('hidden');
+            selectProf.disabled = true;
+            selectProf.innerHTML = '<option value="">— servicios mezclados —</option>';
+            btnConfirmar.disabled = true;
+            return;
+        }
+
+        avisoMezcla.classList.add('hidden');
+        const servicioId = Array.from(servicioIds)[0];
+        const profs = PROF_MAP[servicioId] || [];
+
+        if (!profs.length) {
+            selectProf.disabled = true;
+            selectProf.innerHTML = '<option value="">Sin profesionales activos para este servicio</option>';
+            btnConfirmar.disabled = true;
+            return;
+        }
+
+        const valorPrevio = selectProf.value;
+        selectProf.disabled = false;
+        selectProf.innerHTML = '<option value="">Selecciona…</option>' +
+            profs.map(p => `<option value="${p.id}"${p.id == valorPrevio ? ' selected' : ''}>${p.nombre}</option>`).join('');
+        btnConfirmar.disabled = !selectProf.value;
+    };
+
+    document.getElementById('cpm-select-profesional')?.addEventListener('change', function() {
+        document.getElementById('cpm-btn-confirmar').disabled = !this.value;
+    });
+
+    window.cpmConfirmar = function() {
+        const seleccionadas = Array.from(document.querySelectorAll('.cpm-check-sesion'))
+            .filter(c => c.checked)
+            .map(c => parseInt(c.dataset.id));
+        const nuevoProfId = parseInt(document.getElementById('cpm-select-profesional').value);
+        const permitirGrupales = document.getElementById('cpm-check-grupales').checked;
+
+        if (!seleccionadas.length || !nuevoProfId) return;
+
+        const btn = document.getElementById('cpm-btn-confirmar');
+        btn.disabled = true;
+        btn.textContent = 'Cambiando…';
+
+        const csrfToken = getCookie('csrftoken');
+
+        fetch(`/agenda/paciente/${PACIENTE_ID}/cambiar-profesional-mes/procesar/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                sesion_ids: seleccionadas,
+                nuevo_profesional_id: nuevoProfId,
+                permitir_grupales: permitirGrupales,
+            }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            const resultado = document.getElementById('cpm-resultado');
+            resultado.classList.remove('hidden');
+
+            if (!data.success) {
+                resultado.className = 'text-xs rounded-xl p-3 bg-red-50 border border-red-200 text-red-700';
+                resultado.textContent = '❌ ' + (data.error || 'Error inesperado.');
+                btn.disabled = false;
+                btn.textContent = '🔄 Cambiar profesional';
+                return;
+            }
+
+            const partes = [`✅ ${data.cambiadas} sesión(es) reasignada(s).`];
+            if (data.omitidas) partes.push(`⚠️ ${data.omitidas} omitida(s).`);
+            resultado.className = 'text-xs rounded-xl p-3 ' +
+                (data.omitidas ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-emerald-50 border border-emerald-200 text-emerald-700');
+            resultado.innerHTML = partes.join(' ') +
+                (data.errores && data.errores.length ? '<ul class="mt-1.5 list-disc list-inside space-y-0.5">' +
+                    data.errores.map(e => `<li>${e}</li>`).join('') + '</ul>' : '');
+
+            btn.textContent = '✅ Listo';
+
+            if (data.cambiadas > 0) {
+                setTimeout(() => window.location.reload(), 1600);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '🔄 Cambiar profesional';
+            }
+        })
+        .catch(() => {
+            const resultado = document.getElementById('cpm-resultado');
+            resultado.classList.remove('hidden');
+            resultado.className = 'text-xs rounded-xl p-3 bg-red-50 border border-red-200 text-red-700';
+            resultado.textContent = '❌ Error de red. Intenta nuevamente.';
+            btn.disabled = false;
+            btn.textContent = '🔄 Cambiar profesional';
+        });
+    };
+
+    // Estado inicial (todas marcadas por defecto)
+    cpmActualizarEstado();
+})();
+</script>

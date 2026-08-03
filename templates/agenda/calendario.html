@@ -108,6 +108,26 @@
                         <span>Patrón Semanal</span>
                     </a>
 
+                    {% comment %}
+                    ✅ Cambiar profesional: solo visible en vista mensual con ÚNICAMENTE el
+                    filtro de paciente activo (sin profesional/servicio/sucursal/estado),
+                    para reasignar de forma masiva las sesiones "programada" del mes.
+                    {% endcomment %}
+                    {% if vista == 'mensual' and paciente_id and not profesional_id and not servicio_id and not sucursal_id and not estado_filtro and puede_cambiar_profesional_mes %}
+                    <button type="button"
+                            onclick="abrirModalCambiarProfesionalMes({{ paciente_id }}, {{ fecha_base.month }}, {{ fecha_base.year }})"
+                            class="group bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/30 hover:shadow-lg hover:shadow-amber-500/40 font-bold text-[11px]">
+                        <span class="text-sm group-hover:scale-110 transition-transform">🔄</span>
+                        <span>Cambiar Profesional</span>
+                    </button>
+                    <button type="button"
+                            onclick="abrirModalCambiarHorarioMes({{ paciente_id }}, {{ fecha_base.month }}, {{ fecha_base.year }})"
+                            class="group bg-sky-500 hover:bg-sky-600 text-white px-2 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-sky-500/30 hover:shadow-lg hover:shadow-sky-500/40 font-bold text-[11px]">
+                        <span class="text-sm group-hover:scale-110 transition-transform">🕒</span>
+                        <span>Cambiar Horario</span>
+                    </button>
+                    {% endif %}
+
                     {% if user.is_staff or user.is_superuser %}
                     <a href="{% url 'agenda:lista_permisos_edicion' %}"
                        class="group bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-bold text-[11px] shadow-sm hover:shadow-md relative">
@@ -409,6 +429,32 @@
     </div>
 </div>
 
+<!-- ✅ Modal: cambiar profesional de sesiones "programada" de un paciente en el mes -->
+<div id="modalCambiarProfesionalMes"
+     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div id="contenidoModalCambiarProfesional">
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
+                <p class="text-slate-600">Cargando sesiones del mes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ Modal: cambiar horario de sesiones "programada" de un paciente en el mes -->
+<div id="modalCambiarHorarioMes"
+     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div id="contenidoModalCambiarHorario">
+            <div class="p-8 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500 mx-auto mb-4"></div>
+                <p class="text-slate-600">Cargando sesiones del mes...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // ============= SALTO DIRECTO A FECHA =============
 function irAFecha(fecha) {
@@ -648,5 +694,101 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// ============= CAMBIAR PROFESIONAL (sesiones del mes de un paciente) =============
+function abrirModalCambiarProfesionalMes(pacienteId, mes, anio) {
+    const modal      = document.getElementById('modalCambiarProfesionalMes');
+    const contenedor = document.getElementById('contenidoModalCambiarProfesional');
+
+    modal.classList.remove('hidden');
+    contenedor.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent mx-auto mb-3"></div>
+            <p class="text-slate-600 font-medium">Cargando sesiones del mes...</p>
+        </div>
+    `;
+
+    fetch(`/agenda/paciente/${pacienteId}/cambiar-profesional-mes/?mes=${mes}&anio=${anio}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+    })
+    .then(r => r.text())
+    .then(html => {
+        contenedor.innerHTML = html;
+        // Ejecutar scripts incrustados (mismo patrón que el modal de copiar mensualidad)
+        contenedor.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+    })
+    .catch(() => {
+        contenedor.innerHTML = `
+            <div class="p-6 text-center">
+                <p class="text-red-600 font-bold">❌ Error al cargar. Intenta nuevamente.</p>
+                <button onclick="cerrarModalCambiarProfesionalMes()"
+                        class="mt-3 px-4 py-2 bg-slate-100 rounded-xl font-bold text-sm">Cerrar</button>
+            </div>
+        `;
+    });
+}
+
+function cerrarModalCambiarProfesionalMes() {
+    const modal = document.getElementById('modalCambiarProfesionalMes');
+    if (modal) modal.classList.add('hidden');
+}
+
+document.getElementById('modalCambiarProfesionalMes')?.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModalCambiarProfesionalMes();
+});
+
+// ============= CAMBIAR HORARIO (sesiones del mes de un paciente) =============
+function abrirModalCambiarHorarioMes(pacienteId, mes, anio) {
+    const modal      = document.getElementById('modalCambiarHorarioMes');
+    const contenedor = document.getElementById('contenidoModalCambiarHorario');
+
+    modal.classList.remove('hidden');
+    contenedor.innerHTML = `
+        <div class="p-8 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-sky-500 border-t-transparent mx-auto mb-3"></div>
+            <p class="text-slate-600 font-medium">Cargando sesiones del mes...</p>
+        </div>
+    `;
+
+    fetch(`/agenda/paciente/${pacienteId}/cambiar-horario-mes/?mes=${mes}&anio=${anio}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+    })
+    .then(r => r.text())
+    .then(html => {
+        contenedor.innerHTML = html;
+        // Ejecutar scripts incrustados (mismo patrón que el resto de modales)
+        contenedor.querySelectorAll('script').forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+    })
+    .catch(() => {
+        contenedor.innerHTML = `
+            <div class="p-6 text-center">
+                <p class="text-red-600 font-bold">❌ Error al cargar. Intenta nuevamente.</p>
+                <button onclick="cerrarModalCambiarHorarioMes()"
+                        class="mt-3 px-4 py-2 bg-slate-100 rounded-xl font-bold text-sm">Cerrar</button>
+            </div>
+        `;
+    });
+}
+
+function cerrarModalCambiarHorarioMes() {
+    const modal = document.getElementById('modalCambiarHorarioMes');
+    if (modal) modal.classList.add('hidden');
+}
+
+document.getElementById('modalCambiarHorarioMes')?.addEventListener('click', function(e) {
+    if (e.target === this) cerrarModalCambiarHorarioMes();
+});
 </script>
 {% endblock %}
