@@ -677,6 +677,158 @@ def whatsapp_envio_masivo(request):
     return JsonResponse({'ok': True, 'enviados': enviados, 'errores': errores})
 
 
+@csrf_exempt
+@login_required
+def whatsapp_horario_mensual_pdf(request):
+    """
+    Horario mensual en PDF por WhatsApp.
+
+    GET  -> vista previa: cuenta cuántos pacientes/tutores recibirían el
+            envío para el mes/año/sucursal elegidos (sin enviar nada).
+    POST -> genera un PDF por paciente (reutilizando el mismo generador
+            que usa el botón "Imprimir" de la agenda) y lo encola en el
+            bot correspondiente con `delay_type='horario_mensual'`
+            (5-60s aleatorio entre cada envío, definido en el bot).
+
+    Solo se incluyen pacientes con al menos una sesión 'programada' ese
+    mes (se calcula a partir de las sesiones existentes, no de la lista
+    de pacientes, así que el filtro es automático) y que tengan teléfono
+    de tutor registrado.
+    """
+    import base64
+    from datetime import date
+    from calendar import monthrange
+    from agenda.models import Sesion
+    from pacientes.models import Paciente
+    from agenda.informe_horario_pdf import generar_horario_pdf
+
+    MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+              'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+    params = request.GET if request.method == 'GET' else json.loads(request.body or '{}')
+
+    hoy = timezone.localdate()
+    try:
+        mes = int(params.get('mes') or hoy.month)
+        anio = int(params.get('anio') or hoy.year)
+    except (TypeError, ValueError):
+        mes, anio = hoy.month, hoy.year
+
+    if not (1 <= mes <= 12):
+        return JsonResponse({'error': 'Mes inválido'}, status=400)
+
+    sucursal_filtro = params.get('sucursal', 'todas')
+
+    primer_dia = date(anio, mes, 1)
+    ultimo_dia = date(anio, mes, monthrange(anio, mes)[1])
+
+    sesiones_mes = Sesion.objects.filter(
+        fecha__range=[primer_dia, ultimo_dia],
+        estado='programada',
+    ).select_related('paciente', 'profesional', 'servicio', 'sucursal')
+
+    if sucursal_filtro == 'japon':
+        sesiones_mes = sesiones_mes.filter(sucursal_id=3)
+    elif sucursal_filtro == 'camacho':
+        sesiones_mes = sesiones_mes.filter(sucursal_id=4)
+
+    # Agrupar por paciente. Como la lista sale de las sesiones (y no de
+    # Paciente.objects.all()), solo aparecen pacientes con >= 1 sesión.
+    por_paciente = {}
+    for s in sesiones_mes:
+        por_paciente.setdefault(s.paciente_id, []).append(s)
+
+    pacientes_validos = list(
+        Paciente.objects.filter(id__in=por_paciente.keys())
+        .exclude(telefono_tutor='')
+        .exclude(telefono_tutor__isnull=True)
+    )
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'mes': mes,
+            'anio': anio,
+            'mes_nombre': MESES[mes - 1],
+            'total_pacientes': len(pacientes_validos),
+        })
+
+    # ── POST: generar cada PDF y encolarlo en el bot ────────────────────
+    enviados = 0
+    errores = []
+
+    for paciente in pacientes_validos:
+        sesiones_paciente = sorted(
+            por_paciente[paciente.id], key=lambda s: (s.fecha, s.hora_inicio)
+        )
+
+        sucursales_en_resultado = {s.sucursal_id for s in sesiones_paciente}
+        sucursal_unica = (
+            sesiones_paciente[0].sucursal.nombre
+            if len(sucursales_en_resultado) == 1 else None
+        )
+        servicios_en_resultado = {s.servicio_id for s in sesiones_paciente}
+        servicio_unico = (
+            sesiones_paciente[0].servicio.nombre
+            if len(servicios_en_resultado) == 1 else None
+        )
+
+        try:
+            buffer = generar_horario_pdf(
+                vista='mensual',
+                fecha_inicio=primer_dia,
+                fecha_fin=ultimo_dia,
+                sesiones=sesiones_paciente,
+                formato='paciente',
+                nombre_paciente=paciente.nombre_completo,
+                sucursal_unica=sucursal_unica,
+                servicio_unico=servicio_unico,
+            )
+            pdf_b64 = base64.b64encode(buffer.read()).decode('ascii')
+
+            sucursal_envio = sesiones_paciente[0].sucursal
+            puerto = 3000 if sucursal_envio.id == 3 else 3001
+            nombre_tutor = paciente.nombre_tutor or 'tutor/a'
+
+            mensaje = (
+                f"📅 Sr./Sra. {nombre_tutor}: le enviamos el horario actualizado "
+                f"de {MESES[mes - 1]} de {anio} de {paciente.nombre_completo}. "
+                f"Visite neuromisael.com para más detalles, donde también "
+                f"encuentra sus horarios y sesiones. 💙"
+            )
+            nombre_archivo = (
+                f"Horario_{MESES[mes - 1]}_{anio}_{paciente.nombre_completo}.pdf"
+            ).replace(' ', '_')
+
+            resp = requests.post(
+                f'http://localhost:{puerto}/send',
+                json={
+                    'telefono': paciente.telefono_tutor,
+                    'mensaje': mensaje,
+                    'paciente': paciente.nombre_completo,
+                    'sucursal': sucursal_envio.nombre,
+                    'delay_type': 'horario_mensual',
+                    'tipo': 'horario-mensual-pdf',
+                    'documento': pdf_b64,
+                    'documento_nombre': nombre_archivo,
+                },
+                timeout=8,
+            )
+            if resp.ok and resp.json().get('success'):
+                enviados += 1
+            else:
+                errores.append(paciente.nombre_completo)
+        except Exception as e:
+            log.exception('Error generando/enviando horario mensual PDF de %s', paciente)
+            errores.append(f"{paciente.nombre_completo} ({e})")
+
+    return JsonResponse({
+        'ok': True,
+        'total': len(pacientes_validos),
+        'enviados': enviados,
+        'errores': errores,
+    })
+
+
 # ══════════════════════════════════════════════════════
 # BACKUP
 # ══════════════════════════════════════════════════════

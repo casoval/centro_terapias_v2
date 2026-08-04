@@ -17,6 +17,7 @@ urlpatterns = [
     path('whatsapp-pausa/',       views.whatsapp_pausa,       name='whatsapp-pausa'),
     path('whatsapp-historial/',   views.whatsapp_historial,   name='whatsapp-historial'),
     path('whatsapp-envio-masivo/', views.whatsapp_envio_masivo, name='whatsapp-envio-masivo'),
+    path('whatsapp-horario-mensual-pdf/', views.whatsapp_horario_mensual_pdf, name='whatsapp-horario-mensual-pdf'),
 
     # ── Backup ────────────────────────────────────────
     path('backup/',               views.backup_monitor,       name='backup_monitor'),

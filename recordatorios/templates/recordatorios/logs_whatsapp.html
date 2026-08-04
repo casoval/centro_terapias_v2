@@ -152,6 +152,63 @@
         <div id="resultado-masivo" class="hidden mt-3 p-3 rounded-xl text-sm font-semibold"></div>
     </div>
 
+    <!-- HORARIO MENSUAL PDF -->
+    <div class="rounded-2xl p-6" style="background:#0d1220; border:1px solid rgba(255,255,255,0.07);">
+        <div class="flex items-center gap-3 mb-5">
+            <span class="text-2xl">📄</span>
+            <div>
+                <h2 class="text-lg font-bold text-white">Horario Mensual (PDF)</h2>
+                <p class="text-xs" style="color:rgba(255,255,255,0.4);">Genera y envía el horario del mes en PDF a cada tutor, solo a pacientes con al menos una sesión ese mes</p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center mb-3">
+            <select id="horario-mes"
+                class="rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style="background:#111827; color:#f1f5f9; border:1px solid rgba(255,255,255,0.12);">
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+            <select id="horario-anio"
+                class="rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style="background:#111827; color:#f1f5f9; border:1px solid rgba(255,255,255,0.12);">
+            </select>
+            <select id="horario-sucursal"
+                class="rounded-xl px-3 py-2 text-sm focus:outline-none"
+                style="background:#111827; color:#f1f5f9; border:1px solid rgba(255,255,255,0.12);">
+                <option value="todas">🏢 Ambas sucursales</option>
+                <option value="japon">📍 Solo Japón</option>
+                <option value="camacho">📍 Solo Camacho</option>
+            </select>
+            <button onclick="previsualizarHorarioMensual()"
+                class="px-4 py-2 rounded-xl font-bold text-sm transition-all"
+                style="background:rgba(96,165,250,0.15); color:#60a5fa; border:1px solid rgba(96,165,250,0.3);">
+                🔍 Ver cuántos se enviarían
+            </button>
+        </div>
+
+        <div id="preview-horario-mensual" class="hidden mb-3 p-3 rounded-xl text-sm" style="background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.3); color:#60a5fa;"></div>
+
+        <button onclick="enviarHorarioMensual()" id="btn-enviar-horario"
+            class="px-5 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-2 text-white"
+            style="background:#6366f1;">
+            <span id="btn-enviar-horario-icon">📤</span>
+            <span id="btn-enviar-horario-text">Generar y enviar</span>
+        </button>
+
+        <div id="resultado-horario-mensual" class="hidden mt-3 p-3 rounded-xl text-sm font-semibold"></div>
+    </div>
+
     <!-- HISTORIAL -->
     <div class="rounded-2xl p-6" style="background:#0d1220; border:1px solid rgba(255,255,255,0.07);">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -304,6 +361,80 @@ async function enviarMasivo() {
     }
     btnText.textContent = 'Enviar mensaje';
     btnIcon.textContent = '🚀';
+}
+
+// ── Horario Mensual PDF ──
+(function initHorarioMensual() {
+    const selAnio = document.getElementById('horario-anio');
+    const hoy = new Date();
+    for (let y = hoy.getFullYear() - 1; y <= hoy.getFullYear() + 1; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === hoy.getFullYear()) opt.selected = true;
+        selAnio.appendChild(opt);
+    }
+    document.getElementById('horario-mes').value = hoy.getMonth() + 1;
+})();
+
+async function previsualizarHorarioMensual() {
+    const mes      = document.getElementById('horario-mes').value;
+    const anio     = document.getElementById('horario-anio').value;
+    const sucursal = document.getElementById('horario-sucursal').value;
+    const div = document.getElementById('preview-horario-mensual');
+    div.classList.remove('hidden');
+    div.textContent = '⏳ Calculando...';
+    try {
+        const res  = await fetch(`/api/whatsapp-horario-mensual-pdf/?mes=${mes}&anio=${anio}&sucursal=${sucursal}`);
+        const data = await res.json();
+        div.textContent = `📄 Se generarían y enviarían ${data.total_pacientes} PDF(s) — horario de ${data.mes_nombre} de ${data.anio}.`;
+    } catch (e) {
+        div.textContent = '❌ Error al calcular la vista previa';
+    }
+}
+
+async function enviarHorarioMensual() {
+    const mes      = document.getElementById('horario-mes').value;
+    const anio     = document.getElementById('horario-anio').value;
+    const sucursal = document.getElementById('horario-sucursal').value;
+
+    if (!confirm('¿Generar y enviar el horario mensual en PDF a los tutores correspondientes? Esta acción no se puede deshacer.')) {
+        return;
+    }
+
+    const btnText = document.getElementById('btn-enviar-horario-text');
+    const btnIcon = document.getElementById('btn-enviar-horario-icon');
+    btnText.textContent = 'Generando y enviando...';
+    btnIcon.textContent = '⏳';
+
+    try {
+        const res  = await fetch('/api/whatsapp-horario-mensual-pdf/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({ mes, anio, sucursal }),
+        });
+        const data = await res.json();
+        const div  = document.getElementById('resultado-horario-mensual');
+        div.classList.remove('hidden');
+        if (data.ok) {
+            div.style.cssText = 'background:rgba(34,211,160,0.1); border:1px solid rgba(34,211,160,0.3); color:#22d3a0;';
+            let txt = `✅ Encolados ${data.enviados} de ${data.total} PDF(s). Se enviarán con delay aleatorio de 5-60 segundos entre cada uno.`;
+            if (data.errores && data.errores.length) {
+                txt += ` ⚠️ Fallaron: ${data.errores.join(', ')}`;
+            }
+            div.textContent = txt;
+        } else {
+            div.style.cssText = 'background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.3); color:#f87171;';
+            div.textContent = '❌ Error al enviar';
+        }
+    } catch (e) {
+        const div = document.getElementById('resultado-horario-mensual');
+        div.classList.remove('hidden');
+        div.style.cssText = 'background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.3); color:#f87171;';
+        div.textContent = '❌ Error al enviar';
+    }
+    btnText.textContent = 'Generar y enviar';
+    btnIcon.textContent = '📤';
 }
 
 // ── Historial ──
