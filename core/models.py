@@ -163,6 +163,46 @@ class PerfilUsuario(models.Model):
     def es_gerente(self):
         """Verifica si tiene rol de gerente"""
         return self.rol == 'gerente'
+
+    # ==================== CONTROL DE ACCESO POR INACTIVIDAD ====================
+    # ✅ NUEVO: bloqueo de acceso al sistema cuando el usuario (o su ficha
+    # de paciente / profesional asociada) está inactivo. Esto NO modifica ni
+    # invalida sesiones, pagos ni ningún otro dato: solo impide que la
+    # persona entre o siga navegando en el sistema mientras esté inactiva.
+    # Reactivar al paciente/profesional/usuario restaura el acceso de
+    # inmediato, sin necesidad de ninguna otra acción.
+
+    def acceso_bloqueado_motivo(self):
+        """
+        Devuelve una razón (str) si este usuario debe tener el acceso
+        totalmente restringido por estar inactivo, o None si puede acceder.
+
+        Aplica a los 4 roles del sistema:
+          - Paciente: bloqueado si su ficha (Paciente.estado == 'inactivo').
+          - Profesional: bloqueado si su ficha (Profesional.activo == False).
+          - Recepcionista / Gerente: bloqueado si su PerfilUsuario.activo == False.
+
+        No consulta ni modifica sesiones, pagos, ni cualquier otro dato del
+        negocio: solo lee los indicadores de "activo/inactivo" que ya existen.
+        """
+        # El propio perfil desactivado bloquea a cualquier rol (incluye
+        # recepcionista y gerente, que no tienen ficha propia separada).
+        if not self.activo:
+            return 'Tu cuenta de usuario está desactivada. Contacta al administrador del centro.'
+
+        if self.es_paciente():
+            if self.paciente_id and self.paciente and self.paciente.estado == 'inactivo':
+                return 'La ficha de este paciente está inactiva. Contacta al centro para más información.'
+
+        if self.es_profesional():
+            if self.profesional_id and self.profesional and not self.profesional.activo:
+                return 'Tu perfil profesional está inactivo. Contacta al administrador del centro.'
+
+        return None
+
+    def tiene_acceso_al_sistema(self):
+        """True si el usuario puede acceder al sistema (no está inactivo)."""
+        return self.acceso_bloqueado_motivo() is None
     
     def puede_crear_pacientes(self):
         """Todos excepto profesionales y pacientes pueden crear pacientes"""

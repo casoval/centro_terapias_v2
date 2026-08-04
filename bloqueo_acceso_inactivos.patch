@@ -1,0 +1,367 @@
+diff --git a/config/settings.py b/config/settings.py
+index 4e93540..23e9ed2 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -98,6 +98,20 @@ MIDDLEWARE = [
+     'django.contrib.auth.middleware.AuthenticationMiddleware',
+     'django.contrib.messages.middleware.MessageMiddleware',
+     'django.middleware.clickjacking.XFrameOptionsMiddleware',
++    # ✅ Corta el acceso de pacientes/profesionales/recepcionistas/gerentes
++    # inactivos aunque ya tengan sesión de navegador iniciada. No modifica
++    # sesiones de terapia, pagos, ni ninguna otra lógica del sistema.
++    'core.middleware.AccesoActivoMiddleware',
++]
++
++# --------------------------------------------------
++# AUTENTICACIÓN
++# --------------------------------------------------
++# ✅ Backend propio (hereda de ModelBackend) que además de usuario/contraseña
++# verifica que el usuario no esté inactivo (paciente, profesional,
++# recepcionista o gerente). No cambia el mecanismo de login/contraseña.
++AUTHENTICATION_BACKENDS = [
++    'core.backends.PerfilActivoModelBackend',
+ ]
+ 
+ ROOT_URLCONF = 'config.urls'
+diff --git a/core/backends.py b/core/backends.py
+new file mode 100644
+index 0000000..52798e1
+--- /dev/null
++++ b/core/backends.py
+@@ -0,0 +1,44 @@
++"""
++Backend de autenticación personalizado.
++
++✅ Objetivo: restringir el ACCESO al sistema (login) cuando el usuario está
++inactivo, sin modificar ni invalidar nada más (sesiones existentes de
++terapia, pagos, etc. no se tocan).
++
++Hereda de ModelBackend, así que el comportamiento de autenticación
++(usuario/contraseña) es exactamente el mismo de Django. Lo único que se
++agrega es una verificación adicional de "¿puede este usuario entrar al
++sistema en este momento?", basada en:
++
++  - PerfilUsuario.activo
++  - Paciente.estado (si el usuario es un paciente)
++  - Profesional.activo (si el usuario es un profesional)
++
++Superusuarios nunca se bloquean por esta vía.
++"""
++from django.contrib.auth.backends import ModelBackend
++
++
++class PerfilActivoModelBackend(ModelBackend):
++    """
++    ModelBackend estándar + verificación de que el usuario (paciente,
++    profesional, recepcionista o gerente) no esté marcado como inactivo.
++    """
++
++    def user_can_authenticate(self, user):
++        # Primero aplica la verificación estándar de Django (is_active del
++        # modelo User). Si ya está bloqueado por ahí, no seguimos.
++        if not super().user_can_authenticate(user):
++            return False
++
++        # Los superusuarios siempre pueden entrar.
++        if user.is_superuser:
++            return True
++
++        perfil = getattr(user, 'perfil', None)
++        if perfil is None:
++            # Usuario sin perfil (caso legado/atípico): no se restringe
++            # aquí, se comporta como antes de este cambio.
++            return True
++
++        return perfil.tiene_acceso_al_sistema()
+diff --git a/core/middleware.py b/core/middleware.py
+new file mode 100644
+index 0000000..e0b2cc9
+--- /dev/null
++++ b/core/middleware.py
+@@ -0,0 +1,61 @@
++"""
++Middleware de control de acceso por inactividad.
++
++✅ Objetivo puntual pedido: si un paciente, profesional, recepcionista o
++gerente queda INACTIVO mientras ya tiene una sesión de navegador iniciada,
++este middleware corta su acceso al sistema en la siguiente petición que
++haga (cierra su sesión de Django y lo redirige al login con un mensaje).
++
++⚠️ Importante: esto NO toca modelos de Sesion (terapia), Pago, Factura ni
++ninguna otra lógica de negocio. Únicamente cierra la sesión web del
++usuario (`django.contrib.auth.logout`), que es una operación estándar de
++autenticación, y no borra ni invalida ningún dato del sistema.
++"""
++from django.contrib.auth import logout as auth_logout
++from django.contrib import messages
++from django.shortcuts import redirect
++from django.urls import reverse
++
++
++# Rutas que siempre deben quedar accesibles, incluso para un usuario que
++# está siendo desconectado en esta misma petición (para evitar loops de
++# redirección y no romper login/logout/estáticos/admin/API de bots).
++_RUTAS_EXENTAS_PREFIJOS = (
++    '/admin/',
++    '/api/',
++    '/static/',
++    '/media/',
++)
++
++
++class AccesoActivoMiddleware:
++    """
++    Verifica, en cada petición de un usuario autenticado (no superusuario),
++    si su perfil (o su ficha de paciente/profesional asociada) sigue activo.
++    Si no lo está, cierra su sesión y lo envía al login con el motivo.
++    """
++
++    def __init__(self, get_response):
++        self.get_response = get_response
++
++    def __call__(self, request):
++        path = request.path
++
++        if not path.startswith(_RUTAS_EXENTAS_PREFIJOS):
++            user = getattr(request, 'user', None)
++
++            if user is not None and user.is_authenticated and not user.is_superuser:
++                perfil = getattr(user, 'perfil', None)
++
++                if perfil is not None:
++                    motivo = perfil.acceso_bloqueado_motivo()
++
++                    if motivo:
++                        auth_logout(request)
++                        messages.error(request, f'🔒 Acceso restringido: {motivo}')
++
++                        login_url = reverse('core:login')
++                        if path != login_url:
++                            return redirect(login_url)
++
++        return self.get_response(request)
+diff --git a/core/models.py b/core/models.py
+index bca5e81..c039137 100644
+--- a/core/models.py
++++ b/core/models.py
+@@ -163,6 +163,46 @@ class PerfilUsuario(models.Model):
+     def es_gerente(self):
+         """Verifica si tiene rol de gerente"""
+         return self.rol == 'gerente'
++
++    # ==================== CONTROL DE ACCESO POR INACTIVIDAD ====================
++    # ✅ NUEVO: bloqueo de acceso al sistema cuando el usuario (o su ficha
++    # de paciente / profesional asociada) está inactivo. Esto NO modifica ni
++    # invalida sesiones, pagos ni ningún otro dato: solo impide que la
++    # persona entre o siga navegando en el sistema mientras esté inactiva.
++    # Reactivar al paciente/profesional/usuario restaura el acceso de
++    # inmediato, sin necesidad de ninguna otra acción.
++
++    def acceso_bloqueado_motivo(self):
++        """
++        Devuelve una razón (str) si este usuario debe tener el acceso
++        totalmente restringido por estar inactivo, o None si puede acceder.
++
++        Aplica a los 4 roles del sistema:
++          - Paciente: bloqueado si su ficha (Paciente.estado == 'inactivo').
++          - Profesional: bloqueado si su ficha (Profesional.activo == False).
++          - Recepcionista / Gerente: bloqueado si su PerfilUsuario.activo == False.
++
++        No consulta ni modifica sesiones, pagos, ni cualquier otro dato del
++        negocio: solo lee los indicadores de "activo/inactivo" que ya existen.
++        """
++        # El propio perfil desactivado bloquea a cualquier rol (incluye
++        # recepcionista y gerente, que no tienen ficha propia separada).
++        if not self.activo:
++            return 'Tu cuenta de usuario está desactivada. Contacta al administrador del centro.'
++
++        if self.es_paciente():
++            if self.paciente_id and self.paciente and self.paciente.estado == 'inactivo':
++                return 'La ficha de este paciente está inactiva. Contacta al centro para más información.'
++
++        if self.es_profesional():
++            if self.profesional_id and self.profesional and not self.profesional.activo:
++                return 'Tu perfil profesional está inactivo. Contacta al administrador del centro.'
++
++        return None
++
++    def tiene_acceso_al_sistema(self):
++        """True si el usuario puede acceder al sistema (no está inactivo)."""
++        return self.acceso_bloqueado_motivo() is None
+     
+     def puede_crear_pacientes(self):
+         """Todos excepto profesionales y pacientes pueden crear pacientes"""
+diff --git a/templates/core/login.html b/templates/core/login.html
+index b750545..a24f3fd 100644
+--- a/templates/core/login.html
++++ b/templates/core/login.html
+@@ -152,6 +152,16 @@
+                 <p id="status-message" class="mt-2 text-center text-sm text-gray-600 font-medium h-5 transition-all duration-300">
+                     🌟 Bienvenido, inicia sesión 🌟
+                 </p>
++
++                {% if messages %}
++                    <div class="mt-2 space-y-1">
++                        {% for message in messages %}
++                            <div class="text-center text-xs sm:text-sm font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
++                                {{ message }}
++                            </div>
++                        {% endfor %}
++                    </div>
++                {% endif %}
+             </div>
+             
+             <form class="mt-4 space-y-4" method="post" id="loginForm">
+diff --git a/tests/verificar_bloqueo_acceso_inactivos.py b/tests/verificar_bloqueo_acceso_inactivos.py
+new file mode 100644
+index 0000000..c8b7236
+--- /dev/null
++++ b/tests/verificar_bloqueo_acceso_inactivos.py
+@@ -0,0 +1,147 @@
++"""
++Script manual de verificación (no forma parte del test-suite automático)
++para comprobar que:
++
++1. Un paciente / profesional / recepcionista / gerente ACTIVO puede
++   autenticarse normalmente.
++2. Al marcarlo INACTIVO (paciente.estado='inactivo', profesional.activo=False,
++   o perfil.activo=False), el backend de autenticación deja de autenticarlo.
++3. Si ya tenía una sesión de navegador iniciada, el middleware la corta en
++   la siguiente petición (se verifica llamando directamente al método usado
++   por el middleware, sin necesidad de un servidor corriendo).
++4. Reactivarlo restaura el acceso de inmediato.
++5. Nada de esto modifica Sesion (terapia) ni Pago.
++
++Ejecutar con:
++    ENVIRONMENT=development python manage.py shell < tests/verificar_bloqueo_acceso_inactivos.py
++"""
++import os
++import django
++
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
++django.setup()
++
++from django.contrib.auth.models import User
++from django.contrib.auth import authenticate
++from core.models import PerfilUsuario
++from pacientes.models import Paciente
++from profesionales.models import Profesional
++
++
++def linea(msg):
++    print(f"\n=== {msg} ===")
++
++
++# ---------- PACIENTE ----------
++linea("PACIENTE")
++import datetime
++paciente = Paciente.objects.create(
++    nombre="Test", apellido="Bloqueo",
++    fecha_nacimiento=datetime.date(2015, 1, 1), genero='M',
++    nombre_tutor="Tutor Test", parentesco='madre', telefono_tutor="000000000",
++)
++u_pac = User.objects.create_user(username="paciente_test_bloqueo", password="Clave123!")
++perfil_pac = u_pac.perfil
++perfil_pac.rol = 'paciente'
++perfil_pac.paciente = paciente
++perfil_pac.save()
++
++assert authenticate(username="paciente_test_bloqueo", password="Clave123!") is not None, "Debería poder loguear activo"
++print("OK: paciente activo puede autenticarse")
++
++paciente.estado = 'inactivo'
++paciente.save()
++assert authenticate(username="paciente_test_bloqueo", password="Clave123!") is None, "NO debería poder loguear inactivo"
++print("OK: paciente inactivo NO puede autenticarse")
++
++# Simula que ya tenía sesión abierta: el middleware usaría este método
++motivo = u_pac.perfil.acceso_bloqueado_motivo()
++assert motivo is not None
++print(f"OK: middleware cortaría su sesión activa. Motivo: {motivo}")
++
++paciente.estado = 'activo'
++paciente.save()
++assert authenticate(username="paciente_test_bloqueo", password="Clave123!") is not None
++print("OK: al reactivar paciente, vuelve a poder autenticarse")
++
++
++# ---------- PROFESIONAL ----------
++linea("PROFESIONAL")
++profesional = Profesional.objects.create(nombre="Test", apellido="Bloqueo", especialidad="General")
++u_prof = User.objects.create_user(username="profesional_test_bloqueo", password="Clave123!")
++perfil_prof = u_prof.perfil
++perfil_prof.rol = 'profesional'
++perfil_prof.profesional = profesional
++perfil_prof.save()
++
++assert authenticate(username="profesional_test_bloqueo", password="Clave123!") is not None
++print("OK: profesional activo puede autenticarse")
++
++profesional.activo = False
++profesional.save()
++assert authenticate(username="profesional_test_bloqueo", password="Clave123!") is None
++print("OK: profesional inactivo NO puede autenticarse")
++
++profesional.activo = True
++profesional.save()
++assert authenticate(username="profesional_test_bloqueo", password="Clave123!") is not None
++print("OK: al reactivar profesional, vuelve a poder autenticarse")
++
++
++# ---------- RECEPCIONISTA ----------
++linea("RECEPCIONISTA")
++u_rec = User.objects.create_user(username="recepcionista_test_bloqueo", password="Clave123!")
++perfil_rec = u_rec.perfil
++perfil_rec.rol = 'recepcionista'
++perfil_rec.save()
++
++assert authenticate(username="recepcionista_test_bloqueo", password="Clave123!") is not None
++print("OK: recepcionista activo puede autenticarse")
++
++perfil_rec.activo = False
++perfil_rec.save()
++assert authenticate(username="recepcionista_test_bloqueo", password="Clave123!") is None
++print("OK: recepcionista inactivo NO puede autenticarse")
++
++perfil_rec.activo = True
++perfil_rec.save()
++assert authenticate(username="recepcionista_test_bloqueo", password="Clave123!") is not None
++print("OK: al reactivar recepcionista, vuelve a poder autenticarse")
++
++
++# ---------- GERENTE ----------
++linea("GERENTE")
++u_ger = User.objects.create_user(username="gerente_test_bloqueo", password="Clave123!")
++perfil_ger = u_ger.perfil
++perfil_ger.rol = 'gerente'
++perfil_ger.save()
++
++assert authenticate(username="gerente_test_bloqueo", password="Clave123!") is not None
++print("OK: gerente activo puede autenticarse")
++
++perfil_ger.activo = False
++perfil_ger.save()
++assert authenticate(username="gerente_test_bloqueo", password="Clave123!") is None
++print("OK: gerente inactivo NO puede autenticarse")
++
++perfil_ger.activo = True
++perfil_ger.save()
++assert authenticate(username="gerente_test_bloqueo", password="Clave123!") is not None
++print("OK: al reactivar gerente, vuelve a poder autenticarse")
++
++
++# ---------- SUPERUSUARIO NUNCA SE BLOQUEA ----------
++linea("SUPERUSUARIO")
++u_super = User.objects.create_superuser(username="super_test_bloqueo", password="Clave123!", email="a@a.com")
++assert authenticate(username="super_test_bloqueo", password="Clave123!") is not None
++print("OK: superusuario nunca se bloquea por este mecanismo")
++
++# ---------- LIMPIEZA ----------
++linea("LIMPIEZA")
++for u in [u_pac, u_prof, u_rec, u_ger, u_super]:
++    u.delete()
++paciente.delete()
++profesional.delete()
++print("OK: datos de prueba eliminados. No se tocó ninguna Sesion ni Pago real.")
++
++print("\n✅ TODAS LAS VERIFICACIONES PASARON CORRECTAMENTE")

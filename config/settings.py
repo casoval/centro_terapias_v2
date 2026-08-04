@@ -98,6 +98,20 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # ✅ Corta el acceso de pacientes/profesionales/recepcionistas/gerentes
+    # inactivos aunque ya tengan sesión de navegador iniciada. No modifica
+    # sesiones de terapia, pagos, ni ninguna otra lógica del sistema.
+    'core.middleware.AccesoActivoMiddleware',
+]
+
+# --------------------------------------------------
+# AUTENTICACIÓN
+# --------------------------------------------------
+# ✅ Backend propio (hereda de ModelBackend) que además de usuario/contraseña
+# verifica que el usuario no esté inactivo (paciente, profesional,
+# recepcionista o gerente). No cambia el mecanismo de login/contraseña.
+AUTHENTICATION_BACKENDS = [
+    'core.backends.PerfilActivoModelBackend',
 ]
 
 ROOT_URLCONF = 'config.urls'
