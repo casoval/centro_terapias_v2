@@ -5203,6 +5203,16 @@ def procesar_cambiar_profesional_mes(request, paciente_id):
                 errores.append(f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} — sin permiso sobre esa sucursal")
                 continue
 
+            # Ya tiene asignado ese mismo profesional (el frontend ya lo excluye
+            # de las opciones, esto es solo defensa ante llamadas directas a la API)
+            if sesion.profesional_id == nuevo_profesional.id:
+                omitidas += 1
+                errores.append(
+                    f"{sesion.fecha.strftime('%d/%m/%Y')} {sesion.hora_inicio.strftime('%H:%M')} "
+                    f"— ya estaba asignada a {nuevo_profesional.nombre} {nuevo_profesional.apellido}"
+                )
+                continue
+
             # El nuevo profesional debe ofrecer ese servicio
             if sesion.servicio_id and not nuevo_profesional.servicios.filter(id=sesion.servicio_id).exists():
                 omitidas += 1

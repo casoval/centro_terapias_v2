@@ -152,11 +152,24 @@
 
         avisoMezcla.classList.add('hidden');
         const servicioId = Array.from(servicioIds)[0];
-        const profs = PROF_MAP[servicioId] || [];
+        const profsServicio = PROF_MAP[servicioId] || [];
+
+        // No tiene sentido ofrecer como "nuevo profesional" a quien ya está
+        // asignado a alguna de las sesiones marcadas (sería "cambiar" a la
+        // misma persona). Si hay sesiones con distintos profesionales
+        // actuales, se excluyen todos para garantizar que la reasignación
+        // realmente cambie a todas las sesiones seleccionadas.
+        const idsSesionesMarcadas = new Set(marcados.map(c => parseInt(c.dataset.id)));
+        const profesionalesActuales = new Set(
+            SESIONES.filter(s => idsSesionesMarcadas.has(s.id)).map(s => s.profesional_id)
+        );
+        const profs = profsServicio.filter(p => !profesionalesActuales.has(p.id));
 
         if (!profs.length) {
             selectProf.disabled = true;
-            selectProf.innerHTML = '<option value="">Sin profesionales activos para este servicio</option>';
+            selectProf.innerHTML = profsServicio.length
+                ? '<option value="">No hay otro profesional activo disponible para este servicio</option>'
+                : '<option value="">Sin profesionales activos para este servicio</option>';
             btnConfirmar.disabled = true;
             return;
         }
