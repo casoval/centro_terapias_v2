@@ -193,11 +193,23 @@
             <button onclick="previsualizarHorarioMensual()"
                 class="px-4 py-2 rounded-xl font-bold text-sm transition-all"
                 style="background:rgba(96,165,250,0.15); color:#60a5fa; border:1px solid rgba(96,165,250,0.3);">
-                🔍 Ver cuántos se enviarían
+                🔍 Ver / elegir pacientes
             </button>
         </div>
 
-        <div id="preview-horario-mensual" class="hidden mb-3 p-3 rounded-xl text-sm" style="background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.3); color:#60a5fa;"></div>
+        <div id="preview-horario-mensual" class="hidden mb-3"></div>
+
+        <!-- Lista de pacientes con checkbox, se llena tras "Ver / elegir pacientes" -->
+        <div id="lista-pacientes-horario" class="hidden mb-3 rounded-xl p-3" style="background:#111827; border:1px solid rgba(255,255,255,0.12); max-height: 260px; overflow-y: auto;">
+            <div class="flex items-center justify-between mb-2 pb-2" style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                <label class="flex items-center gap-2 text-xs font-bold" style="color:rgba(255,255,255,0.7);">
+                    <input type="checkbox" id="check-todos-pacientes" checked onchange="toggleTodosPacientes(this.checked)">
+                    Seleccionar todos
+                </label>
+                <span id="contador-seleccionados" class="text-xs" style="color:rgba(255,255,255,0.4);"></span>
+            </div>
+            <div id="items-pacientes-horario" class="space-y-1"></div>
+        </div>
 
         <button onclick="enviarHorarioMensual()" id="btn-enviar-horario"
             class="px-5 py-2 rounded-xl font-bold text-sm transition-all flex items-center gap-2 text-white"
@@ -377,20 +389,55 @@ async function enviarMasivo() {
     document.getElementById('horario-mes').value = hoy.getMonth() + 1;
 })();
 
+let pacientesHorarioMensual = [];
+
 async function previsualizarHorarioMensual() {
     const mes      = document.getElementById('horario-mes').value;
     const anio     = document.getElementById('horario-anio').value;
     const sucursal = document.getElementById('horario-sucursal').value;
     const div = document.getElementById('preview-horario-mensual');
+    const lista = document.getElementById('lista-pacientes-horario');
     div.classList.remove('hidden');
+    div.className = 'mb-3 p-3 rounded-xl text-sm';
+    div.style.cssText = 'background:rgba(96,165,250,0.08); border:1px solid rgba(96,165,250,0.3); color:#60a5fa;';
     div.textContent = '⏳ Calculando...';
+    lista.classList.add('hidden');
     try {
         const res  = await fetch(`/api/whatsapp-horario-mensual-pdf/?mes=${mes}&anio=${anio}&sucursal=${sucursal}`);
         const data = await res.json();
-        div.textContent = `📄 Se generarían y enviarían ${data.total_pacientes} PDF(s) — horario de ${data.mes_nombre} de ${data.anio}.`;
+        pacientesHorarioMensual = data.pacientes || [];
+        div.textContent = `📄 ${data.total_pacientes} paciente(s) califican para el horario de ${data.mes_nombre} de ${data.anio}. Desmarca los que NO quieras incluir:`;
+
+        const cont = document.getElementById('items-pacientes-horario');
+        if (pacientesHorarioMensual.length === 0) {
+            cont.innerHTML = '<p class="text-xs" style="color:rgba(255,255,255,0.4);">No hay pacientes con sesiones ese mes/sucursal.</p>';
+        } else {
+            cont.innerHTML = pacientesHorarioMensual.map(p => `
+                <label class="flex items-center gap-2 py-1 px-2 rounded-lg text-sm hover:bg-white/5 cursor-pointer">
+                    <input type="checkbox" class="check-paciente-horario" value="${p.id}" checked onchange="actualizarContadorPacientes()">
+                    <span style="color:#f1f5f9;">${p.nombre}</span>
+                    <span class="text-xs" style="color:rgba(255,255,255,0.4);">— tutor: ${p.tutor} · ${p.sucursal}</span>
+                </label>
+            `).join('');
+        }
+        document.getElementById('check-todos-pacientes').checked = true;
+        lista.classList.remove('hidden');
+        actualizarContadorPacientes();
     } catch (e) {
         div.textContent = '❌ Error al calcular la vista previa';
     }
+}
+
+function toggleTodosPacientes(marcar) {
+    document.querySelectorAll('.check-paciente-horario').forEach(chk => chk.checked = marcar);
+    actualizarContadorPacientes();
+}
+
+function actualizarContadorPacientes() {
+    const checks = document.querySelectorAll('.check-paciente-horario');
+    const marcados = document.querySelectorAll('.check-paciente-horario:checked');
+    document.getElementById('contador-seleccionados').textContent = `${marcados.length} de ${checks.length} seleccionados`;
+    document.getElementById('check-todos-pacientes').checked = checks.length > 0 && marcados.length === checks.length;
 }
 
 async function enviarHorarioMensual() {
@@ -398,7 +445,18 @@ async function enviarHorarioMensual() {
     const anio     = document.getElementById('horario-anio').value;
     const sucursal = document.getElementById('horario-sucursal').value;
 
-    if (!confirm('¿Generar y enviar el horario mensual en PDF a los tutores correspondientes? Esta acción no se puede deshacer.')) {
+    const idsSeleccionados = Array.from(document.querySelectorAll('.check-paciente-horario:checked')).map(c => c.value);
+
+    if (pacientesHorarioMensual.length === 0) {
+        alert('Primero haz clic en "Ver / elegir pacientes" para cargar la lista.');
+        return;
+    }
+    if (idsSeleccionados.length === 0) {
+        alert('No seleccionaste ningún paciente.');
+        return;
+    }
+
+    if (!confirm(`¿Generar y enviar el horario mensual en PDF a ${idsSeleccionados.length} paciente(s) seleccionado(s)? Esta acción no se puede deshacer.`)) {
         return;
     }
 
@@ -411,7 +469,7 @@ async function enviarHorarioMensual() {
         const res  = await fetch('/api/whatsapp-horario-mensual-pdf/', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
-            body: JSON.stringify({ mes, anio, sucursal }),
+            body: JSON.stringify({ mes, anio, sucursal, paciente_ids: idsSeleccionados }),
         });
         const data = await res.json();
         const div  = document.getElementById('resultado-horario-mensual');

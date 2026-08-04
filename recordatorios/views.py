@@ -745,14 +745,32 @@ def whatsapp_horario_mensual_pdf(request):
     )
 
     if request.method == 'GET':
+        pacientes_data = [
+            {
+                'id': p.id,
+                'nombre': p.nombre_completo,
+                'tutor': p.nombre_tutor,
+                'sucursal': por_paciente[p.id][0].sucursal.nombre,
+            }
+            for p in sorted(pacientes_validos, key=lambda p: p.nombre_completo)
+        ]
         return JsonResponse({
             'mes': mes,
             'anio': anio,
             'mes_nombre': MESES[mes - 1],
             'total_pacientes': len(pacientes_validos),
+            'pacientes': pacientes_data,
         })
 
     # ── POST: generar cada PDF y encolarlo en el bot ────────────────────
+    # Si vienen `paciente_ids`, se envía SOLO a esos (selección manual).
+    # Si no vienen (o llega la lista vacía por error del cliente), se
+    # envía a todos los que calificaron — mismo comportamiento de antes.
+    paciente_ids = params.get('paciente_ids')
+    if paciente_ids:
+        ids_seleccionados = {int(i) for i in paciente_ids}
+        pacientes_validos = [p for p in pacientes_validos if p.id in ids_seleccionados]
+
     enviados = 0
     errores = []
 
