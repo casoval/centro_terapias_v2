@@ -26,6 +26,7 @@ urlpatterns = [
     path('evaluaciones/', include('evaluaciones.urls', namespace='evaluaciones')),
     path('asistencia/', include('asistencia.urls', namespace='asistencia')),
     path('api/', include('recordatorios.urls')),
+    path('api/integracion/misael-kids/', include('integracion_misael_kids.urls')),
     path('agente/', include('agente.urls', namespace='agente')),
     path('documentos/', include('documentos.urls', namespace='documentos')),
     path('archivos-centro/', include('archivos_centro.urls', namespace='archivos_centro')),

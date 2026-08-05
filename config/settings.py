@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'documentos',        # ← nueva: documentos/informes de pacientes
     'archivos_centro',   # ← nueva: archivos operativos del centro (no de pacientes)
     'inventario',        # ← nueva: inventario del centro (sucursales, servicios, usuarios)
+    'integracion_misael_kids',  # ← nueva: API para vincular pacientes con Misael Kids
 ]
 
 MIDDLEWARE = [
@@ -321,6 +322,13 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 # --------------------------------------------------
 
 EMAIL_RRHH = os.environ.get('EMAIL_RRHH', 'rrhh@tucentro.com')
+
+# ── Integración con Misael Kids ────────────────────────────────────
+# Clave compartida que Misael Kids debe enviar en el header
+# "Authorization: ApiKey <clave>" para consumir la API de
+# integracion_misael_kids. Debe ser la misma en ambos lados (ver
+# CENTRO_MISAEL_API_KEY en el .env de misael_kids).
+MISAEL_KIDS_API_KEY = os.environ.get('MISAEL_KIDS_API_KEY', '')
 
 # --------------------------------------------------
 # SEGURIDAD EN PRODUCCIÓN

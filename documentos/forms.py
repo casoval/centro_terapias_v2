@@ -13,7 +13,7 @@ class DocumentoPacienteForm(forms.ModelForm):
 
     class Meta:
         model = DocumentoPaciente
-        fields = ['titulo', 'descripcion', 'archivo', 'proyecto', 'mensualidad']
+        fields = ['titulo', 'descripcion', 'archivo', 'proyecto', 'mensualidad', 'compartir_misael_kids']
         widgets = {
             'titulo': forms.TextInput(attrs={
                 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
@@ -30,6 +30,9 @@ class DocumentoPacienteForm(forms.ModelForm):
             }),
             'proyecto': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
             'mensualidad': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
+            'compartir_misael_kids': forms.CheckboxInput(attrs={
+                'class': 'rounded border-slate-300 text-indigo-600 focus:ring-indigo-500',
+            }),
         }
 
     def __init__(self, *args, paciente=None, **kwargs):

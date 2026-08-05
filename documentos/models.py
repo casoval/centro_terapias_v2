@@ -82,6 +82,17 @@ class DocumentoPaciente(models.Model):
     )
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
+    # ── Integración con Misael Kids ────────────────────────────────
+    # Si el profesional marca esto, el documento (plan de trabajo,
+    # informe, etc.) queda visible para el jardín Misael Kids a través
+    # de la API de integración, sin importar si el paciente está
+    # activo o inactivo en Centro Misael.
+    compartir_misael_kids = models.BooleanField(
+        default=False,
+        verbose_name='Compartir con Misael Kids',
+        help_text='Visible para la educadora del jardín como plan de trabajo del niño.',
+    )
+
     class Meta:
         verbose_name = 'Documento de Paciente'
         verbose_name_plural = 'Documentos de Pacientes'
