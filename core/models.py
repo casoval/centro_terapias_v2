@@ -361,11 +361,11 @@ class PerfilUsuario(models.Model):
 
     def puede_subir_documentos_paciente(self, paciente):
         """
-        Admin, gerente y profesional (solo de sus pacientes) pueden subir
-        documentos, sin límite de cantidad. Recepcionista NUNCA sube (solo ve).
+        Admin, gerente, recepcionista y profesional (solo de sus pacientes)
+        pueden subir documentos, sin límite de cantidad. Ninguno de ellos
+        puede eliminar — eso queda reservado solo para el admin, ver
+        `puede_eliminar_documentos()`.
         """
-        if self.rol == 'recepcionista':
-            return False
         return self.puede_ver_documentos_paciente(paciente)
 
     def puede_eliminar_documentos(self):
