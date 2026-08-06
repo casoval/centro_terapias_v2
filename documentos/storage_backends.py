@@ -19,27 +19,34 @@ al storage por defecto de Django (MEDIA_ROOT local), sin romper nada.
 """
 
 from django.conf import settings
+from storages.backends.s3boto3 import S3Boto3Storage
 
 R2_URL_EXPIRACION_SEGUNDOS = 3600  # 1 hora
+
+
+class R2DocumentosStorage(S3Boto3Storage):
+    """
+    Definida a nivel de módulo (no anidada dentro de una función) a
+    propósito: Django necesita poder importar esta clase por su ruta
+    completa (documentos.storage_backends.R2DocumentosStorage) para
+    poder serializarla en las migraciones. Una clase anidada dentro de
+    una función no tiene una ruta de importación válida y hace fallar
+    `makemigrations` con "Could not find object ... in ...".
+    """
+    bucket_name = settings.CLOUDFLARE_R2_BUCKET_NAME
+    endpoint_url = settings.CLOUDFLARE_R2_ENDPOINT_URL
+    access_key = settings.CLOUDFLARE_R2_ACCESS_KEY_ID
+    secret_key = settings.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+    region_name = 'auto'
+    addressing_style = 'path'
+    file_overwrite = False           # nunca sobrescribir un archivo con el mismo nombre
+    default_acl = None                # bucket privado, sin ACLs públicas
+    querystring_auth = True           # genera URLs firmadas (expiran solas)
+    querystring_expire = R2_URL_EXPIRACION_SEGUNDOS
+    custom_domain = None               # sin dominio público: no aplica en modo privado
 
 
 def get_documentos_storage():
     if not getattr(settings, 'R2_CONFIGURADO', False):
         return None
-
-    from storages.backends.s3boto3 import S3Boto3Storage
-
-    class R2DocumentosStorage(S3Boto3Storage):
-        bucket_name = settings.CLOUDFLARE_R2_BUCKET_NAME
-        endpoint_url = settings.CLOUDFLARE_R2_ENDPOINT_URL
-        access_key = settings.CLOUDFLARE_R2_ACCESS_KEY_ID
-        secret_key = settings.CLOUDFLARE_R2_SECRET_ACCESS_KEY
-        region_name = 'auto'
-        addressing_style = 'path'
-        file_overwrite = False           # nunca sobrescribir un archivo con el mismo nombre
-        default_acl = None                # bucket privado, sin ACLs públicas
-        querystring_auth = True           # genera URLs firmadas (expiran solas)
-        querystring_expire = R2_URL_EXPIRACION_SEGUNDOS
-        custom_domain = None               # sin dominio público: no aplica en modo privado
-
     return R2DocumentosStorage()
