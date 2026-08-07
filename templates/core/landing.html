@@ -869,6 +869,21 @@
             opacity: 0;
             transform: translateY(6px);
         }
+        #heroMainTitle {
+            transition: opacity 0.6s ease, transform 0.6s ease, max-height 0.6s ease, margin 0.6s ease;
+            overflow: hidden;
+        }
+        #heroMainTitle.hrt-hidden {
+            opacity: 0;
+            transform: translateY(-6px);
+            max-height: 0;
+            margin: 0;
+        }
+        #heroSwitchBtn:hover {
+            background: rgba(255,255,255,0.09);
+            border-color: rgba(255,255,255,0.22);
+            color: var(--text);
+        }
 
         .hero-cta-group {
             display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
@@ -915,6 +930,14 @@
         @keyframes floatIllus {
             0%,100% { transform: translateY(-50%); }
             50%     { transform: translateY(calc(-50% - 18px)); }
+        }
+
+        /* En pantallas grandes, el logo-corazón se reduce a la mitad */
+        @media (min-width: 1024px) {
+            #heroLogoWrapper {
+                transform: scale(0.5);
+                transform-origin: center right;
+            }
         }
 
         @keyframes logoHero {
@@ -2533,7 +2556,7 @@
         </a>
         <!-- ══════════════════════════════════════ -->
 
-        <h1>
+        <h1 id="heroMainTitle">
             Impulsamos el <span class="hl-red">potencial</span><br>
             de cada <span class="hl-blue">niño</span> y <span class="hl-gold">niña</span>
         </h1>
@@ -2541,6 +2564,19 @@
         <p id="heroRotatingText">
             <span id="heroRotatingTextInner">En el <strong>Centro de Neurodesarrollo Infantil MISAEL</strong>, acompañamos a cada familia con terapias especializadas, evaluaciones científicas y un equipo comprometido con el bienestar y desarrollo integral de tu hijo. Brindamos atención a niños con discapacidad, incluyendo autismo, TDAH y otras condiciones del desarrollo, ofreciendo un enfoque profesional y personalizado en Potosí, Bolivia.</span>
         </p>
+
+        <div id="heroTextSwitcher" style="display:flex; align-items:center; gap:0.6rem; margin:-1.3rem 0 1.8rem; animation: slideUp 0.7s ease both 0.25s;">
+            <button type="button" id="heroSwitchBtn" style="
+                display:inline-flex; align-items:center; gap:0.45rem;
+                background: var(--glass); border:1px solid var(--glass-border);
+                color: var(--muted); font-size:0.78rem; font-weight:700;
+                padding:0.4rem 0.85rem; border-radius:50px; cursor:pointer;
+                transition: background 0.2s, border-color 0.2s, color 0.2s;
+            ">
+                <span aria-hidden="true">🔄</span>
+                <span id="heroSwitchBtnLabel">Ver mensaje de esperanza</span>
+            </button>
+        </div>
 
         <div class="hero-cta-group">
             <a href="#servicios" class="btn-primary">🌟 Conocer Servicios</a>
@@ -2602,7 +2638,7 @@
             </svg>
         </div>
 
-        <div style="position:relative; width:100%; max-width:520px; display:flex; align-items:center; justify-content:center;">
+        <div id="heroLogoWrapper" style="position:relative; width:100%; max-width:520px; display:flex; align-items:center; justify-content:center;">
             <!-- Anillos decorativos animados detrás del logo -->
             <div style="position:absolute; width:480px; height:480px; border-radius:50%;
                         border:2px solid rgba(0,212,200,0.2); animation:ringPulse 6s ease-in-out infinite;"></div>
@@ -3656,7 +3692,6 @@
                 </div>
 
                 <div style="font-size:1.02rem; line-height:1.85; color: var(--muted);">
-                    <p style="margin-bottom:1.1rem;">A quienes cuidan con amor a un niño con discapacidad:</p>
                     <p style="margin-bottom:1.1rem;">Habrá días difíciles, momentos de incertidumbre y preguntas sin respuesta. Quizás el camino de su hijo sea diferente al de otros niños, pero eso no significa que su vida tenga menos valor, menos propósito o menos posibilidades de ser feliz.</p>
                     <p style="margin-bottom:1.1rem;">No permitan que el miedo al futuro les robe la alegría del presente. Cada abrazo, cada palabra de aliento, cada pequeño avance y cada muestra de amor están construyendo un futuro lleno de esperanza.</p>
                     <p style="margin-bottom:1.1rem;">Si mantienen la fe en Dios, si cultivan una familia unida y si enseñan el amor, el respeto y la solidaridad, estarán dejando el mayor legado que un hijo puede recibir. Porque el verdadero tesoro no son solo las habilidades que desarrolle, sino las personas que aprenderán a quererlo, protegerlo y caminar a su lado.</p>
@@ -4565,6 +4600,9 @@ function updateContactReq() {
 (function() {
     var wrap = document.getElementById('heroRotatingText');
     var inner = document.getElementById('heroRotatingTextInner');
+    var titulo = document.getElementById('heroMainTitle');
+    var switchBtn = document.getElementById('heroSwitchBtn');
+    var switchBtnLabel = document.getElementById('heroSwitchBtnLabel');
     if (!wrap || !inner) return;
 
     var originalHTML = inner.innerHTML;
@@ -4615,16 +4653,23 @@ function updateContactReq() {
     try { localStorage.setItem(STORAGE_KEY, String(nextIndex)); } catch (e) { /* almacenamiento no disponible */ }
 
     var mensajeElegido = mensajes[nextIndex];
+    var mensajeHTML = "<strong>" + mensajeElegido.titulo + "</strong><br><br>" + mensajeElegido.html;
 
     // Calcula un tiempo de lectura cómodo según la cantidad de palabras (~155 palabras/min)
+    // Duplicado para dar más tiempo de lectura sin apuro.
     function tiempoLectura(html) {
         var texto = html.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ');
         var palabras = texto.trim().split(/\s+/).filter(Boolean).length;
-        var ms = (palabras / 155) * 60 * 1000;
-        return Math.max(9000, Math.min(ms, 26000));
+        var ms = (palabras / 155) * 60 * 1000 * 2;
+        return Math.max(18000, Math.min(ms, 52000));
     }
 
+    var tiempoTextoOriginal = tiempoLectura(originalHTML);
+    var tiempoMensaje = tiempoLectura(mensajeHTML);
+
     var FADE_MS = 600; // animación suave pero rápida
+    var estadoActual = 'original'; // 'original' | 'mensaje'
+    var timerId = null;
 
     function cambiarTexto(nuevoHTML, callback) {
         inner.classList.add('hrt-fading');
@@ -4635,22 +4680,50 @@ function updateContactReq() {
         }, FADE_MS);
     }
 
-    // 1) Se muestra primero el texto actual del centro (tal cual ya está en el HTML)
-    var tiempoTextoOriginal = tiempoLectura(originalHTML);
+    function actualizarTitulo(mostrar) {
+        if (!titulo) return;
+        if (mostrar) titulo.classList.remove('hrt-hidden');
+        else titulo.classList.add('hrt-hidden');
+    }
 
-    setTimeout(function fusionarConMensaje() {
-        // 2) Se funde con amabilidad hacia el mensaje de esperanza que corresponde por turno
-        var mensajeHTML = "<strong>" + mensajeElegido.titulo + "</strong><br><br>" + mensajeElegido.html;
-        cambiarTexto(mensajeHTML, function() {
-            var tiempoMensaje = tiempoLectura(mensajeHTML);
-            setTimeout(function volverAlOriginal() {
-                // 3) Vuelve suavemente al texto original y el ciclo se repite mientras la página esté abierta
-                cambiarTexto(originalHTML, function() {
-                    setTimeout(fusionarConMensaje, tiempoTextoOriginal);
-                });
-            }, tiempoMensaje);
+    function actualizarBoton() {
+        if (!switchBtnLabel) return;
+        switchBtnLabel.textContent = (estadoActual === 'original')
+            ? 'Ver mensaje de esperanza'
+            : 'Ver descripción del centro';
+    }
+
+    // Muestra el estado indicado ('original' o 'mensaje'), con fusión suave,
+    // y reprograma el siguiente cambio automático según el tiempo de lectura correspondiente.
+    function mostrarEstado(nuevoEstado, reprogramar) {
+        if (timerId) { clearTimeout(timerId); timerId = null; }
+        var html = (nuevoEstado === 'original') ? originalHTML : mensajeHTML;
+        cambiarTexto(html, function() {
+            estadoActual = nuevoEstado;
+            actualizarTitulo(estadoActual === 'original');
+            actualizarBoton();
+            if (reprogramar) {
+                var espera = (estadoActual === 'original') ? tiempoTextoOriginal : tiempoMensaje;
+                timerId = setTimeout(function() {
+                    mostrarEstado(estadoActual === 'original' ? 'mensaje' : 'original', true);
+                }, espera);
+            }
         });
+    }
+
+    // 1) Arranca mostrando el texto original (ya está en el HTML), luego se funde
+    //    automáticamente con el mensaje de esperanza y sigue alternando.
+    actualizarBoton();
+    timerId = setTimeout(function() {
+        mostrarEstado('mensaje', true);
     }, tiempoTextoOriginal);
+
+    // 2) Cambiador manual: permite alternar al instante sin esperar el tiempo automático.
+    if (switchBtn) {
+        switchBtn.addEventListener('click', function() {
+            mostrarEstado(estadoActual === 'original' ? 'mensaje' : 'original', true);
+        });
+    }
 })();
 </script>
 
