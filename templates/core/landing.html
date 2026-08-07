@@ -774,6 +774,12 @@
             background-position: center;
             background-repeat: no-repeat;
         }
+        /* Video de fondo del hero (reemplaza la fotografía; la imagen queda como poster/fallback) */
+        .hero-video {
+            position: absolute !important; inset: 0; z-index: 0 !important;
+            width: 100%; height: 100%;
+            object-fit: cover; object-position: center;
+        }
         .hero::after {
             content: '';
             position: absolute; inset: 0; z-index: 1;
@@ -2040,6 +2046,9 @@
             .hero-illustration img     { animation: none !important; }
             .confetti-piece            { display: none !important; }
 
+            /* Video de fondo del hero: se oculta y queda solo la imagen estática (poster/fallback) */
+            .hero-video                { display: none !important; }
+
             /* 4. TRUST BAR */
             .trust-bar {
                 animation: none !important;
@@ -2278,6 +2287,13 @@
      HERO
 ═══════════════════════════════════════════ -->
 <section class="hero">
+
+    <!-- Video de fondo (reemplaza la foto de la sucursal); la imagen sigue como poster/fallback -->
+    <video class="hero-video" autoplay muted loop playsinline preload="auto"
+           poster="{% static 'img/foto_sucursal.jpg' %}">
+        <source src="{% static 'video/hero_misael.mp4' %}" media="(min-width: 769px)">
+        <source src="{% static 'video/hero_misael_mobile.mp4' %}">
+    </video>
 
     <!-- Orbes de luz de fondo -->
     <div class="hero-orb hero-orb-1"></div>
@@ -4451,6 +4467,26 @@ function updateContactReq() {
     });
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeLightbox();
+    });
+})();
+</script>
+
+<!-- Asegura el autoplay silencioso del video de fondo del hero en móviles -->
+<script>
+(function() {
+    var heroVideo = document.querySelector('.hero-video');
+    if (!heroVideo) return;
+    var tryPlay = function() {
+        var p = heroVideo.play();
+        if (p && typeof p.catch === 'function') p.catch(function() { /* se reintenta con interacción del usuario */ });
+    };
+    if (heroVideo.readyState >= 2) {
+        tryPlay();
+    } else {
+        heroVideo.addEventListener('loadeddata', tryPlay, { once: true });
+    }
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) tryPlay();
     });
 })();
 </script>
