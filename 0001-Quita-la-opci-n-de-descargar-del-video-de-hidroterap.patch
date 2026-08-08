@@ -1,0 +1,116 @@
+From f4bdefbba7cfb98b10ae268e5d473a0ca4390cef Mon Sep 17 00:00:00 2001
+From: Neuromisael Dev <dev@neuromisael.com>
+Date: Sat, 8 Aug 2026 06:29:52 +0000
+Subject: [PATCH] =?UTF-8?q?Quita=20la=20opci=C3=B3n=20de=20descargar=20del?=
+ =?UTF-8?q?=20video=20de=20hidroterapia=20y=20corrige=20que=20el=20video?=
+ =?UTF-8?q?=20del=20hero=20desaparec=C3=ADa=20al=20hacer=20scroll=20r?=
+ =?UTF-8?q?=C3=A1pido=20hacia=20arriba=20(se=20recarga=20autom=C3=A1ticame?=
+ =?UTF-8?q?nte=20si=20el=20navegador=20liber=C3=B3=20el=20recurso)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ templates/core/landing.html | 48 ++++++++++++++++++++++++++++++-------
+ 1 file changed, 40 insertions(+), 8 deletions(-)
+
+diff --git a/templates/core/landing.html b/templates/core/landing.html
+index 7a70ef2..5f76bda 100644
+--- a/templates/core/landing.html
++++ b/templates/core/landing.html
+@@ -3025,6 +3025,9 @@
+         ">
+             <video
+                 controls
++                controlsList="nodownload noremoteplayback"
++                disablePictureInPicture
++                oncontextmenu="return false;"
+                 preload="metadata"
+                 playsinline
+                 poster="{% static 'img/poster_hidroterapia.jpg' %}"
+@@ -4634,19 +4637,43 @@ function updateContactReq() {
+ </script>
+ 
+ <!-- Asegura el autoplay silencioso del video de fondo del hero en móviles,
+-     y evita que se quede "trabado" al salir/entrar de pantalla con el scroll -->
++     y evita que se quede "trabado" o desaparecido al salir/entrar de pantalla
++     con el scroll (algunos navegadores liberan el video de la memoria si se
++     hace scroll rápido y hay que recargarlo, no solo reanudarlo) -->
+ <script>
+ (function() {
+     var heroVideo = document.querySelector('.hero-video');
+     if (!heroVideo) return;
+ 
+     var enViewport = true;
++    var cargoAlgunaVez = false;
++
++    heroVideo.addEventListener('loadeddata', function() { cargoAlgunaVez = true; });
++    heroVideo.addEventListener('playing', function() { cargoAlgunaVez = true; });
++
++    function reproducir() {
++        var p = heroVideo.play();
++        if (p && typeof p.catch === 'function') {
++            p.catch(function() { /* se reintenta con interacción del usuario o el watchdog */ });
++        }
++    }
+ 
+     var tryPlay = function() {
+         if (!enViewport || document.hidden) return;
+-        if (!heroVideo.paused && !heroVideo.ended) return;
+-        var p = heroVideo.play();
+-        if (p && typeof p.catch === 'function') p.catch(function() { /* se reintenta con interacción del usuario */ });
++        if (!heroVideo.paused && !heroVideo.ended && heroVideo.readyState >= 2) return;
++
++        // Si el navegador "vació" el recurso del video (típico tras scroll
++        // rápido o bajo memoria en móviles), hay que recargarlo antes de
++        // poder reproducirlo de nuevo; con solo play() no alcanza.
++        if (cargoAlgunaVez && heroVideo.readyState === 0) {
++            heroVideo.load();
++            heroVideo.addEventListener('loadeddata', function despuesDeCargar() {
++                heroVideo.removeEventListener('loadeddata', despuesDeCargar);
++                reproducir();
++            }, { once: true });
++            return;
++        }
++        reproducir();
+     };
+ 
+     if (heroVideo.readyState >= 2) {
+@@ -4661,8 +4688,8 @@ function updateContactReq() {
+     });
+ 
+     // Reintenta cuando el video vuelve a entrar en pantalla al hacer scroll
+-    // (algunos navegadores móviles pausan videos en segundo plano y no
+-    // siempre los reanudan solos al volver a mostrarlos)
++    // (algunos navegadores móviles pausan o liberan videos en segundo plano
++    // y no siempre los reanudan solos al volver a mostrarlos)
+     if ('IntersectionObserver' in window) {
+         var observer = new IntersectionObserver(function(entries) {
+             entries.forEach(function(entry) {
+@@ -4673,8 +4700,13 @@ function updateContactReq() {
+         observer.observe(heroVideo);
+     }
+ 
++    // El navegador vació el buffer del video (recurso liberado): se reintenta
++    heroVideo.addEventListener('emptied', function() {
++        setTimeout(tryPlay, 300);
++    });
++
+     // Si el video se detiene o se "cuelga" por buffering, se reintenta solo
+-    ['pause', 'stalled', 'suspend', 'waiting'].forEach(function(evt) {
++    ['pause', 'stalled', 'suspend', 'waiting', 'error'].forEach(function(evt) {
+         heroVideo.addEventListener(evt, function() {
+             setTimeout(tryPlay, 400);
+         });
+@@ -4682,7 +4714,7 @@ function updateContactReq() {
+ 
+     // Watchdog de respaldo: revisa cada pocos segundos que el video siga
+     // reproduciéndose mientras está visible, por si algún evento se escapa.
+-    setInterval(tryPlay, 4000);
++    setInterval(tryPlay, 3000);
+ })();
+ </script>
+ 
+-- 
+2.43.0
+
