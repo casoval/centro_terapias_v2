@@ -1803,14 +1803,6 @@
             .carousel-track { padding: 12px 20px; }
             .carousel-track-wrap::before,
             .carousel-track-wrap::after { width: 40px; }
-
-            /* El video de fondo queda fijo a una altura de pantalla completa,
-               así nunca cambia de tamaño aunque el texto del hero (que rota)
-               haga crecer el contenedor .hero al variar de largo. */
-            .hero-video {
-                height: 100vh;
-                height: 100dvh;
-            }
         }
         /* ─────────────────────────────────────────
            DOODLES INFANTILES
@@ -4765,40 +4757,6 @@ function updateContactReq() {
 
     var tiempoTextoOriginal = tiempoLectura(originalHTML);
     var tiempoMensaje = tiempoLectura(mensajeHTML);
-
-    // Reserva una altura mínima estable en el párrafo, igual a la del texto
-    // más largo entre los que puede mostrar. Así el contenedor .hero nunca
-    // cambia de tamaño al rotar los mensajes (evita que la página "salte"
-    // o que el video de fondo parezca cambiar de tamaño al hacer scroll).
-    function fijarAlturaEstable() {
-        var previaMinHeight = wrap.style.minHeight;
-        wrap.style.minHeight = '0px';
-
-        var medidor = document.createElement('span');
-        medidor.style.cssText = 'display:block; visibility:hidden; position:absolute; ' +
-            'left:-9999px; top:0; pointer-events:none;';
-        medidor.style.width = wrap.clientWidth + 'px';
-        medidor.style.font = window.getComputedStyle(inner).font;
-        medidor.style.lineHeight = window.getComputedStyle(inner).lineHeight;
-        document.body.appendChild(medidor);
-
-        var alturaMax = 0;
-        [originalHTML, mensajeHTML].forEach(function(html) {
-            medidor.innerHTML = html;
-            alturaMax = Math.max(alturaMax, medidor.offsetHeight);
-        });
-
-        document.body.removeChild(medidor);
-        wrap.style.minHeight = previaMinHeight;
-        wrap.style.minHeight = alturaMax + 'px';
-    }
-
-    fijarAlturaEstable();
-    var resizeTimer = null;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(fijarAlturaEstable, 250);
-    }, { passive: true });
 
     var FADE_MS = 600; // animación suave pero rápida
     var estadoActual = 'original'; // 'original' | 'mensaje'
