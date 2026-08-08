@@ -355,7 +355,7 @@
 
         /* Hero en tema claro */
         [data-theme="light"] .hero {
-            background-image: url("{% static 'img/foto_sucursal.webp' %}") !important;
+            background: radial-gradient(120% 120% at 50% 0%, #FFF8ED 0%, #FFF3E0 55%, #FDEBD3 100%) !important;
         }
         [data-theme="light"] .hero::after {
             background: linear-gradient(135deg, rgba(253,250,245,0.88) 0%, rgba(253,250,245,0.65) 60%, rgba(253,250,245,0.3) 100%) !important;
@@ -769,16 +769,26 @@
             display: flex; align-items: center;
             padding: 5rem 2.5rem 4rem;
             overflow: hidden;
-            background-image: url("{% static 'img/foto_sucursal.webp' %}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            background: radial-gradient(120% 120% at 50% 0%, #1a2036 0%, var(--bg-1) 55%, #05070d 100%);
         }
-        /* Video de fondo del hero (reemplaza la fotografía; la imagen queda como poster/fallback) */
+        /* Video de fondo del hero: aparece con un fundido suave apenas tiene
+           el primer frame listo, en vez de mostrar una foto de golpe */
         .hero-video {
             position: absolute !important; inset: 0; z-index: 0 !important;
             width: 100%; height: 100%;
             object-fit: cover; object-position: center;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        .hero-video.hv-ready {
+            opacity: 1;
+        }
+        /* Último recurso: si el video realmente falla, se usa la foto */
+        .hero.hero-fallback-foto {
+            background-image: url("{% static 'img/foto_sucursal.webp' %}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
         .hero::after {
             content: '';
@@ -2182,8 +2192,15 @@
                 transition-duration: 0.01ms !important;
             }
             .photo-strip { animation: none !important; }
-            /* Video de fondo del hero: se oculta y queda solo la imagen estática (poster/fallback) */
+            /* Video de fondo del hero: se oculta y en su lugar se usa la foto
+               de la sucursal como imagen estática de fondo */
             .hero-video  { display: none !important; }
+            .hero {
+                background-image: url("{% static 'img/foto_sucursal.webp' %}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
+            }
         }
         /* ── LIGHTBOX ── */
         .lightbox-overlay {
@@ -2323,9 +2340,9 @@
 ═══════════════════════════════════════════ -->
 <section class="hero">
 
-    <!-- Video de fondo (reemplaza la foto de la sucursal); la imagen sigue como poster/fallback -->
-    <video class="hero-video" autoplay muted loop playsinline preload="auto"
-           poster="{% static 'img/foto_sucursal.webp' %}">
+    <!-- Video de fondo: sin poster (para no mostrar la foto vieja de golpe);
+         aparece con un fundido suave apenas está listo (ver script al final) -->
+    <video class="hero-video" id="heroVideo" autoplay muted loop playsinline preload="auto">
         <source src="{% static 'video/hero_misael.mp4' %}" media="(min-width: 769px)">
         <source src="{% static 'video/hero_misael_mobile.mp4' %}">
     </video>
@@ -4648,8 +4665,24 @@ function updateContactReq() {
     var enViewport = true;
     var cargoAlgunaVez = false;
 
-    heroVideo.addEventListener('loadeddata', function() { cargoAlgunaVez = true; });
-    heroVideo.addEventListener('playing', function() { cargoAlgunaVez = true; });
+    // Fundido suave: el video aparece recién cuando ya tiene un frame para
+    // mostrar, en vez de aparecer de golpe (o mostrar una foto vieja antes).
+    heroVideo.addEventListener('loadeddata', function() {
+        cargoAlgunaVez = true;
+        heroVideo.classList.add('hv-ready');
+    });
+    heroVideo.addEventListener('playing', function() {
+        cargoAlgunaVez = true;
+        heroVideo.classList.add('hv-ready');
+    });
+
+    // Si el video realmente no puede reproducirse (error de red, formato no
+    // soportado, etc.), como último recurso mostramos la foto de la sucursal
+    // en vez de dejar el fondo oscuro vacío.
+    heroVideo.addEventListener('error', function() {
+        var hero = heroVideo.closest('.hero');
+        if (hero) hero.classList.add('hero-fallback-foto');
+    });
 
     function reproducir() {
         var p = heroVideo.play();
