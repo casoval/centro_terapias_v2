@@ -30,6 +30,7 @@ def subir_documento(request, paciente_id):
 
     proyecto_id = request.POST.get('proyecto_id') or request.GET.get('proyecto_id')
     mensualidad_id = request.POST.get('mensualidad_id') or request.GET.get('mensualidad_id')
+    plan_misael = request.POST.get('plan_misael') or request.GET.get('plan_misael')
 
     if request.method == 'POST':
         form = DocumentoPacienteForm(
@@ -51,6 +52,8 @@ def subir_documento(request, paciente_id):
             initial['proyecto'] = proyecto_id
         if mensualidad_id:
             initial['mensualidad'] = mensualidad_id
+        if plan_misael:
+            initial['compartir_misael_kids'] = True
         form = DocumentoPacienteForm(paciente=paciente, initial=initial)
 
     context = {
@@ -58,6 +61,7 @@ def subir_documento(request, paciente_id):
         'paciente': paciente,
         'proyecto_id': proyecto_id,
         'mensualidad_id': mensualidad_id,
+        'plan_misael': plan_misael,
         'next_url': request.GET.get('next') or request.POST.get('next', ''),
     }
     return render(request, 'documentos/subir_documento.html', context)
@@ -160,7 +164,11 @@ def resumen_paciente_profesional(request, paciente_id):
     ).order_by('-anio', '-mes')
 
     documentos_generales = paciente.documentos.filter(
-        proyecto__isnull=True, mensualidad__isnull=True
+        proyecto__isnull=True, mensualidad__isnull=True, compartir_misael_kids=False
+    ).select_related('subido_por').order_by('-fecha_subida')
+
+    documentos_plan_misael = paciente.documentos.filter(
+        compartir_misael_kids=True
     ).select_related('subido_por').order_by('-fecha_subida')
 
     # Resumen de sesiones agrupado por servicio (todas, de cualquier profesional)
@@ -186,6 +194,7 @@ def resumen_paciente_profesional(request, paciente_id):
         'proyectos': proyectos,
         'mensualidades': mensualidades,
         'documentos_generales': documentos_generales,
+        'documentos_plan_misael': documentos_plan_misael,
         'resumen_servicios': resumen_servicios,
         'puede_subir': puede_subir_documentos(request.user, paciente),
     }

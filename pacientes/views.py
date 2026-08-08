@@ -618,7 +618,14 @@ def detalle_paciente(request, pk):
     base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
 
     context['documentos_generales'] = paciente.documentos.filter(
-        proyecto__isnull=True, mensualidad__isnull=True
+        proyecto__isnull=True, mensualidad__isnull=True, compartir_misael_kids=False
+    ).select_related('subido_por').order_by('-fecha_subida')
+
+    # 🧠 Plan Misael: documentos marcados para compartir con Misael Kids.
+    # Se muestran aparte para que no se pierdan entre "otros archivos" —
+    # se incluyen aunque además estén ligados a un proyecto/mensualidad.
+    context['documentos_plan_misael'] = paciente.documentos.filter(
+        compartir_misael_kids=True
     ).select_related('subido_por').order_by('-fecha_subida')
 
     proyectos_qs = paciente.proyectos.prefetch_related(
@@ -646,6 +653,7 @@ def detalle_paciente(request, pk):
     context['puede_subir_docs'] = puede_subir_documentos(request.user, paciente)
     context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
     context['subir_url_general'] = f'{base_url}?next={reverse("pacientes:detalle", args=[paciente.id])}'
+    context['subir_url_plan_misael'] = f'{base_url}?plan_misael=1&next={reverse("pacientes:detalle", args=[paciente.id])}'
     context['subir_url_base'] = base_url
     context['next_url_paciente'] = reverse('pacientes:detalle', args=[paciente.id])
 
