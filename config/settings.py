@@ -91,6 +91,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # GZip va primero en la lista para comprimir la respuesta al final
+    # (el procesamiento de la respuesta se hace en orden inverso), después
+    # de que el resto de middlewares ya hayan terminado de armarla.
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
