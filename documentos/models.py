@@ -145,3 +145,101 @@ class DocumentoPaciente(models.Model):
         if ext in ('jpg', 'jpeg', 'png', 'webp'):
             return '🖼️'
         return '📎'
+
+
+class PlanTrabajo(models.Model):
+    """
+    Plan de trabajo que un profesional del Centro Misael crea para un
+    paciente vinculado con Misael Kids, con su propio documento adjunto.
+
+    Reemplaza el uso de DocumentoPaciente.compartir_misael_kids para
+    este caso: antes se mezclaba con el formulario genérico de
+    proyecto/mensualidad/general, lo que era confuso. Ahora es un
+    formulario propio, sin selector de niño (el paciente ya viene fijo),
+    sin "derivación relacionada" y sin email — solo los datos que el
+    profesional realmente necesita completar a mano.
+
+    Puede haber VARIOS planes por paciente (uno por profesional/área).
+    Misael Kids los consulta en vivo, de solo lectura, vía la API de
+    integración — nunca los crea ni los edita.
+    """
+
+    paciente = models.ForeignKey(
+        'pacientes.Paciente',
+        on_delete=models.CASCADE,
+        related_name='planes_trabajo',
+    )
+
+    profesional = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name='planes_trabajo_creados',
+        help_text='Quién creó el registro. Si es un profesional, su nombre se usa tal cual.',
+    )
+    nombre_profesional_manual = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nombre del profesional (si lo carga otro rol)',
+        help_text='Solo completar si quien sube el plan NO es el propio profesional '
+                   '(ej. gerente o admin cargándolo en nombre de un profesional externo).',
+    )
+
+    telefono = models.CharField(max_length=20, blank=True, verbose_name='Teléfono del profesional')
+    area_intervencion = models.CharField(max_length=150, verbose_name='Área de intervención')
+    frecuencia_sesiones = models.CharField(
+        max_length=100, blank=True,
+        help_text='Ej: 2 veces por semana',
+    )
+
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField(null=True, blank=True, help_text='Vacío = plan vigente')
+    proxima_revision = models.DateField(
+        null=True, blank=True,
+        help_text='Cuándo toca revisar/renovar el plan',
+    )
+
+    descripcion = models.TextField(help_text='Objetivos y lineamientos del plan')
+    notas_seguimiento = models.TextField(
+        blank=True,
+        help_text='Avances, observaciones, ajustes acordados',
+    )
+
+    archivo = models.FileField(
+        upload_to='planes_trabajo/%Y/%m/',
+        storage=_DOCUMENTOS_STORAGE,
+        validators=[
+            FileExtensionValidator(allowed_extensions=EXTENSIONES_PERMITIDAS),
+            validar_tamano_archivo,
+        ],
+        null=True,
+        blank=True,
+        help_text='Informe o documento del plan, opcional',
+    )
+
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Plan de trabajo'
+        verbose_name_plural = 'Planes de trabajo'
+        ordering = ['-fecha_inicio']
+        indexes = [
+            models.Index(fields=['paciente', '-fecha_inicio']),
+        ]
+
+    def __str__(self):
+        return f'Plan de trabajo — {self.paciente} ({self.nombre_profesional})'
+
+    @property
+    def nombre_profesional(self):
+        """Nombre a mostrar: el del profesional autor, o el cargado a mano si lo subió otro rol."""
+        if self.nombre_profesional_manual:
+            return self.nombre_profesional_manual
+        return self.profesional.get_full_name() or self.profesional.username
+
+    @property
+    def nombre_archivo(self):
+        if not self.archivo:
+            return ''
+        return self.archivo.name.rsplit('/', 1)[-1]

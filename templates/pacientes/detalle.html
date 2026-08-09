@@ -485,8 +485,13 @@
 <!-- ✅ TODOS LOS DOCUMENTOS DEL PACIENTE: Plan Misael → Generales → Proyectos → Mensualidades -->
 <div class="max-w-7xl mx-auto px-2 space-y-2">
 
-    <!-- 0) Plan Misael (compartido con Misael Kids) -->
-    {% include 'documentos/_seccion_documentos.html' with documentos=documentos_plan_misael puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=subir_url_plan_misael titulo_seccion="🧠 Plan Misael (compartido con Misael Kids)" color_gradient="from-violet-700 to-violet-500" %}
+    <!-- 0) Planes de trabajo (Misael Kids) -->
+    {% if error_verificando_vinculo %}
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-[12px] text-amber-800 font-bold">
+        ⚠️ No se pudo verificar el vínculo con Misael Kids en este momento.
+    </div>
+    {% endif %}
+    {% include 'documentos/_seccion_planes_trabajo.html' with planes=planes_trabajo puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs vinculado=vinculado_misael_kids paciente_id=paciente.id %}
 
     <!-- 1) Generales -->
     {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=subir_url_general titulo_seccion="📎 Documentos Generales del Paciente" %}

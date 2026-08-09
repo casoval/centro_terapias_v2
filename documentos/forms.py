@@ -1,5 +1,5 @@
 from django import forms
-from .models import DocumentoPaciente
+from .models import DocumentoPaciente, PlanTrabajo
 
 
 class DocumentoPacienteForm(forms.ModelForm):
@@ -13,7 +13,12 @@ class DocumentoPacienteForm(forms.ModelForm):
 
     class Meta:
         model = DocumentoPaciente
-        fields = ['titulo', 'descripcion', 'archivo', 'proyecto', 'mensualidad', 'compartir_misael_kids']
+        # compartir_misael_kids ya no se ofrece acá: los planes de trabajo
+        # para Misael Kids ahora se crean con su propio formulario dedicado
+        # (PlanTrabajoForm), no mezclados con documentos generales/proyecto/
+        # mensualidad. El campo se mantiene en el modelo por compatibilidad
+        # histórica, pero ya no se completa desde este formulario.
+        fields = ['titulo', 'descripcion', 'archivo', 'proyecto', 'mensualidad']
         widgets = {
             'titulo': forms.TextInput(attrs={
                 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
@@ -30,9 +35,6 @@ class DocumentoPacienteForm(forms.ModelForm):
             }),
             'proyecto': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
             'mensualidad': forms.Select(attrs={'class': 'w-full rounded-lg border-slate-300'}),
-            'compartir_misael_kids': forms.CheckboxInput(attrs={
-                'class': 'rounded border-slate-300 text-indigo-600 focus:ring-indigo-500',
-            }),
         }
 
     def __init__(self, *args, paciente=None, **kwargs):
@@ -56,3 +58,75 @@ class DocumentoPacienteForm(forms.ModelForm):
                 'Elige solo un destino: Proyecto o Mensualidad, no ambos.'
             )
         return cleaned
+
+
+class PlanTrabajoForm(forms.ModelForm):
+    """
+    Formulario del plan de trabajo. El paciente NUNCA se elige acá (llega
+    fijo desde la URL/vista, el niño ya está vinculado). Todos los campos
+    de contenido del plan se llenan siempre a mano por el profesional —
+    nada se autocompleta salvo el nombre, que solo se ofrece editable si
+    quien sube el plan no es el propio profesional (ver __init__).
+    """
+
+    class Meta:
+        model = PlanTrabajo
+        fields = [
+            'nombre_profesional_manual', 'telefono', 'area_intervencion',
+            'frecuencia_sesiones', 'fecha_inicio', 'fecha_fin', 'proxima_revision',
+            'descripcion', 'notas_seguimiento', 'archivo', 'activo',
+        ]
+        widgets = {
+            'nombre_profesional_manual': forms.TextInput(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+                'placeholder': 'Nombre del profesional que atiende (si no es tu cuenta)',
+            }),
+            'telefono': forms.TextInput(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+                'placeholder': 'Opcional',
+            }),
+            'area_intervencion': forms.TextInput(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+                'placeholder': 'Ej: Lenguaje, Terapia ocupacional, Psicología...',
+            }),
+            'frecuencia_sesiones': forms.TextInput(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+                'placeholder': 'Ej: 2 veces por semana',
+            }),
+            'fecha_inicio': forms.DateInput(attrs={
+                'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+            }),
+            'fecha_fin': forms.DateInput(attrs={
+                'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+            }),
+            'proxima_revision': forms.DateInput(attrs={
+                'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
+            }),
+            'descripcion': forms.Textarea(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500', 'rows': 3,
+                'placeholder': 'Objetivos y lineamientos del plan',
+            }),
+            'notas_seguimiento': forms.Textarea(attrs={
+                'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500', 'rows': 2,
+                'placeholder': 'Opcional: avances, ajustes acordados...',
+            }),
+            'archivo': forms.ClearableFileInput(attrs={'class': 'w-full'}),
+            'activo': forms.CheckboxInput(attrs={
+                'class': 'rounded border-slate-300 text-indigo-600 focus:ring-indigo-500',
+            }),
+        }
+
+    def __init__(self, *args, es_profesional_autor=False, **kwargs):
+        """
+        `es_profesional_autor`: True cuando quien está logueado es el
+        profesional (rol 'profesional'). En ese caso su nombre se toma
+        directo de `profesional.get_full_name()` y el campo manual queda
+        oculto/no requerido. Si lo sube gerente/admin, el campo queda
+        visible y editable para que completen el nombre a mano.
+        """
+        super().__init__(*args, **kwargs)
+        self.fields['nombre_profesional_manual'].required = not es_profesional_autor
+        if es_profesional_autor:
+            self.fields['nombre_profesional_manual'].widget = forms.HiddenInput()
+        else:
+            self.fields['nombre_profesional_manual'].label = 'Nombre del profesional *'

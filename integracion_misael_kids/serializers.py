@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from documentos.models import DocumentoPaciente
+from documentos.models import DocumentoPaciente, PlanTrabajo
 from pacientes.models import Paciente
 
 
@@ -66,6 +66,35 @@ class DocumentoCompartidoSerializer(serializers.ModelSerializer):
 
     def get_archivo_url(self, obj):
         request = self.context.get('request')
+        try:
+            url = obj.archivo.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
+
+
+class PlanTrabajoSerializer(serializers.ModelSerializer):
+    """
+    Planes de trabajo creados por profesionales de Centro Misael para
+    un paciente vinculado. Solo lectura desde Misael Kids — nunca se
+    crean ni editan desde el otro lado.
+    """
+    archivo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlanTrabajo
+        fields = [
+            'id', 'paciente_id', 'nombre_profesional', 'telefono',
+            'area_intervencion', 'frecuencia_sesiones',
+            'fecha_inicio', 'fecha_fin', 'proxima_revision',
+            'descripcion', 'notas_seguimiento',
+            'archivo_url', 'nombre_archivo', 'activo',
+        ]
+
+    def get_archivo_url(self, obj):
+        request = self.context.get('request')
+        if not obj.archivo:
+            return None
         try:
             url = obj.archivo.url
         except Exception:

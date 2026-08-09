@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}{% if editando %}Editar{% else %}Nuevo{% endif %} plan de trabajo — {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h1 class="text-lg font-black text-slate-800 mb-1">
+            🧠 {% if editando %}Editar plan de trabajo{% else %}Nuevo plan de trabajo{% endif %}
+        </h1>
+        <p class="text-sm text-slate-500 mb-6">
+            Paciente: <span class="font-bold text-indigo-600">{{ paciente.nombre_completo }}</span>
+            <span class="ml-2 text-[11px] bg-violet-50 text-violet-700 px-2 py-1 rounded-lg font-bold">🔗 Vinculado con Misael Kids</span>
+        </p>
+
+        <div class="bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5 mb-4 text-[11px] text-sky-800">
+            ℹ️ Puede haber varios planes de trabajo por paciente (uno por profesional o área). Este plan quedará
+            visible para Misael Kids, de solo lectura, junto con el documento que adjuntes.
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+
+            {% if not es_autor %}
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">{{ form.nombre_profesional_manual.label }}</label>
+                {{ form.nombre_profesional_manual }}
+                <p class="text-[11px] text-slate-400 mt-1">Completa el nombre del profesional que atiende a este paciente (no es tu propia cuenta).</p>
+                {% if form.nombre_profesional_manual.errors %}<p class="text-red-500 text-xs mt-1">{{ form.nombre_profesional_manual.errors|join:", " }}</p>{% endif %}
+            </div>
+            {% else %}
+                {{ form.nombre_profesional_manual }}
+                <p class="text-[11px] text-slate-400">Profesional: <span class="font-bold text-slate-600">{{ request.user.get_full_name|default:request.user.username }}</span></p>
+            {% endif %}
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Teléfono del profesional</label>
+                    {{ form.telefono }}
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Área de intervención</label>
+                    {{ form.area_intervencion }}
+                    {% if form.area_intervencion.errors %}<p class="text-red-500 text-xs mt-1">{{ form.area_intervencion.errors|join:", " }}</p>{% endif %}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Frecuencia de sesiones</label>
+                {{ form.frecuencia_sesiones }}
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Fecha inicio</label>
+                    {{ form.fecha_inicio }}
+                    {% if form.fecha_inicio.errors %}<p class="text-red-500 text-xs mt-1">{{ form.fecha_inicio.errors|join:", " }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Fecha fin</label>
+                    {{ form.fecha_fin }}
+                    <p class="text-[10px] text-slate-400 mt-1">Vacío = vigente</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-black uppercase text-slate-500 mb-1">Próxima revisión</label>
+                    {{ form.proxima_revision }}
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Descripción del plan</label>
+                {{ form.descripcion }}
+                {% if form.descripcion.errors %}<p class="text-red-500 text-xs mt-1">{{ form.descripcion.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Notas de seguimiento</label>
+                {{ form.notas_seguimiento }}
+            </div>
+
+            <div>
+                <label class="block text-xs font-black uppercase text-slate-500 mb-1">Documento del plan (opcional)</label>
+                {{ form.archivo }}
+                {% if plan and plan.archivo %}
+                <a href="{{ plan.archivo.url }}" target="_blank" class="text-[11px] text-indigo-600 underline mt-1 inline-block">📄 Ver documento actual</a>
+                {% endif %}
+                <p class="text-[11px] text-slate-400 mt-1">PDF, Word, Excel o imagen. Máximo 20 MB.</p>
+                {% if form.archivo.errors %}<p class="text-red-500 text-xs mt-1">{{ form.archivo.errors|join:", " }}</p>{% endif %}
+            </div>
+
+            <label class="flex items-center gap-2 cursor-pointer">
+                {{ form.activo }}
+                <span class="text-xs font-bold text-slate-600">Plan activo</span>
+            </label>
+
+            {% if form.non_field_errors %}
+                <p class="text-red-500 text-xs">{{ form.non_field_errors|join:", " }}</p>
+            {% endif %}
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="bg-violet-600 hover:bg-violet-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">
+                    {% if editando %}💾 Guardar cambios{% else %}🧠 Crear plan de trabajo{% endif %}
+                </button>
+                <a href="{% url 'documentos:resumen_paciente_profesional' paciente.id %}" class="text-slate-500 font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-slate-100">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

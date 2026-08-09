@@ -1,0 +1,84 @@
+{% comment %}
+Uso: {% include 'documentos/_seccion_planes_trabajo.html' with planes=planes_trabajo puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs vinculado=vinculado_misael_kids paciente_id=paciente.id %}
+{% endcomment %}
+<div class="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div class="bg-gradient-to-r from-violet-700 to-violet-500 px-5 py-3 flex justify-between items-center flex-wrap gap-2">
+        <h3 class="text-[12px] font-black uppercase text-white tracking-widest">🧠 Planes de trabajo (Misael Kids)</h3>
+        {% if puede_subir %}
+            {% if vinculado %}
+            <a href="{% url 'documentos:crear_plan_trabajo' paciente_id %}"
+               class="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all">
+                ➕ Nuevo plan de trabajo
+            </a>
+            {% else %}
+            <span class="bg-white/10 text-white/70 border border-white/20 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase"
+                  title="Este paciente todavía no está vinculado con Misael Kids">
+                🔒 Requiere vínculo con Misael Kids
+            </span>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div class="p-4">
+        {% if planes %}
+        <div class="divide-y divide-slate-100">
+            {% for plan in planes %}
+            <div class="py-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-[13px] font-black text-slate-800">
+                            👩‍⚕️ {{ plan.nombre_profesional }}
+                            {% if plan.telefono %}<span class="text-slate-400 font-medium"> · {{ plan.telefono }}</span>{% endif %}
+                        </p>
+                        {% if plan.area_intervencion or plan.frecuencia_sesiones %}
+                        <p class="text-[11px] text-slate-400 font-medium">
+                            {% if plan.area_intervencion %}🎯 {{ plan.area_intervencion }}{% endif %}
+                            {% if plan.frecuencia_sesiones %} · 🔁 {{ plan.frecuencia_sesiones }}{% endif %}
+                        </p>
+                        {% endif %}
+                    </div>
+                    <span class="shrink-0 text-[10px] font-black uppercase px-2 py-1 rounded-lg
+                        {% if plan.activo %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                        {% if plan.activo %}✅ Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </div>
+                <p class="text-[12px] text-slate-600 leading-relaxed bg-slate-50 rounded-lg px-3 py-2 mt-2">{{ plan.descripcion }}</p>
+                {% if plan.notas_seguimiento %}
+                <p class="text-[12px] text-slate-600 leading-relaxed bg-amber-50 rounded-lg px-3 py-2 mt-2">
+                    <strong>📝 Seguimiento:</strong> {{ plan.notas_seguimiento }}
+                </p>
+                {% endif %}
+                <div class="flex items-center justify-between flex-wrap gap-2 mt-2">
+                    <p class="text-[11px] text-violet-700 font-bold">
+                        📅 {{ plan.fecha_inicio|date:"d/m/Y" }}
+                        {% if plan.fecha_fin %}→ {{ plan.fecha_fin|date:"d/m/Y" }}{% else %}→ Vigente{% endif %}
+                        {% if plan.proxima_revision %} · 🔔 Revisión: {{ plan.proxima_revision|date:"d/m/Y" }}{% endif %}
+                        {% if plan.archivo %} · <a href="{{ plan.archivo.url }}" target="_blank" rel="noopener" class="underline">📄 Ver documento</a>{% endif %}
+                    </p>
+                    {% if puede_subir %}
+                    <div class="flex items-center gap-2 shrink-0">
+                        <a href="{% url 'documentos:editar_plan_trabajo' plan.id %}"
+                           class="text-[11px] font-black text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50">
+                            ✏️ Editar
+                        </a>
+                        {% if puede_eliminar %}
+                        <form method="post" action="{% url 'documentos:eliminar_plan_trabajo' plan.id %}" class="inline"
+                              onsubmit="return confirm('¿Eliminar este plan de trabajo? Esta acción no se puede deshacer.');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-[11px] font-black text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50">
+                                🗑️
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-[12px] text-slate-400 font-medium py-2">
+            {% if vinculado %}Sin planes de trabajo todavía.{% else %}Este paciente no tiene vínculo con Misael Kids.{% endif %}
+        </p>
+        {% endif %}
+    </div>
+</div>

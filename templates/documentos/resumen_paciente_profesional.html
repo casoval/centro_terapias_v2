@@ -148,16 +148,13 @@
         </div>
     </div>
 
-    <!-- BLOQUE 3.5: Plan Misael (compartido con Misael Kids) -->
-    {% include 'documentos/_seccion_documentos.html' with documentos=documentos_plan_misael puede_subir=False puede_eliminar=False titulo_seccion="🧠 Plan Misael (compartido con Misael Kids)" color_gradient="from-violet-700 to-violet-500" %}
-    {% if puede_subir %}
-    <div class="mt-2 text-right">
-        <a href="{% url 'documentos:subir' paciente.id %}?plan_misael=1&next={% url 'documentos:resumen_paciente_profesional' paciente.id %}"
-           class="inline-block bg-violet-600 hover:bg-violet-700 text-white font-black text-[11px] uppercase px-4 py-2 rounded-xl">
-            ⬆️ Subir plan de trabajo
-        </a>
+    <!-- BLOQUE 3.5: Planes de trabajo (Misael Kids) -->
+    {% if error_verificando_vinculo %}
+    <div class="mt-6 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-[12px] text-amber-800 font-bold">
+        ⚠️ No se pudo verificar el vínculo con Misael Kids en este momento. Los planes de trabajo se muestran igual, pero crear uno nuevo puede fallar hasta que la conexión se restablezca.
     </div>
     {% endif %}
+    {% include 'documentos/_seccion_planes_trabajo.html' with planes=planes_trabajo puede_subir=puede_subir puede_eliminar=False vinculado=vinculado_misael_kids paciente_id=paciente.id %}
 
     <!-- BLOQUE 4: Documentos sueltos (generales) -->
     {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=False puede_eliminar=False titulo_seccion="📎 Documentos Generales (no ligados a proyecto/mensualidad)" %}

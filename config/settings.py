@@ -334,6 +334,11 @@ EMAIL_RRHH = os.environ.get('EMAIL_RRHH', 'rrhh@tucentro.com')
 # CENTRO_MISAEL_API_KEY en el .env de misael_kids).
 MISAEL_KIDS_API_KEY = os.environ.get('MISAEL_KIDS_API_KEY', '')
 
+# URL base de Misael Kids, para las llamadas SALIENTES desde Centro
+# Misael (ej. preguntar si un paciente ya está vinculado). Usa la misma
+# MISAEL_KIDS_API_KEY como secreto compartido en ambos sentidos.
+MISAEL_KIDS_API_URL = os.environ.get('MISAEL_KIDS_API_URL', '')
+
 # --------------------------------------------------
 # SEGURIDAD EN PRODUCCIÓN
 # --------------------------------------------------

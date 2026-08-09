@@ -16,7 +16,7 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from documentos.models import DocumentoPaciente
+from documentos.models import DocumentoPaciente, PlanTrabajo
 from pacientes.models import Paciente
 
 from .authentication import MisaelKidsAPIKeyAuthentication
@@ -24,6 +24,7 @@ from .serializers import (
     DocumentoCompartidoSerializer,
     PacienteBusquedaSerializer,
     PacienteDetalleSerializer,
+    PlanTrabajoSerializer,
 )
 
 
@@ -84,6 +85,30 @@ class DocumentosCompartidosView(generics.ListAPIView):
             .filter(paciente_id=paciente_id, compartir_misael_kids=True)
             .select_related('subido_por')
             .order_by('-fecha_subida')
+        )
+
+
+class PlanesTrabajoView(generics.ListAPIView):
+    """
+    GET /api/integracion/misael-kids/pacientes/<id>/planes-trabajo/
+
+    Planes de trabajo (modelo PlanTrabajo) creados por profesionales
+    de Centro Misael para este paciente, con su documento adjunto.
+    Reemplaza el uso de DocumentosCompartidosView para este caso — el
+    plan de trabajo ya no se mezcla con el formulario genérico de
+    documentos. Solo lectura, sin filtrar por estado del paciente.
+    """
+    authentication_classes = [MisaelKidsAPIKeyAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = PlanTrabajoSerializer
+
+    def get_queryset(self):
+        paciente_id = self.kwargs['paciente_id']
+        return (
+            PlanTrabajo.objects
+            .filter(paciente_id=paciente_id, activo=True)
+            .select_related('profesional')
+            .order_by('-fecha_inicio')
         )
 
 

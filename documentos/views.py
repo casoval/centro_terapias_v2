@@ -6,12 +6,13 @@ from django.http import HttpResponseForbidden
 
 from pacientes.models import Paciente
 from agenda.models import Proyecto, Mensualidad, Sesion
-from .models import DocumentoPaciente
-from .forms import DocumentoPacienteForm
+from .models import DocumentoPaciente, PlanTrabajo
+from .forms import DocumentoPacienteForm, PlanTrabajoForm
 from .permissions import (
     puede_ver_documentos, puede_subir_documentos,
     puede_eliminar_documentos, es_profesional,
 )
+from integracion_misael_kids import misael_kids_client as mk
 
 
 @login_required
@@ -30,7 +31,6 @@ def subir_documento(request, paciente_id):
 
     proyecto_id = request.POST.get('proyecto_id') or request.GET.get('proyecto_id')
     mensualidad_id = request.POST.get('mensualidad_id') or request.GET.get('mensualidad_id')
-    plan_misael = request.POST.get('plan_misael') or request.GET.get('plan_misael')
 
     if request.method == 'POST':
         form = DocumentoPacienteForm(
@@ -52,8 +52,6 @@ def subir_documento(request, paciente_id):
             initial['proyecto'] = proyecto_id
         if mensualidad_id:
             initial['mensualidad'] = mensualidad_id
-        if plan_misael:
-            initial['compartir_misael_kids'] = True
         form = DocumentoPacienteForm(paciente=paciente, initial=initial)
 
     context = {
@@ -61,7 +59,6 @@ def subir_documento(request, paciente_id):
         'paciente': paciente,
         'proyecto_id': proyecto_id,
         'mensualidad_id': mensualidad_id,
-        'plan_misael': plan_misael,
         'next_url': request.GET.get('next') or request.POST.get('next', ''),
     }
     return render(request, 'documentos/subir_documento.html', context)
@@ -164,12 +161,21 @@ def resumen_paciente_profesional(request, paciente_id):
     ).order_by('-anio', '-mes')
 
     documentos_generales = paciente.documentos.filter(
-        proyecto__isnull=True, mensualidad__isnull=True, compartir_misael_kids=False
+        proyecto__isnull=True, mensualidad__isnull=True
     ).select_related('subido_por').order_by('-fecha_subida')
 
-    documentos_plan_misael = paciente.documentos.filter(
-        compartir_misael_kids=True
-    ).select_related('subido_por').order_by('-fecha_subida')
+    planes_trabajo = paciente.planes_trabajo.select_related('profesional').order_by('-fecha_inicio')
+
+    # El plan de trabajo solo se puede crear si el paciente ya está
+    # vinculado con Misael Kids (si no, ¿para quién sería el plan?).
+    # Si Misael Kids no está configurado o falla, se bloquea con aviso
+    # en vez de permitir crear planes "a ciegas" — ver misael_kids_client.
+    vinculado_misael_kids = False
+    error_verificando_vinculo = False
+    try:
+        vinculado_misael_kids = mk.esta_vinculado(paciente.id)
+    except (mk.MisaelKidsNoConfigurado, mk.MisaelKidsError):
+        error_verificando_vinculo = True
 
     # Resumen de sesiones agrupado por servicio (todas, de cualquier profesional)
     sesiones_qs = Sesion.objects.filter(paciente=paciente).select_related('servicio')
@@ -194,8 +200,117 @@ def resumen_paciente_profesional(request, paciente_id):
         'proyectos': proyectos,
         'mensualidades': mensualidades,
         'documentos_generales': documentos_generales,
-        'documentos_plan_misael': documentos_plan_misael,
+        'planes_trabajo': planes_trabajo,
+        'vinculado_misael_kids': vinculado_misael_kids,
+        'error_verificando_vinculo': error_verificando_vinculo,
         'resumen_servicios': resumen_servicios,
         'puede_subir': puede_subir_documentos(request.user, paciente),
     }
     return render(request, 'documentos/resumen_paciente_profesional.html', context)
+
+
+def _es_profesional_autor(user):
+    perfil = getattr(user, 'perfil', None)
+    return bool(perfil and perfil.rol == 'profesional')
+
+
+@login_required
+def crear_plan_trabajo(request, paciente_id):
+    """
+    Crea un plan de trabajo para un paciente YA vinculado con Misael
+    Kids. El paciente viene fijo por la URL (nunca se elige en el
+    formulario) y, si el vínculo no existe, se bloquea antes de mostrar
+    el formulario.
+    """
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    if not puede_subir_documentos(request.user, paciente):
+        messages.error(request, '❌ No tienes permiso para crear planes de trabajo de este paciente.')
+        return HttpResponseForbidden('No autorizado')
+
+    try:
+        vinculado = mk.esta_vinculado(paciente.id)
+    except (mk.MisaelKidsNoConfigurado, mk.MisaelKidsError) as exc:
+        messages.error(
+            request,
+            f'❌ No se pudo verificar el vínculo con Misael Kids ({exc}). '
+            'Intenta de nuevo en unos minutos.',
+        )
+        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+
+    if not vinculado:
+        messages.error(
+            request,
+            '❌ Este paciente todavía no está vinculado con Misael Kids. '
+            'Vincúlalo primero desde la página de vinculación.',
+        )
+        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+
+    es_autor = _es_profesional_autor(request.user)
+
+    if request.method == 'POST':
+        form = PlanTrabajoForm(
+            request.POST, request.FILES,
+            es_profesional_autor=es_autor,
+            instance=PlanTrabajo(paciente=paciente),
+        )
+        if form.is_valid():
+            plan = form.save(commit=False)
+            plan.paciente = paciente
+            plan.profesional = request.user
+            plan.save()
+            messages.success(request, '✅ Plan de trabajo creado correctamente.')
+            return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+        messages.error(request, '❌ Revisa los datos del formulario.')
+    else:
+        form = PlanTrabajoForm(es_profesional_autor=es_autor)
+
+    return render(request, 'documentos/plan_trabajo_form.html', {
+        'form': form, 'paciente': paciente, 'es_autor': es_autor, 'editando': False,
+    })
+
+
+@login_required
+def editar_plan_trabajo(request, plan_id):
+    plan = get_object_or_404(PlanTrabajo, pk=plan_id)
+    paciente = plan.paciente
+
+    if not puede_subir_documentos(request.user, paciente):
+        messages.error(request, '❌ No tienes permiso para editar este plan de trabajo.')
+        return HttpResponseForbidden('No autorizado')
+
+    es_autor = _es_profesional_autor(request.user)
+
+    if request.method == 'POST':
+        form = PlanTrabajoForm(request.POST, request.FILES, es_profesional_autor=es_autor, instance=plan)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '✅ Plan de trabajo actualizado.')
+            return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+        messages.error(request, '❌ Revisa los datos del formulario.')
+    else:
+        form = PlanTrabajoForm(es_profesional_autor=es_autor, instance=plan)
+
+    return render(request, 'documentos/plan_trabajo_form.html', {
+        'form': form, 'paciente': paciente, 'plan': plan, 'es_autor': es_autor, 'editando': True,
+    })
+
+
+@login_required
+def eliminar_plan_trabajo(request, plan_id):
+    """Solo el administrador (superusuario) puede eliminar planes de trabajo."""
+    plan = get_object_or_404(PlanTrabajo, pk=plan_id)
+
+    if not puede_eliminar_documentos(request.user):
+        messages.error(request, '❌ Solo un administrador puede eliminar planes de trabajo.')
+        return HttpResponseForbidden('No autorizado')
+
+    if request.method == 'POST':
+        paciente_id = plan.paciente_id
+        if plan.archivo:
+            plan.archivo.delete(save=False)
+        plan.delete()
+        messages.success(request, '🗑️ Plan de trabajo eliminado.')
+        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente_id)
+
+    return render(request, 'documentos/confirmar_eliminar_plan.html', {'plan': plan})
