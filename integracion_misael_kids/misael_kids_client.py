@@ -36,10 +36,12 @@ def _headers():
     return {'Authorization': f'ApiKey {settings.MISAEL_KIDS_API_KEY}'}
 
 
-def _get(path, params=None, timeout=10):
+def _request(method, path, params=None, json_body=None, timeout=10):
     url = f'{_base_url()}{path}'
     try:
-        resp = requests.get(url, headers=_headers(), params=params, timeout=timeout)
+        resp = requests.request(
+            method, url, headers=_headers(), params=params, json=json_body, timeout=timeout
+        )
     except requests.RequestException as exc:
         raise MisaelKidsError(f'No se pudo conectar con Misael Kids: {exc}') from exc
 
@@ -48,8 +50,24 @@ def _get(path, params=None, timeout=10):
     if resp.status_code == 404:
         return None
     if not resp.ok:
-        raise MisaelKidsError(f'Misael Kids respondió {resp.status_code}: {resp.text[:300]}')
+        # Si Misael Kids devuelve un {"detail": "..."} legible (ej. 409
+        # porque el niño o el paciente ya están vinculados), lo usamos
+        # tal cual en vez de un mensaje genérico con el status code.
+        detail = None
+        try:
+            detail = resp.json().get('detail')
+        except Exception:
+            pass
+        raise MisaelKidsError(detail or f'Misael Kids respondió {resp.status_code}: {resp.text[:300]}')
     return resp.json()
+
+
+def _get(path, params=None, timeout=10):
+    return _request('GET', path, params=params, timeout=timeout)
+
+
+def _post(path, json_body=None, timeout=10):
+    return _request('POST', path, json_body=json_body, timeout=timeout)
 
 
 def consultar_vinculo(paciente_id):
@@ -78,4 +96,42 @@ def esta_vinculado(paciente_id):
 def listar_derivaciones(paciente_id):
     """Derivaciones que Misael Kids mandó para este paciente vinculado."""
     data = _get('/consulta/derivaciones/', params={'paciente_centro_id': paciente_id})
+    return data or []
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Pantalla de vinculación del lado de Centro Misael: buscar niños de
+# Misael Kids sin vincular, ver su detalle, crear el vínculo y listar
+# los ya vinculados. El vínculo en sí (VinculoCentroMisael) sigue
+# viviendo solo en Misael Kids — acá no se guarda ninguna copia.
+# ═══════════════════════════════════════════════════════════════════
+
+def buscar_ninos_sin_vincular(q):
+    """Niños de Misael Kids que todavía no están vinculados con ningún paciente."""
+    data = _get('/consulta/ninos-sin-vincular/', params={'q': q})
+    return data or []
+
+
+def obtener_nino(nino_id):
+    """Detalle completo del niño, para copiar datos al crear el Paciente."""
+    return _get(f'/consulta/ninos/{nino_id}/')
+
+
+def crear_vinculo(nino_id, paciente_centro_id, nombre_paciente_centro=''):
+    """
+    Crea el vínculo del lado de Misael Kids (única fuente de verdad).
+    Propaga MisaelKidsError con el detalle si Misael Kids rechaza la
+    operación (ej. 409 porque el niño o el paciente ya están
+    vinculados) para que la vista lo muestre tal cual al usuario.
+    """
+    return _post('/consulta/vincular/', json_body={
+        'nino_id': nino_id,
+        'paciente_centro_id': paciente_centro_id,
+        'nombre_paciente_centro': nombre_paciente_centro,
+    })
+
+
+def listar_vinculados():
+    """Todos los vínculos existentes, con resumen de derivaciones."""
+    data = _get('/consulta/vinculados/')
     return data or []

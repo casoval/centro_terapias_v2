@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block title %}Vinculación con Misael Kids - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<style>
+    .tab-panel { display: none; }
+    .tab-panel.tab-active { display: block; }
+    .tab-btn {
+        padding: 0.5rem 1.1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border-radius: 0.5rem 0.5rem 0 0;
+        border: 2px solid #e2e8f0;
+        border-bottom: none;
+        background: white;
+        color: #64748b;
+        cursor: pointer;
+    }
+    .tab-btn.tab-selected { color: #4f46e5; border-color: #c7d2fe; }
+    .nino-card, .paciente-card {
+        border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 0.9rem 1.1rem;
+        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .badge { font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
+</style>
+
+<div class="max-w-5xl mx-auto px-4 py-6">
+    <div class="flex items-center gap-3 mb-1">
+        <span class="text-2xl">🔗</span>
+        <h1 class="text-xl font-extrabold text-slate-800">Vinculación con Misael Kids</h1>
+    </div>
+    <p class="text-sm text-slate-500 mb-5">
+        Vinculá niños del jardín con pacientes del centro, o revisá los vínculos ya existentes.
+    </p>
+
+    <div class="flex gap-1">
+        <button class="tab-btn tab-selected" data-tab="nuevo">➕ Vincular niño nuevo</button>
+        <button class="tab-btn" data-tab="vinculados">👶 Niños vinculados</button>
+    </div>
+    <div class="border border-slate-200 rounded-b-xl rounded-tr-xl p-5 bg-white shadow-sm">
+
+        <!-- ══ PESTAÑA: VINCULAR NIÑO NUEVO ══ -->
+        <div class="tab-panel tab-active" id="tab-nuevo">
+            <label class="block text-xs font-bold text-slate-500 mb-1">Buscar niño en Misael Kids</label>
+            <input type="text" id="q-ninos" placeholder="Nombre del niño o del tutor..."
+                   class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3">
+            <div id="ninos-estado" class="text-sm text-slate-400"></div>
+            <div id="ninos-resultados" class="space-y-2"></div>
+        </div>
+
+        <!-- ══ PESTAÑA: NIÑOS VINCULADOS ══ -->
+        <div class="tab-panel" id="tab-vinculados">
+            <div id="vinculados-estado" class="text-sm text-slate-400 mb-2">Cargando...</div>
+            <div id="vinculados-resultados" class="space-y-2"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL: elegir paciente existente o crear uno nuevo ══ -->
+<div id="modal-vincular" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-5">
+        <h3 class="font-bold text-slate-800 mb-1">Vincular a <span id="modal-nino-nombre"></span></h3>
+        <p class="text-xs text-slate-500 mb-3">Elegí un paciente existente o creá uno nuevo copiando los datos del niño.</p>
+
+        <input type="text" id="q-pacientes" placeholder="Buscar paciente existente por nombre..."
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-2">
+        <div id="pacientes-resultados" class="space-y-1 max-h-52 overflow-y-auto mb-3"></div>
+
+        <a id="btn-crear-paciente" href="#" class="block text-center w-full bg-indigo-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-indigo-700">
+            ➕ Crear paciente nuevo con estos datos
+        </a>
+        <button type="button" onclick="cerrarModal()" class="w-full mt-2 text-xs text-slate-500 hover:text-slate-700">Cancelar</button>
+        <div id="modal-error" class="text-xs text-red-600 mt-2 hidden"></div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return match ? match.pop() : '';
+}
+const csrftoken = getCookie('csrftoken');
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-selected'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('tab-active'));
+        btn.classList.add('tab-selected');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('tab-active');
+        if (btn.dataset.tab === 'vinculados') cargarVinculados();
+    });
+});
+
+let ninoSeleccionado = null;
+
+function badgeEstado(activo) {
+    return activo
+        ? '<span class="badge bg-emerald-100 text-emerald-700">Activo</span>'
+        : '<span class="badge bg-slate-100 text-slate-500">Inactivo</span>';
+}
+
+async function buscarNinos() {
+    const q = document.getElementById('q-ninos').value.trim();
+    const estado = document.getElementById('ninos-estado');
+    const cont = document.getElementById('ninos-resultados');
+    estado.textContent = 'Buscando...';
+    cont.innerHTML = '';
+    try {
+        const resp = await fetch('{% url "integracion_misael_kids_panel:api_buscar_ninos" %}?q=' + encodeURIComponent(q));
+        const data = await resp.json();
+        if (!resp.ok) { estado.textContent = '❌ ' + (data.detail || 'Error al buscar.'); return; }
+        const ninos = data.ninos || [];
+        estado.textContent = ninos.length ? '' : 'Sin resultados. Probá con otro nombre.';
+        cont.innerHTML = ninos.map(n => `
+            <div class="nino-card">
+                <div>
+                    <div class="font-semibold text-slate-800">${n.nombre_completo} ${badgeEstado(n.activo)}</div>
+                    <div class="text-xs text-slate-500">
+                        ${n.fecha_nacimiento || ''} · Tutor: ${n.tutor_principal ? n.tutor_principal.nombre + ' (' + (n.tutor_principal.telefono || 's/tel') + ')' : 'sin tutor cargado'}
+                    </div>
+                </div>
+                <button class="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-100"
+                        onclick='abrirModal(${JSON.stringify(n)})'>Vincular</button>
+            </div>
+        `).join('');
+    } catch (e) {
+        estado.textContent = '❌ No se pudo conectar con Misael Kids.';
+    }
+}
+let debounceNinos;
+document.getElementById('q-ninos').addEventListener('input', () => {
+    clearTimeout(debounceNinos);
+    debounceNinos = setTimeout(buscarNinos, 350);
+});
+buscarNinos();
+
+function abrirModal(nino) {
+    ninoSeleccionado = nino;
+    document.getElementById('modal-nino-nombre').textContent = nino.nombre_completo;
+    document.getElementById('q-pacientes').value = '';
+    document.getElementById('pacientes-resultados').innerHTML = '';
+    document.getElementById('modal-error').classList.add('hidden');
+    document.getElementById('btn-crear-paciente').href =
+        '{% url "integracion_misael_kids_panel:crear_paciente_y_vincular" %}?nino_id=' + encodeURIComponent(nino.id);
+    document.getElementById('modal-vincular').classList.remove('hidden');
+    document.getElementById('modal-vincular').classList.add('flex');
+}
+function cerrarModal() {
+    document.getElementById('modal-vincular').classList.add('hidden');
+    document.getElementById('modal-vincular').classList.remove('flex');
+    ninoSeleccionado = null;
+}
+
+async function buscarPacientes() {
+    const q = document.getElementById('q-pacientes').value.trim();
+    const cont = document.getElementById('pacientes-resultados');
+    if (q.length < 2) { cont.innerHTML = ''; return; }
+    const resp = await fetch('{% url "integracion_misael_kids_panel:api_buscar_pacientes" %}?q=' + encodeURIComponent(q));
+    const data = await resp.json();
+    const pacientes = data.pacientes || [];
+    cont.innerHTML = pacientes.length ? pacientes.map(p => `
+        <div class="paciente-card cursor-pointer hover:bg-slate-50" onclick='vincularExistente(${p.id})'>
+            <div class="text-sm">${p.nombre_completo} <span class="text-xs text-slate-400">(${p.edad} años)</span></div>
+            <span class="badge ${p.estado === 'activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${p.estado}</span>
+        </div>
+    `).join('') : '<div class="text-xs text-slate-400 px-1">Sin coincidencias.</div>';
+}
+let debouncePac;
+document.getElementById('q-pacientes').addEventListener('input', () => {
+    clearTimeout(debouncePac);
+    debouncePac = setTimeout(buscarPacientes, 350);
+});
+
+async function vincularExistente(pacienteId) {
+    const errEl = document.getElementById('modal-error');
+    errEl.classList.add('hidden');
+    try {
+        const resp = await fetch('{% url "integracion_misael_kids_panel:vincular_existente" %}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({nino_id: ninoSeleccionado.id, paciente_id: pacienteId}),
+        });
+        const data = await resp.json();
+        if (!resp.ok) { errEl.textContent = '❌ ' + (data.detail || 'No se pudo vincular.'); errEl.classList.remove('hidden'); return; }
+        cerrarModal();
+        buscarNinos();
+    } catch (e) {
+        errEl.textContent = '❌ No se pudo conectar con Misael Kids.';
+        errEl.classList.remove('hidden');
+    }
+}
+
+async function cargarVinculados() {
+    const estado = document.getElementById('vinculados-estado');
+    const cont = document.getElementById('vinculados-resultados');
+    estado.textContent = 'Cargando...';
+    cont.innerHTML = '';
+    try {
+        const resp = await fetch('{% url "integracion_misael_kids_panel:api_vinculados" %}');
+        const data = await resp.json();
+        if (!resp.ok) { estado.textContent = '❌ ' + (data.detail || 'Error al cargar.'); return; }
+        const vinculos = data.vinculos || [];
+        estado.textContent = vinculos.length ? '' : 'Todavía no hay niños vinculados.';
+        cont.innerHTML = vinculos.map(v => `
+            <div class="nino-card">
+                <div>
+                    <div class="font-semibold text-slate-800">${v.nino_nombre}</div>
+                    <div class="text-xs text-slate-500">
+                        Vinculado el ${new Date(v.fecha_vinculacion).toLocaleDateString('es-BO')}
+                        · ${v.derivaciones_count} derivación(es)${v.ultima_derivacion_estado ? ' · última: ' + v.ultima_derivacion_estado : ''}
+                    </div>
+                </div>
+                <a href="/pacientes/${v.paciente_centro_id}/" class="text-indigo-600 text-xs font-bold hover:underline">Ver paciente →</a>
+            </div>
+        `).join('');
+    } catch (e) {
+        estado.textContent = '❌ No se pudo conectar con Misael Kids.';
+    }
+}
+</script>
+{% endblock %}

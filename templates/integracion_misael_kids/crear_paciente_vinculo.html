@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear paciente desde Misael Kids{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+    <a href="{% url 'integracion_misael_kids_panel:panel_vinculacion' %}" class="text-xs text-slate-500 hover:text-indigo-600">← Volver a vinculación</a>
+
+    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 my-4">
+        <div class="text-xs font-bold text-indigo-700 uppercase tracking-wide mb-1">Copiando datos desde Misael Kids</div>
+        <div class="font-semibold text-slate-800">{{ nino.nombre_completo }}</div>
+        <p class="text-xs text-slate-500 mt-1">
+            Revisá y completá los datos abajo. Los campos ya vienen pre-llenados con lo que tiene cargado el jardín;
+            elegí al menos una sucursal antes de guardar. Al guardar, el paciente queda automáticamente
+            vinculado con este niño en Misael Kids.
+        </p>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+        <div class="text-sm rounded-lg px-3 py-2 mb-3 {% if message.tags == 'error' %}bg-red-50 text-red-700{% elif message.tags == 'warning' %}bg-amber-50 text-amber-700{% else %}bg-emerald-50 text-emerald-700{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="nino_id" value="{{ nino_id }}">
+
+        {% if form.non_field_errors %}
+        <div class="text-sm text-red-600">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% for field in form %}
+            {% if field.name != 'user' %}
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-xs text-red-600 mt-1">{{ field.errors }}</div>{% endif %}
+                {% if field.help_text %}<div class="text-xs text-slate-400 mt-1">{{ field.help_text }}</div>{% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div class="flex gap-2 pt-2">
+            <button type="submit" class="bg-indigo-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-indigo-700">
+                ✅ Crear paciente y vincular
+            </button>
+            <a href="{% url 'integracion_misael_kids_panel:panel_vinculacion' %}" class="text-sm text-slate-500 px-4 py-2 hover:text-slate-700">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
