@@ -492,6 +492,17 @@
             border-color: rgba(76,175,130,0.25);
             color: #2E7D55;
         }
+        [data-theme="light"] .team-member {
+            background: rgba(255,255,255,0.8);
+            border-color: rgba(255,140,66,0.12);
+        }
+        [data-theme="light"] .team-member:hover {
+            background: #ffffff;
+            box-shadow: 0 14px 34px rgba(0,0,0,0.1);
+        }
+        [data-theme="light"] .team-carousel-wrap::before { background: linear-gradient(90deg, #FFF8F0 0%, transparent 100%) !important; }
+        [data-theme="light"] .team-carousel-wrap::after  { background: linear-gradient(-90deg, #FFF8F0 0%, transparent 100%) !important; }
+        [data-theme="light"] .team-group-num { color: rgba(0,0,0,0.22); }
         [data-theme="light"] .team-intro-card {
             background: rgba(255,255,255,0.8);
             border-color: rgba(255,140,66,0.15);
@@ -1432,6 +1443,87 @@
             padding: 0.18rem 0.6rem; border-radius: 50px; margin-top: 0.5rem;
         }
 
+        /* ── Equipo real: grupos con carrusel de fotos ── */
+        .team-group { margin-bottom: 2.6rem; position: relative; z-index: 1; }
+        .team-group:last-child { margin-bottom: 0; }
+        .team-group-header {
+            padding: 0 2.5rem; margin-bottom: 1.1rem;
+            display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
+        }
+        .team-group-num {
+            font-family: 'Baloo 2', cursive; font-weight: 900; font-size: 1.05rem;
+            color: rgba(255,255,255,0.3);
+        }
+        .team-group-title {
+            font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 1.1rem;
+            letter-spacing: 0.01em; color: var(--text);
+        }
+        .team-group-areas {
+            font-size: 0.78rem; color: var(--muted2); font-weight: 600;
+            flex-basis: 100%;
+        }
+
+        .team-carousel-wrap {
+            position: relative; overflow: hidden;
+            cursor: grab; user-select: none;
+        }
+        .team-carousel-wrap:active { cursor: grabbing; }
+        .team-carousel-wrap::before,
+        .team-carousel-wrap::after {
+            content: ''; position: absolute; top: 0; bottom: 0;
+            width: 70px; z-index: 3; pointer-events: none;
+        }
+        .team-carousel-wrap::before { left: 0; background: linear-gradient(90deg, #150700 0%, transparent 100%); }
+        .team-carousel-wrap::after  { right: 0; background: linear-gradient(-90deg, #150700 0%, transparent 100%); }
+
+        .team-carousel {
+            display: flex; gap: 1rem;
+            width: max-content;
+            padding: 0.3rem 2.5rem;
+            will-change: transform;
+        }
+        .team-carousel.tc-autoscroll { animation: teamScroll linear infinite; }
+        .team-carousel-wrap:hover .team-carousel.tc-autoscroll { animation-play-state: paused; }
+        @keyframes teamScroll {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .team-member {
+            flex-shrink: 0; width: 152px;
+            text-align: center;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px; padding: 1.2rem 0.8rem 1rem;
+            transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .team-member:hover {
+            background: rgba(255,255,255,0.07);
+            transform: translateY(-6px);
+            box-shadow: 0 14px 34px rgba(0,0,0,0.45);
+        }
+        .team-member-photo {
+            width: 78px; height: 78px; border-radius: 50%;
+            margin: 0 auto 0.75rem; overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.14);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+        }
+        .team-member-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+        .team-member h4 { font-size: 0.8rem; font-weight: 800; color: var(--text); line-height: 1.25; margin-bottom: 0.3rem; }
+        .team-member p  { font-size: 0.68rem; color: var(--muted2); font-weight: 600; line-height: 1.4; }
+
+        .tg-directivo .team-member:hover      { border-color: rgba(0,229,204,0.4); }
+        .tg-administrativo .team-member:hover { border-color: rgba(255,159,64,0.4); }
+        .tg-profesional .team-member:hover    { border-color: rgba(245,184,0,0.4); }
+
+        @media (max-width: 768px) {
+            .team-member { width: 128px; padding: 1rem 0.6rem 0.85rem; }
+            .team-member-photo { width: 66px; height: 66px; }
+            .team-carousel { padding: 0.3rem 1.4rem; gap: 0.8rem; }
+            .team-carousel-wrap::before, .team-carousel-wrap::after { width: 36px; }
+            .team-group-header { padding: 0 1.4rem; }
+        }
+
         /* ─────────────────────────────────────────
            CTA FINAL
         ───────────────────────────────────────── */
@@ -2133,6 +2225,7 @@
             .service-card,
             .why-card,
             .team-card,
+            .team-member,
             .vmv-row,
             .location-card {
                 transition-duration: 0.15s !important;
@@ -2178,6 +2271,7 @@
                 transition-duration: 0.01ms !important;
             }
             .photo-strip { animation: none !important; }
+            .team-carousel.tc-autoscroll { animation: none !important; }
             /* Video de fondo del hero: se oculta y en su lugar se usa la foto
                de la sucursal como imagen estática de fondo */
             .hero-video  { display: none !important; }
@@ -3361,86 +3455,143 @@
         <p class="section-subtitle" style="max-width:680px; margin:0 auto 1rem;">Médicos, psicólogos, psicopedagogos y terapistas especializados trabajando juntos en favor del desarrollo pleno de cada niño.</p>
     </div>
 
-    <!-- DESCRIPCIÓN DEL EQUIPO -->
-    <div class="team-intro fade-in-up">
-        <div class="team-intro-card">
-            <div class="team-intro-icon">🩺</div>
-            <div>
-                <h4>Médicos Especialistas</h4>
-                <p>Pediatras, neurólogos y psiquiatras infantiles que garantizan el diagnóstico médico oportuno y el tratamiento clínico adecuado para cada paciente.</p>
-            </div>
+    <!-- ═══════════════════════════════════════════
+         GRUPO 01 — EQUIPO DIRECTIVO
+    ═══════════════════════════════════════════ -->
+    <div class="team-group tg-directivo fade-in-up">
+        <div class="team-group-header">
+            <span class="team-group-num">01</span>
+            <span class="team-group-title">Equipo Directivo</span>
+            <span class="team-group-areas">Dirección General · Dirección Médica · Dirección Administrativa y Financiera</span>
         </div>
-        <div class="team-intro-card">
-            <div class="team-intro-icon">🧩</div>
-            <div>
-                <h4>Psicólogos y Psicopedagogos</h4>
-                <p>Profesionales del área cognitiva, emocional y educativa que acompañan al niño y a la familia en el proceso terapéutico con enfoque humanista.</p>
-            </div>
-        </div>
-        <div class="team-intro-card">
-            <div class="team-intro-icon">🤲</div>
-            <div>
-                <h4>Terapistas Especializados</h4>
-                <p>Fonoaudiólogos, fisioterapeutas, terapistas ocupacionales y de lenguaje con formación continua y metodologías basadas en evidencia científica.</p>
+        <div class="team-carousel-wrap">
+            <div class="team-carousel">
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/javier_castro.webp' %}" alt="Dr. Javier Francisco Castro Ayllón" loading="lazy" decoding="async"></div>
+                    <h4>Dr. Javier Castro Ayllón</h4>
+                    <p>Director General · Médico Cirujano</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/jackie_castro.webp' %}" alt="Dr. Jackie Jared Castro Hurtado" loading="lazy" decoding="async"></div>
+                    <h4>Dr. Jackie Castro Hurtado</h4>
+                    <p>Director Médico · Rehabilitación Infantil</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/franco_nogales.webp' %}" alt="Lic. Franco Mauricio Nogales Galarza" loading="lazy" decoding="async"></div>
+                    <h4>Lic. Franco Nogales Galarza</h4>
+                    <p>Director Administrativo y Financiero</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- ÁREAS DEL EQUIPO -->
-    <div class="team-grid" style="position:relative; z-index:1; margin-top:2.5rem;">
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#0a1a3a,#1a3060);">🧠</div>
-            <h3>Neuropsicología</h3>
-            <p>Evaluación cognitiva</p>
-            <span class="team-tag" style="background:rgba(0,212,200,0.12); border-color:rgba(0,212,200,0.25); color:var(--azul);">Especialista</span>
+    <!-- ═══════════════════════════════════════════
+         GRUPO 02 — EQUIPO ADMINISTRATIVO Y DE GESTIÓN
+    ═══════════════════════════════════════════ -->
+    <div class="team-group tg-administrativo fade-in-up">
+        <div class="team-group-header">
+            <span class="team-group-num">02</span>
+            <span class="team-group-title">Equipo Administrativo y de Gestión</span>
+            <span class="team-group-areas">Asesoría Legal · Gestión Administrativa · Contabilidad</span>
         </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#1a0830,#300a50);">🌟</div>
-            <h3>Neurodesarrollo</h3>
-            <p>Desarrollo neurológico</p>
-            <span class="team-tag" style="background:rgba(192,132,252,0.12); border-color:rgba(192,132,252,0.25); color:var(--morado);">Médico</span>
+        <div class="team-carousel-wrap">
+            <div class="team-carousel">
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/paola_fernandez.webp' %}" alt="Lic. Paola Fernández Galarza" loading="lazy" decoding="async"></div>
+                    <h4>Lic. Paola Fernández Galarza</h4>
+                    <p>Abogada · Asesora Legal</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/dani_velasquez.webp' %}" alt="Téc. Dani Velásquez Romero" loading="lazy" decoding="async"></div>
+                    <h4>Dani Velásquez Romero</h4>
+                    <p>Contadora Pública · Maestra Parvularia</p>
+                </div>
+            </div>
         </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#1a0a28,#2e1040);">💊</div>
-            <h3>Psiquiatría Infantil</h3>
-            <p>Salud mental</p>
-            <span class="team-tag" style="background:rgba(192,132,252,0.12); border-color:rgba(192,132,252,0.25); color:var(--morado);">Médico</span>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         GRUPO 03 — EQUIPO PROFESIONAL
+    ═══════════════════════════════════════════ -->
+    <div class="team-group tg-profesional fade-in-up">
+        <div class="team-group-header">
+            <span class="team-group-num">03</span>
+            <span class="team-group-title">Equipo Profesional</span>
+            <span class="team-group-areas">Medicina · Neurodesarrollo · Psicología · Psicopedagogía · Lenguaje · Kinesiología · Fisioterapia · Psicomotricidad · Estimulación Temprana · Terapia Ocupacional · Educación Parvularia</span>
         </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#1a0a04,#3a1800);">🏃</div>
-            <h3>Fisioterapia</h3>
-            <p>Rehabilitación motora</p>
-            <span class="team-tag" style="background:rgba(255,159,64,0.12); border-color:rgba(255,159,64,0.25); color:var(--naranja);">Terapista</span>
-        </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#0d2020,#1a3a2a);">✋</div>
-            <h3>Terapia Ocupacional</h3>
-            <p>Integración sensorial</p>
-            <span class="team-tag" style="background:rgba(52,238,160,0.1); border-color:rgba(52,238,160,0.25); color:var(--verde);">Terapista</span>
-        </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#0a1e18,#123428);">🗣️</div>
-            <h3>Fonoaudiología</h3>
-            <p>Lenguaje y comunicación</p>
-            <span class="team-tag" style="background:rgba(52,238,160,0.1); border-color:rgba(52,238,160,0.25); color:var(--verde);">Terapista</span>
-        </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#201008,#382018);">📚</div>
-            <h3>Psicopedagogía</h3>
-            <p>Aprendizaje y educación</p>
-            <span class="team-tag" style="background:rgba(255,224,102,0.1); border-color:rgba(255,224,102,0.25); color:var(--amarillo);">Psicopedagogo/a</span>
-        </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#2a1010,#3a1a20);">💙</div>
-            <h3>Psicología Clínica</h3>
-            <p>Atención emocional</p>
-            <span class="team-tag" style="background:rgba(255,224,102,0.1); border-color:rgba(255,224,102,0.25); color:var(--amarillo);">Psicólogo/a</span>
-        </div>
-        <div class="team-card fade-in-up">
-            <div class="team-avatar" style="background:linear-gradient(135deg,#1a1820,#2a2840);">📊</div>
-            <h3>Evaluaciones Diagnósticas</h3>
-            <p>ADOS-2 y ADI-R</p>
-            <span class="team-tag" style="background:rgba(255,95,64,0.1); border-color:rgba(255,95,64,0.25); color:var(--rojo);">Evaluador/a</span>
+        <div class="team-carousel-wrap">
+            <div class="team-carousel">
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/waldo_cary.webp' %}" alt="Dr. Waldo Cary Laime" loading="lazy" decoding="async"></div>
+                    <h4>Dr. Waldo Cary Laime</h4>
+                    <p>Pediatría · Terapia Intensiva Pediátrica</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/liset_olivares.webp' %}" alt="Lic. Liset Ariana Olivares Choque" loading="lazy" decoding="async"></div>
+                    <h4>Liset Olivares Choque</h4>
+                    <p>Psicopedagogía · Lenguaje y Comunicación</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/manuel_lizarazu.webp' %}" alt="Lic. Manuel Jhoel Lizarazu Resamano" loading="lazy" decoding="async"></div>
+                    <h4>Manuel Lizarazu Resamano</h4>
+                    <p>Kinesiología y Fisioterapia · Neurodesarrollo</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/gabriela_valencia.webp' %}" alt="Lic. Gabriela Alejandra Valencia Molina" loading="lazy" decoding="async"></div>
+                    <h4>Gabriela Valencia Molina</h4>
+                    <p>Psicología Clínica y Educativa</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/ana_rodriguez.webp' %}" alt="Téc. Ana Gabriela Rodríguez Romero" loading="lazy" decoding="async"></div>
+                    <h4>Ana Rodríguez Romero</h4>
+                    <p>Primera Infancia y Estimulación Temprana</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/jhosua_callamullo.webp' %}" alt="Lic. Jhosua Carlos Callamullo Ayllón" loading="lazy" decoding="async"></div>
+                    <h4>Jhosua Callamullo Ayllón</h4>
+                    <p>Psicología Infantil</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/maria_rodriguez.webp' %}" alt="Lic. María Lourdes Rodríguez Romero" loading="lazy" decoding="async"></div>
+                    <h4>María Lourdes Rodríguez</h4>
+                    <p>Psicopedagogía y Terapia Ocupacional</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/angela_fernandez.webp' %}" alt="Téc. Ángela Katerinne Fernández Galarza" loading="lazy" decoding="async"></div>
+                    <h4>Ángela Fernández Galarza</h4>
+                    <p>Educación Parvularia</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/edith_chijo.webp' %}" alt="Lic. Edith Paola Chijo Pino" loading="lazy" decoding="async"></div>
+                    <h4>Edith Chijo Pino</h4>
+                    <p>Psicología y Maestra Parvularia</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/rocio_rollano.webp' %}" alt="Lic. Rocío Manuel Rollano" loading="lazy" decoding="async"></div>
+                    <h4>Rocío Manuel Rollano</h4>
+                    <p>Psicopedagogía · Terapeuta de Lenguaje</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/darling_garcia.webp' %}" alt="Lic. Darling Coral García Armijo" loading="lazy" decoding="async"></div>
+                    <h4>Darling García Armijo</h4>
+                    <p>Psicopedagogía</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/lilian_romay.webp' %}" alt="Téc. Lilian Carla Romay Vela" loading="lazy" decoding="async"></div>
+                    <h4>Lilian Romay Vela</h4>
+                    <p>Primera Infancia y Estimulación Temprana</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/dayana_armijo.webp' %}" alt="Lic. Dayana Armijo Torrez" loading="lazy" decoding="async"></div>
+                    <h4>Dayana Armijo Torrez</h4>
+                    <p>Psicopedagogía</p>
+                </div>
+                <div class="team-member">
+                    <div class="team-member-photo"><img src="{% static 'img/equipo/alejandra_quispe.webp' %}" alt="Alejandra Mercedes Quispe Balcázar" loading="lazy" decoding="async"></div>
+                    <h4>Alejandra Quispe Balcázar</h4>
+                    <p>Equipo Profesional</p>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -4582,6 +4733,97 @@ function updateContactReq() {
     const styleHide = document.createElement('style');
     styleHide.textContent = '.photo-strip-wrap::-webkit-scrollbar { display: none; }';
     document.head.appendChild(styleHide);
+})();
+
+/* ── CARRUSELES DEL EQUIPO (uno por grupo): solo giran/arrastran
+     cuando las tarjetas no entran todas en pantalla ── */
+(function() {
+    const styleHide = document.createElement('style');
+    styleHide.textContent = '.team-carousel-wrap::-webkit-scrollbar { display: none; }';
+    document.head.appendChild(styleHide);
+
+    function setupOne(wrap) {
+        const strip = wrap.querySelector('.team-carousel');
+        if (!strip) return;
+
+        if (!strip.dataset.originalHtml) strip.dataset.originalHtml = strip.innerHTML;
+        strip.innerHTML = strip.dataset.originalHtml;
+        strip.classList.remove('tc-autoscroll');
+        strip.style.animation = '';
+        strip.style.animationDuration = '';
+        wrap.style.overflowX = '';
+        wrap.scrollLeft = 0;
+
+        const needsScroll = strip.scrollWidth > wrap.clientWidth + 4;
+        if (!needsScroll) return;
+
+        // Duplica las tarjetas para lograr un giro continuo sin cortes
+        strip.innerHTML = strip.dataset.originalHtml + strip.dataset.originalHtml;
+        strip.classList.add('tc-autoscroll');
+        const totalWidth = strip.scrollWidth / 2;
+        const duration = Math.max(16, totalWidth / 38); // velocidad ~38px/s
+        strip.style.animationDuration = duration + 's';
+
+        if (wrap.dataset.dragBound) return; // los listeners de arrastre solo se enlazan una vez
+        wrap.dataset.dragBound = '1';
+
+        let isDragging = false, startX = 0, scrollLeft = 0, moved = false;
+        function pause()  { strip.style.animationPlayState = 'paused'; }
+        function resume() { strip.style.animationPlayState = 'running'; }
+
+        wrap.addEventListener('mousedown', function(e) {
+            isDragging = true; moved = false;
+            startX = e.pageX - wrap.offsetLeft;
+            scrollLeft = wrap.scrollLeft;
+            pause();
+        });
+        window.addEventListener('mouseup', function() {
+            if (!isDragging) return;
+            isDragging = false;
+            if (moved) setTimeout(resume, 1200); else resume();
+        });
+        window.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            const x = e.pageX - wrap.offsetLeft;
+            const diff = x - startX;
+            if (Math.abs(diff) > 6) moved = true;
+            wrap.scrollLeft = scrollLeft - diff * 1.5;
+        });
+        wrap.addEventListener('touchstart', function(e) {
+            isDragging = true; moved = false;
+            startX = e.touches[0].pageX - wrap.offsetLeft;
+            scrollLeft = wrap.scrollLeft;
+            pause();
+        }, { passive: true });
+        wrap.addEventListener('touchend', function() {
+            isDragging = false;
+            if (moved) setTimeout(resume, 1500); else resume();
+        }, { passive: true });
+        wrap.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            const x = e.touches[0].pageX - wrap.offsetLeft;
+            const diff = x - startX;
+            if (Math.abs(diff) > 6) moved = true;
+            wrap.scrollLeft = scrollLeft - diff * 1.5;
+        }, { passive: true });
+
+        wrap.style.overflowX = 'auto';
+        wrap.style.scrollbarWidth = 'none';
+    }
+
+    function initAll() {
+        document.querySelectorAll('.team-carousel-wrap').forEach(setupOne);
+    }
+
+    if (document.readyState === 'complete') initAll();
+    else window.addEventListener('load', initAll);
+
+    let resizeTimer = null;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(initAll, 300);
+    }, { passive: true });
 })();
 
 /* ── LIGHTBOX ── */
