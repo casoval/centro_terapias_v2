@@ -502,20 +502,9 @@
         [data-theme="light"] .vmv-section {
             background: linear-gradient(160deg, #FFF8F0 0%, #FFF3E0 30%, #FFEFD6 55%, #FFF8F0 80%, #FDFAF5 100%) !important;
         }
-        [data-theme="light"] .vmv-card {
-            background: rgba(255,255,255,0.92);
-            border-color: rgba(0,0,0,0.07);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        [data-theme="light"] .vmv-row {
+            border-bottom-color: rgba(0,0,0,0.09);
         }
-        [data-theme="light"] .vmv-card:hover { box-shadow: 0 24px 64px rgba(0,0,0,0.12); }
-        /* Acento de color en el borde superior de cada tarjeta VMV */
-        [data-theme="light"] .vmv-vision  { border-top: 4px solid #00796B !important; }
-        [data-theme="light"] .vmv-mision  { border-top: 4px solid #FF8C42 !important; }
-        [data-theme="light"] .vmv-valores { border-top: 4px solid #E65100 !important; }
-        /* Fondo tintado sutil por tarjeta */
-        [data-theme="light"] .vmv-vision  { background: linear-gradient(160deg, #E0F5F0 0%, #ffffff 40%) !important; }
-        [data-theme="light"] .vmv-mision  { background: linear-gradient(160deg, #FFF3E0 0%, #ffffff 40%) !important; }
-        [data-theme="light"] .vmv-valores { background: linear-gradient(160deg, #FBE9E7 0%, #ffffff 40%) !important; }
         [data-theme="light"] .vmv-circle {
             background: linear-gradient(135deg, rgba(0,121,107,0.22), rgba(0,121,107,0.06));
             border-color: rgba(0,121,107,0.45);
@@ -531,13 +520,17 @@
             border-color: rgba(230,81,0,0.45);
             box-shadow: 0 0 20px rgba(230,81,0,0.2);
         }
-        [data-theme="light"] .vmv-vision .vmv-card-title  { color: #00695C; text-shadow: none; }
-        [data-theme="light"] .vmv-mision .vmv-card-title  { color: #E65100; text-shadow: none; }
-        [data-theme="light"] .vmv-valores .vmv-card-title { color: #BF360C; text-shadow: none; }
-        /* Acento inferior con más opacidad */
-        [data-theme="light"] .vmv-accent-vision  { background: linear-gradient(90deg, #00796B, transparent 80%); opacity: 0.5 !important; }
-        [data-theme="light"] .vmv-accent-mision  { background: linear-gradient(90deg, #FF8C42, transparent 80%); opacity: 0.5 !important; }
-        [data-theme="light"] .vmv-accent-valores { background: linear-gradient(90deg, #E65100, transparent 80%); opacity: 0.5 !important; }
+        [data-theme="light"] .vmv-vision .vmv-row-title  { color: #00695C; text-shadow: none; }
+        [data-theme="light"] .vmv-mision .vmv-row-title  { color: #E65100; text-shadow: none; }
+        [data-theme="light"] .vmv-valores .vmv-row-title { color: #BF360C; text-shadow: none; }
+        [data-theme="light"] .vmv-tag {
+            background: rgba(255,255,255,0.7);
+            border-color: rgba(0,0,0,0.09);
+        }
+        [data-theme="light"] .vmv-tag:hover {
+            background: rgba(255,255,255,0.95);
+            border-color: rgba(0,0,0,0.18);
+        }
 
         /* Accordion Visión/Misión en tema claro */
         [data-theme="light"] .vm-card {
@@ -1090,94 +1083,89 @@
             background: radial-gradient(circle, rgba(255,200,50,0.14) 0%, transparent 70%);
             top: 40%; left: 45%;
         }
-        .vmv-header { text-align: center; margin-bottom: 3.5rem; position: relative; z-index: 1; }
+        .vmv-header { text-align: center; margin-bottom: 2.2rem; position: relative; z-index: 1; }
+
+        /* ── Diseño editorial compacto: sin tarjetas, sin números, filas con línea divisoria ── */
         .vmv-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.8rem;
-            max-width: 1100px; margin: 0 auto;
+            max-width: 900px; margin: 0 auto;
             position: relative; z-index: 1;
-            isolation: isolate;
         }
-        .vmv-card {
-            background: rgba(255,255,255,0.035);
-            border: 1px solid rgba(255,255,255,0.09);
-            border-radius: 28px;
-            padding: 2.2rem 2rem 2rem;
-            position: relative; overflow: hidden;
-            backdrop-filter: blur(14px);
-            transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, border-color 0.3s;
-            z-index: 1;
+        .vmv-row {
+            display: grid;
+            grid-template-columns: 230px 1fr;
+            align-items: start;
+            gap: 1.6rem;
+            padding: 1.4rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            position: relative;
         }
-        .vmv-card:hover {
-            transform: translateY(-10px);
-            border-color: rgba(255,255,255,0.18);
-            box-shadow: 0 24px 64px rgba(0,0,0,0.5);
-            z-index: 10;
-        }
-        .vmv-card-top {
-            display: flex; align-items: center; gap: 16px;
-            margin-bottom: 1.6rem;
-        }
+        .vmv-row:first-child { padding-top: 0.25rem; }
+        .vmv-row:last-child { border-bottom: none; padding-bottom: 0.25rem; }
+
+        .vmv-row-head { display: flex; align-items: center; gap: 12px; }
         .vmv-circle {
-            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+            width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
             background: linear-gradient(135deg, rgba(0,229,204,0.28), rgba(0,229,204,0.08));
             border: 2px solid rgba(0,229,204,0.4);
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 28px rgba(0,229,204,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
-            animation: vmvFloat 5s ease-in-out infinite;
+            box-shadow: 0 0 18px rgba(0,229,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
         }
         .vmv-circle-mision {
             background: linear-gradient(135deg, rgba(255,140,30,0.28), rgba(255,140,30,0.08));
             border-color: rgba(255,140,30,0.4);
-            box-shadow: 0 0 28px rgba(255,140,30,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
-            animation-delay: 0.8s;
+            box-shadow: 0 0 18px rgba(255,140,30,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
         }
         .vmv-circle-valores {
             background: linear-gradient(135deg, rgba(245,184,0,0.28), rgba(245,184,0,0.08));
             border-color: rgba(245,184,0,0.4);
-            box-shadow: 0 0 28px rgba(245,184,0,0.25), inset 0 1px 0 rgba(255,255,255,0.1);
-            animation-delay: 1.6s;
+            box-shadow: 0 0 18px rgba(245,184,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1);
         }
-        @keyframes vmvFloat {
-            0%,100% { transform: translateY(0) scale(1); }
-            50%      { transform: translateY(-6px) scale(1.04); }
-        }
-        .vmv-big-icon { font-size: 1.8rem; }
-        .vmv-line { display: none; }
+        .vmv-big-icon { font-size: 1.2rem; }
 
-        .vmv-card-title {
+        .vmv-row-title {
             font-family: 'Baloo 2', cursive;
-            font-size: 1.5rem; font-weight: 900;
+            font-size: 1.2rem; font-weight: 900;
             color: var(--text);
-            margin-bottom: 0.8rem;
         }
-        .vmv-vision .vmv-card-title  { color: var(--turquesa);  text-shadow: 0 0 24px var(--turquesa-glow); }
-        .vmv-mision .vmv-card-title  { color: var(--naranja);   text-shadow: 0 0 24px rgba(255,140,30,0.5); }
-        .vmv-valores .vmv-card-title { color: var(--dorado);    text-shadow: 0 0 20px var(--dorado-glow); }
+        .vmv-vision .vmv-row-title  { color: var(--turquesa);  text-shadow: 0 0 24px var(--turquesa-glow); }
+        .vmv-mision .vmv-row-title  { color: var(--naranja);   text-shadow: 0 0 24px rgba(255,140,30,0.5); }
+        .vmv-valores .vmv-row-title { color: var(--dorado);    text-shadow: 0 0 20px var(--dorado-glow); }
 
-        .vmv-card-text {
-            font-size: 0.92rem; color: var(--muted); line-height: 1.85;
+        .vmv-row-text {
+            font-size: 0.92rem; color: var(--muted); line-height: 1.65;
         }
-        .vmv-values-list {
-            list-style: none; display: flex; flex-direction: column; gap: 11px;
+
+        /* Valores como chips, en vez de lista con viñetas */
+        .vmv-tags {
+            display: flex; flex-wrap: wrap; gap: 0.5rem;
         }
-        .vmv-values-list li {
-            display: flex; align-items: flex-start; gap: 10px;
-            font-size: 0.88rem; color: var(--muted); line-height: 1.5;
+        .vmv-tag {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50px;
+            padding: 0.38rem 0.85rem 0.38rem 0.6rem;
+            font-size: 0.8rem; color: var(--muted);
+            transition: border-color 0.25s, background 0.25s;
         }
-        .vmv-values-list li strong { color: var(--text); }
-        .vmv-val-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            flex-shrink: 0; margin-top: 5px;
+        .vmv-tag:hover {
+            border-color: rgba(255,255,255,0.24);
+            background: rgba(255,255,255,0.07);
+        }
+        .vmv-tag strong { color: var(--text); font-weight: 800; }
+        .vmv-tag-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            flex-shrink: 0;
             box-shadow: 0 0 8px currentColor;
         }
-        .vmv-card-accent {
-            position: absolute; bottom: 0; left: 0; right: 0; height: 4px; border-radius: 0 0 28px 28px;
+
+        @media (max-width: 860px) {
+            .vmv-row {
+                grid-template-columns: 1fr;
+                gap: 0.6rem;
+                padding: 1.2rem 0;
+            }
         }
-        .vmv-accent-vision  { background: linear-gradient(90deg, var(--turquesa), transparent 80%); opacity: 0.7; }
-        .vmv-accent-mision  { background: linear-gradient(90deg, var(--naranja), transparent 80%); opacity: 0.7; }
-        .vmv-accent-valores { background: linear-gradient(90deg, var(--dorado), transparent 80%); opacity: 0.7; }
 
         @media (max-width: 768px) {
             .vmv-section { padding: 3.5rem 1.4rem; }
@@ -2101,7 +2089,6 @@
             /* 5. BACKDROP-FILTER */
             .service-card,
             .why-card,
-            .vmv-card,
             .team-intro-card,
             .srv-tab,
             .btn-secondary {
@@ -2110,7 +2097,6 @@
             }
             .service-card    { background: rgba(255,255,255,0.07) !important; }
             .why-card        { background: rgba(255,255,255,0.08) !important; }
-            .vmv-card        { background: rgba(255,255,255,0.05) !important; }
             .team-intro-card { background: rgba(255,255,255,0.07) !important; }
             .srv-tab         { background: rgba(255,255,255,0.06) !important; }
             .btn-secondary   { background: rgba(255,255,255,0.08) !important; }
@@ -2147,7 +2133,7 @@
             .service-card,
             .why-card,
             .team-card,
-            .vmv-card,
+            .vmv-row,
             .location-card {
                 transition-duration: 0.15s !important;
             }
@@ -2834,54 +2820,42 @@
     <div class="vmv-grid">
 
         <!-- VISIÓN -->
-        <div class="vmv-card vmv-vision fade-in-up">
-            <div class="vmv-card-top">
+        <div class="vmv-row vmv-vision fade-in-up">
+            <div class="vmv-row-head">
                 <div class="vmv-circle">
                     <span class="vmv-big-icon">👁️</span>
                 </div>
-                <div class="vmv-line"></div>
+                <h3 class="vmv-row-title">Visión</h3>
             </div>
-            <div class="vmv-card-body">
-                <h3 class="vmv-card-title">Visión</h3>
-                <p class="vmv-card-text">Ser el centro de neurodesarrollo infantil de referencia en Bolivia, reconocido por su excelencia clínica y su capacidad de transformar la vida de los niños y sus familias, contribuyendo a una sociedad más inclusiva.</p>
-            </div>
-            <div class="vmv-card-accent vmv-accent-vision"></div>
+            <p class="vmv-row-text">Ser el centro de neurodesarrollo infantil de referencia en Bolivia, reconocido por su excelencia clínica y su capacidad de transformar la vida de los niños y sus familias, contribuyendo a una sociedad más inclusiva.</p>
         </div>
 
         <!-- MISIÓN -->
-        <div class="vmv-card vmv-mision fade-in-up">
-            <div class="vmv-card-top">
+        <div class="vmv-row vmv-mision fade-in-up">
+            <div class="vmv-row-head">
                 <div class="vmv-circle vmv-circle-mision">
                     <span class="vmv-big-icon">🚀</span>
                 </div>
-                <div class="vmv-line vmv-line-mision"></div>
+                <h3 class="vmv-row-title">Misión</h3>
             </div>
-            <div class="vmv-card-body">
-                <h3 class="vmv-card-title">Misión</h3>
-                <p class="vmv-card-text">Brindar atención médica, terapéutica y psicológica integral a niños con necesidades de neurodesarrollo, con un equipo multidisciplinario que trabaja con metodologías basadas en evidencia y amor genuino.</p>
-            </div>
-            <div class="vmv-card-accent vmv-accent-mision"></div>
+            <p class="vmv-row-text">Brindar atención médica, terapéutica y psicológica integral a niños con necesidades de neurodesarrollo, con un equipo multidisciplinario que trabaja con metodologías basadas en evidencia y amor genuino.</p>
         </div>
 
         <!-- VALORES -->
-        <div class="vmv-card vmv-valores fade-in-up">
-            <div class="vmv-card-top">
+        <div class="vmv-row vmv-valores fade-in-up">
+            <div class="vmv-row-head">
                 <div class="vmv-circle vmv-circle-valores">
                     <span class="vmv-big-icon">💛</span>
                 </div>
-                <div class="vmv-line vmv-line-valores"></div>
+                <h3 class="vmv-row-title">Valores</h3>
             </div>
-            <div class="vmv-card-body">
-                <h3 class="vmv-card-title">Valores</h3>
-                <ul class="vmv-values-list">
-                    <li><span class="vmv-val-dot" style="background:var(--azul);"></span><span><strong>Excelencia clínica</strong> — Protocolos internacionales</span></li>
-                    <li><span class="vmv-val-dot" style="background:var(--verde);"></span><span><strong>Inclusión</strong> — Respeto sin importar el diagnóstico</span></li>
-                    <li><span class="vmv-val-dot" style="background:var(--amarillo);"></span><span><strong>Trabajo en equipo</strong> — Unidos por el paciente</span></li>
-                    <li><span class="vmv-val-dot" style="background:var(--rojo);"></span><span><strong>Calidez humana</strong> — Empatía y dedicación</span></li>
-                    <li><span class="vmv-val-dot" style="background:var(--morado);"></span><span><strong>Familia aliada</strong> — Padres como parte del equipo</span></li>
-                </ul>
+            <div class="vmv-tags">
+                <span class="vmv-tag"><span class="vmv-tag-dot" style="background:var(--azul); color:var(--azul);"></span><strong>Excelencia clínica</strong>&nbsp;— Protocolos internacionales</span>
+                <span class="vmv-tag"><span class="vmv-tag-dot" style="background:var(--verde); color:var(--verde);"></span><strong>Inclusión</strong>&nbsp;— Respeto sin importar el diagnóstico</span>
+                <span class="vmv-tag"><span class="vmv-tag-dot" style="background:var(--amarillo); color:var(--amarillo);"></span><strong>Trabajo en equipo</strong>&nbsp;— Unidos por el paciente</span>
+                <span class="vmv-tag"><span class="vmv-tag-dot" style="background:var(--rojo); color:var(--rojo);"></span><strong>Calidez humana</strong>&nbsp;— Empatía y dedicación</span>
+                <span class="vmv-tag"><span class="vmv-tag-dot" style="background:var(--morado); color:var(--morado);"></span><strong>Familia aliada</strong>&nbsp;— Padres como parte del equipo</span>
             </div>
-            <div class="vmv-card-accent vmv-accent-valores"></div>
         </div>
 
     </div>
