@@ -1516,12 +1516,67 @@
         .tg-administrativo .team-member:hover { border-color: rgba(255,159,64,0.4); }
         .tg-profesional .team-member:hover    { border-color: rgba(245,184,0,0.4); }
 
+        /* ── Equipo Directivo: cuadro editorial grande, sin carrusel ── */
+        .team-directivo-grid {
+            display: grid; grid-template-columns: 1fr; gap: 1.6rem;
+            max-width: 900px; margin: 0 auto; padding: 0 2.5rem;
+        }
+        @media (min-width: 900px) {
+            .team-directivo-grid { grid-template-columns: repeat(3, 1fr); gap: 2.4rem; max-width: 1100px; }
+        }
+        .team-director-card { position: relative; z-index: 1; }
+        .team-director-photo {
+            width: 100%; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.8rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .team-director-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+        .team-director-name { font-family:'Baloo 2',cursive; font-weight:800; font-size:1.02rem; color:var(--text); margin:0 0 .22rem; }
+        .team-director-title { color: var(--turquesa); font-weight:800; font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; margin:0 0 .2rem; line-height:1.3; }
+        .team-director-role { color: var(--amarillo); font-style:italic; font-weight:700; font-size:.72rem; margin:0 0 .5rem; line-height:1.35; opacity:.92; }
+        .team-director-bio { color: var(--muted2); font-size:.78rem; line-height:1.55; margin:0; }
+        .team-director-bio.clamped { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+        .team-director-more { display:inline-block; margin-top:.32rem; background:none; border:none; padding:0; cursor:pointer; color:var(--amarillo); font-style:italic; font-family:'Nunito',sans-serif; font-weight:700; font-size:.72rem; }
+        .team-director-more:hover { text-decoration: underline; }
+
+        /* ── Equipo Administrativo: foto cuadrada + reseña al lado ── */
+        .tg-administrativo .team-member {
+            width: 300px; display: flex; align-items: flex-start; gap: .9rem;
+            text-align: left; padding: 1rem 1.1rem 1rem .9rem;
+        }
+        .tg-administrativo .team-member-photo {
+            width: 84px; height: 84px; border-radius: 12px; margin: 0; flex-shrink: 0;
+        }
+        .tg-administrativo .team-member-info { min-width: 0; flex: 1; }
+        .tg-administrativo .team-member h4 { font-size: .85rem; margin-bottom: .18rem; }
+        .tg-administrativo .team-member-role { color: var(--amarillo); font-style: italic; font-weight: 700; font-size: .68rem; margin: 0 0 .35rem; line-height: 1.3; }
+        .tg-administrativo .team-member-bio {
+            color: var(--muted2); font-size: .7rem; line-height: 1.45; margin: 0; font-weight: 400;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        /* ── Equipo Profesional: foto circular + reseña breve ── */
+        .tg-profesional .team-member { width: 168px; padding: 1.1rem .7rem .9rem; }
+        .tg-profesional .team-member-photo { width: 82px; height: 82px; }
+        .tg-profesional .team-member-role {
+            color: var(--amarillo); font-style: italic; font-weight: 700; font-size: .66rem; line-height: 1.32; margin: 0 0 .32rem;
+        }
+        .tg-profesional .team-member-bio {
+            color: var(--muted2); font-size: .65rem; line-height: 1.4; margin: 0; font-weight: 400;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+
         @media (max-width: 768px) {
             .team-member { width: 128px; padding: 1rem 0.6rem 0.85rem; }
             .team-member-photo { width: 66px; height: 66px; }
             .team-carousel { padding: 0.3rem 1.4rem; gap: 0.8rem; }
             .team-carousel-wrap::before, .team-carousel-wrap::after { width: 36px; }
             .team-group-header { padding: 0 1.4rem; }
+            .team-directivo-grid { padding: 0 1.4rem; gap: 1.2rem; }
+            .tg-administrativo .team-member { width: 250px; gap: .7rem; padding: .85rem .9rem .85rem .75rem; }
+            .tg-administrativo .team-member-photo { width: 68px; height: 68px; }
+            .tg-profesional .team-member { width: 132px; padding: .9rem .55rem .75rem; }
+            .tg-profesional .team-member-photo { width: 62px; height: 62px; }
         }
 
         /* ─────────────────────────────────────────
@@ -3464,23 +3519,29 @@
             <span class="team-group-title">Equipo Directivo</span>
             <span class="team-group-areas">Dirección General · Dirección Médica · Dirección Administrativa y Financiera</span>
         </div>
-        <div class="team-carousel-wrap">
-            <div class="team-carousel">
-                <div class="team-member">
-                    <div class="team-member-photo"><img src="{% static 'img/equipo/javier_castro.webp' %}" alt="Dr. Javier Francisco Castro Ayllón" loading="lazy" decoding="async"></div>
-                    <h4>Dr. Javier Castro Ayllón</h4>
-                    <p>Director General · Médico Cirujano</p>
-                </div>
-                <div class="team-member">
-                    <div class="team-member-photo"><img src="{% static 'img/equipo/jackie_castro.webp' %}" alt="Dr. Jackie Jared Castro Hurtado" loading="lazy" decoding="async"></div>
-                    <h4>Dr. Jackie Castro Hurtado</h4>
-                    <p>Director Médico · Rehabilitación Infantil</p>
-                </div>
-                <div class="team-member">
-                    <div class="team-member-photo"><img src="{% static 'img/equipo/franco_nogales.webp' %}" alt="Lic. Franco Mauricio Nogales Galarza" loading="lazy" decoding="async"></div>
-                    <h4>Lic. Franco Nogales Galarza</h4>
-                    <p>Director Administrativo y Financiero</p>
-                </div>
+        <div class="team-directivo-grid">
+            <div class="team-director-card">
+                <div class="team-director-photo"><img src="{% static 'img/equipo/javier_castro.webp' %}" alt="Dr. Javier Francisco Castro Ayllón" loading="lazy" decoding="async"></div>
+                <p class="team-director-name">Dr. Javier Castro Ayllón</p>
+                <p class="team-director-title">Director General</p>
+                <p class="team-director-role">Médico Cirujano</p>
+                <p class="team-director-bio clamped" id="dir-bio-0">Más de 30 años de trayectoria en el ejercicio de la medicina en distintas ciudades y contextos del país, incluyendo áreas urbanas, rurales y comunidades dispersas. Su experiencia le ha dado una visión integral, humana y comprometida con la salud y el bienestar de la población. Desde la Dirección General impulsa el crecimiento del Centro, promoviendo una atención profesional, responsable y centrada en cada niño y su familia.</p>
+                <button class="team-director-more" id="dir-more-0" onclick="toggleDirBio(0)">Ver más</button>
+            </div>
+            <div class="team-director-card">
+                <div class="team-director-photo"><img src="{% static 'img/equipo/jackie_castro.webp' %}" alt="Dr. Jackie Jared Castro Hurtado" loading="lazy" decoding="async"></div>
+                <p class="team-director-name">Dr. Jackie Castro Hurtado</p>
+                <p class="team-director-title">Director Médico</p>
+                <p class="team-director-role">Rehabilitación Infantil</p>
+                <p class="team-director-bio clamped" id="dir-bio-1">Más de 10 años de experiencia en la atención y acompañamiento de niños con discapacidad y diferentes necesidades de desarrollo, con enfoque en neurodesarrollo, rehabilitación infantil y psicomotricidad. Lidera la orientación del área clínica del Centro, promoviendo un modelo de atención multidisciplinario, personalizado y centrado en cada niño.</p>
+                <button class="team-director-more" id="dir-more-1" onclick="toggleDirBio(1)">Ver más</button>
+            </div>
+            <div class="team-director-card">
+                <div class="team-director-photo"><img src="{% static 'img/equipo/franco_nogales.webp' %}" alt="Lic. Franco Mauricio Nogales Galarza" loading="lazy" decoding="async"></div>
+                <p class="team-director-name">Lic. Franco Nogales Galarza</p>
+                <p class="team-director-title">Director Administrativo y Financiero</p>
+                <p class="team-director-bio clamped" id="dir-bio-2">Responsable de dirigir y supervisar la gestión administrativa, financiera y contable del Centro, promoviendo una administración eficiente, ordenada y transparente de los recursos institucionales.</p>
+                <button class="team-director-more" id="dir-more-2" onclick="toggleDirBio(2)">Ver más</button>
             </div>
         </div>
     </div>
@@ -3498,13 +3559,19 @@
             <div class="team-carousel">
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/paola_fernandez.webp' %}" alt="Lic. Paola Fernández Galarza" loading="lazy" decoding="async"></div>
-                    <h4>Lic. Paola Fernández Galarza</h4>
-                    <p>Abogada · Asesora Legal</p>
+                    <div class="team-member-info">
+                        <h4>Lic. Paola Fernández Galarza</h4>
+                        <p class="team-member-role">Abogada · Asesora Legal</p>
+                        <p class="team-member-bio">Responsable del asesoramiento jurídico y apoyo en la gestión administrativa del Centro, contribuyendo al cumplimiento de los aspectos legales, normativos y administrativos de la institución.</p>
+                    </div>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/dani_velasquez.webp' %}" alt="Téc. Dani Velásquez Romero" loading="lazy" decoding="async"></div>
-                    <h4>Dani Velásquez Romero</h4>
-                    <p>Contadora Pública · Maestra Parvularia</p>
+                    <div class="team-member-info">
+                        <h4>Dani Velásquez Romero</h4>
+                        <p class="team-member-role">Contadora Pública · Maestra Parvularia</p>
+                        <p class="team-member-bio">Responsable de apoyar los procesos contables y administrativos del Centro, contribuyendo al orden, control y adecuado funcionamiento de la gestión institucional. Su formación en educación parvularia complementa el enfoque integral de la institución.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3524,77 +3591,102 @@
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/waldo_cary.webp' %}" alt="Dr. Waldo Cary Laime" loading="lazy" decoding="async"></div>
                     <h4>Dr. Waldo Cary Laime</h4>
-                    <p>Pediatría · Terapia Intensiva Pediátrica</p>
+                    <p class="team-member-role">Pediatría · Terapia Intensiva Pediátrica</p>
+                    <p class="team-member-bio">Amplia formación en atención pediátrica y manejo integral de la salud infantil, acompañando las diferentes etapas del crecimiento y desarrollo de niños y adolescentes.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/liset_olivares.webp' %}" alt="Lic. Liset Ariana Olivares Choque" loading="lazy" decoding="async"></div>
                     <h4>Liset Olivares Choque</h4>
-                    <p>Psicopedagogía · Lenguaje y Comunicación</p>
+                    <p class="team-member-role">Psicopedagogía · Lenguaje y Comunicación</p>
+                    <p class="team-member-bio">Experiencia en el acompañamiento de los procesos de aprendizaje, lenguaje y comunicación, integrando herramientas psicopedagógicas y educativas durante la infancia.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/manuel_lizarazu.webp' %}" alt="Lic. Manuel Jhoel Lizarazu Resamano" loading="lazy" decoding="async"></div>
                     <h4>Manuel Lizarazu Resamano</h4>
-                    <p>Kinesiología y Fisioterapia · Neurodesarrollo</p>
+                    <p class="team-member-role">Kinesiología y Fisioterapia · Neurodesarrollo</p>
+                    <p class="team-member-bio">Formación especializada en desarrollo motor, neurodesarrollo y psicomotricidad, orientada a favorecer las habilidades funcionales y el desarrollo integral del niño.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/gabriela_valencia.webp' %}" alt="Lic. Gabriela Alejandra Valencia Molina" loading="lazy" decoding="async"></div>
                     <h4>Gabriela Valencia Molina</h4>
-                    <p>Psicología Clínica y Educativa</p>
+                    <p class="team-member-role">Psicología Clínica y Educativa</p>
+                    <p class="team-member-bio">Experiencia en el acompañamiento psicológico de niños y adolescentes, integrando el ámbito clínico y educativo para atender sus necesidades emocionales y de desarrollo.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/ana_rodriguez.webp' %}" alt="Téc. Ana Gabriela Rodríguez Romero" loading="lazy" decoding="async"></div>
                     <h4>Ana Rodríguez Romero</h4>
-                    <p>Primera Infancia y Estimulación Temprana</p>
+                    <p class="team-member-role">Primera Infancia y Estimulación Temprana</p>
+                    <p class="team-member-bio">Experiencia en acompañamiento de la primera infancia mediante actividades de estimulación orientadas a favorecer el desarrollo de habilidades de cada etapa.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/jhosua_callamullo.webp' %}" alt="Lic. Jhosua Carlos Callamullo Ayllón" loading="lazy" decoding="async"></div>
                     <h4>Jhosua Callamullo Ayllón</h4>
-                    <p>Psicología Infantil</p>
+                    <p class="team-member-role">Psicología Infantil</p>
+                    <p class="team-member-bio">Formación enfocada en el desarrollo psicológico durante la infancia, brindando acompañamiento en aspectos emocionales, conductuales y propios de cada etapa del desarrollo.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/maria_rodriguez.webp' %}" alt="Lic. María Lourdes Rodríguez Romero" loading="lazy" decoding="async"></div>
                     <h4>María Lourdes Rodríguez</h4>
-                    <p>Psicopedagogía y Terapia Ocupacional</p>
+                    <p class="team-member-role">Psicopedagogía y Terapia Ocupacional</p>
+                    <p class="team-member-bio">Experiencia en el fortalecimiento de habilidades de aprendizaje, autonomía y desempeño funcional, desde una perspectiva psicopedagógica y ocupacional.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/angela_fernandez.webp' %}" alt="Téc. Ángela Katerinne Fernández Galarza" loading="lazy" decoding="async"></div>
                     <h4>Ángela Fernández Galarza</h4>
-                    <p>Educación Parvularia</p>
+                    <p class="team-member-role">Educación Parvularia</p>
+                    <p class="team-member-bio">Experiencia en acompañamiento educativo de la primera infancia, favoreciendo espacios de aprendizaje, interacción y desarrollo de habilidades infantiles.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/edith_chijo.webp' %}" alt="Lic. Edith Paola Chijo Pino" loading="lazy" decoding="async"></div>
                     <h4>Edith Chijo Pino</h4>
-                    <p>Psicología y Maestra Parvularia</p>
+                    <p class="team-member-role">Psicología y Maestra Parvularia</p>
+                    <p class="team-member-bio">Su formación en psicología y educación parvularia permite un acompañamiento integral durante los primeros años, en lo emocional y lo educativo.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/rocio_rollano.webp' %}" alt="Lic. Rocío Manuel Rollano" loading="lazy" decoding="async"></div>
                     <h4>Rocío Manuel Rollano</h4>
-                    <p>Psicopedagogía · Terapeuta de Lenguaje</p>
+                    <p class="team-member-role">Psicopedagogía · Terapeuta de Lenguaje</p>
+                    <p class="team-member-bio">Experiencia en el acompañamiento de niños con necesidades de aprendizaje, lenguaje y comunicación, favoreciendo su participación y desarrollo integral.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/darling_garcia.webp' %}" alt="Lic. Darling Coral García Armijo" loading="lazy" decoding="async"></div>
                     <h4>Darling García Armijo</h4>
-                    <p>Psicopedagogía</p>
+                    <p class="team-member-role">Psicopedagogía</p>
+                    <p class="team-member-bio">Orientada al acompañamiento de los procesos de aprendizaje y desarrollo infantil, considerando las necesidades particulares de cada niño.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/lilian_romay.webp' %}" alt="Téc. Lilian Carla Romay Vela" loading="lazy" decoding="async"></div>
                     <h4>Lilian Romay Vela</h4>
-                    <p>Primera Infancia y Estimulación Temprana</p>
+                    <p class="team-member-role">Primera Infancia y Estimulación Temprana</p>
+                    <p class="team-member-bio">Experiencia en actividades de acompañamiento y estimulación durante la primera infancia, favoreciendo el desarrollo de habilidades en cada etapa.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/dayana_armijo.webp' %}" alt="Lic. Dayana Armijo Torrez" loading="lazy" decoding="async"></div>
                     <h4>Dayana Armijo Torrez</h4>
-                    <p>Psicopedagogía</p>
+                    <p class="team-member-role">Psicopedagogía</p>
+                    <p class="team-member-bio">Formación especializada en el área psicopedagógica, orientada al acompañamiento del aprendizaje y al desarrollo de estrategias para cada niño.</p>
                 </div>
                 <div class="team-member">
                     <div class="team-member-photo"><img src="{% static 'img/equipo/alejandra_quispe.webp' %}" alt="Alejandra Mercedes Quispe Balcázar" loading="lazy" decoding="async"></div>
                     <h4>Alejandra Quispe Balcázar</h4>
-                    <p>Equipo Profesional</p>
+                    <p class="team-member-role">Psicología Infantil</p>
+                    <p class="team-member-bio">Experiencia en el desarrollo psicológico durante la infancia, brindando acompañamiento en aspectos emocionales, conductuales y propios de cada etapa del desarrollo.</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
+
+<script>
+function toggleDirBio(i) {
+    var bio = document.getElementById('dir-bio-' + i);
+    var btn = document.getElementById('dir-more-' + i);
+    if (!bio || !btn) return;
+    var collapsing = bio.classList.contains('clamped');
+    bio.classList.toggle('clamped');
+    btn.textContent = collapsing ? 'Ver menos' : 'Ver más';
+}
+</script>
 
 <!-- ═══════════════════════════════════════════
      CTA FINAL
