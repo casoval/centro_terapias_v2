@@ -107,9 +107,15 @@ def listar_derivaciones(paciente_id):
 # ═══════════════════════════════════════════════════════════════════
 
 def buscar_ninos_sin_vincular(q):
-    """Niños de Misael Kids que todavía no están vinculados con ningún paciente."""
+    """
+    Niños de Misael Kids que todavía no están vinculados con ningún
+    paciente. El endpoint usa paginación DRF por defecto (a diferencia
+    de /consulta/derivaciones/, que es un APIView simple sin paginar),
+    así que la respuesta viene envuelta en {count,next,previous,results}
+    — hay que extraer 'results', no tratar la respuesta como lista directa.
+    """
     data = _get('/consulta/ninos-sin-vincular/', params={'q': q})
-    return data or []
+    return (data or {}).get('results', [])
 
 
 def obtener_nino(nino_id):
@@ -132,6 +138,9 @@ def crear_vinculo(nino_id, paciente_centro_id, nombre_paciente_centro=''):
 
 
 def listar_vinculados():
-    """Todos los vínculos existentes, con resumen de derivaciones."""
+    """
+    Todos los vínculos existentes, con resumen de derivaciones.
+    También paginado — mismo motivo que buscar_ninos_sin_vincular.
+    """
     data = _get('/consulta/vinculados/')
-    return data or []
+    return (data or {}).get('results', [])
