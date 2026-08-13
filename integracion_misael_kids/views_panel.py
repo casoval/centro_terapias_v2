@@ -110,6 +110,32 @@ def api_vinculados(request):
 
 
 @login_required
+@require_GET
+def api_derivaciones(request):
+    """
+    GET ?paciente_id=<id> — detalle completo de las derivaciones que
+    Misael Kids mandó para ese paciente vinculado (motivo, área,
+    estado, fecha). Se pide bajo demanda (al desplegar la tarjeta en
+    "Niños vinculados"), no en el listado general, para no pegarle a
+    Misael Kids una vez por cada vínculo cada vez que se abre la pestaña.
+    """
+    if not _puede_gestionar(request.user):
+        return JsonResponse({'detail': 'Sin permiso.'}, status=403)
+
+    paciente_id = request.GET.get('paciente_id')
+    if not paciente_id:
+        return JsonResponse({'detail': 'paciente_id es requerido.'}, status=400)
+
+    try:
+        derivaciones = mk.listar_derivaciones(paciente_id)
+    except mk.MisaelKidsNoConfigurado as exc:
+        return JsonResponse({'detail': str(exc)}, status=503)
+    except mk.MisaelKidsError as exc:
+        return JsonResponse({'detail': str(exc)}, status=502)
+    return JsonResponse({'derivaciones': derivaciones})
+
+
+@login_required
 @require_POST
 def vincular_paciente_existente(request):
     """

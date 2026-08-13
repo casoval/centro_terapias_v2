@@ -203,19 +203,79 @@ async function cargarVinculados() {
         const vinculos = data.vinculos || [];
         estado.textContent = vinculos.length ? '' : 'Todavía no hay niños vinculados.';
         cont.innerHTML = vinculos.map(v => `
-            <div class="nino-card">
-                <div>
-                    <div class="font-semibold text-slate-800">${v.nino_nombre}</div>
-                    <div class="text-xs text-slate-500">
-                        Vinculado el ${new Date(v.fecha_vinculacion).toLocaleDateString('es-BO')}
-                        · ${v.derivaciones_count} derivación(es)${v.ultima_derivacion_estado ? ' · última: ' + v.ultima_derivacion_estado : ''}
+            <div class="nino-card flex-col items-stretch" id="vinculo-${v.paciente_centro_id}">
+                <div class="flex items-center justify-between w-full">
+                    <div>
+                        <div class="font-semibold text-slate-800">${v.nino_nombre}</div>
+                        <div class="text-xs text-slate-500">
+                            Vinculado el ${new Date(v.fecha_vinculacion).toLocaleDateString('es-BO')}
+                            · ${v.derivaciones_count} derivación(es)${v.ultima_derivacion_estado ? ' · última: ' + v.ultima_derivacion_estado : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        ${v.derivaciones_count > 0 ? `
+                        <button type="button" class="text-slate-500 text-xs font-bold hover:underline"
+                                onclick="toggleDerivaciones(${v.paciente_centro_id}, this)">
+                            Ver derivaciones ▾
+                        </button>` : ''}
+                        <a href="/pacientes/${v.paciente_centro_id}/" class="text-indigo-600 text-xs font-bold hover:underline whitespace-nowrap">Ver paciente →</a>
                     </div>
                 </div>
-                <a href="/pacientes/${v.paciente_centro_id}/" class="text-indigo-600 text-xs font-bold hover:underline">Ver paciente →</a>
+                <div class="derivaciones-detalle hidden w-full mt-2 pt-2 border-t border-slate-100 text-xs"></div>
             </div>
         `).join('');
     } catch (e) {
         estado.textContent = '❌ No se pudo conectar con Misael Kids.';
+    }
+}
+
+async function toggleDerivaciones(pacienteId, btn) {
+    const card = document.getElementById(`vinculo-${pacienteId}`);
+    const panel = card.querySelector('.derivaciones-detalle');
+
+    if (!panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        btn.textContent = 'Ver derivaciones ▾';
+        return;
+    }
+
+    panel.classList.remove('hidden');
+    btn.textContent = 'Ocultar derivaciones ▴';
+
+    if (panel.dataset.loaded === '1') return; // ya cargado, no volver a pedir
+
+    panel.innerHTML = '<div class="text-slate-400">Cargando derivaciones...</div>';
+    try {
+        const resp = await fetch(`{% url "integracion_misael_kids_panel:api_derivaciones" %}?paciente_id=${pacienteId}`);
+        const data = await resp.json();
+        if (!resp.ok) {
+            panel.innerHTML = `<div class="text-red-500">❌ ${data.detail || 'Error al cargar derivaciones.'}</div>`;
+            return;
+        }
+        const derivaciones = data.derivaciones || [];
+        panel.dataset.loaded = '1';
+        panel.innerHTML = derivaciones.length ? derivaciones.map(d => `
+            <div class="mb-2 last:mb-0 rounded bg-slate-50 p-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-semibold text-slate-700">${d.area_derivacion || '(sin área)'}</span>
+                    <span class="badge ${
+                        d.estado === 'aceptada' ? 'bg-emerald-100 text-emerald-700' :
+                        d.estado === 'cerrada' ? 'bg-slate-200 text-slate-600' :
+                        d.estado === 'en_proceso' ? 'bg-amber-100 text-amber-700' :
+                        'bg-indigo-100 text-indigo-700'
+                    }">${d.estado_display}</span>
+                </div>
+                <div class="text-slate-600 mt-1">${d.motivo || '(sin motivo detallado)'}</div>
+                <div class="text-slate-400 mt-1">
+                    Solicitada el ${new Date(d.fecha_solicitud).toLocaleDateString('es-BO')}
+                    ${d.solicitado_por_nombre ? ' · por ' + d.solicitado_por_nombre : ''}
+                    ${d.consentimiento_tutor ? ' · consentimiento del tutor confirmado' : ' · ⚠️ sin consentimiento del tutor registrado'}
+                </div>
+                ${d.respuesta_centro ? `<div class="text-slate-500 mt-1 italic">Respuesta: ${d.respuesta_centro}</div>` : ''}
+            </div>
+        `).join('') : '<div class="text-slate-400">Sin derivaciones registradas.</div>';
+    } catch (e) {
+        panel.innerHTML = '<div class="text-red-500">❌ No se pudo conectar con Misael Kids.</div>';
     }
 }
 </script>
