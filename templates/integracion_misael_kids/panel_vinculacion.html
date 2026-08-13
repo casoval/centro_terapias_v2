@@ -23,6 +23,73 @@
         display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     }
     .badge { font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; }
+
+    /* ── Derivaciones: trigger pill ─────────────────────────────── */
+    .deriv-trigger {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        font-size: 0.72rem; font-weight: 700; color: #4338ca;
+        background: #eef2ff; border: 1px solid #e0e7ff;
+        padding: 0.3rem 0.65rem; border-radius: 999px;
+        cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .deriv-trigger:hover { background: #e0e7ff; }
+    .deriv-trigger .chev { transition: transform 0.2s; display: inline-block; }
+    .deriv-trigger.is-open .chev { transform: rotate(180deg); }
+    .deriv-trigger .count {
+        background: #4338ca; color: white; font-size: 0.62rem; font-weight: 800;
+        min-width: 1.1rem; height: 1.1rem; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center; padding: 0 0.3rem;
+    }
+
+    /* ── Derivaciones: panel expandido ──────────────────────────── */
+    .derivaciones-detalle { overflow: hidden; }
+    .deriv-header {
+        font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 0.04em; color: #94a3b8; margin-bottom: 0.6rem;
+    }
+    .deriv-timeline { position: relative; display: flex; flex-direction: column; gap: 0.9rem; }
+    .deriv-item { position: relative; padding-left: 1.6rem; }
+    .deriv-item::before {
+        content: ''; position: absolute; left: 0.34rem; top: 1.1rem; bottom: -0.9rem;
+        width: 2px; background: #e2e8f0;
+    }
+    .deriv-item:last-child::before { display: none; }
+    .deriv-dot {
+        position: absolute; left: 0; top: 0.15rem;
+        width: 0.75rem; height: 0.75rem; border-radius: 999px; border: 2px solid white;
+        box-shadow: 0 0 0 2px currentColor;
+    }
+    .deriv-dot.st-solicitada { color: #6366f1; background: #6366f1; }
+    .deriv-dot.st-aceptada { color: #10b981; background: #10b981; }
+    .deriv-dot.st-en_proceso { color: #f59e0b; background: #f59e0b; }
+    .deriv-dot.st-cerrada { color: #94a3b8; background: #94a3b8; }
+    .deriv-dot.st-rechazada { color: #ef4444; background: #ef4444; }
+
+    .deriv-card {
+        border: 1px solid #eef0f4; border-radius: 0.65rem; padding: 0.7rem 0.85rem;
+        background: linear-gradient(180deg, #fafbff, #ffffff);
+    }
+    .deriv-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+    .deriv-area { display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: #334155; font-size: 0.82rem; }
+    .deriv-area .icon { font-size: 0.95rem; }
+    .deriv-motivo {
+        margin-top: 0.4rem; color: #475569; font-size: 0.78rem; line-height: 1.4;
+        border-left: 2px solid #e2e8f0; padding-left: 0.55rem;
+    }
+    .deriv-meta { margin-top: 0.55rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .deriv-chip {
+        display: inline-flex; align-items: center; gap: 0.3rem;
+        font-size: 0.66rem; font-weight: 600; color: #64748b;
+        background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 999px;
+    }
+    .deriv-chip.ok { background: #ecfdf5; color: #047857; }
+    .deriv-chip.warn { background: #fffbeb; color: #b45309; }
+    .deriv-respuesta {
+        margin-top: 0.55rem; font-size: 0.76rem; color: #475569;
+        background: #f8fafc; border-radius: 0.5rem; padding: 0.5rem 0.65rem;
+        position: relative;
+    }
+    .deriv-respuesta .lbl { font-weight: 800; color: #334155; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.03em; display: block; margin-bottom: 0.15rem; }
 </style>
 
 <div class="max-w-5xl mx-auto px-4 py-6">
@@ -214,9 +281,10 @@ async function cargarVinculados() {
                     </div>
                     <div class="flex items-center gap-3">
                         ${v.derivaciones_count > 0 ? `
-                        <button type="button" class="text-slate-500 text-xs font-bold hover:underline"
+                        <button type="button" class="deriv-trigger"
                                 onclick="toggleDerivaciones(${v.paciente_centro_id}, this)">
-                            Ver derivaciones ▾
+                            📋 Derivaciones <span class="count">${v.derivaciones_count}</span>
+                            <span class="chev">▾</span>
                         </button>` : ''}
                         <a href="/pacientes/${v.paciente_centro_id}/" class="text-indigo-600 text-xs font-bold hover:underline whitespace-nowrap">Ver paciente →</a>
                     </div>
@@ -229,53 +297,89 @@ async function cargarVinculados() {
     }
 }
 
+function _iconArea(area) {
+    const a = (area || '').toLowerCase();
+    if (a.includes('lenguaje') || a.includes('habla')) return '🗣️';
+    if (a.includes('psicolog') || a.includes('conduct')) return '🧠';
+    if (a.includes('ocupacional')) return '✋';
+    if (a.includes('físic') || a.includes('fisio') || a.includes('motric') || a.includes('motora')) return '🏃';
+    if (a.includes('nutri')) return '🍎';
+    if (a.includes('pedagog') || a.includes('aprendiz')) return '📚';
+    return '🩺';
+}
+
+function _badgeClaseEstado(estado) {
+    return {
+        aceptada: 'bg-emerald-100 text-emerald-700',
+        cerrada: 'bg-slate-200 text-slate-600',
+        en_proceso: 'bg-amber-100 text-amber-700',
+        rechazada: 'bg-red-100 text-red-700',
+    }[estado] || 'bg-indigo-100 text-indigo-700';
+}
+
 async function toggleDerivaciones(pacienteId, btn) {
     const card = document.getElementById(`vinculo-${pacienteId}`);
     const panel = card.querySelector('.derivaciones-detalle');
+    const isOpen = !panel.classList.contains('hidden');
 
-    if (!panel.classList.contains('hidden')) {
+    if (isOpen) {
         panel.classList.add('hidden');
-        btn.textContent = 'Ver derivaciones ▾';
+        btn.classList.remove('is-open');
         return;
     }
 
     panel.classList.remove('hidden');
-    btn.textContent = 'Ocultar derivaciones ▴';
+    btn.classList.add('is-open');
 
     if (panel.dataset.loaded === '1') return; // ya cargado, no volver a pedir
 
-    panel.innerHTML = '<div class="text-slate-400">Cargando derivaciones...</div>';
+    panel.innerHTML = '<div class="text-slate-400 text-xs">Cargando derivaciones...</div>';
     try {
         const resp = await fetch(`{% url "integracion_misael_kids_panel:api_derivaciones" %}?paciente_id=${pacienteId}`);
         const data = await resp.json();
         if (!resp.ok) {
-            panel.innerHTML = `<div class="text-red-500">❌ ${data.detail || 'Error al cargar derivaciones.'}</div>`;
+            panel.innerHTML = `<div class="text-red-500 text-xs">❌ ${data.detail || 'Error al cargar derivaciones.'}</div>`;
             return;
         }
         const derivaciones = data.derivaciones || [];
         panel.dataset.loaded = '1';
-        panel.innerHTML = derivaciones.length ? derivaciones.map(d => `
-            <div class="mb-2 last:mb-0 rounded bg-slate-50 p-2">
-                <div class="flex items-center justify-between">
-                    <span class="font-semibold text-slate-700">${d.area_derivacion || '(sin área)'}</span>
-                    <span class="badge ${
-                        d.estado === 'aceptada' ? 'bg-emerald-100 text-emerald-700' :
-                        d.estado === 'cerrada' ? 'bg-slate-200 text-slate-600' :
-                        d.estado === 'en_proceso' ? 'bg-amber-100 text-amber-700' :
-                        'bg-indigo-100 text-indigo-700'
-                    }">${d.estado_display}</span>
-                </div>
-                <div class="text-slate-600 mt-1">${d.motivo || '(sin motivo detallado)'}</div>
-                <div class="text-slate-400 mt-1">
-                    Solicitada el ${new Date(d.fecha_solicitud).toLocaleDateString('es-BO')}
-                    ${d.solicitado_por_nombre ? ' · por ' + d.solicitado_por_nombre : ''}
-                    ${d.consentimiento_tutor ? ' · consentimiento del tutor confirmado' : ' · ⚠️ sin consentimiento del tutor registrado'}
-                </div>
-                ${d.respuesta_centro ? `<div class="text-slate-500 mt-1 italic">Respuesta: ${d.respuesta_centro}</div>` : ''}
+
+        if (!derivaciones.length) {
+            panel.innerHTML = '<div class="text-slate-400 text-xs">Sin derivaciones registradas.</div>';
+            return;
+        }
+
+        panel.innerHTML = `
+            <div class="deriv-header">Derivaciones recibidas de Misael Kids (${derivaciones.length})</div>
+            <div class="deriv-timeline">
+                ${derivaciones.map(d => `
+                    <div class="deriv-item">
+                        <span class="deriv-dot st-${d.estado}"></span>
+                        <div class="deriv-card">
+                            <div class="deriv-card-top">
+                                <div class="deriv-area"><span class="icon">${_iconArea(d.area_derivacion)}</span> ${d.area_derivacion || 'Área no especificada'}</div>
+                                <span class="badge ${_badgeClaseEstado(d.estado)}">${d.estado_display}</span>
+                            </div>
+                            <div class="deriv-motivo">${d.motivo || '(sin motivo detallado)'}</div>
+                            <div class="deriv-meta">
+                                <span class="deriv-chip">📅 ${new Date(d.fecha_solicitud).toLocaleDateString('es-BO')}</span>
+                                ${d.solicitado_por_nombre ? `<span class="deriv-chip">👤 ${d.solicitado_por_nombre}</span>` : ''}
+                                ${d.consentimiento_tutor
+                                    ? `<span class="deriv-chip ok">✅ Consentimiento del tutor</span>`
+                                    : `<span class="deriv-chip warn">⚠️ Sin consentimiento registrado</span>`}
+                            </div>
+                            ${d.respuesta_centro ? `
+                                <div class="deriv-respuesta">
+                                    <span class="lbl">Respuesta de Centro Misael</span>
+                                    ${d.respuesta_centro}
+                                </div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-        `).join('') : '<div class="text-slate-400">Sin derivaciones registradas.</div>';
+        `;
     } catch (e) {
-        panel.innerHTML = '<div class="text-red-500">❌ No se pudo conectar con Misael Kids.</div>';
+        panel.innerHTML = '<div class="text-red-500 text-xs">❌ No se pudo conectar con Misael Kids.</div>';
     }
 }
 </script>
