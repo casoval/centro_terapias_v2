@@ -70,8 +70,20 @@ def lista_pacientes(request):
 
     # ✅ Separar activos e inactivos DESPUÉS de todos los filtros
     # Ambos querysets heredan el distinct(), por lo que nunca habrá duplicados
-    pacientes_activos   = pacientes_base.filter(estado='activo')
-    pacientes_inactivos = pacientes_base.filter(estado='inactivo')
+    total_activos = pacientes_base.filter(estado='activo').count()
+    total_inactivos = pacientes_base.filter(estado='inactivo').count()
+    pacientes_activos = list(pacientes_base.filter(estado='activo'))
+    pacientes_inactivos = list(pacientes_base.filter(estado='inactivo'))
+
+    # 🔗 Badge "vinculado con Misael Kids" (+ punto de alerta si hay una
+    # derivación pendiente de revisar) — UNA sola llamada batch acá,
+    # nunca una por paciente, ver mk.mapa_vinculados_por_paciente().
+    from integracion_misael_kids import misael_kids_client as mk
+    mapa_vinculos = mk.mapa_vinculados_por_paciente()
+    for paciente in pacientes_activos + pacientes_inactivos:
+        info = mapa_vinculos.get(paciente.id)
+        paciente.mk_vinculado = info is not None
+        paciente.mk_pendiente = bool(info and info['pendiente'])
 
     # ✅ Obtener sucursales para el filtro SEGÚN PERMISOS
     from servicios.models import Sucursal
@@ -93,8 +105,8 @@ def lista_pacientes(request):
         'pacientes': pacientes_activos,
         'pacientes_activos': pacientes_activos,
         'pacientes_inactivos': pacientes_inactivos,
-        'total_activos': pacientes_activos.count(),
-        'total_inactivos': pacientes_inactivos.count(),
+        'total_activos': total_activos,
+        'total_inactivos': total_inactivos,
         'buscar': buscar,
         'sucursales': sucursales,
         'sucursal_seleccionada': int(sucursal_id) if sucursal_id else None,
@@ -608,62 +620,19 @@ def detalle_paciente(request, pk):
         'profesionales_data': profesionales_data,
     }
 
-    # ✅ TODOS los documentos del paciente, organizados: Generales, Proyectos, Mensualidades
-    from documentos.permissions import puede_subir_documentos, puede_eliminar_documentos
-    from documentos.models import DocumentoPaciente
-    from django.db.models import Prefetch
+    # 🧠 Documentos y planes de trabajo (Misael Kids, generales, por
+    # proyecto y por mensualidad) ya NO se cargan completos acá — esta
+    # ficha se estaba volviendo demasiado larga. Ahora viven en su
+    # propia página (documentos:documentos_paciente); acá solo se
+    # muestran contadores livianos + el link para entrar.
     from django.urls import reverse
 
-    docs_ordenados = DocumentoPaciente.objects.select_related('subido_por').order_by('-fecha_subida')
-    base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
-
-    context['documentos_generales'] = paciente.documentos.filter(
-        proyecto__isnull=True, mensualidad__isnull=True
-    ).select_related('subido_por').order_by('-fecha_subida')
-
-    # 🧠 Planes de trabajo (Misael Kids): ya no son DocumentoPaciente
-    # marcados con un checkbox, sino su propio modelo con su propio
-    # formulario — ver documentos.models.PlanTrabajo.
-    context['planes_trabajo'] = paciente.planes_trabajo.select_related('profesional').order_by('-fecha_inicio')
-
-    from integracion_misael_kids import misael_kids_client as mk
-    try:
-        context['vinculado_misael_kids'] = mk.esta_vinculado(paciente.id)
-        context['error_verificando_vinculo'] = False
-    except (mk.MisaelKidsNoConfigurado, mk.MisaelKidsError):
-        context['vinculado_misael_kids'] = False
-        context['error_verificando_vinculo'] = True
-
-    proyectos_qs = paciente.proyectos.prefetch_related(
-        Prefetch('documentos', queryset=docs_ordenados)
-    ).order_by('-fecha_inicio')
-    context['proyectos_con_documentos'] = [
-        {
-            'proyecto': p,
-            'subir_url': f'{base_url}?proyecto_id={p.id}&next={reverse("pacientes:detalle", args=[paciente.id])}',
-        }
-        for p in proyectos_qs
-    ]
-
-    mensualidades_qs = paciente.mensualidades.prefetch_related(
-        Prefetch('documentos', queryset=docs_ordenados)
-    ).order_by('-anio', '-mes')
-    context['mensualidades_con_documentos'] = [
-        {
-            'mensualidad': m,
-            'subir_url': f'{base_url}?mensualidad_id={m.id}&next={reverse("pacientes:detalle", args=[paciente.id])}',
-        }
-        for m in mensualidades_qs
-    ]
-
-    context['puede_subir_docs'] = puede_subir_documentos(request.user, paciente)
-    context['puede_eliminar_docs'] = puede_eliminar_documentos(request.user)
-    context['subir_url_general'] = f'{base_url}?next={reverse("pacientes:detalle", args=[paciente.id])}'
-    context['crear_plan_trabajo_url'] = reverse('documentos:crear_plan_trabajo', args=[paciente.id])
-    context['subir_url_base'] = base_url
-    context['next_url_paciente'] = reverse('pacientes:detalle', args=[paciente.id])
+    context['total_documentos'] = paciente.documentos.count()
+    context['total_planes_trabajo'] = paciente.planes_trabajo.count()
+    context['documentos_paciente_url'] = reverse('documentos:documentos_paciente', args=[paciente.id])
 
     return render(request, 'pacientes/detalle.html', context)
+
 
 @login_required
 def mis_sesiones(request):

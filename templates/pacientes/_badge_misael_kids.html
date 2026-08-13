@@ -1,0 +1,18 @@
+{% comment %}
+Uso: {% include 'pacientes/_badge_misael_kids.html' with vinculado=paciente.mk_vinculado pendiente=paciente.mk_pendiente %}
+
+Requiere que la vista haya anotado mk_vinculado / mk_pendiente en cada
+paciente (ver pacientes.views.lista_pacientes y
+profesionales.views.mis_pacientes) a partir de UNA sola llamada batch a
+mk.listar_vinculados() — nunca una llamada por paciente.
+{% endcomment %}
+{% if vinculado %}
+<span class="relative inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase border
+    {% if pendiente %}bg-amber-50 text-amber-700 border-amber-200{% else %}bg-violet-50 text-violet-700 border-violet-200{% endif %}"
+      title="{% if pendiente %}Vinculado con Misael Kids — hay una derivación pendiente de revisar{% else %}Vinculado con Misael Kids{% endif %}">
+    🔗 M. Kids
+    {% if pendiente %}
+    <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 border border-white animate-pulse"></span>
+    {% endif %}
+</span>
+{% endif %}

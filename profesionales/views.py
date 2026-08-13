@@ -324,7 +324,17 @@ def mis_pacientes(request):
         x['proxima_sesion'] is None,
         x['proxima_sesion'].fecha if x['proxima_sesion'] else date.max
     ))
-    
+
+    # 🔗 Badge "vinculado con Misael Kids" (+ punto de alerta si hay una
+    # derivación pendiente) — misma lógica que pacientes:lista, UNA sola
+    # llamada batch acá, nunca una por paciente.
+    from integracion_misael_kids import misael_kids_client as mk
+    mapa_vinculos = mk.mapa_vinculados_por_paciente()
+    for item in pacientes_data:
+        info = mapa_vinculos.get(item['paciente'].id)
+        item['mk_vinculado'] = info is not None
+        item['mk_pendiente'] = bool(info and info['pendiente'])
+
     context = {
         'profesional': profesional,
         'pacientes_data': pacientes_data,

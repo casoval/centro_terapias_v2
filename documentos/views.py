@@ -1,8 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Count, Q, Max
+from django.db.models import Count, Q, Max, Prefetch
 from django.http import HttpResponseForbidden
+from django.urls import reverse
 
 from pacientes.models import Paciente
 from agenda.models import Proyecto, Mensualidad, Sesion
@@ -75,7 +76,7 @@ def _redirigir_post_subida(request, paciente, documento):
         return redirect('agenda:detalle_mensualidad', mensualidad_id=documento.mensualidad_id)
     if es_profesional(request.user):
         return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
-    return redirect('pacientes:detalle', pk=paciente.id)
+    return redirect('documentos:documentos_paciente', paciente_id=paciente.id)
 
 
 @login_required
@@ -209,9 +210,99 @@ def resumen_paciente_profesional(request, paciente_id):
     return render(request, 'documentos/resumen_paciente_profesional.html', context)
 
 
+@login_required
+def documentos_paciente(request, paciente_id):
+    """
+    Página dedicada con TODO lo documental de un paciente en un solo
+    lugar y en orden fijo: plan de trabajo (Misael Kids) → documentos
+    generales → documentos por proyecto → documentos por mensualidad.
+
+    Antes este bloque vivía embebido dentro de pacientes:detalle,
+    volviendo esa ficha demasiado larga. Se separa a su propia vista
+    (misma URL de la que ya salía el ícono 🧠 en la lista de pacientes),
+    reusando los mismos partials que ya usaba pacientes:detalle para no
+    duplicar el HTML de cada sección.
+    """
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    if not puede_ver_documentos(request.user, paciente):
+        messages.error(request, '❌ No tienes acceso a los documentos de este paciente.')
+        return redirect('pacientes:lista')
+
+    planes_trabajo = paciente.planes_trabajo.select_related('profesional').order_by('-fecha_inicio')
+
+    vinculado_misael_kids = False
+    error_verificando_vinculo = False
+    try:
+        vinculado_misael_kids = mk.esta_vinculado(paciente.id)
+    except (mk.MisaelKidsNoConfigurado, mk.MisaelKidsError):
+        error_verificando_vinculo = True
+
+    docs_ordenados = DocumentoPaciente.objects.select_related('subido_por').order_by('-fecha_subida')
+    base_url = reverse('documentos:subir', kwargs={'paciente_id': paciente.id})
+    # 'next' vuelve siempre a ESTA página tras subir un documento, en vez
+    # de caer en la ficha de pacientes:detalle (que ya no muestra esto).
+    next_url = reverse('documentos:documentos_paciente', args=[paciente.id])
+
+    documentos_generales = paciente.documentos.filter(
+        proyecto__isnull=True, mensualidad__isnull=True
+    ).select_related('subido_por').order_by('-fecha_subida')
+
+    proyectos_qs = paciente.proyectos.prefetch_related(
+        Prefetch('documentos', queryset=docs_ordenados)
+    ).order_by('-fecha_inicio')
+    proyectos_con_documentos = [
+        {'proyecto': p, 'subir_url': f'{base_url}?proyecto_id={p.id}&next={next_url}'}
+        for p in proyectos_qs
+    ]
+
+    mensualidades_qs = paciente.mensualidades.prefetch_related(
+        Prefetch('documentos', queryset=docs_ordenados)
+    ).order_by('-anio', '-mes')
+    mensualidades_con_documentos = [
+        {'mensualidad': m, 'subir_url': f'{base_url}?mensualidad_id={m.id}&next={next_url}'}
+        for m in mensualidades_qs
+    ]
+
+    context = {
+        'paciente': paciente,
+        'planes_trabajo': planes_trabajo,
+        'vinculado_misael_kids': vinculado_misael_kids,
+        'error_verificando_vinculo': error_verificando_vinculo,
+        'documentos_generales': documentos_generales,
+        'proyectos_con_documentos': proyectos_con_documentos,
+        'mensualidades_con_documentos': mensualidades_con_documentos,
+        'puede_subir_docs': puede_subir_documentos(request.user, paciente),
+        'puede_eliminar_docs': puede_eliminar_documentos(request.user),
+        'subir_url_general': f'{base_url}?next={next_url}',
+    }
+    return render(request, 'documentos/documentos_paciente.html', context)
+
+
 def _es_profesional_autor(user):
     perfil = getattr(user, 'perfil', None)
     return bool(perfil and perfil.rol == 'profesional')
+
+
+def _redirect_ficha_paciente(request, paciente_id):
+    """
+    A qué pantalla volver después de crear/editar/eliminar un plan de
+    trabajo — no todos los roles usan la misma:
+
+      - profesional: su vista reducida, sin datos de pago
+        (documentos:resumen_paciente_profesional).
+      - admin (superuser), gerente, recepcionista: la página dedicada de
+        documentos y planes del paciente (documentos:documentos_paciente)
+        — la misma desde la que normalmente entran a crear/editar el plan.
+
+    Antes todos los roles caían siempre en resumen_paciente_profesional,
+    aunque esa pantalla fue pensada solo para el profesional (oculta
+    facturación a propósito) — para admin/gerente/recepcionista era una
+    pantalla ajena en vez de su propia ficha.
+    """
+    if _es_profesional_autor(request.user):
+        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente_id)
+    return redirect('documentos:documentos_paciente', paciente_id=paciente_id)
 
 
 @login_required
@@ -236,7 +327,7 @@ def crear_plan_trabajo(request, paciente_id):
             f'❌ No se pudo verificar el vínculo con Misael Kids ({exc}). '
             'Intenta de nuevo en unos minutos.',
         )
-        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+        return _redirect_ficha_paciente(request, paciente.id)
 
     if not vinculado:
         messages.error(
@@ -244,7 +335,7 @@ def crear_plan_trabajo(request, paciente_id):
             '❌ Este paciente todavía no está vinculado con Misael Kids. '
             'Vincúlalo primero desde la página de vinculación.',
         )
-        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+        return _redirect_ficha_paciente(request, paciente.id)
 
     es_autor = _es_profesional_autor(request.user)
 
@@ -260,7 +351,7 @@ def crear_plan_trabajo(request, paciente_id):
             plan.profesional = request.user
             plan.save()
             messages.success(request, '✅ Plan de trabajo creado correctamente.')
-            return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+            return _redirect_ficha_paciente(request, paciente.id)
         messages.error(request, '❌ Revisa los datos del formulario.')
     else:
         form = PlanTrabajoForm(es_profesional_autor=es_autor)
@@ -286,7 +377,7 @@ def editar_plan_trabajo(request, plan_id):
         if form.is_valid():
             form.save()
             messages.success(request, '✅ Plan de trabajo actualizado.')
-            return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente.id)
+            return _redirect_ficha_paciente(request, paciente.id)
         messages.error(request, '❌ Revisa los datos del formulario.')
     else:
         form = PlanTrabajoForm(es_profesional_autor=es_autor, instance=plan)
@@ -311,6 +402,6 @@ def eliminar_plan_trabajo(request, plan_id):
             plan.archivo.delete(save=False)
         plan.delete()
         messages.success(request, '🗑️ Plan de trabajo eliminado.')
-        return redirect('documentos:resumen_paciente_profesional', paciente_id=paciente_id)
+        return _redirect_ficha_paciente(request, paciente_id)
 
     return render(request, 'documentos/confirmar_eliminar_plan.html', {'plan': plan})

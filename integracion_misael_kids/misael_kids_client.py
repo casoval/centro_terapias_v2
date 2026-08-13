@@ -37,7 +37,13 @@ def _headers():
 
 
 def _request(method, path, params=None, json_body=None, timeout=10):
-    url = f'{_base_url()}{path}'
+    # 'path' puede ser una ruta relativa ('/consulta/...') o ya una URL
+    # absoluta (el 'next' que devuelve la paginación de DRF) — en ese
+    # caso no hay que volver a anteponerle _base_url().
+    if path.startswith('http://') or path.startswith('https://'):
+        url = path
+    else:
+        url = f'{_base_url()}{path}'
     try:
         resp = requests.request(
             method, url, headers=_headers(), params=params, json=json_body, timeout=timeout
@@ -139,8 +145,52 @@ def crear_vinculo(nino_id, paciente_centro_id, nombre_paciente_centro=''):
 
 def listar_vinculados():
     """
-    Todos los vínculos existentes, con resumen de derivaciones.
-    También paginado — mismo motivo que buscar_ninos_sin_vincular.
+    Todos los vínculos existentes, con resumen de derivaciones — sigue
+    la paginación de DRF (PAGE_SIZE=25 del lado de Misael Kids) hasta
+    agotar 'next', para no perder en silencio los vínculos que caen
+    después de la primera página a medida que crecen.
     """
+    resultados = []
     data = _get('/consulta/vinculados/')
-    return (data or {}).get('results', [])
+    while data:
+        resultados.extend(data.get('results', []))
+        siguiente = data.get('next')
+        if not siguiente:
+            break
+        data = _get(siguiente)
+    return resultados
+
+
+def mapa_vinculados_por_paciente():
+    """
+    {paciente_centro_id: {'derivaciones_count': N, 'pendiente': bool}}
+    en UNA sola llamada — pensado para listas de pacientes (lista.html,
+    mis_pacientes.html) donde consultar por-paciente sería N llamadas
+    a Misael Kids en cada carga de página.
+
+    'pendiente' = la derivación más reciente de ese niño está en estado
+    "Solicitada" (recién propuesta por Misael Kids, sin revisar todavía).
+
+    Se degrada en silencio (mapa vacío) si Misael Kids no está
+    configurado o no responde — una lista de pacientes no debe romperse
+    ni bloquearse por eso, simplemente no muestra los badges.
+    """
+    try:
+        vinculos = listar_vinculados()
+    except (MisaelKidsNoConfigurado, MisaelKidsError):
+        return {}
+
+    mapa = {}
+    for v in vinculos:
+        pid = v.get('paciente_centro_id')
+        if pid is None:
+            continue
+        try:
+            pid = int(pid)
+        except (TypeError, ValueError):
+            continue
+        mapa[pid] = {
+            'derivaciones_count': v.get('derivaciones_count', 0),
+            'pendiente': v.get('ultima_derivacion_estado') == 'Solicitada',
+        }
+    return mapa

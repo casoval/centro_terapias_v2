@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Documentos - {{ paciente.nombre_completo }} - Centro Infantil Misael{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-2 py-2">
+
+    <!-- Encabezado -->
+    <div class="mb-3">
+        <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 rounded-xl p-3 shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mr-4 -mt-4 w-16 h-16 rounded-full bg-white opacity-10 blur-xl"></div>
+            <div class="absolute bottom-0 left-10 w-12 h-12 rounded-full bg-purple-400 opacity-20 blur-lg"></div>
+
+            <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                <div>
+                    <div class="flex items-center gap-2 text-indigo-100 text-[9px] font-bold uppercase tracking-wider mb-0.5">
+                        <a href="{% url 'pacientes:detalle' paciente.id %}" class="hover:text-white transition-colors">Ficha del paciente</a>
+                        <span>›</span>
+                        <span>Documentos y planes de trabajo</span>
+                    </div>
+                    <h1 class="text-lg font-black text-white flex items-center gap-2 flex-wrap">
+                        🧠 {{ paciente.nombre_completo }}
+                        {% if vinculado_misael_kids %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm bg-emerald-500/20 text-emerald-100">
+                            🔗 Vinculado con Misael Kids
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border border-white/20 backdrop-blur-md shadow-sm bg-gray-500/20 text-gray-200">
+                            🔓 Sin vincular con Misael Kids
+                        </span>
+                        {% endif %}
+                    </h1>
+                    <p class="text-[11px] text-indigo-100 font-medium mt-0.5">
+                        Plan de trabajo, documentos generales, por proyecto y por mensualidad — todo en un solo lugar.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-1.5">
+                    <a href="{% url 'pacientes:detalle' paciente.id %}"
+                       class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all border border-white/20 backdrop-blur-md flex items-center gap-1.5 uppercase tracking-wider transform hover:scale-105">
+                        <span class="text-xs">←</span> Volver a la ficha
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de resumen: un vistazo rápido antes de entrar a cada sección -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center text-sm shrink-0">🧠</div>
+            <div class="min-w-0">
+                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Planes de trabajo</p>
+                <p class="text-sm font-black text-slate-800">{{ planes_trabajo|length }}</p>
+            </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm shrink-0">📎</div>
+            <div class="min-w-0">
+                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Doc. generales</p>
+                <p class="text-sm font-black text-slate-800">{{ documentos_generales|length }}</p>
+            </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm shrink-0">📦</div>
+            <div class="min-w-0">
+                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Proyectos</p>
+                <p class="text-sm font-black text-slate-800">{{ proyectos_con_documentos|length }}</p>
+            </div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm shrink-0">💳</div>
+            <div class="min-w-0">
+                <p class="text-[8px] uppercase text-slate-400 font-black tracking-wide">Mensualidades</p>
+                <p class="text-sm font-black text-slate-800">{{ mensualidades_con_documentos|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido: Plan Misael → Generales → Proyectos → Mensualidades -->
+    <div class="space-y-2">
+
+        <!-- 0) Planes de trabajo (Misael Kids) -->
+        {% if error_verificando_vinculo %}
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-[12px] text-amber-800 font-bold">
+            ⚠️ No se pudo verificar el vínculo con Misael Kids en este momento.
+        </div>
+        {% endif %}
+        {% include 'documentos/_seccion_planes_trabajo.html' with planes=planes_trabajo puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs vinculado=vinculado_misael_kids paciente_id=paciente.id %}
+
+        <!-- 1) Generales -->
+        {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=subir_url_general titulo_seccion="📎 Documentos Generales del Paciente" %}
+
+        <!-- 2) Proyectos -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+            <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3">
+                <h3 class="text-[12px] font-black uppercase text-white tracking-widest">📦 Documentos por Proyecto</h3>
+            </div>
+            <div class="p-4">
+                {% if proyectos_con_documentos %}
+                <div class="space-y-4">
+                    {% for item in proyectos_con_documentos %}
+                    <div class="border border-slate-100 rounded-xl overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+                            <a href="{% url 'agenda:detalle_proyecto' item.proyecto.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
+                                {{ item.proyecto.nombre }} <span class="text-slate-400 font-medium">({{ item.proyecto.codigo }})</span>
+                            </a>
+                            <span class="text-[10px] font-black uppercase text-slate-400">{{ item.proyecto.get_estado_display }}</span>
+                        </div>
+                        <div class="px-2">
+                            {% include 'documentos/_seccion_documentos.html' with documentos=item.proyecto.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene proyectos registrados.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 3) Mensualidades -->
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
+            <div class="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-3">
+                <h3 class="text-[12px] font-black uppercase text-white tracking-widest">💳 Documentos por Mensualidad</h3>
+            </div>
+            <div class="p-4">
+                {% if mensualidades_con_documentos %}
+                <div class="space-y-4">
+                    {% for item in mensualidades_con_documentos %}
+                    <div class="border border-slate-100 rounded-xl overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+                            <a href="{% url 'agenda:detalle_mensualidad' item.mensualidad.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
+                                {{ item.mensualidad.periodo_display }} <span class="text-slate-400 font-medium">({{ item.mensualidad.codigo }})</span>
+                            </a>
+                            <span class="text-[10px] font-black uppercase text-slate-400">{{ item.mensualidad.get_estado_display }}</span>
+                        </div>
+                        <div class="px-2">
+                            {% include 'documentos/_seccion_documentos.html' with documentos=item.mensualidad.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene mensualidades registradas.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

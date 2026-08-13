@@ -52,6 +52,11 @@
                         <span class="text-xs">📋</span> Informe Evolución
                     </a>
 
+                    <a href="{{ documentos_paciente_url }}"
+                       class="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all shadow-md hover:shadow-lg flex items-center gap-1.5 transform hover:scale-105 uppercase tracking-wider">
+                        <span class="text-xs">🧠</span> Docs y Planes
+                    </a>
+
                     <a href="{% url 'pacientes:lista' %}" 
                        class="bg-white/10 hover:bg-white hover:text-indigo-600 text-white px-3 py-1.5 rounded-lg font-black text-[10px] transition-all border border-white/20 backdrop-blur-md flex items-center gap-1.5 uppercase tracking-wider transform hover:scale-105">
                         <span class="text-xs">←</span> Volver
@@ -482,76 +487,23 @@
     </div>
 </div>
 
-<!-- ✅ TODOS LOS DOCUMENTOS DEL PACIENTE: Plan Misael → Generales → Proyectos → Mensualidades -->
-<div class="max-w-7xl mx-auto px-2 space-y-2">
-
-    <!-- 0) Planes de trabajo (Misael Kids) -->
-    {% if error_verificando_vinculo %}
-    <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-[12px] text-amber-800 font-bold">
-        ⚠️ No se pudo verificar el vínculo con Misael Kids en este momento.
-    </div>
-    {% endif %}
-    {% include 'documentos/_seccion_planes_trabajo.html' with planes=planes_trabajo puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs vinculado=vinculado_misael_kids paciente_id=paciente.id %}
-
-    <!-- 1) Generales -->
-    {% include 'documentos/_seccion_documentos.html' with documentos=documentos_generales puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=subir_url_general titulo_seccion="📎 Documentos Generales del Paciente" %}
-
-    <!-- 2) Proyectos -->
-    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
-        <div class="bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3">
-            <h3 class="text-[12px] font-black uppercase text-white tracking-widest">📦 Documentos por Proyecto</h3>
-        </div>
-        <div class="p-4">
-            {% if proyectos_con_documentos %}
-            <div class="space-y-4">
-                {% for item in proyectos_con_documentos %}
-                <div class="border border-slate-100 rounded-xl overflow-hidden">
-                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
-                        <a href="{% url 'agenda:detalle_proyecto' item.proyecto.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
-                            {{ item.proyecto.nombre }} <span class="text-slate-400 font-medium">({{ item.proyecto.codigo }})</span>
-                        </a>
-                        <span class="text-[10px] font-black uppercase text-slate-400">{{ item.proyecto.get_estado_display }}</span>
-                    </div>
-                    <div class="px-2">
-                        {% include 'documentos/_seccion_documentos.html' with documentos=item.proyecto.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
-                    </div>
-                </div>
-                {% endfor %}
+<!-- 🧠 Documentos y planes de trabajo: viven en su propia página, acá solo un resumen -->
+<div class="max-w-7xl mx-auto px-2">
+    <a href="{{ documentos_paciente_url }}"
+       class="card-detalle group flex items-center justify-between gap-3 bg-gradient-to-r from-violet-700 via-purple-600 to-fuchsia-600 rounded-2xl px-5 py-4 shadow-sm">
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="w-11 h-11 shrink-0 rounded-xl bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center text-xl">🧠</div>
+            <div class="min-w-0">
+                <h3 class="text-[13px] font-black uppercase text-white tracking-widest">Documentos y planes de trabajo</h3>
+                <p class="text-[11px] text-violet-100 font-medium">
+                    {{ total_planes_trabajo }} plan{{ total_planes_trabajo|pluralize:",es" }} de Misael Kids · {{ total_documentos }} documento{{ total_documentos|pluralize }} en total
+                </p>
             </div>
-            {% else %}
-            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene proyectos registrados.</p>
-            {% endif %}
         </div>
-    </div>
-
-    <!-- 3) Mensualidades -->
-    <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm mt-6">
-        <div class="bg-gradient-to-r from-emerald-700 to-emerald-500 px-5 py-3">
-            <h3 class="text-[12px] font-black uppercase text-white tracking-widest">💳 Documentos por Mensualidad</h3>
-        </div>
-        <div class="p-4">
-            {% if mensualidades_con_documentos %}
-            <div class="space-y-4">
-                {% for item in mensualidades_con_documentos %}
-                <div class="border border-slate-100 rounded-xl overflow-hidden">
-                    <div class="bg-slate-50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
-                        <a href="{% url 'agenda:detalle_mensualidad' item.mensualidad.id %}" class="text-[13px] font-black text-slate-800 hover:text-indigo-600">
-                            {{ item.mensualidad.periodo_display }} <span class="text-slate-400 font-medium">({{ item.mensualidad.codigo }})</span>
-                        </a>
-                        <span class="text-[10px] font-black uppercase text-slate-400">{{ item.mensualidad.get_estado_display }}</span>
-                    </div>
-                    <div class="px-2">
-                        {% include 'documentos/_seccion_documentos.html' with documentos=item.mensualidad.documentos.all puede_subir=puede_subir_docs puede_eliminar=puede_eliminar_docs subir_url=item.subir_url titulo_seccion="" %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="text-[12px] text-slate-400 py-2">Este paciente no tiene mensualidades registradas.</p>
-            {% endif %}
-        </div>
-    </div>
-
+        <span class="shrink-0 bg-white/15 group-hover:bg-white text-white group-hover:text-violet-700 border border-white/20 px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-wider transition-all flex items-center gap-1.5">
+            Ver todo <span class="text-xs">→</span>
+        </span>
+    </a>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
