@@ -3470,95 +3470,104 @@
         <p class="section-subtitle">Conoce de cerca nuestras terapias y las historias de las familias que confían en nosotros.</p>
     </div>
 
-    <div class="video-carousel-wrap" style="max-width: 780px; margin: 0 auto; padding: 0 1.5rem;">
-
-        <!-- Tabs de selección -->
-        <div class="video-tabs" role="tablist" aria-label="Selecciona un video" style="
-            display:flex; gap:0.6rem; justify-content:center; margin-bottom:1.6rem; flex-wrap:wrap;
-        ">
-            <button type="button" class="video-tab active" data-video-slide="0" role="tab" aria-selected="true" style="
-                border:none; cursor:pointer; padding:0.55rem 1.1rem; border-radius:999px;
-                font-family:'Nunito',sans-serif; font-weight:800; font-size:0.85rem;
-                background: var(--azul); color:#fff; transition: all .25s ease;
-            ">💧 Hidroterapia</button>
-            <button type="button" class="video-tab" data-video-slide="1" role="tab" aria-selected="false" style="
-                border:none; cursor:pointer; padding:0.55rem 1.1rem; border-radius:999px;
-                font-family:'Nunito',sans-serif; font-weight:800; font-size:0.85rem;
-                background: var(--glass-bg,rgba(255,255,255,0.08)); color:var(--text); transition: all .25s ease;
-            ">💬 Testimonios</button>
-        </div>
-
-        <!-- Track del carrusel: un video visible a la vez -->
-        <div class="video-carousel-track" id="videoCarouselTrack" style="
+    <style>
+        /* Móvil (por defecto): carrusel, un video a la vez */
+        .videos-grid-wrap { max-width: 780px; margin: 0 auto; padding: 0 1.5rem; }
+        .videos-track { position:relative; }
+        .video-card {
             position:relative; border-radius:26px; padding:3px;
             background: linear-gradient(120deg, var(--azul), var(--verde), var(--amarillo), var(--morado), var(--azul));
             background-size: 300% 100%;
             animation: misael-border 6s linear infinite;
             box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-        ">
-            <!-- Slide 0: Hidroterapia -->
-            <div class="video-slide" data-slide-index="0" style="display:block;">
-                <video
-                    controls
-                    controlsList="nodownload noremoteplayback"
-                    disablePictureInPicture
-                    oncontextmenu="return false;"
-                    preload="metadata"
-                    playsinline
-                    poster="{% static 'img/poster_hidroterapia.webp' %}"
-                    style="width:100%; display:block; border-radius:24px; background:#000;">
-                    <source src="{% static 'video/hidroterapia.mp4' %}" type="video/mp4">
-                    Tu navegador no soporta la reproducción de video.
-                </video>
+            display: none;
+        }
+        .video-card.is-active { display: block; }
+        .video-card video { width:100%; display:block; border-radius:24px; background:#000; }
+        .video-caption { text-align:center; margin-top:0.9rem; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.95rem; color:var(--text); }
+        .video-tabs { display:flex; gap:0.6rem; justify-content:center; margin-bottom:1.6rem; flex-wrap:wrap; }
+        .video-tab {
+            border:none; cursor:pointer; padding:0.55rem 1.1rem; border-radius:999px;
+            font-family:'Nunito',sans-serif; font-weight:800; font-size:0.85rem;
+            background: var(--glass-bg,rgba(255,255,255,0.08)); color:var(--text); transition: all .25s ease;
+        }
+        .video-tab.active { background: var(--azul); color:#fff; }
+        .video-nav-arrows { display:flex; justify-content:center; gap:1rem; margin-top:1.2rem; }
+        .video-nav-btn {
+            width:42px; height:42px; border-radius:50%; border:2px solid var(--glass-border);
+            background: var(--bg-1); color:var(--text); font-size:1.1rem; cursor:pointer;
+        }
+
+        /* Pantallas grandes: ambos videos lado a lado, sin tabs ni flechas */
+        @media (min-width: 900px) {
+            .videos-grid-wrap { max-width: 1080px; }
+            .videos-track {
+                display:grid; grid-template-columns: 1fr 1fr; gap:1.8rem; align-items:start;
+            }
+            .video-card { display:block !important; }
+            .video-tabs, .video-nav-arrows { display:none !important; }
+        }
+    </style>
+
+    <div class="videos-grid-wrap">
+
+        <!-- Tabs de selección (solo visibles en móvil) -->
+        <div class="video-tabs" role="tablist" aria-label="Selecciona un video">
+            <button type="button" class="video-tab active" data-video-slide="0" role="tab" aria-selected="true">💧 Hidroterapia</button>
+            <button type="button" class="video-tab" data-video-slide="1" role="tab" aria-selected="false">💬 Testimonios</button>
+        </div>
+
+        <div class="videos-track" id="videosTrack">
+            <!-- Video 1: Hidroterapia -->
+            <div>
+                <div class="video-card is-active" data-slide-index="0">
+                    <video
+                        controls
+                        controlsList="nodownload noremoteplayback"
+                        disablePictureInPicture
+                        oncontextmenu="return false;"
+                        preload="metadata"
+                        playsinline
+                        poster="{% static 'img/poster_hidroterapia.webp' %}">
+                        <source src="{% static 'video/hidroterapia.mp4' %}" type="video/mp4">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                </div>
+                <div class="video-caption">💧 Hidroterapia</div>
             </div>
-            <!-- Slide 1: Testimonios -->
-            <div class="video-slide" data-slide-index="1" style="display:none;">
-                <video
-                    controls
-                    controlsList="nodownload noremoteplayback"
-                    disablePictureInPicture
-                    oncontextmenu="return false;"
-                    preload="metadata"
-                    playsinline
-                    poster="{% static 'img/poster_testimonio.webp' %}"
-                    style="width:100%; display:block; border-radius:24px; background:#000;">
-                    <source src="{% static 'video/testimonio_padres.mp4' %}" type="video/mp4">
-                    Tu navegador no soporta la reproducción de video.
-                </video>
+            <!-- Video 2: Testimonios -->
+            <div>
+                <div class="video-card" data-slide-index="1">
+                    <video
+                        controls
+                        controlsList="nodownload noremoteplayback"
+                        disablePictureInPicture
+                        oncontextmenu="return false;"
+                        preload="metadata"
+                        playsinline
+                        poster="{% static 'img/poster_testimonio.webp' %}">
+                        <source src="{% static 'video/testimonio_padres.mp4' %}" type="video/mp4">
+                        Tu navegador no soporta la reproducción de video.
+                    </video>
+                </div>
+                <div class="video-caption">💬 Testimonio de una familia</div>
             </div>
         </div>
 
-        <!-- Flechas prev/next -->
-        <div style="display:flex; justify-content:center; gap:1rem; margin-top:1.2rem;">
-            <button type="button" id="videoPrevBtn" aria-label="Video anterior" style="
-                width:42px; height:42px; border-radius:50%; border:2px solid var(--glass-border);
-                background: var(--bg-1); color:var(--text); font-size:1.1rem; cursor:pointer;
-            ">&#8592;</button>
-            <button type="button" id="videoNextBtn" aria-label="Siguiente video" style="
-                width:42px; height:42px; border-radius:50%; border:2px solid var(--glass-border);
-                background: var(--bg-1); color:var(--text); font-size:1.1rem; cursor:pointer;
-            ">&#8594;</button>
+        <!-- Flechas prev/next (solo visibles en móvil) -->
+        <div class="video-nav-arrows">
+            <button type="button" id="videoPrevBtn" aria-label="Video anterior" class="video-nav-btn">&#8592;</button>
+            <button type="button" id="videoNextBtn" aria-label="Siguiente video" class="video-nav-btn">&#8594;</button>
         </div>
 
-        <div style="text-align:center; margin-top: 1.8rem;">
-            <a href="https://wa.me/59176175352?text=Hola,%20me%20gustar%C3%ADa%20agendar%20una%20cita"
-               target="_blank" rel="noopener noreferrer" class="btn-primary" id="videoCtaLink">
-                📅 Agenda tu cita
-            </a>
-        </div>
     </div>
 </section>
 
 <script>
 (function() {
-    var slides = [
-        { wa: "https://wa.me/59176175352?text=Hola,%20me%20gustar%C3%ADa%20agendar%20una%20cita%20para%20el%20servicio%20de%20hidroterapia" },
-        { wa: "https://wa.me/59176175352?text=Hola,%20me%20gustar%C3%ADa%20agendar%20una%20cita" }
-    ];
     var current = 0;
     var tabs = document.querySelectorAll('.video-tab');
-    var slideEls = document.querySelectorAll('.video-slide');
-    var ctaLink = document.getElementById('videoCtaLink');
+    var slideEls = document.querySelectorAll('.video-card');
     var prevBtn = document.getElementById('videoPrevBtn');
     var nextBtn = document.getElementById('videoNextBtn');
 
@@ -3570,21 +3579,20 @@
     }
 
     function showSlide(index) {
+        // Este carrusel solo aplica visualmente en pantallas pequeñas (ver CSS);
+        // en pantallas grandes ambos videos ya están visibles en grid.
         if (index < 0) index = slideEls.length - 1;
         if (index >= slideEls.length) index = 0;
         current = index;
         pauseAllVideos();
         slideEls.forEach(function(s) {
-            s.style.display = (parseInt(s.dataset.slideIndex, 10) === current) ? 'block' : 'none';
+            s.classList.toggle('is-active', parseInt(s.dataset.slideIndex, 10) === current);
         });
         tabs.forEach(function(t) {
             var isActive = parseInt(t.dataset.videoSlide, 10) === current;
             t.classList.toggle('active', isActive);
             t.setAttribute('aria-selected', isActive ? 'true' : 'false');
-            t.style.background = isActive ? 'var(--azul)' : 'var(--glass-bg,rgba(255,255,255,0.08))';
-            t.style.color = isActive ? '#fff' : 'var(--text)';
         });
-        if (ctaLink && slides[current]) ctaLink.setAttribute('href', slides[current].wa);
     }
 
     tabs.forEach(function(t) {
