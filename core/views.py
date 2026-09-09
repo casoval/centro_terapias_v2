@@ -626,11 +626,15 @@ def crear_usuarios_pacientes_masivo(request):
     from django.contrib.auth.models import User
     import core.models as core_models
 
-    # Solo superadmin y gerentes
+    # Solo superadmin, gerentes y recepcionistas
     if not request.user.is_superuser:
-        if not (hasattr(request.user, 'perfil') and request.user.perfil.es_gerente()):
+        tiene_permiso = (
+            hasattr(request.user, 'perfil') and
+            (request.user.perfil.es_gerente() or request.user.perfil.es_recepcionista())
+        )
+        if not tiene_permiso:
             messages.error(request, '⚠️ No tienes permisos para esta acción.')
-            return redirect('core:lista_usuarios')
+            return redirect('core:dashboard')
 
     # ─── Helpers ───────────────────────────────────────────────────────────
     def quitar_acentos(texto):
