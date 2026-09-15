@@ -938,3 +938,110 @@ def backup_ejecutar(request):
         log.exception("Error en backup manual")
 
     return redirect('recordatorios:backup_monitor')
+
+
+@login_required
+def backup_descargar(request):
+    """
+    Genera un dump de la base de datos y lo entrega como descarga
+    DIRECTA al navegador de quien lo pide (no se guarda en el
+    servidor ni se envía por correo). Pensado para depurar un
+    problema puntual desde el admin — NO reemplaza ni toca el
+    respaldo automático diario por correo (backup_db.py / cron).
+
+    Solo superusuarios (admin): en este proyecto el admin real es
+    `user.is_superuser`, no un rol de PerfilUsuario (ver
+    documentos/permissions.py para el mismo criterio).
+    """
+    if request.method != 'POST':
+        return redirect('recordatorios:backup_monitor')
+
+    if not request.user.is_superuser:
+        log.warning(f"Intento de descarga directa de BD por usuario no admin: {request.user}")
+        messages.error(request, '❌ Solo un administrador puede descargar la base de datos completa.')
+        return redirect('recordatorios:backup_monitor')
+
+    import os
+    import tempfile
+    from pathlib import Path
+    from datetime import datetime
+    from django.conf import settings as dj_settings
+    from django.http import HttpResponse
+    from recordatorios.models import RegistroBackup
+
+    # Usa la config real de conexión de Django (settings.DATABASES),
+    # no variables de entorno sueltas — así no depende de que además
+    # existan DB_NAME/DB_USER/etc. por separado en el .env.
+    db          = dj_settings.DATABASES['default']
+    db_name     = db.get('NAME')
+    db_user     = db.get('USER')
+    db_password = db.get('PASSWORD') or ''
+    db_host     = db.get('HOST') or 'localhost'
+    db_port     = str(db.get('PORT') or '5432')
+
+    ts              = datetime.now().strftime('%Y%m%d_%H%M%S')
+    nombre_archivo  = f"backup_{db_name}_{ts}.dump"
+    inicio          = time.time()
+    registro        = RegistroBackup(tipo='manual')
+
+    def _registrar_fallo(mensaje_error, duracion):
+        registro.exitoso           = False
+        registro.duracion_segundos = duracion
+        registro.mensaje_error     = mensaje_error[:500]
+        registro.destinatarios     = f'Descarga local — {request.user.username} (falló)'
+        registro.save()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        destino = Path(tmp) / nombre_archivo
+
+        env = os.environ.copy()
+        env['PGPASSWORD'] = db_password
+
+        cmd = [
+            'pg_dump',
+            '-h', db_host,
+            '-p', db_port,
+            '-U', db_user,
+            '-d', db_name,
+            '--no-password',
+            '-F', 'c',      # formato custom comprimido, igual que el respaldo por correo
+            '-Z', '6',
+            '-f', str(destino),
+        ]
+
+        try:
+            resultado = subprocess.run(cmd, env=env, capture_output=True, timeout=300)
+            duracion  = round(time.time() - inicio, 1)
+
+            if resultado.returncode != 0 or not destino.exists():
+                error_msg = resultado.stderr.decode(errors='ignore')[:500] or 'pg_dump no generó el archivo.'
+                _registrar_fallo(error_msg, duracion)
+                log.error(f"Fallo pg_dump en descarga directa: {error_msg}")
+                messages.error(request, '❌ Error al generar el respaldo. Revisa los logs.')
+                return redirect('recordatorios:backup_monitor')
+
+            tamanio_mb     = destino.stat().st_size / (1024 * 1024)
+            archivo_bytes  = destino.read_bytes()
+
+        except subprocess.TimeoutExpired:
+            _registrar_fallo('Timeout: pg_dump tardó más de 5 minutos.', round(time.time() - inicio, 1))
+            messages.error(request, '❌ El respaldo tardó demasiado y fue cancelado.')
+            return redirect('recordatorios:backup_monitor')
+
+        except Exception as e:
+            log.exception("Error inesperado generando dump para descarga directa")
+            _registrar_fallo(str(e), round(time.time() - inicio, 1))
+            messages.error(request, f'❌ Error inesperado: {e}')
+            return redirect('recordatorios:backup_monitor')
+
+    registro.exitoso           = True
+    registro.duracion_segundos = duracion
+    registro.tamanio_mb        = f"{tamanio_mb:.2f} MB"
+    registro.destinatarios     = f'Descarga local — {request.user.get_full_name() or request.user.username}'
+    registro.save()
+    log.info(f"Descarga directa de BD por {request.user.username}. Duración: {duracion}s, tamaño: {tamanio_mb:.2f} MB")
+
+    response = HttpResponse(archivo_bytes, content_type='application/octet-stream')
+    response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+    response['Content-Length']      = len(archivo_bytes)
+    return response

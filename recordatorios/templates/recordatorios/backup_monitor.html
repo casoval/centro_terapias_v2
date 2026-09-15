@@ -70,16 +70,32 @@
       </div>
     </div>
 
-    <form method="post" action="{% url 'recordatorios:backup_ejecutar' %}" id="form-backup">
-      {% csrf_token %}
-      <button type="submit" id="btn-backup"
-        class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all hover:-translate-y-0.5"
-        style="background: linear-gradient(135deg, #7c3aed, #22d3a0); box-shadow: 0 0 16px rgba(34,211,160,.15);">
-        <span class="spinner"></span>
-        <span class="btn-icon">💾</span>
-        Hacer Respaldo Ahora
-      </button>
-    </form>
+    <div class="flex items-center gap-3 flex-wrap">
+      <form method="post" action="{% url 'recordatorios:backup_ejecutar' %}" id="form-backup">
+        {% csrf_token %}
+        <button type="submit" id="btn-backup"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all hover:-translate-y-0.5"
+          style="background: linear-gradient(135deg, #7c3aed, #22d3a0); box-shadow: 0 0 16px rgba(34,211,160,.15);">
+          <span class="spinner"></span>
+          <span class="btn-icon">💾</span>
+          Hacer Respaldo Ahora
+        </button>
+      </form>
+
+      {% if user.is_superuser %}
+      <form method="post" action="{% url 'recordatorios:backup_descargar' %}" id="form-backup-descarga">
+        {% csrf_token %}
+        <button type="submit" id="btn-backup-descarga"
+          title="Descarga el .dump directo a tu computadora — no se envía por correo ni queda en el servidor. Solo admin."
+          class="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white transition-all hover:-translate-y-0.5"
+          style="background: linear-gradient(135deg, #0ea5e9, #0f172a); border: 1px solid rgba(14,165,233,0.4); box-shadow: 0 0 16px rgba(14,165,233,.15);">
+          <span class="spinner"></span>
+          <span class="btn-icon">⬇️</span>
+          Descargar Copia de BD
+        </button>
+      </form>
+      {% endif %}
+    </div>
   </div>
 
   <!-- STATS -->
@@ -188,6 +204,26 @@
           </div>
         </div>
       </div>
+
+      {% if user.is_superuser %}
+      <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(14,165,233,0.3);">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl">⬇️</span>
+          <div class="flex-1">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <h3 class="text-white font-bold text-sm">Descarga directa (solo admin)</h3>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style="background:rgba(14,165,233,0.15); color:#7dd3fc; border:1px solid rgba(14,165,233,0.3);">
+                A tu computadora
+              </span>
+            </div>
+            <p class="text-xs" style="color:rgba(255,255,255,0.6);">
+              El botón <strong class="text-white">"Descargar Copia de BD"</strong> genera un respaldo igual de completo, pero en vez de enviarlo por correo lo entrega directo como descarga del navegador. No queda guardado en el servidor. Pensado para revisar o depurar algo puntual, sin depender del correo. Solo visible para administradores.
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="rounded-xl p-4" style="background:#111827; border:1px solid rgba(255,255,255,0.08);">
         <div class="flex items-start gap-3">
@@ -362,6 +398,23 @@
     btn.classList.add('btn-loading');
     btn.disabled = true;
   });
+
+  // ── Botón de descarga directa (solo admin) ──
+  const formDescarga = document.getElementById('form-backup-descarga');
+  if (formDescarga) {
+    formDescarga.addEventListener('submit', function() {
+      const btn = document.getElementById('btn-backup-descarga');
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+      // La descarga llega como respuesta directa (Content-Disposition: attachment),
+      // no hay redirect que la desactive — la reactivamos tras un momento
+      // por si el usuario quiere descargar otra copia después.
+      setTimeout(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+      }, 4000);
+    });
+  }
 
   // ── Toast ──
   function showToast(msg, type) {

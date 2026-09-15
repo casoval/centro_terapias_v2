@@ -22,6 +22,7 @@ urlpatterns = [
     # ── Backup ────────────────────────────────────────
     path('backup/',               views.backup_monitor,       name='backup_monitor'),
     path('backup/ejecutar/',      views.backup_ejecutar,      name='backup_ejecutar'),
+    path('backup/descargar/',     views.backup_descargar,     name='backup_descargar'),
 
     # ── Experiencia del paciente ──────────────────────
     path('hitos/',                api.hitos_asistencia,       name='hitos-asistencia'),
