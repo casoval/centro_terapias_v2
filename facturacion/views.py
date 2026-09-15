@@ -2248,13 +2248,40 @@ def sesiones_pendientes_ajax(request, paciente_id):
     """
     
     paciente = get_object_or_404(Paciente, id=paciente_id)
-    
+
+    # 🔧 FIX: `pagado` es una @property calculada en el modelo (no un campo
+    # de base de datos), así que no se puede filtrar directamente con
+    # `.filter(pagado=False)` — eso lanza FieldError. Se usa el mismo patrón
+    # de subqueries correlacionadas que en otras vistas (ver detalle_cuenta_corriente)
+    # para calcular el pagado real (directo + pagos masivos, cualquier método)
+    # y filtrar por saldo pendiente > 0 a nivel de base de datos.
+    from django.db.models import OuterRef, Subquery
+
+    pagos_directos_sesion_sq = Pago.objects.filter(
+        sesion=OuterRef('pk'), anulado=False
+    ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
+    pagos_masivos_sesion_sq = DetallePagoMasivo.objects.filter(
+        sesion=OuterRef('pk'), tipo='sesion', pago__anulado=False
+    ).order_by().values('sesion').annotate(total=Sum('monto')).values('total')
+
     sesiones = Sesion.objects.filter(
         paciente=paciente,
-        pagado=False,
         estado__in=['realizada', 'realizada_retraso', 'falta']
+    ).annotate(
+        _pagado_directo_calc=Coalesce(
+            Subquery(pagos_directos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        ),
+        _pagado_masivo_calc=Coalesce(
+            Subquery(pagos_masivos_sesion_sq, output_field=DecimalField(max_digits=10, decimal_places=2)),
+            Value(Decimal('0.00'), output_field=DecimalField(max_digits=10, decimal_places=2))
+        ),
+        total_pagado_calc=F('_pagado_directo_calc') + F('_pagado_masivo_calc')
+    ).filter(
+        monto_cobrado__gt=F('total_pagado_calc')
     ).select_related('servicio').order_by('-fecha')[:20]
-    
+
     return render(request, 'facturacion/partials/sesiones_pendientes.html', {
         'sesiones': sesiones,
         'paciente': paciente,
