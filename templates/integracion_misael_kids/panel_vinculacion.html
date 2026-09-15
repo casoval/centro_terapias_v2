@@ -258,6 +258,40 @@ async function vincularExistente(pacienteId) {
     }
 }
 
+async function desvincular(pacienteId, ninoNombre, btn) {
+    const ok = confirm(
+        `¿Desvincular a ${ninoNombre || 'este niño'} de Misael Kids?\n\n` +
+        `Esto rompe la conexión entre el paciente y el niño. Las derivaciones ` +
+        `y documentos ya sincronizados NO se borran (quedan como historial), ` +
+        `pero Misael Kids dejará de recibir novedades del plan de trabajo ` +
+        `hasta que se vuelva a vincular.`
+    );
+    if (!ok) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Desvinculando…';
+    try {
+        const resp = await fetch('{% url "integracion_misael_kids_panel:api_desvincular" %}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrftoken},
+            body: `paciente_id=${pacienteId}`,
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+            alert('❌ ' + (data.detail || 'No se pudo desvincular.'));
+            btn.disabled = false;
+            btn.textContent = '🔓 Desvincular';
+            return;
+        }
+        const card = document.getElementById(`vinculo-${pacienteId}`);
+        if (card) card.remove();
+    } catch (e) {
+        alert('❌ No se pudo conectar con Misael Kids.');
+        btn.disabled = false;
+        btn.textContent = '🔓 Desvincular';
+    }
+}
+
 async function cargarVinculados() {
     const estado = document.getElementById('vinculados-estado');
     const cont = document.getElementById('vinculados-resultados');
@@ -287,6 +321,11 @@ async function cargarVinculados() {
                             <span class="chev">▾</span>
                         </button>` : ''}
                         <a href="/pacientes/${v.paciente_centro_id}/" class="text-indigo-600 text-xs font-bold hover:underline whitespace-nowrap">Ver paciente →</a>
+                        <button type="button" class="text-rose-400 hover:text-rose-600 text-xs font-bold hover:underline whitespace-nowrap"
+                                title="Rompe el vínculo con Misael Kids. El historial (derivaciones, documentos ya sincronizados) no se borra."
+                                onclick="desvincular(${v.paciente_centro_id}, '${(v.nino_nombre || '').replace(/'/g, "\\'")}', this)">
+                            🔓 Desvincular
+                        </button>
                     </div>
                 </div>
                 <div class="derivaciones-detalle hidden w-full mt-2 pt-2 border-t border-slate-100 text-xs"></div>

@@ -76,6 +76,10 @@ def _post(path, json_body=None, timeout=10):
     return _request('POST', path, json_body=json_body, timeout=timeout)
 
 
+def _delete(path, params=None, timeout=10):
+    return _request('DELETE', path, params=params, timeout=timeout)
+
+
 def consultar_vinculo(paciente_id):
     """
     Devuelve {'vinculado': bool, 'nino_id':..., 'nino_nombre':..., ...}
@@ -141,6 +145,26 @@ def crear_vinculo(nino_id, paciente_centro_id, nombre_paciente_centro=''):
         'paciente_centro_id': paciente_centro_id,
         'nombre_paciente_centro': nombre_paciente_centro,
     })
+
+
+def desvincular(paciente_id):
+    """
+    Rompe el vínculo entre este paciente y su niño en Misael Kids.
+
+    Solo borra la relación (VinculoCentroMisael) — el niño, las
+    derivaciones ya hechas y los documentos que ya se sincronizaron
+    quedan intactos del lado de Misael Kids, como historial. Después de
+    esto, el paciente vuelve a aparecer como "sin vincular" y se puede
+    volver a vincular desde cero si hace falta.
+
+    Propaga MisaelKidsError si el paciente no estaba vinculado (404) o
+    si Misael Kids rechaza la operación, para que la vista lo muestre
+    tal cual al usuario en vez de fallar en silencio.
+    """
+    data = _delete('/consulta/desvincular/', params={'paciente_centro_id': paciente_id})
+    if data is None:
+        raise MisaelKidsError('Ese paciente no está vinculado con ningún niño.')
+    return data
 
 
 def listar_vinculados():

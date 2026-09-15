@@ -137,6 +137,34 @@ def api_derivaciones(request):
 
 @login_required
 @require_POST
+def api_desvincular(request):
+    """
+    POST paciente_id=<id> — rompe el vínculo de ese paciente con Misael
+    Kids (botón "Desvincular" en la tarjeta de "Niños vinculados").
+
+    Solo borra la relación en Misael Kids — el niño, las derivaciones
+    ya hechas y los documentos ya sincronizados quedan intactos, como
+    historial. El paciente vuelve a aparecer como "sin vincular" y se
+    puede volver a vincular después si hace falta.
+    """
+    if not _puede_gestionar(request.user):
+        return JsonResponse({'detail': 'Sin permiso.'}, status=403)
+
+    paciente_id = request.POST.get('paciente_id')
+    if not paciente_id:
+        return JsonResponse({'detail': 'paciente_id es requerido.'}, status=400)
+
+    try:
+        mk.desvincular(paciente_id)
+    except mk.MisaelKidsNoConfigurado as exc:
+        return JsonResponse({'detail': str(exc)}, status=503)
+    except mk.MisaelKidsError as exc:
+        return JsonResponse({'detail': str(exc)}, status=502)
+    return JsonResponse({'detail': 'Vínculo eliminado correctamente.'})
+
+
+@login_required
+@require_POST
 def vincular_paciente_existente(request):
     """
     POST { nino_id, paciente_id } — vincula un niño de Misael Kids con
