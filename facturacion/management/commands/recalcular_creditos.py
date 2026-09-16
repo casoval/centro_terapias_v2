@@ -67,26 +67,37 @@ class Command(BaseCommand):
             credito_calculado = pagos_adelantados - uso_credito
             
             if solo_verificar:
-                if abs(cuenta.saldo - credito_calculado) > Decimal('0.01'):
+                # 🔧 FIX: el campo real en el modelo es `saldo_actual`, no `saldo`
+                # (ese atributo nunca existió — este comando nunca llegó a
+                # correr con éxito antes de este fix).
+                if abs(cuenta.saldo_actual - credito_calculado) > Decimal('0.01'):
                     inconsistentes += 1
                     self.stdout.write(
                         self.style.WARNING(
                             f"⚠️  {paciente.nombre_completo}:\n"
-                            f"   En BD: Bs.{cuenta.saldo} | "
+                            f"   En BD: Bs.{cuenta.saldo_actual} | "
                             f"Calculado: Bs.{credito_calculado}\n"
-                            f"   Diferencia: Bs.{cuenta.saldo - credito_calculado}\n"
+                            f"   Diferencia: Bs.{cuenta.saldo_actual - credito_calculado}\n"
                         )
                     )
             else:
-                saldo_anterior = cuenta.saldo
-                cuenta.actualizar_saldo()
+                # 🔧 FIX: cuenta.actualizar_saldo() llama internamente a
+                # AccountService.update_balance(), que trabaja sobre una
+                # instancia NUEVA de CuentaCorriente (no la variable `cuenta`
+                # de este loop) — así que `cuenta` se queda con los valores
+                # viejos en memoria después de llamarlo. Hay que capturar el
+                # objeto que update_balance() realmente devuelve para leer el
+                # saldo actualizado.
+                from facturacion.services import AccountService
+                saldo_anterior = cuenta.saldo_actual
+                cuenta_actualizada = AccountService.update_balance(paciente)
                 
-                if abs(saldo_anterior - cuenta.saldo) > Decimal('0.01'):
+                if abs(saldo_anterior - cuenta_actualizada.saldo_actual) > Decimal('0.01'):
                     actualizados += 1
                     self.stdout.write(
                         self.style.SUCCESS(
                             f"✅ {paciente.nombre_completo}: "
-                            f"Bs.{saldo_anterior} → Bs.{cuenta.saldo}"
+                            f"Bs.{saldo_anterior} → Bs.{cuenta_actualizada.saldo_actual}"
                         )
                     )
         
