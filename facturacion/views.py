@@ -1072,10 +1072,15 @@ def detalle_cuenta_ajax(request, paciente_id):
     )['total']
     
     # Uso de crédito
+    # 🔧 FIX: solo cuenta si sigue ligado a sesión/proyecto/mensualidad, o a
+    # detalles de un pago masivo (DetallePagoMasivo).
     uso_credito = Pago.objects.filter(
         paciente=paciente,
         anulado=False,
         metodo_pago__nombre="Uso de Crédito"
+    ).exclude(
+        sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+        detalles_masivos__isnull=True
     ).aggregate(total=Sum('monto'))['total'] or Decimal('0.00')
     
     return JsonResponse({
@@ -2494,11 +2499,16 @@ def pagos_masivos(request):
             pacientes_con_deuda.append(p)
 
     # Ordenar por mayor deuda
+    # 🔧 FIX: antes se cortaba a los primeros 50 (pacientes_con_deuda[:50]),
+    # lo que ocultaba pacientes con deudas pequeñas (p.ej. solo 1-2 sesiones
+    # sueltas sin mensualidad/proyecto) cuando había 50+ pacientes con deudas
+    # más grandes. El cálculo de arriba ya se hace para TODOS los pacientes
+    # activos de todas formas, así que cortar la lista no ahorraba ninguna
+    # consulta — solo escondía pacientes reales con deuda real del dropdown.
     pacientes_con_deuda.sort(
         key=lambda p: p.deuda_total_display if hasattr(p, 'deuda_total_display') else 0, 
         reverse=True
     )
-    pacientes_con_deuda = pacientes_con_deuda[:50]
 
     # Métodos de pago
     metodos_pago = MetodoPago.objects.filter(activo=True)
@@ -3847,6 +3857,7 @@ def _calcular_financiero_paciente_por_sucursal(paciente, fecha_desde_obj=None, f
         )
         sid_principal = top['sucursal_id'] if top else (resultado[0]['sucursal_id'] if resultado else None)
 
+        # 🔧 FIX: uso_credito_p solo cuenta pagos que SIGUEN ligados a algo real.
         _excl = {'metodo_pago__nombre': 'Uso de Crédito'}
 
         pagos_adelantados = (
@@ -3859,6 +3870,8 @@ def _calcular_financiero_paciente_por_sucursal(paciente, fecha_desde_obj=None, f
         uso_credito_p = (
             Pago.objects.filter(paciente=paciente, anulado=False,
                                 metodo_pago__nombre='Uso de Crédito')
+            .exclude(sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+                     detalles_masivos__isnull=True)
             .aggregate(t=Coalesce(Sum('monto'), Decimal('0')))['t']
         )
         devoluciones_libres = (

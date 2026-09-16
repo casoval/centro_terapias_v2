@@ -400,10 +400,24 @@ class AccountService:
         cuenta.pagos_proyectos_planificados = pagos_proyectos_planificados  # ✅ Guardar en BD
         
         # 3.4.4 Uso de Crédito (pagos con método "Uso de Crédito")
+        # 🔧 FIX: solo cuenta como "usado" si el pago SIGUE ligado a una sesión,
+        # proyecto, mensualidad, o a detalles de un pago masivo (DetallePagoMasivo
+        # — los pagos masivos nunca llenan sesion/proyecto/mensualidad en el
+        # propio Pago, ese vínculo vive en DetallePagoMasivo). Un pago "Uso de
+        # Crédito" sin NINGUNO de esos vínculos solo puede ser uno que se
+        # desvinculó (p.ej. por procesar_cambio_estado al reprogramar/cancelar
+        # una sesión) — ya no está "gastado" en nada real, así que no debe
+        # restar del crédito disponible. pagos_sin_asignar (arriba) sigue
+        # excluyendo "Uso de Crédito" tal como antes; NO se le agrega este
+        # monto ahí, solo se deja de restar aquí — sumarlo en los dos lados
+        # duplicaría el monto liberado.
         uso_credito = Pago.objects.filter(
             paciente=paciente,
             metodo_pago__nombre="Uso de Crédito",
             anulado=False
+        ).exclude(
+            sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+            detalles_masivos__isnull=True
         ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
         
         cuenta.uso_credito = uso_credito  # ✅ Guardar en BD
@@ -980,6 +994,9 @@ class AccountService:
                 paciente=paciente,
                 metodo_pago__nombre="Uso de Crédito",
                 anulado=False,
+            ).exclude(
+                sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+                detalles_masivos__isnull=True
             ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
 
             devoluciones_credito_previas = Devolucion.objects.filter(

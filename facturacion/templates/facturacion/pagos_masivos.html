@@ -14,20 +14,34 @@
     <!-- PASO 1: Seleccionar Paciente -->
     <div class="bg-white border rounded-lg p-4 mb-4 shadow-sm">
         <h2 class="text-sm font-bold text-gray-900 mb-3">Paso 1: Seleccionar Paciente</h2>
-        
+
+        <!-- 🔍 Filtro de búsqueda por nombre (filtra el <select> de abajo en vivo, sin recargar) -->
+        <div class="mb-2">
+            <input type="text"
+                   id="filtro-paciente-deuda"
+                   placeholder="🔍 Buscar paciente por nombre..."
+                   autocomplete="off"
+                   class="w-full px-2 py-1.5 text-sm border rounded-lg"
+                   oninput="filtrarPacientesConDeuda(this.value)">
+            <p id="contador-pacientes-deuda" class="text-[11px] text-gray-500 mt-1"></p>
+        </div>
+
         <form method="get" class="flex gap-2">
-            <select name="paciente" 
+            <select name="paciente"
+                    id="select-paciente-deuda"
                     onchange="this.form.submit()"
                     class="flex-1 px-2 py-1.5 text-sm border rounded-lg">
                 <option value="">Seleccionar paciente con deuda...</option>
                 {% for p in pacientes_con_deuda %}
-                <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
+                <option value="{{ p.id }}"
+                        data-nombre="{{ p.nombre_completo|lower }}"
+                        {% if paciente and paciente.id == p.id %}selected{% endif %}>
                     {{ p.nombre_completo }} - DEBE: Bs. {{ p.deuda_total_display|floatformat:0 }}
                 </option>
                 {% endfor %}
             </select>
         </form>
-        
+
         {% if not pacientes_con_deuda %}
         <div class="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 text-center">
             <p class="text-sm text-green-700 font-medium">✅ No hay pacientes con deudas pendientes</p>
@@ -524,6 +538,46 @@
 </div>
 
 <script>
+// 🔍 FILTRO: filtra en vivo las <option> del selector de "paciente con deuda"
+// por nombre, sin recargar la página (útil ahora que la lista puede tener
+// decenas de pacientes, no solo los 50 con mayor deuda).
+function filtrarPacientesConDeuda(texto) {
+    const select = document.getElementById('select-paciente-deuda');
+    const contador = document.getElementById('contador-pacientes-deuda');
+    if (!select) return;
+
+    const filtro = texto.trim().toLowerCase();
+    let visibles = 0;
+    let total = 0;
+
+    for (const opt of select.options) {
+        if (!opt.value) continue; // saltar "Seleccionar paciente con deuda..."
+        total++;
+        const nombre = opt.dataset.nombre || opt.textContent.toLowerCase();
+        const coincide = filtro === '' || nombre.includes(filtro);
+        opt.hidden = !coincide;
+        if (coincide) visibles++;
+    }
+
+    if (contador) {
+        contador.textContent = filtro === ''
+            ? `${total} paciente${total === 1 ? '' : 's'} con deuda`
+            : `${visibles} de ${total} coinciden con "${texto}"`;
+    }
+
+    // Si el paciente seleccionado quedó oculto por el filtro, lo deseleccionamos
+    // para no confundir (el <select> seguiría mostrando su nombre aunque no
+    // aparezca en la lista visible).
+    if (select.selectedIndex > 0 && select.options[select.selectedIndex].hidden) {
+        select.selectedIndex = 0;
+    }
+}
+
+// Inicializa el contador al cargar la página
+document.addEventListener('DOMContentLoaded', function () {
+    filtrarPacientesConDeuda('');
+});
+
 // ✅ VALIDACIÓN: Solo permite teclas de números enteros (sin decimales)
 function soloEnteros(e) {
     const permitidas = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];

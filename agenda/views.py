@@ -3655,6 +3655,19 @@ def procesar_cambio_estado(request, sesion_id):
 
                 if accion_pago == 'convertir_credito':
                     # Desvincular de la sesión → queda como pago adelantado (crédito)
+                    #
+                    # 🔧 NOTA: NO se cambia metodo_pago aunque sea "Uso de Crédito".
+                    # El fix real está en las fórmulas de AccountService.update_balance
+                    # (y sus duplicados en registrar_devolucion, Devolucion.clean(),
+                    # api de desglose de crédito, reporte por sucursal y el comando
+                    # recalcular_creditos): ahora "pagos_sin_asignar" ya no excluye
+                    # "Uso de Crédito" en bloque, y "uso_credito" solo cuenta pagos
+                    # que SIGUEN ligados a una sesión/proyecto/mensualidad real. Con
+                    # sesion=None este pago cae naturalmente en "disponible" sin
+                    # necesidad de reclasificar el método (que además rompería la
+                    # exclusión de "Uso de Crédito" en reportes financieros/ingresos,
+                    # contando este dinero como ingreso nuevo cuando ya se contó el
+                    # día del pago original).
                     pago.sesion = None
                     pago.concepto = (
                         f"Crédito por cambio de estado - sesión {sesion.fecha} "

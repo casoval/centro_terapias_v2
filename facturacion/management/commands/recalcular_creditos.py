@@ -43,6 +43,9 @@ class Command(BaseCommand):
             cuenta, _ = CuentaCorriente.objects.get_or_create(paciente=paciente)
             
             # ✅ CORREGIDO: Calcular manualmente con nombre correcto
+            # 🔧 FIX adicional: uso_credito solo cuenta lo que sigue ligado a
+            # una sesión/proyecto/mensualidad real (ver nota en
+            # AccountService.update_balance).
             pagos_adelantados = Pago.objects.filter(
                 paciente=paciente,
                 anulado=False,
@@ -56,6 +59,9 @@ class Command(BaseCommand):
                 paciente=paciente,
                 anulado=False,
                 metodo_pago__nombre="Uso de Crédito"  # ✅ Nombre correcto
+            ).exclude(
+                sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+                detalles_masivos__isnull=True
             ).aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
             
             credito_calculado = pagos_adelantados - uso_credito

@@ -1171,6 +1171,10 @@ class Devolucion(models.Model):
                     metodo_pago__nombre="Uso de Crédito",
                     anulado=False,
                 )
+                .exclude(
+                    sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True,
+                    detalles_masivos__isnull=True
+                )
                 .aggregate(total=Sum('monto'))['total']
             ) or Decimal('0')
 
