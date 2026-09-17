@@ -806,6 +806,33 @@ class Pago(models.Model):
                     f"de esta sesión y luego intente anular este pago."
                 )
 
+        # ── Bloqueo por crédito ya liberado (sin sesión/proyecto/mensualidad) ──
+        # Un pago "Uso de Crédito" sin ningún vínculo activo (ni sesión, ni
+        # proyecto, ni mensualidad, ni detalles de pago masivo) ya está
+        # contando como crédito disponible del paciente — se liberó por un
+        # cambio de estado (sesión reprogramada/cancelada/con permiso).
+        # Anularlo NO le quita nada a ese crédito disponible (la fórmula de
+        # AccountService.update_balance ya lo excluye de "uso_credito" esté
+        # anulado o no), pero SÍ lo sacaría de los reportes de ingresos/total
+        # pagado — dejando crédito gastable por el paciente sin respaldo en
+        # los reportes financieros. Para retirar ese saldo de verdad hay que
+        # usar el flujo de devolución, no la anulación de este recibo.
+        if (
+            self.metodo_pago.nombre == "Uso de Crédito"
+            and not self.sesion_id
+            and not self.proyecto_id
+            and not self.mensualidad_id
+            and not self.detalles_masivos.exists()
+        ):
+            raise ValidationError(
+                "Este pago ya está liberado como crédito disponible del "
+                "paciente (no está ligado a ninguna sesión, proyecto o "
+                "mensualidad). Anularlo lo quitaría de los reportes de "
+                "ingresos sin afectar su crédito disponible, generando una "
+                "inconsistencia contable. Si necesitas retirar este saldo, "
+                "usa el flujo de devolución en lugar de anular este recibo."
+            )
+
         # ── Proceder con la anulación ─────────────────────────────────────────
         self.anulado = True
         self.motivo_anulacion = motivo

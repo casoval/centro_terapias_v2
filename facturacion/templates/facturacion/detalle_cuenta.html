@@ -3270,12 +3270,27 @@
                                             👁️ Ver
                                         </button>
                                         {% if not pago.anulado %}
-                                        <button
-                                            onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
-                                            class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-md text-[10px] font-bold"
-                                            title="Anular uso de crédito — el monto regresa al crédito disponible del paciente">
-                                            ↩️ Anular
-                                        </button>
+                                            {% if pago.sesion or pago.proyecto or pago.mensualidad %}
+                                            <button
+                                                onclick="confirmarAnulacion({{ pago.id }}, '{{ pago.numero_recibo }}')"
+                                                class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-md text-[10px] font-bold"
+                                                title="Anular uso de crédito — el monto regresa al crédito disponible del paciente">
+                                                ↩️ Anular
+                                            </button>
+                                            {% else %}
+                                            <!-- 🔧 Este pago ya está liberado (sin sesión/proyecto/
+                                                 mensualidad) — el monto YA está en el crédito
+                                                 disponible del paciente. Anularlo no le quitaría
+                                                 nada a ese crédito (la fórmula ya lo excluye igual
+                                                 esté anulado o no), pero SÍ lo sacaría de los
+                                                 reportes de ingresos/total pagado — dejando
+                                                 crédito gastable sin respaldo en los reportes.
+                                                 Por eso no se permite anular desde aquí. -->
+                                            <span class="text-[10px] text-gray-400 italic"
+                                                  title="Este pago ya está disponible como crédito del paciente. Anularlo lo quitaría de los reportes de ingresos sin afectar su crédito disponible, dejando una inconsistencia contable — por eso esta acción no está disponible para pagos liberados.">
+                                                No aplica
+                                            </span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 </td>
