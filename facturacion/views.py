@@ -127,7 +127,268 @@ def _total_pagado_mensualidad(mensualidad):
     ).aggregate(total=Coalesce(Sum('monto'), Decimal('0')))['total']
 
     return pagos_directos + pagos_masivos - devoluciones
-    
+
+
+def _calcular_alertas_lista_cuentas(paciente_ids):
+    """
+    Calcula, para una lista de IDs de paciente (normalmente los de la
+    página actual de "Cuentas Corrientes"), 3 categorías de alerta por
+    paciente. Cada una devuelve un booleano "hay que revisar" + una lista
+    de mensajes con el detalle (para mostrar en un modal al hacer click).
+
+    1) CONSISTENCIA ('revisar_cuenta' / 'detalle_consistencia')
+       La Deuda Proyectada (suma de saldos pendientes por ítem: sesiones
+       normales + programadas, mensualidades, proyectos en_progreso/
+       finalizados/planificados) no coincide con el Saldo Proyectado
+       general de la cuenta (cuenta.saldo_real). Es el mismo chequeo que
+       dispara el pop-up de "Deuda Pendiente" en el detalle de cuenta.
+
+    2) COBROS ATRASADOS ('tiene_cobros_atrasados' / 'detalle_cobros_atrasados')
+       Deuda que YA debería estar pagada según las reglas de negocio:
+         - Sesiones normales (realizada/realizada_retraso/falta): se pagan
+           hasta el día de la sesión. Recién se consideran atrasadas desde
+           el día SIGUIENTE a la fecha de la sesión (fecha < hoy).
+         - Proyectos finalizados/cancelados con deuda: se da 1 día de
+           gracia desde que cambiaron a ese estado (se usa fecha_fin_real
+           para "finalizado"; a falta de un campo dedicado para
+           "cancelado", se usa fecha_modificacion como mejor aproximación
+           disponible). Recién se marcan atrasados al día siguiente.
+         - Mensualidades: se consideran atrasadas desde el día 1 del mes
+           siguiente al que corresponden (ej. mensualidad de Agosto sin
+           pagar se marca el 1 de Septiembre).
+
+    3) AGENDA PENDIENTE ('tiene_agenda_pendiente' / 'detalle_agenda_pendiente')
+       Situaciones de agenda que requieren seguimiento, independientemente
+       de si hay deuda o no:
+         - Sesiones que siguen en estado 'programada' con fecha anterior a
+           hoy (ej. sesión del día 10 que sigue "programada" el día 11 ya
+           se marca).
+         - Proyectos en estado 'planificado' o 'en_progreso': se muestran
+           SIEMPRE (sin comparar fechas), simplemente como recordatorio de
+           que hay un proyecto activo que el staff debe seguir.
+
+    ⚡ OPTIMIZADO PARA LISTAS: usa un número FIJO de queries con agregación
+    SQL agrupada (values().annotate()), sin loops por sesión/mensualidad/
+    proyecto individual golpeando la BD uno por uno. Seguro de usar para
+    hasta ~50 pacientes por página.
+    """
+    from collections import defaultdict
+
+    if not paciente_ids:
+        return {}
+
+    hoy = date.today()
+
+    _MESES_ES = {
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+        7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre',
+    }
+
+    deuda_proyectada_por_paciente = defaultdict(Decimal)
+    cobros_atrasados_msgs = defaultdict(list)
+    agenda_pendiente_msgs = defaultdict(list)
+
+    # ================================================================
+    # 1) SESIONES (normales + programadas, fuera de proyecto/mensualidad)
+    # ================================================================
+    sesiones = Sesion.objects.filter(
+        paciente_id__in=paciente_ids,
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+        monto_cobrado__gt=0,
+        estado__in=['realizada', 'realizada_retraso', 'falta', 'programada'],
+    ).annotate(
+        pagado_directo=Coalesce(
+            Sum('pagos__monto', filter=Q(pagos__anulado=False)),
+            Decimal('0')
+        )
+    ).values('id', 'paciente_id', 'monto_cobrado', 'estado', 'fecha', 'pagado_directo', 'servicio__nombre')
+
+    sesion_ids = [s['id'] for s in sesiones]
+    pagos_masivos_sesion = DetallePagoMasivo.objects.filter(
+        tipo='sesion', sesion_id__in=sesion_ids, pago__anulado=False
+    ).values('sesion_id').annotate(total=Sum('monto'))
+    pm_sesion_map = {p['sesion_id']: p['total'] for p in pagos_masivos_sesion}
+
+    for s in sesiones:
+        total_pagado = (s['pagado_directo'] or Decimal('0')) + pm_sesion_map.get(s['id'], Decimal('0'))
+        saldo_pendiente = s['monto_cobrado'] - total_pagado
+        pid = s['paciente_id']
+
+        if saldo_pendiente > Decimal('0.01'):
+            deuda_proyectada_por_paciente[pid] += saldo_pendiente
+
+            # Regla: se paga hasta el día de la sesión → atrasado desde el día siguiente
+            if s['estado'] in ('realizada', 'realizada_retraso', 'falta') and s['fecha'] < hoy:
+                servicio_txt = f" - {s['servicio__nombre']}" if s['servicio__nombre'] else ''
+                cobros_atrasados_msgs[pid].append(
+                    f"🧘 Sesión normal del {s['fecha'].strftime('%d/%m/%Y')}{servicio_txt} "
+                    f"sin pagar: Bs. {saldo_pendiente:.2f}"
+                )
+
+    # ---------- Agenda: sesiones programadas con fecha ya pasada (con o sin costo/deuda) ----------
+    sesiones_programadas_vencidas = Sesion.objects.filter(
+        paciente_id__in=paciente_ids,
+        proyecto__isnull=True,
+        mensualidad__isnull=True,
+        estado='programada',
+        fecha__lt=hoy,
+    ).values('paciente_id', 'fecha', 'servicio__nombre')
+
+    for s in sesiones_programadas_vencidas:
+        servicio_txt = f" - {s['servicio__nombre']}" if s['servicio__nombre'] else ''
+        agenda_pendiente_msgs[s['paciente_id']].append(
+            f"🗓️ Sesión programada el {s['fecha'].strftime('%d/%m/%Y')}{servicio_txt} "
+            f"tiene fecha pasada y no se actualizó su estado."
+        )
+
+    # ================================================================
+    # 2) MENSUALIDADES
+    # ================================================================
+    mensualidades = Mensualidad.objects.filter(
+        paciente_id__in=paciente_ids
+    ).annotate(
+        pagado_directo=Coalesce(
+            Sum('pagos__monto', filter=Q(pagos__anulado=False)),
+            Decimal('0')
+        )
+    ).values('id', 'paciente_id', 'costo_mensual', 'mes', 'anio', 'pagado_directo')
+
+    mensualidad_ids = [m['id'] for m in mensualidades]
+    pagos_masivos_mens = DetallePagoMasivo.objects.filter(
+        tipo='mensualidad', mensualidad_id__in=mensualidad_ids, pago__anulado=False
+    ).values('mensualidad_id').annotate(total=Sum('monto'))
+    pm_mens_map = {p['mensualidad_id']: p['total'] for p in pagos_masivos_mens}
+
+    devoluciones_mens = Devolucion.objects.filter(
+        mensualidad_id__in=mensualidad_ids
+    ).values('mensualidad_id').annotate(total=Sum('monto'))
+    dev_mens_map = {d['mensualidad_id']: d['total'] for d in devoluciones_mens}
+
+    for m in mensualidades:
+        total_pagado = (
+            (m['pagado_directo'] or Decimal('0')) +
+            pm_mens_map.get(m['id'], Decimal('0')) -
+            dev_mens_map.get(m['id'], Decimal('0'))
+        )
+        saldo_pendiente = m['costo_mensual'] - total_pagado
+        pid = m['paciente_id']
+
+        if saldo_pendiente > Decimal('0.01'):
+            deuda_proyectada_por_paciente[pid] += saldo_pendiente
+            # Atrasada desde el día 1 del mes siguiente al que corresponde
+            if (m['anio'], m['mes']) < (hoy.year, hoy.month):
+                nombre_mes = _MESES_ES.get(m['mes'], m['mes'])
+                cobros_atrasados_msgs[pid].append(
+                    f"💳 Mensualidad de {nombre_mes} {m['anio']} sin pagar: Bs. {saldo_pendiente:.2f}"
+                )
+
+    # ================================================================
+    # 3) PROYECTOS
+    # ================================================================
+    proyectos = Proyecto.objects.filter(
+        paciente_id__in=paciente_ids
+    ).annotate(
+        pagado_directo=Coalesce(
+            Sum('pagos__monto', filter=Q(pagos__anulado=False)),
+            Decimal('0')
+        )
+    ).values(
+        'id', 'paciente_id', 'codigo', 'nombre', 'costo_total', 'estado',
+        'fecha_inicio', 'fecha_fin_estimada', 'fecha_fin_real',
+        'fecha_modificacion', 'pagado_directo',
+    )
+
+    proyecto_ids = [p['id'] for p in proyectos]
+    pagos_masivos_proy = DetallePagoMasivo.objects.filter(
+        tipo='proyecto', proyecto_id__in=proyecto_ids, pago__anulado=False
+    ).values('proyecto_id').annotate(total=Sum('monto'))
+    pm_proy_map = {p['proyecto_id']: p['total'] for p in pagos_masivos_proy}
+
+    devoluciones_proy = Devolucion.objects.filter(
+        proyecto_id__in=proyecto_ids
+    ).values('proyecto_id').annotate(total=Sum('monto'))
+    dev_proy_map = {d['proyecto_id']: d['total'] for d in devoluciones_proy}
+
+    for p in proyectos:
+        total_pagado = (
+            (p['pagado_directo'] or Decimal('0')) +
+            pm_proy_map.get(p['id'], Decimal('0')) -
+            dev_proy_map.get(p['id'], Decimal('0'))
+        )
+        saldo_pendiente = p['costo_total'] - total_pagado
+        pid = p['paciente_id']
+        tiene_deuda = saldo_pendiente > Decimal('0.01')
+
+        if tiene_deuda:
+            deuda_proyectada_por_paciente[pid] += saldo_pendiente
+
+        # ---- Cobros atrasados: finalizado/cancelado con deuda (1 día de gracia) ----
+        if p['estado'] in ('finalizado', 'cancelado') and tiene_deuda:
+            if p['estado'] == 'finalizado' and p['fecha_fin_real']:
+                fecha_cambio_estado = p['fecha_fin_real']
+            else:
+                # No hay campo dedicado para "fecha de cancelación": se usa
+                # fecha_modificacion como mejor aproximación disponible.
+                fecha_cambio_estado = p['fecha_modificacion'].date()
+
+            if fecha_cambio_estado < hoy:
+                estado_txt = 'finalizado' if p['estado'] == 'finalizado' else 'cancelado'
+                cobros_atrasados_msgs[pid].append(
+                    f"📦 Proyecto {p['codigo']} ({p['nombre']}) {estado_txt} con deuda: "
+                    f"Bs. {saldo_pendiente:.2f}"
+                )
+
+        # ---- Agenda: proyecto planificado o en progreso (sin necesidad de comparar fechas) ----
+        if p['estado'] == 'planificado':
+            fecha_txt = f" (fecha de inicio: {p['fecha_inicio'].strftime('%d/%m/%Y')})" if p['fecha_inicio'] else ''
+            agenda_pendiente_msgs[pid].append(
+                f"📦 Proyecto {p['codigo']} ({p['nombre']}) está planificado{fecha_txt}."
+            )
+        elif p['estado'] == 'en_progreso':
+            fecha_txt = f" (fecha estimada de fin: {p['fecha_fin_estimada'].strftime('%d/%m/%Y')})" if p['fecha_fin_estimada'] else ''
+            agenda_pendiente_msgs[pid].append(
+                f"📦 Proyecto {p['codigo']} ({p['nombre']}) está en progreso{fecha_txt}."
+            )
+
+    # ================================================================
+    # 4) Comparar Deuda Proyectada vs Saldo Proyectado (cuenta.saldo_real)
+    # ================================================================
+    saldos = CuentaCorriente.objects.filter(
+        paciente_id__in=paciente_ids
+    ).values('paciente_id', 'saldo_real')
+    saldo_real_map = {s['paciente_id']: s['saldo_real'] for s in saldos}
+
+    resultado = {}
+    for pid in paciente_ids:
+        deuda_proyectada = deuda_proyectada_por_paciente.get(pid, Decimal('0'))
+        saldo_real = saldo_real_map.get(pid, Decimal('0'))
+        monto_esperado_segun_saldo = -saldo_real if saldo_real < 0 else Decimal('0')
+        # Margen de tolerancia de Bs. 1,00 para evitar falsos positivos por redondeo
+        diferencia = abs(deuda_proyectada - monto_esperado_segun_saldo)
+        revisar_cuenta = diferencia > Decimal('1.00')
+
+        detalle_consistencia = []
+        if revisar_cuenta:
+            detalle_consistencia.append(f"Deuda proyectada (por ítems): Bs. {deuda_proyectada:.2f}")
+            detalle_consistencia.append(f"Deuda según saldo proyectado: Bs. {monto_esperado_segun_saldo:.2f}")
+            detalle_consistencia.append(f"Diferencia: Bs. {diferencia:.2f}")
+            detalle_consistencia.append("Se deberán revisar los pagos y las deudas registradas.")
+
+        detalle_cobros = cobros_atrasados_msgs.get(pid, [])
+        detalle_agenda = agenda_pendiente_msgs.get(pid, [])
+
+        resultado[pid] = {
+            'revisar_cuenta': revisar_cuenta,
+            'detalle_consistencia': detalle_consistencia,
+            'tiene_cobros_atrasados': bool(detalle_cobros),
+            'detalle_cobros_atrasados': detalle_cobros,
+            'tiene_agenda_pendiente': bool(detalle_agenda),
+            'detalle_agenda_pendiente': detalle_agenda,
+        }
+    return resultado
+
+
 @login_required
 def lista_cuentas_corrientes(request):
     """
@@ -224,6 +485,29 @@ def lista_cuentas_corrientes(request):
     paginator = Paginator(pacientes, 50)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
+
+    # ==================== ✅ NUEVO: ALERTAS POR PACIENTE (solo página actual) ====================
+    # Se calculan SOLO para los pacientes de la página visible (máx. 50) con
+    # un número fijo de queries agregadas — no agrega carga sobre el total
+    # de pacientes del sistema.
+    import json
+    ids_pagina_actual = [p.id for p in page_obj]
+    alertas_por_paciente = _calcular_alertas_lista_cuentas(ids_pagina_actual)
+    for p in page_obj:
+        alerta = alertas_por_paciente.get(p.id, {})
+        p.revisar_cuenta = alerta.get('revisar_cuenta', False)
+        p.tiene_cobros_atrasados = alerta.get('tiene_cobros_atrasados', False)
+        p.tiene_agenda_pendiente = alerta.get('tiene_agenda_pendiente', False)
+        p.n_cobros_atrasados = len(alerta.get('detalle_cobros_atrasados', []))
+        p.n_agenda_pendiente = len(alerta.get('detalle_agenda_pendiente', []))
+        # JSON con el detalle de cada categoría, para el modal del front-end.
+        # Se escapa "</" para que no pueda "romper" el bloque <script> al incrustarlo.
+        p.alertas_json = json.dumps({
+            'paciente': p.nombre_completo,
+            'consistencia': alerta.get('detalle_consistencia', []),
+            'cobros': alerta.get('detalle_cobros_atrasados', []),
+            'agenda': alerta.get('detalle_agenda_pendiente', []),
+        }, ensure_ascii=False).replace('</', '<\\/')
     
     # ==================== ESTADÍSTICAS GLOBALES ====================
     estadisticas = None
@@ -1758,6 +2042,43 @@ def detalle_cuenta_corriente(request, paciente_id):
         deuda_proyectos_planificados_monto
     )
 
+    # ✅ NUEVO: Desglose por tipo para el banner de "Proyección Total"
+    # (suma lo ya realizado/actual con lo programado/planificado a futuro)
+    deuda_sesiones_cantidad_proyectada = deuda_sesiones_cantidad + deuda_sesiones_programadas_cantidad
+    deuda_sesiones_monto_proyectada = deuda_sesiones_monto + deuda_sesiones_programadas_monto
+
+    deuda_proyectos_cantidad_proyectada = deuda_proyectos_cantidad + deuda_proyectos_planificados_cantidad
+    deuda_proyectos_monto_proyectada = deuda_proyectos_monto + deuda_proyectos_planificados_monto
+
+    # Mensualidades no tiene una categoría "futura" separada, se mantiene igual
+    deuda_mensualidades_cantidad_proyectada = deuda_mensualidades_cantidad
+    deuda_mensualidades_monto_proyectada = deuda_mensualidades_monto
+
+    # ========================================
+    # ✅ NUEVO: VALIDACIÓN DE CONSISTENCIA
+    # Deuda Pendiente (Proyectada) vs Saldo Proyectado
+    # ========================================
+    # El "Saldo Proyectado" (cuenta.saldo_real) es un neto general de la cuenta
+    # (total pagado - total comprometido). La "Deuda Proyectada" es la suma de
+    # los saldos pendientes por ítem (sesiones/mensualidades/proyectos).
+    # Si el saldo está "a favor" o "al día" no debería existir deuda por ítem,
+    # y si está "en contra" (DEBE), ese monto debería coincidir con la deuda
+    # proyectada. Cuando no coinciden, se alerta al staff para que revise
+    # pagos y deudas manualmente.
+    monto_deuda_segun_saldo_proyectado = -cuenta.saldo_real if cuenta.saldo_real < 0 else Decimal('0.00')
+    diferencia_deuda_vs_saldo_proyectado = abs(deuda_total_proyectada - monto_deuda_segun_saldo_proyectado)
+    # Margen de tolerancia de 1 boliviano para evitar falsos positivos por redondeo
+    hay_inconsistencia_saldo_proyectado = diferencia_deuda_vs_saldo_proyectado > Decimal('1.00')
+
+    # Roles que deben ver la alerta: admin (superusuario), recepcionista y gerente
+    perfil_usuario = getattr(request.user, 'perfil', None)
+    usuario_puede_ver_alerta_saldo = (
+        request.user.is_superuser or
+        (perfil_usuario is not None and (perfil_usuario.es_recepcionista() or perfil_usuario.es_gerente()))
+    )
+
+    mostrar_alerta_inconsistencia_saldo = hay_inconsistencia_saldo_proyectado and usuario_puede_ver_alerta_saldo
+
     # ========================================
     # CONTEXT - ACTUALIZADO
     # ========================================
@@ -1841,6 +2162,19 @@ def detalle_cuenta_corriente(request, paciente_id):
         'deuda_proyectos_planificados_parcial_monto': deuda_proyectos_planificados_parcial_monto,
         
         'deuda_total_proyectada': deuda_total_proyectada,
+
+        # ✅ NUEVO: Desglose proyectado (actual + futuro) para el banner de deuda pendiente
+        'deuda_sesiones_cantidad_proyectada': deuda_sesiones_cantidad_proyectada,
+        'deuda_sesiones_monto_proyectada': deuda_sesiones_monto_proyectada,
+        'deuda_mensualidades_cantidad_proyectada': deuda_mensualidades_cantidad_proyectada,
+        'deuda_mensualidades_monto_proyectada': deuda_mensualidades_monto_proyectada,
+        'deuda_proyectos_cantidad_proyectada': deuda_proyectos_cantidad_proyectada,
+        'deuda_proyectos_monto_proyectada': deuda_proyectos_monto_proyectada,
+
+        # ✅ NUEVO: Alerta de inconsistencia Deuda Proyectada vs Saldo Proyectado
+        'mostrar_alerta_inconsistencia_saldo': mostrar_alerta_inconsistencia_saldo,
+        'monto_deuda_segun_saldo_proyectado': monto_deuda_segun_saldo_proyectado,
+        'diferencia_deuda_vs_saldo_proyectado': diferencia_deuda_vs_saldo_proyectado,
     }
     
     return render(request, 'facturacion/detalle_cuenta.html', context)

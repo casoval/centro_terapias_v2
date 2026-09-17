@@ -893,6 +893,63 @@
 {% endblock %}
 
 {% block content %}
+
+{% if mostrar_alerta_inconsistencia_saldo %}
+<!-- ============================================================
+     ✅ POP-UP: INCONSISTENCIA DEUDA PROYECTADA vs SALDO PROYECTADO
+     Visible solo para Admin / Recepcionista / Gerente
+     ============================================================ -->
+<div id="modal-alerta-inconsistencia-saldo"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full border-2 border-red-400 overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 px-4 py-3 flex items-center justify-between">
+            <h3 class="text-white font-black text-sm flex items-center gap-2">
+                <span class="text-lg">⚠️</span> Inconsistencia detectada
+            </h3>
+            <button type="button"
+                    onclick="cerrarModalAlertaInconsistenciaSaldo()"
+                    class="text-white hover:text-red-200 transition text-xl leading-none"
+                    aria-label="Cerrar alerta">
+                &times;
+            </button>
+        </div>
+        <div class="p-4 space-y-3">
+            <p class="text-sm text-gray-800">
+                La <strong>Deuda Pendiente (Proyección Total)</strong> no coincide con el
+                <strong>Saldo Proyectado</strong> de esta cuenta. Se deberán revisar los pagos
+                y las deudas registradas para corregir la diferencia.
+            </p>
+            <div class="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1.5 text-xs">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Deuda pendiente (proyectada):</span>
+                    <span class="font-black text-red-700">Bs. {{ deuda_total_proyectada|floatformat:2 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Deuda según saldo proyectado:</span>
+                    <span class="font-black text-red-700">Bs. {{ monto_deuda_segun_saldo_proyectado|floatformat:2 }}</span>
+                </div>
+                <div class="h-px bg-red-200 my-1"></div>
+                <div class="flex justify-between">
+                    <span class="text-gray-700 font-bold">Diferencia:</span>
+                    <span class="font-black text-red-800">Bs. {{ diferencia_deuda_vs_saldo_proyectado|floatformat:2 }}</span>
+                </div>
+            </div>
+            <p class="text-[11px] text-gray-500">
+                Revisa el historial de pagos, deudas, devoluciones y créditos de este paciente
+                para identificar el origen de la diferencia.
+            </p>
+        </div>
+        <div class="px-4 pb-4 flex justify-end">
+            <button type="button"
+                    onclick="cerrarModalAlertaInconsistenciaSaldo()"
+                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                Entendido
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
     
     <!-- Header con Info del Paciente -->
@@ -925,7 +982,7 @@
     <!-- ============================
          BANNER DE DEUDAS PENDIENTES
          ============================ -->
-    {% if deuda_total > 0 %}
+    {% if deuda_total_proyectada > 0 %}
     <div class="flex flex-wrap items-center gap-2 mb-2 sm:mb-3 px-3 py-2 bg-red-50 border border-red-300 rounded-lg shadow-sm">
         <!-- Ícono + título -->
         <div class="flex items-center gap-1.5 shrink-0">
@@ -936,28 +993,28 @@
         <!-- Separador -->
         <div class="hidden sm:block w-px h-4 bg-red-300"></div>
 
-        <!-- Chips por tipo -->
+        <!-- Chips por tipo (proyección total: incluye sesiones/proyectos ya realizados + programados/planificados) -->
         <div class="flex flex-wrap gap-1.5 flex-1">
-            {% if deuda_sesiones_cantidad > 0 %}
+            {% if deuda_sesiones_cantidad_proyectada > 0 %}
             <a href="{% url 'facturacion:registrar_pago' %}?sesion={{ deuda_sesiones_primera_id|default:'' }}"
                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 border border-red-300 text-red-800 text-[10px] font-bold hover:bg-red-200 transition cursor-pointer"
-               title="{{ deuda_sesiones_cantidad }} sesión(es) con saldo pendiente">
-                🗓 {{ deuda_sesiones_cantidad }} sesión{{ deuda_sesiones_cantidad|pluralize:"es" }}
-                <span class="font-black">· Bs. {{ deuda_sesiones_monto|floatformat:2 }}</span>
+               title="{{ deuda_sesiones_cantidad_proyectada }} sesión(es) con saldo pendiente (incluye programadas)">
+                🗓 {{ deuda_sesiones_cantidad_proyectada }} sesión{{ deuda_sesiones_cantidad_proyectada|pluralize:"es" }}
+                <span class="font-black">· Bs. {{ deuda_sesiones_monto_proyectada|floatformat:2 }}</span>
             </a>
             {% endif %}
-            {% if deuda_mensualidades_cantidad > 0 %}
+            {% if deuda_mensualidades_cantidad_proyectada > 0 %}
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 border border-orange-300 text-orange-800 text-[10px] font-bold"
-                  title="{{ deuda_mensualidades_cantidad }} mensualidad(es) con saldo pendiente">
-                📅 {{ deuda_mensualidades_cantidad }} mensualidad{{ deuda_mensualidades_cantidad|pluralize:"es" }}
-                <span class="font-black">· Bs. {{ deuda_mensualidades_monto|floatformat:2 }}</span>
+                  title="{{ deuda_mensualidades_cantidad_proyectada }} mensualidad(es) con saldo pendiente">
+                📅 {{ deuda_mensualidades_cantidad_proyectada }} mensualidad{{ deuda_mensualidades_cantidad_proyectada|pluralize:"es" }}
+                <span class="font-black">· Bs. {{ deuda_mensualidades_monto_proyectada|floatformat:2 }}</span>
             </span>
             {% endif %}
-            {% if deuda_proyectos_cantidad > 0 %}
+            {% if deuda_proyectos_cantidad_proyectada > 0 %}
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-[10px] font-bold"
-                  title="{{ deuda_proyectos_cantidad }} proyecto(s) con saldo pendiente">
-                📦 {{ deuda_proyectos_cantidad }} proyecto{{ deuda_proyectos_cantidad|pluralize:"s" }}
-                <span class="font-black">· Bs. {{ deuda_proyectos_monto|floatformat:2 }}</span>
+                  title="{{ deuda_proyectos_cantidad_proyectada }} proyecto(s) con saldo pendiente (incluye planificados)">
+                📦 {{ deuda_proyectos_cantidad_proyectada }} proyecto{{ deuda_proyectos_cantidad_proyectada|pluralize:"s" }}
+                <span class="font-black">· Bs. {{ deuda_proyectos_monto_proyectada|floatformat:2 }}</span>
             </span>
             {% endif %}
         </div>
@@ -965,7 +1022,7 @@
         <!-- Total destacado -->
         <div class="ml-auto shrink-0 flex items-center gap-1 bg-red-600 text-white px-2.5 py-1 rounded-lg shadow-sm">
             <span class="text-[10px] font-bold uppercase">Total:</span>
-            <span class="text-sm font-black">Bs. {{ deuda_total|floatformat:2 }}</span>
+            <span class="text-sm font-black">Bs. {{ deuda_total_proyectada|floatformat:2 }}</span>
         </div>
     </div>
     {% endif %}
@@ -3564,6 +3621,33 @@
 
 // ==================== DEBUG: VERIFICAR CARGA ==================== 
 console.log('✅ Script de detalle_cuenta.html cargado correctamente');
+
+// ==================== POP-UP: INCONSISTENCIA DEUDA vs SALDO PROYECTADO ====================
+function cerrarModalAlertaInconsistenciaSaldo() {
+    const modal = document.getElementById('modal-alerta-inconsistencia-saldo');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// Cerrar al hacer click fuera del recuadro (en el fondo oscuro)
+document.addEventListener('DOMContentLoaded', function () {
+    const modalInconsistencia = document.getElementById('modal-alerta-inconsistencia-saldo');
+    if (modalInconsistencia) {
+        modalInconsistencia.addEventListener('click', function (e) {
+            if (e.target === modalInconsistencia) {
+                cerrarModalAlertaInconsistenciaSaldo();
+            }
+        });
+    }
+});
+
+// Cerrar con la tecla Escape
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        cerrarModalAlertaInconsistenciaSaldo();
+    }
+});
 
 // ==================== FUNCIONES DE MENÚ DESPLEGABLE ====================
 
