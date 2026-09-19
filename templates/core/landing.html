@@ -1059,10 +1059,10 @@
         }
 
         @keyframes logoHero {
-            0%,100% { transform: translateY(0) scale(1) rotate(0deg); filter: drop-shadow(0 0 60px rgba(255,95,64,0.5)) drop-shadow(0 0 100px rgba(0,212,200,0.35)); }
-            25%     { transform: translateY(-14px) scale(1.03) rotate(1deg); filter: drop-shadow(0 0 80px rgba(192,132,252,0.6)) drop-shadow(0 0 120px rgba(255,95,64,0.3)); }
-            50%     { transform: translateY(-20px) scale(1.04) rotate(0deg); filter: drop-shadow(0 0 70px rgba(0,212,200,0.6)) drop-shadow(0 0 110px rgba(52,238,160,0.3)); }
-            75%     { transform: translateY(-10px) scale(1.02) rotate(-1deg); filter: drop-shadow(0 0 75px rgba(255,224,102,0.5)) drop-shadow(0 0 105px rgba(0,212,200,0.3)); }
+            0%,100% { transform: translateY(0) scale(1) rotate(0deg); filter: drop-shadow(0 0 70px rgba(255,95,64,0.45)); }
+            25%     { transform: translateY(-14px) scale(1.03) rotate(1deg); filter: drop-shadow(0 0 90px rgba(192,132,252,0.55)); }
+            50%     { transform: translateY(-20px) scale(1.04) rotate(0deg); filter: drop-shadow(0 0 80px rgba(0,212,200,0.55)); }
+            75%     { transform: translateY(-10px) scale(1.02) rotate(-1deg); filter: drop-shadow(0 0 85px rgba(255,224,102,0.45)); }
         }
 
         @keyframes ringPulse {
@@ -1119,7 +1119,7 @@
         }
         @keyframes numberGlow {
             0%,100% { text-shadow: 0 0 16px rgba(255,140,20,0.5); }
-            50%     { text-shadow: 0 0 32px rgba(255,140,20,0.9), 0 0 48px rgba(255,200,50,0.3); }
+            50%     { text-shadow: 0 0 34px rgba(255,140,20,0.85); }
         }
         .trust-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
 
@@ -1148,6 +1148,7 @@
         }
         .section-pill {
             display: inline-block;
+            position: relative;
             background: rgba(255,224,102,0.12);
             border: 1px solid rgba(255,224,102,0.3);
             color: var(--amarillo);
@@ -1155,11 +1156,19 @@
             letter-spacing: 0.1em; text-transform: uppercase;
             padding: 0.3rem 1rem; border-radius: 50px;
             margin-bottom: 0.9rem;
+        }
+        .section-pill::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50px;
+            box-shadow: 0 0 0 6px rgba(255,224,102,0.08);
+            opacity: 0;
+            pointer-events: none;
             animation: pillPulse 4s ease-in-out infinite;
         }
         @keyframes pillPulse {
-            0%,100% { box-shadow: 0 0 0 0 rgba(255,224,102,0); }
-            50%     { box-shadow: 0 0 0 6px rgba(255,224,102,0.08); }
+            0%,100% { opacity: 0; }
+            50%     { opacity: 1; }
         }
         .section-title {
             text-align: center; font-size: clamp(1.9rem, 4vw, 3rem);
@@ -2350,7 +2359,6 @@
             .hero-illustration img     { animation: none !important; }
             .confetti-piece            { display: none !important; }
             .mk-card-mobile, .mk-card-desktop,
-            .mk-card-mobile::before, .mk-card-desktop::before,
             .mk-card-mobile .mk-inner, .mk-card-desktop .mk-inner-d,
             .mk-card-mobile .mk-rainbow, .mk-card-desktop .mk-rainbow-d,
             .mk-card-mobile .mk-body::after, .mk-card-desktop .mk-body-d::after,
@@ -2652,15 +2660,6 @@
             0%   { transform: translateX(-160%); }
             100% { transform: translateX(280%); }
         }
-        @keyframes mk-glow-opacity {
-            0%, 100% { opacity: 0; }
-            50%       { opacity: 1; }
-        }
-        @keyframes mk-glow {
-            0%,100% { box-shadow: 0 0 0px rgba(139,92,246,0), 0 0 0px rgba(199,125,255,0); }
-            50%      { box-shadow: 0 0 40px rgba(139,92,246,0.55), 0 0 80px rgba(199,125,255,0.22); }
-        }
-
         /* ── Versión MÓVIL: compacta inline ── */
         .mk-card-mobile {
             display: block;
@@ -2668,18 +2667,6 @@
             margin-bottom: 1.8rem;
             text-decoration: none;
             animation: mk-float 3.8s ease-in-out infinite 1s;
-        }
-        /* Glow: sombra FIJA (se pinta una sola vez), solo su opacidad se anima
-           (barato: la GPU solo compone, no repinta la sombra cada cuadro) */
-        .mk-card-mobile::before {
-            content: '';
-            position: absolute; inset: -14px;
-            border-radius: 20px;
-            box-shadow: 0 0 40px rgba(139,92,246,0.55), 0 0 80px rgba(199,125,255,0.22);
-            opacity: 0;
-            z-index: -1;
-            pointer-events: none;
-            animation: mk-glow-opacity 2.8s ease-in-out infinite 1s;
         }
         .mk-card-mobile .mk-inner {
             position: relative;
@@ -2758,22 +2745,12 @@
                 mk-fadein 0.7s cubic-bezier(0.34,1.56,0.64,1) both 0.4s,
                 mk-float 3.8s ease-in-out infinite 1.2s;
         }
-        .mk-card-desktop::before {
-            content: '';
-            position: absolute; inset: -14px;
-            border-radius: 26px;
-            box-shadow: 0 0 40px rgba(139,92,246,0.55), 0 0 80px rgba(199,125,255,0.22);
-            opacity: 0;
-            z-index: -1;
-            pointer-events: none;
-            animation: mk-glow-opacity 2.8s ease-in-out infinite 1.2s;
-        }
         .mk-card-desktop .mk-inner-d {
             position: relative;
             border-radius: 22px;
             padding: 2px;
             overflow: hidden;
-            backdrop-filter: blur(14px);
+            backdrop-filter: blur(6px);
         }
         /* Shimmer que cruza el body */
         .mk-card-desktop .mk-body-d::after {
@@ -2864,11 +2841,6 @@
             top: 9.5rem;
             right: 2rem;
             left: auto;
-        }
-        /* Glow naranja para Toys, en vez del violeta heredado de Kids */
-        .mk-card-mobile.mt-toys::before,
-        .mk-card-desktop.mt-toys::before {
-            box-shadow: 0 0 40px rgba(255,159,64,0.55), 0 0 80px rgba(226,113,29,0.22);
         }
         /* Ancho fijo e igual para ambas tarjetas (Kids y Toys), sin importar
            qué tan largo sea el texto de cada una */
@@ -5525,12 +5497,18 @@ function updateContactReq() {
 </script>
 
 <script>
-// Pausa las animaciones de los banners Misael Kids / Misael Toys cuando
-// salen de la pantalla (ahorra CPU/batería mientras el usuario sigue leyendo).
+// Pausa las animaciones en loop (flotantes, glow, doodles, etc.) de una
+// sección en cuanto sale de la pantalla, y las reactiva si el usuario
+// vuelve a verla. Cero cambio visual mientras la sección está visible:
+// solo ahorra CPU/batería en lo que el usuario ya scrolleó y dejó atrás.
 document.addEventListener('DOMContentLoaded', function () {
     if (!('IntersectionObserver' in window)) return;
-    var banners = document.querySelectorAll('.mk-card-mobile, .mk-card-desktop');
-    if (!banners.length) return;
+    var secciones = document.querySelectorAll(
+        '.hero, .trust-bar, .vmv-section, .why-section, .gallery-section, ' +
+        '.team-section, .cta-section, #servicios, .footer, ' +
+        '.mk-card-mobile, .mk-card-desktop'
+    );
+    if (!secciones.length) return;
     var io = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
             var state = entry.isIntersecting ? 'running' : 'paused';
@@ -5540,7 +5518,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }, { threshold: 0.01 });
-    banners.forEach(function (b) { io.observe(b); });
+    secciones.forEach(function (s) { io.observe(s); });
 });
 </script>
 </body>
