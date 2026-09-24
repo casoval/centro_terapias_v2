@@ -1,0 +1,374 @@
+{% load static %}
+{# ══════════════════════════════════════════════════════════════
+   Navbar compartido — copia fiel del navbar de core/landing.html
+   (mismas clases CSS, mismo HTML, mismo JS) para que las páginas
+   de /nuestros-servicios/ se vean idénticas a la home.
+   Los enlaces de sección usan {% url 'core:landing' %}#ancla para
+   que funcionen también fuera de la home.
+   ══════════════════════════════════════════════════════════════ #}
+<style>
+    /* ── THEME TOGGLE BUTTON ── */
+    .theme-toggle {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: rgba(255,255,255,0.18);
+        border: 1px solid rgba(255,255,255,0.35);
+        border-radius: 50px;
+        padding: 0.38rem 0.9rem;
+        cursor: pointer; font-family: 'Nunito', sans-serif;
+        font-size: 0.78rem; font-weight: 700; color: #ffffff;
+        transition: all 0.25s; flex-shrink: 0;
+        backdrop-filter: blur(10px);
+    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.28); color: #ffffff; }
+    [data-theme="light"] .theme-toggle {
+        background: rgba(30,60,45,0.82);
+        border-color: rgba(30,60,45,0.6);
+        color: #ffffff;
+    }
+    [data-theme="light"] .theme-toggle:hover { background: rgba(20,50,35,0.95); }
+    .theme-toggle-icon { font-size: 1rem; transition: transform 0.4s; }
+    .theme-toggle:hover .theme-toggle-icon { transform: rotate(20deg); }
+
+    a, button, [role="button"], .theme-toggle { touch-action: manipulation; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+        position: sticky; top: 0; z-index: 999;
+        background: linear-gradient(135deg,
+            rgba(20,8,40,0.92) 0%, rgba(40,10,60,0.92) 15%,
+            rgba(15,30,80,0.92) 35%, rgba(10,50,60,0.92) 55%,
+            rgba(50,10,40,0.92) 75%, rgba(20,8,40,0.92) 100%);
+        background-size: 400% 400%;
+        animation: navbarShift 12s ease-in-out infinite;
+        backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding: 0.85rem 2.5rem;
+        display: flex; align-items: center; justify-content: space-between;
+        box-shadow: 0 2px 40px rgba(0,212,200,0.15), 0 1px 0 rgba(255,255,255,0.06);
+        transition: transform 0.3s ease, box-shadow 0.3s;
+    }
+    .navbar.hidden { transform: translateY(-110%); }
+    @keyframes navbarShift {
+        0%   { background-position: 0% 50%; box-shadow: 0 2px 40px rgba(0,212,200,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+        25%  { background-position: 100% 50%; box-shadow: 0 2px 40px rgba(255,95,64,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+        50%  { background-position: 100% 0%; box-shadow: 0 2px 40px rgba(192,132,252,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+        75%  { background-position: 0% 100%; box-shadow: 0 2px 40px rgba(52,238,160,0.15), 0 1px 0 rgba(255,255,255,0.06); }
+        100% { background-position: 0% 50%; box-shadow: 0 2px 40px rgba(0,212,200,0.2), 0 1px 0 rgba(255,255,255,0.06); }
+    }
+    .navbar::after {
+        content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, var(--rojo), var(--morado), var(--azul), var(--verde), var(--amarillo), var(--naranja), var(--rojo));
+        background-size: 300% 100%; animation: borderRun 4s linear infinite; opacity: 0.7;
+    }
+    @keyframes borderRun { 0% { background-position: 0% 0%; } 100% { background-position: 300% 0%; } }
+    [data-theme="light"] .navbar {
+        background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 40%, #F5FCF5 70%, #FAFFFE 100%) !important;
+        animation: none !important;
+        border-bottom: 1px solid rgba(76,175,130,0.25) !important;
+        box-shadow: 0 3px 20px rgba(76,175,130,0.2), 0 1px 0 rgba(255,255,255,0.9) inset !important;
+    }
+    [data-theme="light"] .navbar::after {
+        background: linear-gradient(90deg, #4CAF82, #FF8C42, #66BB6A, #FF8C42, #4CAF82);
+        background-size: 300% 100%; opacity: 0.75;
+    }
+    .navbar-logo { display: flex; align-items: center; gap: 14px; }
+    .navbar-logo img {
+        height: 50px; width: 50px; border-radius: 50%; object-fit: contain;
+        background: #ffffff; padding: 4px;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 20px var(--rojo-glow);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .navbar-logo img:hover { transform: scale(1.08); box-shadow: 0 0 0 2px rgba(255,224,102,0.6), 0 0 28px var(--oro-glow); }
+    [data-theme="light"] .navbar-logo img { box-shadow: 0 0 0 2px rgba(76,175,130,0.4), 0 0 16px rgba(76,175,130,0.2); }
+    .navbar-brand {
+        font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 800;
+        color: var(--text);
+        background: linear-gradient(90deg, #fff 30%, var(--azul));
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        line-height: 1.2;
+    }
+    [data-theme="light"] .navbar-brand {
+        color: #1B5E40;
+        background: linear-gradient(90deg, #2E7D55 20%, #1B5E40 70%);
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .navbar-brand-email {
+        display: block; font-family: 'Nunito', sans-serif;
+        font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em;
+        color: var(--muted2); -webkit-text-fill-color: var(--muted2);
+        text-decoration: none; margin-top: 1px; transition: opacity 0.2s;
+    }
+    .navbar-brand-email:hover { opacity: 0.8; }
+    [data-theme="light"] .navbar-brand-email { color: rgba(62,39,35,0.55); -webkit-text-fill-color: rgba(62,39,35,0.55); }
+
+    .nav-links { display: flex; align-items: center; gap: 2.2rem; list-style: none; }
+    .nav-links a { font-size: 0.875rem; font-weight: 700; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn-login {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: linear-gradient(135deg, var(--rojo), #cc4020);
+        color: white; font-family: 'Baloo 2', cursive;
+        font-size: 0.9rem; font-weight: 700;
+        padding: 0.5rem 1.4rem; border-radius: 50px;
+        text-decoration: none; border: 1px solid rgba(255,255,255,0.15);
+        box-shadow: 0 4px 20px var(--rojo-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+        transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .btn-login:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 32px var(--rojo-glow); }
+    .btn-login .rocket { display: inline-block; transition: transform 0.3s; }
+    .btn-login:hover .rocket { transform: translateX(3px) translateY(-4px) rotate(-10deg); }
+    [data-theme="light"] .btn-login { background: linear-gradient(135deg, #2E7D55, #4CAF82); box-shadow: 0 4px 16px rgba(46,125,85,0.3); color: #fff !important; }
+
+    /* ── HAMBURGUESA ── */
+    .hamburger {
+        display: none; flex-direction: column; justify-content: center; gap: 5px;
+        cursor: pointer; padding: 8px; border: none; background: none;
+        border-radius: 10px; transition: background 0.2s; -webkit-tap-highlight-color: transparent;
+    }
+    .hamburger:hover { background: var(--glass); }
+    .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: transform 0.3s ease, opacity 0.3s ease; transform-origin: center; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* ── MENÚ MÓVIL ── */
+    .mobile-menu {
+        display: none; position: fixed; inset: 0; z-index: 997;
+        background: var(--bg-1); flex-direction: column;
+        padding: 5.5rem 2rem 2rem; gap: 0; overflow-y: auto;
+        opacity: 0; transform: translateX(100%);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .mobile-menu.open { display: flex; opacity: 1; transform: translateX(0); }
+    [data-theme="light"] .mobile-menu { background: #FDFAF5; }
+    .mobile-nav-link {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.1rem 0; border-bottom: 1px solid var(--glass-border);
+        color: var(--text); text-decoration: none;
+        font-family: 'Baloo 2', cursive; font-size: 1.3rem; font-weight: 800;
+        transition: color 0.2s, padding-left 0.2s;
+    }
+    .mobile-nav-link:hover { color: var(--azul); padding-left: 8px; }
+    .mobile-nav-link span { font-size: 1.1rem; opacity: 0.5; }
+    .mobile-nav-emoji { font-size: 1.3rem; margin-right: 12px; }
+    .mobile-menu-overlay { display: none; position: fixed; inset: 0; z-index: 996; background: rgba(0,0,0,0.55); }
+    .mobile-menu-overlay.open { display: block; }
+
+    /* ── BARRA DE HORARIOS ── */
+    .horarios-bar {
+        display: flex;
+        background: linear-gradient(135deg, #001a18 0%, #002e2a 100%);
+        border-bottom: 1px solid rgba(0,212,200,0.15);
+        padding: 0.7rem 1.2rem; align-items: center; justify-content: center;
+        gap: 0.6rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted);
+        position: relative; z-index: 998;
+    }
+    [data-theme="light"] .horarios-bar { background: linear-gradient(135deg, #E8F5EE, #D4EDDE); border-bottom-color: rgba(46,125,85,0.2); color: #2E7D55; }
+    .horarios-bar strong { color: var(--azul); font-weight: 800; }
+    [data-theme="light"] .horarios-bar strong { color: #1B5E40; }
+    .horarios-bar-sep { opacity: 0.35; }
+
+    /* ── SCROLL TO TOP ── */
+    .scroll-top-btn {
+        position: fixed; bottom: 5.5rem; left: 1rem; z-index: 9997;
+        width: 44px; height: 44px; border-radius: 50%;
+        border: 1px solid var(--glass-border); background: var(--bg-2);
+        color: var(--text); font-size: 1.1rem; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transform: translateY(12px);
+        transition: opacity 0.3s, transform 0.3s; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .scroll-top-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .scroll-top-btn:hover { background: var(--glass); transform: translateY(-2px); }
+    [data-theme="light"] .scroll-top-btn { background: #ffffff; border-color: rgba(46,125,85,0.2); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    @media (max-width: 768px) {
+        .nav-links { display: none; }
+        .hamburger { display: flex; }
+        .horarios-bar { display: flex !important; flex-wrap: wrap; font-size: 0.72rem; padding: 0.5rem 1rem; gap: 0.4rem; justify-content: center; }
+        .navbar { padding: 0.6rem 1rem !important; animation: none !important; background: rgba(20,8,40,0.96) !important; background-size: unset !important; }
+        .navbar::after { animation-duration: 10s; }
+        [data-theme="light"] .navbar { animation: none !important; }
+        .btn-login { padding: 0.5rem 0.75rem !important; border-radius: 12px !important; font-size: 0.85rem !important; gap: 0 !important; }
+        .btn-login-text { display: none !important; }
+        .btn-login .rocket { margin: 0 !important; font-size: 1.1rem; }
+        .navbar-brand { font-size: 0.78rem !important; line-height: 1.2; }
+        .navbar-brand-email { font-size: 0.58rem !important; }
+        .theme-toggle { background: rgba(255,255,255,0.18) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; padding: 0.3rem 0.65rem !important; font-size: 0.72rem !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        [data-theme="light"] .theme-toggle { background: rgba(30,60,45,0.85) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+        #themeLabel { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+    }
+    @media (max-width: 1024px) and (min-width: 769px) {
+        .navbar { padding: 0.7rem 1.4rem; }
+        .btn-login { font-size: 0.8rem !important; padding: 0.45rem 1rem !important; }
+        .nav-links { gap: 1.2rem; }
+        .nav-links a { font-size: 0.8rem; }
+    }
+    @media (max-width: 400px) {
+        .horarios-bar { font-size: 0.65rem !important; padding: 0.4rem 0.8rem !important; gap: 0.3rem !important; }
+        .navbar { padding: 0.5rem 0.75rem !important; }
+    }
+</style>
+
+<nav class="navbar">
+    <div class="navbar-logo">
+        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Infantil Misael" fetchpriority="high" decoding="sync">
+        <div class="navbar-brand">
+            Centro de Neurodesarrollo Infantil Misael
+            <a href="mailto:info@neuromisael.com" class="navbar-brand-email">info@neuromisael.com</a>
+        </div>
+    </div>
+
+    <ul class="nav-links">
+        <li><a href="{% url 'core:landing' %}#servicios">Servicios</a></li>
+        <li><a href="{% url 'core:servicios_publicos' %}">Nuestros Servicios</a></li>
+        <li><a href="{% url 'core:landing' %}#galeria">Galería</a></li>
+        <li><a href="{% url 'core:landing' %}#videos">Videos</a></li>
+        <li><a href="{% url 'core:landing' %}#nosotros">Nosotros</a></li>
+        <li><a href="{% url 'core:landing' %}#equipo">Equipo</a></li>
+        <li><a href="https://tienda.neuromisael.com" target="_blank" rel="noopener">🧸 Tienda</a></li>
+        <li><a href="{% url 'core:landing' %}#contacto">Contacto</a></li>
+    </ul>
+
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-left:1.2rem;">
+        <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema" title="Cambiar tema">
+            <span class="theme-toggle-icon" id="themeIcon">🌙</span>
+            <span id="themeLabel">Oscuro</span>
+        </button>
+        <a href="{% url 'core:login' %}" class="btn-login">
+            <span class="rocket">🚀</span> <span class="btn-login-text">Iniciar Sesión</span>
+        </a>
+        <button class="hamburger" id="hamburgerBtn" aria-label="Abrir menú de navegación" aria-expanded="false" aria-controls="mobileMenu">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</nav>
+
+<div class="horarios-bar">
+    <span>⏰ <strong>Lun–Vie</strong> 9:00–12:00 y 14:30–19:00</span>
+    <span class="horarios-bar-sep">·</span>
+    <span><strong>Sáb</strong> 9:00–12:00</span>
+</div>
+
+<div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
+
+<nav class="mobile-menu" id="mobileMenu" role="dialog" aria-label="Menú de navegación">
+    <a href="{% url 'core:landing' %}#servicios" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">🌟</span>Servicios</span><span>›</span>
+    </a>
+    <a href="{% url 'core:servicios_publicos' %}" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">🗂️</span>Nuestros Servicios</span><span>›</span>
+    </a>
+    <a href="{% url 'core:landing' %}#galeria" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">📸</span>Galería</span><span>›</span>
+    </a>
+    <a href="{% url 'core:landing' %}#videos" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">🎬</span>Videos</span><span>›</span>
+    </a>
+    <a href="{% url 'core:landing' %}#nosotros" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">🏥</span>Nosotros</span><span>›</span>
+    </a>
+    <a href="{% url 'core:landing' %}#equipo" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">👩‍⚕️</span>Equipo</span><span>›</span>
+    </a>
+    <a href="{% url 'core:landing' %}#contacto" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">📍</span>Contacto</span><span>›</span>
+    </a>
+    <a href="https://tienda.neuromisael.com" target="_blank" rel="noopener" class="mobile-nav-link">
+        <span><span class="mobile-nav-emoji">🧸</span>Tienda</span><span>›</span>
+    </a>
+    <a href="{% url 'core:login' %}" class="btn-login" style="margin:1rem 1.2rem 0.5rem; display:flex; justify-content:center; border-radius:12px !important; padding:0.7rem 1.4rem !important; gap:8px !important;">
+        <span class="rocket">🚀</span> <span>Iniciar Sesión</span>
+    </a>
+</nav>
+
+<button class="scroll-top-btn" id="scrollTopBtn" aria-label="Volver arriba" title="Volver arriba">↑</button>
+
+<script>
+(function() {
+    const html   = document.documentElement;
+    const btn    = document.getElementById('themeToggle');
+    const icon   = document.getElementById('themeIcon');
+    const label  = document.getElementById('themeLabel');
+
+    const saved = localStorage.getItem('misael-theme');
+    applyTheme(saved || 'dark');
+
+    btn.addEventListener('click', function() {
+        const current = html.getAttribute('data-theme') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem('misael-theme', next);
+    });
+
+    function applyTheme(theme) {
+        html.setAttribute('data-theme', theme);
+        if (theme === 'light') {
+            icon.textContent = '🌙'; label.textContent = 'Oscuro';
+            document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.content = '#FDFAF5');
+        } else {
+            icon.textContent = '☀️'; label.textContent = 'Claro';
+            document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.content = '#080b14');
+        }
+    }
+})();
+
+(function() {
+    const btn     = document.getElementById('hamburgerBtn');
+    const menu    = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', function() {
+        const isOpen = menu.classList.toggle('open');
+        overlay.classList.toggle('open', isOpen);
+        btn.classList.toggle('open', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
+        document.body.style.overflow = isOpen ? 'hidden' : '';
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeMobileMenu();
+    });
+})();
+
+function closeMobileMenu() {
+    const menu    = document.getElementById('mobileMenu');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const btn     = document.getElementById('hamburgerBtn');
+    if (!menu) return;
+    menu.classList.remove('open');
+    overlay.classList.remove('open');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+}
+
+(function() {
+    const navbar = document.querySelector('.navbar');
+    let lastY = 0, ticking = false;
+    window.addEventListener('scroll', function() {
+        if (!ticking) {
+            requestAnimationFrame(function() {
+                const y = window.scrollY;
+                if (y > lastY && y > 100) { navbar.classList.add('hidden'); closeMobileMenu(); }
+                else { navbar.classList.remove('hidden'); }
+                lastY = y; ticking = false;
+            });
+            ticking = true;
+        }
+    }, { passive: true });
+})();
+
+(function() {
+    const btn = document.getElementById('scrollTopBtn');
+    if (!btn) return;
+    window.addEventListener('scroll', function() {
+        btn.classList.toggle('visible', window.scrollY > 400);
+    }, { passive: true });
+    btn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
+</script>

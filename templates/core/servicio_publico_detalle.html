@@ -22,7 +22,7 @@
 <link rel="icon" href="{% static 'img/favicon.png' %}" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800&family=Baloo+2:wght@700;800;900&display=swap" rel="stylesheet">
 
 <!-- Evitar parpadeo de tema al cargar -->
 <script>
@@ -88,43 +88,39 @@
     :root {
         --bg-base: #080b14; --bg-1: #0d1220; --bg-2: #111827;
         --glass: rgba(255,255,255,0.04); --glass-border: rgba(255,255,255,0.08);
+        --rojo: #ff5f40; --rojo-glow: rgba(255,95,64,0.38);
         --azul: #00d4c8; --azul-glow: rgba(0,212,200,0.38);
-        --morado: #c084fc; --verde: #34eea0; --verde-glow: rgba(52,238,160,0.32);
-        --rojo: #ff5f40; --amarillo: #ffe066;
-        --text: #f0f4ff; --muted: rgba(240,244,255,0.80); --muted2: rgba(240,244,255,0.62);
+        --amarillo: #ffe066; --oro-glow: rgba(255,224,102,0.32);
+        --verde: #34eea0; --verde-glow: rgba(52,238,160,0.32);
+        --morado: #c084fc; --naranja: #ff9f40;
+        --text: #f0f4ff; --muted: rgba(240,244,255,0.92); --muted2: rgba(240,244,255,0.75);
     }
     [data-theme="light"] {
         --bg-base: #FDFAF5; --bg-1: #FFF3E0; --bg-2: #F5F0E8;
-        --glass: rgba(255,255,255,0.75); --glass-border: rgba(46,125,85,0.15);
+        --glass: rgba(255,255,255,0.7); --glass-border: rgba(46,125,85,0.15);
+        --rojo: #E65100; --rojo-glow: rgba(230,81,0,0.25);
         --azul: #1976D2; --azul-glow: rgba(25,118,210,0.25);
-        --morado: #6A1B9A; --verde: #2E7D55; --verde-glow: rgba(46,125,85,0.25);
-        --rojo: #E65100; --amarillo: #F57F17;
-        --text: #201a14; --muted: rgba(32,26,20,0.78); --muted2: rgba(32,26,20,0.6);
+        --amarillo: #F57F17; --oro-glow: rgba(245,127,23,0.25);
+        --verde: #2E7D55; --verde-glow: rgba(46,125,85,0.25);
+        --morado: #6A1B9A; --naranja: #FF8C42;
+        --text: #3E2723; --muted: rgba(62,39,35,0.82); --muted2: rgba(62,39,35,0.6);
     }
     * { box-sizing: border-box; }
     body {
         margin: 0; background: var(--bg-base); color: var(--text);
-        font-family: 'Inter', sans-serif; line-height: 1.65;
+        font-family: 'Nunito', sans-serif; line-height: 1.65;
         -webkit-font-smoothing: antialiased;
     }
-    h1, h2, h3 { font-family: 'Poppins', sans-serif; }
+    h1, h2, h3 { font-family: 'Baloo 2', cursive; }
     a { color: var(--azul); }
     .wrap { max-width: 880px; margin: 0 auto; padding: 0 1.5rem; }
 
-    /* Top bar simple */
-    .topbar {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--glass-border);
-        flex-wrap: wrap; gap: 0.8rem;
-    }
-    .topbar-brand { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; color: var(--text); font-weight: 700; }
-    .topbar-brand img { height: 38px; width: 38px; border-radius: 50%; object-fit: cover; }
-    .topbar-actions { display: flex; gap: 0.7rem; align-items: center; }
     .btn {
         display: inline-flex; align-items: center; gap: 0.4rem;
-        padding: 0.55rem 1.1rem; border-radius: 999px; font-weight: 600;
+        padding: 0.55rem 1.1rem; border-radius: 999px; font-weight: 700;
         text-decoration: none; font-size: 0.92rem; border: 1px solid var(--glass-border);
         background: var(--glass); color: var(--text); cursor: pointer;
+        font-family: 'Baloo 2', cursive;
     }
     .btn-primary { background: var(--azul); color: #06131c; border: none; }
 
@@ -175,16 +171,7 @@
 </head>
 <body>
 
-<div class="topbar">
-    <a href="{% url 'core:landing' %}" class="topbar-brand">
-        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Misael">
-        Centro Misael
-    </a>
-    <div class="topbar-actions">
-        <a href="https://wa.me/59176175352" target="_blank" rel="noopener" class="btn btn-primary">💬 WhatsApp</a>
-        <a href="{% url 'core:landing' %}" class="btn">⬅ Inicio</a>
-    </div>
-</div>
+{% include 'core/partials/_navbar.html' %}
 
 <div class="wrap">
     <p class="breadcrumb">
