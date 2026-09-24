@@ -7,6 +7,12 @@ app_name = 'core'
 urlpatterns = [
     path('', views.landing, name='landing'),
     path('misael-kids/', views.misael_kids, name='misael_kids'),
+
+    # Nuestros Servicios — páginas SEO públicas (NO usar prefijo /servicios/,
+    # ese path está bloqueado en robots.txt porque lo usa el panel interno)
+    path('nuestros-servicios/', views.servicios_publicos_lista, name='servicios_publicos'),
+    path('nuestros-servicios/<slug:slug>/', views.servicio_publico_detalle, name='servicio_publico_detalle'),
+
     path('dashboard/', views.dashboard, name='dashboard'),
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.logout_view, name='logout'),

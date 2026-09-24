@@ -1,0 +1,91 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuestros Servicios · Centro Misael Potosí, Bolivia</title>
+<meta name="description" content="Fisioterapia y kinesiología infantil, psicología infantojuvenil, psicopedagogía y apoyo escolar para niños en Potosí, Bolivia. Conoce todos los servicios del Centro Misael.">
+<link rel="canonical" href="https://neuromisael.com/nuestros-servicios/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#080b14">
+<link rel="icon" href="{% static 'img/favicon.png' %}" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script>
+(function(){
+    var saved = localStorage.getItem('misael-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://neuromisael.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Nuestros Servicios", "item": "https://neuromisael.com/nuestros-servicios/" }
+    ]
+}
+</script>
+
+<style>
+    :root {
+        --bg-base: #080b14; --glass: rgba(255,255,255,0.04); --glass-border: rgba(255,255,255,0.08);
+        --azul: #00d4c8; --text: #f0f4ff; --muted: rgba(240,244,255,0.80);
+    }
+    [data-theme="light"] {
+        --bg-base: #FDFAF5; --glass: rgba(255,255,255,0.75); --glass-border: rgba(46,125,85,0.15);
+        --azul: #1976D2; --text: #201a14; --muted: rgba(32,26,20,0.78);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background: var(--bg-base); color: var(--text); font-family: 'Inter', sans-serif; }
+    h1, h2 { font-family: 'Poppins', sans-serif; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 2.4rem 1.5rem 3rem; }
+    .topbar { display:flex; align-items:center; gap:0.7rem; padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--glass-border); }
+    .topbar img { height: 38px; width: 38px; border-radius: 50%; object-fit: cover; }
+    .topbar a { color: var(--text); text-decoration:none; font-weight:700; display:flex; align-items:center; gap:0.6rem; }
+    h1 { font-size: clamp(1.6rem, 4vw, 2.3rem); margin-bottom: 0.5rem; }
+    .lead { color: var(--muted); margin-bottom: 2rem; max-width: 640px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+    .card {
+        background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px;
+        padding: 1.4rem; text-decoration: none; color: var(--text);
+    }
+    .card .icono { font-size: 2.2rem; }
+    .card h2 { font-size: 1.15rem; margin: 0.6rem 0 0.4rem; }
+    .card p { color: var(--muted); font-size: 0.92rem; margin: 0; }
+    .volver { display:inline-block; margin-top: 2.5rem; color: var(--azul); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <a href="{% url 'core:landing' %}">
+        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Misael">
+        Centro Misael
+    </a>
+</div>
+
+<div class="wrap">
+    <h1>Nuestros Servicios en Potosí, Bolivia</h1>
+    <p class="lead">Terapias y acompañamiento especializado para niños, niñas y adolescentes, con un equipo multidisciplinario en Potosí.</p>
+
+    <div class="grid">
+        {% for s in servicios %}
+        <a class="card" href="{% url 'core:servicio_publico_detalle' s.slug %}">
+            <div class="icono">{{ s.icono }}</div>
+            <h2>{{ s.nombre }}</h2>
+            <p>{{ s.meta_description|truncatewords:16 }}</p>
+        </a>
+        {% endfor %}
+    </div>
+
+    <a class="volver" href="{% url 'core:landing' %}">⬅ Volver al inicio</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,260 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ servicio.title_tag }}</title>
+<meta name="description" content="{{ servicio.meta_description }}">
+<meta name="keywords" content="{{ servicio.nombre }} Potosí, {{ servicio.nombre }} Bolivia, {{ servicio.nombre_corto }} niños, Centro Misael">
+<link rel="canonical" href="https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#080b14">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ servicio.title_tag }}">
+<meta property="og:description" content="{{ servicio.meta_description }}">
+<meta property="og:url" content="https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/">
+<meta property="og:image" content="https://neuromisael.com{% static 'img/logo_misael.png' %}">
+<meta property="og:locale" content="es_BO">
+
+<link rel="icon" href="{% static 'img/favicon.png' %}" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Evitar parpadeo de tema al cargar -->
+<script>
+(function(){
+    var saved = localStorage.getItem('misael-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
+
+<!-- Schema.org: Service / MedicalTherapy -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "MedicalTherapy",
+    "name": "{{ servicio.nombre }}",
+    "description": "{{ servicio.meta_description|escapejs }}",
+    "areaServed": { "@type": "City", "name": "Potosí" },
+    "provider": {
+        "@type": "MedicalBusiness",
+        "name": "Centro de Neurodesarrollo Infantil Misael",
+        "url": "https://neuromisael.com",
+        "telephone": "+591-76175352",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Potosí",
+            "addressCountry": "BO"
+        }
+    }
+}
+</script>
+
+<!-- Schema.org: Breadcrumbs -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Inicio", "item": "https://neuromisael.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Nuestros Servicios", "item": "https://neuromisael.com/nuestros-servicios/" },
+        { "@type": "ListItem", "position": 3, "name": "{{ servicio.nombre }}", "item": "https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/" }
+    ]
+}
+</script>
+
+<!-- Schema.org: FAQPage -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {% for faq in servicio.faqs %}
+        {
+            "@type": "Question",
+            "name": "{{ faq.q|escapejs }}",
+            "acceptedAnswer": { "@type": "Answer", "text": "{{ faq.a|escapejs }}" }
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+
+<style>
+    :root {
+        --bg-base: #080b14; --bg-1: #0d1220; --bg-2: #111827;
+        --glass: rgba(255,255,255,0.04); --glass-border: rgba(255,255,255,0.08);
+        --azul: #00d4c8; --azul-glow: rgba(0,212,200,0.38);
+        --morado: #c084fc; --verde: #34eea0; --verde-glow: rgba(52,238,160,0.32);
+        --rojo: #ff5f40; --amarillo: #ffe066;
+        --text: #f0f4ff; --muted: rgba(240,244,255,0.80); --muted2: rgba(240,244,255,0.62);
+    }
+    [data-theme="light"] {
+        --bg-base: #FDFAF5; --bg-1: #FFF3E0; --bg-2: #F5F0E8;
+        --glass: rgba(255,255,255,0.75); --glass-border: rgba(46,125,85,0.15);
+        --azul: #1976D2; --azul-glow: rgba(25,118,210,0.25);
+        --morado: #6A1B9A; --verde: #2E7D55; --verde-glow: rgba(46,125,85,0.25);
+        --rojo: #E65100; --amarillo: #F57F17;
+        --text: #201a14; --muted: rgba(32,26,20,0.78); --muted2: rgba(32,26,20,0.6);
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg-base); color: var(--text);
+        font-family: 'Inter', sans-serif; line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3 { font-family: 'Poppins', sans-serif; }
+    a { color: var(--azul); }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* Top bar simple */
+    .topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--glass-border);
+        flex-wrap: wrap; gap: 0.8rem;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; color: var(--text); font-weight: 700; }
+    .topbar-brand img { height: 38px; width: 38px; border-radius: 50%; object-fit: cover; }
+    .topbar-actions { display: flex; gap: 0.7rem; align-items: center; }
+    .btn {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.55rem 1.1rem; border-radius: 999px; font-weight: 600;
+        text-decoration: none; font-size: 0.92rem; border: 1px solid var(--glass-border);
+        background: var(--glass); color: var(--text); cursor: pointer;
+    }
+    .btn-primary { background: var(--azul); color: #06131c; border: none; }
+
+    /* Breadcrumb */
+    .breadcrumb { font-size: 0.85rem; color: var(--muted2); padding: 1.2rem 0 0; }
+    .breadcrumb a { color: var(--muted2); }
+
+    /* Hero */
+    .hero { padding: 1.8rem 0 1rem; }
+    .hero .icono { font-size: 3rem; }
+    .hero h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); margin: 0.6rem 0 0.8rem; }
+    .hero .intro { color: var(--muted); font-size: 1.05rem; }
+
+    /* Secciones */
+    section.block { padding: 1.6rem 0; border-top: 1px solid var(--glass-border); }
+    section.block h2 { font-size: 1.35rem; margin-bottom: 0.9rem; }
+    .cond-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 0.7rem; }
+    .cond-item {
+        background: var(--glass); border: 1px solid var(--glass-border);
+        border-radius: 12px; padding: 0.8rem 1rem; font-size: 0.95rem; color: var(--muted);
+    }
+
+    /* FAQ */
+    details.faq { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 0.7rem; }
+    details.faq summary { font-weight: 600; cursor: pointer; }
+    details.faq p { color: var(--muted); margin: 0.6rem 0 0.1rem; }
+
+    /* CTA final */
+    .cta-final {
+        text-align: center; padding: 2rem 1.5rem; margin-top: 1rem;
+        border-radius: 20px; background: var(--glass); border: 1px solid var(--glass-border);
+    }
+    .cta-final h2 { margin-top: 0; }
+
+    /* Relacionados */
+    .relacionados { display: flex; flex-wrap: wrap; gap: 0.7rem; }
+    .rel-card {
+        flex: 1 1 220px; background: var(--glass); border: 1px solid var(--glass-border);
+        border-radius: 14px; padding: 1rem 1.1rem; text-decoration: none; color: var(--text);
+    }
+    .rel-card small { color: var(--muted2); }
+
+    footer.simple {
+        text-align: center; padding: 2rem 1.5rem 3rem; color: var(--muted2); font-size: 0.88rem;
+    }
+    footer.simple a { color: var(--azul); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+    <a href="{% url 'core:landing' %}" class="topbar-brand">
+        <img src="{% static 'img/logo_misael.png' %}" alt="Logo Centro Misael">
+        Centro Misael
+    </a>
+    <div class="topbar-actions">
+        <a href="https://wa.me/59176175352" target="_blank" rel="noopener" class="btn btn-primary">💬 WhatsApp</a>
+        <a href="{% url 'core:landing' %}" class="btn">⬅ Inicio</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <p class="breadcrumb">
+        <a href="{% url 'core:landing' %}">Inicio</a> ›
+        <a href="{% url 'core:servicios_publicos' %}">Nuestros Servicios</a> ›
+        {{ servicio.nombre_corto }}
+    </p>
+
+    <div class="hero">
+        <div class="icono">{{ servicio.icono }}</div>
+        <h1>{{ servicio.h1 }}</h1>
+        <p class="intro">{{ servicio.intro }}</p>
+    </div>
+
+    <section class="block">
+        <h2>¿A quién ayuda este servicio?</h2>
+        <p style="color:var(--muted);">{{ servicio.para_quien }}</p>
+    </section>
+
+    <section class="block">
+        <h2>Qué tratamos</h2>
+        <div class="cond-grid">
+            {% for c in servicio.condiciones %}
+            <div class="cond-item">✔ {{ c }}</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="block">
+        <h2>Cómo es una sesión</h2>
+        <p style="color:var(--muted);">{{ servicio.como_es_sesion }}</p>
+    </section>
+
+    <section class="block">
+        <h2>Preguntas frecuentes</h2>
+        {% for faq in servicio.faqs %}
+        <details class="faq">
+            <summary>{{ faq.q }}</summary>
+            <p>{{ faq.a }}</p>
+        </details>
+        {% endfor %}
+    </section>
+
+    <div class="cta-final">
+        <h2>¿Agendamos una evaluación en Potosí?</h2>
+        <p style="color:var(--muted);">Escríbenos por WhatsApp o llámanos y coordinamos tu primera cita.</p>
+        <a href="https://wa.me/59176175352" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:0.6rem;">💬 Escribir por WhatsApp</a>
+    </div>
+
+    {% if relacionados %}
+    <section class="block">
+        <h2>Otros servicios relacionados</h2>
+        <div class="relacionados">
+            {% for r in relacionados %}
+            <a class="rel-card" href="{% url 'core:servicio_publico_detalle' r.slug %}">
+                {{ r.icono }} <strong>{{ r.nombre_corto }}</strong><br>
+                <small>Ver más →</small>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<footer class="simple">
+    Centro de Neurodesarrollo Infantil Misael · Potosí, Bolivia ·
+    <a href="tel:+59176175352">76175352</a> ·
+    <a href="mailto:info@neuromisael.com">info@neuromisael.com</a><br>
+    <a href="{% url 'core:landing' %}">Volver al inicio</a>
+</footer>
+
+</body>
+</html>

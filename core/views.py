@@ -22,7 +22,33 @@ def landing(request):
 def misael_kids(request):
     """Vista para la página del Jardín Infantil Misael Kids"""
     return render(request, 'core/misael_kids.html')
-    
+
+
+def servicios_publicos_lista(request):
+    """Página índice: 'Nuestros Servicios' — enlaza a cada página SEO individual."""
+    from core.servicios_data import SERVICIOS_PUBLICOS
+    return render(request, 'core/servicios_publicos_lista.html', {
+        'servicios': list(SERVICIOS_PUBLICOS.values()),
+    })
+
+
+def servicio_publico_detalle(request, slug):
+    """Página SEO individual de un servicio (fisioterapia, psicología, etc.)."""
+    from django.http import Http404
+    from core.servicios_data import SERVICIOS_PUBLICOS
+    servicio = SERVICIOS_PUBLICOS.get(slug)
+    if not servicio:
+        raise Http404("Servicio no encontrado")
+    relacionados = [
+        SERVICIOS_PUBLICOS[s] for s in servicio.get('relacionados', [])
+        if s in SERVICIOS_PUBLICOS
+    ]
+    return render(request, 'core/servicio_publico_detalle.html', {
+        'servicio': servicio,
+        'relacionados': relacionados,
+    })
+
+
 @login_required
 @solo_sus_sucursales  # ✅ Aplicar filtrado automático
 def dashboard(request):
