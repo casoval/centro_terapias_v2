@@ -7,6 +7,13 @@
     que funcionen también fuera de la home.
 -->
 <style>
+    /* Reset equivalente al de la landing (*{margin:0;padding:0}), acotado al navbar
+       para no alterar el contenido de cada página. :where() = especificidad 0. */
+    :where(.navbar, .navbar *, .navbar *::before, .navbar *::after,
+           .mobile-menu, .mobile-menu *, .horarios-bar, .horarios-bar *,
+           .scroll-top-btn) { margin: 0; padding: 0; box-sizing: border-box; }
+    :where(.navbar, .mobile-menu, .horarios-bar) { line-height: normal; }
+
     /* ── THEME TOGGLE BUTTON ── */
     .theme-toggle {
         display: inline-flex; align-items: center; gap: 7px;
@@ -104,6 +111,14 @@
     .nav-links { display: flex; align-items: center; gap: 2.2rem; list-style: none; }
     .nav-links a { font-size: 0.875rem; font-weight: 700; color: var(--muted); text-decoration: none; transition: color 0.2s; }
     .nav-links a:hover { color: var(--text); }
+    .nav-link { position: relative; }
+    .nav-link::after {
+        content: ''; position: absolute; bottom: -4px; left: 0; right: 0;
+        height: 2px; border-radius: 2px; background: var(--azul);
+        transform: scaleX(0); transform-origin: center; transition: transform 0.25s ease;
+    }
+    .nav-link.active::after { transform: scaleX(1); }
+    .nav-link.active { color: var(--text) !important; }
 
     .btn-login {
         display: inline-flex; align-items: center; gap: 8px;
@@ -168,6 +183,7 @@
     .horarios-bar strong { color: var(--azul); font-weight: 800; }
     [data-theme="light"] .horarios-bar strong { color: #1B5E40; }
     .horarios-bar-sep { opacity: 0.35; }
+    @media (max-width: 768px) { .horarios-bar-hide-mobile { display: none !important; } }
 
     /* ── SCROLL TO TOP ── */
     .scroll-top-btn {
@@ -221,14 +237,13 @@
     </div>
 
     <ul class="nav-links">
-        <li><a href="{% url 'core:landing' %}#servicios">Servicios</a></li>
-        <li><a href="{% url 'core:servicios_publicos' %}">Nuestros Servicios</a></li>
-        <li><a href="{% url 'core:landing' %}#galeria">Galería</a></li>
-        <li><a href="{% url 'core:landing' %}#videos">Videos</a></li>
-        <li><a href="{% url 'core:landing' %}#nosotros">Nosotros</a></li>
-        <li><a href="{% url 'core:landing' %}#equipo">Equipo</a></li>
-        <li><a href="https://tienda.neuromisael.com" target="_blank" rel="noopener">🧸 Tienda</a></li>
-        <li><a href="{% url 'core:landing' %}#contacto">Contacto</a></li>
+        <li><a class="nav-link{% if '/nuestros-servicios/' in request.path %} active{% endif %}" href="{% url 'core:servicios_publicos' %}"{% if '/nuestros-servicios/' in request.path %} aria-current="page"{% endif %}>Servicios</a></li>
+        <li><a class="nav-link" href="{% url 'core:landing' %}#galeria">Galería</a></li>
+        <li><a class="nav-link" href="{% url 'core:landing' %}#videos">Videos</a></li>
+        <li><a class="nav-link" href="{% url 'core:landing' %}#nosotros">Nosotros</a></li>
+        <li><a class="nav-link" href="{% url 'core:landing' %}#equipo">Equipo</a></li>
+        <li><a class="nav-link" href="https://tienda.neuromisael.com" target="_blank" rel="noopener">🧸 Tienda</a></li>
+        <li><a class="nav-link" href="{% url 'core:landing' %}#contacto">Contacto</a></li>
     </ul>
 
     <div style="display:flex;align-items:center;gap:0.8rem;margin-left:1.2rem;">
@@ -249,16 +264,15 @@
     <span>⏰ <strong>Lun–Vie</strong> 9:00–12:00 y 14:30–19:00</span>
     <span class="horarios-bar-sep">·</span>
     <span><strong>Sáb</strong> 9:00–12:00</span>
+    <span class="horarios-bar-sep horarios-bar-hide-mobile">·</span>
+    <span class="horarios-bar-hide-mobile">✨ ¡Te esperamos!</span>
 </div>
 
 <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()"></div>
 
 <nav class="mobile-menu" id="mobileMenu" role="dialog" aria-label="Menú de navegación">
-    <a href="{% url 'core:landing' %}#servicios" class="mobile-nav-link">
-        <span><span class="mobile-nav-emoji">🌟</span>Servicios</span><span>›</span>
-    </a>
     <a href="{% url 'core:servicios_publicos' %}" class="mobile-nav-link">
-        <span><span class="mobile-nav-emoji">🗂️</span>Nuestros Servicios</span><span>›</span>
+        <span><span class="mobile-nav-emoji">🌟</span>Servicios</span><span>›</span>
     </a>
     <a href="{% url 'core:landing' %}#galeria" class="mobile-nav-link">
         <span><span class="mobile-nav-emoji">📸</span>Galería</span><span>›</span>
