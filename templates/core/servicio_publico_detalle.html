@@ -4,9 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% include 'core/partials/_analytics.html' %}
 <title>{{ servicio.title_tag }}</title>
 <meta name="description" content="{{ servicio.meta_description }}">
-<meta name="keywords" content="{{ servicio.nombre }} Potosí, {{ servicio.nombre }} Bolivia, {{ servicio.nombre_corto }} niños, Centro Misael">
 <link rel="canonical" href="https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#080b14">
@@ -16,7 +16,9 @@
 <meta property="og:title" content="{{ servicio.title_tag }}">
 <meta property="og:description" content="{{ servicio.meta_description }}">
 <meta property="og:url" content="https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/">
-<meta property="og:image" content="https://neuromisael.com{% static 'img/logo_misael.png' %}">
+<meta property="og:image" content="https://neuromisael.com{% static 'img/og_centro.jpg' %}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:locale" content="es_BO">
 
 <link rel="icon" href="{% static 'img/favicon.png' %}" type="image/png">
@@ -32,21 +34,26 @@
 })();
 </script>
 
-<!-- Schema.org: Service / MedicalTherapy -->
+<!-- Schema.org: Service -->
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
-    "@type": "MedicalTherapy",
-    "name": "{{ servicio.nombre }}",
+    "@type": "Service",
+    "serviceType": "{{ servicio.nombre }}",
+    "name": "{{ servicio.nombre }} en Potosí",
+    "url": "https://neuromisael.com/nuestros-servicios/{{ servicio.slug }}/",
     "description": "{{ servicio.meta_description|escapejs }}",
     "areaServed": { "@type": "City", "name": "Potosí" },
+    "audience": { "@type": "PeopleAudience", "audienceType": "Niños, niñas y adolescentes" },
     "provider": {
         "@type": "MedicalBusiness",
         "name": "Centro de Neurodesarrollo Infantil Misael",
         "url": "https://neuromisael.com",
         "telephone": "+591-76175352",
+        "geo": { "@type": "GeoCoordinates", "latitude": -19.57586, "longitude": -65.76807 },
         "address": {
             "@type": "PostalAddress",
+            "streetAddress": "Calle Japón #28 entre Daza y Calderón, a lado de la EPI-10, Zona Baja",
             "addressLocality": "Potosí",
             "addressCountry": "BO"
         }
@@ -179,6 +186,8 @@
         <p class="intro">{{ servicio.intro }}</p>
     </div>
 
+    <img src="{% static 'img/foto_terapia.webp' %}" alt="Sesión de {{ servicio.nombre_corto|lower }} infantil en el Centro Misael, Potosí, Bolivia" width="720" height="480" loading="lazy" style="width:100%;height:auto;border-radius:16px;margin:0 0 24px;">
+
     <section class="block">
         <h2>¿A quién ayuda este servicio?</h2>
         <p style="color:var(--muted);">{{ servicio.para_quien }}</p>
@@ -208,6 +217,13 @@
         {% endfor %}
     </section>
 
+
+    <section class="block" id="agendar-cita">
+        <h2>Agenda tu cita en Potosí</h2>
+        <p style="color:var(--muted);">Centro de Neurodesarrollo Infantil Misael · Calle Japón #28 entre Daza y Calderón, a lado de la EPI-10, Zona Baja, Potosí, Bolivia.<br>
+        Tel.: <a href="tel:+59176175352">+591 76175352</a> · <a href="tel:+59178633975">+591 78633975</a></p>
+        <p><a href="https://wa.me/59176175352?text=Hola,%20quiero%20agendar%20una%20cita%20de%20{{ servicio.nombre_corto|urlencode }}" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;font-weight:800;padding:12px 26px;border-radius:999px;text-decoration:none;">Agendar cita por WhatsApp</a></p>
+    </section>
 
     {% if relacionados %}
     <section class="block">
