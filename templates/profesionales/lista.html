@@ -217,7 +217,7 @@
 <div id="view-list" class="view-hidden pb-10">
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="tabla-fichas w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 text-emerald-800">
                         <th class="p-4 font-bold text-sm text-center w-16">#</th>
@@ -232,8 +232,8 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for profesional in profesionales %}
                     <tr class="hover:bg-emerald-50/30 transition-colors group">
-                        <td class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
-                        <td class="p-4">
+                        <td data-label="#" data-ficha="oculto" class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
+                        <td data-label="Foto" data-ficha="avatar" class="p-4">
                             {% if profesional.tiene_foto %}
                                 <img loading="lazy" decoding="async" src="{{ profesional.get_foto_thumbnail }}" 
                                      class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
@@ -241,11 +241,11 @@
                                 <div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-lg">👨‍⚕️</div>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Profesional" data-ficha="titulo" class="p-4">
                             <div class="font-bold text-gray-800">{{ profesional.nombre }}</div>
                             <div class="text-xs text-gray-500 uppercase font-semibold">{{ profesional.apellido }}</div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Especialidad" class="p-4">
                             <div class="text-sm font-semibold text-emerald-600 bg-emerald-50 inline-block px-2 py-0.5 rounded-md">
                                 {{ profesional.especialidad }}
                             </div>
@@ -253,7 +253,7 @@
                             <div class="text-xs text-gray-500 mt-1">📞 {{ profesional.telefono }}</div>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Usuario Sistema" class="p-4">
                             {% if profesional.user %}
                                 <div class="flex items-center gap-1.5">
                                     <span class="text-xs">🔐</span>
@@ -268,7 +268,7 @@
                                 <span class="text-xs text-gray-400 italic">No asignado</span>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Sucursales" class="p-4">
                             <div class="flex flex-wrap gap-1">
                                 {% for sucursal in profesional.sucursales.all %}
                                     <span class="px-2 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-600 rounded border border-gray-200">
@@ -279,7 +279,7 @@
                                 {% endfor %}
                             </div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Acciones" data-ficha="acciones" class="p-4">
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{% url 'profesionales:detalle' profesional.id %}" class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-colors" title="Ver">
                                     👁️

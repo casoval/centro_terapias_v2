@@ -295,7 +295,7 @@
             <div id="view-list-activos" class="view-hidden pb-6 px-3">
                 <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="tabla-fichas w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-900 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-wider">
                                     <th class="p-3 font-black text-center w-12">#</th>
@@ -311,15 +311,15 @@
                             <tbody class="divide-y divide-slate-100">
                                 {% for paciente in pacientes_activos %}
                                 <tr class="hover:bg-indigo-50/50 transition-colors group">
-                                    <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
-                                    <td class="p-3">
+                                    <td data-label="#" data-ficha="oculto" class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
+                                    <td data-label="Foto" data-ficha="avatar" class="p-3">
                                         {% if paciente.tiene_foto %}
                                             <img loading="lazy" decoding="async" src="{{ paciente.get_foto_thumbnail }}" class="w-8 h-8 rounded-full object-cover border border-white shadow-sm">
                                         {% else %}
                                             <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm">👤</div>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Paciente" data-ficha="titulo" class="p-3">
                                         <div class="font-black text-slate-800 text-xs uppercase">{{ paciente.nombre }}</div>
                                         <div class="text-[10px] text-slate-500 font-bold uppercase">{{ paciente.apellido }}</div>
                                         <div class="flex items-center gap-1 mt-0.5">
@@ -327,11 +327,11 @@
                                             {% include 'pacientes/_badge_misael_kids.html' with vinculado=paciente.mk_vinculado pendiente=paciente.mk_pendiente %}
                                         </div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Tutor" class="p-3">
                                         <div class="text-xs font-bold text-slate-700">{{ paciente.nombre_tutor }}</div>
                                         <div class="text-[10px] text-slate-500">📞 {{ paciente.telefono_tutor }}</div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Usuario" class="p-3">
                                         {% if paciente.user %}
                                             <div class="flex items-center gap-1">
                                                 <span class="text-[10px]">🔐</span>
@@ -344,7 +344,7 @@
                                             <span class="text-[10px] text-slate-400 italic">No asignado</span>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Sucursales" class="p-3">
                                         <div class="flex flex-wrap gap-1">
                                             {% for sucursal in paciente.sucursales.all %}
                                                 <span class="px-1.5 py-0.5 text-[9px] font-bold bg-teal-50 text-teal-700 rounded border border-teal-100">{{ sucursal.nombre }}</span>
@@ -353,7 +353,7 @@
                                             {% endfor %}
                                         </div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Escuela" class="p-3">
                                         {% if paciente.nombre_escuela %}
                                             <div class="flex items-center gap-1">
                                                 <span class="text-[10px]">🏫</span>
@@ -369,7 +369,7 @@
                                             <span class="text-[9px] text-gray-400 italic">—</span>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Acciones" data-ficha="acciones" class="p-3">
                                         <div class="flex items-center justify-center gap-1.5">
                                             <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors text-xs" title="Ver">👁️</a>
                                             <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar">✏️</a>
@@ -490,7 +490,7 @@
             <div id="view-list-inactivos" class="view-hidden pb-6 px-3">
                 <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                        <table class="tabla-fichas w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-700 border-b border-slate-600 text-slate-300 text-[10px] uppercase tracking-wider">
                                     <th class="p-3 font-black text-center w-12">#</th>
@@ -506,15 +506,15 @@
                             <tbody class="divide-y divide-slate-100">
                                 {% for paciente in pacientes_inactivos %}
                                 <tr class="hover:bg-slate-50 transition-colors opacity-80 hover:opacity-100">
-                                    <td class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
-                                    <td class="p-3">
+                                    <td data-label="#" data-ficha="oculto" class="p-3 text-center font-bold text-slate-400 text-xs">{{ forloop.counter }}</td>
+                                    <td data-label="Foto" data-ficha="avatar" class="p-3">
                                         {% if paciente.tiene_foto %}
                                             <img loading="lazy" decoding="async" src="{{ paciente.get_foto_thumbnail }}" class="w-8 h-8 rounded-full object-cover border border-white shadow-sm grayscale">
                                         {% else %}
                                             <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-sm">👤</div>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Paciente" data-ficha="titulo" class="p-3">
                                         <div class="font-black text-slate-500 text-xs uppercase">{{ paciente.nombre }}</div>
                                         <div class="text-[10px] text-slate-400 font-bold uppercase">{{ paciente.apellido }}</div>
                                         <div class="flex items-center gap-1 mt-0.5">
@@ -522,11 +522,11 @@
                                             {% include 'pacientes/_badge_misael_kids.html' with vinculado=paciente.mk_vinculado pendiente=paciente.mk_pendiente %}
                                         </div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Tutor" class="p-3">
                                         <div class="text-xs font-bold text-slate-500">{{ paciente.nombre_tutor }}</div>
                                         <div class="text-[10px] text-slate-400">📞 {{ paciente.telefono_tutor }}</div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Usuario" class="p-3">
                                         {% if paciente.user %}
                                             <div class="flex items-center gap-1">
                                                 <span class="text-[10px]">🔐</span>
@@ -536,7 +536,7 @@
                                             <span class="text-[10px] text-slate-400 italic">No asignado</span>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Sucursales" class="p-3">
                                         <div class="flex flex-wrap gap-1">
                                             {% for sucursal in paciente.sucursales.all %}
                                                 <span class="px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-500 rounded border border-slate-200">{{ sucursal.nombre }}</span>
@@ -545,7 +545,7 @@
                                             {% endfor %}
                                         </div>
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Escuela" class="p-3">
                                         {% if paciente.nombre_escuela %}
                                             <div class="flex items-center gap-1">
                                                 <span class="text-[10px]">🏫</span>
@@ -555,7 +555,7 @@
                                             <span class="text-[9px] text-gray-400 italic">—</span>
                                         {% endif %}
                                     </td>
-                                    <td class="p-3">
+                                    <td data-label="Acciones" data-ficha="acciones" class="p-3">
                                         <div class="flex items-center justify-center gap-1.5">
                                             <a href="{% url 'pacientes:detalle' paciente.id %}" class="w-7 h-7 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-600 hover:text-white transition-colors text-xs" title="Ver">👁️</a>
                                             <a href="{% url 'pacientes:editar' paciente.id %}" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-colors text-xs" title="Editar / Reactivar">✏️</a>

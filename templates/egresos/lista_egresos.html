@@ -174,7 +174,7 @@
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         {% if page_obj %}
         <div class="overflow-x-auto">
-            <table class="w-full text-xs">
+            <table class="tabla-fichas w-full text-xs">
                 <thead>
                     <tr class="bg-gradient-to-r from-red-600 to-red-700 text-white">
                         <th class="px-3 py-2.5 text-left font-semibold">N° Egreso</th>
@@ -194,7 +194,7 @@
                     {% for egreso in page_obj %}
                     <tr class="hover:bg-red-50 transition-colors {% if egreso.anulado %}opacity-50{% endif %}">
                         <!-- N° Egreso -->
-                        <td class="px-3 py-2.5">
+                        <td data-label="N° Egreso" data-ficha="titulo" class="px-3 py-2.5">
                             <a href="{% url 'egresos:detalle_egreso' egreso.id %}"
                                class="font-bold text-red-600 hover:text-red-800 hover:underline">
                                 {{ egreso.numero_egreso }}
@@ -202,12 +202,12 @@
                         </td>
 
                         <!-- Fecha -->
-                        <td class="px-3 py-2.5 text-gray-600 whitespace-nowrap">
+                        <td data-label="Fecha" class="px-3 py-2.5 text-gray-600 whitespace-nowrap">
                             {{ egreso.fecha|date:"d/m/Y" }}
                         </td>
 
                         <!-- Categoría -->
-                        <td class="px-3 py-2.5 hidden sm:table-cell">
+                        <td data-label="Categoría" class="px-3 py-2.5 hidden sm:table-cell">
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold
                                 {% if egreso.categoria.tipo == 'honorarios' %}bg-purple-100 text-purple-700
                                 {% elif egreso.categoria.tipo == 'arriendo' %}bg-blue-100 text-blue-700
@@ -221,29 +221,29 @@
                         </td>
 
                         <!-- Proveedor -->
-                        <td class="px-3 py-2.5 text-gray-600 hidden md:table-cell">
+                        <td data-label="Proveedor" class="px-3 py-2.5 text-gray-600 hidden md:table-cell">
                             {{ egreso.proveedor.nombre|default:"—" }}
                         </td>
 
                         <!-- Concepto -->
-                        <td class="px-3 py-2.5 text-gray-700 max-w-xs">
+                        <td data-label="Concepto" class="px-3 py-2.5 text-gray-700 max-w-xs">
                             <span title="{{ egreso.concepto }}">
                                 {{ egreso.concepto|truncatechars:50 }}
                             </span>
                         </td>
 
                         <!-- Monto -->
-                        <td class="px-3 py-2.5 text-right font-bold {% if egreso.anulado %}text-gray-400 line-through{% else %}text-red-600{% endif %}">
+                        <td data-label="Monto" class="px-3 py-2.5 text-right font-bold {% if egreso.anulado %}text-gray-400 line-through{% else %}text-red-600{% endif %}">
                             Bs. {{ egreso.monto|floatformat:0 }}
                         </td>
 
                         <!-- Período -->
-                        <td class="px-3 py-2.5 text-gray-500 hidden lg:table-cell text-[10px]">
+                        <td data-label="Período" class="px-3 py-2.5 text-gray-500 hidden lg:table-cell text-[10px]">
                             {{ egreso.periodo_display }}
                         </td>
 
                         <!-- Sucursal -->
-                        <td class="px-3 py-2.5 hidden xl:table-cell">
+                        <td data-label="Sucursal" class="px-3 py-2.5 hidden xl:table-cell">
                             {% if egreso.sucursal %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700">
                                 🏢 {{ egreso.sucursal.nombre }}
@@ -254,7 +254,7 @@
                         </td>
 
                         <!-- Registrado por -->
-                        <td class="px-3 py-2.5 hidden xl:table-cell">
+                        <td data-label="Registrado por" class="px-3 py-2.5 hidden xl:table-cell">
                             <span class="text-xs text-gray-600">
                                 {{ egreso.registrado_por.get_full_name|default:egreso.registrado_por.username }}
                             </span>
@@ -262,7 +262,7 @@
                         </td>
 
                         <!-- Estado -->
-                        <td class="px-3 py-2.5 text-center">
+                        <td data-label="Estado" class="px-3 py-2.5 text-center">
                             {% if egreso.anulado %}
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
                                 ❌ Anulado
@@ -275,7 +275,7 @@
                         </td>
 
                         <!-- Acciones -->
-                        <td class="px-3 py-2.5 text-center">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-3 py-2.5 text-center">
                             <div class="flex items-center justify-center gap-1">
                                 <a href="{% url 'egresos:detalle_egreso' egreso.id %}"
                                    title="Ver detalle"

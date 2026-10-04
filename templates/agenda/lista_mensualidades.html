@@ -66,7 +66,7 @@
 
     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
-            <table class="min-w-full">
+            <table class="tabla-fichas min-w-full">
                 <thead class="bg-slate-900 text-slate-400 uppercase tracking-widest text-[10px]">
                     <tr>
                         <th class="px-5 py-4 text-left">Paciente</th>
@@ -83,18 +83,18 @@
                 <tbody class="divide-y divide-slate-100 font-medium">
                     {% for mensualidad in page_obj %}
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-5 py-4">
+                        <td data-label="Paciente" data-ficha="titulo" class="px-5 py-4">
                             <p class="text-slate-800 font-black uppercase text-[13px]">{{ mensualidad.paciente.nombre_completo }}</p>
                             <p class="text-[10px] text-slate-400 font-mono">{{ mensualidad.codigo }}</p>
                         </td>
                         
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Período" class="px-5 py-4 text-center">
                             <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-bold text-[11px]">
                                 📅 {{ mensualidad.periodo_display }}
                             </span>
                         </td>
                         
-                        <td class="px-5 py-4">
+                        <td data-label="Servicios" class="px-5 py-4">
                             {% with servicios=mensualidad.servicios.all %}
                             <div class="flex items-center gap-2">
                                 {% if servicios.count == 1 %}
@@ -116,17 +116,17 @@
                             <p class="text-[11px] text-purple-400 mt-1">👨‍⚕️ {{ mensualidad.profesional.nombre }}</p>
                         </td>
                         
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Sesiones" class="px-5 py-4 text-center">
                             <span class="text-blue-600 font-black">{{ mensualidad.num_sesiones_realizadas }}</span>
                             <span class="text-slate-400">/</span>
                             <span class="text-slate-700 font-bold">{{ mensualidad.num_sesiones }}</span>
                         </td>
                         
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Sucursal" class="px-5 py-4 text-center">
                             <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg border border-slate-200 font-bold text-[11px]">🏢 {{ mensualidad.sucursal.nombre }}</span>
                         </td>
                         
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Estado" class="px-5 py-4 text-center">
                             <span class="px-3 py-1.5 rounded-full font-black text-[10px] uppercase border shadow-sm
                                 {% if mensualidad.estado == 'activa' %}bg-emerald-50 text-emerald-700 border-emerald-200
                                 {% elif mensualidad.estado == 'pausada' %}bg-amber-50 text-amber-700 border-amber-200
@@ -136,7 +136,7 @@
                             </span>
                         </td>
 
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Archivos" class="px-5 py-4 text-center">
                             {% if mensualidad.num_documentos %}
                             <button type="button"
                                     onclick="verArchivosMensualidad({{ mensualidad.id }}, '{{ mensualidad.periodo_display|escapejs }}')"
@@ -148,7 +148,7 @@
                             {% endif %}
                         </td>
 
-                        <td class="px-5 py-4 text-right">
+                        <td data-label="Costo/Pagado" class="px-5 py-4 text-right">
                             <p class="font-black text-slate-900 text-[14px]">Bs. {{ mensualidad.costo_mensual|floatformat:0 }}</p>
                             {% if mensualidad.pagado_completo %}
                             <p class="text-[10px] text-emerald-600 font-black">✓ Pagado</p>
@@ -157,7 +157,7 @@
                             {% endif %}
                         </td>
                         
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-5 py-4 text-center">
                             <a href="{% url 'agenda:detalle_mensualidad' mensualidad.id %}" 
                                class="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-5 py-2 rounded-xl font-black text-[11px] shadow-md hover:shadow-purple-200 transition-all inline-block uppercase tracking-wider">
                                 Ver Detalle
