@@ -240,7 +240,7 @@
 <div id="view-list" class="view-hidden pb-10">
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="tabla-fichas w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-violet-100 text-violet-800">
                         <th class="p-4 font-bold text-sm text-center w-16">#</th>
@@ -255,8 +255,8 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for usuario in usuarios %}
                     <tr class="hover:bg-violet-50/30 transition-colors group">
-                        <td class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
-                        <td class="p-4">
+                        <td data-label="#" data-ficha="oculto" class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
+                        <td data-label="Usuario" data-ficha="titulo" class="p-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl border-2 border-white shadow-sm">
                                     {% if usuario.perfil.es_profesional %}👨‍⚕️
@@ -274,7 +274,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Rol Asignado" class="p-4">
                             {% if usuario.perfil.rol %}
                                 <span class="rol-badge 
                                     {% if usuario.perfil.rol == 'profesional' %}bg-cyan-50 text-cyan-700 border-cyan-200
@@ -288,7 +288,7 @@
                                 <span class="text-xs text-gray-400 italic">Sin rol</span>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Estado" class="p-4">
                             <div class="flex flex-col gap-1 items-start">
                                 {% if usuario.is_active %}
                                     <span class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
@@ -306,7 +306,7 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Contacto" class="p-4">
                             {% if usuario.perfil.rol == 'recepcionista' or usuario.perfil.rol == 'gerente' %}
                                 <div class="flex flex-col gap-1">
                                     {% if usuario.email %}
@@ -328,7 +328,7 @@
                                 <span class="text-xs text-gray-400">-</span>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Vinculación" class="p-4">
                             {% if usuario.perfil.profesional %}
                                 <span class="text-xs font-bold text-gray-700 flex items-center gap-1">👨‍⚕️ {{ usuario.perfil.profesional }}</span>
                             {% elif usuario.perfil.paciente %}
@@ -337,7 +337,7 @@
                                 <span class="text-xs text-gray-400">-</span>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Acciones" data-ficha="acciones" class="p-4">
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{% url 'core:editar_usuario' usuario.id %}" class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-600 hover:text-white transition-colors" title="Editar">
                                     ✏️

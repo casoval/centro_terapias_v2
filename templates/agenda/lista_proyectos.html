@@ -73,7 +73,7 @@
 
     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xl">
         <div class="overflow-x-auto">
-            <table class="min-w-full">
+            <table class="tabla-fichas min-w-full">
                 <thead class="bg-slate-900 text-slate-400 uppercase tracking-widest text-[10px]">
                     <tr>
                         <th class="px-5 py-4 text-left">Código</th>
@@ -91,26 +91,26 @@
                 <tbody class="divide-y divide-slate-100 font-medium">
                     {% for proyecto in page_obj %}
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-5 py-4 font-black text-indigo-600 font-mono text-[14px]">{{ proyecto.codigo }}</td>
-                        <td class="px-5 py-4">
+                        <td data-label="Código" data-ficha="avatar" class="px-5 py-4 font-black text-indigo-600 font-mono text-[14px]">{{ proyecto.codigo }}</td>
+                        <td data-label="Proyecto / Especialidad" data-ficha="titulo" class="px-5 py-4">
                             <p class="text-slate-800 font-black uppercase text-[13px]">{{ proyecto.nombre }}</p>
                             <p class="text-[11px] text-slate-400 font-bold">📋 {{ proyecto.servicio_base.nombre }}</p>
                         </td>
-                        <td class="px-5 py-4">
+                        <td data-label="Paciente" class="px-5 py-4">
                             <p class="text-slate-800 font-bold uppercase">{{ proyecto.paciente.nombre_completo }}</p>
                             <p class="text-[11px] text-indigo-400 font-medium">👤 Tutor: {{ proyecto.paciente.nombre_tutor }}</p>
                         </td>
-                        <td class="px-5 py-4">
+                        <td data-label="Sucursal" class="px-5 py-4">
                             <span class="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg border border-slate-200 font-bold text-[11px]">🏢 {{ proyecto.sucursal.nombre }}</span>
                         </td>
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Fecha Inicio" class="px-5 py-4 text-center">
                             {% if proyecto.fecha_inicio %}
                             <p class="font-black text-slate-700 text-[13px]">{{ proyecto.fecha_inicio|date:"d/m/Y" }}</p>
                             {% else %}
                             <p class="text-slate-400 font-bold text-[11px]">—</p>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Estado" class="px-5 py-4 text-center">
                             <span class="px-3 py-1.5 rounded-full font-black text-[10px] uppercase border shadow-sm
                                 {% if proyecto.estado == 'planificado' %}bg-amber-50 text-amber-700 border-amber-200
                                 {% elif proyecto.estado == 'en_progreso' %}bg-emerald-50 text-emerald-700 border-emerald-200
@@ -119,7 +119,7 @@
                                 {{ proyecto.get_estado_display }}
                             </span>
                         </td>
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Informe" class="px-5 py-4 text-center">
                             {% if proyecto.informe_entregado %}
                             <span class="inline-flex flex-col items-center gap-0.5">
                                 <span class="px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full font-black text-[10px] uppercase">✓ Entregado</span>
@@ -129,7 +129,7 @@
                             <span class="px-2.5 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded-full font-black text-[10px] uppercase">⏳ Pendiente</span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Archivos" class="px-5 py-4 text-center">
                             {% if proyecto.num_documentos %}
                             <button type="button"
                                     onclick="verArchivos('proyecto_id', {{ proyecto.id }}, '{{ proyecto.nombre|escapejs }}')"
@@ -140,7 +140,7 @@
                             <span class="px-2.5 py-1 bg-slate-50 text-slate-400 border border-slate-200 rounded-full font-black text-[10px] uppercase">— Sin archivos</span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 text-right">
+                        <td data-label="Inversión" class="px-5 py-4 text-right">
                             <p class="font-black text-slate-900 text-[14px]">Bs. {{ proyecto.costo_total|floatformat:2 }}</p>
                             {% if not proyecto.pagado_completo %}
                             <p class="text-[10px] text-red-500 font-black uppercase tracking-tighter">Pend: Bs. {{ proyecto.saldo_pendiente|floatformat:0 }}</p>
@@ -148,7 +148,7 @@
                             <p class="text-[10px] text-emerald-600 font-black uppercase">✓ Pagado</p>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 text-center">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-5 py-4 text-center">
                             <a href="{% url 'agenda:detalle_proyecto' proyecto.id %}" 
                                class="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-5 py-2 rounded-xl font-black text-[11px] shadow-md hover:shadow-indigo-200 transition-all inline-block uppercase tracking-wider">
                                 Ver Detalles

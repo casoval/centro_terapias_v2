@@ -164,7 +164,7 @@
 
         {% if permisos %}
         <div class="overflow-x-auto">
-            <table class="w-full text-xs">
+            <table class="tabla-fichas w-full text-xs">
                 <thead>
                     <tr class="bg-slate-50 border-b border-slate-200">
                         <th class="px-4 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px]">Profesional</th>
@@ -182,7 +182,7 @@
                     <tr class="hover:bg-amber-50/40 transition-colors row-enter group">
 
                         <!-- Profesional -->
-                        <td class="px-4 py-3">
+                        <td data-label="Profesional" data-ficha="titulo" class="px-4 py-3">
                             <div class="flex items-center gap-2">
                                 <div class="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
                                     {{ permiso.profesional.nombre|first }}{{ permiso.profesional.apellido|first }}
@@ -197,7 +197,7 @@
                         </td>
 
                         <!-- Rango de sesiones -->
-                        <td class="px-4 py-3">
+                        <td data-label="Sesiones" class="px-4 py-3">
                             <div class="bg-slate-50 rounded-lg px-2 py-1 inline-block">
                                 <p class="font-bold text-slate-700">
                                     {{ permiso.fecha_sesion_desde|date:"d/m/Y" }}
@@ -211,13 +211,13 @@
                         </td>
 
                         <!-- Validez -->
-                        <td class="px-4 py-3">
+                        <td data-label="Válido hasta" class="px-4 py-3">
                             <p class="font-semibold text-slate-700">{{ permiso.valido_hasta|date:"d/m/Y" }}</p>
                             <p class="text-[10px] text-slate-400">{{ permiso.valido_hasta|date:"H:i" }}</p>
                         </td>
 
                         <!-- Puede editar -->
-                        <td class="px-4 py-3">
+                        <td data-label="Puede editar" class="px-4 py-3">
                             <div class="flex flex-col gap-0.5">
                                 {% if permiso.puede_editar_estado %}
                                 <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
@@ -238,7 +238,7 @@
                         </td>
 
                         <!-- Badge de estado -->
-                        <td class="px-4 py-3">
+                        <td data-label="Estado" class="px-4 py-3">
                             {% if permiso.usado %}
                             <span class="badge-usado px-2 py-0.5 rounded-full text-[10px] font-bold">📋 Usado</span>
                             {% elif permiso.esta_activo %}
@@ -251,13 +251,13 @@
                         </td>
 
                         <!-- Otorgado por -->
-                        <td class="px-4 py-3">
+                        <td data-label="Otorgado por" class="px-4 py-3">
                             <p class="font-semibold text-slate-700 text-[11px]">{{ permiso.otorgado_por.get_full_name|default:permiso.otorgado_por.username }}</p>
                             <p class="text-[10px] text-slate-400">{{ permiso.fecha_creacion|date:"d/m/Y H:i" }}</p>
                         </td>
 
                         <!-- Motivo -->
-                        <td class="px-4 py-3 max-w-[160px]">
+                        <td data-label="Motivo" class="px-4 py-3 max-w-[160px]">
                             {% if permiso.motivo %}
                             <p class="text-slate-600 truncate" title="{{ permiso.motivo }}">{{ permiso.motivo|truncatechars:50 }}</p>
                             {% else %}
@@ -266,7 +266,7 @@
                         </td>
 
                         <!-- Acciones -->
-                        <td class="px-4 py-3">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-4 py-3">
                             <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {% if not permiso.usado %}
                                 <a href="{% url 'agenda:editar_permiso_edicion' permiso.id %}"

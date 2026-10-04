@@ -205,7 +205,7 @@
 <div id="view-list" class="view-hidden pb-10">
     <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="tabla-fichas w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gradient-to-r from-teal-50 to-cyan-50 border-b border-teal-100 text-teal-800">
                         <th class="p-4 font-bold text-sm text-center w-16">#</th>
@@ -221,17 +221,17 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for sucursal in sucursales %}
                     <tr class="hover:bg-teal-50/50 transition-colors group">
-                        <td class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
-                        <td class="p-4">
+                        <td data-label="#" data-ficha="oculto" class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
+                        <td data-label="Nombre" data-ficha="titulo" class="p-4">
                             <div class="font-bold text-gray-800 text-base">{{ sucursal.nombre }}</div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Ubicación" class="p-4">
                             <div class="flex items-start gap-2 text-sm text-gray-600">
                                 <span class="text-red-400">📍</span>
                                 <span class="line-clamp-2">{{ sucursal.direccion }}</span>
                             </div>
                         </td>
-                        <td class="p-4">
+                        <td data-label="Contacto" class="p-4">
                             {% if sucursal.telefono %}
                                 <div class="flex items-center gap-1.5 text-sm mb-1">
                                     <span class="text-cyan-500">📞</span>
@@ -248,17 +248,17 @@
                                 <span class="text-xs text-gray-400 italic">No especificado</span>
                             {% endif %}
                         </td>
-                        <td class="p-4 text-center">
+                        <td data-label="Staff" class="p-4 text-center">
                             <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold">
                                 {{ sucursal.profesionales_activos }}
                             </span>
                         </td>
-                        <td class="p-4 text-center">
+                        <td data-label="Pacientes" class="p-4 text-center">
                             <span class="px-2.5 py-1 bg-orange-50 text-orange-700 rounded-lg text-sm font-bold">
                                 {{ sucursal.pacientes_activos }}
                             </span>
                         </td>
-                        <td class="p-4 text-center">
+                        <td data-label="Estado" class="p-4 text-center">
                             {% if sucursal.activa %}
                             <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activa
@@ -269,7 +269,7 @@
                             </span>
                             {% endif %}
                         </td>
-                        <td class="p-4">
+                        <td data-label="Acciones" data-ficha="acciones" class="p-4">
                             <div class="flex items-center justify-center gap-2">
                                 <a href="{% url 'servicios:detalle_sucursal' sucursal.id %}" class="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center hover:bg-teal-600 hover:text-white transition-colors" title="Ver">
                                     👁️

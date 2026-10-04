@@ -41,7 +41,7 @@
                 </span>
             </div>
             <div class="overflow-x-auto">
-            <table class="w-full text-xs">
+            <table class="tabla-fichas w-full text-xs">
                 <thead>
                     <tr class="bg-gray-50 text-gray-500">
                         <th class="px-4 py-2 text-left font-semibold">Nombre</th>
@@ -54,23 +54,23 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for cat in lista %}
                     <tr class="hover:bg-gray-50 transition {% if not cat.activo %}opacity-50{% endif %}">
-                        <td class="px-4 py-2.5 font-semibold text-gray-800">{{ cat.nombre }}</td>
-                        <td class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ cat.descripcion|default:"—"|truncatechars:60 }}</td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td data-label="Nombre" data-ficha="titulo" class="px-4 py-2.5 font-semibold text-gray-800">{{ cat.nombre }}</td>
+                        <td data-label="Descripción" class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ cat.descripcion|default:"—"|truncatechars:60 }}</td>
+                        <td data-label="Honorarios" class="px-4 py-2.5 text-center">
                             {% if cat.es_honorario_profesional %}
                             <span class="text-purple-600 font-bold">🩺 Sí</span>
                             {% else %}
                             <span class="text-gray-300">—</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td data-label="Estado" class="px-4 py-2.5 text-center">
                             {% if cat.activo %}
                             <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Activa</span>
                             {% else %}
                             <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">Inactiva</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-4 py-2.5 text-center">
                             <a href="{% url 'egresos:editar_categoria' cat.id %}"
                                class="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-semibold hover:bg-indigo-100 transition">
                                 ✏️ Editar

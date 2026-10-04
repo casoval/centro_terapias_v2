@@ -72,7 +72,7 @@
       <h2 class="text-base font-bold text-gray-800">Zonas registradas</h2>
     </div>
     <div class="overflow-x-auto">
-    <table class="w-full">
+    <table class="tabla-fichas w-full">
       <thead class="bg-gray-50">
         <tr>
           <th class="text-left text-xs font-semibold text-gray-500 px-6 py-3">Nombre</th>
@@ -87,11 +87,11 @@
       <tbody>
         {% for zona in zonas %}
         <tr class="border-t border-gray-50 hover:bg-gray-50">
-          <td class="px-6 py-3 font-semibold text-gray-800 text-sm">{{ zona.nombre }}</td>
-          <td class="px-4 py-3 text-sm text-gray-500">{{ zona.sucursal.nombre|default:"—" }}</td>
-          <td class="px-4 py-3 text-xs font-mono text-gray-500">{{ zona.latitud }}, {{ zona.longitud }}</td>
-          <td class="px-4 py-3 text-sm text-gray-700 font-semibold">{{ zona.radio_metros }}m</td>
-          <td class="px-4 py-3 text-sm text-gray-600">
+          <td data-label="Nombre" data-ficha="titulo" class="px-6 py-3 font-semibold text-gray-800 text-sm">{{ zona.nombre }}</td>
+          <td data-label="Sucursal ref." class="px-4 py-3 text-sm text-gray-500">{{ zona.sucursal.nombre|default:"—" }}</td>
+          <td data-label="Coordenadas" class="px-4 py-3 text-xs font-mono text-gray-500">{{ zona.latitud }}, {{ zona.longitud }}</td>
+          <td data-label="Radio" class="px-4 py-3 text-sm text-gray-700 font-semibold">{{ zona.radio_metros }}m</td>
+          <td data-label="Horario base" class="px-4 py-3 text-sm text-gray-600">
             {% if zona.horario_predeterminado %}
               {{ zona.horario_predeterminado.hora_entrada|time:"H:i" }} — {{ zona.horario_predeterminado.hora_salida|time:"H:i" }}
               <span class="text-gray-400 text-xs">(±{{ zona.horario_predeterminado.tolerancia_minutos }}min)</span>
@@ -99,14 +99,14 @@
               <span class="text-gray-300">Sin horario</span>
             {% endif %}
           </td>
-          <td class="px-4 py-3">
+          <td data-label="Estado" class="px-4 py-3">
             {% if zona.activa %}
               <span class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">Activa</span>
             {% else %}
               <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Inactiva</span>
             {% endif %}
           </td>
-          <td class="px-4 py-3">
+          <td data-label="Acciones" data-ficha="acciones" class="px-4 py-3">
             <div class="flex gap-2">
               <a href="{% url 'asistencia:editar_zona' zona.pk %}" class="text-xs text-blue-600 hover:underline font-medium">Editar</a>
               <a href="{% url 'asistencia:editar_horario' zona.pk %}" class="text-xs text-purple-600 hover:underline font-medium">Horario</a>

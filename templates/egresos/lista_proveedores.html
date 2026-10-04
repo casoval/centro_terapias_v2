@@ -63,7 +63,7 @@
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {% if proveedores %}
         <div class="overflow-x-auto">
-            <table class="w-full text-xs">
+            <table class="tabla-fichas w-full text-xs">
                 <thead>
                     <tr class="bg-gradient-to-r from-teal-600 to-teal-700 text-white">
                         <th class="px-4 py-2.5 text-left font-semibold">Nombre</th>
@@ -78,8 +78,8 @@
                 <tbody class="divide-y divide-gray-100">
                     {% for prov in proveedores %}
                     <tr class="hover:bg-teal-50 transition {% if not prov.activo %}opacity-50{% endif %}">
-                        <td class="px-4 py-2.5 font-semibold text-gray-800">{{ prov.nombre }}</td>
-                        <td class="px-4 py-2.5">
+                        <td data-label="Nombre" data-ficha="titulo" class="px-4 py-2.5 font-semibold text-gray-800">{{ prov.nombre }}</td>
+                        <td data-label="Tipo" class="px-4 py-2.5">
                             <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold
                                 {% if prov.tipo == 'empresa' %}bg-blue-100 text-blue-700
                                 {% elif prov.tipo == 'profesional' %}bg-purple-100 text-purple-700
@@ -88,27 +88,27 @@
                                 {{ prov.get_tipo_display }}
                             </span>
                         </td>
-                        <td class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ prov.nit_ci|default:"—" }}</td>
-                        <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">
+                        <td data-label="NIT / CI" class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{{ prov.nit_ci|default:"—" }}</td>
+                        <td data-label="Contacto" class="px-4 py-2.5 text-gray-500 hidden md:table-cell">
                             {% if prov.telefono %}📞 {{ prov.telefono }}{% endif %}
                             {% if prov.email %}<br>✉️ {{ prov.email }}{% endif %}
                             {% if not prov.telefono and not prov.email %}—{% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center hidden lg:table-cell">
+                        <td data-label="Vinculado" class="px-4 py-2.5 text-center hidden lg:table-cell">
                             {% if prov.profesional %}
                             <span class="text-green-600 font-semibold text-[10px]">✅ {{ prov.profesional }}</span>
                             {% else %}
                             <span class="text-gray-300">—</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td data-label="Estado" class="px-4 py-2.5 text-center">
                             {% if prov.activo %}
                             <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✅ Activo</span>
                             {% else %}
                             <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">Inactivo</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-center">
+                        <td data-label="Acciones" data-ficha="acciones" class="px-4 py-2.5 text-center">
                             <a href="{% url 'egresos:editar_proveedor' prov.id %}"
                                class="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-lg text-[10px] font-semibold hover:bg-teal-100 transition">
                                 ✏️ Editar
