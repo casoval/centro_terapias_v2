@@ -78,7 +78,7 @@
                 </p>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-sm" id="tablaResultados">
+                <table class="tabla-fichas w-full text-sm" id="tablaResultados">
                     <thead>
                         <tr class="bg-gray-50 text-left">
                             <th class="px-4 py-3 font-bold text-gray-600 rounded-tl-xl">#</th>
@@ -90,12 +90,12 @@
                     <tbody class="divide-y divide-gray-100">
                         {% for item in resultados.creados %}
                         <tr class="hover:bg-emerald-50/40 transition-colors">
-                            <td class="px-4 py-3 text-gray-400 font-bold">{{ forloop.counter }}</td>
-                            <td class="px-4 py-3 font-bold text-gray-800">👶 {{ item.nombre }}</td>
-                            <td class="px-4 py-3">
+                            <td data-label="#" data-ficha="oculto" class="px-4 py-3 text-gray-400 font-bold">{{ forloop.counter }}</td>
+                            <td data-label="Paciente" data-ficha="titulo" class="px-4 py-3 font-bold text-gray-800">👶 {{ item.nombre }}</td>
+                            <td data-label="Usuario" class="px-4 py-3">
                                 <code class="bg-violet-50 text-violet-700 px-2 py-1 rounded-lg text-xs font-bold border border-violet-100 select-all">{{ item.username }}</code>
                             </td>
-                            <td class="px-4 py-3">
+                            <td data-label="Contraseña" class="px-4 py-3">
                                 <code class="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg text-xs font-bold border border-emerald-100 select-all">{{ item.password }}</code>
                             </td>
                         </tr>
@@ -296,7 +296,7 @@
     </div>
 
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="tabla-fichas w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 text-left">
                     <th class="px-3 py-3 w-10">
@@ -324,7 +324,7 @@
                     data-apellido-base="{{ item.apellido_base }}"
                     data-id="{{ item.paciente.id }}">
 
-                    <td class="px-3 py-2.5">
+                    <td data-label="" data-ficha="avatar" class="px-3 py-2.5">
                         <input type="checkbox"
                                name="pacientes_ids"
                                value="{{ item.paciente.id }}"
@@ -332,7 +332,7 @@
                                onchange="actualizarFila(this)">
                     </td>
 
-                    <td class="px-3 py-2.5">
+                    <td data-label="Paciente" data-ficha="titulo" class="px-3 py-2.5">
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-base flex-shrink-0">👶</div>
                             <div>
@@ -342,11 +342,11 @@
                         </div>
                     </td>
 
-                    <td class="px-3 py-2.5 hidden sm:table-cell">
+                    <td data-label="Edad" class="px-3 py-2.5 hidden sm:table-cell">
                         <p class="text-gray-600 font-semibold text-xs">{{ item.paciente.edad }} años</p>
                     </td>
 
-                    <td class="px-3 py-2.5">
+                    <td data-label="Usuario editable" class="px-3 py-2.5">
                         <input type="text"
                                name="username_{{ item.paciente.id }}"
                                id="user_{{ item.paciente.id }}"
@@ -357,7 +357,7 @@
                                maxlength="150">
                     </td>
 
-                    <td class="px-3 py-2.5">
+                    <td data-label="Contraseña editable" class="px-3 py-2.5">
                         <input type="text"
                                name="password_{{ item.paciente.id }}"
                                id="pass_{{ item.paciente.id }}"
@@ -368,7 +368,7 @@
                                maxlength="150">
                     </td>
 
-                    <td class="px-3 py-2.5">
+                    <td data-label="" data-ficha="acciones" class="px-3 py-2.5">
                         {# botón restaurar fila individual #}
                         <button type="button"
                                 onclick="restaurarFila({{ item.paciente.id }})"

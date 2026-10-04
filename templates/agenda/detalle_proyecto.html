@@ -231,7 +231,7 @@
                 <span class="bg-white/20 text-white px-3 py-1 rounded-lg text-[11px] font-black">Bs. {{ proyecto.total_pagado|floatformat:0 }}</span>
             </div>
             <div class="max-h-[400px] overflow-y-auto overflow-x-auto">
-                <table class="w-full text-[12px]">
+                <table class="tabla-fichas w-full text-[12px]">
                     <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
                         <tr>
                             <th class="px-5 py-3 text-left">Recibo</th>
@@ -244,15 +244,15 @@
                     <tbody class="divide-y divide-emerald-50">
                         {% for pago in pagos %}
                         <tr class="hover:bg-emerald-50/40 transition-colors">
-                            <td class="px-5 py-3.5 font-black text-slate-800">
+                            <td data-label="Recibo" data-ficha="titulo" class="px-5 py-3.5 font-black text-slate-800">
                                 #{{ pago.numero_recibo }}
                                 <p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ pago.fecha_pago|date:"d/m/Y" }}</p>
                             </td>
-                            <td class="px-5 py-3.5 text-slate-600">
+                            <td data-label="Concepto" class="px-5 py-3.5 text-slate-600">
                                 <p class="font-bold text-slate-700">{{ pago.concepto|truncatechars:35 }}</p>
                                 <span class="text-[10px] font-black text-blue-600 uppercase">{{ pago.metodo_pago.nombre }}</span>
                             </td>
-                            <td class="px-5 py-3.5 text-center">
+                            <td data-label="Tipo" class="px-5 py-3.5 text-center">
                                 {% if pago.es_pago_masivo %}
                                 <div class="inline-flex flex-col items-center gap-1">
                                     <span class="px-2 py-1 bg-purple-100 text-purple-700 text-[9px] font-black uppercase rounded-md border border-purple-300 shadow-sm whitespace-nowrap">
@@ -266,8 +266,8 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
-                            <td class="px-5 py-3.5 text-center">
+                            <td data-label="Monto" class="px-5 py-3.5 text-right font-black text-emerald-700 text-[14px]">Bs. {{ pago.monto|floatformat:2 }}</td>
+                            <td data-label="PDF" data-ficha="acciones" class="px-5 py-3.5 text-center">
                                 {% if pago.metodo_pago.nombre != "Uso de Crédito" %}
                                 <a href="{% url 'facturacion:generar_recibo_pdf' pago.id %}" 
                                    target="_blank"
@@ -294,7 +294,7 @@
                 </div>
                 <div class="max-h-[400px] overflow-y-auto overflow-x-auto">
                     {% if devoluciones %}
-                    <table class="w-full text-[12px]">
+                    <table class="tabla-fichas w-full text-[12px]">
                         <thead class="bg-slate-50 text-slate-400 sticky top-0 font-bold uppercase text-[10px] border-b">
                             <tr>
                                 <th class="px-5 py-3 text-left">Número</th>
@@ -306,16 +306,16 @@
                         <tbody class="divide-y divide-orange-50">
                             {% for devolucion in devoluciones %}
                             <tr class="hover:bg-orange-50/40 transition-colors">
-                                <td class="px-5 py-3.5 font-black text-slate-800">
+                                <td data-label="Número" data-ficha="titulo" class="px-5 py-3.5 font-black text-slate-800">
                                     {{ devolucion.numero_devolucion }}
                                     <p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ devolucion.fecha_devolucion|date:"d/m/Y" }}</p>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td data-label="Motivo" class="px-5 py-3.5 text-slate-600">
                                     <p class="font-bold text-slate-700">{{ devolucion.motivo|truncatechars:40 }}</p>
                                     <span class="text-[10px] text-slate-500 italic">Por: {{ devolucion.registrado_por.get_full_name|default:devolucion.registrado_por.username }}</span>
                                 </td>
-                                <td class="px-5 py-3.5 text-right font-black text-orange-700 text-[14px]">Bs. {{ devolucion.monto|floatformat:2 }}</td>
-                                <td class="px-5 py-3.5">
+                                <td data-label="Monto" class="px-5 py-3.5 text-right font-black text-orange-700 text-[14px]">Bs. {{ devolucion.monto|floatformat:2 }}</td>
+                                <td data-label="Método" class="px-5 py-3.5">
                                     <span class="text-[10px] font-black text-orange-600 uppercase">{{ devolucion.metodo_devolucion.nombre }}</span>
                                 </td>
                             </tr>

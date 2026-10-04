@@ -25,7 +25,7 @@
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     {% if evaluaciones %}
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="tabla-fichas w-full text-sm">
         <thead>
           <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-100">
             <th class="px-5 py-3 text-left font-semibold">Paciente</th>
@@ -44,43 +44,43 @@
         <tbody class="divide-y divide-slate-50">
           {% for ev in evaluaciones %}
           <tr class="hover:bg-slate-50 transition-colors">
-            <td class="px-5 py-3">
+            <td data-label="Paciente" data-ficha="titulo" class="px-5 py-3">
               <div class="font-semibold text-slate-800">{{ ev.paciente.nombre_completo }}</div>
               <div class="text-xs text-slate-400">{{ ev.paciente.edad }} años</div>
             </td>
-            <td class="px-4 py-3 text-center text-slate-600 whitespace-nowrap">{{ ev.fecha_evaluacion|date:"d/m/Y" }}</td>
-            <td class="px-4 py-3">
+            <td data-label="Fecha" data-ficha="corto" class="px-4 py-3 text-center text-slate-600 whitespace-nowrap">{{ ev.fecha_evaluacion|date:"d/m/Y" }}</td>
+            <td data-label="Informante" class="px-4 py-3">
               <div class="text-sm text-slate-700">{{ ev.informante }}</div>
               <div class="text-xs text-slate-400">{{ ev.relacion_informante }}</div>
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Com." data-ficha="corto" class="px-4 py-3 text-center">
               <span class="text-xs px-2 py-0.5 rounded-lg font-medium
                 {% if ev.tipo_comunicacion == 'verbal' %}bg-blue-100 text-blue-700{% else %}bg-purple-100 text-purple-700{% endif %}">
                 {% if ev.tipo_comunicacion == 'verbal' %}Verbal{% else %}No verbal{% endif %}
               </span>
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Alg. A" data-ficha="corto" class="px-4 py-3 text-center">
               <span class="font-bold {% if ev.cumple_corte_comunicacion %}text-red-600{% elif ev.cumple_corte_comunicacion == False %}text-green-600{% else %}text-slate-400{% endif %}">
                 {{ ev.algoritmo_comunicacion|default_if_none:"—" }}
               </span>
               {% if ev.cumple_corte_comunicacion %}<span class="text-red-400 text-xs ml-0.5">↑</span>
               {% elif ev.cumple_corte_comunicacion == False %}<span class="text-green-400 text-xs ml-0.5">✓</span>{% endif %}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Alg. B" data-ficha="corto" class="px-4 py-3 text-center">
               <span class="font-bold {% if ev.cumple_corte_interaccion %}text-red-600{% elif ev.cumple_corte_interaccion == False %}text-green-600{% else %}text-slate-400{% endif %}">
                 {{ ev.algoritmo_interaccion_social|default_if_none:"—" }}
               </span>
               {% if ev.cumple_corte_interaccion %}<span class="text-red-400 text-xs ml-0.5">↑</span>
               {% elif ev.cumple_corte_interaccion == False %}<span class="text-green-400 text-xs ml-0.5">✓</span>{% endif %}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Alg. C" data-ficha="corto" class="px-4 py-3 text-center">
               <span class="font-bold {% if ev.cumple_corte_comportamiento %}text-red-600{% elif ev.cumple_corte_comportamiento == False %}text-green-600{% else %}text-slate-400{% endif %}">
                 {{ ev.algoritmo_comportamientos_rr|default_if_none:"—" }}
               </span>
               {% if ev.cumple_corte_comportamiento %}<span class="text-red-400 text-xs ml-0.5">↑</span>
               {% elif ev.cumple_corte_comportamiento == False %}<span class="text-green-400 text-xs ml-0.5">✓</span>{% endif %}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Inicio &lt;36m" data-ficha="corto" class="px-4 py-3 text-center">
               {% if ev.cumple_criterio_edad_inicio %}
                 <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-lg">Sí</span>
               {% elif ev.cumple_criterio_edad_inicio == False %}
@@ -89,7 +89,7 @@
                 <span class="text-slate-400 text-xs">—</span>
               {% endif %}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Clasificación" class="px-4 py-3 text-center">
               {% if ev.clasificacion == 'cumple' %}
                 <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-lg">Cumple</span>
               {% elif ev.clasificacion == 'no_cumple' %}
@@ -98,10 +98,10 @@
                 <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-lg">Pendiente</span>
               {% endif %}
             </td>
-            <td class="px-4 py-3 text-center text-xs text-slate-500 whitespace-nowrap">
+            <td data-label="Evaluador" class="px-4 py-3 text-center text-xs text-slate-500 whitespace-nowrap">
               {{ ev.evaluador.nombre }} {{ ev.evaluador.apellido }}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td data-label="Acciones" data-ficha="acciones" class="px-4 py-3 text-center">
               <div class="flex justify-center gap-1">
                 <a href="{% url 'evaluaciones:adir_detalle' ev.pk %}"
                    class="bg-green-50 text-green-600 hover:bg-green-100 px-2 py-1 rounded-lg text-xs transition-colors" title="Ver detalle">👁</a>

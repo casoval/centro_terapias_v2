@@ -623,8 +623,9 @@
                 display: flex; flex-wrap: wrap; align-items: flex-start;
                 gap: .45rem .75rem; margin: 0 0 .6rem; padding: .75rem .8rem;
                 border: 1px solid #e2e8f0; border-radius: .85rem;
-                background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.06);
+                box-shadow: 0 1px 2px rgba(15,23,42,.06);
             }
+            :where(table.tabla-fichas tbody tr) { background: #fff; }
             table.tabla-fichas tbody tr:last-child { margin-bottom: 0; }
             table.tabla-fichas tbody tr > td {
                 display: block; flex: 1 1 calc(50% - .4rem); min-width: 0;
@@ -650,6 +651,34 @@
             table.tabla-fichas tbody tr > td[data-ficha="acciones"] > * { justify-content: flex-start; }
             /* fila vacía ("No hay datos", colspan): sin etiqueta ni 50% */
             table.tabla-fichas tbody tr > td[colspan] { flex: 1 1 100%; }
+
+            /* columnas cortas (puntajes, fechas): 3 por línea */
+            table.tabla-fichas tbody tr > td[data-ficha="corto"] { flex: 1 1 calc(33.333% - .5rem); }
+
+            /* orden visual: avatar, título, resto, acciones */
+            table.tabla-fichas tbody tr > td[data-ficha="avatar"]   { order: -2; }
+            table.tabla-fichas tbody tr > td[data-ficha="titulo"]   { order: -1; }
+            table.tabla-fichas tbody tr > td[data-ficha="acciones"] { order: 99; }
+
+            /* filas que el JS u otras clases ocultan: siguen ocultas */
+            table.tabla-fichas tbody tr.hidden,
+            table.tabla-fichas tbody tr[hidden],
+            table.tabla-fichas tbody tr.sesion-expandida:not(.active) { display: none; }
+
+            /* campos de texto/selects dentro de la ficha: nunca más anchos que su celda */
+            table.tabla-fichas tbody tr > td input:not([type="checkbox"]):not([type="radio"]),
+            table.tabla-fichas tbody tr > td select,
+            table.tabla-fichas tbody tr > td textarea { max-width: 100%; box-sizing: border-box; }
+
+            /* pie de tabla (totales): una fila simple, etiqueta a la izquierda y valor a la derecha */
+            table.tabla-fichas tfoot { display: block; padding: 0 .5rem .5rem; }
+            table.tabla-fichas tfoot tr {
+                display: flex; align-items: center; justify-content: space-between;
+                gap: .5rem; padding: .6rem .8rem; border-radius: .75rem;
+            }
+            table.tabla-fichas tfoot td:not(.hidden) {
+                display: block; width: auto; padding: 0 !important; border: 0 !important;
+            }
         }
 
         @media (max-width: 640px) {

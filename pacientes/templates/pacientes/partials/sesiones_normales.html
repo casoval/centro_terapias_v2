@@ -15,7 +15,7 @@
     
     <!-- Vista Desktop: Tabla Expandible -->
     <div class="desktop-table overflow-x-auto">
-        <table class="min-w-full">
+        <table class="tabla-fichas min-w-full">
             <thead class="bg-gray-100 border-b-2 border-gray-300">
                 <tr>
                     <th class="px-3 py-2 text-left text-xs font-black text-gray-700 uppercase">Estado</th>
@@ -31,7 +31,7 @@
                 {% for sesion in sesiones_page %}
                 <!-- Fila Compacta -->
                 <tr class="sesion-row hover:bg-gray-50 cursor-pointer" onclick="toggleSesion({{ sesion.id }})">
-                    <td class="px-3 py-2">
+                    <td data-label="Estado" data-ficha="avatar" class="px-3 py-2">
                         {% if sesion.estado == 'realizada' %}
                             <span class="badge-realizada px-3 py-1 rounded-full text-xs font-bold">✅ Realizada</span>
                         {% elif sesion.estado == 'realizada_retraso' %}
@@ -48,21 +48,21 @@
                             <span class="badge-reprogramada px-3 py-1 rounded-full text-xs font-bold">🔄 Reprogramada</span>
                         {% endif %}
                     </td>
-                    <td class="px-3 py-2">
+                    <td data-label="Fecha/Hora" data-ficha="titulo" class="px-3 py-2">
                         <div class="text-sm font-bold text-gray-900">{{ sesion.fecha|date:"d/m/Y" }}</div>
                         <div class="text-xs text-gray-500">{{ sesion.hora_inicio|time:"g:i A" }} - {{ sesion.hora_fin|time:"g:i A" }}</div>
                     </td>
-                    <td class="px-3 py-2">
+                    <td data-label="Servicio" class="px-3 py-2">
                         <span class="px-2 py-1 rounded text-xs font-bold text-white" 
                               style="background-color: {{ sesion.servicio.color }}">
                             {{ sesion.servicio.nombre }}
                         </span>
                     </td>
-                    <td class="px-3 py-2 text-sm font-bold text-gray-900">
+                    <td data-label="Profesional" class="px-3 py-2 text-sm font-bold text-gray-900">
                         {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
                     </td>
-                    <td class="px-3 py-2 text-sm text-gray-700">{{ sesion.sucursal.nombre }}</td>
-                    <td class="px-3 py-2">
+                    <td data-label="Sucursal" class="px-3 py-2 text-sm text-gray-700">{{ sesion.sucursal.nombre }}</td>
+                    <td data-label="Pago" class="px-3 py-2">
                         {% if not sesion.requiere_pago %}
                             <span class="badge-no-aplica px-3 py-1 rounded-full text-xs font-bold">🎁 No Aplica</span>
                         {% elif sesion.pagado %}
@@ -73,7 +73,7 @@
                             <span class="badge-pendiente px-3 py-1 rounded-full text-xs font-bold">❌ Pendiente</span>
                         {% endif %}
                     </td>
-                    <td class="px-3 py-2 text-center">
+                    <td data-label="Detalles" data-ficha="acciones" class="px-3 py-2 text-center">
                         <button class="text-blue-600 hover:text-blue-800 font-bold text-xl" id="icon-{{ sesion.id }}">
                             ▼
                         </button>
