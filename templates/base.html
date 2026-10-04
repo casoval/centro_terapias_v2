@@ -3,7 +3,8 @@
 <head>
     <meta name="robots" content="noindex, nofollow">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e293b">
     <title>{% block title %}Centro de Terapias{% endblock %}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -323,7 +324,8 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .dropdown:hover .dropdown-menu {
+        .dropdown:hover .dropdown-menu,
+        .dropdown:focus-within .dropdown-menu {   /* focus-within: tablets táctiles y teclado */
             display: block;
         }
         .dropdown-item {
@@ -353,6 +355,16 @@
         /* Menú móvil oculto por defecto */
         .mobile-menu { display: none; }
         .mobile-menu.active { display: block; animation: slideDown 0.2s ease-out; }
+        /* 📱 El menú abierto puede ser más alto que la pantalla (celulares
+           bajos o en horizontal): scroll propio para llegar a todos los ítems,
+           incluidos Temas y Cerrar Sesión. */
+        .mobile-menu {
+            max-height: calc(100vh - 3rem);
+            max-height: calc(100dvh - 3rem);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
         
         @keyframes slideDown {
             from { opacity: 0; transform: translateY(-10px); }
@@ -538,6 +550,173 @@
             animation: borderColorFlow 4s linear infinite;
             z-index: 1;
         }
+
+        /* ================================================================
+           📱 MEJORAS RESPONSIVAS PARA CELULARES (solo diseño, sin lógica)
+           Red de seguridad global: aplica a TODAS las pantallas que
+           extienden base.html. Las correcciones puntuales de cada
+           pantalla están en sus propios templates.
+           ================================================================ */
+
+        /* Evita zoom/reescalado raro del texto al rotar el teléfono */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* Nada debe provocar scroll horizontal de toda la página.
+           'clip' (a diferencia de 'hidden') no rompe el navbar sticky. */
+        html, body { max-width: 100%; overflow-x: clip; }
+
+        /* Palabras/emails/URLs largos no deben romper tarjetas ni listas */
+        main { overflow-wrap: break-word; }
+
+
+        /* Controles/gráficos nunca más anchos que su contenedor */
+        select { max-width: 100%; }
+        canvas { max-width: 100%; }
+        /* Hijos de rejillas (1fr = minmax(auto,1fr)) no deben ensanchar la rejilla */
+        .chart-card, .g2 > *, .g3 > * { min-width: 0; max-width: 100%; }
+
+        /* Panel de temas: nunca más ancho ni alto que la pantalla */
+        #theme-panel {
+            max-width: calc(100vw - 16px);
+            max-height: calc(100vh - 110px);
+            max-height: calc(100dvh - 110px);
+        }
+
+        /* Scroll horizontal suave y táctil en cualquier contenedor con scroll-x */
+        .overflow-x-auto {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-x: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(100,116,139,.45) transparent;
+        }
+        .overflow-x-auto::-webkit-scrollbar { height: 6px; }
+        .overflow-x-auto::-webkit-scrollbar-thumb {
+            background: rgba(100,116,139,.45); border-radius: 6px;
+        }
+
+        /* Utilidad: ocultar la barra de scroll (chips/tabs deslizables) */
+        .scroll-x-hidden { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .scroll-x-hidden::-webkit-scrollbar { display: none; }
+
+        @media (max-width: 1023px) {
+            /* Tablas/listas con muchas columnas: en vez de aplastarse
+               (texto letra por letra) mantienen un ancho legible y se
+               desplazan de lado dentro de su contenedor. */
+            .overflow-x-auto table:has(tr > :nth-child(4)) { min-width: 560px; }
+            .overflow-x-auto table:has(tr > :nth-child(6)) { min-width: 760px; }
+            .overflow-x-auto table:has(tr > :nth-child(8)) { min-width: 940px; }
+            .overflow-x-auto table:has(tr > :nth-child(10)) { min-width: 1120px; }
+            .overflow-x-auto table th { white-space: nowrap; }
+        }
+
+        @media (max-width: 640px) {
+            /* Menos aire vertical/lateral para aprovechar la pantalla */
+            body > main { padding-top: 0.75rem !important; padding-bottom: 1rem !important; }
+
+            /* Respeta la barra inferior/notch del celular */
+            body { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+            /* Contenido de celdas de tabla algo más compacto */
+            .overflow-x-auto table th,
+            .overflow-x-auto table td { padding-left: .6rem; padding-right: .6rem; }
+
+            /* Modales y diálogos SweetAlert2 ajustados al ancho del teléfono */
+            .swal2-popup { width: calc(100vw - 1.5rem) !important; max-width: 100% !important; padding: 1rem !important; }
+            .swal2-title { font-size: 1.15rem !important; }
+            .swal2-html-container { font-size: .9rem !important; }
+            .swal2-actions { flex-wrap: wrap; gap: .4rem; }
+
+            /* Modales propios (overlay fijo a pantalla completa): que la
+               tarjeta interior nunca exceda la pantalla y pueda hacer scroll */
+            .fixed.inset-0 > [class*="max-w-"] {
+                max-width: calc(100vw - 1rem);
+                max-height: calc(100vh - 1rem);
+                max-height: calc(100dvh - 1rem);
+            }
+            #modal-content > * { max-width: 100%; }
+        }
+
+        /* iOS hace zoom al enfocar un campo con fuente < 16px y deja la
+           página "movida" hacia un lado. Solo en iPhone/iPad. */
+        @supports (-webkit-touch-callout: none) {
+            @media (max-width: 768px) {
+                input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+                select, textarea { font-size: 16px !important; }
+            }
+        }
+
+        /* Objetivos táctiles cómodos solo en dispositivos táctiles */
+        @media (hover: none) and (pointer: coarse) {
+            input[type="checkbox"], input[type="radio"] { min-width: 18px; min-height: 18px; }
+        }
+
+        /* ================================================================
+           💻 PANTALLAS MEDIANAS Y GRANDES
+           ================================================================ */
+
+        /* Pestañas del menú principal: nunca partir el texto en 2 líneas */
+        .tabs-row-animated .flex.items-end > a,
+        .tabs-row-animated .flex.items-end > .dropdown > button { white-space: nowrap; }
+
+        /* Laptops/tablets horizontales (1024–1399px): sin esto la fila de
+           pestañas necesita ~1270px y se sale de la pantalla (las últimas
+           pestañas quedaban cortadas e inaccesibles). Se compacta. */
+        @media (min-width: 1024px) and (max-width: 1399px) {
+            .tabs-row-animated .flex.items-end > * + * { margin-left: 0; }
+            .tabs-row-animated .flex.items-end > a,
+            .tabs-row-animated .flex.items-end > .dropdown > button {
+                padding-left: .4rem; padding-right: .4rem; font-size: 11px;
+            }
+        }
+        @media (min-width: 1024px) and (max-width: 1099px) {
+            .tabs-row-animated .flex.items-end > a,
+            .tabs-row-animated .flex.items-end > .dropdown > button {
+                padding-left: .28rem; padding-right: .28rem;
+            }
+        }
+
+        /* Tablas muy anchas (12+ columnas): ancho mínimo legible a cualquier
+           tamaño de pantalla; si no caben, se desplazan de lado. */
+        .overflow-x-auto table:has(tr > :nth-child(12)) { min-width: 1200px; }
+        .overflow-x-auto table:has(tr > :nth-child(12)) th { white-space: nowrap; }
+        .overflow-x-auto table:has(tr > :nth-child(15)) { min-width: 1400px; }
+
+        /* Pantallas grandes: aprovechar el ancho en vez de dejar bandas
+           vacías (el contenedor estaba fijo en 1280px). */
+        @media (min-width: 1536px) { body .max-w-7xl { max-width: 90rem; } }   /* 1440px */
+        @media (min-width: 1920px) { body .max-w-7xl { max-width: 100rem; } }  /* 1600px */
+
+        /* Botones flotantes inferiores: respetar la barra de gestos / notch
+           (necesario porque el viewport usa viewport-fit=cover) */
+        @media (max-width: 768px) {
+            body #paciente-selector-float {
+                bottom: calc(15px + env(safe-area-inset-bottom, 0px));
+                left: calc(15px + env(safe-area-inset-left, 0px));
+            }
+            a.fixed.bottom-6.right-6 {
+                bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+                right: calc(1.5rem + env(safe-area-inset-right, 0px));
+            }
+        }
+        /* Legibilidad: los textos de 8–10px (muy usados en etiquetas y
+           encabezados compactos) son difíciles de leer en un teléfono. */
+        @media (max-width: 640px) {
+            body .text-\[6px\]  { font-size: 8px; }
+            body .text-\[7px\]  { font-size: 9px; }
+            body .text-\[8px\]  { font-size: 10px; }
+            body .text-\[9px\]  { font-size: 10.5px; }
+            body .text-\[10px\] { font-size: 11px; }
+        }
+
+        /* Dispositivos táctiles: botones/enlaces-botón e inputs con un área
+           de toque cómoda (los iconos de acción medían 24–28px). */
+        @media (pointer: coarse) and (max-width: 1023px) {
+            a.inline-flex.items-center.justify-center,
+            button.inline-flex.items-center.justify-center { min-height: 36px; min-width: 36px; }
+            input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="file"]),
+            select { min-height: 38px; }
+        }
+        /* ============ FIN MEJORAS RESPONSIVAS MÓVIL ============ */
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -615,30 +794,30 @@
                 <div class="flex items-center justify-between h-9 lg:pl-24">
 
                     <!-- Izquierda: logo móvil + título -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
                         <div class="lg:hidden flex-shrink-0">
                             <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-7 w-auto object-contain">
                         </div>
-                        <div>
-                            <h1 class="text-base font-bold leading-tight" style="color:white;">     <!-- 20px -->
+                        <div class="min-w-0">
+                            <h1 class="text-base font-bold leading-tight whitespace-nowrap" style="color:white;">     <!-- 20px -->
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
                                 <span class="sm:hidden">Neuro </span>
                                 <span style="color:#7dd3fc;">MISAEL</span>
                             </h1>
                             <!-- Usuario + rol visible en móvil debajo del título -->
-                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
-                                <span class="text-xs font-medium" style="color:rgba(255,255,255,0.75);">{{ user.get_full_name|default:user.username }}</span>
+                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden min-w-0">
+                                <span class="text-xs font-medium truncate min-w-0" style="color:rgba(255,255,255,0.75);">{{ user.get_full_name|default:user.username }}</span>
                                 {% if user.is_superuser %}
-                                    <span class="text-xs font-bold px-1.5 py-0 rounded-full" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Super Admin</span>
+                                    <span class="text-xs font-bold px-1.5 py-0 rounded-full whitespace-nowrap shrink-0 max-[419px]:hidden" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Super Admin</span>
                                 {% elif user.perfil.rol %}
-                                    <span class="text-xs" style="color:rgba(255,255,255,0.4);">{{ user.perfil.get_rol_display }}</span>
+                                    <span class="text-xs whitespace-nowrap shrink-0 max-[419px]:hidden" style="color:rgba(255,255,255,0.4);">{{ user.perfil.get_rol_display }}</span>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
 
                     <!-- Derecha: usuario (desktop) + cerrar sesión + hamburguesa -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 shrink-0">
                         <!-- Usuario solo en desktop -->
                         <div class="hidden lg:block text-right">
                             <span class="text-sm font-semibold" style="color:rgba(255,255,255,0.85);">
@@ -659,7 +838,7 @@
                         </div>
                         <!-- Botón Ver Sitio: visible en todas las pantallas -->
                         <a href="{% url 'core:landing' %}"
-                           class="inline-flex items-center justify-center font-semibold transition-colors shadow-sm"
+                           class="inline-flex items-center justify-center font-semibold transition-colors shadow-sm max-[379px]:hidden"
                            style="background:rgba(14,165,233,0.25); border:1px solid rgba(56,189,248,0.35); color:#7dd3fc; padding:5px 10px; border-radius:8px; font-size:11px; white-space:nowrap;"
                            onmouseover="this.style.background='rgba(14,165,233,0.45)'; this.style.borderColor='rgba(56,189,248,0.7)';"
                            onmouseout="this.style.background='rgba(14,165,233,0.25)'; this.style.borderColor='rgba(56,189,248,0.35)';"
@@ -1257,25 +1436,25 @@
                 <div class="flex items-center justify-between h-9 lg:pl-24">
 
                     <!-- Izquierda: logo móvil + título -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
                         <div class="lg:hidden flex-shrink-0">
                             <img src="{% static 'img/logo_misael.png' %}" alt="Logo" class="h-7 w-auto object-contain">
                         </div>
-                        <div>
-                            <h1 class="text-base font-bold leading-tight" style="color:white;">
+                        <div class="min-w-0">
+                            <h1 class="text-base font-bold leading-tight whitespace-nowrap" style="color:white;">
                                 <span class="hidden sm:inline">Centro de Neurodesarrollo Infantil </span>
                                 <span class="sm:hidden">Neuro </span>
                                 <span style="color:#7dd3fc;">MISAEL</span>
                             </h1>
-                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden">
-                                <span class="text-xs font-medium" style="color:rgba(255,255,255,0.75);">{{ user.perfil.paciente.nombre }}</span>
-                                <span class="text-xs font-bold px-1.5 py-0 rounded-full" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Paciente</span>
+                            <div class="flex items-center gap-1.5 mt-0.5 lg:hidden min-w-0">
+                                <span class="text-xs font-medium truncate min-w-0" style="color:rgba(255,255,255,0.75);">{{ user.perfil.paciente.nombre }}</span>
+                                <span class="text-xs font-bold px-1.5 py-0 rounded-full whitespace-nowrap shrink-0 max-[419px]:hidden" style="background:rgba(125,211,252,0.2); color:#7dd3fc;">Paciente</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Derecha: usuario (desktop) + cerrar sesión + hamburguesa -->
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 shrink-0">
                         <div class="hidden lg:block text-right">
                             <span class="text-sm font-semibold" style="color:rgba(255,255,255,0.85);">
                                 {{ user.perfil.paciente.nombre }}
@@ -1427,7 +1606,7 @@
     </div>
     {% endif %}
     
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    <main class="w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {% block content %}{% endblock %}
     </main>
     

@@ -10,7 +10,7 @@
                 {% if ve_todo %}Vista completa: todas las sucursales, servicios y usuarios.{% else %}Tu inventario personal y el de tus sucursales asignadas.{% endif %}
             </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
             <a href="{% url 'inventario:transferencias' %}" class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">🔁 Transferencias</a>
             {% if request.user.is_superuser or request.user.perfil.es_gerente %}
             <a href="{% url 'inventario:catalogo' %}" class="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-black text-sm px-4 py-2.5 rounded-xl">📋 Catálogo</a>
@@ -20,7 +20,7 @@
     </div>
 
     {% if ve_todo %}
-    <div class="flex gap-2 mb-4">
+    <div class="flex flex-wrap gap-2 mb-4">
         <a href="{% url 'inventario:general' %}" class="text-xs font-black px-3 py-1.5 rounded-full {% if not tipo_filtro %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">Todos</a>
         <a href="?tipo=usuario" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'usuario' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">👤 Personales</a>
         <a href="?tipo=sucursal" class="text-xs font-black px-3 py-1.5 rounded-full {% if tipo_filtro == 'sucursal' %}bg-slate-800 text-white{% else %}bg-white border border-slate-200 text-slate-500{% endif %}">🏬 Sucursales</a>
