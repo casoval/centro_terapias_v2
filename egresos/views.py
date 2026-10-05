@@ -130,6 +130,59 @@ def lista_egresos(request):
 # REGISTRO DE EGRESO
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Comprobante adjunto del proveedor: lo que promete el formulario
+# ("Foto o PDF del comprobante, máx. 5MB") ahora se valida de verdad.
+COMPROBANTE_MAX_BYTES = 5 * 1024 * 1024
+COMPROBANTE_EXTENSIONES = {'.pdf', '.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'}
+
+
+def _validar_comprobante(archivo):
+    """Devuelve un mensaje de error (str) si el archivo no es válido, o None si está bien."""
+    import os
+    ext = os.path.splitext(archivo.name or '')[1].lower()
+    if ext not in COMPROBANTE_EXTENSIONES:
+        return 'solo se permiten fotos (JPG, PNG, WEBP, HEIC) o PDF'
+    tipo = (getattr(archivo, 'content_type', '') or '').lower()
+    if tipo and not (tipo.startswith('image/') or tipo == 'application/pdf'):
+        return 'el tipo de archivo no es una imagen ni un PDF'
+    if archivo.size > COMPROBANTE_MAX_BYTES:
+        return f'pesa {archivo.size / (1024 * 1024):.1f} MB y el máximo es 5 MB'
+    return None
+
+
+def _adjuntar_comprobante_egreso(request, egreso):
+    """
+    Guarda el comprobante adjunto (si hay) en el egreso ya registrado.
+    Nunca revierte el egreso: si algo falla devuelve un aviso (str) para
+    mostrarlo al usuario; si todo sale bien (o no había archivo) devuelve None.
+    """
+    archivo = request.FILES.get('comprobante')
+    if not archivo:
+        return None
+
+    error = _validar_comprobante(archivo)
+    if error:
+        return f'El egreso se registró, pero el comprobante NO se adjuntó: {error}.'
+
+    try:
+        # Sube el archivo al almacenamiento configurado (R2 en producción).
+        egreso.comprobante.save(archivo.name, archivo, save=False)
+        # UPDATE directo: evita volver a disparar el recálculo financiero
+        # (signal post_save) solo por haber adjuntado un archivo.
+        Egreso.objects.filter(pk=egreso.pk).update(comprobante=egreso.comprobante.name)
+        return None
+    except Exception:
+        import logging
+        logging.getLogger(__name__).error(
+            f'No se pudo guardar el comprobante del egreso {egreso.numero_egreso}',
+            exc_info=True,
+        )
+        return (
+            'El egreso se registró, pero no se pudo subir el comprobante. '
+            'Puedes adjuntarlo después desde el panel de administración.'
+        )
+
+
 @login_required
 @staff_member_required
 def registrar_egreso(request):
@@ -179,11 +232,15 @@ def registrar_egreso(request):
                 sesiones_ids=[int(s) for s in sesiones_ids] if sesiones_ids else None,
             )
 
+            aviso_comprobante = _adjuntar_comprobante_egreso(request, egreso)
+
             messages.success(
                 request,
                 f'✅ Egreso {egreso.numero_egreso} registrado correctamente — '
                 f'Bs. {egreso.monto:,.0f}'
             )
+            if aviso_comprobante:
+                messages.warning(request, f'⚠️ {aviso_comprobante}')
             return redirect('egresos:lista_egresos')
 
         except Exception as e:
@@ -1277,6 +1334,9 @@ def registrar_ingreso_adicional(request):
                     registrado_por=request.user,
                 )
                 if request.FILES.get('comprobante'):
+                    error_comprobante = _validar_comprobante(request.FILES['comprobante'])
+                    if error_comprobante:
+                        raise ValueError(f'Comprobante: {error_comprobante}')
                     ing.comprobante = request.FILES['comprobante']
                 ing.full_clean(exclude=['numero_ingreso'])
                 ing.save()

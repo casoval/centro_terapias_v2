@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es" class="h-full">
 <head>
@@ -7,7 +8,13 @@
     <meta name="theme-color" content="#1e293b">
     <title>{% block title %}Centro de Terapias{% endblock %}</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ⚡ RENDIMIENTO: abrir conexiones a los CDN lo antes posible -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+    {% if USE_COMPILED_TAILWIND %}<link rel="stylesheet" href="{% static 'css/tailwind.css' %}">{% else %}<script src="https://cdn.tailwindcss.com"></script>{% endif %}
     
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -3329,11 +3336,24 @@ function filterPacientes() {
         }
     }
 
+    // ⚡ RENDIMIENTO: antes se llamaba resize() en CADA frame (~60/seg).
+    // Asignar canvas.width/height reasigna y borra el buffer del canvas, lo
+    // que es muy costoso y hacía lenta toda la app. Ahora el tamaño solo se
+    // actualiza cuando la ventana cambia (listener 'resize' de arriba).
     function loop() {
-        resize();
         drawer.draw(tick++);
         animId = requestAnimationFrame(loop);
     }
+
+    // ⚡ RENDIMIENTO: pausar la animación cuando la pestaña no está visible
+    // (no gasta CPU/GPU/batería en segundo plano) y reanudarla al volver.
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            if (animId) { cancelAnimationFrame(animId); animId = null; }
+        } else if (drawer && !animId) {
+            loop();
+        }
+    });
 
     /* Dibuja el primer frame de forma síncrona para eliminar el flash blanco */
     function drawFirstFrame() {

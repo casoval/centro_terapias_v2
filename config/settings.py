@@ -132,12 +132,18 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.perf_flags',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# ⚡ RENDIMIENTO: si es True se usa static/css/tailwind.css (precompilado) en
+# lugar del script cdn.tailwindcss.com, que compila CSS en el navegador en cada
+# carga y en cada cambio del DOM. Se activa con USE_COMPILED_TAILWIND=1 en el .env.
+USE_COMPILED_TAILWIND = os.environ.get('USE_COMPILED_TAILWIND', '0') == '1'
 
 # --------------------------------------------------
 # DATABASE
@@ -227,10 +233,30 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 ]
 
-if IS_PRODUCTION:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-else:
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+# ⚡ RENDIMIENTO: Django 5.1+ (esta app usa Django 6) IGNORA los ajustes
+# STATICFILES_STORAGE y DEFAULT_FILE_STORAGE; hay que usar STORAGES. Antes,
+# WhiteNoise no estaba comprimiendo los estáticos en producción.
+# Se usa CompressedStaticFilesStorage (gzip/brotli al hacer collectstatic) y
+# NO la variante "Manifest" a propósito: esta exigiría correr collectstatic en
+# cada deploy y rompería con error 500 si falta el manifiesto.
+# El almacenamiento por defecto de archivos se deja explícito igual que hoy
+# (las fotos usan CloudinaryField y no dependen de este ajuste).
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': (
+            'whitenoise.storage.CompressedStaticFilesStorage'
+            if IS_PRODUCTION
+            else 'django.contrib.staticfiles.storage.StaticFilesStorage'
+        ),
+    },
+}
+
+# ⚡ RENDIMIENTO: sin nombres con hash, WhiteNoise cacheaba los estáticos solo
+# 60 segundos (logos e imágenes se volvían a descargar a cada rato).
+# 1 día = buen equilibrio; si cambias una imagen con el mismo nombre, los
+# usuarios la verán actualizada como máximo en 24 h.
+WHITENOISE_MAX_AGE = 60 * 60 * 24 if IS_PRODUCTION else 0
 
 # --------------------------------------------------
 # MEDIA FILES
@@ -460,6 +486,17 @@ R2_CONFIGURADO = all([
     CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY,
     CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_R2_ENDPOINT_URL,
 ])
+
+# ☁️ ALMACENAMIENTO POR DEFECTO EN SERVIDOR EXTERNO (R2)
+# Django 5.1+ ignora DEFAULT_FILE_STORAGE, por lo que los FileField/ImageField
+# SIN storage propio (egresos.comprobante, ingresos adicionales.comprobante,
+# asistencia.foto_captura) se estaban guardando en el disco local del servidor,
+# donde no se sirven (/media/ solo se enruta con DEBUG=True) y pueden perderse
+# en un redeploy. En producción ahora usan el mismo bucket privado de R2 que
+# `documentos` (URLs firmadas que expiran). Las fotos de pacientes/profesionales
+# no cambian: usan CloudinaryField. En desarrollo sigue el disco local.
+if IS_PRODUCTION and R2_CONFIGURADO:
+    STORAGES['default'] = {'BACKEND': 'documentos.storage_backends.R2DocumentosStorage'}
 
 # --------------------------------------------------
 # DEBUG TOOLBAR (solo desarrollo)

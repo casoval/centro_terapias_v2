@@ -330,3 +330,34 @@ solo se usó localmente para la validación y no queda en ningún archivo del pa
    `evaluaciones/`, `inventario/`, `recordatorios/`, `agente/` (más allá de la revisión
    de seguridad del webhook). No se encontró nada al pasar por encima, pero no se hizo
    una revisión exhaustiva como la de `agenda/` y `facturacion/`.
+
+
+---
+
+# Optimizaciones generales (frontend, estáticos y configuración)
+
+## Cambios aplicados
+
+1. **Animación de fondo (`templates/base.html`)** — el loop del canvas llamaba a
+   `resize()` en cada frame (~60/seg). Asignar `canvas.width/height` borra y
+   reasigna el buffer, algo muy costoso que ralentizaba toda la interfaz. Ahora
+   solo se redimensiona al cambiar la ventana, y la animación se **pausa cuando
+   la pestaña está oculta**.
+2. **Estáticos (`config/settings.py`)** — Django 6 ignora `STATICFILES_STORAGE` y
+   `DEFAULT_FILE_STORAGE`; se migró a `STORAGES` (WhiteNoise comprimido) y se
+   agregó `WHITENOISE_MAX_AGE` de 1 día (antes los estáticos se cacheaban 60 s).
+3. **Tailwind precompilado (opcional, `USE_COMPILED_TAILWIND=1`)** — reemplaza el
+   script `cdn.tailwindcss.com` (compila CSS en el navegador en cada carga y en
+   cada cambio del DOM) por `static/css/tailwind.css` (~22 KB comprimido).
+   Si agregas clases nuevas de Tailwind, regenera con `bash tools/build_tailwind.sh`.
+4. **`preconnect`** a Google Fonts, unpkg y jsDelivr.
+
+## Pendiente / recomendado (no aplicado)
+
+- Gunicorn: `--workers 3 --worker-class gthread --threads 4` para atender más
+  peticiones en paralelo con la misma RAM.
+- Sesiones/caché compartidos (Redis): `LocMemCache` es por proceso. No se usó
+  `cached_db` porque, con varios workers sin caché compartida, un logout podría
+  seguir válido en otro worker.
+- Índice compuesto `Sesion(sucursal, fecha)` (requiere migración).
+- Dashboard: cachear 60 s los contadores (hoy/semana/mes).
