@@ -15,11 +15,11 @@
     </option>
     {% endfor %}
 </select>
-<p class="text-xs text-gray-500 mt-1">📊 {{ pacientes|length }} paciente(s) disponible(s)</p>
+<p class="text-xs text-gray-500 mt-1">📊 {{ pacientes|length }} paciente(s) disponible(s){% if tipo == 'proyecto' %} con proyecto activo{% elif tipo == 'mensualidad' %} con mensualidad activa{% endif %}</p>
 {% else %}
 <select name="paciente_id" id="paciente-select" disabled
         class="w-full px-2 py-1.5 border-2 border-gray-200 bg-gray-50 rounded-lg text-xs text-gray-400">
-    <option value="">No hay pacientes en esta sucursal</option>
+    <option value="">{% if tipo == 'proyecto' %}No hay pacientes con proyectos activos en esta sucursal{% elif tipo == 'mensualidad' %}No hay pacientes con mensualidad activa en esta sucursal{% else %}No hay pacientes en esta sucursal{% endif %}</option>
 </select>
-<p class="text-xs text-orange-600 mt-1">⚠️ No hay pacientes asignados a esta sucursal</p>
+<p class="text-xs text-orange-600 mt-1">⚠️ {% if tipo == 'proyecto' %}Ningún paciente de esta sucursal tiene proyectos activos.{% elif tipo == 'mensualidad' %}Ningún paciente de esta sucursal tiene mensualidad activa.{% else %}No hay pacientes asignados a esta sucursal{% endif %}</p>
 {% endif %}

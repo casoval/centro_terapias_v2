@@ -443,6 +443,54 @@
 
 <script>
 // ========================================
+// FLUJO "AL REVÉS": tipo de agendamiento -> sucursal -> paciente filtrado
+// Si eliges Proyecto o Mensualidad, la lista de pacientes muestra solo
+// quienes tienen proyecto / mensualidad activa en esa sucursal.
+// ========================================
+window.__agendaPreseleccionado = {% if proyecto_preseleccionado or paciente_preseleccionado %}true{% else %}false{% endif %};
+window.__tipoPacientes = '';
+
+function tipoAgendamientoActual() {
+    const p = document.getElementById('asignar_proyecto');
+    const m = document.getElementById('asignar_mensualidad');
+    if (p && p.checked) return 'proyecto';
+    if (m && m.checked) return 'mensualidad';
+    return '';
+}
+
+// Agrega el filtro "tipo" a la petición HTMX de pacientes
+document.addEventListener('htmx:configRequest', function(e) {
+    if (window.__agendaPreseleccionado) return;
+    if (e.detail.path && e.detail.path.indexOf('api/pacientes-sucursal') !== -1) {
+        const tipo = tipoAgendamientoActual();
+        if (tipo) e.detail.parameters['tipo'] = tipo;
+        window.__tipoPacientes = tipo;
+    }
+});
+
+// Si ya hay sucursal elegida y cambia el tipo, recarga la lista de pacientes
+function recargarPacientesSegunTipo() {
+    if (window.__agendaPreseleccionado) return;
+    const suc = document.getElementById('sucursal-select');
+    if (!suc || suc.disabled || !suc.value) return;
+    if (tipoAgendamientoActual() === window.__tipoPacientes) return;
+    window.__tipoPacientes = tipoAgendamientoActual();
+    if (window.htmx) htmx.trigger(suc, 'change');
+}
+
+// Al elegir paciente -> cargar sus proyectos; al elegir responsable -> mensualidades
+document.addEventListener('change', function(e) {
+    if (window.__agendaPreseleccionado) return;
+    const id = e.target && e.target.id;
+    const p = document.getElementById('asignar_proyecto');
+    const m = document.getElementById('asignar_mensualidad');
+    if (id === 'paciente-select' && p && p.checked) cargarProyectosDelPaciente();
+    if ((id === 'paciente-select' || id === 'servicio-select' || id === 'profesional-select') && m && m.checked) {
+        cargarMensualidadesDelPaciente();
+    }
+});
+
+// ========================================
 // RESETEAR CASCADA COMPLETA
 // ========================================
 function resetearCascadaCompleta() {
@@ -973,6 +1021,7 @@ function toggleProyectoSelect() {
         
         container.classList.remove('hidden');
         cargarProyectosDelPaciente();
+        recargarPacientesSegunTipo();
     } else {
         // Desmarcar visualmente
         radioInner.classList.add('scale-0');
@@ -987,6 +1036,7 @@ function toggleProyectoSelect() {
         container.classList.add('hidden');
         document.getElementById('proyecto_id').value = '';
         document.getElementById('proyecto-info').classList.add('hidden');
+        recargarPacientesSegunTipo();
     }
 }
 
@@ -1001,17 +1051,13 @@ function cargarProyectosDelPaciente(idPreseleccionado = null) {
     const sinProyectos = document.getElementById('sin-proyectos');
     
     if (!pacienteId) {
+        // Flujo "al revés": se puede elegir Proyecto primero; el listado
+        // se carga cuando se elija sucursal y paciente.
         if (!idPreseleccionado) {
-            // Mostrar mensaje de advertencia
-            console.log('⚠️ Esperando selección de paciente para cargar proyectos...');
-            
-            // Desmarcar el checkbox
-            const checkbox = document.getElementById('asignar_proyecto');
-            checkbox.checked = false;
-            toggleProyectoSelect();
-            
-            // Mostrar alerta al usuario
-            alert('⚠️ Por favor, seleccione primero una Sucursal y un Paciente antes de asignar a proyecto.');
+            select.innerHTML = '<option value="">👆 Primero elija sucursal y paciente</option>';
+            const infoP = document.getElementById('proyecto-info');
+            if (infoP) infoP.classList.add('hidden');
+            if (sinProyectos) sinProyectos.classList.add('hidden');
         }
         return;
     }
@@ -1216,6 +1262,7 @@ function toggleMensualidadSelect() {
         
         // Cargar mensualidades
         cargarMensualidadesDelPaciente();
+        recargarPacientesSegunTipo();
         
     } else {
         // Desmarcar visualmente
@@ -1247,6 +1294,7 @@ function toggleMensualidadSelect() {
         
         const info = document.getElementById('mensualidad-info');
         if (info) info.classList.add('hidden');
+        recargarPacientesSegunTipo();
     }
 }
 
@@ -1266,14 +1314,18 @@ function cargarMensualidadesDelPaciente() {
     const profesionalId = profesionalSelect?.value;
     const sucursalId = sucursalSelect?.value;
     
-    // Validar parámetros
+    // Flujo "al revés": se puede elegir Mensualidad primero; el listado se
+    // carga cuando estén elegidos sucursal, paciente, servicio y profesional.
     if (!pacienteId || !servicioId || !profesionalId || !sucursalId) {
-        alert('⚠️ Primero selecciona: Sucursal, Paciente, Servicio y Profesional');
-        const checkbox = document.getElementById('asignar_mensualidad');
-        if (checkbox) checkbox.checked = false;
-        
-        const container = document.getElementById('mensualidad-select-container');
-        if (container) container.classList.add('hidden');
+        const selHint = document.getElementById('mensualidad_id');
+        if (selHint) {
+            selHint.innerHTML = '<option value="">👆 Primero elija sucursal, paciente, servicio y responsable</option>';
+            selHint.value = '';
+        }
+        const infoM = document.getElementById('mensualidad-info');
+        if (infoM) infoM.classList.add('hidden');
+        const sinM = document.getElementById('sin-mensualidades');
+        if (sinM) sinM.classList.add('hidden');
         return;
     }
     

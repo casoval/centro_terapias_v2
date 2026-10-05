@@ -1726,11 +1726,14 @@ def confirmacion_sesiones(request):
 def cargar_pacientes_sucursal(request):
     """✅ API: Cargar pacientes de una sucursal específica (HTMX)"""
     sucursal_id = request.GET.get('sucursal', '').strip()
+    # Filtro opcional: 'proyecto' o 'mensualidad' -> solo pacientes que tengan uno
+    tipo = request.GET.get('tipo', '').strip()
     
     # ✅ Si no hay sucursal, devolver lista vacía
     if not sucursal_id:
         return render(request, 'agenda/partials/pacientes_select.html', {
-            'pacientes': []
+            'pacientes': [],
+            'tipo': tipo,
         })
     
     try:
@@ -1738,14 +1741,29 @@ def cargar_pacientes_sucursal(request):
         pacientes = Paciente.objects.filter(
             sucursales__id=sucursal_id,
             estado='activo'
-        ).distinct().order_by('nombre', 'apellido')
+        )
+        
+        if tipo == 'proyecto':
+            pacientes = pacientes.filter(
+                proyectos__sucursal_id=sucursal_id,
+                proyectos__estado__in=['planificado', 'en_progreso']
+            )
+        elif tipo == 'mensualidad':
+            pacientes = pacientes.filter(
+                mensualidades__sucursal_id=sucursal_id,
+                mensualidades__estado__in=['activa', 'pausada']
+            )
+        
+        pacientes = pacientes.distinct().order_by('nombre', 'apellido')
         
         return render(request, 'agenda/partials/pacientes_select.html', {
-            'pacientes': pacientes
+            'pacientes': pacientes,
+            'tipo': tipo,
         })
     except Exception as e:
         return render(request, 'agenda/partials/pacientes_select.html', {
             'pacientes': [],
+            'tipo': tipo,
             'error': str(e)
         })
 
