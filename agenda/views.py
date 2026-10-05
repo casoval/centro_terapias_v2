@@ -2972,7 +2972,7 @@ def obtener_proyectos_paciente(request, paciente_id):
             paciente=paciente
         ).exclude(
             estado='cancelado'
-        ).select_related('servicio_base', 'sucursal').order_by('-fecha_inicio')
+        ).select_related('servicio_base', 'sucursal', 'profesional_responsable').order_by('-fecha_inicio')
         
         # Verificar permisos de sucursal del usuario
         # (Usamos getattr por si el decorador no inyectó la variable)
@@ -2997,6 +2997,15 @@ def obtener_proyectos_paciente(request, paciente_id):
                 ).count(),
                 'estado': proyecto.get_estado_display(),
                 'estado_raw': proyecto.estado, # Para lógica frontend si se necesita
+                # Detalle extra para el panel de información
+                'servicio_base': proyecto.servicio_base.nombre if proyecto.servicio_base_id else '',
+                'responsable': (f"{proyecto.profesional_responsable.nombre} {proyecto.profesional_responsable.apellido}"
+                                if proyecto.profesional_responsable_id else ''),
+                'fecha_inicio': proyecto.fecha_inicio.strftime('%d/%m/%Y') if proyecto.fecha_inicio else '',
+                'fecha_fin_estimada': proyecto.fecha_fin_estimada.strftime('%d/%m/%Y') if proyecto.fecha_fin_estimada else '',
+                'sesiones_programadas': proyecto.sesiones.filter(estado='programada').count(),
+                'sesiones_total': proyecto.sesiones.count(),
+                'descripcion': (proyecto.descripcion or '')[:160],
             })
         
         return JsonResponse({
@@ -3029,8 +3038,9 @@ def obtener_mensualidades_paciente(request):
         profesional_id = request.GET.get('profesional')
         sucursal_id = request.GET.get('sucursal')
         
-        # Validar parámetros requeridos
-        if not all([paciente_id, servicio_id, profesional_id, sucursal_id]):
+        # Validar parámetros requeridos (servicio y profesional ahora son opcionales:
+        # si no vienen, se listan todas las mensualidades activas del paciente en la sucursal)
+        if not all([paciente_id, sucursal_id]):
             return JsonResponse({
                 'success': False,
                 'error': 'Faltan parámetros requeridos'
@@ -3038,27 +3048,26 @@ def obtener_mensualidades_paciente(request):
         
         # Validar que existan los objetos
         paciente = get_object_or_404(Paciente, id=paciente_id)
-        servicio = get_object_or_404(TipoServicio, id=servicio_id)
-        profesional = get_object_or_404(Profesional, id=profesional_id)
         sucursal = get_object_or_404(Sucursal, id=sucursal_id)
         
-        # ✅ CORREGIDO v2: Buscar mensualidades que contengan el servicio+profesional
-        # Una mensualidad puede tener MÚLTIPLES servicios, solo necesitamos verificar
-        # que EXISTA AL MENOS UNO que coincida con servicio+profesional seleccionados
-        
-        # Primero obtener IDs de mensualidades que tienen esta combinación
-        mensualidades_ids = ServicioProfesionalMensualidad.objects.filter(
-            servicio=servicio,
-            profesional=profesional
-        ).values_list('mensualidad_id', flat=True)
-        
-        # Luego filtrar mensualidades por esos IDs
         mensualidades = Mensualidad.objects.filter(
-            id__in=mensualidades_ids,
             paciente=paciente,
             sucursal=sucursal,
             estado__in=['activa', 'pausada']
-        ).prefetch_related(
+        )
+        
+        if servicio_id and profesional_id:
+            servicio = get_object_or_404(TipoServicio, id=servicio_id)
+            profesional = get_object_or_404(Profesional, id=profesional_id)
+            
+            # ✅ Mensualidades que contengan al menos una combinación servicio+profesional
+            mensualidades_ids = ServicioProfesionalMensualidad.objects.filter(
+                servicio=servicio,
+                profesional=profesional
+            ).values_list('mensualidad_id', flat=True)
+            mensualidades = mensualidades.filter(id__in=mensualidades_ids)
+        
+        mensualidades = mensualidades.prefetch_related(
             'servicios_profesionales__servicio',
             'servicios_profesionales__profesional'
         ).order_by('-anio', '-mes')
@@ -3073,7 +3082,8 @@ def obtener_mensualidades_paciente(request):
                     'id': sp.servicio.id,
                     'nombre': sp.servicio.nombre,
                     'profesional_id': sp.profesional.id,
-                    'profesional_nombre': f"{sp.profesional.nombre} {sp.profesional.apellido}"
+                    'profesional_nombre': f"{sp.profesional.nombre} {sp.profesional.apellido}",
+                    'duracion_minutos': getattr(sp.servicio, 'duracion_minutos', None),
                 })
             
             mensualidades_data.append({
@@ -3089,6 +3099,7 @@ def obtener_mensualidades_paciente(request):
                 'saldo_pendiente': float(mensualidad.saldo_pendiente),
                 'num_sesiones': mensualidad.num_sesiones,
                 'num_sesiones_realizadas': mensualidad.num_sesiones_realizadas,
+                'num_sesiones_programadas': mensualidad.sesiones.filter(estado='programada').count(),
                 'estado': mensualidad.get_estado_display(),
             })
         

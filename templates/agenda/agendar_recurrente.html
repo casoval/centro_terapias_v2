@@ -131,14 +131,21 @@
                                     </div>
                                     
                                     <div id="proyecto-info" class="{% if not proyecto_preseleccionado %}hidden{% endif %} bg-purple-50 p-3 rounded-lg border border-purple-100">
-                                        <div class="flex justify-between text-xs mb-1">
-                                            <span class="text-purple-600 font-medium">Tipo:</span>
-                                            <span id="proyecto-tipo" class="font-bold text-purple-900">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.get_tipo_display }}{% else %}-{% endif %}</span>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-[10px] uppercase font-bold text-purple-500">Detalle del proyecto</span>
+                                            <span id="proyecto-estado" class="px-2 py-0.5 rounded-full bg-purple-200 text-purple-800 text-[10px] font-bold">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.get_estado_display }}{% else %}-{% endif %}</span>
                                         </div>
-                                        <div class="flex justify-between text-xs">
-                                            <span class="text-purple-600 font-medium">Saldo:</span>
-                                            <span class="font-bold text-emerald-600">Bs. <span id="proyecto-costo">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.saldo_pendiente|floatformat:2 }}{% else %}0{% endif %}</span></span>
+                                        <div class="grid grid-cols-2 gap-2 text-xs">
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Tipo</span><p class="font-bold text-purple-900" id="proyecto-tipo">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.get_tipo_display }}{% else %}-{% endif %}</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Servicio base</span><p class="font-bold text-purple-900" id="proyecto-servicio">-</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Responsable</span><p class="font-bold text-purple-900" id="proyecto-responsable">-</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Fechas</span><p class="font-bold text-purple-900" id="proyecto-fechas">-</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Costo total</span><p class="font-bold text-purple-900">Bs. <span id="proyecto-costo-total">-</span></p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-purple-500 block text-[10px] uppercase font-bold">Pagado</span><p class="font-bold text-emerald-700">Bs. <span id="proyecto-pagado">-</span></p></div>
+                                            <div class="col-span-2 bg-purple-100 p-2 rounded flex justify-between items-center"><span class="text-purple-700 font-bold">Saldo pendiente</span><p class="font-extrabold text-red-600">Bs. <span id="proyecto-costo">{% if proyecto_preseleccionado %}{{ proyecto_preseleccionado.saldo_pendiente|floatformat:2 }}{% else %}0{% endif %}</span></p></div>
+                                            <div class="col-span-2 bg-purple-100 p-2 rounded flex justify-between items-center"><span class="text-purple-700 font-bold">📊 Sesiones</span><p class="font-extrabold text-purple-900" id="proyecto-sesiones">-</p></div>
                                         </div>
+                                        <p id="proyecto-descripcion" class="hidden mt-2 text-[11px] text-purple-800 italic"></p>
                                     </div>
                                 </div>
                             </div>
@@ -158,19 +165,18 @@
                                     </div>
 
                                     <div id="mensualidad-info" class="hidden bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-[10px] uppercase font-bold text-indigo-500">Detalle de la mensualidad</span>
+                                            <span id="mensualidad-estado" class="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800 text-[10px] font-bold">-</span>
+                                        </div>
                                         <div class="grid grid-cols-2 gap-2 text-xs">
-                                            <div class="bg-white/50 p-1.5 rounded">
-                                                <span class="text-indigo-500 block text-[10px] uppercase font-bold">Período</span>
-                                                <p class="font-bold text-indigo-900" id="mensualidad-periodo">-</p>
-                                            </div>
-                                            <div class="bg-white/50 p-1.5 rounded">
-                                                <span class="text-indigo-500 block text-[10px] uppercase font-bold">Costo</span>
-                                                <p class="font-bold text-indigo-900">Bs. <span id="mensualidad-costo">0.00</span></p>
-                                            </div>
-                                            <div class="col-span-2 bg-indigo-100 p-2 rounded flex justify-between items-center">
-                                                <span class="text-indigo-600 font-bold">📊 Sesiones:</span>
-                                                <p class="font-extrabold text-indigo-900" id="mensualidad-sesiones">0 / 0</p>
-                                            </div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-indigo-500 block text-[10px] uppercase font-bold">Período</span><p class="font-bold text-indigo-900" id="mensualidad-periodo">-</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-indigo-500 block text-[10px] uppercase font-bold">Código</span><p class="font-bold text-indigo-900" id="mensualidad-codigo">-</p></div>
+                                            <div class="col-span-2 bg-white/60 p-1.5 rounded"><span class="text-indigo-500 block text-[10px] uppercase font-bold">Servicios y responsables</span><p class="font-bold text-indigo-900 leading-snug" id="mensualidad-servicios">-</p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-indigo-500 block text-[10px] uppercase font-bold">Costo</span><p class="font-bold text-indigo-900">Bs. <span id="mensualidad-costo">0.00</span></p></div>
+                                            <div class="bg-white/60 p-1.5 rounded"><span class="text-indigo-500 block text-[10px] uppercase font-bold">Pagado</span><p class="font-bold text-emerald-700">Bs. <span id="mensualidad-pagado">0.00</span></p></div>
+                                            <div class="col-span-2 bg-indigo-100 p-2 rounded flex justify-between items-center"><span class="text-indigo-700 font-bold">Saldo pendiente</span><p class="font-extrabold text-red-600">Bs. <span id="mensualidad-saldo">0.00</span></p></div>
+                                            <div class="col-span-2 bg-indigo-100 p-2 rounded flex justify-between items-center"><span class="text-indigo-600 font-bold">📊 Sesiones</span><p class="font-extrabold text-indigo-900" id="mensualidad-sesiones">0 / 0</p></div>
                                         </div>
                                     </div>
                                 </div>
@@ -478,16 +484,24 @@ function recargarPacientesSegunTipo() {
     if (window.htmx) htmx.trigger(suc, 'change');
 }
 
-// Al elegir paciente -> cargar sus proyectos; al elegir responsable -> mensualidades
+// Al elegir paciente -> cargar sus proyectos o sus mensualidades
 document.addEventListener('change', function(e) {
     if (window.__agendaPreseleccionado) return;
-    const id = e.target && e.target.id;
+    if (!e.target || e.target.id !== 'paciente-select') return;
     const p = document.getElementById('asignar_proyecto');
     const m = document.getElementById('asignar_mensualidad');
-    if (id === 'paciente-select' && p && p.checked) cargarProyectosDelPaciente();
-    if ((id === 'paciente-select' || id === 'servicio-select' || id === 'profesional-select') && m && m.checked) {
-        cargarMensualidadesDelPaciente();
-    }
+    if (p && p.checked) cargarProyectosDelPaciente();
+    if (m && m.checked) cargarMensualidadesDelPaciente();
+});
+
+// Si cambia la sucursal (se recarga la lista de pacientes), limpiar proyectos/mensualidades cargados
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (window.__agendaPreseleccionado) return;
+    if (!e.target || e.target.id !== 'pacientes-container') return;
+    const p = document.getElementById('asignar_proyecto');
+    const m = document.getElementById('asignar_mensualidad');
+    if (p && p.checked) cargarProyectosDelPaciente();
+    if (m && m.checked) cargarMensualidadesDelPaciente();
 });
 
 // ========================================
@@ -551,6 +565,11 @@ function agregarEventoPaciente() {
             if (!pacienteId) {
                 resetearServicios();
                 resetearProfesionales();
+                return;
+            }
+            
+            // Modo Mensualidad: servicio y responsable salen de la mensualidad elegida
+            if (tipoAgendamientoActual() === 'mensualidad' && !window.__agendaPreseleccionado) {
                 return;
             }
             
@@ -1062,6 +1081,12 @@ function cargarProyectosDelPaciente(idPreseleccionado = null) {
         return;
     }
     
+    // Limpiar datos del paciente anterior (excepto cuando viene preseleccionado)
+    if (!idPreseleccionado) {
+        const infoPrev = document.getElementById('proyecto-info');
+        if (infoPrev) infoPrev.classList.add('hidden');
+    }
+    
     // Feedback de carga
     select.innerHTML = '<option value="">⏳ Buscando proyectos...</option>';
     
@@ -1109,7 +1134,16 @@ function cargarProyectosDelPaciente(idPreseleccionado = null) {
                     option.dataset.tipo = proyecto.tipo;
                     option.dataset.costo = proyecto.costo_total;
                     option.dataset.pagado = proyecto.total_pagado;
+                    option.dataset.saldo = proyecto.saldo_pendiente;
                     option.dataset.sesiones = proyecto.sesiones_completadas || 0;
+                    option.dataset.estado = proyecto.estado || '';
+                    option.dataset.servicio = proyecto.servicio_base || '';
+                    option.dataset.responsable = proyecto.responsable || '';
+                    option.dataset.fechaInicio = proyecto.fecha_inicio || '';
+                    option.dataset.fechaFin = proyecto.fecha_fin_estimada || '';
+                    option.dataset.programadas = proyecto.sesiones_programadas || 0;
+                    option.dataset.total = proyecto.sesiones_total || 0;
+                    option.dataset.descripcion = proyecto.descripcion || '';
                     
                     // Preselección automática si venimos de detalle_proyecto
                     if (idPreseleccionado && String(proyecto.id) === String(idPreseleccionado)) {
@@ -1150,10 +1184,26 @@ function mostrarInfoProyecto() {
         return;
     }
     
-    const selectedOption = select.options[select.selectedIndex];
+    const o = select.options[select.selectedIndex];
+    const d = o.dataset;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const bs = n => parseFloat(n || '0').toFixed(2);
     
-    document.getElementById('proyecto-tipo').textContent = selectedOption.dataset.tipo || '-';
-    document.getElementById('proyecto-costo').textContent = parseFloat(selectedOption.dataset.costo || '0').toFixed(2);
+    set('proyecto-tipo', d.tipo || '-');
+    set('proyecto-estado', d.estado || '-');
+    set('proyecto-servicio', d.servicio || '-');
+    set('proyecto-responsable', d.responsable || '-');
+    set('proyecto-fechas', (d.fechaInicio || '-') + (d.fechaFin ? ' → ' + d.fechaFin : ''));
+    set('proyecto-costo-total', bs(d.costo));
+    set('proyecto-pagado', bs(d.pagado));
+    set('proyecto-costo', bs(d.saldo));
+    set('proyecto-sesiones', `${d.sesiones || 0} realizadas · ${d.programadas || 0} programadas · ${d.total || 0} en total`);
+    
+    const desc = document.getElementById('proyecto-descripcion');
+    if (desc) {
+        desc.textContent = d.descripcion || '';
+        desc.classList.toggle('hidden', !d.descripcion);
+    }
     
     info.classList.remove('hidden');
 }
@@ -1261,6 +1311,7 @@ function toggleMensualidadSelect() {
         }
         
         // Cargar mensualidades
+        window.__modoMensualidadActivo = true;
         cargarMensualidadesDelPaciente();
         recargarPacientesSegunTipo();
         
@@ -1294,6 +1345,7 @@ function toggleMensualidadSelect() {
         
         const info = document.getElementById('mensualidad-info');
         if (info) info.classList.add('hidden');
+        restaurarServicioProfesionalNormal();
         recargarPacientesSegunTipo();
     }
 }
@@ -1304,22 +1356,18 @@ function toggleMensualidadSelect() {
 function cargarMensualidadesDelPaciente() {
     console.log('🔄 Cargando mensualidades...');
     
-    const pacienteSelect = document.getElementById('paciente-select');
-    const servicioSelect = document.getElementById('servicio-select');
-    const profesionalSelect = document.getElementById('profesional-select');
-    const sucursalSelect = document.getElementById('sucursal-select');
+    const pacienteId = document.getElementById('paciente-select')?.value;
+    const sucursalId = document.getElementById('sucursal-select')?.value;
     
-    const pacienteId = pacienteSelect?.value;
-    const servicioId = servicioSelect?.value;
-    const profesionalId = profesionalSelect?.value;
-    const sucursalId = sucursalSelect?.value;
+    // Servicio y responsable se completan desde la mensualidad elegida
+    renderPlaceholdersMensualidad();
     
     // Flujo "al revés": se puede elegir Mensualidad primero; el listado se
-    // carga cuando estén elegidos sucursal, paciente, servicio y profesional.
-    if (!pacienteId || !servicioId || !profesionalId || !sucursalId) {
+    // carga cuando estén elegidos sucursal y paciente.
+    if (!pacienteId || !sucursalId) {
         const selHint = document.getElementById('mensualidad_id');
         if (selHint) {
-            selHint.innerHTML = '<option value="">👆 Primero elija sucursal, paciente, servicio y responsable</option>';
+            selHint.innerHTML = '<option value="">👆 Primero elija sucursal y paciente</option>';
             selHint.value = '';
         }
         const infoM = document.getElementById('mensualidad-info');
@@ -1334,10 +1382,13 @@ function cargarMensualidadesDelPaciente() {
     
     if (!select) return;
     
+    const infoPrevM = document.getElementById('mensualidad-info');
+    if (infoPrevM) infoPrevM.classList.add('hidden');
+    
     select.innerHTML = '<option value="">⏳ Cargando...</option>';
     select.disabled = true;
     
-    const url = `/agenda/api/mensualidades-paciente/?paciente=${pacienteId}&servicio=${servicioId}&profesional=${profesionalId}&sucursal=${sucursalId}`;
+    const url = `/agenda/api/mensualidades-paciente/?paciente=${pacienteId}&sucursal=${sucursalId}`;
     
     fetch(url)
         .then(response => {
@@ -1364,6 +1415,10 @@ function cargarMensualidadesDelPaciente() {
                     option.dataset.realizadas = mensualidad.num_sesiones_realizadas;
                     option.dataset.estado = mensualidad.estado;
                     option.dataset.periodo = mensualidad.periodo;
+                    option.dataset.codigo = mensualidad.codigo || '';
+                    option.dataset.programadas = mensualidad.num_sesiones_programadas || 0;
+                    option.dataset.serviciosTxt = (mensualidad.servicios || []).map(s => `${s.nombre} (${s.profesional_nombre})`).join(' · ');
+                    option.dataset.serviciosJson = JSON.stringify(mensualidad.servicios || []);
                     
                     select.appendChild(option);
                 });
@@ -1381,6 +1436,146 @@ function cargarMensualidadesDelPaciente() {
         });
 }
 
+// ========================================
+// MODO MENSUALIDAD: Servicio y Responsable salen de la mensualidad
+// ========================================
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderPlaceholdersMensualidad() {
+    if (window.__agendaPreseleccionado) return;
+    const sc = document.getElementById('servicios-container');
+    const pc = document.getElementById('profesionales-container');
+    if (sc) sc.innerHTML = `
+        <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+            🏥 Servicio Base * <span class="text-slate-500 font-normal">(Paso 2)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" data-listener-added="true"
+                class="w-full px-2 py-1.5 border-2 border-slate-200 bg-slate-50 rounded-xl text-xs text-slate-400"
+                disabled required>
+            <option value="">⏳ Se completa al elegir la mensualidad</option>
+        </select>`;
+    if (pc) pc.innerHTML = `
+        <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+            👨‍⚕️ Responsable * <span class="text-slate-500 font-normal">(Paso 3)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select"
+                class="w-full px-2 py-1.5 border-2 border-slate-200 bg-slate-50 rounded-xl text-xs text-slate-400"
+                disabled required>
+            <option value="">⏳ Se completa al elegir la mensualidad</option>
+        </select>`;
+    const dur = document.getElementById('duracion-servicio-info');
+    if (dur) dur.textContent = '-- min';
+}
+
+function poblarServicioProfesionalDesdeMensualidad(option) {
+    let pares = [];
+    try { pares = JSON.parse(option.dataset.serviciosJson || '[]'); } catch (e) { pares = []; }
+    
+    // Servicios únicos de la mensualidad
+    const servicios = [];
+    pares.forEach(p => { if (!servicios.some(s => String(s.id) === String(p.id))) servicios.push(p); });
+    
+    const sc = document.getElementById('servicios-container');
+    if (!sc) return;
+    
+    const unico = servicios.length === 1;
+    sc.innerHTML = `
+        <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+            🏥 Servicio Base * <span class="text-slate-500 font-normal">(de la mensualidad)</span>
+        </label>
+        <select name="servicio_id" id="servicio-select" data-listener-added="true" required
+                class="w-full px-2 py-1.5 border-2 border-indigo-200 bg-indigo-50 rounded-xl text-xs">
+            ${unico ? '' : '<option value="">Seleccione servicio...</option>'}
+            ${servicios.map(s => `<option value="${escHtml(s.id)}" data-duracion="${escHtml(s.duracion_minutos || '')}" data-nombre="${escHtml(s.nombre)}"${unico ? ' selected' : ''}>${escHtml(s.nombre)}</option>`).join('')}
+        </select>
+        <p class="text-xs text-indigo-600 mt-1">✅ ${unico ? 'Completado desde la mensualidad' : servicios.length + ' servicios en esta mensualidad'}</p>`;
+    
+    const selServ = document.getElementById('servicio-select');
+    selServ.addEventListener('change', function() {
+        poblarProfesionalesDeServicio(pares, this.value);
+        const o = this.options[this.selectedIndex];
+        const dur = document.getElementById('duracion-servicio-info');
+        if (dur) dur.textContent = (o && o.dataset.duracion) ? `${o.dataset.duracion} min` : '-- min';
+        if (typeof actualizarVistaPrevia === 'function') actualizarVistaPrevia();
+    });
+    
+    if (unico) {
+        const o = selServ.options[selServ.selectedIndex];
+        const dur = document.getElementById('duracion-servicio-info');
+        if (dur && o && o.dataset.duracion) dur.textContent = `${o.dataset.duracion} min`;
+        poblarProfesionalesDeServicio(pares, selServ.value);
+    } else {
+        const pc = document.getElementById('profesionales-container');
+        if (pc) pc.innerHTML = `
+            <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+                👨‍⚕️ Responsable * <span class="text-slate-500 font-normal">(Paso 3)</span>
+            </label>
+            <select name="profesional_id" id="profesional-select" disabled required
+                    class="w-full px-2 py-1.5 border-2 border-slate-200 bg-slate-50 rounded-xl text-xs text-slate-400">
+                <option value="">⏳ Esperando servicio...</option>
+            </select>`;
+        const dur = document.getElementById('duracion-servicio-info');
+        if (dur) dur.textContent = '-- min';
+    }
+}
+
+function poblarProfesionalesDeServicio(pares, servicioId) {
+    const pc = document.getElementById('profesionales-container');
+    if (!pc) return;
+    
+    const profs = [];
+    pares.filter(p => String(p.id) === String(servicioId)).forEach(p => {
+        if (!profs.some(x => String(x.profesional_id) === String(p.profesional_id))) profs.push(p);
+    });
+    
+    if (profs.length === 0) {
+        pc.innerHTML = `
+            <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+                👨‍⚕️ Responsable * <span class="text-slate-500 font-normal">(Paso 3)</span>
+            </label>
+            <select name="profesional_id" id="profesional-select" disabled required
+                    class="w-full px-2 py-1.5 border-2 border-slate-200 bg-slate-50 rounded-xl text-xs text-slate-400">
+                <option value="">⏳ Esperando servicio...</option>
+            </select>`;
+        return;
+    }
+    
+    const unico = profs.length === 1;
+    pc.innerHTML = `
+        <label class="block text-xs font-bold text-slate-700 mb-1 ml-1">
+            👨‍⚕️ Responsable * <span class="text-slate-500 font-normal">(de la mensualidad)</span>
+        </label>
+        <select name="profesional_id" id="profesional-select" required
+                class="w-full px-2 py-1.5 border-2 border-indigo-200 bg-indigo-50 rounded-xl text-xs">
+            ${unico ? '' : '<option value="">Seleccione responsable...</option>'}
+            ${profs.map(p => `<option value="${escHtml(p.profesional_id)}"${unico ? ' selected' : ''}>${escHtml(p.profesional_nombre)}</option>`).join('')}
+        </select>
+        <p class="text-xs text-indigo-600 mt-1">✅ ${unico ? 'Completado desde la mensualidad' : profs.length + ' responsables para este servicio'}</p>`;
+    
+    const selProf = document.getElementById('profesional-select');
+    selProf.addEventListener('change', function() {
+        if (typeof actualizarVistaPrevia === 'function') actualizarVistaPrevia();
+    });
+}
+
+// Al salir del modo Mensualidad: volver a los selects normales de Servicio y Responsable
+function restaurarServicioProfesionalNormal() {
+    if (!window.__modoMensualidadActivo) return;
+    window.__modoMensualidadActivo = false;
+    if (window.__agendaPreseleccionado) return;
+    
+    const pac = document.getElementById('paciente-select');
+    if (pac && pac.value && !pac.disabled) {
+        // Recarga los servicios del paciente con el flujo normal
+        pac.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
+        resetearServicios();
+        resetearProfesionales();
+    }
+}
+
 /**
  * Mostrar información de la mensualidad seleccionada
  */
@@ -1392,6 +1587,7 @@ function mostrarInfoMensualidad() {
     
     if (!select || !select.value) {
         if (info) info.classList.add('hidden');
+        renderPlaceholdersMensualidad();
         return;
     }
     
@@ -1421,7 +1617,12 @@ function mostrarInfoMensualidad() {
     if (saldoElement) saldoElement.textContent = saldo.toFixed(2);
     
     const sesionesElement = document.getElementById('mensualidad-sesiones');
-    if (sesionesElement) sesionesElement.textContent = `${realizadas} / ${sesiones}`;
+    if (sesionesElement) sesionesElement.textContent = `${realizadas} realizadas · ${selectedOption.dataset.programadas || 0} programadas · ${sesiones} en total`;
+    
+    const setM = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setM('mensualidad-codigo', selectedOption.dataset.codigo || '-');
+    setM('mensualidad-estado', selectedOption.dataset.estado || '-');
+    setM('mensualidad-servicios', selectedOption.dataset.serviciosTxt || '-');
     
     // Calcular fechas
     const fechaInicioCalculada = calcularPrimerDiaMes(anio, mes);
@@ -1429,6 +1630,9 @@ function mostrarInfoMensualidad() {
     
     if (fechaInicio) fechaInicio.value = fechaInicioCalculada;
     if (fechaFin) fechaFin.value = fechaFinCalculada;
+    
+    // Completar Servicio y Responsable desde la mensualidad
+    poblarServicioProfesionalDesdeMensualidad(selectedOption);
     
     // Mostrar panel
     if (info) info.classList.remove('hidden');
