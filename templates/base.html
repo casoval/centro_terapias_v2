@@ -16,7 +16,7 @@
 
     {% if USE_COMPILED_TAILWIND %}<link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v={{ TAILWIND_VERSION }}">{% else %}<script src="https://cdn.tailwindcss.com"></script>{% endif %}
     
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -3305,7 +3305,8 @@ function filterPacientes() {
     let drawer = null;
     let tick = 0;
 
-    function applyTheme(id) {
+    // persistir=false: solo aplica el tema (arranque de la página); no escribe en el servidor.
+    function applyTheme(id, persistir) {
         currentThemeId = id;
         // Guardar con clave específica del usuario actual
         localStorage.setItem(_LS_KEY, id);
@@ -3320,7 +3321,7 @@ function filterPacientes() {
         // ── Persistir en el perfil del usuario (BD) ──
         // El servidor puede rechazar IDs nuevos si no están en choices del modelo,
         // pero eso NO debe afectar el tema visual — localStorage es la fuente de verdad
-        if (window.__GUARDAR_TEMA_URL__ && window.__CSRF_TOKEN__) {
+        if (persistir !== false && window.__GUARDAR_TEMA_URL__ && window.__CSRF_TOKEN__) {
             fetch(window.__GUARDAR_TEMA_URL__, {
                 method: 'POST',
                 headers: {
@@ -3488,16 +3489,21 @@ function filterPacientes() {
         }
     });
 
-    window.addEventListener('DOMContentLoaded', ()=>{
+    // ⚡ RENDIMIENTO: una sola inicialización. Antes había dos listeners de
+    // DOMContentLoaded y ambos ejecutaban buildPanel() + applyTheme(), lo que
+    // enviaba DOS escrituras a guardar-tema/ (y a la base de datos) en CADA
+    // carga de página. Ahora, al cargar, solo se guarda en el servidor si el
+    // tema local difiere del que ya tiene el perfil; al elegir un tema en el
+    // panel sí se guarda siempre.
+    function iniciarTemas() {
         buildPanel();
-        applyTheme(currentThemeId);
-    });
+        applyTheme(currentThemeId, currentThemeId !== window.__SERVER_THEME__);
+    }
 
     if(document.readyState==='loading') {
-        document.addEventListener('DOMContentLoaded',()=>{ buildPanel(); applyTheme(currentThemeId); });
+        document.addEventListener('DOMContentLoaded', iniciarTemas);
     } else {
-        buildPanel();
-        applyTheme(currentThemeId);
+        iniciarTemas();
     }
 })();
 </script>
