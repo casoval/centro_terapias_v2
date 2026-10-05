@@ -100,7 +100,7 @@
     {% if sesiones %}
     <!-- ✅ TABLA DE SESIONES -->
     <div class="overflow-x-auto">
-        <table class="tabla-fichas w-full min-w-max">
+        <table class="tabla-fichas tabla-lista-sesiones w-full">
             <thead class="bg-gray-100 border-b sticky top-0 z-10">
                 <tr>
                     <th class="px-3 py-1.5 text-left text-[9px] font-medium text-gray-700 uppercase tracking-wider whitespace-nowrap">
@@ -171,13 +171,13 @@
                         </div>
                     </td>
                     <td data-label="Servicio" class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
-                        <span class="inline-flex items-center gap-0.5">
-                            <span class="inline-block w-1.5 h-1.5 rounded-full" style="background-color: {{ sesion.servicio.color }};"></span>
-                            {{ sesion.servicio.nombre }}
+                        <span class="inline-flex items-center gap-0.5" title="{{ sesion.servicio.nombre }}">
+                            <span class="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ sesion.servicio.color }};"></span>
+                            <span class="col-corta">{{ sesion.servicio.nombre }}</span>
                         </span>
                     </td>
                     <td data-label="Profesional" class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
-                        {{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}
+                        <span class="col-corta" title="{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}">{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}</span>
                     </td>
                     <td data-label="Sucursal" class="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">
                         🏢 {{ sesion.sucursal.nombre }}
@@ -438,6 +438,14 @@
 </div>
 
 <style>
+/* Lista de sesiones: columnas largas se recortan con "…" (el texto completo sale al pasar el mouse) */
+@media (min-width: 768px) {
+    .tabla-lista-sesiones th, .tabla-lista-sesiones td { padding-left: .5rem; padding-right: .5rem; }
+    .tabla-lista-sesiones .col-corta { display: inline-block; max-width: 11ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+}
+@media (min-width: 1280px) {
+    .tabla-lista-sesiones .col-corta { max-width: 18ch; }
+}
 /* Hacer scroll horizontal siempre visible */
 .overflow-x-auto::-webkit-scrollbar {
     height: 12px;
