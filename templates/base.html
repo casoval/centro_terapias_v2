@@ -18,6 +18,25 @@
     
     <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- 📅 Selector de fecha en ESPAÑOL con semana desde LUNES (flatpickr).
+         Reemplaza a los <input type="date|datetime-local|month"> nativos, que usaban
+         el idioma / primer día de la semana del navegador (inglés y domingo).
+         La lógica está en el script "SELECTOR DE FECHAS" al final de este archivo.
+         Si el CDN no carga, los inputs nativos siguen funcionando. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/plugins/monthSelect/style.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/plugins/monthSelect/index.js"></script>
+    <style>
+        .flatpickr-calendar { font-family: inherit; z-index: 100000 !important; }
+        input.fp-alt { cursor: pointer; }
+        .fp-pie { display: flex; gap: 8px; padding: 6px 10px 8px; border-top: 1px solid #e6e6e6; }
+        .fp-pie button { flex: 1; padding: 5px 8px; font-size: 12px; font-weight: 700; color: #475569;
+                         background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; }
+        .fp-pie button:hover { background: #e2e8f0; }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     {% block extra_css %}{% endblock %}
@@ -3510,6 +3529,232 @@ function filterPacientes() {
 <!-- ===== FIN MOTOR DE TEMAS ===== -->
 
     {% block extra_js %}{% endblock %}
+
+<!-- ===== SELECTOR DE FECHAS (español, semana desde lunes) ===== -->
+<script>
+(function () {
+    'use strict';
+
+    /*
+     * Selector de fecha unificado: español + semana que empieza en LUNES.
+     *
+     * Los <input type="date|datetime-local|month"> nativos usan el idioma y el
+     * primer día de la semana del NAVEGADOR / SISTEMA, por eso en algunos
+     * equipos salían en inglés y empezando en domingo. Aquí se reemplazan por
+     * flatpickr (locale 'es', firstDayOfWeek = 1).
+     *
+     * - El input ORIGINAL se conserva (mismo name / id) y sigue guardando el
+     *   valor en formato ISO (YYYY-MM-DD, YYYY-MM-DDTHH:MM o YYYY-MM), así el
+     *   backend de Django y el JS existente no cambian.
+     * - El usuario ve y escribe dd/mm/aaaa en un input visible (.fp-alt).
+     * - Funciona también con contenido dinámico (HTMX, innerHTML, modales).
+     * - Si la librería no carga (CDN caído) se dejan los inputs nativos.
+     */
+
+    var SEL = 'input[type="date"],input[type="datetime-local"],input[type="month"]';
+
+    var TIPOS = {
+        'date':           { dateFormat: 'Y-m-d',       altFormat: 'd/m/Y',     placeholder: 'dd/mm/aaaa' },
+        'datetime-local': { dateFormat: 'Y-m-d\\TH:i', altFormat: 'd/m/Y H:i', placeholder: 'dd/mm/aaaa hh:mm', conHora: true },
+        'month':          { dateFormat: 'Y-m',         altFormat: 'F Y',       placeholder: 'Mes aaaa', soloMes: true }
+    };
+
+    var valueDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
+    function claseAlt(inp) {
+        return ((inp.className || '').replace(/\bflatpickr-input\b/g, '').trim() + ' fp-alt').trim();
+    }
+
+    function boton(texto, onClick) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = texto;
+        b.addEventListener('click', onClick);
+        return b;
+    }
+
+    function agregarPie(fp) {
+        var pie = document.createElement('div');
+        pie.className = 'fp-pie';
+        pie.appendChild(boton('Hoy', function () {
+            fp.setDate(new Date(), true);
+            fp.close();
+        }));
+        fp._btnLimpiar = boton('Limpiar', function () {
+            fp.clear();
+            fp.close();
+        });
+        pie.appendChild(fp._btnLimpiar);
+        fp.calendarContainer.appendChild(pie);
+    }
+
+    // Parseo estricto de dd/mm/aaaa: evita que "31/02/2026" se convierta en "03/03/2026".
+    function parseoEstricto(str, formato) {
+        var d = flatpickr.parseDate(str, formato);
+        if (d && formato === 'd/m/Y') {
+            var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(str).trim());
+            if (m && (d.getDate() !== +m[1] || d.getMonth() !== +m[2] - 1)) { return undefined; }
+        }
+        return d;
+    }
+
+    function sincronizar(inp, fp) {
+        var alt = fp.altInput;
+        if (!alt) { return; }
+        alt.disabled = inp.disabled;
+        alt.required = inp.required;
+        alt.title = inp.title || '';
+        alt.className = claseAlt(inp);
+        alt.style.cssText = inp.style.cssText;
+    }
+
+    function crear(inp) {
+        if (inp._flatpickr || inp.hasAttribute('data-nativo')) { return; }
+        var tipo = inp.getAttribute('type');
+        var t = TIPOS[tipo];
+        if (!t) { return; }
+        if (t.soloMes && typeof monthSelectPlugin === 'undefined') { return; }
+
+        if (!inp.placeholder) { inp.placeholder = t.placeholder; }
+
+        var cfg = {
+            altInput: true,
+            altFormat: t.altFormat,
+            dateFormat: t.dateFormat,
+            altInputClass: claseAlt(inp),
+            allowInput: !inp.readOnly,
+            clickOpens: !inp.readOnly,
+            disableMobile: true,          // forzar SIEMPRE este selector (también en celulares)
+            enableTime: !!t.conHora,
+            time_24hr: true,
+            minuteIncrement: 1,
+            defaultDate: inp.value || null,
+            minDate: inp.getAttribute('min') || null,
+            maxDate: inp.getAttribute('max') || null,
+            parseDate: parseoEstricto,
+            onReady: [function (_s, _v, fp) { agregarPie(fp); }],
+            onOpen: [function (_s, _v, fp) {
+                if (fp._btnLimpiar) { fp._btnLimpiar.style.display = inp.required ? 'none' : ''; }
+            }],
+            // La API de flatpickr solo dispara "change"; algunos scripts escuchan "input".
+            onChange: [function () { inp.dispatchEvent(new Event('input', { bubbles: true })); }]
+        };
+        if (t.soloMes) {
+            cfg.plugins = [monthSelectPlugin({ shorthand: false, dateFormat: t.dateFormat, altFormat: t.altFormat })];
+        }
+
+        var fp = flatpickr(inp, cfg);
+        if (Array.isArray(fp)) { fp = fp[0]; }
+        var alt = fp && fp.altInput;
+        if (!alt) { return; }
+
+        alt.autocomplete = 'off';
+        sincronizar(inp, fp);
+
+        // <label for="..."> debe apuntar al input visible
+        if (inp.id) {
+            alt.id = inp.id + '-fp';
+            var labels = document.querySelectorAll('label[for="' + inp.id.replace(/"/g, '\\"') + '"]');
+            for (var i = 0; i < labels.length; i++) { labels[i].htmlFor = alt.id; }
+        }
+
+        // Máscara dd/mm/aaaa al escribir con el teclado (solo campos de fecha)
+        if (tipo === 'date') {
+            alt.addEventListener('input', function (e) {
+                if (e.inputType && e.inputType.indexOf('delete') === 0) { return; }
+                var d = alt.value.replace(/\D/g, '').slice(0, 8);
+                var s = d;
+                if (d.length > 4) { s = d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4); }
+                else if (d.length > 2) { s = d.slice(0, 2) + '/' + d.slice(2); }
+                if (s !== alt.value) { alt.value = s; }
+                if (d.length === 8) {
+                    var dd = +d.slice(0, 2), mm = +d.slice(2, 4), yy = +d.slice(4);
+                    var f = new Date(yy, mm - 1, dd);
+                    if (f.getFullYear() === yy && f.getMonth() === mm - 1 && f.getDate() === dd) {
+                        fp.setDate(f, true);
+                    }
+                }
+            });
+        }
+
+        // Asignar inp.value = 'YYYY-MM-DD' desde JS debe reflejarse en el input visible.
+        // "sincronizando" evita bucles: flatpickr también escribe en inp.value
+        // (por ejemplo en clear() lo hace ANTES de vaciar sus fechas internas).
+        var sincronizando = false;
+        Object.defineProperty(inp, 'value', {
+            configurable: true,
+            get: function () { return valueDesc.get.call(this); },
+            set: function (v) {
+                valueDesc.set.call(this, v);
+                if (sincronizando) { return; }
+                sincronizando = true;
+                try {
+                    var vacio = (v === '' || v === null || v === undefined);
+                    var sel = fp.selectedDates;
+                    if (vacio) {
+                        if (sel.length) { fp.clear(false); }
+                    } else if (!sel.length || fp.formatDate(sel[0], t.dateFormat) !== String(v)) {
+                        fp.setDate(String(v), false, t.dateFormat);
+                    }
+                } finally {
+                    sincronizando = false;
+                }
+            }
+        });
+
+        // Métodos que el código existente podría llamar sobre el input original
+        inp.focus = function (o) { alt.focus(o); };
+        inp.showPicker = function () { fp.open(); };
+
+        // Mantener sincronizados disabled / required / class / style / min / max
+        new MutationObserver(function (muts) {
+            for (var k = 0; k < muts.length; k++) {
+                var a = muts[k].attributeName;
+                if (a === 'min') { fp.set('minDate', inp.getAttribute('min') || null); }
+                else if (a === 'max') { fp.set('maxDate', inp.getAttribute('max') || null); }
+                else { sincronizar(inp, fp); }
+            }
+        }).observe(inp, { attributes: true, attributeFilter: ['disabled', 'required', 'class', 'style', 'title', 'min', 'max'] });
+    }
+
+    function escanear() {
+        var lista = document.querySelectorAll(SEL);
+        for (var i = 0; i < lista.length; i++) {
+            try { crear(lista[i]); } catch (err) { if (window.console) { console.warn('[fecha] no se pudo iniciar', lista[i], err); } }
+        }
+    }
+
+    function iniciar() {
+        if (typeof flatpickr === 'undefined') { return; }   // CDN no disponible → inputs nativos
+
+        var es = flatpickr.l10ns && flatpickr.l10ns.es;
+        if (es) {
+            es.firstDayOfWeek = 1;                           // 1 = lunes
+            flatpickr.localize(es);
+        }
+
+        escanear();
+
+        // Contenido que aparece después (HTMX, modales, innerHTML, plantillas clonadas)
+        var pendiente = false;
+        var programar = window.requestAnimationFrame ? window.requestAnimationFrame.bind(window) : function (fn) { setTimeout(fn, 16); };
+        new MutationObserver(function (muts) {
+            if (pendiente) { return; }
+            for (var i = 0; i < muts.length; i++) {
+                if (muts[i].addedNodes.length) {
+                    pendiente = true;
+                    programar(function () { pendiente = false; escanear(); });
+                    return;
+                }
+            }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', iniciar); }
+    else { iniciar(); }
+})();
+</script>
+<!-- ===== FIN SELECTOR DE FECHAS ===== -->
 
 <!-- ===== RELOJ EN TIEMPO REAL ===== -->
 <script>
