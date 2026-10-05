@@ -2128,7 +2128,8 @@
                    id="search-paciente" 
                    class="search-input" 
                    placeholder="Buscar..."
-                   onkeyup="filterPacientes()">
+                   autocomplete="off"
+                   oninput="filterPacientes()">
         </div>
         
         <div class="pacientes-list" id="pacientes-list">
@@ -2184,11 +2185,11 @@ function irAPerfil(pacienteId) {
 }
 
 // Renderizar lista de pacientes
-function renderizarPacientes(pacientes) {
+function renderizarPacientes(pacientes, mensajeVacio) {
     const listaContainer = document.getElementById('pacientes-list');
     
     if (pacientes.length === 0) {
-        listaContainer.innerHTML = '<div class="no-results">Sin pacientes</div>';
+        listaContainer.innerHTML = '<div class="no-results">' + (mensajeVacio || 'Sin pacientes') + '</div>';
         return;
     }
     
@@ -2233,34 +2234,35 @@ document.addEventListener('click', function(event) {
     }
 });
 
+// Normaliza texto: minúsculas y sin tildes (para buscar "jose" y encontrar "José")
+function normalizarTexto(txt) {
+    return (txt || '').toString().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
 // Filtrar pacientes
+// ✅ Siempre se filtra desde pacientesData y se vuelve a renderizar la lista.
+// Antes, al no haber coincidencias se reemplazaba el HTML por "Sin resultados"
+// y se perdían los elementos, por lo que las búsquedas siguientes ya no
+// encontraban nada hasta recargar la página.
 function filterPacientes() {
+    if (!pacientesLoaded) return;  // aún cargando: no tocar la lista
+
     const input = document.getElementById('search-paciente');
-    const filter = input.value.toLowerCase();
-    const list = document.getElementById('pacientes-list');
-    const items = list.getElementsByClassName('paciente-item');
-    
-    let visibleCount = 0;
-    
-    for (let i = 0; i < items.length; i++) {
-        const nombre = items[i].getAttribute('data-nombre');
-        if (nombre.indexOf(filter) > -1) {
-            items[i].style.display = '';
-            visibleCount++;
-        } else {
-            items[i].style.display = 'none';
-        }
-    }
-    
-    // Mostrar mensaje si no hay resultados
-    if (visibleCount === 0 && pacientesLoaded) {
-        list.innerHTML = '<div class="no-results">😕 Sin resultados</div>';
-    } else if (visibleCount === 0 && !pacientesLoaded) {
-        // Si aún no se han cargado, esperar
-    } else if (filter === '' && visibleCount === 0 && pacientesLoaded) {
-        // Si borró todo el filtro y no hay resultados, recargar
+    const filtro = normalizarTexto(input.value);
+
+    if (filtro === '') {
         renderizarPacientes(pacientesData);
+        return;
     }
+
+    const terminos = filtro.split(/\s+/);
+    const resultado = pacientesData.filter(p => {
+        const nombre = normalizarTexto(p.nombre_completo);
+        return terminos.every(t => nombre.indexOf(t) > -1);
+    });
+
+    renderizarPacientes(resultado, '😕 Sin resultados');
 }
 </script>
 

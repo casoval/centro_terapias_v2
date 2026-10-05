@@ -94,20 +94,60 @@
 
 <div class="cc-hero">
   <h1>🧾 Mi Cierre de Caja</h1>
-  <p>{{ hoy|date:"l, d \d\e F \d\e Y" }} — solo tus cobros y devoluciones de hoy</p>
+  <p>{{ hoy|date:"l, d \d\e F \d\e Y" }} — solo tus cobros y devoluciones de hoy (el crédito no se cuenta)</p>
 </div>
 
+<div class="cc-section-title">💵 Caja (efectivo)</div>
 <div class="cc-totales">
   <div class="cc-card total-cobrado">
-    <div class="label">Total Cobrado Hoy</div>
+    <div class="label">Efectivo cobrado</div>
+    <div class="value">Bs. {{ efectivo_cobrado|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card total-devuelto">
+    <div class="label">Efectivo devuelto</div>
+    <div class="value">Bs. {{ efectivo_devuelto|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card total-neto">
+    <div class="label">Efectivo en caja</div>
+    <div class="value">Bs. {{ efectivo_en_caja|floatformat:0 }}</div>
+  </div>
+</div>
+
+<div class="cc-section-title">🏦 Cuenta (QR y transferencia)</div>
+<div class="cc-totales">
+  <div class="cc-card">
+    <div class="label">QR</div>
+    <div class="value">Bs. {{ qr_cobrado|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card">
+    <div class="label">Transferencia</div>
+    <div class="value">Bs. {{ transferencia_cobrado|floatformat:0 }}</div>
+  </div>
+  <div class="cc-card total-cobrado">
+    <div class="label">Total a cuenta</div>
+    <div class="value">Bs. {{ total_cuenta|floatformat:0 }}</div>
+  </div>
+</div>
+
+{% if otros_cobrado %}
+<div class="cc-card" style="margin-bottom:24px;">
+  <div class="label">Otros métodos</div>
+  <div class="value">Bs. {{ otros_cobrado|floatformat:0 }}</div>
+</div>
+{% endif %}
+
+<div class="cc-section-title">📊 Total cobrado hoy (sin crédito)</div>
+<div class="cc-totales">
+  <div class="cc-card total-cobrado">
+    <div class="label">Total cobrado</div>
     <div class="value">Bs. {{ total_cobrado|floatformat:0 }}</div>
   </div>
   <div class="cc-card total-devuelto">
-    <div class="label">Total Devuelto Hoy</div>
+    <div class="label">Total devuelto</div>
     <div class="value">Bs. {{ total_devuelto|floatformat:0 }}</div>
   </div>
   <div class="cc-card total-neto">
-    <div class="label">Neto en Caja</div>
+    <div class="label">Neto del día</div>
     <div class="value">Bs. {{ total_neto|floatformat:0 }}</div>
   </div>
 </div>

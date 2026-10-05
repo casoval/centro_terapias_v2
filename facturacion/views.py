@@ -6353,16 +6353,30 @@ def cierre_caja(request):
 
     hoy = date.today()
 
+    # Crédito / saldo a favor / sin cobro NO es dinero que entra: se excluye
+    # de todos los totales y del detalle del cierre.
+    filtro_no_dinero = (
+        Q(metodo_pago__nombre__icontains='crédito') |
+        Q(metodo_pago__nombre__icontains='credito') |
+        Q(metodo_pago__nombre__icontains='saldo') |
+        Q(metodo_pago__nombre__icontains='sin cobro')
+    )
+    filtro_dev_no_dinero = (
+        Q(metodo_devolucion__nombre__icontains='crédito') |
+        Q(metodo_devolucion__nombre__icontains='credito') |
+        Q(metodo_devolucion__nombre__icontains='saldo')
+    )
+
     pagos_hoy = Pago.objects.filter(
         registrado_por=request.user,
         fecha_pago=hoy,
         anulado=False,
-    ).select_related('metodo_pago', 'paciente').order_by('-fecha_registro')
+    ).exclude(filtro_no_dinero).select_related('metodo_pago', 'paciente').order_by('-fecha_registro')
 
     devoluciones_hoy = Devolucion.objects.filter(
         registrado_por=request.user,
         fecha_devolucion=hoy,
-    ).select_related('metodo_devolucion', 'paciente').order_by('-fecha_registro')
+    ).exclude(filtro_dev_no_dinero).select_related('metodo_devolucion', 'paciente').order_by('-fecha_registro')
 
     totales_por_metodo = list(
         pagos_hoy.values('metodo_pago__nombre')
@@ -6370,9 +6384,32 @@ def cierre_caja(request):
         .order_by('-total')
     )
 
+    def _sum_pagos(terminos):
+        f = Q()
+        for t in terminos:
+            f |= Q(metodo_pago__nombre__icontains=t)
+        return pagos_hoy.filter(f).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+
+    def _sum_devs(terminos):
+        f = Q()
+        for t in terminos:
+            f |= Q(metodo_devolucion__nombre__icontains=t)
+        return devoluciones_hoy.filter(f).aggregate(t=Sum('monto'))['t'] or Decimal('0')
+
     total_cobrado = pagos_hoy.aggregate(t=Sum('monto'))['t'] or Decimal('0')
     total_devuelto = devoluciones_hoy.aggregate(t=Sum('monto'))['t'] or Decimal('0')
     total_neto = total_cobrado - total_devuelto
+
+    # ── Caja (efectivo físico) vs Cuenta (QR + transferencia) ──
+    efectivo_cobrado = _sum_pagos(['efectivo'])
+    qr_cobrado = _sum_pagos(['qr'])
+    transferencia_cobrado = _sum_pagos(['transferencia', 'transf', 'depósito', 'deposito'])
+    otros_cobrado = total_cobrado - efectivo_cobrado - qr_cobrado - transferencia_cobrado
+
+    efectivo_devuelto = _sum_devs(['efectivo'])
+    efectivo_en_caja = efectivo_cobrado - efectivo_devuelto
+    total_cuenta = qr_cobrado + transferencia_cobrado
+    devuelto_cuenta = total_devuelto - efectivo_devuelto
 
     context = {
         'hoy': hoy,
@@ -6384,6 +6421,14 @@ def cierre_caja(request):
         'total_neto': total_neto,
         'cantidad_pagos': pagos_hoy.count(),
         'cantidad_devoluciones': devoluciones_hoy.count(),
+        'efectivo_cobrado': efectivo_cobrado,
+        'efectivo_devuelto': efectivo_devuelto,
+        'efectivo_en_caja': efectivo_en_caja,
+        'qr_cobrado': qr_cobrado,
+        'transferencia_cobrado': transferencia_cobrado,
+        'total_cuenta': total_cuenta,
+        'devuelto_cuenta': devuelto_cuenta,
+        'otros_cobrado': otros_cobrado,
     }
     return render(request, 'facturacion/reportes/cierre_caja.html', context)
 

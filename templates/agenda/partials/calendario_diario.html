@@ -300,7 +300,11 @@
 
                                 {% if not user.perfil.es_profesional or user.is_superuser %}
                                 <div class="text-right">
+                                    {% if sesion.monto_cobrado > 0 or not sesion.mensualidad and not sesion.proyecto %}
                                     <div class="text-xs font-black text-gray-800">Bs.{{ sesion.monto_cobrado|floatformat:0 }}</div>
+                                    {% else %}
+                                    <div class="text-[9px] font-bold text-indigo-600">{% if sesion.mensualidad %}Mensualidad{% else %}Proyecto{% endif %}</div>
+                                    {% endif %}
                                     {% if sesion.monto_cobrado > 0 %}
                                         {% if sesion.pagado %}
                                             <div class="flex items-center justify-end gap-1 bg-white/60 px-1 py-0.5 rounded shadow-sm">
