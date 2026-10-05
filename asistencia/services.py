@@ -318,7 +318,7 @@ class ValidadorAsistencia:
             if entrada_hoy:
                 bloque = entrada_hoy.bloque
 
-        registro = RegistroAsistencia.objects.create(
+        datos_registro = dict(
             user=self.user,
             zona=self.zona_valida,
             tipo=self.tipo,
@@ -328,9 +328,23 @@ class ValidadorAsistencia:
             longitud=self.lon,
             distancia_metros=self.distancia,
             biometrico_score=self.score_facial,
-            foto_captura=self._foto_como_archivo(),
             minutos_tardanza=minutos_tardanza,
             device_id=self.device_id,
             observacion=self.observacion,
         )
+        foto = self._foto_como_archivo()
+        try:
+            registro = RegistroAsistencia.objects.create(foto_captura=foto, **datos_registro)
+        except Exception:
+            if foto is None:
+                raise
+            # La foto se sube al almacenamiento externo (R2) durante el guardado.
+            # Si esa subida falla, el marcado NO debe perderse: se registra
+            # la asistencia sin foto y se deja el error en el log.
+            import logging
+            logging.getLogger(__name__).error(
+                'No se pudo guardar la foto de captura; se registra la asistencia sin foto',
+                exc_info=True,
+            )
+            registro = RegistroAsistencia.objects.create(foto_captura=None, **datos_registro)
         return True, registro, []
