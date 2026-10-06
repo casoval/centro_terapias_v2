@@ -130,8 +130,12 @@ const zonas = JSON.parse(document.getElementById('zonas-data').textContent);
 const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const mapa = L.map('mapa').setView([-16.4897, -68.1193], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  // Django envía por defecto "Referrer-Policy: same-origin": sin Referer, OpenStreetMap
+  // responde 403 ("Access blocked"). Se permite el Referer solo para estos mosaicos.
+  referrerPolicy: 'strict-origin-when-cross-origin',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
 }).addTo(mapa);
 
 zonas.forEach(z => {

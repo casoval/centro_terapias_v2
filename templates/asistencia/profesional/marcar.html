@@ -384,7 +384,13 @@ async function marcar(tipo) {
 const zonas = JSON.parse($('zonas-data').textContent || '[]');
 if (zonas.length && $('mapa-zonas')) {
   const mapa = L.map('mapa-zonas').setView([zonas[0].lat, zonas[0].lon], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapa);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    // Django envía por defecto "Referrer-Policy: same-origin": sin Referer, OpenStreetMap
+    // responde 403 ("Access blocked"). Se permite el Referer solo para estos mosaicos.
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+  }).addTo(mapa);
   zonas.forEach(z => {
     const popup = document.createElement('div');
     const b = document.createElement('b'); b.textContent = z.nombre;

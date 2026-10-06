@@ -462,6 +462,8 @@ class VistasAdminTests(BaseAsistencia):
         r = self.client.get(reverse('asistencia:zonas_gps'))
         self.assertContains(r, 'leaflet.js'); self.assertContains(r, 'zonas-data')
         self.assertNotContains(r, 'lat: -16,')                       # coma decimal rompería el JS
+        self.assertContains(r, "referrerPolicy: 'strict-origin-when-cross-origin'")   # sin Referer OSM da 403
+        self.assertNotContains(r, '{s}.tile.openstreetmap.org')
         crear_profesional('lib', zona=self.zona)
         self.client.force_login(User.objects.get(username='lib'))
         self.assertContains(self.client.get(reverse('asistencia:mi_asistencia')), 'chart.umd.min.js')
