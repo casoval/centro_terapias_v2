@@ -5907,7 +5907,8 @@ def reporte_profesional(request):
         'mes_sel': mes_sel, 'anio_sel': anio_sel,
         'meses_opts': [(i, MESES_ES[i]) for i in range(1, 13)],
         'anios_opts': list(range(hoy.year - 4, hoy.year + 1)),
-        'costo_mensual': costo_mensual if costo_mensual else '',
+        # Texto con punto decimal: con es-bo Django escribiría '1500,0' y el <input type=number> lo vaciaría
+        'costo_mensual': (f"{costo_mensual:g}" if costo_mensual else ''),
         'manual_cfg': manual_cfg, 'forzar_manual': forzar_manual,
         'dias_opts': list(enumerate(DIAS_ES)),
         'hoy': hoy,

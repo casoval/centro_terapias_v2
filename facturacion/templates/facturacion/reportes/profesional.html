@@ -104,6 +104,12 @@
   .kid .av img{width:100%;height:100%;object-fit:cover}
   .kid b{font-size:.8rem}.kid small{display:block;color:var(--muted);font-size:.64rem;line-height:1.4}
   .search{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:.76rem;min-width:200px;font-family:inherit}
+
+  .inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#e0e7ff;color:#3730a3;font:700 9px/1 'Fira Code',monospace;font-style:normal;margin-left:5px;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle;flex-shrink:0;user-select:none;transition:.15s}
+  .inf:hover,.inf:focus,.inf.on{background:#4f46e5;color:#fff;outline:none}
+  .pcard .inf,.verdict .inf,.hero .inf{background:rgba(255,255,255,.28);color:#fff}
+  .pcard .inf:hover,.verdict .inf:hover{background:#fff;color:#14532d}
+  #tip{position:fixed;z-index:99999;max-width:340px;background:#0f172a;color:#f8fafc;font:500 .72rem/1.5 'Space Grotesk',sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;white-space:pre-line;text-transform:none;letter-spacing:0}
   @media(max-width:640px){.kl,table.t th{font-size:.68rem}}
 </style>
 
@@ -132,41 +138,41 @@
 <div class="filter-bar no-print">
   <form method="get" id="frm">
     <input type="hidden" name="rango" id="f-rango" value="{{ rango }}">
-    <div class="fg"><label>Profesional</label>
+    <div class="fg"><label>Profesional {% ayuda "f_profesional" %}</label>
       <select name="profesional" onchange="document.getElementById('f-rango').value='';this.form.submit()">
         <option value="">— Seleccionar —</option>
         {% for p in profesionales %}<option value="{{ p.id }}" {% if profesional and profesional.id == p.id %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>{% endfor %}
       </select></div>
     {% if profesional %}
-    <div class="fg"><label>Sucursal</label>
+    <div class="fg"><label>Sucursal {% ayuda "f_sucursal" %}</label>
       <select name="sucursal"><option value="">Todas</option>
         {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
       </select></div>
-    <div class="fg"><label>Mes</label>
+    <div class="fg"><label>Mes {% ayuda "f_mes" %}</label>
       <select name="mes" onchange="document.getElementById('f-rango').value=''"><option value="">—</option>
         {% for n,nm in meses_opts %}<option value="{{ n }}" {% if mes_sel == n|stringformat:"s" %}selected{% endif %}>{{ nm }}</option>{% endfor %}
       </select></div>
-    <div class="fg"><label>Año</label>
+    <div class="fg"><label>Año {% ayuda "f_anio" %}</label>
       <select name="anio" onchange="document.getElementById('f-rango').value=''"><option value="">—</option>
         {% for a in anios_opts %}<option value="{{ a }}" {% if anio_sel == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>{% endfor %}
       </select></div>
-    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}" onchange="document.getElementById('f-rango').value=''"></div>
-    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" onchange="document.getElementById('f-rango').value=''"></div>
-    <div class="fg"><label>Servicio</label>
+    <div class="fg"><label>Desde {% ayuda "f_desde" %}</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}" onchange="document.getElementById('f-rango').value=''"></div>
+    <div class="fg"><label>Hasta {% ayuda "f_hasta" %}</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" onchange="document.getElementById('f-rango').value=''"></div>
+    <div class="fg"><label>Servicio {% ayuda "f_servicio" %}</label>
       <select name="servicio"><option value="">Todos</option>
         {% for s in servicios_filtro %}<option value="{{ s.id }}" {% if servicio_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
       </select></div>
-    <div class="fg"><label>Niño</label>
+    <div class="fg"><label>Niño {% ayuda "f_nino" %}</label>
       <select name="paciente"><option value="">Todos</option>
         {% for p in pacientes_filtro %}<option value="{{ p.id }}" {% if paciente_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>{% endfor %}
       </select></div>
-    <div class="fg"><label>Tipo</label>
+    <div class="fg"><label>Tipo {% ayuda "f_tipo" %}</label>
       <select name="tipo"><option value="">Todos</option>
         <option value="individual" {% if tipo == 'individual' %}selected{% endif %}>Sesión individual</option>
         <option value="proyecto" {% if tipo == 'proyecto' %}selected{% endif %}>Proyecto</option>
         <option value="mensualidad" {% if tipo == 'mensualidad' %}selected{% endif %}>Mensualidad</option>
       </select></div>
-    <div class="fg"><label>Estado</label>
+    <div class="fg"><label>Estado {% ayuda "f_estado" %}</label>
       <select name="estado"><option value="">Todos</option>
         <option value="realizada" {% if estado == 'realizada' %}selected{% endif %}>Realizada</option>
         <option value="realizada_retraso" {% if estado == 'realizada_retraso' %}selected{% endif %}>Con retraso</option>
@@ -176,13 +182,13 @@
         <option value="reprogramada" {% if estado == 'reprogramada' %}selected{% endif %}>Reprogramada</option>
         <option value="programada" {% if estado == 'programada' %}selected{% endif %}>Programada</option>
       </select></div>
-    <div class="fg"><label>Costo mensual del prof. (Bs.)</label>
+    <div class="fg"><label>Costo mensual del prof. (Bs.) {% ayuda "f_costo" %}</label>
       <input type="number" step="0.01" min="0" name="costo_mensual" value="{{ costo_mensual }}" placeholder="opcional" style="min-width:130px"></div>
     <button type="submit" class="btn-primary">🔍 Ver reporte</button>
     <a class="btn-clear" href="?profesional={{ profesional.id }}">✕ Limpiar</a>
 
     <div class="quick">
-      <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--muted)">Rangos:</span>
+      <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--muted)">Rangos: {% ayuda "f_rangos" %}</span>
       <button type="button" class="qbtn {% if rango == 'hoy' %}on{% endif %}" onclick="setR('hoy')">Hoy</button>
       <button type="button" class="qbtn {% if rango == 'ayer' %}on{% endif %}" onclick="setR('ayer')">Ayer</button>
       <button type="button" class="qbtn {% if rango == 'semana' %}on{% endif %}" onclick="setR('semana')">Esta semana</button>
@@ -196,7 +202,7 @@
     </div>
 
     <details class="adv" {% if r.horario.fuente != 'asistencia' or forzar_manual %}open{% endif %}>
-      <summary>⏰ Horario base del profesional — {{ r.horario.fuente_txt }}</summary>
+      <summary>⏰ Horario base del profesional — {{ r.horario.fuente_txt }} {% ayuda "f_horario" %}</summary>
       <p class="note">Se usa el horario de <b>Asistencia</b> si existe. Si no está configurado, se usa el predeterminado (L‑V 9:00‑12:00 y 14:30‑19:00, Sáb 9:00‑12:00). Aquí puedes editarlo; aplica solo cuando no hay horario en Asistencia o si marcas "forzar".</p>
       <input type="hidden" name="h_editado" value="1">
       <div class="adv-grid">
@@ -247,7 +253,7 @@
     </div>
   </div>
   <div style="min-width:210px;text-align:right">
-    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">Generó en el período</div>
+    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">Generó en el período {% ayuda "gen_periodo" %}</div>
     <div class="mono" style="font-size:1.9rem;font-weight:900">Bs. {{ k.gen_total|bs }}</div>
     <div style="font-size:.7rem;opacity:.8">{{ k.horas_reloj_txt }} trabajadas · Bs. {{ k.ingreso_hora|bs }}/hora</div>
   </div>
@@ -257,16 +263,16 @@
 
 <!-- ══ VEREDICTO ══ -->
 {% if r.semaforo %}
-<div class="sec">🚦 Semáforo de decisión — ¿aporta valor al centro?</div>
+<div class="sec">🚦 Semáforo de decisión — ¿aporta valor al centro? {% ayuda "semaforo" %}</div>
 <div class="verdict" style="background:{{ r.semaforo.color }}">
   <div class="score">{% if r.semaforo.score != None %}{{ r.semaforo.score }}<span style="font-size:1rem">/100</span>{% else %}—{% endif %}</div>
-  <div style="flex:1;min-width:240px"><div style="font-weight:800;font-size:1rem">{{ r.semaforo.msg }}</div>
+  <div style="flex:1;min-width:240px"><div style="font-weight:800;font-size:1rem">{{ r.semaforo.msg }} {% ayuda "semaforo" %}</div>
     <div style="font-size:.72rem;opacity:.9;margin-top:4px">✔ {{ r.semaforo.n_verde }} en verde · ● {{ r.semaforo.n_ambar }} en ámbar · ✖ {{ r.semaforo.n_rojo }} en rojo · {{ r.semaforo.nota }}</div></div>
 </div>
 <div class="card">
   {% for c in r.semaforo.criterios %}
   <div class="crit"><div class="dot" style="background:{{ c.color }}"></div>
-    <div><b>{{ c.nombre }}</b><small>{{ c.regla }}</small></div>
+    <div><b>{{ c.nombre }}</b>{% ayuda_txt c.info %}<small>{{ c.regla }}</small></div>
     <div class="mono" style="font-weight:700;color:{{ c.color }}">{{ c.valor }}</div>
     <div style="color:var(--ink2)">{{ c.detalle }}</div></div>
   {% endfor %}
@@ -275,32 +281,32 @@
 {% endif %}
 
 <!-- ══ HALLAZGOS ══ -->
-<div class="sec">🔎 Lo más importante</div>
+<div class="sec">🔎 Lo más importante {% ayuda "hallazgos" %}</div>
 {% for h in r.hallazgos %}<div class="alert {{ h.tipo }}">{{ h.txt }}</div>{% endfor %}
 
 <!-- ══ PRODUCCIÓN ══ -->
-<div class="sec">💰 Cuánto genera</div>
+<div class="sec">💰 Cuánto genera {% ayuda "sec_produccion" %}</div>
 <div class="grid">
-  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Total generado</div><div class="kv" style="color:var(--green)">{{ k.gen_total|bs }}</div><div class="ks">Bs. · sesiones + proyectos + mensualidades</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Sesiones individuales</div><div class="kv">{{ k.gen_ind|bs }}</div><div class="ks">{{ k.pct_ind }}% del total</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Proyectos</div><div class="kv">{{ k.gen_proy|bs }}</div><div class="ks">Solo {{ k.gen_proy_solo|bs }} · Grupal {{ k.gen_proy_grupal|bs }}</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Mensualidades</div><div class="kv">{{ k.gen_mens|bs }}</div><div class="ks">Solo {{ k.gen_mens_solo|bs }} · Grupal {{ k.gen_mens_grupal|bs }}</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Por generar (agenda)</div><div class="kv">{{ k.por_generar|bs }}</div><div class="ks">sesiones programadas</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Ingreso por hora</div><div class="kv">{{ k.ingreso_hora|bs }}</div><div class="ks">Bs. por hora trabajada</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Ingreso por sesión</div><div class="kv">{{ k.ingreso_sesion|bs }}</div><div class="ks">promedio</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Total generado {% ayuda "k_gen_total" %}</div><div class="kv" style="color:var(--green)">{{ k.gen_total|bs }}</div><div class="ks">Bs. · sesiones + proyectos + mensualidades</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Sesiones individuales {% ayuda "k_gen_ind" %}</div><div class="kv">{{ k.gen_ind|bs }}</div><div class="ks">{{ k.pct_ind }}% del total</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Proyectos {% ayuda "k_gen_proy" %}</div><div class="kv">{{ k.gen_proy|bs }}</div><div class="ks">Solo {{ k.gen_proy_solo|bs }} · Grupal {{ k.gen_proy_grupal|bs }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Mensualidades {% ayuda "k_gen_mens" %}</div><div class="kv">{{ k.gen_mens|bs }}</div><div class="ks">Solo {{ k.gen_mens_solo|bs }} · Grupal {{ k.gen_mens_grupal|bs }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Por generar (agenda) {% ayuda "k_por_generar" %}</div><div class="kv">{{ k.por_generar|bs }}</div><div class="ks">sesiones programadas</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Ingreso por hora {% ayuda "k_ing_hora" %}</div><div class="kv">{{ k.ingreso_hora|bs }}</div><div class="ks">Bs. por hora trabajada</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Ingreso por sesión {% ayuda "k_ing_sesion" %}</div><div class="kv">{{ k.ingreso_sesion|bs }}</div><div class="ks">promedio</div></div>
   {% if r.cobranza %}
-  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Cobrado</div><div class="kv" style="color:var(--green)">{{ k.cobrado|bs }}</div><div class="ks">{{ k.pct_cobrado }}% de lo generado</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Sin cobrar</div><div class="kv" style="color:var(--red)">{{ k.pendiente_cobro|bs }}</div><div class="ks">generado y pendiente</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Cobrado {% ayuda "k_cobrado" %}</div><div class="kv" style="color:var(--green)">{{ k.cobrado|bs }}</div><div class="ks">{{ k.pct_cobrado }}% de lo generado</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Sin cobrar {% ayuda "k_sin_cobrar" %}</div><div class="kv" style="color:var(--red)">{{ k.pendiente_cobro|bs }}</div><div class="ks">generado y pendiente</div></div>
   {% endif %}
   {% if k.costo_periodo %}
-  <div class="kpi"><div class="bar" style="background:{% if k.rentable %}var(--green){% else %}var(--red){% endif %}"></div><div class="kl">Margen vs. su costo</div><div class="kv {% if k.rentable %}up{% else %}down{% endif %}">{{ k.margen|bs }}</div><div class="ks">Aporta {{ k.neto_centro|bs }} · costo {{ k.costo_periodo|bs }} · {{ k.cobertura|css:2 }}×</div></div>
+  <div class="kpi"><div class="bar" style="background:{% if k.rentable %}var(--green){% else %}var(--red){% endif %}"></div><div class="kl">Margen vs. su costo {% ayuda "k_margen" %}</div><div class="kv {% if k.rentable %}up{% else %}down{% endif %}">{{ k.margen|bs }}</div><div class="ks">Aporta {{ k.neto_centro|bs }} · costo {{ k.costo_periodo|bs }} · {{ k.cobertura|css:2 }}×</div></div>
   {% endif %}
   {% if k.tiene_externos %}
-  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Servicios externos</div><div class="kv">{{ k.ext_centro|bs }}</div><div class="ks">retiene el centro · profesional {{ k.ext_prof|bs }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Servicios externos {% ayuda "k_externos" %}</div><div class="kv">{{ k.ext_centro|bs }}</div><div class="ks">retiene el centro · profesional {{ k.ext_prof|bs }}</div></div>
   {% endif %}
 </div>
 {% if r.comparacion %}
-<div class="card" style="padding:10px 14px"><span class="note" style="margin:0"><b>vs. período anterior</b> ({{ r.comparacion.desde|date:"d/m" }}–{{ r.comparacion.hasta|date:"d/m/Y" }}):
+<div class="card" style="padding:10px 14px"><span class="note" style="margin:0"><b>vs. período anterior</b> {% ayuda "comparacion" %} ({{ r.comparacion.desde|date:"d/m" }}–{{ r.comparacion.hasta|date:"d/m/Y" }}):
   sesiones atendidas {{ r.comparacion.atendidas.0 }} → {{ k.atendidas }} (<b class="{% if r.comparacion.atendidas.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.atendidas.1|signo }}</b>) ·
   generado Bs. {{ r.comparacion.gen.0|bs }} → {{ k.gen_total|bs }} (<b class="{% if r.comparacion.gen.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.gen.1|signo }}</b>) ·
   ocupación agendada {{ r.comparacion.ocup.0 }}% → {{ k.ocup_el }}% (<b class="{% if r.comparacion.ocup.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.ocup.1|signo }} pts</b>) ·
@@ -309,7 +315,7 @@
 
 <div class="g3">
   {% for t in r.por_tipo %}
-  <div class="card"><h3>{% if t.clave == 'individual' %}🧒{% elif t.clave == 'proyecto' %}📁{% else %}🗓️{% endif %} {{ t.nombre }}</h3>
+  <div class="card"><h3>{% if t.clave == 'individual' %}🧒{% elif t.clave == 'proyecto' %}📁{% else %}🗓️{% endif %} {{ t.nombre }}{% ayuda 'tipo_'|add:t.clave %}</h3>
     <div class="mono" style="font-size:1.4rem;font-weight:900">Bs. {{ t.gen|bs }}</div>
     <div class="pbar" style="margin:6px 0"><div style="width:{{ t.pct_gen|pw }}%;background:var(--green)"></div></div>
     <div class="note">{{ t.pct_gen }}% de su producción · {{ t.n }} sesiones ({{ t.atend }} atendidas, {{ t.faltas }} faltas, {{ t.prog }} programadas) · {{ t.horas_txt }} · {{ t.pacs }} niños</div></div>
@@ -317,25 +323,25 @@
 </div>
 
 <!-- ══ HORAS ══ -->
-<div class="sec">⏱️ Horas trabajadas y tiempo libre</div>
+<div class="sec">⏱️ Horas trabajadas y tiempo libre {% ayuda "sec_horas" %}</div>
 <div class="grid">
-  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Horas trabajadas</div><div class="kv" style="color:var(--green)">{{ k.horas_reloj_txt }}</div><div class="ks">de reloj · con pacientes: {{ k.horas_pac_txt }}</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Horario transcurrido</div><div class="kv">{{ k.cap_el_txt }}</div><div class="ks">{{ k.dias_con_horario }} días con horario</div></div>
-  <div class="kpi"><div class="bar" style="background:{{ k.carga_color }}"></div><div class="kl">Ocupación efectiva</div><div class="kv" style="color:{{ k.carga_color }}">{{ k.ocup_efect }}%</div><div class="ks">agendada: {{ k.ocup_el }}% · {{ k.carga_txt }}</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Libres por inasistencia</div><div class="kv" style="color:var(--red)">{{ k.h_perdidas_txt }}</div><div class="ks">{{ k.pct_perdidas }}% de su horario</div></div>
-  <div class="kpi"><div class="bar" style="background:#94a3b8"></div><div class="kl">Sin paciente agendado</div><div class="kv">{{ k.h_sinag_txt }}</div><div class="ks">{{ k.pct_sinag }}% de su horario</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Potencial no aprovechado</div><div class="kv">{{ k.potencial_no_aprovechado|bs }}</div><div class="ks">Bs. estimados a 100% de agenda · {{ k.h_no_pagadas_txt }} sin generar</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Disponible a futuro</div><div class="kv">{{ k.libre_fut_txt }}</div><div class="ks">de {{ k.cap_fut_txt }} de horario por venir</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Fuera de su horario</div><div class="kv">{{ k.extra_txt }}</div><div class="ks">atendido en horas extra</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Horas trabajadas {% ayuda "k_horas_trab" %}</div><div class="kv" style="color:var(--green)">{{ k.horas_reloj_txt }}</div><div class="ks">de reloj · con pacientes: {{ k.horas_pac_txt }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Horario transcurrido {% ayuda "k_horario" %}</div><div class="kv">{{ k.cap_el_txt }}</div><div class="ks">{{ k.dias_con_horario }} días con horario</div></div>
+  <div class="kpi"><div class="bar" style="background:{{ k.carga_color }}"></div><div class="kl">Ocupación efectiva {% ayuda "k_ocup_efect" %}</div><div class="kv" style="color:{{ k.carga_color }}">{{ k.ocup_efect }}%</div><div class="ks">agendada: {{ k.ocup_el }}% · {{ k.carga_txt }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Libres por inasistencia {% ayuda "k_libres_inas" %}</div><div class="kv" style="color:var(--red)">{{ k.h_perdidas_txt }}</div><div class="ks">{{ k.pct_perdidas }}% de su horario</div></div>
+  <div class="kpi"><div class="bar" style="background:#94a3b8"></div><div class="kl">Sin paciente agendado {% ayuda "k_sin_agendar" %}</div><div class="kv">{{ k.h_sinag_txt }}</div><div class="ks">{{ k.pct_sinag }}% de su horario</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Potencial no aprovechado {% ayuda "k_potencial" %}</div><div class="kv">{{ k.potencial_no_aprovechado|bs }}</div><div class="ks">Bs. estimados a 100% de agenda · {{ k.h_no_pagadas_txt }} sin generar</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Libre próximos 14 días {% ayuda "k_prox" %}</div><div class="kv">{{ r.proximos.libre_txt }}</div><div class="ks">de {{ r.proximos.cap_txt }} de horario · {{ r.proximos.ocup }}% ya agendado</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Fuera de su horario {% ayuda "k_extra" %}</div><div class="kv">{{ k.extra_txt }}</div><div class="ks">atendido en horas extra</div></div>
 </div>
-<div class="card"><h3>¿Qué pasó con cada hora de su horario?</h3>
+<div class="card"><h3>¿Qué pasó con cada hora de su horario? {% ayuda "desglose" %}</h3>
   <div class="stack">{% for d in r.desglose %}{% if d.pct > 0 %}<div title="{{ d.label }}: {{ d.txt }}" style="width:{{ d.pct|pw }}%;background:{{ d.color }}"></div>{% endif %}{% endfor %}</div>
   <div class="legend">{% for d in r.desglose %}<span><i style="background:{{ d.color }}"></i>{{ d.label }}: <b>{{ d.txt }}</b> ({{ d.pct }}%)</span>{% endfor %}</div>
   <p class="note" style="margin-top:10px">La <b>falta sin aviso</b> se cobra al paciente, pero el profesional quedó libre esa hora. Permisos, cancelaciones y reprogramaciones liberan la hora sin generar ingreso. Solo se cuentan días ya transcurridos. El potencial es una estimación teórica (horas libres sin ingreso × su ingreso por hora).</p>
 </div>
 
 <!-- ══ EVOLUCIÓN ══ -->
-<div class="sec">📈 Rendimiento por día, semana y mes</div>
+<div class="sec">📈 Rendimiento por día, semana y mes {% ayuda "sec_evolucion" %}</div>
 <div class="card">
   <div class="tabs no-print">
     <button class="tab" data-g="dias" onclick="verGrupo('dias')">📆 Por día</button>
@@ -343,26 +349,26 @@
     <button class="tab on" data-g="meses" onclick="verGrupo('meses')">📊 Por mes</button>
   </div>
   <div style="height:260px"><canvas id="chEvol"></canvas></div>
-  <div class="tabpane" id="p-dias"><div class="scroll maxh"><table class="t"><thead><tr><th>Fecha</th><th>Horario</th><th class="tc">Ses.</th><th class="tc">Atend.</th><th class="tc">Falta</th><th class="tc">Prog.</th><th>Trabajó</th><th>Libre</th><th class="tr">Ocup.</th><th class="tr">Generó</th></tr></thead><tbody>
+  <div class="tabpane" id="p-dias"><div class="scroll maxh"><table class="t"><thead><tr><th>Fecha</th><th>Horario {% ayuda "e_horario" %}</th><th class="tc">Ses. {% ayuda "e_ses" %}</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Falta {% ayuda "e_falta" %}</th><th class="tc">Prog. {% ayuda "e_prog" %}</th><th>Trabajó {% ayuda "e_trabajo" %}</th><th>Libre {% ayuda "e_libre" %}</th><th class="tr">Ocup. {% ayuda "e_ocup" %}</th><th class="tr">Generó {% ayuda "e_genero" %}</th></tr></thead><tbody>
     {% for d in r.por_dia %}<tr {% if not d.cap and not d.n %}style="opacity:.45"{% endif %}><td><b>{{ d.dia_c }}</b> {{ d.fecha|date:"d/m/Y" }}</td><td>{% if d.bloques %}{{ d.bloques|join:" · " }}{% else %}<span style="color:var(--muted)">libre</span>{% endif %}</td><td class="tc">{{ d.n }}</td><td class="tc">{{ d.n_atend }}</td><td class="tc">{{ d.n_falta }}</td><td class="tc">{{ d.n_prog }}</td><td>{{ d.att_txt }}</td><td>{{ d.libre_txt }}</td><td class="tr">{% if d.cap %}{{ d.ocup }}%{% else %}—{% endif %}</td><td class="tr mono">{{ d.gen|bs }}</td></tr>{% endfor %}
   </tbody></table></div></div>
-  <div class="tabpane" id="p-semanas"><div class="scroll"><table class="t"><thead><tr><th>Semana</th><th class="tc">Atend.</th><th class="tc">Faltas</th><th>Horario</th><th>Trabajó</th><th>Libre</th><th>Libres por inasist.</th><th>Sin agendar</th><th class="tr">Ocup. efect.</th><th class="tr">Generó</th></tr></thead><tbody>
+  <div class="tabpane" id="p-semanas"><div class="scroll"><table class="t"><thead><tr><th>Semana</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Faltas {% ayuda "e_falta" %}</th><th>Horario {% ayuda "e_horario" %}</th><th>Trabajó {% ayuda "e_trabajo" %}</th><th>Libre {% ayuda "e_libre" %}</th><th>Libres por inasist. {% ayuda "e_libres_inas" %}</th><th>Sin agendar {% ayuda "e_sin_agendar" %}</th><th class="tr">Ocup. efect. {% ayuda "e_ocup_efect" %}</th><th class="tr">Generó {% ayuda "e_genero" %}</th></tr></thead><tbody>
     {% for g in r.por_semana %}<tr><td><b>{{ g.label }}</b><div class="note" style="margin:0">{{ g.sub }}</div></td><td class="tc">{{ g.n_atend }}</td><td class="tc">{{ g.n_falta }}</td><td>{{ g.cap_txt }}</td><td>{{ g.att_txt }}</td><td>{{ g.libre_txt }}</td><td>{{ g.perd_txt }}</td><td>{{ g.sinag_txt }}</td><td class="tr">{{ g.ocup_efect }}%</td><td class="tr mono">{{ g.gen|bs }}</td></tr>{% endfor %}
   </tbody></table></div></div>
-  <div class="tabpane on" id="p-meses"><div class="scroll"><table class="t"><thead><tr><th>Mes</th><th class="tc">Atend.</th><th class="tc">Faltas</th><th class="tc">Prog.</th><th>Horario</th><th>Trabajó</th><th>Libre</th><th>Libres por inasist.</th><th>Sin agendar</th><th class="tr">Ocup. efect.</th><th class="tr">Generó</th></tr></thead><tbody>
+  <div class="tabpane on" id="p-meses"><div class="scroll"><table class="t"><thead><tr><th>Mes</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Faltas {% ayuda "e_falta" %}</th><th class="tc">Prog. {% ayuda "e_prog" %}</th><th>Horario {% ayuda "e_horario" %}</th><th>Trabajó {% ayuda "e_trabajo" %}</th><th>Libre {% ayuda "e_libre" %}</th><th>Libres por inasist. {% ayuda "e_libres_inas" %}</th><th>Sin agendar {% ayuda "e_sin_agendar" %}</th><th class="tr">Ocup. efect. {% ayuda "e_ocup_efect" %}</th><th class="tr">Generó {% ayuda "e_genero" %}</th></tr></thead><tbody>
     {% for g in r.por_mes %}<tr><td><b>{{ g.label }}</b></td><td class="tc">{{ g.n_atend }}</td><td class="tc">{{ g.n_falta }}</td><td class="tc">{{ g.n_prog }}</td><td>{{ g.cap_txt }}</td><td>{{ g.att_txt }}</td><td>{{ g.libre_txt }}</td><td>{{ g.perd_txt }}</td><td>{{ g.sinag_txt }}</td><td class="tr">{{ g.ocup_efect }}%</td><td class="tr mono">{{ g.gen|bs }}</td></tr>{% endfor %}
   </tbody></table></div></div>
 </div>
 
 <!-- ══ HORARIOS VACÍOS ══ -->
-<div class="sec">🕳️ Horarios vacíos y carga por día</div>
+<div class="sec">🕳️ Horarios vacíos y carga por día {% ayuda "sec_huecos" %}</div>
 <div class="g2">
-  <div class="card"><h3>Mapa de calor de ocupación (hora × día)</h3>
+  <div class="card"><h3>Mapa de calor de ocupación (hora × día) {% ayuda "heat" %}</h3>
     {% if r.heat %}<div class="scroll"><table class="heat"><thead><tr><th></th>{% for h in r.heat_horas %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
       {% for f in r.heat %}<tr><th>{{ f.dia_c }}</th>{% for c in f.celdas %}{% if c.ocup == None %}<td class="off">·</td>{% else %}<td title="{{ c.ocup }}% ocupado" style="background:rgba(22,163,74,{{ c.a|css:2 }})">{{ c.ocup|floatformat:0 }}</td>{% endif %}{% endfor %}</tr>{% endfor %}
     </tbody></table></div><p class="note">Verde intenso = hora siempre ocupada · tenue = hora libre. "·" = fuera de su horario. Solo días ya transcurridos.</p>
     {% else %}<p class="note">Sin datos de horario transcurrido.</p>{% endif %}</div>
-  <div class="card"><h3>Por día de la semana</h3>
+  <div class="card"><h3>Por día de la semana {% ayuda "por_dia_semana" %}</h3>
     {% for w in r.por_dia_semana %}{% if w.cap or w.n %}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.74rem"><span style="width:78px;font-weight:700">{{ w.dia }}</span>
       <div class="pbar" style="flex:1;height:14px"><div style="width:{{ w.ocup|pw }}%;background:{% if w.ocup >= 85 %}var(--red){% elif w.ocup >= 60 %}var(--green){% elif w.ocup >= 35 %}var(--amber){% else %}var(--purple){% endif %}"></div></div>
@@ -370,106 +376,107 @@
     {% if r.franjas_libres %}<p class="note" style="margin-top:10px"><b>Franjas más libres:</b> {% for f in r.franjas_libres %}{{ f.h }} ({{ f.ocup }}%){% if not forloop.last %} · {% endif %}{% endfor %}<br><b>Franjas más llenas:</b> {% for f in r.franjas_llenas %}{{ f.h }} ({{ f.ocup }}%){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}</div>
 </div>
 <div class="g2">
-  <div class="card"><h3>📅 Huecos disponibles a futuro ({{ r.huecos_futuros|length }})</h3>
-    <div class="maxh" style="max-height:260px"><table class="t"><thead><tr><th>Fecha</th><th>Franja libre</th><th class="tr">Duración</th></tr></thead><tbody>
-    {% for h in r.huecos_futuros|slice:":80" %}<tr><td>{{ h.dia }} {{ h.fecha|date:"d/m/Y" }}</td><td>{{ h.ini }} – {{ h.fin }}</td><td class="tr">{{ h.txt }}</td></tr>{% empty %}<tr><td colspan="3" class="note">Sin huecos futuros en el rango.</td></tr>{% endfor %}</tbody></table></div></div>
-  <div class="card"><h3>🕰️ Tiempo ocioso ya transcurrido ({{ r.huecos_pasados|length }} huecos)</h3>
+  <div class="card"><h3>📅 Huecos disponibles — próximos {{ r.proximos.dias }} días ({{ r.proximos.huecos|length }}){% ayuda "huecos_prox" %}</h3>
+    <p class="note">Del {{ r.proximos.desde|date:"d/m" }} al {{ r.proximos.hasta|date:"d/m/Y" }}, contando desde hoy (sin importar el rango elegido): <b>{{ r.proximos.libre_txt }}</b> libres de {{ r.proximos.cap_txt }} de horario ({{ r.proximos.ocup }}% ya agendado).</p>
+    <div class="maxh" style="max-height:230px"><table class="t"><thead><tr><th>Fecha</th><th>Franja libre</th><th class="tr">Duración</th></tr></thead><tbody>
+    {% for h in r.proximos.huecos %}<tr><td>{{ h.dia }} {{ h.fecha|date:"d/m/Y" }}</td><td>{{ h.ini }} – {{ h.fin }}</td><td class="tr">{{ h.txt }}</td></tr>{% empty %}<tr><td colspan="3" class="note">No quedan huecos de 30 min o más en los próximos {{ r.proximos.dias }} días: su agenda está completa o no tiene horario en ese lapso.</td></tr>{% endfor %}</tbody></table></div></div>
+  <div class="card"><h3>🕰️ Tiempo ocioso ya transcurrido ({{ r.huecos_pasados|length }} huecos) {% ayuda "huecos_pasados" %}</h3>
     <div class="maxh" style="max-height:260px"><table class="t"><thead><tr><th>Fecha</th><th>Franja sin paciente</th><th class="tr">Duración</th></tr></thead><tbody>
     {% for h in r.huecos_pasados|slice:":120" %}<tr><td>{{ h.dia }} {{ h.fecha|date:"d/m/Y" }}</td><td>{{ h.ini }} – {{ h.fin }}</td><td class="tr">{{ h.txt }}</td></tr>{% empty %}<tr><td colspan="3" class="note">Sin huecos.</td></tr>{% endfor %}</tbody></table></div></div>
 </div>
 
 <!-- ══ HORARIO BASE / MARCAJE ══ -->
-<div class="sec">⏰ Horario base y marcaje de asistencia</div>
+<div class="sec">⏰ Horario base y marcaje de asistencia {% ayuda "sec_horario" %}</div>
 <div class="g2">
-  <div class="card"><h3>Horario considerado</h3><p class="note">{{ r.horario.fuente_txt }}</p>
+  <div class="card"><h3>Horario considerado {% ayuda "horario_base" %}</h3><p class="note">{{ r.horario.fuente_txt }}</p>
     <table class="t"><tbody>{% for d in r.horario.semana %}<tr><td><b>{{ d.dia }}</b></td><td>{% if d.bloques %}{{ d.bloques|join:" · " }}{% else %}<span style="color:var(--muted)">Libre</span>{% endif %}</td><td class="tr">{{ d.horas_txt }}</td></tr>{% endfor %}</tbody></table>
     {% if r.horario.especiales %}<p class="note" style="margin-top:8px"><b>Fechas especiales en el período:</b> {% for e in r.horario.especiales %}{{ e.fecha|date:"d/m" }} ({{ e.tipo }}{% if e.motivo %}: {{ e.motivo }}{% endif %}){% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}</div>
-  <div class="card"><h3>Marcaje vs. horas con pacientes</h3>
+  <div class="card"><h3>Marcaje vs. horas con pacientes {% ayuda "marcaje" %}</h3>
     {% if r.marcaje.disponible %}{% with m=r.marcaje %}
     <div class="grid" style="margin-bottom:6px">
-      <div class="kpi"><div class="kl">En el centro</div><div class="kv" style="font-size:1.1rem">{{ m.presencia_txt }}</div></div>
-      <div class="kpi"><div class="kl">Con pacientes</div><div class="kv" style="font-size:1.1rem">{{ m.atendido_txt }}</div><div class="ks">{{ m.uso_presencia }}% de su presencia</div></div>
-      <div class="kpi"><div class="kl">Puntualidad</div><div class="kv" style="font-size:1.1rem">{{ m.puntualidad }}%</div><div class="ks">{{ m.tardanzas }} tardanzas{% if m.tardanzas %} · prom. {{ m.tardanza_prom }} min{% endif %}</div></div>
-      <div class="kpi"><div class="kl">Días sin marcar</div><div class="kv" style="font-size:1.1rem">{{ m.dias_sin_marcaje }}</div><div class="ks">de {{ m.dias_horario }} con horario</div></div>
+      <div class="kpi"><div class="kl">En el centro {% ayuda "m_centro" %}</div><div class="kv" style="font-size:1.1rem">{{ m.presencia_txt }}</div></div>
+      <div class="kpi"><div class="kl">Con pacientes {% ayuda "m_pacientes" %}</div><div class="kv" style="font-size:1.1rem">{{ m.atendido_txt }}</div><div class="ks">{{ m.uso_presencia }}% de su presencia</div></div>
+      <div class="kpi"><div class="kl">Puntualidad {% ayuda "m_puntual" %}</div><div class="kv" style="font-size:1.1rem">{{ m.puntualidad }}%</div><div class="ks">{{ m.tardanzas }} tardanzas{% if m.tardanzas %} · prom. {{ m.tardanza_prom }} min{% endif %}</div></div>
+      <div class="kpi"><div class="kl">Días sin marcar {% ayuda "m_sin_marcar" %}</div><div class="kv" style="font-size:1.1rem">{{ m.dias_sin_marcaje }}</div><div class="ks">de {{ m.dias_horario }} con horario</div></div>
     </div>
     <p class="note">En el centro pero sin paciente: <b>{{ m.ocioso_txt }}</b>. {% if m.sin_marcaje_fechas %}Sin marcaje: {% for f in m.sin_marcaje_fechas %}{{ f|date:"d/m" }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
     {% endwith %}{% else %}<p class="note">{{ r.marcaje.motivo }}</p>{% endif %}</div>
 </div>
 
 <!-- ══ NIÑOS ══ -->
-<div class="sec">🧒 Niños que atendió ({{ r.pacientes|length }})</div>
+<div class="sec">🧒 Niños que atendió ({{ r.pacientes|length }}) {% ayuda "sec_ninos" %}</div>
 <div class="card">
   <div class="kids">{% for p in r.pacientes|slice:":24" %}
     <div class="kid"><div class="av">{% if p.foto %}<img loading="lazy" src="{{ p.foto }}" alt="">{% else %}{{ p.iniciales }}{% endif %}</div>
       <div style="flex:1;min-width:0"><b>{{ p.nombre }}</b>{% if p.edad %} <span class="note">· {{ p.edad }} años</span>{% endif %}
         <small>{{ p.servicios|join:", " }}</small><small>{{ p.atend }} atendidas · {{ p.horas_txt }} · {{ p.faltas }} faltas ({{ p.falta_txt }}) · asist. {{ p.tasa }}%</small>
         <small>Bs. {{ p.gen|bs }}{% if p.n_proy %} · {{ p.n_proy }} proy.{% endif %}{% if p.n_mens %} · {{ p.n_mens }} mens.{% endif %}</small></div></div>{% endfor %}</div>
-  <div class="scroll" style="margin-top:14px"><table class="t"><thead><tr><th>Niño</th><th>Servicios</th><th class="tc">Sesiones</th><th class="tc">Atend.</th><th class="tc">Faltas</th><th class="tc">Permisos</th><th class="tc">Canc.</th><th>Horas</th><th>Libre x falta</th><th class="tr">Asist.</th><th class="tr">Individual</th><th class="tr">Proyecto</th><th class="tr">Mensual.</th><th class="tr">Total</th><th>Primera / última</th></tr></thead><tbody>
+  <div class="scroll" style="margin-top:14px"><table class="t"><thead><tr><th>Niño</th><th>Servicios</th><th class="tc">Sesiones {% ayuda "e_ses" %}</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Faltas {% ayuda "e_falta" %}</th><th class="tc">Permisos</th><th class="tc">Canc.</th><th>Horas {% ayuda "n_horas" %}</th><th>Libre x falta {% ayuda "n_libre_falta" %}</th><th class="tr">Asist. {% ayuda "n_asist" %}</th><th class="tr">Individual {% ayuda "n_gen" %}</th><th class="tr">Proyecto {% ayuda "n_gen" %}</th><th class="tr">Mensual. {% ayuda "n_gen" %}</th><th class="tr">Total {% ayuda "n_gen" %}</th><th>Primera / última</th></tr></thead><tbody>
     {% for p in r.pacientes %}<tr><td><b>{{ p.nombre }}</b>{% if p.diagnostico %}<div class="note" style="margin:0">{{ p.diagnostico }}</div>{% endif %}</td><td>{{ p.servicios|join:", " }}</td><td class="tc">{{ p.n }}</td><td class="tc">{{ p.atend }}</td><td class="tc">{{ p.faltas }}</td><td class="tc">{{ p.permisos }}</td><td class="tc">{{ p.canceladas }}</td><td>{{ p.horas_txt }}</td><td>{{ p.falta_txt }}</td><td class="tr">{{ p.tasa }}%</td><td class="tr mono">{{ p.gen_ind|bs }}</td><td class="tr mono">{{ p.gen_proy|bs }}</td><td class="tr mono">{{ p.gen_mens|bs }}</td><td class="tr mono"><b>{{ p.gen|bs }}</b></td><td>{{ p.primera|date:"d/m" }} – {{ p.ultima|date:"d/m/Y" }}</td></tr>{% endfor %}
   </tbody></table></div>
 </div>
 
 <!-- ══ SERVICIOS / SUCURSAL ══ -->
 <div class="g2">
-  <div class="card"><h3>Por servicio</h3><div class="scroll"><table class="t"><thead><tr><th>Servicio</th><th class="tc">Ses.</th><th class="tc">Atend.</th><th class="tc">Niños</th><th>Horas</th><th class="tr">Generó</th><th class="tr">%</th></tr></thead><tbody>
+  <div class="card"><h3>Por servicio {% ayuda "por_servicio" %}</h3><div class="scroll"><table class="t"><thead><tr><th>Servicio</th><th class="tc">Ses. {% ayuda "e_ses" %}</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Niños {% ayuda "s_ninos" %}</th><th>Horas {% ayuda "n_horas" %}</th><th class="tr">Generó {% ayuda "e_genero" %}</th><th class="tr">% {% ayuda "s_pct" %}</th></tr></thead><tbody>
     {% for s in r.por_servicio %}<tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:{{ s.color }};margin-right:5px"></span>{{ s.nombre }}</td><td class="tc">{{ s.n }}</td><td class="tc">{{ s.atend }}</td><td class="tc">{{ s.pacs }}</td><td>{{ s.horas_txt }}</td><td class="tr mono">{{ s.gen|bs }}</td><td class="tr">{{ s.pct_gen }}%</td></tr>{% endfor %}</tbody></table></div></div>
-  <div class="card"><h3>Por sucursal</h3><div class="scroll"><table class="t"><thead><tr><th>Sucursal</th><th class="tc">Ses.</th><th class="tc">Atend.</th><th class="tc">Faltas</th><th>Horas</th><th class="tr">Generó</th></tr></thead><tbody>
+  <div class="card"><h3>Por sucursal {% ayuda "por_sucursal" %}</h3><div class="scroll"><table class="t"><thead><tr><th>Sucursal</th><th class="tc">Ses. {% ayuda "e_ses" %}</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Faltas {% ayuda "e_falta" %}</th><th>Horas {% ayuda "n_horas" %}</th><th class="tr">Generó {% ayuda "e_genero" %}</th></tr></thead><tbody>
     {% for s in r.por_sucursal %}<tr><td>{{ s.nombre }}</td><td class="tc">{{ s.n }}</td><td class="tc">{{ s.atend }}</td><td class="tc">{{ s.faltas }}</td><td>{{ s.horas_txt }}</td><td class="tr mono">{{ s.gen|bs }}</td></tr>{% endfor %}</tbody></table></div></div>
 </div>
 
 <!-- ══ PROYECTOS ══ -->
-<div class="sec">📁 Proyectos y evaluaciones ({{ r.proyectos|length }})</div>
+<div class="sec">📁 Proyectos y evaluaciones ({{ r.proyectos|length }}) {% ayuda "sec_proyectos" %}</div>
 <div class="card"><p class="note">Su <b>participación</b> se calcula con el valor que tendrían sus sesiones al <b>precio individual</b> del servicio (precio del paciente o precio base) frente al de todas las sesiones del proyecto. El costo fijo se reparte con ese porcentaje y se devenga conforme se realizan las sesiones. <b>Factor</b> = costo del proyecto ÷ valor a precio individual (menor a 1 = descuento).</p>
-  <div class="scroll"><table class="t"><thead><tr><th>Proyecto</th><th>Niño</th><th>Estado</th><th>Modalidad</th><th class="tr">Valor</th><th class="tr">Valor a precio indiv.</th><th class="tr">Factor</th><th class="tc">Sus ses./total</th><th class="tr">Participación</th><th class="tr">Su parte</th><th class="tr">Generado (período)</th><th class="tr">Por generar</th><th class="tr">Cobrado %</th></tr></thead><tbody>
+  <div class="scroll"><table class="t"><thead><tr><th>Proyecto</th><th>Niño</th><th>Estado</th><th>Modalidad {% ayuda "p_modalidad" %}</th><th class="tr">Valor {% ayuda "p_valor" %}</th><th class="tr" title="Lo que valdrían TODAS las sesiones del proyecto (de todos los profesionales) si se cobraran como sesiones sueltas">Total a precio indiv. (todos) {% ayuda "p_total_indiv" %}</th><th class="tr">Factor {% ayuda "p_factor" %}</th><th class="tc">Sus ses./total {% ayuda "p_sesiones" %}</th><th class="tr">Participación {% ayuda "p_particip" %}</th><th class="tr">Su parte {% ayuda "p_su_parte" %}</th><th class="tr">Generado (período) {% ayuda "p_generado" %}</th><th class="tr">Por generar {% ayuda "p_por_generar" %}</th><th class="tr">Cobrado % {% ayuda "p_cobrado" %}</th></tr></thead><tbody>
   {% for p in r.proyectos %}<tr><td><b>{{ p.codigo }}</b><div class="note" style="margin:0">{{ p.nombre }} · {{ p.tipo }}{% if p.responsable %} · <b>responsable</b>{% else %} · resp.: {{ p.responsable_nombre }}{% endif %}</div></td><td>{{ p.paciente }}</td><td>{{ p.estado }}</td>
     <td><span class="badge b-{{ p.modalidad|lower }}">{{ p.modalidad }}</span>{% if p.companeros %}<div class="note" style="margin:2px 0 0">con {{ p.companeros|join:", " }}</div>{% endif %}</td>
-    <td class="tr mono">{{ p.valor|bs }}</td><td class="tr mono">{{ p.ref_total|bs }}</td><td class="tr">{{ p.factor|css:2 }}</td><td class="tc">{{ p.sesiones_mias }}/{{ p.sesiones_total }}</td>
+    <td class="tr mono">{{ p.valor|bs }}</td><td class="tr mono">{{ p.ref_total|bs }}<div class="note" style="margin:2px 0 0">suyo: <b>{{ p.ref_mio|bs }}</b></div></td><td class="tr">{{ p.factor|css:2 }}</td><td class="tc">{{ p.sesiones_mias }}/{{ p.sesiones_total }}</td>
     <td class="tr"><b>{{ p.share }}%</b><div class="pbar" style="margin-top:3px"><div style="width:{{ p.share|pw }}%;background:var(--purple)"></div></div><div class="note" style="margin:2px 0 0">sus ses.: Bs. {{ p.ref_mio|bs }}</div></td>
     <td class="tr mono">{{ p.atribuido|bs }}</td><td class="tr mono"><b>{{ p.gen_periodo|bs }}</b></td><td class="tr mono">{{ p.por_generar|bs }}</td><td class="tr">{{ p.ratio_cobro|default:0 }}%</td></tr>
   {% empty %}<tr><td colspan="13" class="note">Sin proyectos con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div></div>
 
 <!-- ══ MENSUALIDADES ══ -->
-<div class="sec">🗓️ Mensualidades ({{ r.mensualidades|length }})</div>
+<div class="sec">🗓️ Mensualidades ({{ r.mensualidades|length }}) {% ayuda "sec_mens" %}</div>
 <div class="card"><p class="note">Misma lógica de participación ponderada. "Por sesión" = lo que le corresponde de la mensualidad dividido entre sus sesiones planificadas.</p>
-  <div class="scroll"><table class="t"><thead><tr><th>Mensualidad</th><th>Niño</th><th>Servicios que atiende</th><th>Modalidad</th><th class="tr">Costo</th><th class="tr">Factor</th><th class="tc">Sus ses./total</th><th class="tc">Atend./Faltas/Prog.</th><th class="tr">Participación</th><th class="tr">Su parte</th><th class="tr">Por sesión</th><th class="tr">Generado</th><th class="tr">Cobrado %</th></tr></thead><tbody>
+  <div class="scroll"><table class="t"><thead><tr><th>Mensualidad</th><th>Niño</th><th>Servicios que atiende {% ayuda "m_serv" %}</th><th>Modalidad {% ayuda "p_modalidad" %}</th><th class="tr">Costo {% ayuda "m_costo" %}</th><th class="tr" title="Todas las sesiones a precio individual / suyo">A precio indiv. (todos / suyo) {% ayuda "m_indiv" %}</th><th class="tr">Factor {% ayuda "p_factor" %}</th><th class="tc">Sus ses./total {% ayuda "p_sesiones" %}</th><th class="tc">Atend./Faltas/Prog. {% ayuda "m_atfp" %}</th><th class="tr">Participación {% ayuda "p_particip" %}</th><th class="tr">Su parte {% ayuda "m_su_parte" %}</th><th class="tr">Por sesión {% ayuda "m_por_sesion" %}</th><th class="tr">Generado {% ayuda "m_generado" %}</th><th class="tr">Cobrado % {% ayuda "m_cobrado" %}</th></tr></thead><tbody>
   {% for m in r.mensualidades %}<tr><td><b>{{ m.codigo }}</b><div class="note" style="margin:0">{{ m.periodo }} · {{ m.estado }}</div></td><td>{{ m.paciente }}</td><td>{{ m.servicios|join:", " }}</td>
     <td><span class="badge b-{{ m.modalidad|lower }}">{{ m.modalidad }}</span>{% if m.companeros %}<div class="note" style="margin:2px 0 0">con {{ m.companeros|join:", " }}</div>{% endif %}</td>
-    <td class="tr mono">{{ m.costo|bs }}</td><td class="tr">{{ m.factor|css:2 }}</td><td class="tc">{{ m.sesiones_mias }}/{{ m.sesiones_total }}</td><td class="tc">{{ m.atend_periodo }}/{{ m.faltas }}/{{ m.prog }}</td>
+    <td class="tr mono">{{ m.costo|bs }}</td><td class="tr mono">{{ m.ref_total|bs }}<div class="note" style="margin:2px 0 0">suyo: <b>{{ m.ref_mio|bs }}</b></div></td><td class="tr">{{ m.factor|css:2 }}</td><td class="tc">{{ m.sesiones_mias }}/{{ m.sesiones_total }}</td><td class="tc">{{ m.atend_periodo }}/{{ m.faltas }}/{{ m.prog }}</td>
     <td class="tr"><b>{{ m.share }}%</b><div class="pbar" style="margin-top:3px"><div style="width:{{ m.share|pw }}%;background:var(--teal)"></div></div></td>
     <td class="tr mono">{{ m.atribuido|bs }}</td><td class="tr mono">{{ m.por_sesion|bs }}</td><td class="tr mono"><b>{{ m.gen_periodo|bs }}</b></td><td class="tr">{{ m.ratio_cobro|default:0 }}%</td></tr>
-  {% empty %}<tr><td colspan="13" class="note">Sin mensualidades con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div></div>
+  {% empty %}<tr><td colspan="14" class="note">Sin mensualidades con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div></div>
 
 <!-- ══ EQUIPO + TENDENCIA ══ -->
-<div class="sec">👥 Comparación con el equipo y tendencia</div>
+<div class="sec">👥 Comparación con el equipo y tendencia {% ayuda "sec_equipo" %}</div>
 {% if r.equipo %}<div class="g2">
-  <div class="card"><h3>Ranking del equipo (mismo período)</h3>
-    <div class="scroll"><table class="t"><thead><tr><th>#</th><th>Profesional</th><th class="tr">Generó</th><th>Horas</th><th class="tr">Ocup. efect.</th><th class="tr">Bs/hora</th><th class="tr">Faltas</th></tr></thead><tbody>
+  <div class="card"><h3>Ranking del equipo (mismo período) {% ayuda "ranking" %}</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>#</th><th>Profesional</th><th class="tr">Generó {% ayuda "e_genero" %}</th><th>Horas {% ayuda "n_horas" %}</th><th class="tr">Ocup. efect. {% ayuda "e_ocup_efect" %}</th><th class="tr">Bs/hora {% ayuda "k_ing_hora" %}</th><th class="tr">Faltas {% ayuda "r_faltas" %}</th></tr></thead><tbody>
     {% for f in r.equipo.filas %}<tr {% if f.yo %}style="background:var(--green-l);font-weight:700"{% endif %}><td>{{ f.pos }}</td><td>{{ f.nombre }}<div class="note" style="margin:0">{{ f.especialidad }}</div></td><td class="tr mono">{{ f.gen|bs }}</td><td>{{ f.horas_txt }}</td><td class="tr">{{ f.ocup }}%</td><td class="tr mono">{{ f.ingreso_hora|bs }}</td><td class="tr">{{ f.faltas }}%</td></tr>{% endfor %}</tbody></table></div>
     <p class="note">Promedio del resto: ocupación {{ r.equipo.prom_ocup }}% · Bs. {{ r.equipo.prom_ingreso_hora|bs }}/hora · faltas {{ r.equipo.prom_faltas }}%{% if r.equipo.misma_esp %} · misma especialidad ({{ r.equipo.especialidad }}): Bs. {{ r.equipo.prom_ingreso_hora_esp|bs }}/hora{% endif %}.</p></div>
-  {% if r.tendencia %}<div class="card"><h3>Tendencia de 6 meses</h3>
+  {% if r.tendencia %}<div class="card"><h3>Tendencia de 6 meses {% ayuda "tendencia" %}</h3>
     <div style="height:200px"><canvas id="chTend"></canvas></div>
     <div class="alert {% if r.tendencia.direccion == 'baja' %}alerta{% elif r.tendencia.direccion == 'sube' %}ok{% endif %}" style="margin-top:8px">{{ r.tendencia.txt }}</div></div>{% endif %}
 </div>{% endif %}
 
 <!-- ══ RETENCIÓN / CONCENTRACIÓN / NOTAS ══ -->
-<div class="sec">🤝 Retención, dependencia y calidad de registro</div>
+<div class="sec">🤝 Retención, dependencia y calidad de registro {% ayuda "sec_retencion" %}</div>
 <div class="g3">
-  {% if r.retencion %}<div class="card"><h3>Retención de niños</h3>
+  {% if r.retencion %}<div class="card"><h3>Retención de niños {% ayuda "retencion" %}</h3>
     <div class="note"><b>{{ r.retencion.activos }}</b> activos (últimos 30 días) · <b>{{ r.retencion.nuevos }}</b> nuevos en el período{% if r.retencion.tasa_retencion != None %} · retención <b>{{ r.retencion.tasa_retencion }}%</b> ({{ r.retencion.retenidos }} de {{ r.retencion.previos }} del período anterior; dejaron {{ r.retencion.dejaron }}){% endif %}.</div>
     {% if r.retencion.riesgo_lista %}<p class="note"><b>⚠ En riesgo de abandono ({{ r.retencion.riesgo }}):</b> {% for x in r.retencion.riesgo_lista %}{{ x.nombre }}{% if x.ultima %} (últ. {{ x.ultima|date:"d/m" }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
     {% if r.retencion.seguidas %}<p class="note"><b>⚠ Faltas seguidas:</b> {% for x in r.retencion.seguidas %}{{ x.nombre }} ({{ x.n }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
     {% if r.retencion.nuevos_lista %}<p class="note"><b>Nuevos:</b> {{ r.retencion.nuevos_lista|join:", " }}</p>{% endif %}</div>{% endif %}
-  {% if r.concentracion %}<div class="card"><h3>Dependencia de pocos niños</h3>
+  {% if r.concentracion %}<div class="card"><h3>Dependencia de pocos niños {% ayuda "concentracion" %}</h3>
     <div class="note">Top 1: <b>{{ r.concentracion.top1 }}%</b> · Top 3: <b>{{ r.concentracion.top3 }}%</b> · Riesgo <b>{{ r.concentracion.nivel|upper }}</b></div>
     {% for t in r.concentracion.top %}<div style="margin:6px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ t.nombre }}</span><span class="mono">{{ t.pct }}% · Bs. {{ t.gen|bs }}</span></div><div class="pbar"><div style="width:{{ t.pct|pw }}%;background:var(--amber)"></div></div></div>{% endfor %}</div>{% endif %}
-  {% if r.notas %}<div class="card"><h3>Notas de evolución</h3>
+  {% if r.notas %}<div class="card"><h3>Notas de evolución {% ayuda "notas" %}</h3>
     <div class="mono" style="font-size:1.5rem;font-weight:900">{{ r.notas.pct }}%</div>
     <div class="note">{{ r.notas.con_nota }} de {{ r.notas.atendidas }} sesiones atendidas tienen nota clínica; <b>{{ r.notas.sin_nota }}</b> sin nota.</div>
     {% if r.notas.sin_por_paciente %}<p class="note"><b>Sin nota por niño:</b> {% for x in r.notas.sin_por_paciente %}{{ x.nombre }} ({{ x.n }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}</div>{% endif %}
 </div>
 
 <!-- ══ SESIONES ══ -->
-<div class="sec">📋 Detalle de sesiones ({{ r.filas|length }})</div>
+<div class="sec">📋 Detalle de sesiones ({{ r.filas|length }}) {% ayuda "sec_sesiones" %}</div>
 <div class="card">
   <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <input class="search" id="q" placeholder="Buscar niño, servicio, código…" oninput="filtrarSes()">
@@ -477,22 +484,40 @@
       <option value="realizada">Realizada</option><option value="realizada_retraso">Con retraso</option><option value="falta">Falta</option><option value="permiso">Permiso</option><option value="cancelada">Cancelada</option><option value="reprogramada">Reprogramada</option><option value="programada">Programada</option></select>
     <select class="search" id="ft" onchange="filtrarSes()" style="min-width:150px"><option value="">Todos los tipos</option><option value="individual">Individual</option><option value="proyecto">Proyecto</option><option value="mensualidad">Mensualidad</option></select>
   </div>
-  <div class="scroll maxh" style="max-height:620px"><table class="t" id="tses"><thead><tr><th>Fecha</th><th>Hora</th><th>Niño</th><th>Servicio</th><th>Sucursal</th><th>Tipo</th><th>Estado</th><th class="tr">Min</th><th class="tr">Cobro</th><th class="tr">Generó</th><th>Nota</th></tr></thead><tbody>
+  <div class="scroll maxh" style="max-height:620px"><table class="t" id="tses"><thead><tr><th>Fecha</th><th>Hora</th><th>Niño</th><th>Servicio</th><th>Sucursal</th><th>Tipo {% ayuda "s_tipo" %}</th><th>Estado {% ayuda "f_estado" %}</th><th class="tr">Min {% ayuda "s_min" %}</th><th class="tr">Cobro {% ayuda "s_cobro" %}</th><th class="tr">Generó {% ayuda "s_genero" %}</th><th>Nota {% ayuda "s_nota" %}</th></tr></thead><tbody>
   {% for f in r.filas %}<tr data-e="{{ f.estado }}" data-t="{{ f.tipo }}" data-s="{{ f.paciente|lower }} {{ f.servicio|lower }} {{ f.origen|lower }}">
     <td>{{ f.dia }} {{ f.fecha|date:"d/m/Y" }}</td><td>{{ f.ini }}–{{ f.fin }}</td><td>{{ f.paciente }}</td>
     <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ f.color }};margin-right:4px"></span>{{ f.servicio }}</td><td>{{ f.sucursal }}</td>
     <td>{% if f.tipo == 'individual' %}Individual{% else %}{{ f.tipo|title }} <b>{{ f.origen }}</b> <span class="badge b-{{ f.modalidad|lower }}">{{ f.modalidad }}</span>{% endif %}</td>
     <td><span class="badge b-{{ f.estado }}">{{ f.estado_txt }}</span>{% if f.retraso %} <small>{{ f.retraso }}′</small>{% endif %}</td>
-    <td class="tr">{{ f.dur }}</td><td class="tr mono">{{ f.monto|bs }}</td><td class="tr mono">{% if f.generado %}<b>{{ f.generado|bs }}</b>{% elif f.por_generar %}<span style="color:var(--muted)">({{ f.por_generar|bs }})</span>{% else %}—{% endif %}</td>
+    <td class="tr">{{ f.dur }}</td><td class="tr mono">{% if f.tipo == 'individual' %}{{ f.monto|bs }}{% else %}<span style="color:var(--muted);font-size:.62rem;font-family:inherit">en paquete</span>{% endif %}</td><td class="tr mono">{% if f.generado %}<b>{{ f.generado|bs }}</b>{% elif f.por_generar %}<span style="color:var(--muted)">({{ f.por_generar|bs }})</span>{% else %}—{% endif %}</td>
     <td class="tc">{% if f.estado == 'realizada' or f.estado == 'realizada_retraso' %}{% if f.tiene_nota %}✅{% else %}<span style="color:var(--red)">✖</span>{% endif %}{% endif %}</td></tr>
   {% empty %}<tr><td colspan="11" class="note">Sin sesiones en el período con los filtros elegidos.</td></tr>{% endfor %}</tbody></table></div>
-  <p class="note">Generó entre paréntesis = por generar (sesión programada). Para proyectos y mensualidades el monto cobrado es 0; el "Generó" es su parte ponderada del costo fijo.</p>
+  <p class="note">Generó entre paréntesis = por generar (sesión programada). En proyectos y mensualidades el paciente paga un precio fijo por el paquete (por eso el cobro por sesión es «en paquete»); el «Generó» es la parte del costo fijo que le corresponde al profesional por esa sesión.</p>
 </div>
 
 {% endwith %}
 {% endif %}
 </div>
 
+<script>
+(function(){
+  var tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);var cur=null;
+  function show(el){cur=el;tip.textContent=el.getAttribute('data-t');tip.style.display='block';
+    var r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    var x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.bottom+8;
+    if(y+h>window.innerHeight-8)y=r.top-h-8;
+    tip.style.left=x+'px';tip.style.top=Math.max(8,y)+'px';el.classList.add('on');}
+  function hide(){tip.style.display='none';if(cur)cur.classList.remove('on');cur=null;}
+  function inf(e){return e.target.closest?e.target.closest('.inf'):null;}
+  document.addEventListener('mouseover',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('mouseout',function(e){if(inf(e))hide();});
+  document.addEventListener('focusin',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('focusout',function(e){if(inf(e))hide();});
+  document.addEventListener('click',function(e){var el=inf(e);if(el){e.preventDefault();e.stopPropagation();show(el);}else hide();},true);
+  window.addEventListener('scroll',hide,true);
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 function setR(v){document.getElementById('f-rango').value=v;

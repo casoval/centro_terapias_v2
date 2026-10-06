@@ -381,6 +381,49 @@ def preparar_horario(prof, sucursal_id, desde, hasta, manual_cfg, forzar_manual)
     return bloques, info
 
 
+def proximos_huecos(prof, sucursal_id, manual_cfg, forzar_manual, hoy, dias=14):
+    """
+    Disponibilidad de los PRÓXIMOS `dias` días (desde hoy), sin importar el rango
+    que se esté consultando. Hoy solo cuenta lo que falta de la jornada.
+    """
+    from agenda.models import Sesion
+    fin = hoy + timedelta(days=dias - 1)
+    bloques_fn, _ = preparar_horario(prof, sucursal_id, hoy, fin, manual_cfg, forzar_manual)
+    qs = Sesion.objects.filter(profesional=prof, fecha__gte=hoy, fecha__lte=fin, estado__in=OCUPAN)
+    if sucursal_id:
+        qs = qs.filter(sucursal_id=sucursal_id)
+    por = defaultdict(list)
+    for s_ in qs.values_list('fecha', 'hora_inicio', 'hora_fin'):
+        por[s_[0]].append((_t2m(s_[1]), _t2m(s_[2])))
+    ahora_m = None
+    if hoy == date.today():
+        from django.utils import timezone
+        n = timezone.localtime()
+        ahora_m = n.hour * 60 + n.minute
+    huecos, cap_tot, libre_tot, ocup_tot = [], 0, 0, 0
+    d = hoy
+    while d <= fin:
+        bl = bloques_fn(d)
+        if d == hoy and ahora_m is not None:
+            bl = [(max(a, ahora_m), b) for a, b in bl if b > max(a, ahora_m)]
+        busy = _merge(por.get(d, []))
+        libres = _restar(bl, busy)
+        cap_tot += _largo(bl)
+        libre_tot += _largo(libres)
+        ocup_tot += _solape(busy, bl)
+        for a, b in libres:
+            if b - a >= GAP_MIN:
+                huecos.append({'fecha': d, 'dia': DIAS_ES[d.weekday()], 'ini': _hhmm(a),
+                               'fin': _hhmm(b), 'min': b - a, 'txt': hm(b - a)})
+        d += timedelta(days=1)
+    return {
+        'dias': dias, 'desde': hoy, 'hasta': fin, 'huecos': huecos,
+        'cap': cap_tot, 'cap_txt': hm(cap_tot), 'libre': libre_tot, 'libre_txt': hm(libre_tot),
+        'agendado': ocup_tot, 'agendado_txt': hm(ocup_tot),
+        'ocup': _pct(ocup_tot, cap_tot),
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────
 # ANÁLISIS PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────
@@ -1223,6 +1266,8 @@ def analizar(prof, desde, hasta, sucursal_id='', servicio_id='', paciente_id='',
     huecos_futuros.sort(key=lambda x: (x['fecha'], x['ini']))
     huecos_pasados.sort(key=lambda x: (x['fecha'], x['ini']))
 
+    proximos = proximos_huecos(prof, sucursal_id, manual_cfg, forzar_manual, hoy) if completo else None
+
     resultado = {
         'desde': desde, 'hasta': hasta, 'n_dias': n_dias, 'nota_rango': nota_rango,
         'hoy': hoy,
@@ -1232,7 +1277,7 @@ def analizar(prof, desde, hasta, sucursal_id='', servicio_id='', paciente_id='',
         'por_dia': por_dia, 'por_semana': por_semana, 'por_mes': por_mes,
         'por_dia_semana': por_dia_semana, 'heat': heat, 'heat_horas': heat_horas,
         'franjas_libres': franjas_libres, 'franjas_llenas': franjas_llenas,
-        'huecos_futuros': huecos_futuros, 'huecos_pasados': huecos_pasados,
+        'huecos_futuros': huecos_futuros, 'huecos_pasados': huecos_pasados, 'proximos': proximos,
         'horario': horario_info, 'hallazgos': hallazgos, 'comparacion': comparacion,
         'graf': graf,
     }

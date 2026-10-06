@@ -359,6 +359,20 @@ def notas(r):
 # ─────────────────────────────────────────────────────────────────────
 # 5. SEMÁFORO DE DECISIÓN
 # ─────────────────────────────────────────────────────────────────────
+INFO_CRITERIOS = {
+    'Ocupación efectiva': "Horas realmente trabajadas con pacientes ÷ horas de su horario ya transcurrido. No cuenta faltas ni sesiones programadas sin registrar. Peso 1,5.",
+    'Ingreso por hora vs equipo': "Total generado ÷ horas trabajadas del profesional, comparado con el promedio del resto del equipo en el mismo período. Se mide en % del promedio. Peso 1.",
+    'Faltas sin aviso de sus pacientes': "Faltas sin aviso ÷ (atendidas + faltas + permisos). Solo se evalúa con 5 o más sesiones. Una tasa alta puede indicar problemas de adherencia de las familias. Peso 0,75.",
+    'Cobertura de su costo': "Aporte al centro ÷ costo del profesional en el período. Aporte = total generado (menos comisión si es servicio externo). Costo = costo mensual ingresado × días ÷ 30,4. Solo aparece si ingresas el costo mensual. Peso 2.",
+    'Producción efectivamente cobrada': "Dinero cobrado ÷ dinero generado. Mide si lo que produce se transforma en ingreso real para el centro. Peso 0,75.",
+    'Tendencia de producción (6 meses)': "Pendiente de la recta que mejor ajusta el dinero generado por mes en meses completos, como % del promedio mensual. Requiere al menos 3 meses con actividad. Peso 1.",
+    'Retención de pacientes': "De los niños atendidos en el período anterior (de igual duración), cuántos también fueron atendidos en este. Se evalúa con 3 o más niños previos. Peso 1.",
+    'Puntualidad de ingreso': "Entradas marcadas como puntuales ÷ total de entradas marcadas en Asistencia. Peso 0,5.",
+    'Dependencia de pocos pacientes': "Peso de los 1 y 3 niños que más generan sobre el total. Verde: reparto sano; ámbar: el mayor ≥ 25% o los 3 mayores ≥ 55%; rojo: el mayor ≥ 40% o los 3 mayores ≥ 75%. Peso 0,5.",
+    'Notas de evolución registradas': "Sesiones atendidas con nota de evolución ÷ sesiones atendidas. Se evalúa con 5 o más sesiones. Peso 0,5.",
+}
+
+
 def semaforo(r):
     k = r['kpis']
     crit = []
@@ -366,7 +380,7 @@ def semaforo(r):
     def add(nombre, valor_txt, estado, regla, peso=1.0, detalle=''):
         crit.append({'nombre': nombre, 'valor': es_num(valor_txt), 'estado': estado,
                      'color': COLOR[estado], 'regla': es_num(regla), 'peso': peso,
-                     'detalle': es_num(detalle)})
+                     'detalle': es_num(detalle), 'info': INFO_CRITERIOS.get(nombre, '')})
 
     def nivel(v, verde, ambar, mayor_mejor=True):
         if mayor_mejor:

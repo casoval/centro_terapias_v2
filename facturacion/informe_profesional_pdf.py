@@ -713,7 +713,7 @@ def _sec_horas(d, r):
         ("Libres por inasistencia", k['h_perdidas_txt'], f"{pc(k['pct_perdidas'])} de su horario", C_ROJO),
         ("Sin paciente agendado", k['h_sinag_txt'], f"{pc(k['pct_sinag'])} de su horario", C_MUTED),
         ("Potencial no aprovechado", bs(k['potencial_no_aprovechado'], 0), f"estimado a 100% ({k['h_no_pagadas_txt']})", C_MORADO),
-        ("Disponible a futuro", k['libre_fut_txt'], f"de {k['cap_fut_txt']} por venir", C_AMBER),
+        ("Libre próximos 14 días", r['proximos']['libre_txt'], f"de {r['proximos']['cap_txt']} de horario ({pc(r['proximos']['ocup'])} agendado)", C_AMBER),
     ], cols=4)
     d.subtitulo("Que paso con cada hora de su horario")
     d.barra_apilada([(x['label'], x['pct'], x['color'], x['txt']) for x in r['desglose'] if x['pct'] > 0])
@@ -755,9 +755,12 @@ def _sec_horas(d, r):
     else:
         d.parrafo(mk.get('motivo', ''), 7.5, C_MUTED)
 
-    d.subtitulo("Huecos disponibles a futuro (primeros 25)")
-    d.tabla(["Fecha", "Franja libre", "Duracion"],
-            [[f"{h['dia']} {fd(h['fecha'])}", f"{h['ini']} - {h['fin']}", h['txt']] for h in r['huecos_futuros'][:25]],
+    px = r['proximos']
+    d.subtitulo(f"Huecos disponibles - próximos {px['dias']} días (desde {fd(px['desde'], '%d/%m')} hasta {fd(px['hasta'])})")
+    d.parrafo(f"Libres {px['libre_txt']} de {px['cap_txt']} de horario ({pc(px['ocup'])} ya agendado). "
+              "Se calcula siempre desde hoy, sin importar el período del informe.", 7.2, C_MUTED)
+    d.tabla(["Fecha", "Franja libre", "Duración"],
+            [[f"{h['dia']} {fd(h['fecha'])}", f"{h['ini']} - {h['fin']}", h['txt']] for h in px['huecos'][:30]],
             [5.2 * cm, 6.4 * cm, 3.4 * cm], ['l', 'l', 'r'])
 
 
@@ -849,24 +852,24 @@ def _sec_equipo(d, r):
 def _sec_proyectos(d, r):
     d.page(land=True)
     d.titulo(f"7. Proyectos y evaluaciones ({len(r['proyectos'])})", C_MORADO)
-    d.parrafo("Participación = valor de sus sesiones a precio individual / valor de todas las sesiones del proyecto. "
+    d.parrafo("Total indiv. = lo que valdrían TODAS las sesiones del proyecto (de todos los profesionales) a precio individual; Suyo indiv. = solo sus sesiones. Participación = Suyo / Total. "
               "Factor = costo del proyecto / valor a precio individual (menor a 1: descuento). Su parte se devenga conforme "
               "se realizan las sesiones.")
-    d.tabla(["Código", "Niño", "Estado", "Modalidad", "Valor", "A precio indiv.", "Factor", "Sus ses.", "Particip.", "Su parte", "Generado", "Por generar", "Cobrado"],
+    d.tabla(["Código", "Niño", "Estado", "Modalidad", "Valor", "Total indiv.", "Suyo indiv.", "Factor", "Sus ses.", "Particip.", "Su parte", "Generado", "Por generar", "Cobrado"],
             [[p['codigo'], p['paciente'], p['estado'], p['modalidad'] + (' c/' + ', '.join(p['companeros'])[:22] if p['companeros'] else ''),
-              fm(p['valor'], 0), fm(p['ref_total'], 0), fm(p['factor']), f"{p['sesiones_mias']}/{p['sesiones_total']}", pc(p['share']),
+              fm(p['valor'], 0), fm(p['ref_total'], 0), fm(p['ref_mio'], 0), fm(p['factor']), f"{p['sesiones_mias']}/{p['sesiones_total']}", pc(p['share']),
               fm(p['atribuido'], 0), (fm(p['gen_periodo'], 0), C_PRI), fm(p['por_generar'], 0), pc(p.get('ratio_cobro', 0))]
              for p in r['proyectos']],
-            [1.8 * cm, 3.6 * cm, 1.9 * cm, 3.6 * cm, 1.5 * cm, 1.8 * cm, 1.2 * cm, 1.3 * cm, 1.5 * cm, 1.6 * cm, 1.6 * cm, 1.7 * cm, 1.5 * cm],
-            ['l', 'l', 'l', 'l'] + ['r'] * 9, 6.5, x0=ML)
+            [1.8 * cm, 3.4 * cm, 1.9 * cm, 3.4 * cm, 1.5 * cm, 1.6 * cm, 1.6 * cm, 1.2 * cm, 1.3 * cm, 1.5 * cm, 1.6 * cm, 1.6 * cm, 1.7 * cm, 1.5 * cm],
+            ['l', 'l', 'l', 'l'] + ['r'] * 10, 6.5, x0=ML)
     d.titulo(f"8. Mensualidades ({len(r['mensualidades'])})", C_TEAL)
-    d.tabla(["Código", "Niño", "Período", "Servicios que atiende", "Modalidad", "Costo", "Factor", "Sus ses.", "Particip.", "Su parte", "Por sesión", "Generado", "Cobrado"],
+    d.tabla(["Código", "Niño", "Período", "Servicios que atiende", "Modalidad", "Costo", "Total indiv.", "Suyo indiv.", "Factor", "Sus ses.", "Particip.", "Su parte", "Por sesión", "Generado", "Cobrado"],
             [[m['codigo'], m['paciente'], m['periodo'], ', '.join(m['servicios']), m['modalidad'] + (' c/' + ', '.join(m['companeros'])[:18] if m['companeros'] else ''),
-              fm(m['costo'], 0), fm(m['factor']), f"{m['sesiones_mias']}/{m['sesiones_total']}", pc(m['share']),
+              fm(m['costo'], 0), fm(m['ref_total'], 0), fm(m['ref_mio'], 0), fm(m['factor']), f"{m['sesiones_mias']}/{m['sesiones_total']}", pc(m['share']),
               fm(m['atribuido'], 0), fm(m['por_sesion'], 0), (fm(m['gen_periodo'], 0), C_PRI), pc(m.get('ratio_cobro', 0))]
              for m in r['mensualidades']],
-            [1.7 * cm, 3.2 * cm, 2.0 * cm, 3.0 * cm, 3.0 * cm, 1.4 * cm, 1.1 * cm, 1.3 * cm, 1.5 * cm, 1.5 * cm, 1.5 * cm, 1.6 * cm, 1.5 * cm],
-            ['l', 'l', 'l', 'l', 'l'] + ['r'] * 8, 6.4)
+            [1.7 * cm, 3.0 * cm, 2.0 * cm, 2.8 * cm, 2.8 * cm, 1.3 * cm, 1.5 * cm, 1.5 * cm, 1.1 * cm, 1.3 * cm, 1.5 * cm, 1.5 * cm, 1.5 * cm, 1.6 * cm, 1.5 * cm],
+            ['l', 'l', 'l', 'l', 'l'] + ['r'] * 10, 6.4)
 
 
 def _sec_sesiones(d, r):
@@ -877,7 +880,7 @@ def _sec_sesiones(d, r):
     d.tabla(["Fecha", "Hora", "Niño", "Servicio", "Sucursal", "Tipo", "Estado", "Min", "Cobro", "Generó", "Nota"],
             [[f"{f['dia']} {fd(f['fecha'])}", f"{f['ini']}-{f['fin']}", f['paciente'], f['servicio'], f['sucursal'],
               'Individual' if f['tipo'] == 'individual' else f"{f['tipo'][:4].title()} {f['origen']}",
-              (f['estado_txt'], est_col.get(f['estado'], C_TSEC)), f['dur'], fm(f['monto'], 0),
+              (f['estado_txt'], est_col.get(f['estado'], C_TSEC)), f['dur'], (fm(f['monto'], 0) if f['tipo'] == 'individual' else 'paquete'),
               fm(f['generado'], 0) if f['generado'] else (f"({fm(f['por_generar'], 0)})" if f['por_generar'] else '-'),
               ('Sí' if f.get('tiene_nota') else 'No') if f['estado'] in ('realizada', 'realizada_retraso') else '']
              for f in r['filas']],
