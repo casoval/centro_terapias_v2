@@ -1,17 +1,15 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Marcar Asistencia{% endblock %}
 
-{% block extra_head %}
+{% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-  #preview-foto { display:none; }
-  #preview-foto.visible { display:block; }
-  #video-wrap.oculto { display:none; }
-</style>
 {% endblock %}
 
 {% block content %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'asistencia/face/face-api.js' %}"></script>
+<script src="{% static 'asistencia/face/facial.js' %}"></script>
 <div class="max-w-lg mx-auto px-4 py-8">
 
   <div class="text-center mb-6">
@@ -19,7 +17,6 @@
     <p class="text-sm text-gray-400 mt-1">{{ hoy|date:"l, d \d\e F \d\e Y" }}</p>
   </div>
 
-  <!-- Mensajes -->
   {% if messages %}
   {% for msg in messages %}
   <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
@@ -31,35 +28,67 @@
   {% endfor %}
   {% endif %}
 
-  <!-- Estado del día -->
+  <!-- Horario de hoy -->
+  <div class="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-bold text-gray-700">Tu horario de hoy</h2>
+      <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+        {% if horario.es_laborable %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-500{% endif %}">
+        {{ horario.tipo_display }}
+      </span>
+    </div>
+    {% if horario.es_laborable %}
+    <div class="flex flex-wrap gap-2">
+      {% for b in horario.bloques %}
+      <span class="font-mono text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700">
+        {{ b.etiqueta }} <span class="text-xs text-gray-400">±{{ b.tolerancia }}min</span>
+      </span>
+      {% endfor %}
+    </div>
+    {% if horario.origen == 'fecha_especial' %}
+    <p class="text-xs text-orange-600 mt-2">Horario especial{% if horario.nombre %}: {{ horario.nombre }}{% endif %}</p>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-gray-400">
+      {% if horario.tipo == 'libre' %}Hoy es día libre{% if horario.nombre %} ({{ horario.nombre }}){% endif %}.{% else %}No tienes horario configurado para hoy.{% endif %}
+      Si igual trabajas, puedes marcar tu asistencia.
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- Marcados de hoy -->
   <div class="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
     <h2 class="text-sm font-bold text-gray-700 mb-3">Estado de hoy</h2>
-    <div class="grid grid-cols-2 gap-3">
-      <div class="bg-gray-50 rounded-xl p-3 text-center">
-        <div class="text-xs text-gray-400 mb-1">Entrada</div>
-        {% if entrada_hoy %}
-          <div class="text-lg font-bold font-mono text-gray-800">{{ entrada_hoy.fecha_hora|date:"H:i" }}</div>
+    {% if pares %}
+    <div class="space-y-3">
+      {% for entrada, salida in pares %}
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div class="text-xs text-gray-400 mb-1">Entrada{% if entrada.bloque %} · bloque {{ entrada.bloque }}{% endif %}</div>
+          <div class="text-lg font-bold font-mono text-gray-800">{{ entrada.fecha_hora|date:"H:i" }}</div>
           <div class="mt-1">
-            {% if entrada_hoy.estado == 'PUNTUAL' %}
+            {% if entrada.estado == 'PUNTUAL' %}
               <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">Puntual</span>
             {% else %}
-              <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">Tardanza {{ entrada_hoy.minutos_tardanza }}min</span>
+              <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full">Tardanza {{ entrada.minutos_tardanza }}min</span>
             {% endif %}
           </div>
-        {% else %}
-          <div class="text-gray-300 text-lg font-bold">—</div>
-        {% endif %}
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div class="text-xs text-gray-400 mb-1">Salida</div>
+          {% if salida %}
+            <div class="text-lg font-bold font-mono text-gray-800">{{ salida.fecha_hora|date:"H:i" }}</div>
+            <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">Registrada</span>
+          {% else %}
+            <div class="text-gray-300 text-lg font-bold">—</div>
+          {% endif %}
+        </div>
       </div>
-      <div class="bg-gray-50 rounded-xl p-3 text-center">
-        <div class="text-xs text-gray-400 mb-1">Salida</div>
-        {% if salida_hoy %}
-          <div class="text-lg font-bold font-mono text-gray-800">{{ salida_hoy.fecha_hora|date:"H:i" }}</div>
-          <span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">Registrada</span>
-        {% else %}
-          <div class="text-gray-300 text-lg font-bold">—</div>
-        {% endif %}
-      </div>
+      {% endfor %}
     </div>
+    {% else %}
+    <p class="text-sm text-gray-400">Aún no has marcado hoy.</p>
+    {% endif %}
   </div>
 
   <!-- Mini mapa -->
@@ -72,59 +101,41 @@
   </div>
   {% endif %}
 
+  {% if not listo_para_marcar %}
+  <!-- Falta enrolar el rostro -->
+  <div class="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 text-center">
+    <div class="font-bold text-yellow-800 text-base mb-1">
+      {% if enrolamiento.estado == 'bloqueado' %}Verificación facial bloqueada{% else %}Primero registra tu rostro{% endif %}
+    </div>
+    <div class="text-sm text-yellow-700 mb-4">
+      {% if enrolamiento.estado == 'bloqueado' %}
+        Contacta al administrador para que te habilite nuevamente.
+      {% else %}
+        Para marcar asistencia necesitamos verificar tu identidad con tu rostro.
+      {% endif %}
+    </div>
+    <a href="{% url 'asistencia:enrolamiento_facial' %}"
+       class="inline-block bg-yellow-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm hover:bg-yellow-600 transition-colors">
+      {% if enrolamiento.estado == 'bloqueado' %}Ver estado{% else %}Registrar mi rostro{% endif %}
+    </a>
+  </div>
+
+  {% elif puede_entrar or puede_salir %}
   <!-- Formulario de marcado -->
-  {% if puede_entrar or puede_salir %}
   <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
 
-    <!-- Sección cámara -->
     <div class="p-5 border-b border-gray-100">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-bold text-gray-700">Foto de evidencia <span class="text-gray-400 font-normal">(opcional)</span></h2>
-        <span id="foto-badge" class="hidden bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded-full">Foto tomada</span>
-      </div>
-
-      <!-- Video en vivo -->
-      <div id="video-wrap" class="relative bg-gray-100 rounded-xl overflow-hidden mb-3" style="height:200px;">
-        <video id="video" autoplay playsinline class="w-full h-full object-cover"></video>
-        <!-- Guía de encuadre -->
+      <h2 class="text-sm font-bold text-gray-700 mb-3">Verificación de identidad</h2>
+      <div class="relative bg-gray-900 rounded-xl overflow-hidden mb-3" style="height:240px;">
+        <video id="video" autoplay playsinline muted class="w-full h-full object-cover"></video>
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div class="w-28 h-36 border-2 border-white border-dashed rounded-2xl opacity-50"></div>
+          <div class="w-32 h-40 border-2 border-white border-dashed rounded-[50%] opacity-60"></div>
         </div>
       </div>
-
-      <!-- Preview de la foto tomada -->
-      <div id="preview-foto" class="relative rounded-xl overflow-hidden mb-3" style="height:200px;">
-        <img loading="lazy" decoding="async" id="foto-img" src="" alt="Foto capturada" class="w-full h-full object-cover"/>
-        <div class="absolute bottom-2 right-2">
-          <span class="bg-green-600 text-white text-xs font-semibold px-2 py-1 rounded-lg">Foto guardada</span>
-        </div>
-      </div>
-
-      <!-- Canvas oculto -->
       <canvas id="canvas" class="hidden"></canvas>
-
-      <!-- Status cámara -->
-      <div id="facial-status" class="text-xs text-center text-gray-400 mb-3">Iniciando cámara...</div>
-
-      <!-- Botones foto -->
-      <div class="flex gap-2">
-        <button id="btn-tomar" onclick="tomarFoto()"
-                class="flex-1 bg-gray-800 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-900 transition-colors flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-          Tomar foto
-        </button>
-        <button id="btn-retomar" onclick="retomar()"
-                class="hidden flex-1 border border-gray-300 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
-          Retomar
-        </button>
-      </div>
+      <div id="facial-status" class="text-xs text-center text-gray-400">Cargando verificación facial...</div>
     </div>
 
-    <!-- Sección observación + GPS -->
     <div class="p-5 border-b border-gray-100">
       <label class="block text-xs font-semibold text-gray-600 mb-1">
         Observación <span class="text-gray-400 font-normal">(opcional)</span>
@@ -132,48 +143,47 @@
       <textarea id="obs-input" rows="2" maxlength="500"
                 placeholder="Ej: Llegué tarde por tráfico en Av. Montes..."
                 class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none"></textarea>
-      <!-- GPS status mejorado -->
       <div id="gps-status" class="mt-3 rounded-xl px-4 py-3 text-xs text-center bg-gray-50 border border-gray-200 text-gray-400">
         Obteniendo ubicación GPS...
       </div>
-      <!-- Instrucciones si GPS bloqueado -->
       <div id="gps-ayuda" class="hidden mt-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700">
         <p class="font-semibold mb-1">¿Cómo activar la ubicación?</p>
-        <p class="mb-1"><b>Chrome Android:</b> tocá el ícono 🔒 en la barra de dirección → Permisos → Ubicación → Permitir</p>
+        <p class="mb-1"><b>Chrome Android:</b> toca el ícono 🔒 en la barra de dirección → Permisos → Ubicación → Permitir</p>
         <p class="mb-1"><b>Safari iOS:</b> Ajustes → Safari → Ubicación → Preguntar o Permitir</p>
         <p><b>Computadora:</b> la ubicación debe estar habilitada en el navegador y en el sistema operativo.</p>
-        <button onclick="reintentarGPS()" class="mt-2 w-full bg-red-600 text-white font-semibold py-1.5 rounded-lg hover:bg-red-700 transition-colors">
+        <button type="button" onclick="reintentarGPS()" class="mt-2 w-full bg-red-600 text-white font-semibold py-1.5 rounded-lg hover:bg-red-700 transition-colors">
           Reintentar GPS
         </button>
       </div>
     </div>
 
-    <!-- Botones de marcado -->
     <div class="p-5">
+      <div id="resultado" class="hidden mb-3 rounded-xl px-4 py-3 text-sm font-medium bg-red-50 text-red-800 border border-red-200"></div>
       <div class="flex gap-3">
         {% if puede_entrar %}
-        <button onclick="marcar('ENTRADA')"
-                class="flex-1 bg-green-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-green-700 transition-colors">
+        <button id="btn-entrada" type="button" onclick="marcar('ENTRADA')" disabled
+                class="btn-marcar flex-1 bg-green-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           Registrar Entrada
         </button>
         {% endif %}
         {% if puede_salir %}
-        <button onclick="marcar('SALIDA')"
-                class="flex-1 bg-blue-700 text-white font-bold py-3 rounded-xl text-sm hover:bg-blue-800 transition-colors">
+        <button id="btn-salida" type="button" onclick="marcar('SALIDA')" disabled
+                class="btn-marcar flex-1 bg-blue-700 text-white font-bold py-3 rounded-xl text-sm hover:bg-blue-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
           Registrar Salida
         </button>
         {% endif %}
       </div>
-      <p class="text-xs text-center text-gray-400 mt-2">Puedes marcar sin foto si la cámara no está disponible</p>
+      <p class="text-xs text-center text-gray-400 mt-2">
+        Al marcar se verifica tu ubicación y tu rostro. Mira de frente a la cámara.
+      </p>
     </div>
-
   </div>
 
   {% else %}
   <div class="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
     <div class="text-4xl mb-3">✓</div>
     <div class="font-bold text-green-800 text-base">Asistencia completa del día</div>
-    <div class="text-sm text-green-600 mt-1">Entrada y salida registradas correctamente.</div>
+    <div class="text-sm text-green-600 mt-1">Ya registraste todas tus entradas y salidas de hoy.</div>
     <a href="{% url 'asistencia:mi_asistencia' %}" class="inline-block mt-4 text-sm text-green-700 hover:underline font-medium">
       Ver mi historial →
     </a>
@@ -182,185 +192,211 @@
 
 </div>
 
+{{ zonas_mapa|json_script:"zonas-data" }}
+
 <script>
 const CSRF = '{{ csrf_token }}';
-let latActual = null, lonActual = null;
-let fotoBase64 = null;
-let camaraActiva = false;
+const URL_MARCAR = "{% url 'asistencia:marcar' %}";
+const URL_MODELOS = "{% static 'asistencia/face/models' %}";
+let latActual = null, lonActual = null, precisionActual = null;
+let camaraLista = false, modelosListos = false, enCurso = false;
+
+const $ = id => document.getElementById(id);
+function actualizarBotones() {
+  const ok = camaraLista && modelosListos && latActual !== null && !enCurso;
+  document.querySelectorAll('.btn-marcar').forEach(b => b.disabled = !ok);
+}
+function estadoFacial(texto, clase) {
+  const el = $('facial-status');
+  if (!el) return;
+  el.textContent = texto;
+  el.className = 'text-xs text-center ' + clase;
+}
 
 // ── GPS ──────────────────────────────────────────────────────────────────────
 let watchId = null;
+const CLS_GPS = 'mt-3 rounded-xl px-4 py-3 text-xs text-center border font-semibold ';
 
 function iniciarGPS() {
-  const statusEl = document.getElementById('gps-status');
-  const ayudaEl  = document.getElementById('gps-ayuda');
-
+  const statusEl = $('gps-status'), ayudaEl = $('gps-ayuda');
+  if (!statusEl) return;
   if (!navigator.geolocation) {
     statusEl.textContent = 'Este dispositivo no soporta GPS.';
-    statusEl.className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-red-50 border border-red-200 text-red-700 font-medium';
+    statusEl.className = CLS_GPS + 'bg-red-50 border-red-200 text-red-700';
     return;
   }
-
-  // Verificar permiso si el navegador lo soporta
   if (navigator.permissions) {
-    navigator.permissions.query({ name: 'geolocation' }).then(result => {
-      if (result.state === 'denied') {
-        statusEl.innerHTML = '🚫 Ubicación bloqueada. Activá el permiso en tu navegador.';
-        statusEl.className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-red-50 border border-red-200 text-red-700 font-semibold';
+    navigator.permissions.query({ name: 'geolocation' }).then(r => {
+      if (r.state === 'denied') {
+        statusEl.textContent = '🚫 Ubicación bloqueada. Activa el permiso en tu navegador.';
+        statusEl.className = CLS_GPS + 'bg-red-50 border-red-200 text-red-700';
         ayudaEl.classList.remove('hidden');
       }
-    });
+    }).catch(() => {});
   }
-
   watchId = navigator.geolocation.watchPosition(
     pos => {
       latActual = pos.coords.latitude;
-      lonActual  = pos.coords.longitude;
-      const precision = pos.coords.accuracy ? `±${Math.round(pos.coords.accuracy)}m` : '';
-      statusEl.innerHTML = `✓ Ubicación activa ${precision}`;
-      statusEl.className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-green-50 border border-green-200 text-green-700 font-semibold';
+      lonActual = pos.coords.longitude;
+      precisionActual = pos.coords.accuracy != null ? pos.coords.accuracy : null;
+      statusEl.textContent = '✓ Ubicación activa' + (precisionActual != null ? ` ±${Math.round(precisionActual)}m` : '');
+      statusEl.className = CLS_GPS + 'bg-green-50 border-green-200 text-green-700';
       ayudaEl.classList.add('hidden');
+      actualizarBotones();
     },
     err => {
-      latActual = null;
-      lonActual  = null;
+      latActual = lonActual = precisionActual = null;
       let msg = 'Error al obtener ubicación.';
       if (err.code === 1) msg = '🚫 Permiso de ubicación denegado.';
-      if (err.code === 2) msg = '📡 Señal GPS no disponible. Intentá al aire libre.';
+      if (err.code === 2) msg = '📡 Señal GPS no disponible. Intenta al aire libre.';
       if (err.code === 3) msg = '⏱ Tiempo de espera agotado. Reintentando...';
-      statusEl.innerHTML = msg;
-      statusEl.className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-red-50 border border-red-200 text-red-700 font-semibold';
+      statusEl.textContent = msg;
+      statusEl.className = CLS_GPS + 'bg-red-50 border-red-200 text-red-700';
       if (err.code === 1) ayudaEl.classList.remove('hidden');
+      actualizarBotones();
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
   );
 }
-
 function reintentarGPS() {
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
-  const statusEl = document.getElementById('gps-status');
-  statusEl.innerHTML = 'Reintentando GPS...';
-  statusEl.className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-gray-50 border border-gray-200 text-gray-400';
-  document.getElementById('gps-ayuda').classList.add('hidden');
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  $('gps-status').textContent = 'Reintentando GPS...';
+  $('gps-status').className = CLS_GPS + 'bg-gray-50 border-gray-200 text-gray-400';
+  $('gps-ayuda').classList.add('hidden');
   setTimeout(iniciarGPS, 500);
 }
 
-iniciarGPS();
-
-// ── Cámara ───────────────────────────────────────────────────────────────────
-const video  = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-
-navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
-  .then(stream => {
+// ── Cámara + modelos faciales ────────────────────────────────────────────────
+async function iniciarVerificacionFacial() {
+  const video = $('video');
+  if (!video) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     video.srcObject = stream;
-    camaraActiva = true;
-    document.getElementById('facial-status').textContent = 'Cámara activa — encuadra tu rostro y toma la foto.';
-    document.getElementById('facial-status').className = 'text-xs text-center text-blue-600 mb-3';
-  })
-  .catch(() => {
-    camaraActiva = false;
-    document.getElementById('facial-status').textContent = 'Cámara no disponible — puedes marcar sin foto.';
-    document.getElementById('facial-status').className = 'text-xs text-center text-gray-400 mb-3';
-    document.getElementById('btn-tomar').disabled = true;
-    document.getElementById('btn-tomar').classList.add('opacity-40', 'cursor-not-allowed');
-  });
-
-// ── Tomar foto ───────────────────────────────────────────────────────────────
-function tomarFoto() {
-  if (!camaraActiva) return;
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  fotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
-
-  // Mostrar preview
-  document.getElementById('foto-img').src = fotoBase64;
-  document.getElementById('video-wrap').classList.add('oculto');
-  document.getElementById('preview-foto').classList.add('visible');
-  document.getElementById('btn-tomar').classList.add('hidden');
-  document.getElementById('btn-retomar').classList.remove('hidden');
-  document.getElementById('foto-badge').classList.remove('hidden');
-  document.getElementById('facial-status').textContent = 'Foto lista. Puedes retomar si no te convence.';
-  document.getElementById('facial-status').className = 'text-xs text-center text-green-600 mb-3 font-medium';
-}
-
-// ── Retomar ──────────────────────────────────────────────────────────────────
-function retomar() {
-  fotoBase64 = null;
-  document.getElementById('video-wrap').classList.remove('oculto');
-  document.getElementById('preview-foto').classList.remove('visible');
-  document.getElementById('btn-tomar').classList.remove('hidden');
-  document.getElementById('btn-retomar').classList.add('hidden');
-  document.getElementById('foto-badge').classList.add('hidden');
-  document.getElementById('facial-status').textContent = 'Cámara activa — encuadra tu rostro y toma la foto.';
-  document.getElementById('facial-status').className = 'text-xs text-center text-blue-600 mb-3';
-}
-
-// ── Device ID ────────────────────────────────────────────────────────────────
-function getDeviceId() {
-  let id = localStorage.getItem('device_id');
-  if (!id) {
-    id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-    localStorage.setItem('device_id', id);
+    camaraLista = true;
+  } catch (e) {
+    estadoFacial('No se pudo acceder a la cámara. Es obligatoria para marcar: revisa los permisos del navegador.', 'text-red-600 font-medium');
+    return;
   }
-  return id;
+  try {
+    await FaceAsistencia.cargarModelos(URL_MODELOS);
+    modelosListos = true;
+    estadoFacial('Listo. Mira de frente a la cámara y toca el botón.', 'text-green-600 font-medium');
+  } catch (e) {
+    console.error(e);
+    estadoFacial('No se pudo cargar la verificación facial. Recarga la página e intenta de nuevo.', 'text-red-600 font-medium');
+  }
+  actualizarBotones();
+}
+
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem('device_id');
+    if (!id) {
+      id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+      localStorage.setItem('device_id', id);
+    }
+    return id;
+  } catch (e) { return ''; }
+}
+
+function mostrarError(lineas) {
+  const el = $('resultado');
+  el.innerHTML = '';
+  (Array.isArray(lineas) ? lineas : [lineas]).forEach(t => {
+    const p = document.createElement('p'); p.textContent = t; el.appendChild(p);
+  });
+  el.classList.remove('hidden');
+}
+
+function fotoEvidencia() {
+  const video = $('video'), canvas = $('canvas');
+  const escala = Math.min(1, 640 / (video.videoWidth || 640));
+  canvas.width = Math.round((video.videoWidth || 640) * escala);
+  canvas.height = Math.round((video.videoHeight || 480) * escala);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.8);
 }
 
 // ── Marcar ───────────────────────────────────────────────────────────────────
 async function marcar(tipo) {
-  if (!latActual || !lonActual) {
-    document.getElementById('gps-status').innerHTML = '⚠ Esperá a que se active el GPS antes de marcar.';
-    document.getElementById('gps-status').className = 'mt-3 rounded-xl px-4 py-3 text-xs text-center bg-yellow-50 border border-yellow-200 text-yellow-700 font-semibold';
-    document.getElementById('gps-ayuda').classList.remove('hidden');
+  if (enCurso) return;
+  $('resultado').classList.add('hidden');
+  if (latActual === null || lonActual === null) {
+    mostrarError('Espera a que se active el GPS antes de marcar.');
+    $('gps-ayuda').classList.remove('hidden');
     return;
   }
-  const obs = document.getElementById('obs-input').value;
+  enCurso = true; actualizarBotones();
+  try {
+    estadoFacial('Verificando tu rostro...', 'text-blue-600 font-medium');
+    let lectura = null;
+    for (let i = 0; i < 4; i++) {
+      lectura = await FaceAsistencia.leer($('video'));
+      if (lectura.ok) break;
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if (!lectura.ok) {
+      estadoFacial(lectura.motivo, 'text-red-600 font-medium');
+      mostrarError(lectura.motivo);
+      return;
+    }
+    const foto = fotoEvidencia();
+    estadoFacial('Enviando...', 'text-blue-600 font-medium');
 
-  const resp = await fetch('{% url "asistencia:marcar" %}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-Requested-With': 'XMLHttpRequest',
-      'X-CSRFToken': CSRF,
-    },
-    body: new URLSearchParams({
-      tipo,
-      latitud: latActual,
-      longitud: lonActual,
-      foto_base64: fotoBase64 || '',
-      device_id: getDeviceId(),
-      observacion: obs,
-      csrfmiddlewaretoken: CSRF,
-    })
-  });
-
-  const data = await resp.json();
-  if (data.aprobado) {
-    location.reload();
-  } else {
-    alert('No se pudo registrar:\n' + (data.errores || []).join('\n'));
+    const resp = await fetch(URL_MARCAR, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': CSRF,
+      },
+      body: new URLSearchParams({
+        tipo,
+        latitud: latActual.toFixed(6),
+        longitud: lonActual.toFixed(6),
+        precision: precisionActual != null ? precisionActual.toFixed(1) : '',
+        vector_facial: JSON.stringify(lectura.descriptor),
+        foto_base64: foto,
+        device_id: getDeviceId(),
+        observacion: $('obs-input').value,
+        csrfmiddlewaretoken: CSRF,
+      })
+    });
+    let data = {};
+    try { data = await resp.json(); } catch (e) { data = { errores: ['Respuesta inesperada del servidor.'] }; }
+    if (data.aprobado) {
+      location.reload();
+      return;
+    }
+    estadoFacial('No se pudo registrar.', 'text-red-600 font-medium');
+    mostrarError(data.errores && data.errores.length ? data.errores : 'No se pudo registrar tu asistencia.');
+  } catch (e) {
+    console.error(e);
+    mostrarError('Ocurrió un error inesperado. Intenta nuevamente.');
+  } finally {
+    enCurso = false; actualizarBotones();
   }
 }
 
 // ── Mapa de zonas ─────────────────────────────────────────────────────────────
-{% if configs %}
-const zonas = [
-  {% for c in configs %}
-  { lat: {{ c.zona.latitud }}, lon: {{ c.zona.longitud }}, nombre: "{{ c.zona.nombre }}", radio: {{ c.zona.radio_metros }} },
-  {% endfor %}
-];
-if (zonas.length) {
+const zonas = JSON.parse($('zonas-data').textContent || '[]');
+if (zonas.length && $('mapa-zonas')) {
   const mapa = L.map('mapa-zonas').setView([zonas[0].lat, zonas[0].lon], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapa);
   zonas.forEach(z => {
+    const popup = document.createElement('div');
+    const b = document.createElement('b'); b.textContent = z.nombre;
+    popup.appendChild(b);
+    popup.appendChild(document.createElement('br'));
+    popup.appendChild(document.createTextNode('Radio: ' + z.radio + ' m'));
     L.circle([z.lat, z.lon], { radius: z.radio, color: '#1d4ed8', fillOpacity: 0.12, weight: 2 })
-      .addTo(mapa).bindPopup(`<b>${z.nombre}</b><br>Radio: ${z.radio}m`);
+      .addTo(mapa).bindPopup(popup);
   });
 }
-{% endif %}
+
+iniciarGPS();
+iniciarVerificacionFacial();
 </script>
 {% endblock %}

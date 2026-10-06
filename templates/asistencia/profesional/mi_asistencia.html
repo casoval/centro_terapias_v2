@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Mi Asistencia{% endblock %}
 
-{% block extra_head %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-{% endblock %}
 
 {% block content %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <div class="max-w-4xl mx-auto px-4 py-6">
 
   <!-- Encabezado -->
@@ -73,7 +71,10 @@
       {{ m.nombre }}
     </a>
     {% endfor %}
-    <span class="px-3 py-1.5 text-xs text-gray-400 font-medium">{{ anio }}</span>
+    <select onchange="location.search='?mes={{ mes }}&anio='+this.value"
+            class="px-2 py-1 border border-gray-200 rounded-full text-xs font-semibold text-gray-600 bg-white">
+      {% for a in anios_disponibles %}<option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
   </div>
 
   <!-- Métricas del mes -->
@@ -129,6 +130,7 @@
           <td data-label="Tipo" class="px-4 py-3">
             {% if reg.tipo == 'ENTRADA' %}
               <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded-full">Entrada</span>
+              {% if reg.bloque %}<span class="text-[10px] text-gray-400 ml-1">bloque {{ reg.bloque }}</span>{% endif %}
             {% else %}
               <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">Salida</span>
             {% endif %}

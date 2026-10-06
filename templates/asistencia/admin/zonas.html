@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Zonas GPS — Asistencia{% endblock %}
 
-{% block extra_head %}
+{% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 {% endblock %}
 
 {% block content %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <div class="max-w-6xl mx-auto px-4 py-6">
 
   <div class="flex items-center justify-between mb-6">
@@ -79,7 +79,7 @@
           <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Sucursal ref.</th>
           <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Coordenadas</th>
           <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Radio</th>
-          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Horario base</th>
+          <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Horarios</th>
           <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
           <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Acciones</th>
         </tr>
@@ -91,13 +91,14 @@
           <td data-label="Sucursal ref." class="px-4 py-3 text-sm text-gray-500">{{ zona.sucursal.nombre|default:"—" }}</td>
           <td data-label="Coordenadas" class="px-4 py-3 text-xs font-mono text-gray-500">{{ zona.latitud }}, {{ zona.longitud }}</td>
           <td data-label="Radio" class="px-4 py-3 text-sm text-gray-700 font-semibold">{{ zona.radio_metros }}m</td>
-          <td data-label="Horario base" class="px-4 py-3 text-sm text-gray-600">
-            {% if zona.horario_predeterminado %}
-              {{ zona.horario_predeterminado.hora_entrada|time:"H:i" }} — {{ zona.horario_predeterminado.hora_salida|time:"H:i" }}
-              <span class="text-gray-400 text-xs">(±{{ zona.horario_predeterminado.tolerancia_minutos }}min)</span>
-            {% else %}
-              <span class="text-gray-300">Sin horario</span>
-            {% endif %}
+          <td data-label="Horarios" class="px-4 py-3 text-sm text-gray-600">
+            {% for p in zona.plantillas.all %}{% if not p.user_id %}
+              <div class="text-xs whitespace-nowrap">
+                <span class="font-semibold text-gray-700">{{ p.dias_display }}</span>
+                <span class="text-gray-400">· {{ p.tipo_display }}</span>
+              </div>
+            {% endif %}{% endfor %}
+            {% if not zona.plantillas.all %}<span class="text-gray-300">Sin horario</span>{% endif %}
           </td>
           <td data-label="Estado" class="px-4 py-3">
             {% if zona.activa %}
@@ -109,7 +110,7 @@
           <td data-label="Acciones" data-ficha="acciones" class="px-4 py-3">
             <div class="flex gap-2">
               <a href="{% url 'asistencia:editar_zona' zona.pk %}" class="text-xs text-blue-600 hover:underline font-medium">Editar</a>
-              <a href="{% url 'asistencia:editar_horario' zona.pk %}" class="text-xs text-purple-600 hover:underline font-medium">Horario</a>
+              <a href="{% url 'asistencia:horarios' %}" class="text-xs text-purple-600 hover:underline font-medium">Horario</a>
             </div>
           </td>
         </tr>
@@ -122,12 +123,11 @@
   </div>
 </div>
 
+{{ zonas_mapa|json_script:"zonas-data" }}
 <script>
-const zonas = [
-  {% for zona in zonas %}
-  { lat: {{ zona.latitud }}, lon: {{ zona.longitud }}, nombre: "{{ zona.nombre }}", radio: {{ zona.radio_metros }}, activa: {{ zona.activa|yesno:"true,false" }} },
-  {% endfor %}
-];
+// Datos vía json_script: evita la coma decimal del locale es-BO y el escapado manual de nombres
+const zonas = JSON.parse(document.getElementById('zonas-data').textContent);
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const mapa = L.map('mapa').setView([-16.4897, -68.1193], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -137,8 +137,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 zonas.forEach(z => {
   const color = z.activa ? '#1d4ed8' : '#9ca3af';
   L.circle([z.lat, z.lon], { radius: z.radio, color, fillOpacity: 0.15, weight: 2 }).addTo(mapa)
-    .bindPopup(`<b>${z.nombre}</b><br>Radio: ${z.radio}m`);
-  L.marker([z.lat, z.lon]).addTo(mapa).bindPopup(`<b>${z.nombre}</b>`);
+    .bindPopup(`<b>${esc(z.nombre)}</b><br>Radio: ${z.radio}m`);
+  L.marker([z.lat, z.lon]).addTo(mapa).bindPopup(`<b>${esc(z.nombre)}</b>`);
 });
 
 mapa.on('click', function(e) {

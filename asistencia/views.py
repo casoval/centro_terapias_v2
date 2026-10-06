@@ -1,28 +1,35 @@
+import json
 from datetime import date, timedelta
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.http import JsonResponse
-from django.db.models import Count, Q, Sum
-from django.utils import timezone
-from django.contrib.auth.models import User
+from functools import wraps
 
-from .models import (
-    ZonaAsistencia, HorarioPredeterminado, ConfigAsistencia,
-    FechaEspecial, EnrolamientoFacial, PermisoReenrolamiento, RegistroAsistencia
-)
+from django.contrib import messages
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.db.models import Sum
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+
 from .forms import (
-    MarcarAsistenciaForm, EditarObservacionForm, ZonaAsistenciaForm,
-    HorarioPredeterminadoForm, ConfigAsistenciaForm, FechaEspecialForm, PermisoReenrolamientoForm
+    BloqueFechaEspecialForm, BloqueHorarioForm, ConfigAsistenciaForm, EditarObservacionForm,
+    FechaEspecialForm, MarcarAsistenciaForm, PermisoReenrolamientoForm, PlantillaHorarioForm,
+    ZonaAsistenciaForm, bloque_formset,
 )
-from .services import ValidadorAsistencia
+from .models import (
+    BloqueFechaEspecial, BloqueHorario, ConfigAsistencia, DIAS_SEMANA, DIAS_SEMANA_ORDEN, EnrolamientoFacial,
+    FechaEspecial, PermisoReenrolamiento, PlantillaHorario, RegistroAsistencia, ZonaAsistencia,
+)
+from .services import (
+    ErrorEnrolamiento, ValidadorAsistencia, calcular_estado_dia, construir_panel,
+    elegir_config_y_horario, procesar_enrolamiento, registrar_manual, registros_validos_del_dia,
+)
 
 
 # ── Decoradores de permiso ───────────────────────────────────────────────────
 
 def solo_admin(view_func):
     """Solo superadmin o gerente."""
-    from functools import wraps
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -37,7 +44,6 @@ def solo_admin(view_func):
 
 
 def solo_profesional(view_func):
-    from functools import wraps
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -49,143 +55,79 @@ def solo_profesional(view_func):
     return wrapper
 
 
+def _marcar_modificado(config, admin):
+    config.modificado_por = admin
+    config.fecha_modificacion = timezone.now()
+    config.save(update_fields=['modificado_por', 'fecha_modificacion'])
+
+
+def clonar_plantillas_zona(config):
+    """
+    Al activar 'horario propio' por primera vez se copian las plantillas de la zona
+    como punto de partida (para no dejar al profesional sin horario).
+    """
+    if PlantillaHorario.objects.filter(zona=config.zona, user=config.user).exists():
+        return 0
+    n = 0
+    for p in PlantillaHorario.objects.filter(zona=config.zona, user__isnull=True).prefetch_related('bloques'):
+        copia = PlantillaHorario.objects.create(
+            zona=config.zona, user=config.user, nombre=p.nombre, dias=list(p.dias or []))
+        for b in p.bloques.all():
+            BloqueHorario.objects.create(
+                plantilla=copia, orden=b.orden, hora_entrada=b.hora_entrada,
+                hora_salida=b.hora_salida, tolerancia_minutos=b.tolerancia_minutos)
+        n += 1
+    return n
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PANEL ADMINISTRADOR
 # ══════════════════════════════════════════════════════════════════════════════
 
 @solo_admin
+@require_POST
 def marcar_admin(request, user_pk):
-    """
-    El admin marca entrada o salida de cualquier profesional manualmente.
-    Sin GPS ni foto. Queda registrado con nota de quién lo hizo.
-    """
-    from django.contrib.auth.models import User as DjangoUser
+    """El admin marca entrada/salida de un profesional. Sin GPS ni rostro; queda anotado."""
     profesional_user = get_object_or_404(
-        DjangoUser, pk=user_pk, perfil__rol='profesional', is_active=True
+        User, pk=user_pk, perfil__rol='profesional', is_active=True
     )
-    hoy = timezone.now().date()
-
-    if request.method == 'POST':
-        tipo = request.POST.get('tipo')
-        observacion = request.POST.get('observacion', '').strip()
-
-        if tipo not in ['ENTRADA', 'SALIDA']:
-            messages.error(request, 'Tipo inválido.')
-            return redirect('asistencia:panel_admin')
-
-        # Verificar duplicado
-        ya_existe = profesional_user.registros_asistencia.filter(
-            tipo=tipo,
-            estado__in=['PUNTUAL', 'TARDANZA', 'MANUAL_ADMIN'],
-            fecha_hora__date=hoy,
-        ).exists()
-
-        if ya_existe:
-            messages.error(
-                request,
-                f'{profesional_user.get_full_name()} ya tiene {tipo.lower()} registrada hoy.'
-            )
-            return redirect('asistencia:panel_admin')
-
-        # Resolver horario para calcular estado
-        config = profesional_user.configs_asistencia.filter(zona__activa=True).first()
-        estado = 'PUNTUAL'
-        minutos_tardanza = 0
-        bloque = ''
-
-        if config and tipo == 'ENTRADA':
-            from .services import ResolvedorHorario, CalculadorEstado
-            resolvedor = ResolvedorHorario(
-                user=profesional_user,
-                zona=config.zona,
-                config=config,
-                fecha=hoy,
-            )
-            horario = resolvedor.resolver()
-            calculador = CalculadorEstado(horario)
-            estado, bloque, minutos_tardanza = calculador.calcular()
-
-        nota_admin = f"Registrado manualmente por {request.user.get_full_name() or request.user.username}."
-        if observacion:
-            nota_admin += f" Motivo: {observacion}"
-
-        RegistroAsistencia.objects.create(
-            user=profesional_user,
-            zona=config.zona if config else None,
-            tipo=tipo,
-            estado=estado,
-            bloque=bloque,
-            minutos_tardanza=minutos_tardanza,
-            observacion=nota_admin,
-            registrado_por=request.user,
-        )
-
-        messages.success(
-            request,
-            f'{tipo.capitalize()} de {profesional_user.get_full_name()} registrada correctamente.'
-        )
+    tipo = request.POST.get('tipo')
+    if tipo not in ('ENTRADA', 'SALIDA'):
+        messages.error(request, 'Tipo inválido.')
         return redirect('asistencia:panel_admin')
 
+    ok, _registro, error = registrar_manual(
+        profesional_user, tipo, request.user,
+        observacion=request.POST.get('observacion', '').strip(),
+    )
+    if ok:
+        messages.success(
+            request,
+            f'{tipo.capitalize()} de {profesional_user.get_full_name()} registrada correctamente.')
+    else:
+        messages.error(request, error)
     return redirect('asistencia:panel_admin')
 
 
 @solo_admin
 def panel_admin(request):
     """Resumen diario — vista principal del admin."""
-    hoy = timezone.now().date()
+    hoy = timezone.localdate()
+    try:
+        fecha = date.fromisoformat(request.GET.get('fecha', ''))
+    except ValueError:
+        fecha = hoy
+    if fecha > hoy:
+        fecha = hoy
 
-    profesionales = User.objects.filter(
-        perfil__rol='profesional', is_active=True
-    ).select_related('perfil__profesional', 'enrolamiento')
-
-    datos = []
-    for user in profesionales:
-        registros_hoy = user.registros_asistencia.filter(
-            fecha_hora__date=hoy,
-            estado__in=['PUNTUAL', 'TARDANZA']
-        ).order_by('fecha_hora')
-
-        entrada = registros_hoy.filter(tipo='ENTRADA').first()
-        salida = registros_hoy.filter(tipo='SALIDA').first()
-        intentos_fallidos = user.registros_asistencia.filter(
-            fecha_hora__date=hoy,
-            estado__in=['DENEGADO_GPS', 'DENEGADO_BIO']
-        ).count()
-
-        try:
-            enrolamiento = user.enrolamiento
-            estado_enrolamiento = enrolamiento.estado
-        except EnrolamientoFacial.DoesNotExist:
-            estado_enrolamiento = 'pendiente'
-
-        if estado_enrolamiento != 'enrolado':
-            estado_dia = 'sin_enrolar'
-        elif entrada:
-            estado_dia = entrada.estado
-        else:
-            estado_dia = 'ausente'
-
-        datos.append({
-            'user': user,
-            'profesional': getattr(getattr(user, 'perfil', None), 'profesional', None),
-            'entrada': entrada,
-            'salida': salida,
-            'estado_dia': estado_dia,
-            'estado_enrolamiento': estado_enrolamiento,
-            'intentos_fallidos': intentos_fallidos,
-        })
-
-    resumen = {
-        'presentes': sum(1 for d in datos if d['estado_dia'] in ['PUNTUAL', 'TARDANZA']),
-        'tardanzas': sum(1 for d in datos if d['estado_dia'] == 'TARDANZA'),
-        'ausentes': sum(1 for d in datos if d['estado_dia'] == 'ausente'),
-        'sin_enrolar': sum(1 for d in datos if d['estado_dia'] == 'sin_enrolar'),
-    }
-
+    datos, resumen = construir_panel(fecha)
     return render(request, 'asistencia/admin/panel.html', {
         'datos': datos,
         'resumen': resumen,
-        'hoy': hoy,
+        'hoy': fecha,
+        'es_hoy': fecha == hoy,
+        'dia_anterior': fecha - timedelta(days=1),
+        'dia_siguiente': fecha + timedelta(days=1) if fecha < hoy else None,
         'seccion': 'resumen',
     })
 
@@ -193,23 +135,26 @@ def panel_admin(request):
 @solo_admin
 def zonas_gps(request):
     """Gestión de zonas GPS — listado y creación."""
-    zonas = ZonaAsistencia.objects.select_related('sucursal', 'horario_predeterminado').all()
+    zonas = ZonaAsistencia.objects.select_related('sucursal').prefetch_related('plantillas').all()
 
     if request.method == 'POST':
         form = ZonaAsistenciaForm(request.POST)
         if form.is_valid():
             zona = form.save()
-            # Crear horario predeterminado automáticamente
-            HorarioPredeterminado.objects.get_or_create(zona=zona)
-            messages.success(request, f'Zona "{zona.nombre}" creada correctamente.')
+            messages.success(
+                request,
+                f'Zona "{zona.nombre}" creada. Ahora define sus horarios en la sección Horarios.')
             return redirect('asistencia:zonas_gps')
     else:
         form = ZonaAsistenciaForm()
 
     return render(request, 'asistencia/admin/zonas.html', {
-        'zonas': zonas,
-        'form': form,
-        'seccion': 'zonas',
+        'zonas': zonas, 'form': form, 'seccion': 'zonas',
+        'zonas_mapa': [
+            {'nombre': z.nombre, 'lat': float(z.latitud), 'lon': float(z.longitud),
+             'radio': z.radio_metros, 'activa': z.activa}
+            for z in zonas
+        ],
     })
 
 
@@ -229,65 +174,122 @@ def editar_zona(request, pk):
     })
 
 
+# ── Horarios ─────────────────────────────────────────────────────────────────
+
 @solo_admin
 def horarios(request):
-    """Gestión de horarios predeterminados y personalizados."""
-    zonas = ZonaAsistencia.objects.prefetch_related(
-        'horario_predeterminado', 'configs__user__perfil__profesional'
-    ).filter(activa=True)
+    """Horarios por zona (varias plantillas: Lun-Vie partido, Sábado continuo...) y personales."""
+    zonas = list(ZonaAsistencia.objects.filter(activa=True).prefetch_related('plantillas__bloques'))
+    for z in zonas:
+        z.plantillas_zona = [p for p in z.plantillas.all() if p.user_id is None]
+        cubiertos = {d for p in z.plantillas_zona for d in (p.dias or [])}
+        nombres = dict(DIAS_SEMANA)
+        z.dias_sin_horario = [nombres[d] for d in DIAS_SEMANA_ORDEN if d not in cubiertos]
 
-    configs_personalizadas = ConfigAsistencia.objects.filter(
-        personalizado=True
-    ).select_related('user__perfil__profesional', 'zona', 'modificado_por')
+    configs = list(
+        ConfigAsistencia.objects.filter(personalizado=True)
+        .select_related('user', 'zona', 'modificado_por')
+        .prefetch_related('zona__plantillas__bloques')
+        .order_by('user__last_name')
+    )
+    for c in configs:
+        c.plantillas_personales = c.plantillas_efectivas()
 
     return render(request, 'asistencia/admin/horarios.html', {
-        'zonas': zonas,
-        'configs_personalizadas': configs_personalizadas,
+        'zonas': zonas, 'configs_personalizadas': configs, 'seccion': 'horarios',
+    })
+
+
+@solo_admin
+def editar_plantilla(request, pk=None, zona_pk=None, config_pk=None):
+    """
+    Crea o edita una plantilla de horario (días + bloques).
+      pk         -> editar existente
+      zona_pk    -> nueva plantilla predeterminada de la zona
+      config_pk  -> nueva plantilla personal del profesional de esa asignación
+    """
+    if pk:
+        plantilla = get_object_or_404(PlantillaHorario.objects.select_related('zona', 'user'), pk=pk)
+    elif config_pk:
+        cfg = get_object_or_404(ConfigAsistencia.objects.select_related('zona', 'user'), pk=config_pk)
+        plantilla = PlantillaHorario(zona=cfg.zona, user=cfg.user)
+    else:
+        plantilla = PlantillaHorario(zona=get_object_or_404(ZonaAsistencia, pk=zona_pk))
+
+    zona, usuario = plantilla.zona, plantilla.user
+    config_personal = (
+        ConfigAsistencia.objects.filter(user=usuario, zona=zona).first() if usuario else None
+    )
+    volver = ('asistencia:editar_config', config_personal.pk) if config_personal else ('asistencia:horarios',)
+
+    if request.method == 'POST':
+        form = PlantillaHorarioForm(request.POST, instance=plantilla)
+        formset = bloque_formset(PlantillaHorario, BloqueHorario, BloqueHorarioForm,
+                                 instance=plantilla, data=request.POST)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                plantilla = form.save()
+                formset.instance = plantilla
+                formset.save()
+                if config_personal:
+                    _marcar_modificado(config_personal, request.user)
+            messages.success(request, 'Horario guardado.')
+            return redirect(*volver)
+    else:
+        form = PlantillaHorarioForm(instance=plantilla)
+        formset = bloque_formset(PlantillaHorario, BloqueHorario, BloqueHorarioForm, instance=plantilla)
+
+    return render(request, 'asistencia/admin/editar_plantilla.html', {
+        'form': form, 'formset': formset, 'plantilla': plantilla,
+        'zona': zona, 'usuario': usuario, 'volver': volver,
         'seccion': 'horarios',
     })
 
 
 @solo_admin
-def editar_horario_predeterminado(request, zona_pk):
-    zona = get_object_or_404(ZonaAsistencia, pk=zona_pk)
-    horario, _ = HorarioPredeterminado.objects.get_or_create(zona=zona)
+@require_POST
+def eliminar_plantilla(request, pk):
+    plantilla = get_object_or_404(PlantillaHorario.objects.select_related('zona', 'user'), pk=pk)
+    config_personal = (
+        ConfigAsistencia.objects.filter(user=plantilla.user, zona=plantilla.zona).first()
+        if plantilla.user_id else None
+    )
+    plantilla.delete()
+    messages.success(request, 'Horario eliminado.')
+    if config_personal:
+        return redirect('asistencia:editar_config', pk=config_personal.pk)
+    return redirect('asistencia:horarios')
 
-    if request.method == 'POST':
-        form = HorarioPredeterminadoForm(request.POST, instance=horario)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Horario de "{zona.nombre}" actualizado.')
-            return redirect('asistencia:horarios')
-    else:
-        form = HorarioPredeterminadoForm(instance=horario)
 
-    return render(request, 'asistencia/admin/editar_horario.html', {
-        'form': form, 'zona': zona, 'horario': horario, 'seccion': 'horarios'
-    })
-
+# ── Asignaciones ─────────────────────────────────────────────────────────────
 
 @solo_admin
 def asignaciones(request):
-    """Asignación manual de zonas y horarios a profesionales."""
-    configs = ConfigAsistencia.objects.select_related(
-        'user__perfil__profesional', 'zona'
-    ).order_by('user__last_name')
+    """Asignación de zonas a profesionales (y opcionalmente horario propio)."""
+    configs = list(
+        ConfigAsistencia.objects.select_related('user__perfil__profesional', 'zona')
+        .prefetch_related('zona__plantillas__bloques').order_by('user__last_name')
+    )
+    for c in configs:
+        c.plantillas_vigentes = c.plantillas_efectivas()
 
     profesionales_sin_config = User.objects.filter(
         perfil__rol='profesional', is_active=True
-    ).exclude(
-        configs_asistencia__isnull=False
-    )
+    ).exclude(configs_asistencia__isnull=False)
 
     if request.method == 'POST':
         form = ConfigAsistenciaForm(request.POST)
         if form.is_valid():
-            config = form.save(commit=False)
+            config = form.save()
             if config.personalizado:
-                config.modificado_por = request.user
-                config.fecha_modificacion = timezone.now()
-            config.save()
-            messages.success(request, 'Asignación guardada correctamente.')
+                clonar_plantillas_zona(config)
+                _marcar_modificado(config, request.user)
+                messages.success(
+                    request,
+                    'Asignación guardada. Se copió el horario de la zona como punto de partida: '
+                    'ajústalo en «Editar».')
+            else:
+                messages.success(request, 'Asignación guardada correctamente.')
             return redirect('asistencia:asignaciones')
     else:
         form = ConfigAsistenciaForm()
@@ -302,114 +304,127 @@ def asignaciones(request):
 
 @solo_admin
 def editar_config(request, pk):
-    config = get_object_or_404(ConfigAsistencia, pk=pk)
+    config = get_object_or_404(ConfigAsistencia.objects.select_related('user', 'zona'), pk=pk)
     if request.method == 'POST':
         form = ConfigAsistenciaForm(request.POST, instance=config)
         if form.is_valid():
-            config = form.save(commit=False)
+            config = form.save()
             if config.personalizado:
-                config.modificado_por = request.user
-                config.fecha_modificacion = timezone.now()
-            config.save()
+                clonar_plantillas_zona(config)
+                _marcar_modificado(config, request.user)
             messages.success(request, 'Configuración actualizada.')
-            return redirect('asistencia:asignaciones')
+            return redirect('asistencia:editar_config', pk=config.pk)
     else:
         form = ConfigAsistenciaForm(instance=config)
+
+    plantillas_personales = list(
+        PlantillaHorario.objects.filter(zona=config.zona, user=config.user).prefetch_related('bloques')
+    )
+    plantillas_zona = list(
+        PlantillaHorario.objects.filter(zona=config.zona, user__isnull=True).prefetch_related('bloques')
+    )
     return render(request, 'asistencia/admin/editar_config.html', {
-        'form': form, 'config': config, 'seccion': 'asignaciones'
+        'form': form, 'config': config, 'seccion': 'asignaciones',
+        'plantillas_personales': plantillas_personales,
+        'plantillas_zona': plantillas_zona,
     })
 
 
 @solo_admin
+@require_POST
 def eliminar_config(request, pk):
     config = get_object_or_404(ConfigAsistencia, pk=pk)
-    if request.method == 'POST':
-        nombre = str(config)
-        config.delete()
-        messages.success(request, f'Asignación "{nombre}" eliminada.')
+    nombre = str(config)
+    # las plantillas personales de esa zona dejan de tener sentido
+    PlantillaHorario.objects.filter(zona=config.zona, user=config.user).delete()
+    config.delete()
+    messages.success(request, f'Asignación "{nombre}" eliminada.')
     return redirect('asistencia:asignaciones')
 
 
+# ── Fechas especiales ────────────────────────────────────────────────────────
 
 @solo_admin
 def fechas_especiales(request):
-    """Gestión de fechas especiales de horario."""
-    fechas = FechaEspecial.objects.select_related(
-        'zona', 'creado_por'
-    ).prefetch_related('profesionales').order_by('-fecha')
+    """Fechas con horario propio (varios bloques) o día libre."""
+    fechas = FechaEspecial.objects.select_related('zona', 'creado_por').prefetch_related(
+        'profesionales', 'bloques').order_by('-fecha')
 
     if request.method == 'POST':
         form = FechaEspecialForm(request.POST)
-        if form.is_valid():
-            fecha_esp = form.save(commit=False)
-            fecha_esp.creado_por = request.user
-            fecha_esp.save()
-            form.save_m2m()
-            messages.success(request, f'Fecha especial del {fecha_esp.fecha} guardada.')
+        es_libre = request.POST.get('tipo_horario') == 'libre'
+        formset = bloque_formset(
+            FechaEspecial, BloqueFechaEspecial, BloqueFechaEspecialForm,
+            instance=None, data=request.POST, requiere_bloques=not es_libre)
+        if form.is_valid() and (es_libre or formset.is_valid()):
+            with transaction.atomic():
+                fecha_esp = form.save(commit=False)
+                fecha_esp.creado_por = request.user
+                fecha_esp.save()
+                form.save_m2m()
+                if not es_libre:
+                    formset.instance = fecha_esp
+                    formset.save()
+            messages.success(request, f'Fecha especial del {fecha_esp.fecha:%d/%m/%Y} guardada.')
             return redirect('asistencia:fechas_especiales')
     else:
         form = FechaEspecialForm()
+        formset = bloque_formset(FechaEspecial, BloqueFechaEspecial, BloqueFechaEspecialForm, instance=None)
 
     return render(request, 'asistencia/admin/fechas_especiales.html', {
-        'fechas': fechas,
-        'form': form,
-        'seccion': 'horarios',
+        'fechas': fechas, 'form': form, 'formset': formset, 'seccion': 'fechas',
     })
 
 
 @solo_admin
+@require_POST
 def eliminar_fecha_especial(request, pk):
-    fecha_esp = get_object_or_404(FechaEspecial, pk=pk)
-    if request.method == 'POST':
-        fecha_esp.delete()
-        messages.success(request, 'Fecha especial eliminada.')
+    get_object_or_404(FechaEspecial, pk=pk).delete()
+    messages.success(request, 'Fecha especial eliminada.')
     return redirect('asistencia:fechas_especiales')
 
+
+# ── Enrolamiento ─────────────────────────────────────────────────────────────
 
 @solo_admin
 def enrolamiento(request):
     """Estado del enrolamiento facial de cada profesional."""
     profesionales = User.objects.filter(
         perfil__rol='profesional', is_active=True
-    ).select_related('perfil__profesional').prefetch_related('enrolamiento__permisos')
+    ).select_related('perfil__profesional', 'enrolamiento').prefetch_related('enrolamiento__permisos')
 
-    datos = []
-    for user in profesionales:
-        try:
-            enrol = user.enrolamiento
-        except EnrolamientoFacial.DoesNotExist:
-            enrol = None
-        datos.append({'user': user, 'enrolamiento': enrol})
-
+    datos = [{'user': u, 'enrolamiento': getattr(u, 'enrolamiento', None)} for u in profesionales]
     return render(request, 'asistencia/admin/enrolamiento.html', {
-        'datos': datos,
-        'seccion': 'enrolamiento',
+        'datos': datos, 'seccion': 'enrolamiento',
     })
 
 
+def _otorgar_permiso(enrol, admin, motivo):
+    """
+    Permite al profesional volver a registrar su rostro.
+      bloqueado -> pasa a 'pendiente' (y se reinician los intentos)
+      enrolado  -> sigue enrolado y puede marcar hasta que complete el nuevo registro
+    """
+    PermisoReenrolamiento.objects.create(enrolamiento=enrol, otorgado_por=admin, motivo=motivo)
+    if enrol.estado == 'bloqueado':
+        enrol.estado = 'pendiente'
+    enrol.intentos_fallidos = 0
+    enrol.save(update_fields=['estado', 'intentos_fallidos'])
+
+
 @solo_admin
+@require_POST
 def desbloquear_enrolamiento(request, enrolamiento_pk):
-    """Desbloquear enrolamiento y otorgar permiso de re-enrolamiento."""
+    """Desbloquea (o habilita re-enrolar) y otorga permiso."""
     enrol = get_object_or_404(EnrolamientoFacial, pk=enrolamiento_pk)
-
-    if request.method == 'POST':
-        form = PermisoReenrolamientoForm(request.POST)
-        if form.is_valid():
-            PermisoReenrolamiento.objects.create(
-                enrolamiento=enrol,
-                otorgado_por=request.user,
-                motivo=form.cleaned_data['motivo'],
-            )
-            enrol.estado = 'pendiente'
-            enrol.intentos_fallidos = 0
-            enrol.save()
-            messages.success(
-                request,
-                f'Permiso otorgado a {enrol.user.get_full_name()}. '
-                f'Puede intentar el enrolamiento nuevamente.'
-            )
-        return redirect('asistencia:enrolamiento')
-
+    form = PermisoReenrolamientoForm(request.POST)
+    if form.is_valid():
+        _otorgar_permiso(enrol, request.user, form.cleaned_data['motivo'])
+        messages.success(
+            request,
+            f'Permiso otorgado a {enrol.user.get_full_name()}. Puede registrar su rostro nuevamente.')
+    else:
+        messages.error(request, 'Indica el motivo del permiso.')
     return redirect('asistencia:enrolamiento')
 
 
@@ -417,27 +432,15 @@ def desbloquear_enrolamiento(request, enrolamiento_pk):
 def permisos(request):
     """Historial de permisos de re-enrolamiento y formulario para otorgar."""
     historial = PermisoReenrolamiento.objects.select_related(
-        'enrolamiento__user', 'otorgado_por'
-    ).order_by('-fecha_otorgado')
-
+        'enrolamiento__user', 'otorgado_por').order_by('-fecha_otorgado')
     enrolamientos_bloqueados = EnrolamientoFacial.objects.filter(
-        estado='bloqueado'
-    ).select_related('user__perfil__profesional')
+        estado='bloqueado').select_related('user__perfil__profesional')
 
     if request.method == 'POST':
         form = PermisoReenrolamientoForm(request.POST)
         if form.is_valid():
-            enrol = get_object_or_404(
-                EnrolamientoFacial, pk=form.cleaned_data['enrolamiento_id']
-            )
-            PermisoReenrolamiento.objects.create(
-                enrolamiento=enrol,
-                otorgado_por=request.user,
-                motivo=form.cleaned_data['motivo'],
-            )
-            enrol.estado = 'pendiente'
-            enrol.intentos_fallidos = 0
-            enrol.save()
+            enrol = get_object_or_404(EnrolamientoFacial, pk=form.cleaned_data['enrolamiento_id'])
+            _otorgar_permiso(enrol, request.user, form.cleaned_data['motivo'])
             messages.success(request, 'Permiso otorgado correctamente.')
             return redirect('asistencia:permisos')
     else:
@@ -455,139 +458,147 @@ def permisos(request):
 # PANEL PROFESIONAL
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _json_errores(request):
+    return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
 @solo_profesional
 def marcar_asistencia(request):
-    """Vista donde el profesional marca entrada o salida."""
+    """Vista donde el profesional marca entrada o salida (varios bloques por día)."""
     user = request.user
-    hoy = timezone.now().date()
-
-    registros_hoy = user.registros_asistencia.filter(
-        fecha_hora__date=hoy,
-        estado__in=['PUNTUAL', 'TARDANZA']
-    ).order_by('fecha_hora')
-
-    entrada_hoy = registros_hoy.filter(tipo='ENTRADA').first()
-    salida_hoy = registros_hoy.filter(tipo='SALIDA').first()
-
-    puede_entrar = not entrada_hoy
-    puede_salir = bool(entrada_hoy) and not salida_hoy
-
-    # Obtener zonas asignadas para mostrar en el mapa
-    configs = ConfigAsistencia.objects.filter(
-        user=user, zona__activa=True
-    ).select_related('zona')
+    hoy = timezone.localdate()
 
     if request.method == 'POST':
         form = MarcarAsistenciaForm(request.POST)
-        if form.is_valid():
-            d = form.cleaned_data
-            validador = ValidadorAsistencia(
-                user=user,
-                tipo=d['tipo'],
-                latitud=d.get('latitud'),
-                longitud=d.get('longitud'),
-                vector_facial_recibido=d.get('vector_facial'),
-                foto_base64=d.get('foto_base64'),
-                device_id=d.get('device_id', ''),
-                observacion=d.get('observacion', ''),
-            )
-            exito, registro, errores = validador.ejecutar()
+        if not form.is_valid():
+            errores = [f'{campo}: {" ".join(errs)}' if campo != '__all__' else " ".join(errs)
+                       for campo, errs in form.errors.items()]
+            if _json_errores(request):
+                return JsonResponse({'aprobado': False, 'errores': errores}, status=400)
+            for e in errores:
+                messages.error(request, e)
+            return redirect('asistencia:marcar')
 
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                if exito:
-                    return JsonResponse({
-                        'aprobado': True,
-                        'estado': registro.estado,
-                        'tipo': registro.tipo,
-                        'hora': registro.fecha_hora.strftime('%H:%M:%S'),
-                        'minutos_tardanza': registro.minutos_tardanza,
-                    })
-                return JsonResponse({'aprobado': False, 'errores': errores}, status=403)
+        d = form.cleaned_data
+        validador = ValidadorAsistencia(
+            user=user,
+            tipo=d['tipo'],
+            latitud=d.get('latitud'),
+            longitud=d.get('longitud'),
+            vector_facial_recibido=d.get('vector_facial'),
+            foto_base64=d.get('foto_base64'),
+            device_id=d.get('device_id', ''),
+            observacion=d.get('observacion', ''),
+            precision_gps=d.get('precision'),
+        )
+        exito, registro, errores = validador.ejecutar()
 
+        if _json_errores(request):
             if exito:
-                messages.success(
-                    request,
-                    f'{registro.tipo.capitalize()} registrada a las '
-                    f'{registro.fecha_hora.strftime("%H:%M")} — {registro.estado}.'
-                )
-            else:
-                for err in errores:
-                    messages.error(request, err)
+                return JsonResponse({
+                    'aprobado': True,
+                    'estado': registro.estado,
+                    'tipo': registro.tipo,
+                    'hora': timezone.localtime(registro.fecha_hora).strftime('%H:%M:%S'),
+                    'minutos_tardanza': registro.minutos_tardanza,
+                })
+            return JsonResponse({'aprobado': False, 'errores': errores}, status=403)
+
+        if exito:
+            messages.success(
+                request,
+                f'{registro.get_tipo_display()} registrada a las '
+                f'{timezone.localtime(registro.fecha_hora):%H:%M} — {registro.get_estado_display()}.')
+        else:
+            for err in errores:
+                messages.error(request, err)
         return redirect('asistencia:marcar')
 
+    configs = list(
+        ConfigAsistencia.objects.filter(user=user, zona__activa=True)
+        .select_related('zona').prefetch_related('zona__plantillas__bloques')
+    )
+    _config, horario = elegir_config_y_horario(user, hoy, configs)
+    estado_dia = calcular_estado_dia(registros_validos_del_dia(user, hoy), horario)
+
+    try:
+        enrol = user.enrolamiento
+    except EnrolamientoFacial.DoesNotExist:
+        enrol, _ = EnrolamientoFacial.objects.get_or_create(user=user)
+
     return render(request, 'asistencia/profesional/marcar.html', {
-        'entrada_hoy': entrada_hoy,
-        'salida_hoy': salida_hoy,
-        'puede_entrar': puede_entrar,
-        'puede_salir': puede_salir,
+        'horario': horario,
+        'pares': estado_dia.pares,
+        'siguiente': estado_dia.siguiente,
+        'puede_entrar': estado_dia.siguiente == 'ENTRADA',
+        'puede_salir': estado_dia.siguiente == 'SALIDA',
         'configs': configs,
+        'zonas_mapa': [
+            {'nombre': c.zona.nombre, 'lat': float(c.zona.latitud),
+             'lon': float(c.zona.longitud), 'radio': c.zona.radio_metros}
+            for c in configs
+        ],
+        'enrolamiento': enrol,
+        'listo_para_marcar': enrol.estado == 'enrolado',
         'hoy': hoy,
     })
+
+
+MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 
 @solo_profesional
 def mi_asistencia(request):
     """Panel del profesional — historial, métricas y gráfico semanal."""
     user = request.user
-    hoy = timezone.now().date()
+    hoy = timezone.localdate()
 
-    # Mes seleccionado (por defecto el actual)
-    mes = int(request.GET.get('mes', hoy.month))
-    anio = int(request.GET.get('anio', hoy.year))
+    # Mes/año seleccionados: valores inválidos o fuera de rango → mes actual
+    try:
+        mes = int(request.GET.get('mes', hoy.month))
+        anio = int(request.GET.get('anio', hoy.year))
+        if not (1 <= mes <= 12 and 2000 <= anio <= hoy.year + 1):
+            raise ValueError
+    except (TypeError, ValueError):
+        mes, anio = hoy.month, hoy.year
+
     inicio_mes = date(anio, mes, 1)
-    if mes == 12:
-        fin_mes = date(anio + 1, 1, 1) - timedelta(days=1)
-    else:
-        fin_mes = date(anio, mes + 1, 1) - timedelta(days=1)
+    fin_mes = (date(anio + 1, 1, 1) if mes == 12 else date(anio, mes + 1, 1)) - timedelta(days=1)
 
-    registros = user.registros_asistencia.filter(
-        fecha_hora__date__gte=inicio_mes,
-        fecha_hora__date__lte=fin_mes,
-        tipo='ENTRADA',
-        estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE'],
-    ).order_by('-fecha_hora')
+    base = user.registros_asistencia.filter(
+        fecha_hora__date__gte=inicio_mes, fecha_hora__date__lte=fin_mes)
 
-    # Métricas del mes
-    presentes = registros.filter(estado__in=['PUNTUAL', 'TARDANZA']).count()
-    tardanzas = registros.filter(estado='TARDANZA').count()
-    ausentes = registros.filter(estado='AUSENTE').count()
-    minutos_acum = registros.aggregate(
-        total=Sum('minutos_tardanza')
-    )['total'] or 0
+    entradas = base.filter(tipo='ENTRADA', estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE'])
+    dias_presentes = {
+        timezone.localtime(r.fecha_hora).date()
+        for r in entradas.filter(estado__in=['PUNTUAL', 'TARDANZA']).only('fecha_hora')
+    }
+    presentes = len(dias_presentes)
+    tardanzas = entradas.filter(estado='TARDANZA').count()
+    ausentes = entradas.filter(estado='AUSENTE').count()
+    minutos_acum = entradas.aggregate(total=Sum('minutos_tardanza'))['total'] or 0
 
-    # Todos los registros del mes (entrada + salida) para el listado
-    registros_listado = user.registros_asistencia.filter(
-        fecha_hora__date__gte=inicio_mes,
-        fecha_hora__date__lte=fin_mes,
-        estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE'],
-    ).order_by('-fecha_hora').select_related('zona')
+    registros_listado = base.filter(
+        estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE']).order_by('-fecha_hora').select_related('zona')
 
-    # Datos para gráfico semanal (últimas 4 semanas)
     semanas = []
     for i in range(3, -1, -1):
         inicio_sem = hoy - timedelta(days=hoy.weekday() + 7 * i)
-        fin_sem = inicio_sem + timedelta(days=6)
         regs_sem = user.registros_asistencia.filter(
             fecha_hora__date__gte=inicio_sem,
-            fecha_hora__date__lte=fin_sem,
+            fecha_hora__date__lte=inicio_sem + timedelta(days=6),
             tipo='ENTRADA',
         )
         semanas.append({
-            'label': f'{inicio_sem.strftime("%d/%m")}',
+            'label': inicio_sem.strftime('%d/%m'),
             'puntuales': regs_sem.filter(estado='PUNTUAL').count(),
             'tardanzas': regs_sem.filter(estado='TARDANZA').count(),
             'ausentes': regs_sem.filter(estado='AUSENTE').count(),
         })
 
-    # Meses disponibles para el selector
-    meses_disponibles = []
-    for m in range(1, 13):
-        meses_disponibles.append({
-            'numero': m,
-            'nombre': ['Ene','Feb','Mar','Abr','May','Jun',
-                       'Jul','Ago','Sep','Oct','Nov','Dic'][m-1],
-            'activo': m == mes,
-        })
+    primer = user.registros_asistencia.order_by('fecha_hora').values_list('fecha_hora', flat=True).first()
+    anio_ini = timezone.localtime(primer).year if primer else hoy.year
+    anios_disponibles = list(range(min(anio_ini, hoy.year), hoy.year + 1))
 
     return render(request, 'asistencia/profesional/mi_asistencia.html', {
         'registros_listado': registros_listado,
@@ -598,7 +609,10 @@ def mi_asistencia(request):
         'semanas': semanas,
         'mes': mes,
         'anio': anio,
-        'meses_disponibles': meses_disponibles,
+        'anios_disponibles': anios_disponibles,
+        'meses_disponibles': [
+            {'numero': m, 'nombre': MESES_CORTOS[m - 1], 'activo': m == mes} for m in range(1, 13)
+        ],
         'hoy': hoy,
     })
 
@@ -606,79 +620,38 @@ def mi_asistencia(request):
 @solo_profesional
 def enrolamiento_facial(request):
     """
-    Página de enrolamiento facial del profesional.
-    Accesible desde su panel. Requiere permiso del admin si ya está enrolado o bloqueado.
+    Enrolamiento facial del profesional. El primer registro es libre; actualizar un
+    rostro ya registrado (o salir de un bloqueo) requiere permiso del administrador.
     """
     user = request.user
-    try:
-        enrolamiento = user.enrolamiento
-    except Exception:
-        from .models import EnrolamientoFacial
-        enrolamiento, _ = EnrolamientoFacial.objects.get_or_create(user=user)
+    enrol, _ = EnrolamientoFacial.objects.get_or_create(user=user)
+    puede_enrolar = enrol.puede_enrolar()
 
-    puede_enrolar = enrolamiento.puede_enrolar()
-    permiso_activo = enrolamiento.tiene_permiso_activo()
-
-    if request.method == 'POST' and puede_enrolar:
-        import json
-        vector = request.POST.get('vector_facial')
-        foto_base64 = request.POST.get('foto_base64')
-
-        if not vector:
-            messages.error(request, 'No se recibió el vector facial. Intentá nuevamente.')
+    if request.method == 'POST':
+        if not puede_enrolar:
+            messages.error(request, 'Necesitas el permiso del administrador para registrar tu rostro de nuevo.')
             return redirect('asistencia:enrolamiento_facial')
-
         try:
-            vector_data = json.loads(vector)
-        except Exception:
-            messages.error(request, 'Error al procesar el vector facial.')
+            descriptores = json.loads(request.POST.get('vector_facial') or 'null')
+            procesar_enrolamiento(enrol, descriptores, request.POST.get('foto_base64'))
+        except (ValueError, ErrorEnrolamiento) as exc:
+            msg = str(exc) if isinstance(exc, ErrorEnrolamiento) else 'No se pudieron leer los datos faciales.'
+            messages.error(request, msg)
             return redirect('asistencia:enrolamiento_facial')
-
-        # Guardar vector y marcar como enrolado
-        enrolamiento.vector_facial = vector_data
-        enrolamiento.estado = 'enrolado'
-        enrolamiento.intentos_fallidos = 0
-        enrolamiento.fecha_enrolamiento = timezone.now()
-
-        # Calcular score promedio (similitud consigo mismo = 1.0 en enrolamiento)
-        enrolamiento.score_promedio = 1.0
-
-        # Marcar permiso como usado si existía
-        permiso = enrolamiento.permisos.filter(usado=False).first()
-        if permiso:
-            permiso.usado = True
-            permiso.fecha_usado = timezone.now()
-            permiso.save()
-
-        # Guardar foto si viene
-        if foto_base64:
-            import base64
-            from django.core.files.base import ContentFile
-            try:
-                formato, datos = foto_base64.split(';base64,')
-                ext = formato.split('/')[-1]
-                from .models import RegistroAsistencia
-                enrolamiento.save()
-            except Exception:
-                pass
-
-        enrolamiento.save()
-        messages.success(request, '¡Rostro registrado correctamente! Ya podés marcar asistencia.')
+        messages.success(request, '¡Rostro registrado correctamente! Ya puedes marcar asistencia.')
         return redirect('asistencia:mi_asistencia')
 
     return render(request, 'asistencia/profesional/enrolamiento_facial.html', {
-        'enrolamiento': enrolamiento,
+        'enrolamiento': enrol,
         'puede_enrolar': puede_enrolar,
-        'permiso_activo': permiso_activo,
+        'permiso_activo': enrol.tiene_permiso_activo(),
     })
 
 
 @solo_profesional
 def editar_observacion(request, pk):
     """El profesional edita solo su observación — únicamente el mismo día."""
-    registro = get_object_or_404(
-        RegistroAsistencia, pk=pk, user=request.user
-    )
+    registro = get_object_or_404(RegistroAsistencia, pk=pk, user=request.user)
 
     if not registro.es_editable_hoy():
         messages.error(request, 'Solo puedes editar la observación durante el día del registro.')

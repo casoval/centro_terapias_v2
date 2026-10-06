@@ -38,7 +38,7 @@
               </div>
               <div>
                 <div class="font-semibold text-sm text-gray-800">{{ d.user.get_full_name }}</div>
-                <div class="text-xs text-gray-400">{{ d.user.username }}</div>
+                <div class="text-xs text-gray-400">{{ d.user.username }}{% if d.enrolamiento.foto_referencia %} · <a href="{{ d.enrolamiento.foto_referencia.url }}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">ver foto</a>{% endif %}</div>
               </div>
             </div>
           </td>
@@ -80,6 +80,21 @@
                 Desbloquear
               </button>
             </form>
+            {% elif d.enrolamiento and d.enrolamiento.estado == 'enrolado' %}
+              {% if d.enrolamiento.tiene_permiso_activo %}
+                <span class="text-xs text-green-700 font-semibold">Puede volver a registrar su rostro</span>
+              {% else %}
+              <form method="post" action="{% url 'asistencia:desbloquear' d.enrolamiento.pk %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="enrolamiento_id" value="{{ d.enrolamiento.pk }}"/>
+                <input type="text" name="motivo" required placeholder="Motivo (ej: cambió su aspecto)"
+                       class="text-xs border border-gray-200 rounded-lg px-2 py-1 mr-2 w-44"/>
+                <button type="submit"
+                        class="text-xs bg-blue-100 text-blue-800 border border-blue-200 px-3 py-1 rounded-lg font-semibold hover:bg-blue-200">
+                  Permitir re-enrolar
+                </button>
+              </form>
+              {% endif %}
             {% else %}
             <span class="text-gray-300 text-xs">—</span>
             {% endif %}

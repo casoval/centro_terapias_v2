@@ -13,7 +13,7 @@
 #       profesionales según sus sesiones consumidas (costo / sesiones_consumidas_totales
 #       por cada sesión consumida). Si el profesional está solo, se lleva el 100%.
 #   · Horas trabajadas = horas de RELOJ (sesiones grupales simultáneas no se duplican).
-#   · Horario: asistencia (FechaEspecial > ConfigAsistencia > HorarioPredeterminado);
+#   · Horario: asistencia (FechaEspecial > horario propio del profesional > horarios de la zona);
 #       si no hay nada configurado → predeterminado L-V 9:00-12:00 y 14:30-19:00,
 #       sábado 9:00-12:00 (editable desde el reporte).
 # =====================================================================
@@ -266,22 +266,20 @@ def _buscar_config_asistencia(prof, sucursal_id):
     from asistencia.models import ConfigAsistencia, ZonaAsistencia
 
     def _valida(cfg):
-        try:
-            return bool(cfg.get_dias_partido() or cfg.get_dias_continuo())
-        except Exception:
-            return False
+        # Válida si tiene al menos un horario (plantilla con días y bloques) vigente.
+        return any(p.dias and p.bloques_ordenados() for p in cfg.plantillas_efectivas())
 
     candidatas = []
     user = prof.user
     if user:
         candidatas = list(
             ConfigAsistencia.objects.filter(user=user, zona__activa=True)
-            .select_related('zona')
+            .select_related('zona').prefetch_related('zona__plantillas__bloques')
         )
     if not candidatas:
         zonas = ZonaAsistencia.objects.filter(
             activa=True, sucursal__in=prof.sucursales.all()
-        ).select_related('sucursal')
+        ).select_related('sucursal').prefetch_related('plantillas__bloques')
         for z in zonas:
             candidatas.append(ConfigAsistencia(user=user, zona=z))
 
@@ -335,36 +333,24 @@ def preparar_horario(prof, sucursal_id, desde, hasta, manual_cfg, forzar_manual)
         info['zona'] = zona.nombre
         info['fuente_txt'] = f'Horario configurado en Asistencia (zona: {zona.nombre})'
         user = prof.user
-        especiales = {}
-        for fe in FechaEspecial.objects.filter(zona=zona, fecha__gte=desde, fecha__lte=hasta):
-            if (not fe.profesionales.exists()) or (user and fe.profesionales.filter(pk=user.pk).exists()):
-                especiales[fe.fecha] = fe
+        # Fechas especiales del rango precargadas (el resolvedor no consulta la BD por cada día)
+        especiales = list(
+            FechaEspecial.objects.filter(zona=zona, fecha__gte=desde, fecha__lte=hasta)
+            .prefetch_related('bloques', 'profesionales')
+        )
+        for fe in especiales:
+            if fe.aplica_a_user(user):
                 info['especiales'].append({
                     'fecha': fe.fecha, 'tipo': fe.get_tipo_horario_display(),
                     'motivo': fe.motivo,
                 })
 
-        def _bl(h):
-            tipo = h.get('tipo')
-            if tipo in (None, 'libre'):
-                return []
-            out = []
-            if h.get('hora_entrada') and h.get('hora_salida'):
-                out.append((_t2m(h['hora_entrada']), _t2m(h['hora_salida'])))
-            if tipo == 'partido' and h.get('hora_entrada_tarde') and h.get('hora_salida_tarde'):
-                out.append((_t2m(h['hora_entrada_tarde']), _t2m(h['hora_salida_tarde'])))
-            return [(a, b) for a, b in out if b > a]
-
         def bloques(d):
-            if d in especiales:
-                return _bl(ResolvedorHorario(user, zona, cfg, d).resolver())
-            return _bl({
-                'tipo': cfg.tipo_para_dia(d),
-                'hora_entrada': cfg.get_hora_entrada(),
-                'hora_salida': cfg.get_hora_salida(),
-                'hora_entrada_tarde': cfg.get_hora_entrada_tarde(),
-                'hora_salida_tarde': cfg.get_hora_salida_tarde(),
-            })
+            # Asistencia devuelve los bloques reales del día (1 = continuo, 2 = partido, ...),
+            # cada día de la semana puede tener su propio horario (p. ej. sábado solo mañana).
+            h = ResolvedorHorario(user, zona, cfg, d, fechas_especiales=especiales).resolver()
+            out = [(_t2m(b.entrada), _t2m(b.salida)) for b in h.bloques]
+            return [(i, f) for i, f in out if f > i]
 
     # Resumen semanal tipo (usa una semana de referencia)
     ref = desde - timedelta(days=desde.weekday())

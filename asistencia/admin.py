@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    ZonaAsistencia, HorarioPredeterminado, ConfigAsistencia,
-    FechaEspecial, EnrolamientoFacial, PermisoReenrolamiento, RegistroAsistencia
+    ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
+    FechaEspecial, BloqueFechaEspecial, EnrolamientoFacial,
+    PermisoReenrolamiento, RegistroAsistencia
 )
 
 
@@ -13,11 +14,22 @@ class ZonaAsistenciaAdmin(admin.ModelAdmin):
     search_fields = ['nombre']
 
 
-@admin.register(HorarioPredeterminado)
-class HorarioPredeterminadoAdmin(admin.ModelAdmin):
-    list_display = ['zona', 'dias_partido', 'dias_continuo',
-                    'hora_entrada', 'hora_salida', 'tolerancia_minutos',
-                    'hora_entrada_tarde', 'hora_salida_tarde', 'tolerancia_tarde']
+class BloqueHorarioInline(admin.TabularInline):
+    model = BloqueHorario
+    extra = 1
+
+
+@admin.register(PlantillaHorario)
+class PlantillaHorarioAdmin(admin.ModelAdmin):
+    list_display = ['zona', 'user', 'nombre', 'dias_display', 'tipo_display']
+    list_filter = ['zona']
+    search_fields = ['nombre', 'user__first_name', 'user__last_name']
+    inlines = [BloqueHorarioInline]
+
+
+class BloqueFechaEspecialInline(admin.TabularInline):
+    model = BloqueFechaEspecial
+    extra = 1
 
 
 @admin.register(FechaEspecial)
@@ -26,6 +38,7 @@ class FechaEspecialAdmin(admin.ModelAdmin):
     list_filter   = ['tipo_horario', 'zona', 'fecha']
     date_hierarchy = 'fecha'
     filter_horizontal = ['profesionales']
+    inlines = [BloqueFechaEspecialInline]
 
     def get_profesionales(self, obj):
         count = obj.profesionales.count()
@@ -45,7 +58,7 @@ class EnrolamientoFacialAdmin(admin.ModelAdmin):
     list_display  = ['user', 'estado_coloreado', 'intentos_fallidos', 'fecha_enrolamiento', 'score_promedio']
     list_filter   = ['estado']
     search_fields = ['user__first_name', 'user__last_name']
-    readonly_fields = ['vector_facial', 'fecha_enrolamiento', 'score_promedio', 'intentos_fallidos']
+    readonly_fields = ['vector_facial', 'fecha_enrolamiento', 'score_promedio', 'foto_referencia']
 
     def estado_coloreado(self, obj):
         colores = {'pendiente': '#F59E0B', 'enrolado': '#10B981', 'bloqueado': '#EF4444'}
@@ -68,7 +81,7 @@ class PermisoReenrolamientoAdmin(admin.ModelAdmin):
 @admin.register(RegistroAsistencia)
 class RegistroAsistenciaAdmin(admin.ModelAdmin):
     list_display  = ['get_profesional', 'tipo', 'bloque', 'estado_coloreado',
-                     'fecha_hora', 'zona', 'minutos_tardanza', 'biometrico_score']
+                     'fecha_hora', 'zona', 'minutos_tardanza', 'biometrico_score', 'precision_metros']
     list_filter   = ['tipo', 'estado', 'bloque', 'zona', 'fecha_hora']
     search_fields = ['user__first_name', 'user__last_name']
     date_hierarchy = 'fecha_hora'

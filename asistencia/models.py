@@ -1,4 +1,5 @@
 import math
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -42,99 +43,109 @@ class ZonaAsistencia(models.Model):
         return distancia <= self.radio_metros, round(distancia, 1)
 
 
-class HorarioPredeterminado(models.Model):
-    """
-    Horario base por zona.
-    dias_partido: ej ["LUN","MAR","MIE","JUE","VIE"]
-    dias_continuo: ej ["SAB"]
-    Bloque manana/continuo: hora_entrada, hora_salida, tolerancia_minutos
-    Bloque tarde (solo partido): hora_entrada_tarde, hora_salida_tarde, tolerancia_tarde
-    """
-    zona = models.OneToOneField(
-        ZonaAsistencia, on_delete=models.CASCADE,
-        related_name='horario_predeterminado'
-    )
-    dias_partido = models.JSONField(
-        default=list,
-        help_text='Dias con horario partido. Ej: ["LUN","MAR","MIE","JUE","VIE"]'
-    )
-    dias_continuo = models.JSONField(
-        default=list,
-        help_text='Dias con horario continuo. Ej: ["SAB"]'
-    )
-    hora_entrada = models.TimeField(default='08:00')
-    hora_salida = models.TimeField(default='13:00')
+class BloqueBase(models.Model):
+    """Franja horaria de trabajo (entrada/salida + tolerancia). Base abstracta."""
+    orden = models.PositiveSmallIntegerField(default=1)
+    hora_entrada = models.TimeField()
+    hora_salida = models.TimeField()
     tolerancia_minutos = models.PositiveIntegerField(default=10)
-    hora_entrada_tarde = models.TimeField(null=True, blank=True, default='14:00')
-    hora_salida_tarde = models.TimeField(null=True, blank=True, default='18:00')
-    tolerancia_tarde = models.PositiveIntegerField(null=True, blank=True, default=10)
 
     class Meta:
-        verbose_name = 'Horario predeterminado'
-        verbose_name_plural = 'Horarios predeterminados'
+        abstract = True
+        ordering = ['orden', 'hora_entrada']
+
+    def clean(self):
+        if self.hora_entrada and self.hora_salida and self.hora_salida <= self.hora_entrada:
+            raise ValidationError('La hora de salida debe ser posterior a la de entrada.')
 
     def __str__(self):
-        return f"{self.zona.nombre} — Partido: {self.dias_partido} / Continuo: {self.dias_continuo}"
+        return f"{self.hora_entrada:%H:%M}-{self.hora_salida:%H:%M}"
 
-    def tipo_para_dia(self, fecha):
-        codigo = WEEKDAY_MAP.get(fecha.weekday())
-        if codigo in (self.dias_partido or []):
-            return 'partido'
-        if codigo in (self.dias_continuo or []):
-            return 'continuo'
-        return None
+
+def ordenar_bloques(bloques):
+    """Ordena bloques por hora de entrada (funciona con querysets prefetch)."""
+    return sorted(bloques, key=lambda b: (b.hora_entrada, b.hora_salida))
+
+
+class PlantillaHorario(models.Model):
+    """
+    Horario semanal reutilizable: un grupo de dias con N bloques de trabajo.
+
+    Ejemplos para una misma zona:
+      - "Lunes a viernes (partido)": dias LUN..VIE, bloques 08:00-13:00 y 14:00-18:00
+      - "Sabado (continuo)":         dias SAB,      bloque  08:00-12:00
+
+    user = NULL  -> horario predeterminado de la zona
+    user = <X>   -> horario personal de X en esa zona (solo cuenta si
+                    ConfigAsistencia.personalizado = True)
+    """
+    zona = models.ForeignKey(ZonaAsistencia, on_delete=models.CASCADE, related_name='plantillas')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='plantillas_asistencia',
+        help_text='Vacio = predeterminado de la zona'
+    )
+    nombre = models.CharField(max_length=100, blank=True)
+    dias = models.JSONField(default=list, help_text='Ej: ["LUN","MAR","MIE","JUE","VIE"]')
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Plantilla de horario'
+        verbose_name_plural = 'Plantillas de horario'
+        ordering = ['zona__nombre', 'id']
+
+    def __str__(self):
+        quien = self.user.get_full_name() if self.user_id else 'zona'
+        return f"{self.zona.nombre} [{quien}] — {self.nombre or self.dias_display}"
+
+    @property
+    def dias_display(self):
+        nombres = dict(DIAS_SEMANA)
+        return ', '.join(nombres[d][:3] for d in DIAS_SEMANA_ORDEN if d in (self.dias or []))
+
+    @property
+    def tipo_display(self):
+        n = len(self.bloques_ordenados())
+        return {0: 'Sin bloques', 1: 'Continuo', 2: 'Partido'}.get(n, f'{n} bloques')
+
+    def bloques_ordenados(self):
+        return ordenar_bloques(self.bloques.all())
+
+    def aplica_en(self, fecha):
+        return WEEKDAY_MAP.get(fecha.weekday()) in (self.dias or [])
+
+
+DIAS_SEMANA_ORDEN = [d for d, _ in DIAS_SEMANA]
+
+
+class BloqueHorario(BloqueBase):
+    plantilla = models.ForeignKey(PlantillaHorario, on_delete=models.CASCADE, related_name='bloques')
+
+    class Meta(BloqueBase.Meta):
+        verbose_name = 'Bloque de horario'
+        verbose_name_plural = 'Bloques de horario'
 
 
 class FechaEspecial(models.Model):
     """
-    Fecha con horario especial definido por el admin.
-    Prioridad maxima sobre cualquier otro horario.
+    Fecha con horario propio (o dia libre). Prioridad maxima sobre cualquier otro horario.
     Si profesionales esta vacio aplica a todos los de la zona.
+    tipo 'horario' -> usa sus BloqueFechaEspecial (si no tiene bloques, no altera nada).
     """
     TIPO_CHOICES = [
-        ('continuo', 'Horario continuo'),
-        ('partido', 'Horario partido'),
+        ('horario', 'Horario especial'),
         ('libre', 'Dia libre'),
     ]
-    zona = models.ForeignKey(
-        ZonaAsistencia, on_delete=models.CASCADE,
-        related_name='fechas_especiales'
-    )
+    zona = models.ForeignKey(ZonaAsistencia, on_delete=models.CASCADE, related_name='fechas_especiales')
     fecha = models.DateField()
-    tipo_horario = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    tipo_horario = models.CharField(max_length=10, choices=TIPO_CHOICES, default='horario')
     profesionales = models.ManyToManyField(
         User, blank=True, related_name='fechas_especiales',
         help_text="Dejar vacio para aplicar a todos los profesionales de la zona"
     )
     motivo = models.CharField(max_length=200, blank=True)
-
-    # Horario especifico para esta fecha (opcional)
-    # Si es None usa el horario base de la zona segun el tipo
-    hora_entrada_especial = models.TimeField(
-        null=True, blank=True,
-        help_text="Dejar vacio para usar el horario base de la zona"
-    )
-    hora_salida_especial = models.TimeField(
-        null=True, blank=True,
-        help_text="Dejar vacio para usar el horario base de la zona"
-    )
-    tolerancia_especial = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Dejar vacio para usar la tolerancia base de la zona"
-    )
-    # Para horario partido con horario especifico
-    hora_entrada_tarde_especial = models.TimeField(
-        null=True, blank=True,
-        help_text="Solo para tipo partido. Dejar vacio para usar el horario base."
-    )
-    hora_salida_tarde_especial = models.TimeField(
-        null=True, blank=True,
-    )
-    tolerancia_tarde_especial = models.PositiveIntegerField(null=True, blank=True)
-
     creado_por = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True,
-        related_name='fechas_especiales_creadas'
+        User, on_delete=models.SET_NULL, null=True, related_name='fechas_especiales_creadas'
     )
     creado_en = models.DateTimeField(auto_now_add=True)
 
@@ -147,28 +158,31 @@ class FechaEspecial(models.Model):
     def __str__(self):
         return f"{self.zona.nombre} — {self.fecha} ({self.get_tipo_horario_display()})"
 
+    def bloques_ordenados(self):
+        return ordenar_bloques(self.bloques.all())
+
     def aplica_a_user(self, user):
-        if not self.profesionales.exists():
-            return True
-        return self.profesionales.filter(pk=user.pk).exists()
+        # .all() para aprovechar prefetch_related('profesionales')
+        ids = {u.pk for u in self.profesionales.all()}
+        return not ids or (user is not None and user.pk in ids)
+
+
+class BloqueFechaEspecial(BloqueBase):
+    fecha_especial = models.ForeignKey(FechaEspecial, on_delete=models.CASCADE, related_name='bloques')
+
+    class Meta(BloqueBase.Meta):
+        verbose_name = 'Bloque de fecha especial'
+        verbose_name_plural = 'Bloques de fecha especial'
 
 
 class ConfigAsistencia(models.Model):
-    """Configuracion por usuario + zona. Puede sobreescribir dias y horarios."""
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='configs_asistencia'
-    )
-    zona = models.ForeignKey(
-        ZonaAsistencia, on_delete=models.CASCADE, related_name='configs'
-    )
-    dias_partido_custom = models.JSONField(null=True, blank=True)
-    dias_continuo_custom = models.JSONField(null=True, blank=True)
-    hora_entrada_custom = models.TimeField(null=True, blank=True)
-    hora_salida_custom = models.TimeField(null=True, blank=True)
-    tolerancia_custom = models.PositiveIntegerField(null=True, blank=True)
-    hora_entrada_tarde_custom = models.TimeField(null=True, blank=True)
-    hora_salida_tarde_custom = models.TimeField(null=True, blank=True)
-    tolerancia_tarde_custom = models.PositiveIntegerField(null=True, blank=True)
+    """
+    Asignacion usuario + zona.
+    personalizado=False -> usa las PlantillaHorario de la zona (user NULL)
+    personalizado=True  -> usa solo las PlantillaHorario propias del usuario en esa zona
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='configs_asistencia')
+    zona = models.ForeignKey(ZonaAsistencia, on_delete=models.CASCADE, related_name='configs')
     personalizado = models.BooleanField(default=False)
     modificado_por = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
@@ -186,91 +200,46 @@ class ConfigAsistencia(models.Model):
         tipo = "personalizado" if self.personalizado else "predeterminado"
         return f"{self.user.get_full_name()} — {self.zona.nombre} ({tipo})"
 
-    def get_dias_partido(self):
-        if self.personalizado and self.dias_partido_custom is not None:
-            return self.dias_partido_custom
-        try:
-            return self.zona.horario_predeterminado.dias_partido or []
-        except HorarioPredeterminado.DoesNotExist:
-            return []
+    def plantillas_efectivas(self):
+        """Plantillas que rigen para este usuario (usa prefetch si existe)."""
+        todas = list(self.zona.plantillas.all())
+        if self.personalizado:
+            return [p for p in todas if p.user_id == self.user_id]
+        return [p for p in todas if p.user_id is None]
 
-    def get_dias_continuo(self):
-        if self.personalizado and self.dias_continuo_custom is not None:
-            return self.dias_continuo_custom
-        try:
-            return self.zona.horario_predeterminado.dias_continuo or []
-        except HorarioPredeterminado.DoesNotExist:
-            return []
-
-    def tipo_para_dia(self, fecha):
-        codigo = WEEKDAY_MAP.get(fecha.weekday())
-        if codigo in self.get_dias_partido():
-            return 'partido'
-        if codigo in self.get_dias_continuo():
-            return 'continuo'
+    def plantilla_para_dia(self, fecha):
+        for p in self.plantillas_efectivas():
+            if p.aplica_en(fecha):
+                return p
         return None
 
-    def get_hora_entrada(self):
-        if self.personalizado and self.hora_entrada_custom:
-            return self.hora_entrada_custom
-        try:
-            return self.zona.horario_predeterminado.hora_entrada
-        except HorarioPredeterminado.DoesNotExist:
-            return None
-
-    def get_hora_salida(self):
-        if self.personalizado and self.hora_salida_custom:
-            return self.hora_salida_custom
-        try:
-            return self.zona.horario_predeterminado.hora_salida
-        except HorarioPredeterminado.DoesNotExist:
-            return None
-
-    def get_tolerancia(self):
-        if self.personalizado and self.tolerancia_custom is not None:
-            return self.tolerancia_custom
-        try:
-            return self.zona.horario_predeterminado.tolerancia_minutos
-        except HorarioPredeterminado.DoesNotExist:
-            return 10
-
-    def get_hora_entrada_tarde(self):
-        if self.personalizado and self.hora_entrada_tarde_custom:
-            return self.hora_entrada_tarde_custom
-        try:
-            return self.zona.horario_predeterminado.hora_entrada_tarde
-        except HorarioPredeterminado.DoesNotExist:
-            return None
-
-    def get_hora_salida_tarde(self):
-        if self.personalizado and self.hora_salida_tarde_custom:
-            return self.hora_salida_tarde_custom
-        try:
-            return self.zona.horario_predeterminado.hora_salida_tarde
-        except HorarioPredeterminado.DoesNotExist:
-            return None
-
-    def get_tolerancia_tarde(self):
-        if self.personalizado and self.tolerancia_tarde_custom is not None:
-            return self.tolerancia_tarde_custom
-        try:
-            return self.zona.horario_predeterminado.tolerancia_tarde or 10
-        except HorarioPredeterminado.DoesNotExist:
-            return 10
+    def bloques_para_dia(self, fecha):
+        p = self.plantilla_para_dia(fecha)
+        return p.bloques_ordenados() if p else []
 
 
 class EnrolamientoFacial(models.Model):
+    """
+    vector_facial: lista de descriptores faciales (cada uno = lista de 128 floats,
+    generados en el navegador con face-api.js).
+    """
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
         ('enrolado', 'Enrolado'),
         ('bloqueado', 'Bloqueado'),
     ]
+    MAX_INTENTOS = 5
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='enrolamiento')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     vector_facial = models.JSONField(null=True, blank=True)
     intentos_fallidos = models.PositiveIntegerField(default=0)
     fecha_enrolamiento = models.DateTimeField(null=True, blank=True)
     score_promedio = models.FloatField(null=True, blank=True)
+    foto_referencia = models.ImageField(
+        upload_to='asistencia/enrolamiento/', null=True, blank=True,
+        help_text='Foto tomada al enrolar, para revision del administrador'
+    )
 
     class Meta:
         verbose_name = 'Enrolamiento facial'
@@ -283,9 +252,22 @@ class EnrolamientoFacial(models.Model):
         return self.permisos.filter(usado=False).exists()
 
     def puede_enrolar(self):
-        if self.estado == 'bloqueado':
-            return self.tiene_permiso_activo()
-        return self.estado in ['pendiente', 'enrolado']
+        """Primer enrolamiento libre; re-enrolar o salir de bloqueo requiere permiso del admin."""
+        if self.estado == 'pendiente':
+            return True
+        return self.tiene_permiso_activo()
+
+    def registrar_fallo(self):
+        """Suma un intento fallido; bloquea al llegar a MAX_INTENTOS."""
+        self.intentos_fallidos += 1
+        if self.intentos_fallidos >= self.MAX_INTENTOS:
+            self.estado = 'bloqueado'
+        self.save(update_fields=['intentos_fallidos', 'estado'])
+
+    def registrar_exito(self):
+        if self.intentos_fallidos:
+            self.intentos_fallidos = 0
+            self.save(update_fields=['intentos_fallidos'])
 
 
 class PermisoReenrolamiento(models.Model):
@@ -315,27 +297,27 @@ class RegistroAsistencia(models.Model):
         ('PUNTUAL', 'Puntual'), ('TARDANZA', 'Tardanza'), ('AUSENTE', 'Ausente'),
         ('DENEGADO_GPS', 'Denegado GPS'), ('DENEGADO_BIO', 'Denegado biometrico'),
     ]
-    BLOQUE_CHOICES = [('manana', 'Manana'), ('tarde', 'Tarde'), ('continuo', 'Continuo')]
+    ESTADOS_VALIDOS = ('PUNTUAL', 'TARDANZA')
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='registros_asistencia')
     zona = models.ForeignKey(ZonaAsistencia, on_delete=models.SET_NULL, null=True, blank=True, related_name='registros')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     estado = models.CharField(max_length=15, choices=ESTADO_CHOICES)
-    bloque = models.CharField(max_length=10, choices=BLOQUE_CHOICES, blank=True)
+    # Numero de bloque del dia ("1", "2", ...). Vacio = fuera de horario / sin horario.
+    bloque = models.CharField(max_length=10, blank=True)
     fecha_hora = models.DateTimeField(default=timezone.now)
     latitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitud = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     distancia_metros = models.FloatField(null=True, blank=True)
+    precision_metros = models.FloatField(null=True, blank=True, help_text='Precision reportada por el GPS del dispositivo')
+    # Distancia euclidiana entre descriptores faciales (menor = mas parecido)
     biometrico_score = models.FloatField(null=True, blank=True)
     foto_captura = models.ImageField(upload_to='asistencia/capturas/%Y/%m/%d/', null=True, blank=True)
     minutos_tardanza = models.IntegerField(default=0)
     device_id = models.CharField(max_length=255, blank=True)
     observacion = models.TextField(blank=True)
-    # Marcado manual por admin
     registrado_por = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        User, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='registros_marcados',
         help_text="Si no es null, este registro fue creado manualmente por un administrador"
     )
@@ -350,10 +332,18 @@ class RegistroAsistencia(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.get_full_name()} — {self.tipo} {self.fecha_hora.strftime('%d/%m/%Y %H:%M')} ({self.estado})"
+        return f"{self.user.get_full_name()} — {self.tipo} {timezone.localtime(self.fecha_hora):%d/%m/%Y %H:%M} ({self.estado})"
 
     def es_editable_hoy(self):
-        return self.fecha_hora.date() == timezone.now().date()
+        return timezone.localtime(self.fecha_hora).date() == timezone.localdate()
+
+    @property
+    def es_manual(self):
+        return self.registrado_por_id is not None
+
+    @property
+    def bloque_display(self):
+        return f"Bloque {self.bloque}" if self.bloque else ''
 
     @property
     def profesional(self):

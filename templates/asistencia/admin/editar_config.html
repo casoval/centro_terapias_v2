@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Editar Asignación — Asistencia{% endblock %}
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
+<div class="max-w-2xl mx-auto px-4 py-8">
 
   <div class="mb-6">
     <a href="{% url 'asistencia:asignaciones' %}" class="text-sm text-blue-600 hover:underline font-medium">← Volver a asignaciones</a>
   </div>
 
-  <div class="bg-white border border-gray-200 rounded-2xl p-6">
+  {% if messages %}
+  {% for msg in messages %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium {% if msg.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="bg-white border border-gray-200 rounded-2xl p-6 mb-5">
     <h1 class="text-xl font-bold text-gray-900 mb-1">Editar asignación</h1>
     <p class="text-sm text-gray-400 mb-5">{{ config.user.get_full_name }} — {{ config.zona.nombre }}</p>
 
@@ -16,9 +22,16 @@
 
       {% for field in form %}
       <div class="mb-4">
+        {% if field.field.widget.input_type == 'checkbox' %}
+        <label class="flex items-center gap-2 cursor-pointer">
+          {{ field }}
+          <span class="text-sm font-medium text-gray-700">{{ field.label }}</span>
+        </label>
+        {% else %}
         <label class="block text-xs font-semibold text-gray-600 mb-1">{{ field.label }}</label>
         {{ field }}
-        {% if field.errors %}{% for e in field.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}{% endif %}
+        {% endif %}
+        {% for e in field.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
         {% if field.help_text %}<p class="text-xs text-gray-400 mt-1">{{ field.help_text }}</p>{% endif %}
       </div>
       {% endfor %}
@@ -39,6 +52,50 @@
         </a>
       </div>
     </form>
+  </div>
+
+  <!-- Horarios que rigen para este profesional -->
+  <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-base font-bold text-gray-800">
+          {% if config.personalizado %}Horario propio{% else %}Horario de la zona{% endif %}
+        </h2>
+        <p class="text-xs text-gray-400">
+          {% if config.personalizado %}Reemplaza al de la zona. Los días sin horario son días libres para este profesional.
+          {% else %}Se hereda de «{{ config.zona.nombre }}». Activa «Horario propio» arriba para personalizarlo.{% endif %}
+        </p>
+      </div>
+      {% if config.personalizado %}
+      <a href="{% url 'asistencia:nueva_plantilla_personal' config.pk %}"
+         class="text-xs bg-blue-700 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-800 flex-shrink-0">+ Agregar horario</a>
+      {% endif %}
+    </div>
+
+    <div class="divide-y divide-gray-50">
+      {% if config.personalizado %}
+        {% for p in plantillas_personales %}
+        <div class="px-6 py-3 flex items-center justify-between gap-3">
+          {% include "asistencia/admin/_plantilla_resumen.html" with p=p %}
+          <div class="flex items-center gap-3 flex-shrink-0">
+            <a href="{% url 'asistencia:editar_plantilla' p.pk %}" class="text-xs text-blue-600 hover:underline font-medium">Editar</a>
+            <form method="post" action="{% url 'asistencia:eliminar_plantilla' p.pk %}" class="inline" onsubmit="return confirm('¿Eliminar este horario?')">
+              {% csrf_token %}
+              <button type="submit" class="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="px-6 py-4 text-sm text-red-500">Sin horarios: este profesional no tiene días laborables. Agrega uno.</div>
+        {% endfor %}
+      {% else %}
+        {% for p in plantillas_zona %}
+        <div class="px-6 py-3">{% include "asistencia/admin/_plantilla_resumen.html" with p=p %}</div>
+        {% empty %}
+        <div class="px-6 py-4 text-sm text-gray-400">La zona aún no tiene horarios.</div>
+        {% endfor %}
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}

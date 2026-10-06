@@ -1,0 +1,17 @@
+{# Resumen de una PlantillaHorario: tipo, días y bloques. Uso: {% include "asistencia/admin/_plantilla_resumen.html" with p=plantilla %} #}
+<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+  {% with bloques=p.bloques_ordenados %}
+  <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+    {% if bloques|length == 1 %}bg-teal-100 text-teal-800{% elif bloques|length == 2 %}bg-purple-100 text-purple-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+    {{ p.tipo_display }}
+  </span>
+  <span class="text-sm font-semibold text-gray-800">{{ p.dias_display }}</span>
+  {% if p.nombre %}<span class="text-xs text-gray-400">({{ p.nombre }})</span>{% endif %}
+  {% for b in bloques %}
+  <span class="font-mono text-xs bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-gray-700">
+    {{ b.hora_entrada|time:"H:i" }} — {{ b.hora_salida|time:"H:i" }}
+    <span class="text-gray-400">±{{ b.tolerancia_minutos }}m</span>
+  </span>
+  {% endfor %}
+  {% endwith %}
+</div>

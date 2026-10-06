@@ -1,7 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Registrar mi rostro — Asistencia{% endblock %}
 
+
 {% block content %}
+<script src="{% static 'asistencia/face/face-api.js' %}"></script>
+<script src="{% static 'asistencia/face/facial.js' %}"></script>
 <div class="max-w-lg mx-auto px-4 py-8">
 
   <div class="mb-6">
@@ -66,8 +70,8 @@
       {% if enrolamiento.estado == 'enrolado' %}Actualizar mi rostro{% else %}Registrar mi rostro{% endif %}
     </h1>
     <p class="text-sm text-gray-400 mb-5">
-      Encuadrá tu cara en el círculo y hacé clic en el botón para capturar la foto.
-      Se tomarán varias capturas para mejorar la precisión.
+      Encuadra tu cara en el círculo y haz clic en el botón. Se tomarán varias capturas
+      automáticas para mejorar la precisión.
     </p>
 
     <!-- Cámara -->
@@ -117,7 +121,7 @@
     </form>
 
     <p class="text-xs text-gray-400 text-center mt-3">
-      Se capturarán 5 fotos automáticamente en diferentes ángulos.
+      Se tomarán 5 capturas automáticas en distintos ángulos. El reconocimiento se procesa en tu dispositivo.
     </p>
   </div>
 
@@ -156,36 +160,51 @@ const progresoCount = document.getElementById('progreso-count');
 const progresoTexto = document.getElementById('progreso-texto');
 const previewFotos = document.getElementById('preview-fotos');
 const fotosGrid = document.getElementById('fotos-grid');
+const URL_MODELOS = "{% static 'asistencia/face/models' %}";
 
 const TOTAL_FOTOS = 5;
+const MINIMO_VALIDAS = 3;
 const INSTRUCCIONES = [
-  'Mirá al frente',
-  'Girá levemente a la izquierda',
-  'Girá levemente a la derecha',
-  'Inclinate levemente hacia arriba',
-  'Volvé al centro'
+  'Mira al frente',
+  'Gira levemente a la izquierda',
+  'Gira levemente a la derecha',
+  'Inclínate levemente hacia arriba',
+  'Vuelve al centro'
 ];
-let fotosCapturadas = [];
 let capturaEnCurso = false;
+let camaraLista = false, modelosListos = false;
 
-// Iniciar cámara
-navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 480, height: 480 } })
-  .then(stream => {
+function estado(texto, clase) {
+  if (!status) return;
+  status.textContent = texto;
+  status.className = 'text-xs text-center mb-4 ' + clase;
+}
+function actualizarBoton() {
+  if (btnCapturar) btnCapturar.disabled = !(camaraLista && modelosListos) || capturaEnCurso;
+}
+
+async function iniciar() {
+  if (!video) return;               // la página no muestra el formulario (sin permiso)
+  if (btnCapturar) btnCapturar.disabled = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }, audio: false });
     video.srcObject = stream;
-    status.textContent = 'Cámara activa. Encuadrá tu rostro en el círculo.';
-    status.className = 'text-xs text-center text-green-600 mb-4 font-medium';
-  })
-  .catch(() => {
-    status.textContent = 'No se pudo acceder a la cámara.';
-    status.className = 'text-xs text-center text-red-500 mb-4';
-    if (btnCapturar) btnCapturar.disabled = true;
-  });
-
-function capturarFrame() {
-  canvas.width = video.videoWidth || 480;
-  canvas.height = video.videoHeight || 480;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  return canvas.toDataURL('image/jpeg', 0.85);
+    camaraLista = true;
+  } catch (e) {
+    estado('No se pudo acceder a la cámara. Revisa los permisos del navegador.', 'text-red-500');
+    return;
+  }
+  estado('Cargando reconocimiento facial...', 'text-gray-400');
+  try {
+    await FaceAsistencia.cargarModelos(URL_MODELOS);
+    modelosListos = true;
+    estado('Cámara lista. Encuadra tu rostro en el círculo.', 'text-green-600 font-medium');
+  } catch (e) {
+    console.error(e);
+    estado('No se pudo cargar el reconocimiento facial. Recarga la página.', 'text-red-500');
+  }
+  actualizarBoton();
 }
 
 function agregarPreview(base64, index) {
@@ -196,10 +215,18 @@ function agregarPreview(base64, index) {
   fotosGrid.appendChild(img);
 }
 
+function fotoActual() {
+  canvas.width = video.videoWidth || 480;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
 async function iniciarCaptura() {
-  if (capturaEnCurso) return;
+  if (capturaEnCurso || !(camaraLista && modelosListos)) return;
   capturaEnCurso = true;
-  fotosCapturadas = [];
+  const descriptores = [];
+  let fotoEvidencia = null;
   fotosGrid.innerHTML = '';
   btnCapturar.disabled = true;
   btnGuardar.disabled = true;
@@ -208,41 +235,45 @@ async function iniciarCaptura() {
 
   for (let i = 0; i < TOTAL_FOTOS; i++) {
     progresoTexto.textContent = INSTRUCCIONES[i];
-    progresoCount.textContent = `${i} / ${TOTAL_FOTOS}`;
+    progresoCount.textContent = `${descriptores.length} / ${TOTAL_FOTOS}`;
     progresoBarra.style.width = `${(i / TOTAL_FOTOS) * 100}%`;
+    await new Promise(r => setTimeout(r, i === 0 ? 700 : 1100));   // tiempo para cambiar de pose
 
-    // Esperar 800ms para que el usuario cambie posición
-    await new Promise(r => setTimeout(r, i === 0 ? 500 : 900));
-
-    const foto = capturarFrame();
-    fotosCapturadas.push(foto);
-    agregarPreview(foto, i);
-
-    progresoCount.textContent = `${i + 1} / ${TOTAL_FOTOS}`;
+    let lectura = null;
+    for (let intento = 0; intento < 3; intento++) {
+      lectura = await FaceAsistencia.leer(video);
+      if (lectura.ok) break;
+      await new Promise(r => setTimeout(r, 300));
+    }
+    if (lectura.ok) {
+      const foto = fotoActual();
+      descriptores.push(lectura.descriptor);
+      if (!fotoEvidencia) fotoEvidencia = foto;   // la 1.ª captura válida queda como foto de referencia
+      agregarPreview(foto, i);
+    }
+    progresoCount.textContent = `${descriptores.length} / ${TOTAL_FOTOS}`;
     progresoBarra.style.width = `${((i + 1) / TOTAL_FOTOS) * 100}%`;
   }
 
-  progresoTexto.textContent = '¡Listo!';
-  await new Promise(r => setTimeout(r, 600));
   overlayProgreso.classList.add('hidden');
   overlayProgreso.style.display = 'none';
+  previewFotos.classList.toggle('hidden', descriptores.length === 0);
 
-  // Guardar la primera foto como evidencia
-  document.getElementById('foto_base64').value = fotosCapturadas[0];
-
-  // Vector facial simulado (en producción esto lo genera face-api.js o similar)
-  // Por ahora guardamos las 5 fotos como "vector" para procesamiento posterior
-  const vectorSimulado = fotosCapturadas.map((_, i) => Math.random());
-  document.getElementById('vector_facial').value = JSON.stringify(vectorSimulado);
-
-  previewFotos.classList.remove('hidden');
-  status.textContent = '5 capturas realizadas. Revisá las fotos y hacé clic en Guardar.';
-  status.className = 'text-xs text-center text-green-600 mb-4 font-medium';
-
-  btnCapturar.disabled = false;
-  btnCapturar.textContent = 'Volver a capturar';
-  btnGuardar.disabled = false;
+  if (descriptores.length < MINIMO_VALIDAS) {
+    estado(`Solo se detectó tu rostro en ${descriptores.length} de ${TOTAL_FOTOS} capturas (mínimo ${MINIMO_VALIDAS}). ` +
+           'Busca mejor luz, mira a la cámara y vuelve a intentar.', 'text-red-600 font-medium');
+    btnGuardar.disabled = true;
+  } else {
+    document.getElementById('foto_base64').value = fotoEvidencia;
+    document.getElementById('vector_facial').value = JSON.stringify(descriptores);
+    estado(`${descriptores.length} capturas válidas. Revisa las fotos y haz clic en Guardar.`, 'text-green-600 font-medium');
+    btnGuardar.disabled = false;
+  }
   capturaEnCurso = false;
+  btnCapturar.textContent = 'Volver a capturar';
+  actualizarBoton();
 }
+
+iniciar();
 </script>
 {% endblock %}

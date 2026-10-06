@@ -1,8 +1,9 @@
 from django import forms
-from django.utils import timezone
+from django.forms import BaseInlineFormSet, inlineformset_factory
 from .models import (
-    ZonaAsistencia, HorarioPredeterminado, ConfigAsistencia,
-    FechaEspecial, PermisoReenrolamiento, RegistroAsistencia
+    ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
+    FechaEspecial, BloqueFechaEspecial, RegistroAsistencia,
+    DIAS_SEMANA_ORDEN,
 )
 
 INPUT = 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold bg-white'
@@ -19,9 +20,12 @@ class MarcarAsistenciaForm(forms.Form):
     tipo        = forms.ChoiceField(choices=[('ENTRADA','Entrada'),('SALIDA','Salida')], widget=forms.HiddenInput())
     latitud     = forms.DecimalField(max_digits=9, decimal_places=6, widget=forms.HiddenInput())
     longitud    = forms.DecimalField(max_digits=9, decimal_places=6, widget=forms.HiddenInput())
+    # Precision (metros) reportada por el GPS del dispositivo
+    precision   = forms.FloatField(widget=forms.HiddenInput(), required=False, min_value=0)
+    # Descriptor facial: lista de 128 numeros generada en el navegador con face-api.js
     vector_facial = forms.JSONField(widget=forms.HiddenInput(), required=False)
     foto_base64 = forms.CharField(widget=forms.HiddenInput(), required=False)
-    device_id   = forms.CharField(widget=forms.HiddenInput(), max_length=255)
+    device_id   = forms.CharField(widget=forms.HiddenInput(), max_length=255, required=False)
     observacion = forms.CharField(
         label='Observación (opcional)', required=False,
         widget=forms.Textarea(attrs={'class': INPUT, 'rows': 2,
@@ -67,115 +71,147 @@ class ZonaAsistenciaForm(forms.ModelForm):
         self.fields['sucursal'].empty_label = "Sin sucursal vinculada"
 
 
-class HorarioPredeterminadoForm(forms.ModelForm):
-    dias_partido = forms.MultipleChoiceField(
-        choices=DIAS_CHOICES, required=False,
-        widget=forms.CheckboxSelectMultiple(),
-        label='Días con horario partido',
-        help_text='Ej: Lunes a Viernes'
-    )
-    dias_continuo = forms.MultipleChoiceField(
-        choices=DIAS_CHOICES, required=False,
-        widget=forms.CheckboxSelectMultiple(),
-        label='Días con horario continuo',
-        help_text='Ej: Sábado'
+MAX_BLOQUES = 4
+TIME_FMT = '%H:%M'
+
+
+class PlantillaHorarioForm(forms.ModelForm):
+    """Grupo de dias + nombre. Los bloques (entrada/salida) van en el formset."""
+    dias = forms.MultipleChoiceField(
+        choices=DIAS_CHOICES, widget=forms.CheckboxSelectMultiple(),
+        label='Días de la semana',
+        error_messages={'required': 'Marca al menos un día.'},
     )
 
     class Meta:
-        model = HorarioPredeterminado
-        fields = [
-            'dias_partido', 'dias_continuo',
-            'hora_entrada', 'hora_salida', 'tolerancia_minutos',
-            'hora_entrada_tarde', 'hora_salida_tarde', 'tolerancia_tarde',
-        ]
-        widgets = {
-            'hora_entrada':       forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida':        forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_minutos': forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
-            'hora_entrada_tarde': forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida_tarde':  forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_tarde':   forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
-        }
-        labels = {
-            'hora_entrada': 'Entrada mañana / continuo',
-            'hora_salida':  'Salida mañana / continuo',
-            'tolerancia_minutos': 'Tolerancia mañana (min)',
-            'hora_entrada_tarde': 'Entrada tarde',
-            'hora_salida_tarde':  'Salida tarde',
-            'tolerancia_tarde':   'Tolerancia tarde (min)',
-        }
+        model = PlantillaHorario
+        fields = ['nombre', 'dias']
+        widgets = {'nombre': forms.TextInput(attrs={
+            'class': INPUT, 'placeholder': 'Ej: Lunes a viernes, Sábados...'})}
+        labels = {'nombre': 'Nombre (opcional)'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['nombre'].required = False
         if self.instance and self.instance.pk:
-            self.initial['dias_partido']  = self.instance.dias_partido or []
-            self.initial['dias_continuo'] = self.instance.dias_continuo or []
-        self.fields['hora_entrada_tarde'].required = False
-        self.fields['hora_salida_tarde'].required  = False
-        self.fields['tolerancia_tarde'].required   = False
+            self.initial['dias'] = self.instance.dias or []
+
+    def clean_dias(self):
+        # Orden de semana estable (LUN..DOM) sin importar como llegaron
+        dias = self.cleaned_data['dias']
+        return [d for d in DIAS_SEMANA_ORDEN if d in dias]
 
     def clean(self):
         cleaned = super().clean()
-        partido  = cleaned.get('dias_partido', [])
-        continuo = cleaned.get('dias_continuo', [])
-        overlap  = set(partido) & set(continuo)
-        if overlap:
-            raise forms.ValidationError(
-                f"Los días {', '.join(overlap)} no pueden ser partido y continuo al mismo tiempo."
-            )
+        dias = set(cleaned.get('dias') or [])
+        inst = self.instance
+        if dias and inst.zona_id:
+            otras = PlantillaHorario.objects.filter(zona_id=inst.zona_id, user_id=inst.user_id)
+            if inst.pk:
+                otras = otras.exclude(pk=inst.pk)
+            nombres = dict(DIAS_CHOICES)
+            for otra in otras:
+                comunes = [d for d in DIAS_SEMANA_ORDEN if d in dias and d in (otra.dias or [])]
+                if comunes:
+                    raise forms.ValidationError(
+                        f"{', '.join(nombres[d] for d in comunes)} ya está en el horario "
+                        f"«{otra.nombre or otra.dias_display}». Quita esos días de uno de los dos."
+                    )
         return cleaned
 
     def save(self, commit=True):
-        instance = super().save(commit=False)
-        instance.dias_partido  = list(self.cleaned_data.get('dias_partido', []))
-        instance.dias_continuo = list(self.cleaned_data.get('dias_continuo', []))
+        inst = super().save(commit=False)
+        inst.dias = list(self.cleaned_data['dias'])
         if commit:
-            instance.save()
-        return instance
+            inst.save()
+        return inst
+
+
+class BloqueForm(forms.ModelForm):
+    class Meta:
+        fields = ['hora_entrada', 'hora_salida', 'tolerancia_minutos']
+        widgets = {
+            'hora_entrada': forms.TimeInput(format=TIME_FMT, attrs={'class': TIME, 'type': 'time'}),
+            'hora_salida': forms.TimeInput(format=TIME_FMT, attrs={'class': TIME, 'type': 'time'}),
+            'tolerancia_minutos': forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
+        }
+        labels = {'hora_entrada': 'Entrada', 'hora_salida': 'Salida', 'tolerancia_minutos': 'Tolerancia (min)'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tolerancia_minutos'].initial = 10
+
+
+class BloqueHorarioForm(BloqueForm):
+    class Meta(BloqueForm.Meta):
+        model = BloqueHorario
+
+
+class BloqueFechaEspecialForm(BloqueForm):
+    class Meta(BloqueForm.Meta):
+        model = BloqueFechaEspecial
+
+
+class BaseBloqueFormSet(BaseInlineFormSet):
+    """Exige al menos un bloque, sin solapes entre ellos, y numera por hora de entrada."""
+    requiere_bloques = True
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        bloques = []
+        for form in self.forms:
+            if form.cleaned_data.get('DELETE') or not form.cleaned_data.get('hora_entrada'):
+                continue
+            bloques.append((form.cleaned_data['hora_entrada'], form.cleaned_data['hora_salida']))
+        if not bloques and self.requiere_bloques:
+            raise forms.ValidationError('Define al menos un bloque de trabajo (entrada y salida).')
+        bloques.sort()
+        for (e1, s1), (e2, s2) in zip(bloques, bloques[1:]):
+            if e2 < s1:
+                raise forms.ValidationError(
+                    f'Los bloques {e1:%H:%M}–{s1:%H:%M} y {e2:%H:%M}–{s2:%H:%M} se solapan.')
+
+    def save(self, commit=True):
+        resultado = super().save(commit=commit)
+        if commit:
+            # numera por hora de entrada (1 = primero del dia)
+            padre = getattr(self, 'instance')
+            hijos = sorted(getattr(padre, 'bloques').all(), key=lambda b: (b.hora_entrada, b.hora_salida))
+            for i, h in enumerate(hijos, start=1):
+                if h.orden != i:
+                    h.orden = i
+                    h.save(update_fields=['orden'])
+        return resultado
+
+
+def bloque_formset(padre_model, bloque_model, form_class, instance=None, data=None, prefix='bloques',
+                   requiere_bloques=True):
+    """Formset de bloques con filas vacias suficientes para completar hasta 3."""
+    existentes = instance.bloques.count() if instance is not None and instance.pk else 0
+    extra = 0 if existentes >= MAX_BLOQUES else max(1, 3 - existentes)
+    FS = inlineformset_factory(
+        padre_model, bloque_model, form=form_class, formset=BaseBloqueFormSet,
+        extra=extra, can_delete=True, max_num=MAX_BLOQUES, validate_max=True,
+    )
+    FS.requiere_bloques = requiere_bloques
+    return FS(data=data, instance=instance, prefix=prefix)
 
 
 class ConfigAsistenciaForm(forms.ModelForm):
-    dias_partido_custom = forms.MultipleChoiceField(
-        choices=DIAS_CHOICES, required=False,
-        widget=forms.CheckboxSelectMultiple(),
-        label='Días partido (sobreescribe zona)',
-    )
-    dias_continuo_custom = forms.MultipleChoiceField(
-        choices=DIAS_CHOICES, required=False,
-        widget=forms.CheckboxSelectMultiple(),
-        label='Días continuo (sobreescribe zona)',
-    )
-
     class Meta:
         model = ConfigAsistencia
-        fields = [
-            'user', 'zona', 'personalizado',
-            'dias_partido_custom', 'dias_continuo_custom',
-            'hora_entrada_custom', 'hora_salida_custom', 'tolerancia_custom',
-            'hora_entrada_tarde_custom', 'hora_salida_tarde_custom', 'tolerancia_tarde_custom',
-            'device_id',
-        ]
+        fields = ['user', 'zona', 'personalizado', 'device_id']
         widgets = {
             'user':  forms.Select(attrs={'class': INPUT}),
             'zona':  forms.Select(attrs={'class': INPUT}),
             'personalizado': forms.CheckboxInput(attrs={'class': CHECK}),
-            'hora_entrada_custom':       forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida_custom':        forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_custom':         forms.NumberInput(attrs={'class': INPUT, 'min': '0'}),
-            'hora_entrada_tarde_custom': forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida_tarde_custom':  forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_tarde_custom':   forms.NumberInput(attrs={'class': INPUT, 'min': '0'}),
             'device_id': forms.TextInput(attrs={'class': INPUT}),
         }
         labels = {
             'user': 'Profesional', 'zona': 'Zona asignada',
-            'personalizado': 'Activar personalización',
-            'hora_entrada_custom': 'Entrada mañana personalizada',
-            'hora_salida_custom':  'Salida mañana personalizada',
-            'tolerancia_custom':   'Tolerancia mañana (min)',
-            'hora_entrada_tarde_custom': 'Entrada tarde personalizada',
-            'hora_salida_tarde_custom':  'Salida tarde personalizada',
-            'tolerancia_tarde_custom':   'Tolerancia tarde (min)',
+            'personalizado': 'Horario propio (en vez del de la zona)',
             'device_id': 'Device ID del celular',
         }
 
@@ -185,36 +221,13 @@ class ConfigAsistenciaForm(forms.ModelForm):
         self.fields['user'].queryset = DjangoUser.objects.filter(
             perfil__rol='profesional', is_active=True
         ).order_by('last_name', 'first_name')
-        if self.instance and self.instance.pk:
-            self.initial['dias_partido_custom']  = self.instance.dias_partido_custom or []
-            self.initial['dias_continuo_custom'] = self.instance.dias_continuo_custom or []
-        for f in ['hora_entrada_custom','hora_salida_custom','tolerancia_custom',
-                  'hora_entrada_tarde_custom','hora_salida_tarde_custom',
-                  'tolerancia_tarde_custom','device_id']:
-            self.fields[f].required = False
-        self.fields['dias_partido_custom'].required  = False
-        self.fields['dias_continuo_custom'].required = False
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        if instance.personalizado:
-            p = self.cleaned_data.get('dias_partido_custom', [])
-            c = self.cleaned_data.get('dias_continuo_custom', [])
-            instance.dias_partido_custom  = list(p) if p else None
-            instance.dias_continuo_custom = list(c) if c else None
-        if commit:
-            instance.save()
-        return instance
+        self.fields['device_id'].required = False
 
 
 class FechaEspecialForm(forms.ModelForm):
     class Meta:
         model = FechaEspecial
-        fields = [
-            'zona', 'fecha', 'tipo_horario', 'motivo', 'profesionales',
-            'hora_entrada_especial', 'hora_salida_especial', 'tolerancia_especial',
-            'hora_entrada_tarde_especial', 'hora_salida_tarde_especial', 'tolerancia_tarde_especial',
-        ]
+        fields = ['zona', 'fecha', 'tipo_horario', 'motivo', 'profesionales']
         widgets = {
             'zona':         forms.Select(attrs={'class': INPUT}),
             'fecha':        forms.DateInput(attrs={'class': INPUT, 'type': 'date'}),
@@ -222,29 +235,13 @@ class FechaEspecialForm(forms.ModelForm):
                             'onchange': 'toggleHorarioEspecial(this.value)'}),
             'motivo':       forms.TextInput(attrs={'class': INPUT,
                             'placeholder': 'Ej: Feriado nacional, Evento especial...'}),
-            'profesionales':forms.CheckboxSelectMultiple(),
-            'hora_entrada_especial':       forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida_especial':        forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_especial':         forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
-            'hora_entrada_tarde_especial': forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'hora_salida_tarde_especial':  forms.TimeInput(attrs={'class': TIME, 'type': 'time'}),
-            'tolerancia_tarde_especial':   forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
+            'profesionales': forms.CheckboxSelectMultiple(),
         }
         labels = {
             'zona': 'Zona / sede', 'fecha': 'Fecha',
-            'tipo_horario': 'Tipo de horario ese día',
+            'tipo_horario': 'Ese día',
             'motivo': 'Motivo',
             'profesionales': 'Aplicar solo a (vacío = todos)',
-            'hora_entrada_especial': 'Entrada',
-            'hora_salida_especial':  'Salida',
-            'tolerancia_especial':   'Tolerancia (min)',
-            'hora_entrada_tarde_especial': 'Entrada tarde',
-            'hora_salida_tarde_especial':  'Salida tarde',
-            'tolerancia_tarde_especial':   'Tolerancia tarde (min)',
-        }
-        help_texts = {
-            'hora_entrada_especial': 'Dejar vacío para usar el horario base de la zona',
-            'hora_entrada_tarde_especial': 'Solo si el tipo es partido',
         }
 
     def __init__(self, *args, **kwargs):
@@ -253,10 +250,8 @@ class FechaEspecialForm(forms.ModelForm):
         self.fields['profesionales'].queryset = DjangoUser.objects.filter(
             perfil__rol='profesional', is_active=True
         ).order_by('last_name', 'first_name')
-        for f in ['profesionales', 'motivo', 'hora_entrada_especial', 'hora_salida_especial',
-                  'tolerancia_especial', 'hora_entrada_tarde_especial',
-                  'hora_salida_tarde_especial', 'tolerancia_tarde_especial']:
-            self.fields[f].required = False
+        self.fields['profesionales'].required = False
+        self.fields['motivo'].required = False
 
 
 class PermisoReenrolamientoForm(forms.Form):

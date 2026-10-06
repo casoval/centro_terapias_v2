@@ -4,8 +4,8 @@
 <div class="max-w-5xl mx-auto px-4 py-6">
   <h1 class="text-2xl font-bold text-gray-900 mb-2">Fechas especiales</h1>
   <p class="text-sm text-gray-500 mb-6">
-    Define días con horario especial. Prioridad máxima sobre cualquier otro horario.
-    Si no defines un horario específico, se usa el horario base de la zona.
+    Define días con horario especial (continuo, partido o con los bloques que necesites) o días libres.
+    Tienen prioridad máxima sobre cualquier otro horario.
   </p>
 
   <nav class="flex gap-2 flex-wrap mb-6">
@@ -51,45 +51,36 @@
           {{ form.motivo }}
         </div>
 
-        <!-- Horario específico (se muestra/oculta según tipo) -->
+        <!-- Horario de ese día (se muestra solo si no es día libre) -->
         <div id="bloque-horario-especial" class="hidden">
           <div class="border border-blue-100 bg-blue-50 rounded-xl p-4 mb-4">
-            <p class="text-xs font-semibold text-blue-700 mb-3">
-              Horario específico para esta fecha
-              <span class="text-blue-400 font-normal">(dejar vacío para usar el horario base de la zona)</span>
-            </p>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada_especial.label }}</label>
-                {{ form.hora_entrada_especial }}
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida_especial.label }}</label>
-                {{ form.hora_salida_especial }}
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_especial.label }}</label>
-                {{ form.tolerancia_especial }}
-              </div>
-            </div>
-
-            <!-- Bloque tarde (solo partido) -->
-            <div id="bloque-tarde-especial" class="hidden">
-              <p class="text-xs font-semibold text-purple-700 mb-2 mt-3">Bloque tarde</p>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div>
-                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_entrada_tarde_especial.label }}</label>
-                  {{ form.hora_entrada_tarde_especial }}
+            <p class="text-xs font-semibold text-blue-700 mb-1">Horario de ese día</p>
+            <p class="text-xs text-blue-500 mb-3">1 bloque = continuo · 2 bloques = partido. Deja vacíos los que no uses.</p>
+            {{ formset.management_form }}
+            {% for e in formset.non_form_errors %}<p class="text-xs text-red-600 mb-2">{{ e }}</p>{% endfor %}
+            <div class="space-y-3">
+              {% for f in formset %}
+              <div class="bg-white border border-blue-100 rounded-lg p-3">
+                {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+                <p class="text-xs font-bold text-gray-600 mb-2">Bloque {{ forloop.counter }}</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.hora_entrada.label }}</label>
+                    {{ f.hora_entrada }}
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.hora_salida.label }}</label>
+                    {{ f.hora_salida }}
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.tolerancia_minutos.label }}</label>
+                    {{ f.tolerancia_minutos }}
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.hora_salida_tarde_especial.label }}</label>
-                  {{ form.hora_salida_tarde_especial }}
-                </div>
-                <div>
-                  <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.tolerancia_tarde_especial.label }}</label>
-                  {{ form.tolerancia_tarde_especial }}
-                </div>
+                {% for field in f.visible_fields %}{% for e in field.errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}{% endfor %}
+                {% for e in f.non_field_errors %}<p class="text-xs text-red-500 mt-1">{{ e }}</p>{% endfor %}
               </div>
+              {% endfor %}
             </div>
           </div>
         </div>
@@ -103,7 +94,7 @@
           </div>
         </div>
 
-        {% if form.errors %}
+        {% if form.errors or formset.total_error_count %}
         <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
           {% for field in form %}{% for e in field.errors %}<p>{{ e }}</p>{% endfor %}{% endfor %}
           {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
@@ -127,27 +118,21 @@
           <div class="flex-1">
             <div class="flex items-center gap-2 flex-wrap mb-1">
               <span class="font-bold text-gray-800 text-sm font-mono">{{ fecha.fecha|date:"d/m/Y" }}</span>
-              {% if fecha.tipo_horario == 'continuo' %}
-                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2 py-0.5 rounded-full">Continuo</span>
-              {% elif fecha.tipo_horario == 'partido' %}
-                <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">Partido</span>
-              {% else %}
+              {% if fecha.tipo_horario == 'libre' %}
                 <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-2 py-0.5 rounded-full">Día libre</span>
-              {% endif %}
-              {% if fecha.hora_entrada_especial %}
-                <span class="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full">Horario propio</span>
+              {% else %}
+                {% with n=fecha.bloques.all|length %}
+                <span class="{% if n == 2 %}bg-purple-100 text-purple-800{% else %}bg-teal-100 text-teal-800{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {% if n == 1 %}Continuo{% elif n == 2 %}Partido{% else %}{{ n }} bloques{% endif %}
+                </span>
+                {% endwith %}
               {% endif %}
             </div>
             <div class="text-xs text-gray-500">{{ fecha.zona.nombre }}</div>
-            {% if fecha.hora_entrada_especial %}
-            <div class="text-xs text-gray-500 mt-0.5">
-              {{ fecha.hora_entrada_especial|time:"H:i" }} — {{ fecha.hora_salida_especial|time:"H:i" }}
-              {% if fecha.hora_entrada_tarde_especial %}
-                · Tarde: {{ fecha.hora_entrada_tarde_especial|time:"H:i" }} — {{ fecha.hora_salida_tarde_especial|time:"H:i" }}
-              {% endif %}
+            {% if fecha.tipo_horario != 'libre' %}
+            <div class="text-xs text-gray-500 mt-0.5 font-mono">
+              {% for b in fecha.bloques_ordenados %}{% if not forloop.first %} · {% endif %}{{ b.hora_entrada|time:"H:i" }}–{{ b.hora_salida|time:"H:i" }}{% endfor %}
             </div>
-            {% else %}
-            <div class="text-xs text-gray-400 mt-0.5 italic">Usa horario base de la zona</div>
             {% endif %}
             {% if fecha.motivo %}
             <div class="text-xs text-gray-400 italic mt-0.5">"{{ fecha.motivo }}"</div>
@@ -176,22 +161,9 @@
 
 <script>
 function toggleHorarioEspecial(tipo) {
-  const bloqueH = document.getElementById('bloque-horario-especial');
-  const bloqueTarde = document.getElementById('bloque-tarde-especial');
-  if (tipo === 'libre') {
-    bloqueH.classList.add('hidden');
-    bloqueTarde.classList.add('hidden');
-  } else {
-    bloqueH.classList.remove('hidden');
-    if (tipo === 'partido') {
-      bloqueTarde.classList.remove('hidden');
-    } else {
-      bloqueTarde.classList.add('hidden');
-    }
-  }
+  document.getElementById('bloque-horario-especial').classList.toggle('hidden', tipo === 'libre');
 }
-// Inicializar según valor actual
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const sel = document.querySelector('[name="tipo_horario"]');
   if (sel) toggleHorarioEspecial(sel.value);
 });

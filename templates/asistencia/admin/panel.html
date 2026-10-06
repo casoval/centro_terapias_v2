@@ -1,110 +1,23 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Panel de Asistencia — Admin
-<!-- Modal marcar asistencia admin -->
-<div id="modal-marcar" class="hidden fixed inset-0 z-50 flex items-center justify-center"
-     style="background:rgba(0,0,0,0.5);">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
-
-    <div class="px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-gray-900" id="modal-titulo">Registrar asistencia</h3>
-      <p class="text-xs text-gray-400 mt-0.5" id="modal-subtitulo"></p>
-    </div>
-
-    <form id="form-marcar-admin" method="post" action="">
-      {% csrf_token %}
-      <input type="hidden" name="tipo" id="modal-tipo"/>
-
-      <div class="px-6 py-5">
-        <!-- Tipo badge -->
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-sm text-gray-600">Tipo de registro:</span>
-          <span id="modal-tipo-badge"
-                class="text-xs font-bold px-3 py-1 rounded-full"></span>
-        </div>
-
-        <!-- Motivo opcional -->
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">
-            Motivo <span class="text-gray-400 font-normal">(opcional)</span>
-          </label>
-          <input type="text" name="observacion" id="modal-observacion"
-                 placeholder="Ej: Problema con el celular, sin conexión..."
-                 class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400"/>
-        </div>
-
-        <p class="text-xs text-gray-400 mt-3">
-          Este registro quedará anotado como registrado manualmente por vos.
-        </p>
-      </div>
-
-      <div class="px-6 py-4 border-t border-gray-100 flex gap-3">
-        <button type="button" onclick="cerrarModal()"
-                class="flex-1 bg-gray-100 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-200 transition-colors">
-          Cancelar
-        </button>
-        <button type="submit" id="modal-btn-confirmar"
-                class="flex-1 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
-          Confirmar
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script>
-function abrirModal(userPk, nombre, tipo) {
-  const modal = document.getElementById('modal-marcar');
-  const form  = document.getElementById('form-marcar-admin');
-  const badge = document.getElementById('modal-tipo-badge');
-  const btn   = document.getElementById('modal-btn-confirmar');
-
-  document.getElementById('modal-titulo').textContent = nombre;
-  document.getElementById('modal-subtitulo').textContent =
-    tipo === 'ENTRADA' ? 'Registrar entrada manual' : 'Registrar salida manual';
-  document.getElementById('modal-tipo').value = tipo;
-  document.getElementById('modal-observacion').value = '';
-  form.action = `/asistencia/admin/marcar/${userPk}/`;
-
-  if (tipo === 'ENTRADA') {
-    badge.textContent = 'Entrada';
-    badge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-green-100 text-green-800';
-    btn.className = 'flex-1 bg-green-600 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-green-700 transition-colors';
-  } else {
-    badge.textContent = 'Salida';
-    badge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-blue-100 text-blue-800';
-    btn.className = 'flex-1 bg-blue-700 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors';
-  }
-
-  modal.classList.remove('hidden');
-  setTimeout(() => document.getElementById('modal-observacion').focus(), 100);
-}
-
-function cerrarModal() {
-  document.getElementById('modal-marcar').classList.add('hidden');
-}
-
-// Cerrar al hacer clic fuera
-document.getElementById('modal-marcar').addEventListener('click', function(e) {
-  if (e.target === this) cerrarModal();
-});
-
-// Cerrar con Escape
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') cerrarModal();
-});
-</script>
-
-{% endblock %}
+{% block title %}Panel de Asistencia — Admin{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-6">
 
   <!-- Encabezado -->
-  <div class="flex items-center justify-between mb-6">
+  <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Panel de Asistencia</h1>
-      <p class="text-sm text-gray-500 mt-1">{{ hoy|date:"l, d \d\e F \d\e Y" }}</p>
+      <p class="text-sm text-gray-500 mt-1">{{ hoy|date:"l, d \d\e F \d\e Y" }}{% if not es_hoy %} <span class="text-orange-600 font-semibold">· día anterior (solo lectura)</span>{% endif %}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="?fecha={{ dia_anterior|date:'Y-m-d' }}" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">← Anterior</a>
+      <input type="date" value="{{ hoy|date:'Y-m-d' }}" max="{% now 'Y-m-d' %}"
+             onchange="if(this.value) location.search='?fecha='+this.value"
+             class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm"/>
+      {% if dia_siguiente %}<a href="?fecha={{ dia_siguiente|date:'Y-m-d' }}" class="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">Siguiente →</a>{% endif %}
+      {% if not es_hoy %}<a href="{% url 'asistencia:panel_admin' %}" class="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-sm font-semibold">Hoy</a>{% endif %}
     </div>
   </div>
 
@@ -123,7 +36,7 @@ document.addEventListener('keydown', e => {
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-green-50 border border-green-200 rounded-xl p-4">
       <div class="text-3xl font-bold text-green-700">{{ resumen.presentes }}</div>
-      <div class="text-xs text-green-600 mt-1 font-medium">Presentes hoy</div>
+      <div class="text-xs text-green-600 mt-1 font-medium">Presentes{% if es_hoy %} hoy{% endif %}</div>
     </div>
     <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
       <div class="text-3xl font-bold text-yellow-700">{{ resumen.tardanzas }}</div>
@@ -149,18 +62,17 @@ document.addEventListener('keydown', e => {
         <thead>
           <tr class="bg-gray-50">
             <th class="text-left text-xs font-semibold text-gray-500 px-6 py-3">Profesional</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Zona</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Entrada</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Salida</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Horario del día</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Marcados (entrada → salida)</th>
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Tardanza</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Biométrico</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Marcar</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3" title="Distancia facial: menor = más parecido">Rostro</th>
+            {% if es_hoy %}<th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Marcar</th>{% endif %}
           </tr>
         </thead>
         <tbody>
           {% for d in datos %}
-          <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+          <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors align-top">
             <td class="px-6 py-3">
               <div class="flex items-center gap-3">
                 {% if d.profesional and d.profesional.tiene_foto %}
@@ -173,22 +85,34 @@ document.addEventListener('keydown', e => {
                   </div>
                 {% endif %}
                 <div>
-                  <div class="font-semibold text-gray-800 text-sm">{{ d.user.get_full_name }}</div>
-                  {% if d.profesional %}
-                  <div class="text-xs text-gray-400">{{ d.profesional.especialidad }}</div>
-                  {% endif %}
+                  <div class="font-semibold text-gray-800 text-sm">{{ d.user.get_full_name|default:d.user.username }}</div>
+                  <div class="text-xs text-gray-400">{% if d.profesional %}{{ d.profesional.especialidad }}{% endif %}{% if d.zona %} · {{ d.zona.nombre }}{% endif %}</div>
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3 text-sm text-gray-600">
-              {% if d.entrada %}{{ d.entrada.zona.nombre|default:"—" }}{% else %}—{% endif %}
+
+            <td class="px-4 py-3 text-xs text-gray-600">
+              <div class="font-semibold text-gray-700">{{ d.horario.tipo_display }}</div>
+              {% if d.horario.es_laborable %}<div class="font-mono">{{ d.horario.descripcion }}</div>{% endif %}
+              {% if d.horario.origen == 'fecha_especial' %}<div class="text-orange-600">Fecha especial</div>
+              {% elif d.horario.origen == 'personal' %}<div class="text-yellow-700">Horario propio</div>{% endif %}
             </td>
+
             <td class="px-4 py-3 text-sm font-mono text-gray-700">
-              {% if d.entrada %}{{ d.entrada.fecha_hora|date:"H:i" }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+              {% for entrada, salida in d.pares %}
+              <div class="whitespace-nowrap">
+                <span class="{% if entrada.estado == 'TARDANZA' %}text-yellow-700 font-semibold{% endif %}">{{ entrada.fecha_hora|date:"H:i" }}</span>
+                → {% if salida %}{{ salida.fecha_hora|date:"H:i" }}{% else %}<span class="text-gray-300">—</span>{% endif %}
+                {% if entrada.bloque %}<span class="text-[10px] text-gray-400 font-sans">B{{ entrada.bloque }}</span>{% endif %}
+                {% if entrada.es_manual %}<span class="text-[10px] text-orange-500 font-sans" title="{{ entrada.observacion }}">manual</span>{% endif %}
+              </div>
+              {% endfor %}
+              {% for a in d.ausencias %}
+              <div class="text-[11px] text-red-600 font-sans font-semibold">Ausente bloque {{ a.bloque }}</div>
+              {% endfor %}
+              {% if not d.pares and not d.ausencias %}<span class="text-gray-300">—</span>{% endif %}
             </td>
-            <td class="px-4 py-3 text-sm font-mono text-gray-700">
-              {% if d.salida %}{{ d.salida.fecha_hora|date:"H:i" }}{% else %}<span class="text-gray-300">—</span>{% endif %}
-            </td>
+
             <td class="px-4 py-3">
               {% if d.estado_dia == 'PUNTUAL' %}
                 <span class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">Puntual</span>
@@ -196,42 +120,47 @@ document.addEventListener('keydown', e => {
                 <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-3 py-1 rounded-full">Tardanza</span>
               {% elif d.estado_dia == 'ausente' %}
                 <span class="bg-red-100 text-red-800 text-xs font-semibold px-3 py-1 rounded-full">Ausente</span>
+              {% elif d.estado_dia == 'pendiente' %}
+                <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">Por llegar</span>
+              {% elif d.estado_dia == 'libre' %}
+                <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Día libre</span>
+              {% elif d.estado_dia == 'sin_horario' %}
+                <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Sin horario</span>
               {% else %}
                 <span class="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">Sin enrolar</span>
               {% endif %}
+              {% if d.intentos_fallidos %}
+              <div class="text-[11px] text-red-500 mt-1">{{ d.intentos_fallidos }} intento{{ d.intentos_fallidos|pluralize }} denegado{{ d.intentos_fallidos|pluralize }}</div>
+              {% endif %}
             </td>
+
             <td class="px-4 py-3 text-sm text-gray-600">
-              {% if d.entrada and d.entrada.minutos_tardanza > 0 %}
-                <span class="text-yellow-700 font-semibold">{{ d.entrada.minutos_tardanza }} min</span>
-              {% else %}—{% endif %}
+              {% if d.minutos_tardanza > 0 %}<span class="text-yellow-700 font-semibold">{{ d.minutos_tardanza }} min</span>{% else %}—{% endif %}
             </td>
-            <td class="px-4 py-3 text-sm text-gray-500">
-              {% if d.entrada and d.entrada.biometrico_score %}
-                {{ d.entrada.biometrico_score|floatformat:2 }}
-              {% else %}—{% endif %}
+
+            <td class="px-4 py-3 text-sm text-gray-500 font-mono">
+              {% for e in d.entradas %}{% if e.biometrico_score is not None %}<div>{{ e.biometrico_score|floatformat:2 }}</div>{% endif %}{% empty %}—{% endfor %}
             </td>
+
+            {% if es_hoy %}
             <td class="px-4 py-3">
               <div class="flex gap-1.5">
-                {% if not d.entrada %}
-                <button onclick="abrirModal('{{ d.user.pk }}', '{{ d.user.get_full_name|default:d.user.username }}', 'ENTRADA')"
+                {% if d.siguiente == 'ENTRADA' %}
+                <button onclick="abrirModal('{{ d.user.pk }}', '{{ d.user.get_full_name|default:d.user.username|escapejs }}', 'ENTRADA')"
                         class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-green-200 transition-colors">
                   + Entrada
                 </button>
-                {% endif %}
-                {% if d.entrada and not d.salida %}
-                <button onclick="abrirModal('{{ d.user.pk }}', '{{ d.user.get_full_name|default:d.user.username }}', 'SALIDA')"
+                {% elif d.siguiente == 'SALIDA' %}
+                <button onclick="abrirModal('{{ d.user.pk }}', '{{ d.user.get_full_name|default:d.user.username|escapejs }}', 'SALIDA')"
                         class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-blue-200 transition-colors">
                   + Salida
                 </button>
-                {% endif %}
-                {% if d.entrada and d.salida %}
+                {% else %}
                 <span class="text-gray-300 text-xs">Completo</span>
-                {% endif %}
-                {% if d.estado_dia == 'sin_enrolar' %}
-                <span class="text-gray-300 text-xs">Sin enrolar</span>
                 {% endif %}
               </div>
             </td>
+            {% endif %}
           </tr>
           {% empty %}
           <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400 text-sm">No hay profesionales registrados.</td></tr>
@@ -276,7 +205,7 @@ document.addEventListener('keydown', e => {
         </div>
 
         <p class="text-xs text-gray-400 mt-3">
-          Este registro quedará anotado como registrado manualmente por vos.
+          Este registro quedará anotado como registrado manualmente por ti.
         </p>
       </div>
 
