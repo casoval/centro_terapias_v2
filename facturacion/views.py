@@ -5801,166 +5801,119 @@ def api_proyectos_filtro(request):
 @puede_ver_reportes_financieros
 def reporte_profesional(request):
     """
-    Reporte detallado por profesional - MEJORADO
-    ✅ Estadísticas completas de desempeño
+    Reporte completo individual por profesional (modelo: reporte_paciente).
+    Incluye: ficha, horas trabajadas vs horario (Asistencia o predeterminado),
+             horarios vacíos y su causa, niños atendidos, proyectos y mensualidades
+             con participación ponderada, generación de ingresos, cobranza,
+             marcaje, comparación con el equipo, tendencia, retención y semáforo
+             de decisión. Soporta PDF con ?export=pdf
     """
-    
+    import json as _json_rp
     from profesionales.models import Profesional
-    
-    profesional_id = request.GET.get('profesional')
-    sucursal_id = request.GET.get('sucursal', '')
-    fecha_desde = request.GET.get('fecha_desde', '')
-    fecha_hasta = request.GET.get('fecha_hasta', '')
-    
+    from servicios.models import Sucursal, TipoServicio
+    from facturacion.reporte_profesional_data import (
+        analizar, resolver_rango, leer_horario_manual, MESES_ES, DIAS_ES,
+    )
+
+    g = request.GET
+    hoy = date.today()
+    profesional_id = g.get('profesional', '').strip()
+    sucursal_id = g.get('sucursal', '').strip()
+    servicio_id = g.get('servicio', '').strip()
+    paciente_id = g.get('paciente', '').strip()
+    tipo = g.get('tipo', '').strip()
+    estado = g.get('estado', '').strip()
+    mes_sel = g.get('mes', '').strip()
+    anio_sel = g.get('anio', '').strip()
+    rango_param = g.get('rango', '').strip()
+    try:
+        costo_mensual = max(float((g.get('costo_mensual') or '0').replace(',', '.')), 0.0)
+    except ValueError:
+        costo_mensual = 0.0
+
     profesional = None
-    datos = None
-    grafico_data = None
-    
+    r = None
+    graf_json = '{}'
+    desde, hasta, rango = resolver_rango(
+        rango_param, g.get('fecha_desde', '').strip(), g.get('fecha_hasta', '').strip(),
+        mes_sel, anio_sel, hoy)
+    manual_cfg, forzar_manual, horario_editado = leer_horario_manual(g)
+    pacientes_filtro = []
+    servicios_filtro = []
+
     if profesional_id:
-        from datetime import datetime, timedelta
-        
-        profesional = get_object_or_404(Profesional, id=profesional_id)
-        
-        # Rango de fechas (por defecto: últimos 3 meses)
-        if fecha_desde and fecha_hasta:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-        else:
-            fecha_hasta_obj = date.today()
-            fecha_desde_obj = fecha_hasta_obj - timedelta(days=90)
-            fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
-            fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
-        
-        # Query base
-        sesiones = Sesion.objects.filter(
-            profesional=profesional,
-            fecha__gte=fecha_desde_obj,
-            fecha__lte=fecha_hasta_obj
-        )
-        
-        # Filtro por sucursal
-        if sucursal_id:
-            sesiones = sesiones.filter(sucursal_id=sucursal_id)
-        
-        sesiones = sesiones.select_related('paciente', 'servicio', 'sucursal', 'proyecto')
-        
-        # Estadísticas
-        stats = sesiones.aggregate(
-            total_sesiones=Count('id'),
-            programadas=Count('id', filter=Q(estado='programada')),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-            faltas=Count('id', filter=Q(estado='falta')),
-            canceladas=Count('id', filter=Q(estado='cancelada')),
-            total_generado=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            pacientes_unicos=Count('paciente', distinct=True),
-            total_horas=Sum('duracion_minutos', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        )
-        
-        # Convertir minutos a horas
-        stats['total_horas_decimal'] = (stats['total_horas'] or 0) / 60
-        
-        # Calcular tasas
-        sesiones_efectivas = (stats['realizadas'] or 0) + (stats['retrasos'] or 0)
-        total_programado = stats['total_sesiones'] - (stats['canceladas'] or 0)
-        
-        tasa_cumplimiento = (sesiones_efectivas / total_programado * 100) if total_programado > 0 else 0
-        tasa_puntualidad = ((stats['realizadas'] or 0) / sesiones_efectivas * 100) if sesiones_efectivas > 0 else 0
-        
-        stats['tasa_cumplimiento'] = round(tasa_cumplimiento, 1)
-        stats['tasa_puntualidad'] = round(tasa_puntualidad, 1)
-        stats['ingreso_por_hora'] = (stats['total_generado'] or Decimal('0.00')) / Decimal(str(stats['total_horas_decimal'])) if stats['total_horas_decimal'] > 0 else Decimal('0.00')
-        
-        # Por servicio
-        por_servicio = sesiones.values(
-            'servicio__nombre', 'servicio__color'
-        ).annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            horas_total=Sum('duracion_minutos', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('-cantidad')
-        
-        # Agregar horas decimales
-        for servicio in por_servicio:
-            servicio['horas_decimal'] = (servicio['horas_total'] or 0) / 60
-        
-        # Por sucursal
-        por_sucursal = sesiones.values(
-            'sucursal__nombre'
-        ).annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('-cantidad')
-        
-        # Top pacientes atendidos
-        top_pacientes = sesiones.values(
-            'paciente__nombre', 'paciente__apellido', 'paciente__id'
-        ).annotate(
-            sesiones=Count('id'),
-            realizadas=Count('id', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            faltas=Count('id', filter=Q(estado='falta'))
-        ).order_by('-sesiones')[:10]
-        
-        # Por día de la semana — Python puro (evita ExtractWeekDay/SQLite bug)
-        from collections import defaultdict as _dd2
-        _d_cnt = _dd2(lambda: {'cantidad':0,'realizadas':0})
-        for _row in sesiones.values('fecha','estado'):
-            _wd = _row['fecha'].weekday()   # 0=Lun … 6=Dom
-            _d_cnt[_wd]['cantidad'] += 1
-            if _row['estado'] == 'realizada':
-                _d_cnt[_wd]['realizadas'] += 1
-        _dias_n = {0:'Lunes',1:'Martes',2:'Miércoles',3:'Jueves',4:'Viernes',5:'Sábado',6:'Domingo'}
-        por_dia_semana = [
-            {'dia_semana': k, 'nombre': _dias_n[k],
-             'cantidad': v['cantidad'], 'realizadas': v['realizadas']}
-            for k, v in sorted(_d_cnt.items())
+        profesional = get_object_or_404(
+            Profesional.objects.select_related('user').prefetch_related('sucursales', 'servicios'),
+            id=profesional_id)
+        r = analizar(
+            profesional, desde, hasta, sucursal_id=sucursal_id, servicio_id=servicio_id,
+            paciente_id=paciente_id, tipo=tipo, estado=estado, manual_cfg=manual_cfg,
+            forzar_manual=forzar_manual, hoy=hoy, comparar=True, costo_mensual=costo_mensual)
+        desde, hasta = r['desde'], r['hasta']
+        for fila in r['heat']:
+            for c in fila['celdas']:
+                c['a'] = round((c['ocup'] or 0) / 100.0, 2)
+        k_ = r['kpis']
+        cap_ = k_['cap_el'] or 0
+        partes_ = [
+            ('Trabajo efectivo', cap_ - (k_['h_falta'] + k_['h_permiso'] + k_['h_cancel'] + k_['h_reprog']
+                                         + k_['h_prog_pas'] + k_['h_sinag']), '#16a34a'),
+            ('Falta sin aviso (se cobra)', k_['h_falta'], '#dc2626'),
+            ('Permiso', k_['h_permiso'], '#8b5cf6'),
+            ('Cancelada', k_['h_cancel'], '#94a3b8'),
+            ('Reprogramada', k_['h_reprog'], '#0d9488'),
+            ('Programada sin registrar', k_['h_prog_pas'], '#f59e0b'),
+            ('Sin paciente agendado', k_['h_sinag'], '#cbd5e1'),
         ]
-        
-        # Por mes (gráfico) — Python puro (evita TruncMonth/SQLite bug)
-        from collections import defaultdict as _dd3
-        from datetime import date as _d3
-        _m_cnt = _dd3(lambda: {'cantidad':0,'realizadas':0,'ingresos':0.0})
-        for _row in sesiones.values('fecha','estado','monto_cobrado'):
-            _mk = _d3(_row['fecha'].year, _row['fecha'].month, 1)
-            _m_cnt[_mk]['cantidad'] += 1
-            if _row['estado'] == 'realizada':
-                _m_cnt[_mk]['realizadas'] += 1
-            if _row['estado'] in ('realizada','realizada_retraso'):
-                _m_cnt[_mk]['ingresos'] += float(_row['monto_cobrado'] or 0)
-        grafico_data = {
-            'labels'   : [_mes_label(k) for k in sorted(_m_cnt)],
-            'sesiones' : [_m_cnt[k]['cantidad']   for k in sorted(_m_cnt)],
-            'realizadas': [_m_cnt[k]['realizadas'] for k in sorted(_m_cnt)],
-            'ingresos' : [_m_cnt[k]['ingresos']   for k in sorted(_m_cnt)],
-        }
-        
-        datos = {
-            'stats': stats,
-            'por_servicio': por_servicio,
-            'por_sucursal': por_sucursal,
-            'top_pacientes': top_pacientes,
-            'por_dia_semana': por_dia_semana,
-        }
-    
-    # Listas para filtros
-    profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
-    
-    from servicios.models import Sucursal
-    sucursales = Sucursal.objects.filter(activa=True)
-    
+        from facturacion.reporte_profesional_data import hm as _hm_rp
+        r['desglose'] = [
+            {'label': n, 'min': max(m, 0), 'txt': _hm_rp(max(m, 0)),
+             'pct': round(max(m, 0) / cap_ * 100, 1) if cap_ else 0.0, 'color': c}
+            for n, m, c in partes_]
+        graf_json = _json_rp.dumps(r['graf'])
+        pacientes_filtro = Paciente.objects.filter(
+            sesiones__profesional=profesional).distinct().order_by('apellido', 'nombre')
+        servicios_filtro = profesional.servicios.all().order_by('nombre')
+
+    # ── Exportar PDF ──────────────────────────────────────────────────────
+    if g.get('export') == 'pdf' and profesional and r:
+        try:
+            from facturacion.informe_profesional_pdf import generar_informe_profesional_pdf
+            buffer = generar_informe_profesional_pdf({
+                'profesional': profesional, 'r': r, 'desde': desde, 'hasta': hasta,
+                'sucursal': Sucursal.objects.filter(id=sucursal_id).first() if sucursal_id else None,
+            })
+            response = HttpResponse(buffer, content_type='application/pdf')
+            slug = f"{profesional.apellido}_{profesional.nombre}".replace(' ', '_')
+            response['Content-Disposition'] = (
+                f'inline; filename="informe_profesional_{slug}_{desde:%Y%m%d}_al_{hasta:%Y%m%d}.pdf"')
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error generando PDF profesional: {e}", exc_info=True)
+            messages.error(request, f"❌ Error al generar el PDF: {str(e)}")
+
     context = {
         'profesional': profesional,
-        'datos': datos,
-        'grafico_data': grafico_data,
-        'profesionales': profesionales,
-        'sucursales': sucursales,
-        'sucursal_id': sucursal_id,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
+        'r': r,
+        'graf_json': graf_json,
+        'profesionales': Profesional.objects.filter(activo=True).order_by('apellido', 'nombre'),
+        'sucursales': Sucursal.objects.filter(activa=True),
+        'servicios_filtro': servicios_filtro,
+        'pacientes_filtro': pacientes_filtro,
+        'sucursal_id': sucursal_id, 'servicio_id': servicio_id, 'paciente_id': paciente_id,
+        'tipo': tipo, 'estado': estado, 'rango': rango,
+        'fecha_desde': desde.strftime('%Y-%m-%d'), 'fecha_hasta': hasta.strftime('%Y-%m-%d'),
+        'mes_sel': mes_sel, 'anio_sel': anio_sel,
+        'meses_opts': [(i, MESES_ES[i]) for i in range(1, 13)],
+        'anios_opts': list(range(hoy.year - 4, hoy.year + 1)),
+        'costo_mensual': costo_mensual if costo_mensual else '',
+        'manual_cfg': manual_cfg, 'forzar_manual': forzar_manual,
+        'dias_opts': list(enumerate(DIAS_ES)),
+        'hoy': hoy,
+        'qs_base': '&'.join(f"{k}={v}" for k, v in g.items()
+                            if k not in ('rango', 'export', 'mes', 'anio', 'fecha_desde', 'fecha_hasta') and v),
     }
-    
     return render(request, 'facturacion/reportes/profesional.html', context)
 
 
