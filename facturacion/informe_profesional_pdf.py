@@ -698,14 +698,46 @@ def _sec_produccion(d, r):
         d.parrafo("En proyectos y mensualidades el cobro se estima proporcional al avance de pago de cada paquete.", 7, C_MUTED, "Helvetica-Oblique")
 
 
+def _sec_conciliacion(d, r):
+    cn = r.get('conciliacion')
+    if not cn:
+        return
+    d.titulo("3. Conciliación con el reporte financiero", C_MORADO)
+    d.parrafo(f"Período {cn['periodo_txt']}. Compara lo que el reporte financiero cuenta como generado con lo que este informe "
+              "devenga sumando a todos los profesionales, y explica cada diferencia.")
+    filas = []
+    for f in cn['filas']:
+        filas.append([(f['concepto'], C_TEXTO), fm(f['financiero']), fm(f['este_reporte']),
+                      (fm(f['diferencia']), C_ROJO if f['diferencia'] < 0 else C_VERDE if f['diferencia'] > 0 else C_TEXTO),
+                      (fm(f['prof']), C_PRI), pc(f['pct_prof'])])
+        for a in f['ajustes']:
+            if a['monto']:
+                filas.append([(f"   ({a['signo']}) {a['corto']}", C_MUTED), '', '',
+                              (f"{a['signo']}{fm(a['monto'])}", C_VERDE if a['signo'] == '+' else C_ROJO), '', ''])
+    t = cn['total']
+    filas.append([("TOTAL", C_PRI), (fm(t['financiero']), C_PRI), (fm(t['este_reporte']), C_PRI),
+                  (fm(t['diferencia']), C_PRI), (fm(t['prof']), C_PRI), (pc(t['pct_prof']), C_PRI)])
+    d.tabla(["Concepto", "Financiero", "Este informe", "Diferencia", "Del profesional", "% centro"], filas,
+            [8.4 * cm, 2.0 * cm, 2.2 * cm, 2.0 * cm, 2.2 * cm, 1.5 * cm], ['l', 'r', 'r', 'r', 'r', 'r'], 6.8)
+    d.parrafo(("La conciliación cuadra: Financiero + ajustes = Este informe." if cn['todo_cuadra']
+               else "ATENCIÓN: la conciliación no cuadra del todo; revisar los datos de proyectos y mensualidades.")
+              + (" La cifra del profesional coincide con «Cuánto genera»." if cn['cuadra_kpis'] else
+                 (" Hay filtros activos: no se compara con «Cuánto genera»." if cn['cuadra_kpis'] is None else
+                  f" La cifra del profesional difiere de «Cuánto genera» por {fm(cn['dif_kpis'])}.")),
+              7.2, C_VERDE if cn['todo_cuadra'] else C_ROJO, "Helvetica-Bold")
+    d.parrafo("El financiero cuenta el costo completo de un proyecto en el período en que inicia y el de una mensualidad en su mes; "
+              "este informe lo reconoce conforme se realizan las sesiones. Las sesiones individuales deben coincidir exactamente.",
+              7, C_MUTED, "Helvetica-Oblique")
+
+
 def _sec_horas(d, r):
     k = r['kpis']
     d.page(land=False)
-    d.titulo("3. Horas trabajadas y tiempo libre", C_TEAL)
+    d.titulo("4. Horas trabajadas y tiempo libre", C_TEAL)
     d.parrafo("Las horas son de reloj: sesiones simultaneas con varios niños no se duplican. La falta sin aviso se cobra, "
               "pero el profesional queda libre esa hora; permisos, cancelaciones y reprogramaciones liberan la hora sin "
               "generar ingreso. Solo se consideran los días ya transcurridos.")
-    d.grilla([
+    items_h = [
         ("Horas trabajadas", k['horas_reloj_txt'], f"con pacientes: {k['horas_pac_txt']}", C_VERDE),
         ("Horario transcurrido", k['cap_el_txt'], f"{k['dias_con_horario']} días con horario", C_MED),
         ("Ocupación efectiva", pc(k['ocup_efect']), k['carga_txt'][:34], colors.HexColor(k['carga_color'])),
@@ -713,8 +745,11 @@ def _sec_horas(d, r):
         ("Libres por inasistencia", k['h_perdidas_txt'], f"{pc(k['pct_perdidas'])} de su horario", C_ROJO),
         ("Sin paciente agendado", k['h_sinag_txt'], f"{pc(k['pct_sinag'])} de su horario", C_MUTED),
         ("Potencial no aprovechado", bs(k['potencial_no_aprovechado'], 0), f"estimado a 100% ({k['h_no_pagadas_txt']})", C_MORADO),
-        ("Libre próximos 14 días", r['proximos']['libre_txt'], f"de {r['proximos']['cap_txt']} de horario ({pc(r['proximos']['ocup'])} agendado)", C_AMBER),
-    ], cols=4)
+    ]
+    if r.get('proximos'):   # inactivos: sin disponibilidad futura
+        px_ = r['proximos']
+        items_h.append(("Libre próximos 14 días", px_['libre_txt'], f"de {px_['cap_txt']} de horario ({pc(px_['ocup'])} agendado)", C_AMBER))
+    d.grilla(items_h, cols=4)
     d.subtitulo("Que paso con cada hora de su horario")
     d.barra_apilada([(x['label'], x['pct'], x['color'], x['txt']) for x in r['desglose'] if x['pct'] > 0])
     d.tabla(["Causa", "Horas", "% del horario", "Se cobra"],
@@ -755,18 +790,19 @@ def _sec_horas(d, r):
     else:
         d.parrafo(mk.get('motivo', ''), 7.5, C_MUTED)
 
-    px = r['proximos']
-    d.subtitulo(f"Huecos disponibles - próximos {px['dias']} días (desde {fd(px['desde'], '%d/%m')} hasta {fd(px['hasta'])})")
-    d.parrafo(f"Libres {px['libre_txt']} de {px['cap_txt']} de horario ({pc(px['ocup'])} ya agendado). "
-              "Se calcula siempre desde hoy, sin importar el período del informe.", 7.2, C_MUTED)
-    d.tabla(["Fecha", "Franja libre", "Duración"],
-            [[f"{h['dia']} {fd(h['fecha'])}", f"{h['ini']} - {h['fin']}", h['txt']] for h in px['huecos'][:30]],
-            [5.2 * cm, 6.4 * cm, 3.4 * cm], ['l', 'l', 'r'])
+    if r.get('proximos'):
+        px = r['proximos']
+        d.subtitulo(f"Huecos disponibles - próximos {px['dias']} días (desde {fd(px['desde'], '%d/%m')} hasta {fd(px['hasta'])})")
+        d.parrafo(f"Libres {px['libre_txt']} de {px['cap_txt']} de horario ({pc(px['ocup'])} ya agendado). "
+                  "Se calcula siempre desde hoy, sin importar el período del informe.", 7.2, C_MUTED)
+        d.tabla(["Fecha", "Franja libre", "Duración"],
+                [[f"{h['dia']} {fd(h['fecha'])}", f"{h['ini']} - {h['fin']}", h['txt']] for h in px['huecos'][:30]],
+                [5.2 * cm, 6.4 * cm, 3.4 * cm], ['l', 'l', 'r'])
 
 
 def _sec_evolucion(d, r):
     d.page(land=False)
-    d.titulo("4. Rendimiento por mes, semana y dia", C_MED)
+    d.titulo("5. Rendimiento por mes, semana y día", C_MED)
     if r['por_mes']:
         d.subtitulo("Generado por mes (Bs.)  |  columna verde = atendidas, roja = faltas")
         d.columnas([g['label'] for g in r['por_mes']], [g['gen'] for g in r['por_mes']], C_VERDE)
@@ -790,9 +826,9 @@ def _sec_evolucion(d, r):
 
 def _sec_ninos(d, r):
     d.page(land=False)
-    d.titulo(f"5. niños que atendio ({len(r['pacientes'])})", C_MORADO)
+    d.titulo(f"6. Niños que atendió ({len(r['pacientes'])}" + (f", {r['n_ninos_inactivos']} inactivo(s)" if r.get('n_ninos_inactivos') else '') + ")", C_MORADO)
     d.tabla(["Niño", "Servicios", "Ses.", "Atend.", "Faltas", "Horas", "Asist.", "Individual", "Proy.", "Mens.", "Total"],
-            [[p['nombre'], ', '.join(p['servicios']), p['n'], p['atend'], p['faltas'], p['horas_txt'], pc(p['tasa']),
+            [[p['nombre'] + (' (inactivo)' if p.get('inactivo') else ''), ', '.join(p['servicios']), p['n'], p['atend'], p['faltas'], p['horas_txt'], pc(p['tasa']),
               fm(p['gen_ind'], 0), fm(p['gen_proy'], 0), fm(p['gen_mens'], 0), (fm(p['gen'], 0), C_PRI)]
              for p in r['pacientes']],
             [3.4 * cm, 3.0 * cm, 0.9 * cm, 1.1 * cm, 1.1 * cm, 1.4 * cm, 1.3 * cm, 1.5 * cm, 1.2 * cm, 1.2 * cm, 1.4 * cm],
@@ -810,7 +846,7 @@ def _sec_ninos(d, r):
 
 def _sec_equipo(d, r):
     d.page(land=False)
-    d.titulo("6. Equipo, tendencia, retención y calidad de registro", C_AMBER)
+    d.titulo("7. Equipo, tendencia, retención y calidad de registro", C_AMBER)
     eq = r.get('equipo')
     if eq:
         d.subtitulo("Ranking del equipo en el mismo período")
@@ -851,7 +887,7 @@ def _sec_equipo(d, r):
 
 def _sec_proyectos(d, r):
     d.page(land=True)
-    d.titulo(f"7. Proyectos y evaluaciones ({len(r['proyectos'])})", C_MORADO)
+    d.titulo(f"8. Proyectos y evaluaciones ({len(r['proyectos'])})", C_MORADO)
     d.parrafo("Total indiv. = lo que valdrían TODAS las sesiones del proyecto (de todos los profesionales) a precio individual; Suyo indiv. = solo sus sesiones. Participación = Suyo / Total. "
               "Factor = costo del proyecto / valor a precio individual (menor a 1: descuento). Su parte se devenga conforme "
               "se realizan las sesiones.")
@@ -862,7 +898,7 @@ def _sec_proyectos(d, r):
              for p in r['proyectos']],
             [1.8 * cm, 3.4 * cm, 1.9 * cm, 3.4 * cm, 1.5 * cm, 1.6 * cm, 1.6 * cm, 1.2 * cm, 1.3 * cm, 1.5 * cm, 1.6 * cm, 1.6 * cm, 1.7 * cm, 1.5 * cm],
             ['l', 'l', 'l', 'l'] + ['r'] * 10, 6.5, x0=ML)
-    d.titulo(f"8. Mensualidades ({len(r['mensualidades'])})", C_TEAL)
+    d.titulo(f"9. Mensualidades ({len(r['mensualidades'])})", C_TEAL)
     d.tabla(["Código", "Niño", "Período", "Servicios que atiende", "Modalidad", "Costo", "Total indiv.", "Suyo indiv.", "Factor", "Sus ses.", "Particip.", "Su parte", "Por sesión", "Generado", "Cobrado"],
             [[m['codigo'], m['paciente'], m['periodo'], ', '.join(m['servicios']), m['modalidad'] + (' c/' + ', '.join(m['companeros'])[:18] if m['companeros'] else ''),
               fm(m['costo'], 0), fm(m['ref_total'], 0), fm(m['ref_mio'], 0), fm(m['factor']), f"{m['sesiones_mias']}/{m['sesiones_total']}", pc(m['share']),
@@ -874,7 +910,7 @@ def _sec_proyectos(d, r):
 
 def _sec_sesiones(d, r):
     d.page(land=True)
-    d.titulo(f"9. Detalle de sesiones ({len(r['filas'])})", C_PRI)
+    d.titulo(f"10. Detalle de sesiones ({len(r['filas'])})", C_PRI)
     est_col = {'realizada': C_VERDE, 'realizada_retraso': C_AMBER, 'falta': C_ROJO, 'permiso': C_MORADO,
                'programada': C_MED}
     d.tabla(["Fecha", "Hora", "Niño", "Servicio", "Sucursal", "Tipo", "Estado", "Min", "Cobro", "Generó", "Nota"],
@@ -911,6 +947,7 @@ def generar_informe_profesional_pdf(context):
         _portada(d, prof, r, periodo, sucursal, foto_path)
         _sec_ejecutivo(d, r, prof)
         _sec_produccion(d, r)
+        _sec_conciliacion(d, r)
         _sec_horas(d, r)
         _sec_evolucion(d, r)
         _sec_ninos(d, r)

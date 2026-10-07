@@ -5898,6 +5898,8 @@ def reporte_profesional(request):
         'r': r,
         'graf_json': graf_json,
         'profesionales': Profesional.objects.filter(activo=True).order_by('apellido', 'nombre'),
+        # Los inactivos también se pueden consultar (historial de quien ya no trabaja en el centro)
+        'profesionales_inactivos': Profesional.objects.filter(activo=False).order_by('apellido', 'nombre'),
         'sucursales': Sucursal.objects.filter(activa=True),
         'servicios_filtro': servicios_filtro,
         'pacientes_filtro': pacientes_filtro,

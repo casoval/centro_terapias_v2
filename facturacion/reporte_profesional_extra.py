@@ -16,11 +16,11 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from .reporte_profesional_data import (
-    ATENDIDAS, CONSUMIDAS, MESES_CORTO, hm, _pct, _f, es_num,
+    ATENDIDAS, CONSUMIDAS, MESES_CORTO, hm, _pct, _f, es_num, MESES_ES,
 )
 
 VERDE, AMBAR, ROJO = 'verde', 'ambar', 'rojo'
@@ -297,7 +297,8 @@ def retencion(prof, r, args):
             seguidas.append((pid, n))
 
     ids = set(nuevos) | set(riesgo) | {p for p, _ in seguidas}
-    nom = {p.id: f"{p.nombre} {p.apellido}" for p in Paciente.objects.filter(id__in=ids)}
+    nom = {p.id: f"{p.nombre} {p.apellido}" + (' (inactivo)' if p.estado == 'inactivo' else '')
+           for p in Paciente.objects.filter(id__in=ids)}
     ult = {}
     for pid in riesgo:
         a = [f for f, e in hist[pid] if e in ATENDIDAS]
@@ -321,7 +322,8 @@ def retencion(prof, r, args):
 def concentracion(r):
     total = r['kpis']['gen_total']
     pacs = sorted(r['pacientes'], key=lambda p: -p['gen'])
-    top = [{'nombre': p['nombre'], 'gen': p['gen'], 'pct': _pct(p['gen'], total)} for p in pacs[:5]]
+    top = [{'nombre': p['nombre'] + (' (inactivo)' if p.get('inactivo') else ''), 'gen': p['gen'],
+            'pct': _pct(p['gen'], total)} for p in pacs[:5]]
     t1 = top[0]['pct'] if top else 0.0
     t3 = round(sum(x['pct'] for x in top[:3]), 1)
     if not total:
@@ -353,6 +355,172 @@ def notas(r):
                                    key=lambda x: -x['n'])[:10],
         'sin_recientes': [{'fecha': f['fecha'], 'paciente': f['paciente'], 'servicio': f['servicio']}
                           for f in sorted(sin, key=lambda x: x['fecha'], reverse=True)[:12]],
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 10. CONCILIACIÓN CON EL REPORTE FINANCIERO
+# ─────────────────────────────────────────────────────────────────────
+# Mismo criterio de período que el reporte financiero:
+#   · Sesiones individuales: fecha de la sesión, estados consumidos.
+#   · Proyectos: fecha de INICIO del proyecto dentro del rango; estados
+#       en_progreso / finalizado / cancelado; cuenta el costo COMPLETO.
+#   · Mensualidades: mes/año dentro del rango; cuenta el costo COMPLETO.
+# Este reporte (todos los profesionales) devenga cada paquete conforme se
+# consumen sesiones. La diferencia se descompone partida por partida, de modo
+# que:  Financiero + ajustes = Este reporte  (y se verifica que cuadre).
+def _conciliar_paquetes(kind, prof, desde, hasta, suc):
+    from agenda.models import Sesion, Proyecto, Mensualidad
+    from pacientes.models import PacienteServicio
+    from servicios.models import TipoServicio
+
+    PLANIF = CONSUMIDAS + ('programada',)
+    if kind == 'proyecto':
+        fk, Modelo, costo_f = 'proyecto', Proyecto, 'costo_total'
+        qf = Proyecto.objects.filter(fecha_inicio__gte=desde, fecha_inicio__lte=hasta,
+                                     estado__in=['en_progreso', 'finalizado', 'cancelado'])
+    else:
+        fk, Modelo, costo_f = 'mensualidad', Mensualidad, 'costo_mensual'
+        qf = Mensualidad.objects.filter(
+            estado__in=['activa', 'vencida', 'pausada', 'completada', 'cancelada']
+        ).filter(Q(anio__gt=desde.year) | Q(anio=desde.year, mes__gte=desde.month)
+                 ).filter(Q(anio__lt=hasta.year) | Q(anio=hasta.year, mes__lte=hasta.month))
+    if suc:
+        qf = qf.filter(sucursal_id=suc)
+    F = {pid: _f(c) for pid, c in qf.values_list('id', costo_f)}
+
+    qs_rango = Sesion.objects.filter(fecha__gte=desde, fecha__lte=hasta, estado__in=CONSUMIDAS,
+                                     **{fk + '__isnull': False})
+    if suc:
+        qs_rango = qs_rango.filter(**{fk + '__sucursal_id': suc})
+    ids_rango = set(qs_rango.values_list(fk + '_id', flat=True).distinct())
+    ids = set(F) | ids_rango
+    costos = dict(F)
+    for pid, c in Modelo.objects.filter(id__in=ids - set(F)).values_list('id', costo_f):
+        costos[pid] = _f(c)
+
+    filas = list(Sesion.objects.filter(**{fk + '_id__in': ids}, estado__in=PLANIF)
+                 .values(fk + '_id', 'profesional_id', 'paciente_id', 'servicio_id', 'estado', 'fecha')
+                 .annotate(n=Count('id')))
+    precio_base = {t.id: _f(t.costo_base) for t in TipoServicio.objects.all()}
+    precios = {(a, b): _f(c) for a, b, c in PacienteServicio.objects.filter(
+        paciente_id__in={x['paciente_id'] for x in filas}).values_list('paciente_id', 'servicio_id', 'costo_sesion')}
+
+    def precio(pa, sv):
+        v = precios.get((pa, sv))
+        return v if v and v > 0 else precio_base.get(sv, 0.0)
+
+    acc = {}
+    for x in filas:
+        a = acc.setdefault(x[fk + '_id'], {'W': 0.0, 'N': 0, 'in': [0.0, 0], 'out': [0.0, 0],
+                                           'prog': [0.0, 0], 'mio': [0.0, 0]})
+        w, n = x['n'] * precio(x['paciente_id'], x['servicio_id']), x['n']
+        a['W'] += w
+        a['N'] += n
+        if x['estado'] == 'programada':
+            a['prog'][0] += w
+            a['prog'][1] += n
+        elif desde <= x['fecha'] <= hasta:
+            a['in'][0] += w
+            a['in'][1] += n
+            if x['profesional_id'] == prof.id:
+                a['mio'][0] += w
+                a['mio'][1] += n
+        else:
+            a['out'][0] += w
+            a['out'][1] += n
+
+    def parte(par, a):
+        """Fracción del costo que representa un grupo de sesiones (por precio; si no hay precios, por cantidad)."""
+        if a['W'] > 0:
+            return par[0] / a['W']
+        return (par[1] / a['N']) if a['N'] else 0.0
+
+    tot_F = mine = mio = 0.0
+    prog = fuera = sin_ses = otros = 0.0
+    n_prog = n_fuera = n_sin = n_otros = 0
+    for pid in ids:
+        costo = costos.get(pid, 0.0)
+        a = acc.get(pid)
+        m_in = costo * parte(a['in'], a) if a else 0.0
+        mine += m_in
+        if a:
+            mio += costo * parte(a['mio'], a)
+        if pid in F:
+            tot_F += costo
+            if not a or a['N'] == 0:
+                sin_ses += costo
+                n_sin += 1
+            else:
+                p_, o_ = costo * parte(a['prog'], a), costo * parte(a['out'], a)
+                prog += p_
+                fuera += o_
+                n_prog += 1 if p_ > 0.005 else 0
+                n_fuera += 1 if o_ > 0.005 else 0
+        else:
+            otros += m_in
+            n_otros += 1 if m_in > 0.005 else 0
+
+    et = 'proyectos' if kind == 'proyecto' else 'mensualidades'
+    ajustes = [
+        {'signo': '-', 'monto': round(prog, 2), 'n': n_prog,
+         'corto': 'Sesiones programadas aún no realizadas (se devengan después)',
+         'txt': "Sesiones programadas aún no realizadas: su parte se devengará cuando se realicen (el financiero ya cuenta el costo completo)"},
+        {'signo': '-', 'monto': round(fuera, 2), 'n': n_fuera,
+         'corto': 'Devengado en sesiones fuera del período',
+         'txt': "Parte devengada en sesiones de otras fechas, fuera del período (antes o después del rango)"},
+        {'signo': '-', 'monto': round(sin_ses, 2), 'n': n_sin,
+         'corto': 'Sin sesiones asignadas (nadie lo devenga aún)',
+         'txt': f"{et.capitalize()} del período sin ninguna sesión asignada (nadie lo devenga aún)"},
+        {'signo': '+', 'monto': round(otros, 2), 'n': n_otros,
+         'corto': 'Paquetes de otro período devengados aquí',
+         'txt': f"Devengado en este período de {et} que el financiero cuenta en otro período o no cuenta (inicio fuera del rango, planificados)"},
+    ]
+    neto = tot_F - prog - fuera - sin_ses + otros
+    return {
+        'financiero': round(tot_F, 2), 'este_reporte': round(mine, 2), 'prof': round(mio, 2),
+        'ajustes': ajustes, 'n_financiero': len(F),
+        'cuadra': abs(neto - mine) < 0.02, 'dif_cuadre': round(neto - mine, 2),
+    }
+
+
+def conciliacion(prof, r, args):
+    from agenda.models import Sesion
+    desde, hasta, suc = r['desde'], r['hasta'], args['sucursal_id']
+
+    base = Sesion.objects.filter(fecha__gte=desde, fecha__lte=hasta, estado__in=CONSUMIDAS,
+                                 proyecto__isnull=True, mensualidad__isnull=True)
+    if suc:
+        base = base.filter(sucursal_id=suc)
+    f_ind = _f(base.aggregate(t=Sum('monto_cobrado'))['t'])
+    p_ind = _f(base.filter(profesional=prof).aggregate(t=Sum('monto_cobrado'))['t'])
+    fila_ind = {'financiero': round(f_ind, 2), 'este_reporte': round(f_ind, 2), 'prof': round(p_ind, 2),
+                'ajustes': [], 'n_financiero': base.count(), 'cuadra': True, 'dif_cuadre': 0.0}
+
+    pro = _conciliar_paquetes('proyecto', prof, desde, hasta, suc)
+    men = _conciliar_paquetes('mensualidad', prof, desde, hasta, suc)
+    conceptos = [('Sesiones individuales', fila_ind), ('Proyectos y evaluaciones', pro), ('Mensualidades', men)]
+    filas = []
+    for nombre, f in conceptos:
+        f = dict(f)
+        f['concepto'] = nombre
+        f['diferencia'] = round(f['este_reporte'] - f['financiero'], 2)
+        f['pct_prof'] = _pct(f['prof'], f['este_reporte'])
+        filas.append(f)
+    tot = {k: round(sum(f[k] for f in filas), 2) for k in ('financiero', 'este_reporte', 'prof', 'diferencia')}
+    tot['pct_prof'] = _pct(tot['prof'], tot['este_reporte'])
+
+    # ¿la cifra del profesional coincide con «Cuánto genera»? (solo comparable sin filtros)
+    k = r['kpis']
+    cuadra_kpis = None
+    if not (r['hay_filtros_contenido'] or suc):
+        cuadra_kpis = abs(tot['prof'] - k['gen_total']) < 0.02
+    r['conciliacion'] = {
+        'filas': filas, 'total': tot, 'todo_cuadra': all(f['cuadra'] for f in filas),
+        'cuadra_kpis': cuadra_kpis, 'dif_kpis': round(tot['prof'] - k['gen_total'], 2),
+        'con_sucursal': bool(suc),
+        'periodo_txt': f"{desde.strftime('%d/%m/%Y')} al {hasta.strftime('%d/%m/%Y')}",
+        'mes_desde': f"{MESES_ES[desde.month]} {desde.year}", 'mes_hasta': f"{MESES_ES[hasta.month]} {hasta.year}",
     }
 
 
@@ -471,7 +639,7 @@ def enriquecer(prof, r, args):
     """Orquesta todos los complementos sobre el dict ya calculado."""
     for fn in (lambda: cobranza(r), lambda: marcaje(prof, r), lambda: equipo(prof, r, args),
                lambda: tendencia(prof, r, args), lambda: retencion(prof, r, args),
-               lambda: concentracion(r), lambda: notas(r)):
+               lambda: concentracion(r), lambda: notas(r), lambda: conciliacion(prof, r, args)):
         try:
             fn()
         except Exception:

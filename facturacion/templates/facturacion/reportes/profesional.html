@@ -141,7 +141,8 @@
     <div class="fg"><label>Profesional {% ayuda "f_profesional" %}</label>
       <select name="profesional" onchange="document.getElementById('f-rango').value='';this.form.submit()">
         <option value="">— Seleccionar —</option>
-        {% for p in profesionales %}<option value="{{ p.id }}" {% if profesional and profesional.id == p.id %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>{% endfor %}
+        <optgroup label="✅ Activos">{% for p in profesionales %}<option value="{{ p.id }}" {% if profesional and profesional.id == p.id %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>{% endfor %}</optgroup>
+        {% if profesionales_inactivos %}<optgroup label="⛔ Inactivos">{% for p in profesionales_inactivos %}<option value="{{ p.id }}" {% if profesional and profesional.id == p.id %}selected{% endif %}>⛔ {{ p.apellido }}, {{ p.nombre }} (INACTIVO)</option>{% endfor %}</optgroup>{% endif %}
       </select></div>
     {% if profesional %}
     <div class="fg"><label>Sucursal {% ayuda "f_sucursal" %}</label>
@@ -164,7 +165,7 @@
       </select></div>
     <div class="fg"><label>Niño {% ayuda "f_nino" %}</label>
       <select name="paciente"><option value="">Todos</option>
-        {% for p in pacientes_filtro %}<option value="{{ p.id }}" {% if paciente_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}</option>{% endfor %}
+        {% for p in pacientes_filtro %}<option value="{{ p.id }}" {% if paciente_id == p.id|stringformat:"s" %}selected{% endif %}>{{ p.apellido }}, {{ p.nombre }}{% if p.estado == 'inactivo' %} (inactivo){% endif %}</option>{% endfor %}
       </select></div>
     <div class="fg"><label>Tipo {% ayuda "f_tipo" %}</label>
       <select name="tipo"><option value="">Todos</option>
@@ -322,6 +323,36 @@
   {% endfor %}
 </div>
 
+<!-- ══ CONCILIACIÓN ══ -->
+{% if r.conciliacion %}{% with cn=r.conciliacion %}
+<div class="sec">🧾 Conciliación con el reporte financiero {% ayuda "sec_concil" %}</div>
+<div class="card">
+  <p class="note">Período <b>{{ cn.periodo_txt }}</b>{% if cn.con_sucursal %} · sucursal filtrada{% endif %}. Compara lo que el <b>reporte financiero</b> cuenta como «generado» con lo que <b>este informe</b> devenga sumando a <b>todos</b> los profesionales, y explica cada diferencia. Así sabes de dónde sale cada variación.</p>
+  <div class="scroll"><table class="t"><thead><tr>
+    <th>Concepto</th><th class="tr">Reporte financiero {% ayuda "c_financiero" %}</th><th class="tr">Este informe (todos) {% ayuda "c_este" %}</th><th class="tr">Diferencia {% ayuda "c_dif" %}</th><th class="tr">De este profesional {% ayuda "c_prof" %}</th><th class="tr">% del centro</th></tr></thead><tbody>
+  {% for f in cn.filas %}
+    <tr style="background:#f8fafc"><td><b>{{ f.concepto }}</b>{% if f.n_financiero %}<div class="note" style="margin:0">{{ f.n_financiero }} {% if f.concepto == 'Sesiones individuales' %}sesiones{% else %}en el período{% endif %}</div>{% endif %}</td>
+      <td class="tr mono">{{ f.financiero|bs }}</td><td class="tr mono">{{ f.este_reporte|bs }}</td>
+      <td class="tr mono {% if f.diferencia < 0 %}down{% elif f.diferencia > 0 %}up{% endif %}">{{ f.diferencia|bs }}</td>
+      <td class="tr mono"><b>{{ f.prof|bs }}</b></td><td class="tr">{{ f.pct_prof }}%</td></tr>
+    {% for a in f.ajustes %}{% if a.monto %}
+    <tr><td colspan="3" style="padding-left:22px;font-size:.7rem;color:var(--ink2)"><span class="mono" style="color:{% if a.signo == '+' %}var(--green){% else %}var(--red){% endif %}">({{ a.signo }})</span> {{ a.txt }}{% if a.n %} <span class="note">· {{ a.n }}</span>{% endif %}</td>
+      <td class="tr mono" style="font-size:.7rem;color:{% if a.signo == '+' %}var(--green){% else %}var(--red){% endif %}">{{ a.signo }}{{ a.monto|bs }}</td><td colspan="2"></td></tr>
+    {% endif %}{% endfor %}
+  {% endfor %}
+    <tr style="border-top:2px solid var(--border)"><td><b>TOTAL</b></td><td class="tr mono"><b>{{ cn.total.financiero|bs }}</b></td><td class="tr mono"><b>{{ cn.total.este_reporte|bs }}</b></td><td class="tr mono {% if cn.total.diferencia < 0 %}down{% elif cn.total.diferencia > 0 %}up{% endif %}"><b>{{ cn.total.diferencia|bs }}</b></td><td class="tr mono"><b>{{ cn.total.prof|bs }}</b></td><td class="tr">{{ cn.total.pct_prof }}%</td></tr>
+  </tbody></table></div>
+  <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+    {% if cn.todo_cuadra %}<div class="alert ok">✅ La conciliación cuadra: Financiero + ajustes = Este informe. Toda la diferencia está explicada. {% ayuda "c_check" %}</div>
+    {% else %}<div class="alert alerta">⚠ La conciliación NO cuadra del todo: hay una diferencia sin explicar. Conviene revisar los datos (sesiones de proyectos/mensualidades con estados poco usuales). {% ayuda "c_check" %}</div>{% endif %}
+    {% if cn.cuadra_kpis == True %}<div class="alert ok">✅ La cifra de este profesional ({{ cn.total.prof|bs }}) coincide con «Cuánto genera».</div>
+    {% elif cn.cuadra_kpis == False %}<div class="alert alerta">⚠ La cifra de este profesional ({{ cn.total.prof|bs }}) difiere de «Cuánto genera» por {{ cn.dif_kpis|bs }}.</div>
+    {% else %}<div class="alert nota">ℹ Hay filtros activos (sucursal, servicio, niño, tipo o estado): «Cuánto genera» muestra solo una parte, por eso no se compara con esta tabla, que usa todo el período.</div>{% endif %}
+  </div>
+  <p class="note" style="margin-top:10px"><b>¿Por qué puede diferir del financiero?</b> (1) El financiero cuenta el costo completo de un proyecto en el período en que <i>inicia</i> y el de una mensualidad en su mes; este informe lo reconoce <i>conforme se realizan las sesiones</i>. (2) Las sesiones programadas aún no se devengan. (3) Sesiones realizadas fuera del período pertenecen a otro período. (4) Un paquete sin sesiones asignadas no lo devenga nadie todavía. Las sesiones individuales deben coincidir exactamente.</p>
+</div>
+{% endwith %}{% endif %}
+
 <!-- ══ HORAS ══ -->
 <div class="sec">⏱️ Horas trabajadas y tiempo libre {% ayuda "sec_horas" %}</div>
 <div class="grid">
@@ -331,7 +362,9 @@
   <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Libres por inasistencia {% ayuda "k_libres_inas" %}</div><div class="kv" style="color:var(--red)">{{ k.h_perdidas_txt }}</div><div class="ks">{{ k.pct_perdidas }}% de su horario</div></div>
   <div class="kpi"><div class="bar" style="background:#94a3b8"></div><div class="kl">Sin paciente agendado {% ayuda "k_sin_agendar" %}</div><div class="kv">{{ k.h_sinag_txt }}</div><div class="ks">{{ k.pct_sinag }}% de su horario</div></div>
   <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Potencial no aprovechado {% ayuda "k_potencial" %}</div><div class="kv">{{ k.potencial_no_aprovechado|bs }}</div><div class="ks">Bs. estimados a 100% de agenda · {{ k.h_no_pagadas_txt }} sin generar</div></div>
+  {% if r.proximos %}
   <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Libre próximos 14 días {% ayuda "k_prox" %}</div><div class="kv">{{ r.proximos.libre_txt }}</div><div class="ks">de {{ r.proximos.cap_txt }} de horario · {{ r.proximos.ocup }}% ya agendado</div></div>
+  {% endif %}
   <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Fuera de su horario {% ayuda "k_extra" %}</div><div class="kv">{{ k.extra_txt }}</div><div class="ks">atendido en horas extra</div></div>
 </div>
 <div class="card"><h3>¿Qué pasó con cada hora de su horario? {% ayuda "desglose" %}</h3>
@@ -375,11 +408,13 @@
       <span class="mono" style="width:150px;text-align:right">{{ w.ocup }}% · {{ w.n_atend }} ses. · {{ w.att_txt }}</span></div>{% endif %}{% endfor %}
     {% if r.franjas_libres %}<p class="note" style="margin-top:10px"><b>Franjas más libres:</b> {% for f in r.franjas_libres %}{{ f.h }} ({{ f.ocup }}%){% if not forloop.last %} · {% endif %}{% endfor %}<br><b>Franjas más llenas:</b> {% for f in r.franjas_llenas %}{{ f.h }} ({{ f.ocup }}%){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}</div>
 </div>
-<div class="g2">
+<div class="{% if r.proximos %}g2{% endif %}">
+  {% if r.proximos %}
   <div class="card"><h3>📅 Huecos disponibles — próximos {{ r.proximos.dias }} días ({{ r.proximos.huecos|length }}){% ayuda "huecos_prox" %}</h3>
     <p class="note">Del {{ r.proximos.desde|date:"d/m" }} al {{ r.proximos.hasta|date:"d/m/Y" }}, contando desde hoy (sin importar el rango elegido): <b>{{ r.proximos.libre_txt }}</b> libres de {{ r.proximos.cap_txt }} de horario ({{ r.proximos.ocup }}% ya agendado).</p>
     <div class="maxh" style="max-height:230px"><table class="t"><thead><tr><th>Fecha</th><th>Franja libre</th><th class="tr">Duración</th></tr></thead><tbody>
     {% for h in r.proximos.huecos %}<tr><td>{{ h.dia }} {{ h.fecha|date:"d/m/Y" }}</td><td>{{ h.ini }} – {{ h.fin }}</td><td class="tr">{{ h.txt }}</td></tr>{% empty %}<tr><td colspan="3" class="note">No quedan huecos de 30 min o más en los próximos {{ r.proximos.dias }} días: su agenda está completa o no tiene horario en ese lapso.</td></tr>{% endfor %}</tbody></table></div></div>
+  {% endif %}
   <div class="card"><h3>🕰️ Tiempo ocioso ya transcurrido ({{ r.huecos_pasados|length }} huecos) {% ayuda "huecos_pasados" %}</h3>
     <div class="maxh" style="max-height:260px"><table class="t"><thead><tr><th>Fecha</th><th>Franja sin paciente</th><th class="tr">Duración</th></tr></thead><tbody>
     {% for h in r.huecos_pasados|slice:":120" %}<tr><td>{{ h.dia }} {{ h.fecha|date:"d/m/Y" }}</td><td>{{ h.ini }} – {{ h.fin }}</td><td class="tr">{{ h.txt }}</td></tr>{% empty %}<tr><td colspan="3" class="note">Sin huecos.</td></tr>{% endfor %}</tbody></table></div></div>
@@ -404,15 +439,15 @@
 </div>
 
 <!-- ══ NIÑOS ══ -->
-<div class="sec">🧒 Niños que atendió ({{ r.pacientes|length }}) {% ayuda "sec_ninos" %}</div>
+<div class="sec">🧒 Niños que atendió ({{ r.pacientes|length }}{% if r.n_ninos_inactivos %}, {{ r.n_ninos_inactivos }} inactivo{{ r.n_ninos_inactivos|pluralize }}{% endif %}) {% ayuda "sec_ninos" %}</div>
 <div class="card">
   <div class="kids">{% for p in r.pacientes|slice:":24" %}
     <div class="kid"><div class="av">{% if p.foto %}<img loading="lazy" src="{{ p.foto }}" alt="">{% else %}{{ p.iniciales }}{% endif %}</div>
-      <div style="flex:1;min-width:0"><b>{{ p.nombre }}</b>{% if p.edad %} <span class="note">· {{ p.edad }} años</span>{% endif %}
+      <div style="flex:1;min-width:0"><b>{{ p.nombre }}</b>{% if p.inactivo %} <span class="badge" style="background:#fee2e2;color:#991b1b">Inactivo</span>{% endif %}{% if p.edad %} <span class="note">· {{ p.edad }} años</span>{% endif %}
         <small>{{ p.servicios|join:", " }}</small><small>{{ p.atend }} atendidas · {{ p.horas_txt }} · {{ p.faltas }} faltas ({{ p.falta_txt }}) · asist. {{ p.tasa }}%</small>
         <small>Bs. {{ p.gen|bs }}{% if p.n_proy %} · {{ p.n_proy }} proy.{% endif %}{% if p.n_mens %} · {{ p.n_mens }} mens.{% endif %}</small></div></div>{% endfor %}</div>
   <div class="scroll" style="margin-top:14px"><table class="t"><thead><tr><th>Niño</th><th>Servicios</th><th class="tc">Sesiones {% ayuda "e_ses" %}</th><th class="tc">Atend. {% ayuda "e_atend" %}</th><th class="tc">Faltas {% ayuda "e_falta" %}</th><th class="tc">Permisos</th><th class="tc">Canc.</th><th>Horas {% ayuda "n_horas" %}</th><th>Libre x falta {% ayuda "n_libre_falta" %}</th><th class="tr">Asist. {% ayuda "n_asist" %}</th><th class="tr">Individual {% ayuda "n_gen" %}</th><th class="tr">Proyecto {% ayuda "n_gen" %}</th><th class="tr">Mensual. {% ayuda "n_gen" %}</th><th class="tr">Total {% ayuda "n_gen" %}</th><th>Primera / última</th></tr></thead><tbody>
-    {% for p in r.pacientes %}<tr><td><b>{{ p.nombre }}</b>{% if p.diagnostico %}<div class="note" style="margin:0">{{ p.diagnostico }}</div>{% endif %}</td><td>{{ p.servicios|join:", " }}</td><td class="tc">{{ p.n }}</td><td class="tc">{{ p.atend }}</td><td class="tc">{{ p.faltas }}</td><td class="tc">{{ p.permisos }}</td><td class="tc">{{ p.canceladas }}</td><td>{{ p.horas_txt }}</td><td>{{ p.falta_txt }}</td><td class="tr">{{ p.tasa }}%</td><td class="tr mono">{{ p.gen_ind|bs }}</td><td class="tr mono">{{ p.gen_proy|bs }}</td><td class="tr mono">{{ p.gen_mens|bs }}</td><td class="tr mono"><b>{{ p.gen|bs }}</b></td><td>{{ p.primera|date:"d/m" }} – {{ p.ultima|date:"d/m/Y" }}</td></tr>{% endfor %}
+    {% for p in r.pacientes %}<tr {% if p.inactivo %}style="background:#fff7f7"{% endif %}><td><b>{{ p.nombre }}</b>{% if p.inactivo %} <span class="badge" style="background:#fee2e2;color:#991b1b">Inactivo</span>{% endif %}{% if p.diagnostico %}<div class="note" style="margin:0">{{ p.diagnostico }}</div>{% endif %}</td><td>{{ p.servicios|join:", " }}</td><td class="tc">{{ p.n }}</td><td class="tc">{{ p.atend }}</td><td class="tc">{{ p.faltas }}</td><td class="tc">{{ p.permisos }}</td><td class="tc">{{ p.canceladas }}</td><td>{{ p.horas_txt }}</td><td>{{ p.falta_txt }}</td><td class="tr">{{ p.tasa }}%</td><td class="tr mono">{{ p.gen_ind|bs }}</td><td class="tr mono">{{ p.gen_proy|bs }}</td><td class="tr mono">{{ p.gen_mens|bs }}</td><td class="tr mono"><b>{{ p.gen|bs }}</b></td><td>{{ p.primera|date:"d/m" }} – {{ p.ultima|date:"d/m/Y" }}</td></tr>{% endfor %}
   </tbody></table></div>
 </div>
 
