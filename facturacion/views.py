@@ -5924,214 +5924,109 @@ def reporte_profesional(request):
 @puede_ver_reportes_financieros
 def reporte_sucursal(request):
     """
-    Reporte detallado por sucursal - MEJORADO
-    ✅ Comparativas y estadísticas completas
+    Reporte completo por sucursal (modelo: reporte_profesional).
+    Incluye: ficha, rendimiento y ocupación consolidados, horas libres por causa,
+             ingresos por tipo (individual / proyecto / mensualidad), GASTOS
+             (egresos registrados + cuadros que el dueño completa + costo por
+             profesional), resultado y punto de equilibrio, rentabilidad por
+             profesional y por paciente, proyectos y mensualidades con su reparto,
+             mapa de calor, comparación con el período anterior y con otras
+             sucursales, conciliación con el reporte financiero y semáforo.
+    Soporta PDF con ?export=pdf
     """
-    
+    import json as _json_rs
     from servicios.models import Sucursal
-    
-    sucursal_id = request.GET.get('sucursal')
-    fecha_desde = request.GET.get('fecha_desde', '')
-    fecha_hasta = request.GET.get('fecha_hasta', '')
-    
+    from facturacion.reporte_profesional_data import (
+        resolver_rango, leer_horario_manual, MESES_ES, DIAS_ES,
+    )
+    from facturacion.reporte_sucursal_data import (
+        analizar_sucursal, leer_gastos_manuales, leer_costos_profesional, GLOB_OPCIONES,
+    )
+
+    g = request.GET
+    hoy = date.today()
+    sucursal_id = g.get('sucursal', '').strip()
+    mes_sel = g.get('mes', '').strip()
+    anio_sel = g.get('anio', '').strip()
+    rango_param = g.get('rango', '').strip()
+    glob = g.get('glob', 'horas')
+    if glob not in ('horas', 'igual', 'no'):
+        glob = 'horas'
+    enviado = g.get('f') == '1'          # el formulario ya se envió (distingue casilla vacía de primer ingreso)
+    inc_egr = (g.get('inc_egr') == '1') if enviado else True
+    comp_suc = (g.get('comp_suc') == '1') if enviado else True
+    manuales = leer_gastos_manuales(g)
+    cp = leer_costos_profesional(g)
+    pers = g.get('pers', 'auto')
+    if pers not in ('auto', 'si', 'no'):
+        pers = 'auto'
+    inc_pers = None if pers == 'auto' else (pers == 'si')   # None = automático (se excluye si hay costos por profesional)
+
+    desde, hasta, rango = resolver_rango(
+        rango_param, g.get('fecha_desde', '').strip(), g.get('fecha_hasta', '').strip(),
+        mes_sel, anio_sel, hoy)
+    manual_cfg, forzar_manual, horario_editado = leer_horario_manual(g)
+
     sucursal = None
-    datos = None
-    comparativa = []
-    grafico_data = None
-    
+    r = None
+    graf_json = '{}'
     if sucursal_id:
-        from datetime import datetime, timedelta
-        
         sucursal = get_object_or_404(Sucursal, id=sucursal_id)
-        
-        # Rango de fechas
-        if fecha_desde and fecha_hasta:
-            fecha_desde_obj = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            fecha_hasta_obj = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-        else:
-            fecha_hasta_obj = date.today()
-            fecha_desde_obj = fecha_hasta_obj - timedelta(days=90)
-            fecha_desde = fecha_desde_obj.strftime('%Y-%m-%d')
-            fecha_hasta = fecha_hasta_obj.strftime('%Y-%m-%d')
-        
-        # Query base
-        sesiones = Sesion.objects.filter(
-            sucursal=sucursal,
-            fecha__gte=fecha_desde_obj,
-            fecha__lte=fecha_hasta_obj
-        ).select_related('paciente', 'servicio', 'profesional')
-        
-        # Estadísticas
-        stats = sesiones.aggregate(
-            total_sesiones=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            retrasos=Count('id', filter=Q(estado='realizada_retraso')),
-            faltas=Count('id', filter=Q(estado='falta')),
-            canceladas=Count('id', filter=Q(estado='cancelada')),
-            ingresos_total=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso'])),
-            profesionales_activos=Count('profesional', distinct=True),
-            pacientes_activos=Count('paciente', distinct=True),
-            total_horas=Sum('duracion_minutos', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        )
-        
-        # Sumar mensualidades de la sucursal en el período
-        from agenda.models import Mensualidad
-        mensualidades_sucursal = Mensualidad.objects.filter(
-            sucursal=sucursal,
-            estado__in=['activa', 'pausada', 'completada', 'cancelada']
-        ).filter(
-            Q(anio__gt=fecha_desde_obj.year) |
-            Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
-        ).filter(
-            Q(anio__lt=fecha_hasta_obj.year) |
-            Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
-        )
-        ingresos_mensualidades_sucursal = mensualidades_sucursal.aggregate(
-            t=Sum('costo_mensual')
-        )['t'] or Decimal('0.00')
-        stats['ingresos_total'] = (stats['ingresos_total'] or Decimal('0.00')) + ingresos_mensualidades_sucursal
-        stats['mensualidades_count'] = mensualidades_sucursal.count()
-        stats['ingresos_mensualidades'] = ingresos_mensualidades_sucursal
-        
-        stats['total_horas_decimal'] = (stats['total_horas'] or 0) / 60
-        
-        # Tasas
-        sesiones_efectivas = (stats['realizadas'] or 0) + (stats['retrasos'] or 0)
-        total_prog = stats['total_sesiones'] - (stats['canceladas'] or 0)
-        tasa_ocupacion = (sesiones_efectivas / total_prog * 100) if total_prog > 0 else 0
-        stats['tasa_ocupacion'] = round(tasa_ocupacion, 1)
-        
-        # Ingreso promedio por sesión
-        stats['ingreso_promedio'] = (stats['ingresos_total'] or Decimal('0.00')) / sesiones_efectivas if sesiones_efectivas > 0 else Decimal('0.00')
-        
-        # Por servicio
-        por_servicio = sesiones.values(
-            'servicio__nombre', 'servicio__color'
-        ).annotate(
-            cantidad=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('-cantidad')
-        
-        # Top profesionales
-        top_profesionales = sesiones.values(
-            'profesional__nombre', 'profesional__apellido', 'profesional__id'
-        ).annotate(
-            sesiones=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada')),
-            ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-        ).order_by('-sesiones')[:10]
-        
-        # Top pacientes
-        top_pacientes = sesiones.values(
-            'paciente__nombre', 'paciente__apellido'
-        ).annotate(
-            sesiones=Count('id'),
-            realizadas=Count('id', filter=Q(estado='realizada'))
-        ).order_by('-sesiones')[:10]
-        
-        # Por mes — agrupación en Python (TruncMonth falla en SQLite + Python 3.14)
-        from collections import defaultdict as _dd2
-        from datetime import date as _d2
+        r = analizar_sucursal(
+            sucursal, desde, hasta, manuales=manuales, cp=cp, glob=glob, inc_egr=inc_egr,
+            inc_pers=inc_pers, manual_cfg=manual_cfg, forzar_manual=forzar_manual, hoy=hoy,
+            comparar=True, comparar_sucursales=comp_suc)
+        desde, hasta = r['desde'], r['hasta']
+        graf_json = _json_rs.dumps(r['graf'])
 
-        _m2 = _dd2(lambda: {'total': 0, 'realizadas': 0, 'ingresos': Decimal('0')})
-        for _row2 in sesiones.values('fecha', 'estado', 'monto_cobrado'):
-            _k2 = _d2(_row2['fecha'].year, _row2['fecha'].month, 1)
-            _e2  = _row2['estado']
-            _m2[_k2]['total'] += 1
-            if _e2 == 'realizada':         _m2[_k2]['realizadas'] += 1
-            if _e2 in ('realizada', 'realizada_retraso'):
-                _m2[_k2]['ingresos'] += Decimal(str(_row2['monto_cobrado'] or 0))
+    # ── Exportar PDF ──────────────────────────────────────────────────────
+    if g.get('export') == 'pdf' and sucursal and r:
+        try:
+            from facturacion.informe_sucursal_pdf import generar_informe_sucursal_pdf
+            buffer = generar_informe_sucursal_pdf({
+                'sucursal': sucursal, 'r': r, 'desde': desde, 'hasta': hasta})
+            response = HttpResponse(buffer, content_type='application/pdf')
+            slug = sucursal.nombre.replace(' ', '_')
+            response['Content-Disposition'] = (
+                f'inline; filename="informe_sucursal_{slug}_{desde:%Y%m%d}_al_{hasta:%Y%m%d}.pdf"')
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error generando PDF sucursal: {e}", exc_info=True)
+            messages.error(request, f"❌ Error al generar el PDF: {str(e)}")
 
-        por_mes = [
-            {'mes': k, 'total': v['total'], 'realizadas': v['realizadas'],
-             'ingresos': v['ingresos']}
-            for k, v in sorted(_m2.items())
-        ]
+    # Filas del formulario de gastos: se conserva lo escrito aunque sea inválido
+    cg, mg, fg = g.getlist('g_concepto'), g.getlist('g_monto'), g.getlist('g_freq')
+    gastos_form = []
+    for i in range(max(len(cg), len(mg))):
+        c_ = cg[i].strip() if i < len(cg) else ''
+        m_ = mg[i].strip() if i < len(mg) else ''
+        if c_ or m_:
+            gastos_form.append({'concepto': c_, 'monto': m_,
+                                'freq': fg[i] if i < len(fg) and fg[i] in ('mensual', 'periodo') else 'mensual'})
+    if not gastos_form:
+        gastos_form = [{'concepto': '', 'monto': '', 'freq': 'mensual'} for _ in range(3)]
 
-        grafico_data = {
-            'labels'   : [_mes_label(m['mes'])       for m in por_mes],
-            'sesiones' : [m['total']                 for m in por_mes],
-            'realizadas': [m['realizadas']            for m in por_mes],
-            'ingresos' : [float(m['ingresos'])        for m in por_mes],
-        }
-
-        # IDs de pacientes con actividad en esta sucursal (para el helper financiero)
-        paciente_ids_sucursal = list(
-            Paciente.objects.filter(sucursales__id=sucursal.id)
-            .values_list('id', flat=True).distinct()
-        )
-
-        # Desglose financiero real de la sucursal: consumido por tipo,
-        # pagos directos y crédito adelantado global separado.
-        financiero_sucursal = _calcular_financiero_sucursal(
-            sucursal_id=sucursal.id,
-            paciente_ids=paciente_ids_sucursal,
-            fecha_desde_obj=fecha_desde_obj,
-            fecha_hasta_obj=fecha_hasta_obj,
-        )
-
-        datos = {
-            'stats': stats,
-            'por_servicio': por_servicio,
-            'top_profesionales': top_profesionales,
-            'top_pacientes': top_pacientes,
-            'financiero_sucursal': financiero_sucursal,
-        }
-        
-        # Comparativa con otras sucursales
-        todas_sucursales = Sucursal.objects.filter(activa=True)
-        
-        comparativa_data = []
-        for suc in todas_sucursales:
-            suc_sesiones = Sesion.objects.filter(
-                sucursal=suc,
-                fecha__gte=fecha_desde_obj,
-                fecha__lte=fecha_hasta_obj
-            )
-            
-            suc_stats = suc_sesiones.aggregate(
-                sesiones=Count('id'),
-                realizadas=Count('id', filter=Q(estado='realizada')),
-                ingresos=Sum('monto_cobrado', filter=Q(estado__in=['realizada', 'realizada_retraso']))
-            )
-            
-            # Sumar mensualidades de cada sucursal
-            suc_mensualidades_ingresos = Mensualidad.objects.filter(
-                sucursal=suc,
-                estado__in=['activa', 'pausada', 'completada', 'cancelada']
-            ).filter(
-                Q(anio__gt=fecha_desde_obj.year) |
-                Q(anio=fecha_desde_obj.year, mes__gte=fecha_desde_obj.month)
-            ).filter(
-                Q(anio__lt=fecha_hasta_obj.year) |
-                Q(anio=fecha_hasta_obj.year, mes__lte=fecha_hasta_obj.month)
-            ).aggregate(t=Sum('costo_mensual'))['t'] or Decimal('0.00')
-            
-            comparativa_data.append({
-                'id': suc.id,
-                'nombre': suc.nombre,
-                'sesiones': suc_stats['sesiones'] or 0,
-                'realizadas': suc_stats['realizadas'] or 0,
-                'ingresos': (suc_stats['ingresos'] or Decimal('0.00')) + suc_mensualidades_ingresos,
-                'es_actual': suc.id == sucursal.id
-            })
-        
-        comparativa = sorted(comparativa_data, key=lambda x: x['sesiones'], reverse=True)
-    
-    # Lista de sucursales
-    sucursales = Sucursal.objects.filter(activa=True)
-    
     context = {
         'sucursal': sucursal,
-        'datos': datos,
-        'comparativa': comparativa,
-        'grafico_data': grafico_data,
-        'sucursales': sucursales,
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
+        'r': r,
+        'graf_json': graf_json,
+        'sucursales': Sucursal.objects.filter(activa=True),
+        'sucursal_id': sucursal_id, 'rango': rango,
+        'fecha_desde': desde.strftime('%Y-%m-%d'), 'fecha_hasta': hasta.strftime('%Y-%m-%d'),
+        'mes_sel': mes_sel, 'anio_sel': anio_sel,
+        'meses_opts': [(i, MESES_ES[i]) for i in range(1, 13)],
+        'anios_opts': list(range(hoy.year - 4, hoy.year + 1)),
+        'glob': glob, 'glob_opts': GLOB_OPCIONES,
+        'inc_egr': inc_egr, 'pers': pers, 'comp_suc': comp_suc,
+        'gastos_form': gastos_form, 'cp': cp,
+        'cp_txt': {pid: f"{v:g}" for pid, v in cp.items()},
+        'manual_cfg': manual_cfg, 'forzar_manual': forzar_manual,
+        'dias_opts': list(enumerate(DIAS_ES)),
+        'hoy': hoy,
+        'qs_base': '&'.join(f"{k}={v}" for k, v in g.items()
+                            if k not in ('rango', 'export', 'mes', 'anio', 'fecha_desde', 'fecha_hasta') and v),
     }
-    
     return render(request, 'facturacion/reportes/sucursal.html', context)
 
 @login_required

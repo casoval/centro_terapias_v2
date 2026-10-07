@@ -192,3 +192,83 @@ def ayuda_txt(texto):
     if not texto:
         return ''
     return format_html('<i class="inf no-print" tabindex="0" role="button" aria-label="Ayuda" data-t="{}">i</i>', texto)
+
+
+@register.filter
+def bsd(value):
+    """Variación con signo: 1234.5 → +1.234,50 · -80 → -80,00"""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        return "0,00"
+    s = f"{abs(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return ("+" if v > 0 else "-" if v < 0 else "") + s
+
+
+# ══════════════════════════════════════════════════════════════════════
+# AYUDA DEL REPORTE POR SUCURSAL (claves con prefijo su_)
+# ══════════════════════════════════════════════════════════════════════
+AYUDA.update({
+    # ── Filtros y cuadros de gastos ──
+    'su_f_sucursal': "Sucursal de la que se arma el informe. Se consolidan TODOS sus profesionales y sus sesiones; los números de cada profesional cuadran con su propio informe.",
+    'su_f_gastos': "Aquí decides qué gastos cuentan. Se suman tres fuentes: 1) egresos ya registrados en el sistema, 2) los cuadros que completes (alquiler, servicios, limpieza…) y 3) el costo mensual de cada profesional. Con eso se calcula el resultado, el margen, el punto de equilibrio y la rentabilidad de cada profesional y niño.",
+    'su_f_egr': "Incluye los egresos registrados en el módulo de Egresos (no anulados) de esta sucursal. Se ubican por su período contable (mes/año del gasto, no la fecha de pago). Si el período abarca solo parte de un mes, se cuenta la fracción de días de ese mes.",
+    'su_f_glob': "Los egresos registrados SIN sucursal son globales (publicidad general, contador, etc.). Aquí eliges cómo cargarlos a esta sucursal: proporcional a las horas atendidas de cada sucursal (recomendado), en partes iguales, o no incluirlos.",
+    'su_f_pers': "Qué hacer con los egresos registrados de tipo Personal o Honorarios. Automático: se incluyen, salvo que ingreses costos por profesional (así no se cuenta dos veces el mismo sueldo). Incluir / Excluir fuerzan la decisión. Ojo: la comisión de profesionales externos ya se descuenta del ingreso neto, no la dupliques aquí.",
+    'su_f_manual': "Escribe los gastos que tú ves: concepto y monto en Bs. Usa «Mensual» para gastos que se repiten cada mes (se prorratean por días de cada mes calendario) o «Total del período» para un gasto único que ocurrió en el rango. Se guardan en la dirección (URL) del informe: puedes marcarla como favorita para repetirlo.",
+    'su_f_freq': "Mensual: el monto se cobra cada mes y se prorratea por los días del período (un mes completo = el monto exacto). Total del período: se cuenta una sola vez, repartido por días entre los meses del rango.",
+    'su_f_cp': "Opcional. Cuánto le cuesta al centro cada profesional por mes (sueldo y cargas). El sistema no guarda sueldos internos, por eso se ingresa aquí. Con ese dato se calcula el margen y la cobertura de cada profesional, y se reparte entre los niños que atiende.",
+    'su_f_comp': "Compara esta sucursal con las demás activas (ingreso neto, ocupación, gastos). Hace el cálculo completo de cada sucursal, por eso puede tardar unos segundos más.",
+    # ── Indicadores ──
+    'su_gen': "Total generado por todos los profesionales de la sucursal: sesiones individuales (incluye faltas sin aviso, que se cobran) + parte ponderada de proyectos y mensualidades devengada en el período.",
+    'su_neto': "Ingreso que realmente queda al centro: generado menos la comisión que corresponde a profesionales externos (servicios con comisión). Es la base para medir la rentabilidad.",
+    'su_gastos': "Total de gastos considerados en el período: operativos (alquiler, servicios…) más costo de personal/profesionales. Revisa el detalle en «Gastos».",
+    'su_resultado': "Ingreso neto − gastos. Positivo = la sucursal gana dinero en el período; negativo = pierde. Depende de los gastos que hayas incluido.",
+    'su_margen': "Resultado ÷ ingreso neto. Indica cuántos centavos de cada boliviano neto quedan después de pagar los gastos.",
+    'su_cobertura': "Ingreso neto ÷ gastos. 1,0× = punto de equilibrio. Por encima de 1 cubre sus gastos; por debajo, no.",
+    'su_equilibrio': "Cuánto falta para cubrir los gastos, expresado en horas y sesiones adicionales al ritmo actual de ingreso neto. Compáralo con las horas sin paciente agendado: si hay más horas libres que las necesarias, el problema es llenar la agenda.",
+    'su_gasto_hora': "Gastos totales ÷ horas efectivamente trabajadas. Es lo que cuesta cada hora de atención: si el ingreso neto por hora es menor, cada hora trabajada pierde dinero.",
+    'su_ing_hora': "Ingreso neto ÷ horas de reloj trabajadas por los profesionales. Compárelo con el costo por hora de los gastos.",
+    'su_ocup_efect': "Horas realmente trabajadas con pacientes ÷ horas de horario transcurrido de todos los profesionales de la sucursal (suma de capacidades).",
+    'su_ocup_agend': "Horas con sesión agendada u ocupada (incluye faltas sin aviso, que el profesional esperó) ÷ horas de horario transcurrido.",
+    'su_horas': "Horas de reloj trabajadas por los profesionales (suma). Una sesión grupal simultánea no duplica horas. El horario sale de Asistencia o, si no está configurado, del predeterminado.",
+    'su_potencial': "Estimación teórica: horas libres que no generaron dinero × ingreso neto por hora actual, con la agenda llena. Con pocas sesiones en el período puede salir inflado: tómalo como orden de magnitud, no como dinero seguro.",
+    'su_semaforo': "Resume en un puntaje de 0 a 100 si la sucursal es sana. Cada criterio vale verde (1), ámbar (0,5) o rojo (0) y se pondera según su importancia (la cobertura de gastos pesa más). Los criterios y sus umbrales están a la vista. Es orientativo: la decisión es del dueño.",
+    'su_hallazgos': "Frases generadas automáticamente con los números del informe. Rojo = requiere atención, azul = informativo, verde = positivo, amarillo = nota sobre los datos.",
+    # ── Secciones ──
+    'su_sec_resultado': "Cómo se llega al resultado: del ingreso generado al neto del centro y de ahí, restando gastos, al resultado final. Incluye el punto de equilibrio.",
+    'su_sec_gastos': "Gastos considerados, por concepto y origen: registrados en el sistema, globales prorrateados, cuadros ingresados por ti y costo de profesionales.",
+    'su_g_origen': "Registrado = egreso de la sucursal en el módulo de Egresos. Global = egreso sin sucursal, cargado según el reparto elegido. Ingresado = cuadro que completaste. Profesional = costo mensual por profesional.",
+    'su_sec_tipos': "De dónde viene el dinero: sesiones individuales, proyectos/evaluaciones y mensualidades, con su ingreso por hora para comparar qué tipo de atención rinde más.",
+    'su_sec_servicio': "Rendimiento por servicio: sesiones, horas, ingreso e ingreso por hora. El ingreso por hora usa horas-paciente (cada niño cuenta por separado).",
+    'su_t_bs_hora': "Ingreso ÷ horas atendidas de ese tipo o servicio. Sirve para ver qué se paga mejor por hora de trabajo.",
+    'su_sec_horas': "Cómo se usó el tiempo de la sucursal: horas trabajadas, perdidas por inasistencia, canceladas y sin paciente agendado, más su evolución y mapa de calor.",
+    'su_desglose': "Cada hora del horario transcurrido de los profesionales se clasifica en una sola causa. Falta sin aviso se cobra; permiso, cancelada, reprogramada y sin paciente agendado no.",
+    'su_evol': "Evolución por mes, semana o día. En meses se muestra ingreso neto, gastos y resultado; en semanas y días, atenciones, faltas e ingreso.",
+    'su_heat': "Ocupación de la sucursal por día y hora: suma de todos los profesionales. Verde intenso = franja llena; claro = vacía. Muestra cuándo hay capacidad sin usar.",
+    'su_franjas': "Horas del día con menor y mayor ocupación consolidada. Son las franjas donde conviene captar pacientes (libres) o donde falta capacidad (llenas).",
+    'su_sec_profes': "Aporte y rentabilidad de cada profesional dentro de la sucursal, con su ocupación, horas libres y, si ingresaste su costo, margen y cobertura.",
+    'su_p_neto': "Lo que el profesional aporta al centro: su generado menos comisión externa. Entre paréntesis, su peso en el ingreso neto de la sucursal.",
+    'su_p_costo': "Costo mensual que ingresaste, prorrateado por días del período. Vacío = no ingresaste costo para ese profesional.",
+    'su_p_margen': "Aporte neto − costo del profesional. Verde = cubre su costo; rojo = no lo cubre.",
+    'su_p_cobertura': "Aporte neto ÷ costo. 1,0× = cubre justo su costo.",
+    'su_p_ocup': "Ocupación efectiva (horas con pacientes ÷ horas de su horario transcurrido). Entre paréntesis, la agendada.",
+    'su_p_libre': "Horas de su horario sin sesión (tiempo libre) y horas perdidas por inasistencia/cancelación.",
+    'su_sec_ninos': "Rentabilidad de cada niño: lo que aporta (neto) menos el costo que se le asigna según los minutos que se atiende.",
+    'su_n_neto': "Generado del niño en la sucursal (sesiones individuales + su parte de paquetes), ajustado por la comisión externa proporcional.",
+    'su_n_costo': "Costo asignado = costo directo del profesional (repartido por minutos atendidos de cada niño) + resto de gastos repartido por minutos atendidos. Es una asignación, no un gasto real por niño.",
+    'su_n_margen': "Neto − costo asignado. Rojo = el niño no cubre el costo que se le asigna. La suma de márgenes de todos los niños es igual al resultado de la sucursal.",
+    'su_conc_prof': "Qué parte del ingreso neto de la sucursal depende de uno o pocos profesionales. Si es muy alto, la sucursal es frágil ante una salida.",
+    'su_conc_pac': "Qué parte del ingreso depende de uno o pocos niños. Si es muy alto, perder unos pocos pacientes golpea la sucursal.",
+    'su_sec_paquetes': "Proyectos y mensualidades de la sucursal con el reparto entre profesionales. El % de participación se pondera por lo que costaría cada sesión como individual (precio del paciente o precio base del servicio).",
+    'su_pq_gen': "Parte del costo fijo ya devengada en el período por sesiones realizadas o faltas sin aviso, sumando a todos los profesionales.",
+    'su_pq_factor': "Costo del paquete ÷ valor de sus sesiones a precio individual. Menor a 1 = se vendió con descuento; mayor a 1 = se cobró más que las sesiones sueltas.",
+    'su_pq_partes': "Reparto del paquete entre profesionales: nombre, % de participación y lo que generó cada uno en el período.",
+    'su_sec_comp': "Cómo va esta sucursal frente al período anterior (misma duración) y frente a las demás sucursales activas.",
+    'su_comp_ant': "Compara con el período inmediatamente anterior de igual duración. Verde = mejora, rojo = empeora (en gastos, subir es negativo).",
+    'su_comp_suc': "Ingreso neto, ocupación y resultado de cada sucursal activa. Para las otras sucursales solo se consideran sus egresos registrados (los cuadros manuales y costos por profesional aplican solo a la sucursal elegida).",
+    'su_sec_concil': "Compara el generado de este informe con el consumido del reporte financiero y muestra lo cobrado, para entender las diferencias.",
+    'su_c_consumido': "Total consumido de la sucursal según el reporte financiero: sesiones por fecha, proyectos iniciados y mensualidades del mes, completos.",
+    'su_c_pagado': "Pagos directos recibidos en la sucursal en el período (sin contar uso de crédito). Es lo cobrado, distinto de lo generado.",
+    'su_c_saldo': "Pagado − consumido en el período. Negativo = se consumió más de lo que se cobró en el rango (deuda o pagos en otras fechas).",
+})

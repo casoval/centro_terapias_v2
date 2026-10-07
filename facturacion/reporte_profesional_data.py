@@ -1293,6 +1293,8 @@ def analizar(prof, desde, hasta, sucursal_id='', servicio_id='', paciente_id='',
         'huecos_futuros': huecos_futuros, 'huecos_pasados': huecos_pasados, 'proximos': proximos,
         'horario': horario_info, 'hallazgos': hallazgos, 'comparacion': comparacion,
         'graf': graf,
+        # minutos crudos por (día_semana, hora): los usa el reporte por sucursal para consolidar
+        'heat_raw': {'cap': dict(heat_cap), 'busy': dict(heat_busy)},
     }
 
     if completo:

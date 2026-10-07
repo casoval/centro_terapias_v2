@@ -1,503 +1,629 @@
 {% extends 'base.html' %}
+{% load reporte_prof_tags %}
 {% block title %}Reporte Sucursal{% endblock %}
 {% block content %}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;600&display=swap');
-  :root{
-    --ink:#0f172a;--ink2:#334155;--muted:#64748b;--border:#e2e8f0;--surface:#f8fafc;--white:#fff;
-    --green:#16a34a;--green-l:#dcfce7;--blue:#2563eb;--blue-l:#dbeafe;
-    --red:#dc2626;--red-l:#fee2e2;--amber:#d97706;--amber-l:#fef3c7;
-    --purple:#7c3aed;--purple-l:#ede9fe;--teal:#0d9488;--teal-l:#ccfbf1;
-    --violet:#6d28d9;--violet-l:#ede9fe;
-    --r:12px;
-  }
-  body{font-family:'Nunito',sans-serif;background: transparent}
-  @media print{.no-print{display:none!important} body{background:white!important}}
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap');
+  :root{--ink:#0f172a;--ink2:#334155;--muted:#64748b;--border:#e2e8f0;--surface:#f8fafc;--white:#fff;
+    --green:#16a34a;--green-l:#dcfce7;--blue:#2563eb;--blue-l:#dbeafe;--red:#dc2626;--red-l:#fee2e2;
+    --amber:#d97706;--amber-l:#fef3c7;--purple:#7c3aed;--purple-l:#ede9fe;--teal:#0d9488;--teal-l:#ccfbf1;
+    --brand:#4338ca;--brand-l:#e0e7ff;--r:12px}
+  body{font-family:'Space Grotesk',sans-serif;background:transparent}
   .mono{font-family:'Fira Code',monospace}
+  @media print{.no-print{display:none!important}body{background:white!important}.tabpane{display:block!important}}
 
-  .rpt-header{background:linear-gradient(135deg,#2e1065 0%,#4c1d95 50%,#3b0764 100%);
-    border-radius:16px;padding:24px 28px;margin-bottom:20px;color:white;position:relative;overflow:hidden}
-  .rpt-header::after{content:'';position:absolute;top:-30px;right:-30px;width:180px;height:180px;
-    background:radial-gradient(circle,rgba(167,139,250,.25) 0%,transparent 70%);border-radius:50%}
-  .back{color:#c4b5fd;text-decoration:none;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;margin-bottom:10px}
-  .rpt-header h1{font-size:1.5rem;font-weight:900;margin:0 0 4px}
-  .rpt-header p{color:#c4b5fd;font-size:.8rem;margin:0}
-  .print-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
-    border:1px solid rgba(255,255,255,.3);color:white;font-size:.75rem;font-weight:700;
-    padding:6px 14px;border-radius:8px;cursor:pointer;margin-top:10px}
+  .hero{background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#3730a3 100%);border-radius:16px;padding:20px 26px;margin-bottom:16px;color:#fff}
+  .hero-nav{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .back-link{color:#c7d2fe;text-decoration:none;font-size:.75rem;font-weight:600}
+  .btn-ghost{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:.75rem;font-weight:600;padding:6px 14px;border-radius:8px;cursor:pointer;text-decoration:none}
+  .hero h1{font-size:1.5rem;font-weight:800;margin:0 0 4px}
+  .hero p{color:#c7d2fe;font-size:.8rem;margin:0}
+  .pill{display:inline-block;background:rgba(255,255,255,.14);border-radius:20px;padding:3px 11px;font-size:.68rem;font-weight:700;margin:8px 6px 0 0}
 
   .filter-bar{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
   .filter-bar form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
   .fg{display:flex;flex-direction:column;gap:3px}
-  .fg label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-  .fg select,.fg input[type=date],.fg input.fp-alt{padding:7px 10px;font-size:.78rem;border:1px solid var(--border);
-    border-radius:8px;color:var(--ink);font-family:'Nunito',sans-serif;min-width:150px}
-  .btn-primary{background:var(--violet);color:white;border:none;padding:7px 16px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;align-self:flex-end}
+  .fg label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .fg select,.fg input[type=text],.fg input[type=number],.fg input[type=date],.fg input[type=time]{padding:7px 9px;font-size:.78rem;border:1px solid var(--border);border-radius:8px;color:var(--ink);font-family:inherit;min-width:120px;background:#fff}
+  .btn-primary{background:var(--brand);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer}
+  .btn-sm{background:var(--surface);border:1px solid var(--border);color:var(--ink2);padding:5px 11px;border-radius:8px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .btn-clear{font-size:.75rem;color:var(--muted);text-decoration:none;padding:8px 6px}
+  .quick{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;align-items:center;width:100%}
+  .qbtn{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 11px;font-size:.68rem;font-weight:700;color:var(--ink2);cursor:pointer;font-family:inherit}
+  .qbtn.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .adv{width:100%;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px}
+  .adv summary{cursor:pointer;font-size:.74rem;font-weight:700;color:var(--ink2)}
+  .adv-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;align-items:flex-end}
+  .chk{display:flex;gap:8px;flex-wrap:wrap;font-size:.72rem}
+  .chk label{display:flex;align-items:center;gap:3px;text-transform:none;font-size:.72rem;font-weight:600;color:var(--ink2)}
+  .chk input{min-width:0}
+  .grow{display:grid;grid-template-columns:2fr 1fr 1.2fr 34px;gap:6px;align-items:center;margin-bottom:6px}
+  .grow input,.grow select{padding:7px 9px;font-size:.78rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;min-width:0;width:100%;background:#fff}
+  .gbox{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:300px}
+  .gbox h4{font-size:.74rem;font-weight:800;margin:0 0 6px;color:var(--ink)}
+  .cprow{display:grid;grid-template-columns:1fr 120px;gap:6px;align-items:center;margin-bottom:5px;font-size:.74rem}
+  .cprow input{padding:6px 8px;font-size:.76rem;border:1px solid var(--border);border-radius:8px;font-family:inherit;width:100%;background:#fff}
+  .chips2{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
 
-  /* Sucursal card */
-  .suc-card{background:linear-gradient(135deg,#2e1065,#3b0764);border-radius:16px;padding:20px 24px;margin-bottom:16px;color:white;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
-  .suc-avatar{width:64px;height:64px;border-radius:14px;background:rgba(255,255,255,.15);
-    display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0}
-  .suc-info{flex:1;min-width:200px}
-  .suc-name{font-size:1.2rem;font-weight:900;margin:0 0 4px}
-  .suc-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-  .chip{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:700;
-    padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
-  .chip.green{background:rgba(34,197,94,.2);color:#86efac}
-  .suc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-top:12px}
-  .sk-item{background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;text-align:center}
-  .sk-label{font-size:.58rem;font-weight:700;text-transform:uppercase;opacity:.6;margin-bottom:3px}
-  .sk-val{font-size:1.1rem;font-weight:900;font-family:'Fira Code',monospace}
+  .pcard{background:linear-gradient(135deg,#1e1b4b,#27245f);border-radius:16px;padding:20px 24px;margin-bottom:14px;color:#fff;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .avatar{width:84px;height:84px;border-radius:16px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:2.2rem;flex-shrink:0}
+  .pname{font-size:1.3rem;font-weight:800;margin:0 0 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:.65rem;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.9)}
+  .chip.green{background:rgba(34,197,94,.25);color:#86efac}.chip.red{background:rgba(239,68,68,.25);color:#fca5a5}
+  .pmeta{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.74rem;color:rgba(255,255,255,.8)}
 
-  /* Stats */
-  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-  .kpi-box{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px;position:relative;overflow:hidden}
-  .kpi-box .accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
-  .kpi-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
-  .kpi-val{font-size:1.4rem;font-weight:900;color:var(--ink);font-family:'Fira Code',monospace;line-height:1}
-  .kpi-sub{font-size:.65rem;color:var(--muted);margin-top:4px}
-
-  /* Rate cards */
-  .rate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px}
-  .rate-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px}
-  .rc-label{font-size:.65rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-  .rc-val{font-size:1.4rem;font-weight:900;font-family:'Fira Code',monospace;margin-bottom:8px}
-  .rc-bar{height:6px;background:var(--border);border-radius:10px;overflow:hidden}
-  .rc-fill{height:100%;border-radius:10px;transition:width 1s}
-
-  /* Charts */
-  .chart-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px}
-  .chart-card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 12px}
-  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
-  @media(max-width:768px){.two-col{grid-template-columns:1fr}}
-
+  .sec{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px;display:flex;align-items:center;gap:8px}
+  .sec::after{content:'';flex:1;height:1px;background:var(--border)}
   .card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
   .card h3{font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 10px}
-  .list-item{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border-radius:8px;background:var(--surface);margin-bottom:6px;flex-wrap:wrap;gap:6px}
-  .li-name{font-size:.78rem;font-weight:700;color:var(--ink)}
-  .li-sub{font-size:.65rem;color:var(--muted);margin-top:2px}
-  .li-val{font-size:.88rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--green)}
-  .scroll-list{max-height:240px;overflow-y:auto}
+  .note{font-size:.7rem;color:var(--muted);margin:4px 0 10px;line-height:1.45}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+  @media(max-width:860px){.g2,.g3{grid-template-columns:1fr}.grow{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:12px;position:relative;overflow:hidden}
+  .kpi .bar{position:absolute;top:0;left:0;width:3px;height:100%}
+  .kl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
+  .kv{font-size:1.3rem;font-weight:900;color:var(--ink);font-family:'Fira Code',monospace;line-height:1.05}
+  .ks{font-size:.64rem;color:var(--muted);margin-top:4px;line-height:1.35}
+  .up{color:var(--green)}.down{color:var(--red)}
 
-  /* Comparativa */
-  .comp-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
-    margin-bottom:5px;background:var(--surface)}
-  .comp-item.current{background:var(--violet-l);border:1px solid rgba(109,40,217,.2)}
-  .comp-name{font-size:.78rem;font-weight:700;color:var(--ink);min-width:120px}
-  .comp-bar-wrap{flex:1;height:14px;background:var(--border);border-radius:8px;overflow:hidden}
-  .comp-bar{height:100%;border-radius:8px;background:var(--violet)}
-  .comp-val{font-size:.72rem;font-weight:700;font-family:'Fira Code',monospace;color:var(--ink2);min-width:40px;text-align:right}
+  .verdict{border-radius:16px;padding:18px 22px;margin-bottom:14px;color:#fff;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .score{font-size:2.6rem;font-weight:900;font-family:'Fira Code',monospace;line-height:1}
+  .crit{display:grid;grid-template-columns:14px 1.3fr 1.2fr 2fr;gap:10px;align-items:start;padding:9px 4px;border-bottom:1px solid var(--border);font-size:.74rem}
+  .dot{width:12px;height:12px;border-radius:50%;margin-top:3px}
+  .crit small{display:block;color:var(--muted);font-size:.64rem;margin-top:2px}
+  @media(max-width:700px){.crit{grid-template-columns:14px 1fr}.crit>div:nth-child(n+3){grid-column:2}}
+  .alert{padding:9px 12px;border-radius:9px;font-size:.76rem;margin-bottom:6px;border-left:4px solid var(--blue);background:var(--blue-l);color:#1e3a8a}
+  .alert.alerta{background:var(--red-l);border-color:var(--red);color:#7f1d1d}
+  .alert.ok{background:var(--green-l);border-color:var(--green);color:#14532d}
+  .alert.nota{background:var(--amber-l);border-color:var(--amber);color:#78350f}
 
-  /* Prof ranking */
-  .prof-table{width:100%;border-collapse:collapse;font-size:.75rem}
-  .prof-table th{background:var(--surface);font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:2px solid var(--border)}
-  .prof-table td{padding:9px 10px;border-bottom:1px solid var(--border)}
-  .prof-table tr:hover td{background:var(--violet-l)}
-  .tasa-bar{height:4px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:3px}
-  .tasa-fill{height:100%;border-radius:10px}
+  .stack{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--border);margin:8px 0}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.68rem;color:var(--ink2)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .pbar{height:7px;background:var(--border);border-radius:10px;overflow:hidden}.pbar>div{height:100%;border-radius:10px}
 
-  .section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 12px;display:flex;align-items:center;gap:8px}
-  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+  table.t{width:100%;border-collapse:collapse;font-size:.74rem}
+  table.t th{background:var(--surface);font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:8px 8px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap}
+  table.t td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top}
+  table.t tr:hover td{background:#eef2ff}
+  table.t tr.tot td{background:var(--surface);font-weight:800;border-top:2px solid var(--border)}
+  .tr{text-align:right}.tc{text-align:center}
+  .scroll{overflow-x:auto}.maxh{max-height:460px;overflow-y:auto}
+  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.62rem;font-weight:700;white-space:nowrap}
+  .b-registrado{background:var(--blue-l);color:#1e40af}.b-global{background:var(--purple-l);color:#5b21b6}
+  .b-manual{background:var(--amber-l);color:#92400e}.b-profesional{background:var(--teal-l);color:#115e59}
+  .b-solo{background:var(--teal-l);color:#115e59}.b-grupal{background:var(--purple-l);color:#5b21b6}
+  .b-ok{background:var(--green-l);color:#166534}.b-no{background:var(--red-l);color:#991b1b}
 
-  /* Empty */
-  .suc-chips-grid{display:flex;flex-wrap:wrap;gap:8px}
-  .suc-chip-link{font-size:.8rem;font-weight:700;padding:8px 14px;border-radius:10px;background:var(--white);
-    border:1px solid var(--border);color:var(--ink2);text-decoration:none;transition:all .15s}
-  .suc-chip-link:hover{border-color:var(--violet);color:var(--violet);background:var(--violet-l)}
+  .tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+  .tab{padding:6px 14px;border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-family:inherit}
+  .tab.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .tabpane{display:none}.tabpane.on{display:block}
 
-/* 📱 móvil: etiquetas/encabezados legibles (antes ~9–10px) */
-@media(max-width:640px){ .kpi-label,.sk-label,table th{font-size:.7rem} }
+  .heat{border-collapse:separate;border-spacing:2px;font-size:.62rem;width:100%}
+  .heat td{height:26px;text-align:center;border-radius:4px;color:#052e16;font-weight:700}
+  .heat th{font-size:.58rem;color:var(--muted);font-weight:600}
+  .heat td.off{background:#f1f5f9;color:#cbd5e1}
+  .search{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:.76rem;min-width:200px;font-family:inherit}
+  .eq{background:linear-gradient(135deg,#eef2ff,#fff);border:1px solid #c7d2fe;border-radius:var(--r);padding:14px 16px}
+
+  .inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#e0e7ff;color:#3730a3;font:700 9px/1 'Fira Code',monospace;font-style:normal;margin-left:5px;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle;flex-shrink:0;user-select:none;transition:.15s}
+  .inf:hover,.inf:focus,.inf.on{background:#4f46e5;color:#fff;outline:none}
+  .pcard .inf,.verdict .inf,.hero .inf{background:rgba(255,255,255,.28);color:#fff}
+  .pcard .inf:hover,.verdict .inf:hover{background:#fff;color:#312e81}
+  #tip{position:fixed;z-index:99999;max-width:340px;background:#0f172a;color:#f8fafc;font:500 .72rem/1.5 'Space Grotesk',sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;white-space:pre-line;text-transform:none;letter-spacing:0}
+  @media(max-width:640px){.kl,table.t th{font-size:.68rem}}
 </style>
 
 <div class="max-w-7xl mx-auto px-3 py-4">
 
-  <!-- Header -->
-  <div class="rpt-header no-print">
-    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back">← Volver a Reportes</a>
-    <h1>🏢 Reporte por Sucursal</h1>
-    <p>Operaciones · Ingresos · Profesionales · Comparativa entre sedes</p>
-    <button onclick="window.print()" class="print-btn">🖨️ Imprimir / PDF</button>
-  </div>
-
-  <!-- Filters -->
-  <div class="filter-bar no-print">
-    <form method="get">
-      <div class="fg">
-        <label>Sucursal</label>
-        <select name="sucursal">
-          <option value="">— Seleccionar —</option>
-          {% for s in sucursales %}
-          <option value="{{ s.id }}" {% if sucursal and sucursal.id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}"></div>
-      <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}"></div>
-      <button type="submit" class="btn-primary">🔍 Ver reporte</button>
-    </form>
-  </div>
-
-  {% if not sucursal %}
-  <div style="background:var(--white);border:1px solid var(--border);border-radius:16px;padding:30px">
-    <p style="font-size:.82rem;font-weight:700;color:var(--ink);margin:0 0 14px">Selecciona una sucursal para comenzar</p>
-    <div class="suc-chips-grid">
-      {% for s in sucursales %}
-      <a href="?sucursal={{ s.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}" class="suc-chip-link">🏢 {{ s.nombre }}</a>
-      {% endfor %}
+<!-- ══ HERO ══ -->
+<div class="hero no-print">
+  <div class="hero-nav">
+    <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Reportes</a>
+    <div style="display:flex;gap:8px">
+      {% if sucursal %}<a class="btn-ghost" target="_blank" href="?{{ request.GET.urlencode }}&export=pdf">📄 Exportar PDF</a>{% endif %}
+      <button class="btn-ghost" onclick="window.print()">🖨️ Imprimir</button>
     </div>
   </div>
-
-  {% else %}
-
-  <!-- Sucursal Card -->
-  <div class="suc-card">
-    <div class="suc-avatar">🏢</div>
-    <div class="suc-info">
-      <p class="suc-name">{{ sucursal.nombre }}</p>
-      <div class="suc-chips">
-        <span class="chip {% if sucursal.activa %}green{% endif %}">{% if sucursal.activa %}Activa{% else %}Inactiva{% endif %}</span>
-        {% if sucursal.telefono %}<span class="chip">📞 {{ sucursal.telefono }}</span>{% endif %}
-      </div>
-      <div style="font-size:.72rem;color:rgba(255,255,255,.65)">
-        {% if sucursal.direccion %}📍 <b style="color:white">{{ sucursal.direccion }}</b>{% endif %}
-        · Período: <b style="color:white">{{ fecha_desde }} — {{ fecha_hasta }}</b>
-      </div>
-    </div>
-    {% if datos %}
-    <div class="suc-kpis">
-      <div class="sk-item"><div class="sk-label">Sesiones</div><div class="sk-val">{{ datos.stats.total_sesiones|default:0 }}</div></div>
-      <div class="sk-item"><div class="sk-label">Ingresos</div><div class="sk-val" style="font-size:.85rem">Bs. {{ datos.stats.ingresos_total|floatformat:0 }}</div></div>
-      <div class="sk-item"><div class="sk-label">Profesionales</div><div class="sk-val">{{ datos.stats.profesionales_activos|default:0 }}</div></div>
-      <div class="sk-item"><div class="sk-label">Pacientes</div><div class="sk-val">{{ datos.stats.pacientes_activos|default:0 }}</div></div>
-    </div>
-    {% endif %}
-  </div>
-
-  {% if datos %}
-  <!-- KPIs -->
-  <div class="kpi-grid">
-    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
-      <div class="kpi-label">Total Sesiones</div><div class="kpi-val">{{ datos.stats.total_sesiones|default:0 }}</div><div class="kpi-sub">en el período</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
-      <div class="kpi-label">Realizadas</div><div class="kpi-val" style="color:var(--green)">{{ datos.stats.realizadas|default:0 }}</div><div class="kpi-sub">+ {{ datos.stats.retrasos|default:0 }} con retraso</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--red)"></div>
-      <div class="kpi-label">Faltas</div><div class="kpi-val" style="color:var(--red)">{{ datos.stats.faltas|default:0 }}</div><div class="kpi-sub">inasistencias</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--violet)"></div>
-      <div class="kpi-label">Ingresos Total</div><div class="kpi-val" style="font-size:.9rem">Bs. {{ datos.stats.ingresos_total|floatformat:0 }}</div><div class="kpi-sub">monto generado</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--teal)"></div>
-      <div class="kpi-label">Profesionales</div><div class="kpi-val">{{ datos.stats.profesionales_activos|default:0 }}</div><div class="kpi-sub">activos</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--blue)"></div>
-      <div class="kpi-label">Pacientes</div><div class="kpi-val">{{ datos.stats.pacientes_activos|default:0 }}</div><div class="kpi-sub">únicos</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--amber)"></div>
-      <div class="kpi-label">Horas Clínicas</div><div class="kpi-val">{{ datos.stats.total_horas_decimal|floatformat:1 }}h</div><div class="kpi-sub">efectivas</div>
-    </div>
-    <div class="kpi-box"><div class="accent" style="background:var(--green)"></div>
-      <div class="kpi-label">Ingreso Promedio</div><div class="kpi-val" style="font-size:.9rem">Bs. {{ datos.stats.ingreso_promedio|floatformat:0 }}</div><div class="kpi-sub">por sesión</div>
-    </div>
-  </div>
-
-  <!-- Rate cards -->
-  <div class="rate-grid">
-    <div class="rate-card">
-      <div class="rc-label">Tasa de Ocupación</div>
-      <div class="rc-val" style="color:{% if datos.stats.tasa_ocupacion >= 85 %}var(--green){% elif datos.stats.tasa_ocupacion >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ datos.stats.tasa_ocupacion|floatformat:1 }}%</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{{ datos.stats.tasa_ocupacion|floatformat:0 }}%;background:{% if datos.stats.tasa_ocupacion >= 85 %}var(--green){% elif datos.stats.tasa_ocupacion >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
-    </div>
-    <div class="rate-card">
-      <div class="rc-label">Cancelaciones</div>
-      <div class="rc-val" style="color:var(--muted)">{{ datos.stats.canceladas|default:0 }}</div>
-      <div class="rc-bar"><div class="rc-fill" style="width:{% widthratio datos.stats.canceladas datos.stats.total_sesiones 100 %}%;background:#94a3b8"></div></div>
-    </div>
-  </div>
-
-  <!-- Charts -->
-  {% if grafico_data %}
-  <div class="two-col">
-    <div class="chart-card">
-      <h3>📈 Evolución mensual de sesiones</h3>
-      <canvas id="chart-sesiones" height="200"></canvas>
-    </div>
-    <div class="chart-card">
-      <h3>💰 Evolución de ingresos</h3>
-      <canvas id="chart-ingresos" height="200"></canvas>
-    </div>
-  </div>
+  <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#a5b4fc;margin-bottom:5px">Reporte por Sucursal</div>
+  <h1>🏢 {% if sucursal %}{{ sucursal.nombre }}{% else %}Reporte por Sucursal{% endif %}</h1>
+  <p>Rentabilidad · Gastos · Ocupación y horas libres · Profesionales · Niños · Proyectos y mensualidades · Decisión</p>
+  {% if sucursal %}
+  <span class="pill">📅 {{ r.desde|date:"d/m/Y" }} — {{ r.hasta|date:"d/m/Y" }} ({{ r.n_dias }} días)</span>
+  <span class="pill">{{ r.kpis.total }} sesiones</span>
+  <span class="pill">{{ r.kpis.profesionales }} profesionales</span>
+  <span class="pill">{{ r.kpis.pacientes }} niños atendidos</span>
   {% endif %}
-
-  <!-- ══════════════════════════════════════════════════════════ -->
-  <!-- DESGLOSE FINANCIERO REAL DE LA SUCURSAL                  -->
-  <!-- Sesiones propias + Mensualidades + Proyectos registrados -->
-  <!-- en esta sucursal. Pagos adelantados mostrados por separado-->
-  <!-- ══════════════════════════════════════════════════════════ -->
-  {% if datos.financiero_sucursal %}
-  <div class="section-title">💰 Financiero de la Sucursal</div>
-
-  <!-- Aviso multi-sucursal -->
-  <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;
-              border-left:6px solid #d97706;border-radius:12px;padding:14px 18px;margin-bottom:16px;
-              display:flex;gap:12px;align-items:flex-start">
-    <span style="font-size:1.4rem;flex-shrink:0">⚠️</span>
-    <div>
-      <p style="margin:0 0 3px;font-size:.8rem;font-weight:800;color:#92400e">
-        Información específica de {{ sucursal.nombre }}
-      </p>
-      <p style="margin:0 0 5px;font-size:.72rem;color:#b45309;line-height:1.5">
-        Los montos reflejan <strong>únicamente</strong> las sesiones, mensualidades y proyectos registrados en esta sucursal.
-      </p>
-      <p style="margin:0 0 5px;font-size:.72rem;color:#b45309;line-height:1.5">
-        <strong>Pagos adelantados y devoluciones sin ítem asignado:</strong>
-        se incluyen en la sucursal principal del paciente, determinada automáticamente
-        como aquella donde registra la mayor cantidad de sesiones realizadas en toda su historia.
-        Para pacientes con una sola sucursal esto es directo; para pacientes con más de una sede,
-        el sistema los asigna a su sede habitual sin duplicarlos entre sucursales.
-      </p>
-      <p style="margin:0;font-size:.72rem;color:#b45309;line-height:1.5">
-        El crédito adelantado disponible mostrado a continuación ya refleja esta lógica.
-      </p>
-    </div>
-  </div>
-
-  {% with fs=datos.financiero_sucursal %}
-
-  <!-- Cards principales -->
-  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
-
-    <div class="kpi-box" style="border:2px solid var(--green);background:var(--green-l)">
-      <div class="accent" style="background:var(--green)"></div>
-      <div class="kpi-label" style="color:var(--green)">Consumido en Sucursal</div>
-      <div class="kpi-val" style="color:var(--green);font-size:1.1rem">Bs. {{ fs.total_consumido|floatformat:0 }}</div>
-      <div class="kpi-sub">Ses. + Mensual. + Proyectos</div>
-    </div>
-
-    <div class="kpi-box" style="border:2px solid var(--blue);background:var(--blue-l)">
-      <div class="accent" style="background:var(--blue)"></div>
-      <div class="kpi-label" style="color:var(--blue)">Pagado Directo</div>
-      <div class="kpi-val" style="color:var(--blue);font-size:1.1rem">Bs. {{ fs.total_pagado_directo|floatformat:0 }}</div>
-      <div class="kpi-sub">Pagos a objetos de esta sede</div>
-    </div>
-
-    <div class="kpi-box" style="border:2px solid {% if fs.saldo_sucursal >= 0 %}var(--teal){% else %}var(--red){% endif %};
-                                background:{% if fs.saldo_sucursal >= 0 %}var(--teal-l){% else %}var(--red-l){% endif %}">
-      <div class="accent" style="background:{% if fs.saldo_sucursal >= 0 %}var(--teal){% else %}var(--red){% endif %}"></div>
-      <div class="kpi-label" style="color:{% if fs.saldo_sucursal >= 0 %}var(--teal){% else %}var(--red){% endif %}">
-        Saldo Sucursal
-      </div>
-      <div class="kpi-val" style="color:{% if fs.saldo_sucursal >= 0 %}var(--teal){% else %}var(--red){% endif %};font-size:1.1rem">
-        Bs. {{ fs.saldo_sucursal|floatformat:0 }}
-      </div>
-      <div class="kpi-sub">Pagado − Consumido (sin adelantos)</div>
-    </div>
-
-    {% if fs.credito_adelantado_disponible > 0 %}
-    <div class="kpi-box" style="border:2px solid var(--purple);background:var(--purple-l)">
-      <div class="accent" style="background:var(--purple)"></div>
-      <div class="kpi-label" style="color:var(--purple)">💳 Crédito Adelantado Global</div>
-      <div class="kpi-val" style="color:var(--purple);font-size:1.1rem">Bs. {{ fs.credito_adelantado_disponible|floatformat:0 }}</div>
-      <div class="kpi-sub">Sin asignar a ninguna sucursal</div>
-    </div>
-    {% endif %}
-
-  </div>
-
-  <!-- Desglose por tipo -->
-  <div class="two-col" style="margin-bottom:14px">
-    <div class="card">
-      <h3>📋 Consumido por tipo</h3>
-      <div class="list-item">
-        <div><div class="li-name">🏥 Sesiones normales</div><div class="li-sub">realizadas · retraso · falta</div></div>
-        <div class="li-val">Bs. {{ fs.consumido_sesiones|floatformat:0 }}</div>
-      </div>
-      <div class="list-item">
-        <div><div class="li-name">📅 Mensualidades</div><div class="li-sub">activas · pausadas · completadas</div></div>
-        <div class="li-val">Bs. {{ fs.consumido_mensualidades|floatformat:0 }}</div>
-      </div>
-      <div class="list-item">
-        <div><div class="li-name">📁 Proyectos</div><div class="li-sub">en progreso · finalizados</div></div>
-        <div class="li-val">Bs. {{ fs.consumido_proyectos|floatformat:0 }}</div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>💳 Pagos por tipo</h3>
-      <div class="list-item">
-        <div><div class="li-name">🏥 Pagos a sesiones</div><div class="li-sub">directos + masivos</div></div>
-        <div class="li-val">Bs. {{ fs.pagos_sesiones|floatformat:0 }}</div>
-      </div>
-      <div class="list-item">
-        <div><div class="li-name">📅 Pagos a mensualidades</div><div class="li-sub">directos + masivos</div></div>
-        <div class="li-val">Bs. {{ fs.pagos_mensualidades|floatformat:0 }}</div>
-      </div>
-      <div class="list-item">
-        <div><div class="li-name">📁 Pagos a proyectos</div><div class="li-sub">directos + masivos</div></div>
-        <div class="li-val">Bs. {{ fs.pagos_proyectos|floatformat:0 }}</div>
-      </div>
-      {% if fs.devoluciones_sucursal > 0 %}
-      <div class="list-item" style="background:var(--red-l)">
-        <div><div class="li-name" style="color:var(--red)">🔙 Devoluciones</div><div class="li-sub">mensualidades + proyectos</div></div>
-        <div style="font-size:.88rem;font-weight:800;font-family:'Fira Code',monospace;color:var(--red)">
-          −Bs. {{ fs.devoluciones_sucursal|floatformat:0 }}
-        </div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Nota si hay crédito adelantado que cubre deuda -->
-  {% if fs.saldo_sucursal < 0 and fs.credito_adelantado_disponible > 0 %}
-  <div style="background:var(--purple-l);border:1px solid rgba(124,58,237,.3);border-radius:10px;
-              padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;align-items:center">
-    <span style="font-size:1.2rem">💡</span>
-    <p style="margin:0;font-size:.78rem;color:#5b21b6;font-weight:600">
-      Aunque hay una deuda de Bs. {{ fs.saldo_sucursal|floatformat:0|slice:"1:" }} en esta sucursal,
-      los pacientes tienen <strong>Bs. {{ fs.credito_adelantado_disponible|floatformat:0 }} de crédito adelantado global</strong>
-      disponible que puede aplicarse como pago.
-    </p>
-  </div>
-  {% endif %}
-
-  {% endwith %}
-  {% endif %}
-
-  <!-- Por servicio + top profesionales -->
-  <div class="two-col">
-    <div class="card">
-      <h3>🎯 Servicios más demandados</h3>
-      <div class="scroll-list">
-        {% for s in datos.por_servicio %}
-        <div class="list-item">
-          <div>
-            <div class="li-name">{{ s.servicio__nombre }}</div>
-            <div class="li-sub">{{ s.realizadas }} realizadas</div>
-          </div>
-          <div>
-            <div class="li-val">{{ s.cantidad }}</div>
-            <div style="font-size:.65rem;color:var(--muted);text-align:right">Bs. {{ s.ingresos|floatformat:0 }}</div>
-          </div>
-        </div>
-        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
-      </div>
-    </div>
-    <div class="card">
-      <h3>👤 Top Pacientes</h3>
-      <div class="scroll-list">
-        {% for p in datos.top_pacientes %}
-        <div class="list-item">
-          <div>
-            <div class="li-name">{{ p.paciente__nombre }} {{ p.paciente__apellido }}</div>
-            <div class="li-sub">{{ p.realizadas }} realizadas</div>
-          </div>
-          <div class="li-val">{{ p.sesiones }}</div>
-        </div>
-        {% empty %}<p style="font-size:.75rem;color:var(--muted);text-align:center;padding:20px">Sin datos</p>{% endfor %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Top profesionales table -->
-  {% if datos.top_profesionales %}
-  <div class="section-title">👨‍⚕️ Profesionales Activos</div>
-  <div class="card">
-    <div style="overflow-x:auto">
-      <table class="prof-table">
-        <thead><tr><th>#</th><th>Profesional</th><th>Sesiones</th><th>Realizadas</th><th>Ingresos</th><th>Tasa</th></tr></thead>
-        <tbody>
-          {% for p in datos.top_profesionales %}
-          <tr>
-            <td style="color:var(--muted);font-weight:700">{{ forloop.counter }}</td>
-            <td style="font-weight:700">{{ p.profesional__nombre }} {{ p.profesional__apellido }}</td>
-            <td class="mono">{{ p.sesiones }}</td>
-            <td style="color:var(--green);font-weight:700" class="mono">{{ p.realizadas }}</td>
-            <td class="mono">Bs. {{ p.ingresos|floatformat:0 }}</td>
-            <td>
-              {% if p.sesiones > 0 %}
-              {% widthratio p.realizadas p.sesiones 100 as tpct %}
-              <div style="font-size:.72rem;font-weight:700;color:{% if tpct >= 85 %}var(--green){% elif tpct >= 60 %}var(--amber){% else %}var(--red){% endif %}">{{ tpct }}%</div>
-              <div class="tasa-bar"><div class="tasa-fill" style="width:{{ tpct }}%;background:{% if tpct >= 85 %}var(--green){% elif tpct >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Comparativa con otras sucursales -->
-  {% if comparativa %}
-  <div class="section-title">🏆 Comparativa entre Sucursales</div>
-  {% with max_ses=comparativa.0.sesiones %}
-  <div class="two-col">
-    <div class="card">
-      <h3>Por Sesiones</h3>
-      {% for suc in comparativa %}
-      <div class="comp-item {% if suc.es_actual %}current{% endif %}">
-        <span class="comp-name">{{ suc.nombre }}</span>
-        <div class="comp-bar-wrap">
-          <div class="comp-bar" style="width:{% widthratio suc.sesiones max_ses 100 %}%;{% if suc.es_actual %}background:var(--violet){% else %}background:var(--muted){% endif %}"></div>
-        </div>
-        <span class="comp-val">{{ suc.sesiones }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="card">
-      <h3>Por Ingresos</h3>
-      {% with max_ing=comparativa.0.ingresos %}
-      {% for suc in comparativa %}
-      <div class="comp-item {% if suc.es_actual %}current{% endif %}">
-        <span class="comp-name">{{ suc.nombre }}</span>
-        <div class="comp-bar-wrap">
-          <div class="comp-bar" style="width:{% widthratio suc.ingresos max_ing 100 %}%;{% if suc.es_actual %}background:var(--green){% else %}background:var(--muted){% endif %}"></div>
-        </div>
-        <span class="comp-val" style="font-size:.65rem">{{ suc.ingresos|floatformat:0 }}</span>
-      </div>
-      {% endfor %}
-      {% endwith %}
-    </div>
-  </div>
-  {% endwith %}
-  {% endif %}
-
-  {% endif %}{# end if datos #}
-
-  {% endif %}{# end if sucursal #}
 </div>
 
-{% if grafico_data %}
+<!-- ══ FILTROS ══ -->
+<div class="filter-bar no-print">
+  <form method="get" id="frm">
+    <input type="hidden" name="f" value="1">
+    <input type="hidden" name="rango" id="f-rango" value="{{ rango }}">
+    <div class="fg"><label>Sucursal {% ayuda "su_f_sucursal" %}</label>
+      <select name="sucursal" onchange="document.getElementById('f-rango').value='{{ rango }}';this.form.submit()">
+        <option value="">— Seleccionar —</option>
+        {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+      </select></div>
+    {% if sucursal %}
+    <div class="fg"><label>Mes {% ayuda "f_mes" %}</label>
+      <select name="mes" onchange="document.getElementById('f-rango').value=''"><option value="">—</option>
+        {% for n,nm in meses_opts %}<option value="{{ n }}" {% if mes_sel == n|stringformat:"s" %}selected{% endif %}>{{ nm }}</option>{% endfor %}
+      </select></div>
+    <div class="fg"><label>Año {% ayuda "f_anio" %}</label>
+      <select name="anio" onchange="document.getElementById('f-rango').value=''"><option value="">—</option>
+        {% for a in anios_opts %}<option value="{{ a }}" {% if anio_sel == a|stringformat:"s" %}selected{% endif %}>{{ a }}</option>{% endfor %}
+      </select></div>
+    <div class="fg"><label>Desde {% ayuda "f_desde" %}</label><input type="date" name="fecha_desde" value="{{ fecha_desde }}" onchange="document.getElementById('f-rango').value=''"></div>
+    <div class="fg"><label>Hasta {% ayuda "f_hasta" %}</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" onchange="document.getElementById('f-rango').value=''"></div>
+    <div class="fg"><label>&nbsp;</label><label class="chk"><input type="checkbox" name="comp_suc" value="1" {% if comp_suc %}checked{% endif %}> Comparar con otras sucursales {% ayuda "su_f_comp" %}</label></div>
+    <button type="submit" class="btn-primary">🔍 Ver reporte</button>
+    <a class="btn-clear" href="?sucursal={{ sucursal.id }}">✕ Limpiar</a>
+
+    <div class="quick">
+      <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--muted)">Rangos: {% ayuda "f_rangos" %}</span>
+      <button type="button" class="qbtn {% if rango == 'hoy' %}on{% endif %}" onclick="setR('hoy')">Hoy</button>
+      <button type="button" class="qbtn {% if rango == 'semana' %}on{% endif %}" onclick="setR('semana')">Esta semana</button>
+      <button type="button" class="qbtn {% if rango == 'semana_anterior' %}on{% endif %}" onclick="setR('semana_anterior')">Sem. anterior</button>
+      <button type="button" class="qbtn {% if rango == 'mes' %}on{% endif %}" onclick="setR('mes')">Este mes</button>
+      <button type="button" class="qbtn {% if rango == 'mes_anterior' %}on{% endif %}" onclick="setR('mes_anterior')">Mes anterior</button>
+      <button type="button" class="qbtn {% if rango == 'ultimos_30' %}on{% endif %}" onclick="setR('ultimos_30')">30 días</button>
+      <button type="button" class="qbtn {% if rango == 'trimestre' %}on{% endif %}" onclick="setR('trimestre')">3 meses</button>
+      <button type="button" class="qbtn {% if rango == 'semestre' %}on{% endif %}" onclick="setR('semestre')">6 meses</button>
+      <button type="button" class="qbtn {% if rango == 'anio' %}on{% endif %}" onclick="setR('anio')">Año actual</button>
+    </div>
+
+    <!-- ── CUADROS DE GASTOS ── -->
+    <details class="adv" open>
+      <summary>💰 Gastos de la sucursal — tú decides qué cuenta {% ayuda "su_f_gastos" %}</summary>
+      <div class="adv-grid" style="align-items:flex-start">
+        <div class="gbox">
+          <h4>1 · Egresos registrados en el sistema</h4>
+          <label class="chk"><input type="checkbox" name="inc_egr" value="1" {% if inc_egr %}checked{% endif %}> Incluir egresos de esta sucursal {% ayuda "su_f_egr" %}</label>
+          <div class="fg" style="margin-top:8px"><label>Gastos globales (sin sucursal) {% ayuda "su_f_glob" %}</label>
+            <select name="glob">{% for k_,t_ in glob_opts %}<option value="{{ k_ }}" {% if glob == k_ %}selected{% endif %}>{{ t_ }}</option>{% endfor %}</select></div>
+          <div class="fg" style="margin-top:8px"><label>Personal y honorarios registrados {% ayuda "su_f_pers" %}</label>
+            <select name="pers">
+              <option value="auto" {% if pers == 'auto' %}selected{% endif %}>Automático (recomendado)</option>
+              <option value="si" {% if pers == 'si' %}selected{% endif %}>Incluir siempre</option>
+              <option value="no" {% if pers == 'no' %}selected{% endif %}>Excluir siempre</option>
+            </select></div>
+        </div>
+
+        <div class="gbox" style="flex:2;min-width:340px">
+          <h4>2 · Gastos que tú ingresas {% ayuda "su_f_manual" %}</h4>
+          <div class="grow" style="font-size:.58rem;font-weight:700;text-transform:uppercase;color:var(--muted)"><span>Concepto</span><span>Monto (Bs.)</span><span>Frecuencia {% ayuda "su_f_freq" %}</span><span></span></div>
+          <div id="gastos-rows">
+            {% for gf in gastos_form %}
+            <div class="grow">
+              <input type="text" name="g_concepto" list="conceptos" maxlength="60" placeholder="Ej.: Alquiler" value="{{ gf.concepto }}">
+              <input type="number" name="g_monto" step="0.01" min="0" placeholder="0,00" value="{{ gf.monto }}">
+              <select name="g_freq"><option value="mensual" {% if gf.freq == 'mensual' %}selected{% endif %}>Mensual</option><option value="periodo" {% if gf.freq == 'periodo' %}selected{% endif %}>Total del período</option></select>
+              <button type="button" class="btn-sm" onclick="delGasto(this)" title="Quitar">✕</button>
+            </div>
+            {% endfor %}
+          </div>
+          <datalist id="conceptos"><option>Alquiler</option><option>Luz</option><option>Agua</option><option>Internet y teléfono</option><option>Limpieza</option><option>Sueldo recepción / administrativo</option><option>Material terapéutico</option><option>Mantenimiento</option><option>Publicidad</option><option>Impuestos</option><option>Seguro</option><option>Contador</option><option>Otros</option></datalist>
+          <div class="chips2">
+            <button type="button" class="btn-sm" onclick="addGasto()">＋ Agregar gasto</button>
+            <span style="font-size:.62rem;color:var(--muted);align-self:center">Rápidos:</span>
+            <button type="button" class="qbtn" onclick="addGasto('Alquiler')">Alquiler</button>
+            <button type="button" class="qbtn" onclick="addGasto('Luz')">Luz</button>
+            <button type="button" class="qbtn" onclick="addGasto('Agua')">Agua</button>
+            <button type="button" class="qbtn" onclick="addGasto('Internet y teléfono')">Internet</button>
+            <button type="button" class="qbtn" onclick="addGasto('Limpieza')">Limpieza</button>
+            <button type="button" class="qbtn" onclick="addGasto('Sueldo administrativo')">Sueldo admin.</button>
+            <button type="button" class="qbtn" onclick="addGasto('Material terapéutico')">Material</button>
+            <button type="button" class="qbtn" onclick="addGasto('Mantenimiento')">Mantenimiento</button>
+            <button type="button" class="qbtn" onclick="addGasto('Publicidad')">Publicidad</button>
+            <button type="button" class="qbtn" onclick="addGasto('Impuestos')">Impuestos</button>
+          </div>
+        </div>
+
+        <div class="gbox">
+          <h4>3 · Costo mensual de cada profesional {% ayuda "su_f_cp" %}</h4>
+          <p class="note" style="margin:0 0 6px">Opcional. Bs. por mes (sueldo y cargas).</p>
+          {% for p in r.profesionales %}
+          <div class="cprow"><span>{{ p.nombre }}{% if not p.activo %} <small style="color:var(--red)">(inactivo)</small>{% endif %}</span>
+            <input type="number" step="0.01" min="0" name="cp_{{ p.id }}" value="{{ cp_txt|get_item:p.id|default:'' }}" placeholder="opcional"></div>
+          {% empty %}<p class="note">No hay profesionales en esta sucursal.</p>{% endfor %}
+        </div>
+      </div>
+    </details>
+
+    <details class="adv">
+      <summary>⏰ Horario base predeterminado {% ayuda "f_horario" %}</summary>
+      <p class="note">Se usa el horario de <b>Asistencia</b> de cada profesional si existe. Si no está configurado, se usa el predeterminado (L‑V 9:00‑12:00 y 14:30‑19:00, Sáb 9:00‑12:00). Aquí puedes editarlo; aplica solo a quienes no tengan horario en Asistencia o si marcas «forzar».</p>
+      <input type="hidden" name="h_editado" value="1">
+      <div class="adv-grid">
+        <div class="fg"><label>Mañana (partido)</label><div style="display:flex;gap:4px"><input type="time" name="h_manana_ini" value="{{ manual_cfg.manana_ini }}" style="min-width:90px"><input type="time" name="h_manana_fin" value="{{ manual_cfg.manana_fin }}" style="min-width:90px"></div></div>
+        <div class="fg"><label>Tarde (partido)</label><div style="display:flex;gap:4px"><input type="time" name="h_tarde_ini" value="{{ manual_cfg.tarde_ini }}" style="min-width:90px"><input type="time" name="h_tarde_fin" value="{{ manual_cfg.tarde_fin }}" style="min-width:90px"></div></div>
+        <div class="fg"><label>Horario continuo</label><div style="display:flex;gap:4px"><input type="time" name="h_cont_ini" value="{{ manual_cfg.cont_ini }}" style="min-width:90px"><input type="time" name="h_cont_fin" value="{{ manual_cfg.cont_fin }}" style="min-width:90px"></div></div>
+        <div class="fg"><label>Días con horario partido</label><div class="chk">
+          {% for n,nm in dias_opts %}<label><input type="checkbox" name="h_partido" value="{{ n }}" {% if n in manual_cfg.dias_partido %}checked{% endif %}>{{ nm|slice:":3" }}</label>{% endfor %}</div></div>
+        <div class="fg"><label>Días con horario continuo</label><div class="chk">
+          {% for n,nm in dias_opts %}<label><input type="checkbox" name="h_continuo" value="{{ n }}" {% if n in manual_cfg.dias_continuo %}checked{% endif %}>{{ nm|slice:":3" }}</label>{% endfor %}</div></div>
+        <div class="fg"><label>&nbsp;</label><label class="chk"><input type="checkbox" name="h_forzar" value="1" {% if forzar_manual %}checked{% endif %}> Forzar horario manual</label></div>
+      </div>
+    </details>
+    {% endif %}
+  </form>
+</div>
+
+{% if not sucursal %}
+<div style="text-align:center;padding:60px 20px;background:var(--white);border-radius:16px;border:1px solid var(--border)">
+  <div style="font-size:3rem;margin-bottom:12px">🏢</div>
+  <p style="font-size:1rem;font-weight:700;color:var(--ink);margin:0 0 6px">Selecciona una sucursal</p>
+  <p style="font-size:.82rem;color:var(--muted)">Elige una sucursal y un período para ver su rentabilidad, ocupación, profesionales y niños. Luego completa los cuadros de gastos.</p>
+</div>
+{% else %}
+{% with k=r.kpis g=r.gastos %}
+
+<!-- ══ FICHA ══ -->
+<div class="pcard">
+  <div class="avatar">🏢</div>
+  <div style="flex:1;min-width:220px">
+    <p class="pname">{{ sucursal.nombre }}</p>
+    <div class="chips">
+      <span class="chip {% if sucursal.activa %}green{% else %}red{% endif %}">{% if sucursal.activa %}Activa{% else %}Inactiva{% endif %}</span>
+      <span class="chip">👨‍⚕️ {{ k.profesionales }} profesionales</span>
+      <span class="chip">👶 {{ k.pacientes }} niños atendidos</span>
+      <span class="chip">⏱ {{ k.min_reloj_txt }} trabajadas</span>
+    </div>
+    <div class="pmeta">
+      {% if sucursal.direccion %}<span>📍 <b>{{ sucursal.direccion }}</b></span>{% endif %}
+      {% if sucursal.telefono %}<span>📞 <b>{{ sucursal.telefono }}</b></span>{% endif %}
+      {% if sucursal.email %}<span>✉️ <b>{{ sucursal.email }}</b></span>{% endif %}
+    </div>
+  </div>
+  <div style="min-width:230px;text-align:right">
+    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">{% if k.tiene_gastos %}Resultado del período{% else %}Ingreso neto del período{% endif %} {% ayuda "su_resultado" %}</div>
+    <div class="mono" style="font-size:1.9rem;font-weight:900;color:{% if k.tiene_gastos %}{% if k.resultado >= 0 %}#86efac{% else %}#fca5a5{% endif %}{% else %}#fff{% endif %}">Bs. {% if k.tiene_gastos %}{{ k.resultado|bsd }}{% else %}{{ k.neto_centro|bs }}{% endif %}</div>
+    <div style="font-size:.7rem;opacity:.8">{% if k.tiene_gastos %}Neto Bs. {{ k.neto_centro|bs }} − gastos Bs. {{ k.gastos|bs }}{% else %}Sin gastos considerados (completa los cuadros){% endif %}</div>
+  </div>
+</div>
+{% if r.nota_rango %}<div class="alert nota">{{ r.nota_rango }}</div>{% endif %}
+
+<!-- ══ SEMÁFORO ══ -->
+{% if r.semaforo %}
+<div class="sec">🚦 Semáforo de decisión — ¿la sucursal es sana? {% ayuda "su_semaforo" %}</div>
+<div class="verdict" style="background:{{ r.semaforo.color }}">
+  <div class="score">{% if r.semaforo.score != None %}{{ r.semaforo.score }}<span style="font-size:1rem">/100</span>{% else %}—{% endif %}</div>
+  <div style="flex:1;min-width:240px"><div style="font-weight:800;font-size:1rem">{{ r.semaforo.msg }}</div>
+    <div style="font-size:.72rem;opacity:.9;margin-top:4px">✔ {{ r.semaforo.n_verde }} en verde · ● {{ r.semaforo.n_ambar }} en ámbar · ✖ {{ r.semaforo.n_rojo }} en rojo · {{ r.semaforo.nota }}</div></div>
+</div>
+<div class="card">
+  {% for c in r.semaforo.criterios %}
+  <div class="crit"><div class="dot" style="background:{{ c.color }}"></div>
+    <div><b>{{ c.nombre }}</b><small>{{ c.regla }}</small></div>
+    <div class="mono" style="font-weight:700;color:{{ c.color }}">{{ c.valor }}</div>
+    <div style="color:var(--ink2)">{{ c.detalle }}</div></div>
+  {% endfor %}
+  {% if r.semaforo.faltan_gastos %}<p class="note" style="margin-top:10px">💡 Completa los <b>cuadros de gastos</b> en los filtros (alquiler, servicios, personal…) para sumar los criterios de rentabilidad, que son los que más pesan.</p>{% endif %}
+</div>
+{% endif %}
+
+<!-- ══ HALLAZGOS ══ -->
+{% if r.hallazgos %}
+<div class="sec">💡 Hallazgos automáticos {% ayuda "su_hallazgos" %}</div>
+{% for h in r.hallazgos %}<div class="alert {% if h.tipo != 'info' %}{{ h.tipo }}{% endif %}">{{ h.txt }}</div>{% endfor %}
+{% endif %}
+
+<!-- ══ RESUMEN ══ -->
+<div class="sec">📊 Resumen del período</div>
+<div class="grid">
+  <div class="kpi"><div class="bar" style="background:var(--brand)"></div><div class="kl">Generado {% ayuda "su_gen" %}</div><div class="kv">{{ k.gen_total|bs }}</div><div class="ks">Bs. · {{ k.atendidas }} sesiones atendidas</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Ingreso neto {% ayuda "su_neto" %}</div><div class="kv">{{ k.neto_centro|bs }}</div><div class="ks">Bs. {% if k.ext_prof %}· comisión externa {{ k.ext_prof|bs }}{% else %}· sin comisiones externas{% endif %}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Gastos {% ayuda "su_gastos" %}</div><div class="kv">{{ k.gastos|bs }}</div><div class="ks">{% if k.tiene_gastos %}Operativos {{ k.gastos_oper|bs }} · personal {{ k.gastos_pers|bs }}{% else %}Aún sin gastos{% endif %}</div></div>
+  <div class="kpi"><div class="bar" style="background:{% if k.resultado >= 0 %}var(--green){% else %}var(--red){% endif %}"></div><div class="kl">Resultado {% ayuda "su_resultado" %}</div><div class="kv {% if k.tiene_gastos %}{% if k.resultado >= 0 %}up{% else %}down{% endif %}{% endif %}">{{ k.resultado|bsd }}</div><div class="ks">{% if k.tiene_gastos %}Margen {{ k.margen_pct|floatformat:1 }}% {% ayuda "su_margen" %}{% else %}—{% endif %}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Cobertura {% ayuda "su_cobertura" %}</div><div class="kv">{% if k.tiene_gastos %}{{ k.cobertura|floatformat:2 }}×{% else %}—{% endif %}</div><div class="ks">Neto ÷ gastos (1,00× = equilibrio)</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Neto por hora {% ayuda "su_ing_hora" %}</div><div class="kv">{{ k.neto_hora|bs }}</div><div class="ks">Bs./hora trabajada{% if k.gasto_hora %} · gasto {{ k.gasto_hora|bs }}/h {% ayuda "su_gasto_hora" %}{% endif %}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Ocupación efectiva {% ayuda "su_ocup_efect" %}</div><div class="kv">{{ k.ocup_efect|floatformat:1 }}%</div><div class="ks">Agendada {{ k.ocup_el|floatformat:1 }}% {% ayuda "su_ocup_agend" %}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Horas trabajadas {% ayuda "su_horas" %}</div><div class="kv" style="font-size:1.1rem">{{ k.min_reloj_txt }}</div><div class="ks">de {{ k.cap_el_txt }} de horario</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Faltas sin aviso</div><div class="kv">{{ k.tasa_faltas|floatformat:1 }}%</div><div class="ks">{{ k.faltas }} faltas · {{ k.h_falta_txt }} esperadas</div></div>
+  <div class="kpi"><div class="bar" style="background:#94a3b8"></div><div class="kl">Sin paciente agendado</div><div class="kv" style="font-size:1.1rem">{{ k.h_sinag_txt }}</div><div class="ks">{{ k.pct_sinag|floatformat:1 }}% del horario · potencial ≈ Bs. {{ k.potencial_no_aprovechado|bs }} {% ayuda "su_potencial" %}</div></div>
+</div>
+
+<!-- ══ RESULTADO Y GASTOS ══ -->
+<div class="sec">💰 Resultado, gastos y punto de equilibrio {% ayuda "su_sec_resultado" %}</div>
+<div class="g2">
+  <div class="card"><h3>Del ingreso al resultado</h3>
+    <table class="t"><tbody>
+      <tr><td>Generado por los profesionales</td><td class="tr mono">{{ k.gen_total|bs }}</td></tr>
+      <tr><td style="color:var(--muted)">&nbsp;&nbsp;· Sesiones individuales</td><td class="tr mono" style="color:var(--muted)">{{ k.gen_ind|bs }} ({{ k.pct_ind|floatformat:0 }}%)</td></tr>
+      <tr><td style="color:var(--muted)">&nbsp;&nbsp;· Proyectos</td><td class="tr mono" style="color:var(--muted)">{{ k.gen_proy|bs }} ({{ k.pct_proy|floatformat:0 }}%)</td></tr>
+      <tr><td style="color:var(--muted)">&nbsp;&nbsp;· Mensualidades</td><td class="tr mono" style="color:var(--muted)">{{ k.gen_mens|bs }} ({{ k.pct_mens|floatformat:0 }}%)</td></tr>
+      <tr><td>− Comisión de profesionales externos</td><td class="tr mono">{{ k.ext_prof|bs }}</td></tr>
+      <tr class="tot"><td>= Ingreso neto del centro</td><td class="tr mono">{{ k.neto_centro|bs }}</td></tr>
+      <tr><td>− Gastos operativos</td><td class="tr mono">{{ k.gastos_oper|bs }}</td></tr>
+      <tr><td>− Costo de personal / profesionales</td><td class="tr mono">{{ k.gastos_pers|bs }}</td></tr>
+      <tr class="tot"><td>= Resultado</td><td class="tr mono {% if k.resultado >= 0 %}up{% else %}down{% endif %}">{{ k.resultado|bsd }}</td></tr>
+    </tbody></table>
+    <p class="note">Por generar (sesiones programadas): Bs. {{ k.por_generar|bs }}.</p>
+  </div>
+  <div class="eq"><h3 style="margin:0 0 8px;font-size:.82rem">⚖️ Punto de equilibrio {% ayuda "su_equilibrio" %}</h3>
+    {% if not k.tiene_gastos %}<p class="note">Ingresa gastos para calcular el punto de equilibrio.</p>
+    {% elif k.faltante %}
+    <div class="mono" style="font-size:1.5rem;font-weight:900;color:var(--red)">Faltan Bs. {{ k.faltante|bs }}</div>
+    <p class="note" style="font-size:.76rem;color:var(--ink2)">Para cubrir los gastos del período harían falta ≈ <b>{{ k.h_equilibrio|floatformat:1 }} horas</b> más de atención{% if k.ses_equilibrio %} (≈ <b>{{ k.ses_equilibrio }}</b> sesiones){% endif %} al ritmo actual de Bs. {{ k.neto_hora|bs }} netos por hora.</p>
+    <p class="note" style="font-size:.76rem;color:var(--ink2)">La sucursal tiene <b>{{ k.h_sinag_txt }}</b> de horario sin paciente agendado{% if k.h_no_pagadas %} y <b>{{ k.h_no_pagadas_txt }}</b> de horas sin cobro (permisos, cancelaciones, sin agendar){% endif %}: llenarlas al ritmo actual aportaría ≈ Bs. {{ k.cobrable_libre|bs }}.</p>
+    {% else %}
+    <div class="mono" style="font-size:1.5rem;font-weight:900;color:var(--green)">Cubre sus gastos ✔</div>
+    <p class="note" style="font-size:.76rem;color:var(--ink2)">El ingreso neto supera los gastos en Bs. {{ k.resultado|bs }} ({{ k.cobertura|floatformat:2 }}×). Cada hora trabajada deja Bs. {{ k.neto_hora|bs }} netos frente a Bs. {{ k.gasto_hora|bs }} de gasto.</p>
+    {% endif %}
+    {% if k.tiene_gastos %}<p class="note">Costo por hora de capacidad ofrecida: Bs. {{ k.gasto_hora_cap|bs }}/h · por hora trabajada: Bs. {{ k.gasto_hora|bs }}/h.</p>{% endif %}
+  </div>
+</div>
+
+<div class="sec">🧾 Gastos considerados {% ayuda "su_sec_gastos" %}</div>
+<div class="g2">
+  <div class="card"><h3>Detalle por concepto {% ayuda "su_g_origen" %}</h3>
+    {% if g.filas %}
+    <div class="scroll"><table class="t"><thead><tr><th>Concepto</th><th>Origen</th><th>Detalle</th><th class="tr">Monto Bs.</th><th class="tr">%</th></tr></thead><tbody>
+    {% for f in g.filas %}<tr><td><b>{{ f.concepto }}</b><div class="note" style="margin:0">{{ f.categoria }}</div></td>
+      <td><span class="badge b-{{ f.origen }}">{% if f.origen == 'registrado' %}Registrado{% elif f.origen == 'global' %}Global{% elif f.origen == 'manual' %}Ingresado{% else %}Profesional{% endif %}</span></td>
+      <td>{{ f.detalle }}</td><td class="tr mono"><b>{{ f.monto|bs }}</b></td>
+      <td class="tr">{{ f.pct|floatformat:1 }}%<div class="pbar" style="margin-top:3px"><div style="width:{{ f.pct|pw }}%;background:var(--red)"></div></div></td></tr>{% endfor %}
+    <tr class="tot"><td colspan="3">Total de gastos</td><td class="tr mono">{{ g.total|bs }}</td><td></td></tr></tbody></table></div>
+    {% else %}<p class="note">No hay gastos considerados. Usa los cuadros de gastos de los filtros o registra egresos de la sucursal.</p>{% endif %}
+    {% if g.inc_egr and g.share_glob %}<p class="note">Gastos globales: se carga a esta sucursal el {% widthratio g.share_glob 1 100 %}% del total de los egresos globales.</p>{% endif %}
+  </div>
+  <div class="card"><h3>Distribución del gasto</h3>
+    {% if g.filas %}<div style="height:260px"><canvas id="chGastos"></canvas></div>{% else %}<p class="note">Sin datos.</p>{% endif %}
+    {% if g.detalle_egresos %}
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-size:.72rem;font-weight:700">Ver egresos registrados incluidos ({{ g.detalle_egresos|length }})</summary>
+      <div class="scroll maxh" style="max-height:240px"><table class="t"><thead><tr><th>N°</th><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Origen</th><th class="tr">Total</th><th class="tr">Cargado</th></tr></thead><tbody>
+      {% for e in g.detalle_egresos %}<tr><td class="mono">{{ e.numero }}</td><td>{{ e.fecha|date:"d/m/Y" }}</td><td>{{ e.concepto }}</td><td>{{ e.categoria }}</td><td>{{ e.origen }}</td><td class="tr mono">{{ e.monto_total|bs }}</td><td class="tr mono">{{ e.monto|bs }}</td></tr>{% endfor %}</tbody></table></div>
+    </details>{% endif %}
+  </div>
+</div>
+
+<!-- ══ INGRESOS POR TIPO Y SERVICIO ══ -->
+<div class="sec">💵 De dónde viene el dinero {% ayuda "su_sec_tipos" %}</div>
+<div class="g2">
+  <div class="card"><h3>Por tipo de atención</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Tipo</th><th class="tr">Sesiones</th><th class="tr">Atend.</th><th class="tr">Horas</th><th class="tr">Generó</th><th class="tr">%</th><th class="tr">Bs/h {% ayuda "su_t_bs_hora" %}</th><th class="tr">Niños</th></tr></thead><tbody>
+    {% for t in r.por_tipo %}<tr><td><b>{{ t.nombre }}</b></td><td class="tr">{{ t.n }}</td><td class="tr">{{ t.atend }}</td><td class="tr">{{ t.horas_txt }}</td><td class="tr mono"><b>{{ t.gen|bs }}</b></td><td class="tr">{{ t.pct_gen|floatformat:1 }}%</td><td class="tr mono">{{ t.ingreso_hora|bs }}</td><td class="tr">{{ t.pacs }}</td></tr>{% endfor %}</tbody></table></div>
+    <div style="height:180px;margin-top:8px"><canvas id="chTipos"></canvas></div>
+    <p class="note">En proyectos y mensualidades el costo es fijo y se reparte entre profesionales (ver «Proyectos y mensualidades»). Proyectos solo / grupal: Bs. {{ k.gen_proy_solo|bs }} / {{ k.gen_proy_grupal|bs }} · Mensualidades solo / grupal: Bs. {{ k.gen_mens_solo|bs }} / {{ k.gen_mens_grupal|bs }}.</p>
+  </div>
+  <div class="card"><h3>Por servicio {% ayuda "su_sec_servicio" %}</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Servicio</th><th class="tr">Atend.</th><th class="tr">Faltas</th><th class="tr">Horas</th><th class="tr">Generó</th><th class="tr">%</th><th class="tr">Bs/h</th><th class="tr">Niños</th></tr></thead><tbody>
+    {% for s in r.por_servicio %}<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ s.color }};margin-right:4px"></span><b>{{ s.nombre }}</b></td><td class="tr">{{ s.atend }}</td><td class="tr">{{ s.faltas }}</td><td class="tr">{{ s.horas_txt }}</td><td class="tr mono"><b>{{ s.gen|bs }}</b></td><td class="tr">{{ s.pct_gen|floatformat:1 }}%<div class="pbar" style="margin-top:3px"><div style="width:{{ s.pct_gen|pw }}%;background:var(--brand)"></div></div></td><td class="tr mono">{{ s.ingreso_hora|bs }}</td><td class="tr">{{ s.pacs }}</td></tr>
+    {% empty %}<tr><td colspan="8" class="note">Sin sesiones en el período.</td></tr>{% endfor %}</tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ HORAS Y OCUPACIÓN ══ -->
+<div class="sec">⏱ Horas, ocupación y horarios vacíos {% ayuda "su_sec_horas" %}</div>
+<div class="card"><h3>¿En qué se fue el horario de los profesionales? {% ayuda "su_desglose" %}</h3>
+  <div class="stack">{% for d in r.desglose %}{% if d.pct > 0 %}<div title="{{ d.label }}: {{ d.txt }}" style="width:{{ d.pct|pw }}%;background:{{ d.color }}"></div>{% endif %}{% endfor %}</div>
+  <div class="legend">{% for d in r.desglose %}<span><i style="background:{{ d.color }}"></i>{{ d.label }}: <b>{{ d.txt }}</b> ({{ d.pct|floatformat:1 }}%)</span>{% endfor %}</div>
+  <p class="note">Horario transcurrido de todos los profesionales: {{ k.cap_el_txt }}. {{ r.horario_fuentes.asistencia }} profesional(es) con horario de Asistencia · {{ r.horario_fuentes.predeterminado }} con el predeterminado.</p>
+</div>
+
+<div class="card"><h3>Evolución {% ayuda "su_evol" %}</h3>
+  <div class="tabs no-print">
+    <button type="button" class="tab" data-g="meses" onclick="verGrupo('meses')">Por mes</button>
+    <button type="button" class="tab" data-g="semanas" onclick="verGrupo('semanas')">Por semana</button>
+    {% if r.por_dia %}<button type="button" class="tab" data-g="dias" onclick="verGrupo('dias')">Por día</button>{% endif %}
+  </div>
+  <div style="height:280px"><canvas id="chEvol"></canvas></div>
+  {% if not r.por_dia %}<p class="note">La vista por día se muestra en períodos de hasta 92 días.</p>{% endif %}
+  <div class="scroll maxh" style="margin-top:10px;max-height:300px"><table class="t"><thead><tr><th>Mes</th><th class="tr">Atend.</th><th class="tr">Faltas</th><th class="tr">Horas</th><th class="tr">Ocup. efect.</th><th class="tr">Neto</th><th class="tr">Gastos</th><th class="tr">Resultado</th></tr></thead><tbody>
+  {% for a in r.por_mes %}<tr><td><b>{{ a.label }}</b></td><td class="tr">{{ a.n_atend }}</td><td class="tr">{{ a.n_falta }}</td><td class="tr">{{ a.att_txt }}</td><td class="tr">{{ a.ocup_efect|floatformat:1 }}%</td><td class="tr mono">{{ a.neto|bs }}</td><td class="tr mono">{{ a.gastos|bs }}</td><td class="tr mono {% if a.resultado >= 0 %}up{% else %}down{% endif %}"><b>{{ a.resultado|bsd }}</b></td></tr>{% endfor %}</tbody></table></div>
+  <p class="note">El último mes puede estar incompleto. Los gastos mensuales se prorratean por los días del período dentro de cada mes.</p>
+</div>
+
+<div class="g2">
+  <div class="card"><h3>Mapa de calor de ocupación (día × hora) {% ayuda "su_heat" %}</h3>
+    {% if r.heat %}<div class="scroll"><table class="heat"><thead><tr><th></th>{% for h in r.heat_horas %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+      {% for f in r.heat %}<tr><th>{{ f.dia_c }}</th>{% for c in f.celdas %}{% if c.ocup == None %}<td class="off">·</td>{% else %}<td title="{{ c.ocup }}% ocupado" style="background:rgba(67,56,202,{{ c.a|css:2 }});color:{% if c.a > 0.55 %}#fff{% else %}#1e1b4b{% endif %}">{{ c.ocup|floatformat:0 }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody></table></div>
+    <p class="note">Ocupación = minutos con sesión ÷ minutos de horario de todos los profesionales, por franja.</p>{% else %}<p class="note">Sin horario transcurrido en el período.</p>{% endif %}
+  </div>
+  <div class="card"><h3>Franjas y días {% ayuda "su_franjas" %}</h3>
+    {% if r.franjas_libres %}<p class="note"><b>Más vacías:</b> {% for f in r.franjas_libres %}{{ f.h }} ({{ f.ocup|floatformat:0 }}%, {{ f.libre_txt }} libres){% if not forloop.last %} · {% endif %}{% endfor %}</p>
+    <p class="note"><b>Más llenas:</b> {% for f in r.franjas_llenas %}{{ f.h }} ({{ f.ocup|floatformat:0 }}%){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    <div style="height:170px"><canvas id="chDiaSem"></canvas></div>
+    <div class="scroll"><table class="t" style="margin-top:6px"><thead><tr><th>Día</th><th class="tr">Atend.</th><th class="tr">Horas</th><th class="tr">Ocup.</th><th class="tr">Libres</th><th class="tr">Generó</th></tr></thead><tbody>
+    {% for w in r.por_dia_semana %}<tr><td>{{ w.dia }}</td><td class="tr">{{ w.n_atend }}</td><td class="tr">{{ w.att_txt }}</td><td class="tr">{{ w.ocup|floatformat:0 }}%</td><td class="tr">{{ w.libre_txt }}</td><td class="tr mono">{{ w.gen|bs }}</td></tr>{% endfor %}</tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ PROFESIONALES ══ -->
+<div class="sec">👨‍⚕️ Profesionales: aporte y rentabilidad {% ayuda "su_sec_profes" %}</div>
+<div class="card">
+  <div class="scroll"><table class="t"><thead><tr><th>#</th><th>Profesional</th><th class="tr">Generó</th><th class="tr">Aporte neto {% ayuda "su_p_neto" %}</th><th class="tr">Costo {% ayuda "su_p_costo" %}</th><th class="tr">Margen {% ayuda "su_p_margen" %}</th><th class="tr">Cobert. {% ayuda "su_p_cobertura" %}</th><th>Horas</th><th class="tr">Ocup. efect. {% ayuda "su_p_ocup" %}</th><th>Libre / perdidas {% ayuda "su_p_libre" %}</th><th class="tr">Neto/h</th><th class="tr">Faltas</th><th class="tr">Niños</th></tr></thead><tbody>
+  {% for p in r.profesionales %}<tr>
+    <td>{{ p.pos }}</td>
+    <td><b>{{ p.nombre }}</b>{% if not p.activo %} <span class="badge b-no">Inactivo</span>{% endif %}<div class="note" style="margin:0">{{ p.especialidad }}{% if p.tiene_externos %} · externo (comisión){% endif %}</div></td>
+    <td class="tr mono">{{ p.gen|bs }}<div class="note" style="margin:0">ind {{ p.gen_ind|bs }} · proy {{ p.gen_proy|bs }} · mens {{ p.gen_mens|bs }}</div></td>
+    <td class="tr mono"><b>{{ p.neto|bs }}</b><div class="note" style="margin:0">{{ p.pct_neto|floatformat:1 }}% de la sucursal</div></td>
+    <td class="tr mono">{% if p.costo_periodo %}{{ p.costo_periodo|bs }}{% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+    <td class="tr mono">{% if p.margen != None %}<span class="badge {% if p.rentable %}b-ok{% else %}b-no{% endif %}">{{ p.margen|bsd }}</span>{% else %}<span style="color:var(--muted)">—</span>{% endif %}</td>
+    <td class="tr">{% if p.cobertura != None %}{{ p.cobertura|floatformat:2 }}×{% else %}—{% endif %}</td>
+    <td>{{ p.horas_txt }}<div class="note" style="margin:0">de {{ p.cap_txt }}</div></td>
+    <td class="tr">{% if p.sin_horario %}<span style="color:var(--muted)">sin horario</span>{% else %}<b>{{ p.ocup_efect|floatformat:0 }}%</b> <span style="color:var(--muted)">({{ p.ocup|floatformat:0 }}%)</span><div class="pbar" style="margin-top:3px"><div style="width:{{ p.ocup_efect|pw }}%;background:{{ p.carga_color }}"></div></div>{% endif %}</td>
+    <td>{{ p.libre_txt }}<div class="note" style="margin:0">perdidas {{ p.perdidas_txt }} · sin agendar {{ p.sinag_txt }}</div></td>
+    <td class="tr mono">{{ p.neto_hora|bs }}</td><td class="tr">{{ p.tasa_faltas|floatformat:0 }}%</td><td class="tr">{{ p.pacientes }}</td></tr>
+  {% empty %}<tr><td colspan="13" class="note">Sin profesionales en la sucursal.</td></tr>{% endfor %}
+  <tr class="tot"><td></td><td>Total sucursal</td><td class="tr mono">{{ k.gen_total|bs }}</td><td class="tr mono">{{ k.neto_centro|bs }}</td><td class="tr mono">{% if k.costo_periodo %}{{ k.costo_periodo|bs }}{% endif %}</td><td></td><td></td><td>{{ k.min_reloj_txt }}</td><td class="tr">{{ k.ocup_efect|floatformat:0 }}%</td><td>{{ k.libre_el_txt }}</td><td class="tr mono">{{ k.neto_hora|bs }}</td><td class="tr">{{ k.tasa_faltas|floatformat:0 }}%</td><td class="tr">{{ k.pacientes }}</td></tr>
+  </tbody></table></div>
+  {% if r.profesionales %}<div style="height:240px;margin-top:10px"><canvas id="chProfes"></canvas></div>{% endif %}
+  <p class="note">«Costo» solo aparece si lo ingresaste en el cuadro 3 de los filtros. El semáforo agrega el criterio «Profesionales que cubren su costo» cuando hay costos ingresados. Para el detalle de cada uno abre su <b>reporte por profesional</b> con el mismo período.</p>
+</div>
+
+<!-- ══ NIÑOS ══ -->
+<div class="sec">👶 Niños atendidos: rentabilidad {% ayuda "su_sec_ninos" %}</div>
+<div class="g3">
+  {% if r.pac_resumen %}<div class="card"><h3>Resumen de rentabilidad</h3>
+    <div class="mono" style="font-size:1.4rem;font-weight:900">{{ r.pac_resumen.rentables }} <span style="font-size:.8rem;color:var(--muted)">de {{ r.pac_resumen.n }} cubren su costo</span></div>
+    <p class="note">{{ r.pac_resumen.deficit }} niño(s) en déficit por Bs. {{ r.pac_resumen.perdida|bs }}; los demás aportan Bs. {{ r.pac_resumen.ganancia|bs }} de margen.</p>
+    <p class="note">Costo asignado por hora-niño: Bs. {{ k.costo_hora_pac|bs }}.</p></div>
+  {% else %}<div class="card"><h3>Rentabilidad</h3><p class="note">Ingresa gastos para ver cuánto aporta o cuesta cada niño.</p></div>{% endif %}
+  {% if r.concentracion.pac %}<div class="card"><h3>Dependencia de pocos niños {% ayuda "su_conc_pac" %}</h3>
+    <div class="note">Top 1: <b>{{ r.concentracion.pac.top1 }}%</b> · Top 5: <b>{{ r.concentracion.pac.top5 }}%</b> · Riesgo <b>{{ r.concentracion.pac.nivel|upper }}</b></div>
+    {% for t in r.concentracion.pac.top %}<div style="margin:6px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ t.nombre }}</span><span class="mono">{{ t.pct }}% · Bs. {{ t.gen|bs }}</span></div><div class="pbar"><div style="width:{{ t.pct|pw }}%;background:var(--amber)"></div></div></div>{% endfor %}</div>{% endif %}
+  {% if r.concentracion.prof %}<div class="card"><h3>Dependencia de profesionales {% ayuda "su_conc_prof" %}</h3>
+    <div class="note">Top 1: <b>{{ r.concentracion.prof.top1 }}%</b> ({{ r.concentracion.prof.top1_nombre }})</div>
+    {% for t in r.concentracion.prof.top %}<div style="margin:6px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ t.nombre }}</span><span class="mono">{{ t.pct }}% · Bs. {{ t.neto|bs }}</span></div><div class="pbar"><div style="width:{{ t.pct|pw }}%;background:var(--brand)"></div></div></div>{% endfor %}</div>{% endif %}
+</div>
+<div class="card">
+  <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+    <input class="search" id="qn" placeholder="Buscar niño, servicio, profesional…" oninput="filtrarNinos()">
+    <select class="search" id="fn" onchange="filtrarNinos()" style="min-width:170px"><option value="">Todos</option><option value="def">Solo en déficit</option><option value="ok">Solo rentables</option><option value="inact">Inactivos</option></select>
+  </div>
+  <div class="scroll maxh" style="max-height:560px"><table class="t" id="tnin"><thead><tr><th>Niño</th><th>Servicios</th><th>Profesionales</th><th class="tr">Sesiones</th><th class="tr">Atend.</th><th class="tr">Faltas</th><th class="tr">Horas</th><th class="tr">Neto {% ayuda "su_n_neto" %}</th><th class="tr">Costo asign. {% ayuda "su_n_costo" %}</th><th class="tr">Margen {% ayuda "su_n_margen" %}</th></tr></thead><tbody>
+  {% for p in r.pacientes %}<tr data-r="{% if p.rentable == None %}na{% elif p.rentable %}ok{% else %}def{% endif %}" data-i="{% if p.inactivo %}1{% else %}0{% endif %}" data-s="{{ p.nombre|lower }} {% for s in p.servicios %}{{ s|lower }} {% endfor %}{% for x in p.profesionales %}{{ x|lower }} {% endfor %}">
+    <td><b>{{ p.nombre }}</b>{% if p.inactivo %} <span class="badge b-no">Inactivo</span>{% endif %}{% if p.edad %}<div class="note" style="margin:0">{{ p.edad }}</div>{% endif %}</td>
+    <td>{{ p.servicios|join:", " }}{% if p.n_proy or p.n_mens %}<div class="note" style="margin:0">{% if p.n_proy %}{{ p.n_proy }} proy.{% endif %} {% if p.n_mens %}{{ p.n_mens }} mens.{% endif %}</div>{% endif %}</td>
+    <td>{{ p.profesionales|join:", " }}</td>
+    <td class="tr">{{ p.n }}</td><td class="tr">{{ p.atend }}</td><td class="tr">{{ p.faltas }}</td><td class="tr">{{ p.horas_txt }}</td>
+    <td class="tr mono"><b>{{ p.neto|bs }}</b><div class="note" style="margin:0">{{ p.pct_neto|floatformat:1 }}%</div></td>
+    <td class="tr mono">{% if p.margen != None %}{{ p.costo|bs }}<div class="note" style="margin:0">dir {{ p.costo_dir|bs }} · ind {{ p.costo_ind|bs }}</div>{% else %}—{% endif %}</td>
+    <td class="tr mono">{% if p.margen != None %}<span class="badge {% if p.rentable %}b-ok{% else %}b-no{% endif %}">{{ p.margen|bsd }}</span>{% if p.margen_pct != None %}<div class="note" style="margin:0">{{ p.margen_pct|floatformat:0 }}%</div>{% endif %}{% else %}—{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="10" class="note">Sin niños con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note">El costo asignado es una distribución (no un gasto real por niño): costo directo del profesional por minutos atendidos + resto de gastos por minutos atendidos. La suma de los márgenes es igual al resultado de la sucursal.</p>
+</div>
+
+<!-- ══ PROYECTOS Y MENSUALIDADES ══ -->
+<div class="sec">📦 Proyectos y mensualidades {% ayuda "su_sec_paquetes" %}</div>
+<div class="grid">
+  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Proyectos</div><div class="kv">{{ r.paq_resumen.proy.n }}</div><div class="ks">Valor Bs. {{ r.paq_resumen.proy.valor|bs }} · generó {{ r.paq_resumen.proy.gen|bs }} · por generar {{ r.paq_resumen.proy.por_generar|bs }} · {{ r.paq_resumen.proy.grupales }} grupales</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--purple)"></div><div class="kl">Mensualidades</div><div class="kv">{{ r.paq_resumen.mens.n }}</div><div class="ks">Valor Bs. {{ r.paq_resumen.mens.valor|bs }} · generó {{ r.paq_resumen.mens.gen|bs }} · por generar {{ r.paq_resumen.mens.por_generar|bs }} · {{ r.paq_resumen.mens.grupales }} grupales</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Por cobrar de paquetes</div><div class="kv">{{ r.paq_resumen.proy.saldo|bs }}</div><div class="ks">Proyectos · mensualidades: Bs. {{ r.paq_resumen.mens.saldo|bs }}</div></div>
+</div>
+<div class="card"><h3>Proyectos</h3>
+  <div class="scroll"><table class="t"><thead><tr><th>Código</th><th>Proyecto / niño</th><th>Estado</th><th>Modalidad</th><th class="tr">Valor</th><th class="tr">Factor {% ayuda "su_pq_factor" %}</th><th>Profesionales y participación {% ayuda "su_pq_partes" %}</th><th class="tr">Generó {% ayuda "su_pq_gen" %}</th><th class="tr">Por generar</th><th class="tr">Cobrado</th></tr></thead><tbody>
+  {% for x in r.proyectos %}<tr><td class="mono">{{ x.codigo }}</td><td><b>{{ x.nombre }}</b><div class="note" style="margin:0">{{ x.tipo }} · {{ x.paciente }}</div></td><td>{{ x.estado }}</td><td><span class="badge b-{{ x.modalidad|lower }}">{{ x.modalidad }}</span></td><td class="tr mono">{{ x.valor|bs }}</td><td class="tr">{{ x.factor|floatformat:2 }}</td>
+    <td>{% for q in x.partes %}<div style="font-size:.72rem">{{ q.nombre }}: <b>{{ q.share|floatformat:1 }}%</b> <span style="color:var(--muted)">(Bs. {{ q.gen|bs }})</span></div>{% endfor %}</td>
+    <td class="tr mono"><b>{{ x.gen_periodo|bs }}</b></td><td class="tr mono">{{ x.por_generar|bs }}</td><td class="tr">{{ x.ratio_cobro|floatformat:0 }}%</td></tr>
+  {% empty %}<tr><td colspan="10" class="note">Sin proyectos con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><h3>Mensualidades</h3>
+  <div class="scroll"><table class="t"><thead><tr><th>Código</th><th>Período / niño</th><th>Estado</th><th>Modalidad</th><th class="tr">Costo</th><th class="tr">Factor</th><th>Profesionales y participación</th><th class="tr">Generó</th><th class="tr">Por generar</th><th class="tr">Cobrado</th></tr></thead><tbody>
+  {% for x in r.mensualidades %}<tr><td class="mono">{{ x.codigo }}</td><td><b>{{ x.nombre }}</b><div class="note" style="margin:0">{{ x.paciente }}</div></td><td>{{ x.estado }}</td><td><span class="badge b-{{ x.modalidad|lower }}">{{ x.modalidad }}</span></td><td class="tr mono">{{ x.valor|bs }}</td><td class="tr">{{ x.factor|floatformat:2 }}</td>
+    <td>{% for q in x.partes %}<div style="font-size:.72rem">{{ q.nombre }}: <b>{{ q.share|floatformat:1 }}%</b> <span style="color:var(--muted)">(Bs. {{ q.gen|bs }})</span></div>{% endfor %}</td>
+    <td class="tr mono"><b>{{ x.gen_periodo|bs }}</b></td><td class="tr mono">{{ x.por_generar|bs }}</td><td class="tr">{{ x.ratio_cobro|floatformat:0 }}%</td></tr>
+  {% empty %}<tr><td colspan="10" class="note">Sin mensualidades con sesiones en el período.</td></tr>{% endfor %}</tbody></table></div>
+  <p class="note">La participación se pondera por lo que costaría cada sesión como individual (precio del paciente o base del servicio). Factor &lt; 1 = paquete con descuento respecto de sesiones sueltas.</p></div>
+
+<!-- ══ COMPARACIONES ══ -->
+<div class="sec">🔀 Comparaciones {% ayuda "su_sec_comp" %}</div>
+<div class="g2">
+  {% if r.comparacion %}<div class="card"><h3>Contra el período anterior {% ayuda "su_comp_ant" %}</h3>
+    <p class="note">{{ r.comparacion.desde|date:"d/m/Y" }} — {{ r.comparacion.hasta|date:"d/m/Y" }}</p>
+    <table class="t"><thead><tr><th>Indicador</th><th class="tr">Anterior</th><th class="tr">Variación</th></tr></thead><tbody>
+      <tr><td>Ingreso neto</td><td class="tr mono">{{ r.comparacion.neto.0|bs }}</td><td class="tr mono {% if r.comparacion.neto.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.neto.1|bsd }}</td></tr>
+      <tr><td>Gastos</td><td class="tr mono">{{ r.comparacion.gastos.0|bs }}</td><td class="tr mono {% if r.comparacion.gastos.1 <= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.gastos.1|bsd }}</td></tr>
+      <tr><td>Resultado</td><td class="tr mono">{{ r.comparacion.resultado.0|bs }}</td><td class="tr mono {% if r.comparacion.resultado.1 >= 0 %}up{% else %}down{% endif %}"><b>{{ r.comparacion.resultado.1|bsd }}</b></td></tr>
+      <tr><td>Sesiones atendidas</td><td class="tr">{{ r.comparacion.atendidas.0 }}</td><td class="tr {% if r.comparacion.atendidas.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.atendidas.1|signo }}</td></tr>
+      <tr><td>Horas trabajadas</td><td class="tr">{{ r.comparacion.horas.0 }}</td><td class="tr {% if r.comparacion.horas.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.horas.1|signo }} h</td></tr>
+      <tr><td>Ocupación efectiva</td><td class="tr">{{ r.comparacion.ocup.0|floatformat:1 }}%</td><td class="tr {% if r.comparacion.ocup.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.ocup.1|signo }} pts</td></tr>
+      <tr><td>Niños atendidos</td><td class="tr">{{ r.comparacion.pacientes.0 }}</td><td class="tr {% if r.comparacion.pacientes.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.pacientes.1|signo }}</td></tr>
+    </tbody></table></div>{% endif %}
+  {% if r.comparativa %}<div class="card"><h3>Contra las demás sucursales {% ayuda "su_comp_suc" %}</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Sucursal</th><th class="tr">Neto</th><th class="tr">Gastos</th><th class="tr">Resultado</th><th class="tr">Ocup.</th><th class="tr">Neto/h</th><th class="tr">Niños</th></tr></thead><tbody>
+    {% for c in r.comparativa %}<tr {% if c.actual %}style="background:var(--brand-l);font-weight:700"{% endif %}><td>{{ c.nombre }}{% if c.actual %} ◄{% endif %}<div class="note" style="margin:0">{{ c.nota_gastos }}</div></td><td class="tr mono">{{ c.neto|bs }}</td><td class="tr mono">{{ c.gastos|bs }}</td><td class="tr mono {% if c.resultado >= 0 %}up{% else %}down{% endif %}">{{ c.resultado|bsd }}</td><td class="tr">{{ c.ocup_efect|floatformat:0 }}%</td><td class="tr mono">{{ c.neto_hora|bs }}</td><td class="tr">{{ c.pacientes }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+</div>
+
+<!-- ══ CONCILIACIÓN ══ -->
+{% if r.conciliacion %}
+<div class="sec">🧮 Conciliación con el reporte financiero {% ayuda "su_sec_concil" %}</div>
+<div class="card">
+  <div class="grid" style="margin-bottom:8px">
+    <div class="kpi"><div class="kl">Generado (este informe)</div><div class="kv">{{ r.conciliacion.generado|bs }}</div><div class="ks">Devengado por sesión</div></div>
+    <div class="kpi"><div class="kl">Consumido (financiero) {% ayuda "su_c_consumido" %}</div><div class="kv">{{ r.conciliacion.consumido|bs }}</div><div class="ks">Ses. {{ r.conciliacion.consumido_ses|bs }} · mens. {{ r.conciliacion.consumido_mens|bs }} · proy. {{ r.conciliacion.consumido_proy|bs }}</div></div>
+    <div class="kpi"><div class="kl">Diferencia</div><div class="kv {% if r.conciliacion.cuadra %}up{% endif %}">{{ r.conciliacion.diferencia|bsd }}</div><div class="ks">{% if r.conciliacion.cuadra %}✔ Cuadra{% else %}Ver explicación{% endif %}</div></div>
+    <div class="kpi"><div class="kl">Cobrado en el período {% ayuda "su_c_pagado" %}</div><div class="kv">{{ r.conciliacion.pagado|bs }}</div><div class="ks">{{ r.conciliacion.pct_cobrado|floatformat:0 }}% de lo consumido · devoluciones {{ r.conciliacion.devoluciones|bs }}</div></div>
+    <div class="kpi"><div class="kl">Saldo del período {% ayuda "su_c_saldo" %}</div><div class="kv {% if r.conciliacion.saldo >= 0 %}up{% else %}down{% endif %}">{{ r.conciliacion.saldo|bsd }}</div><div class="ks">Pagado − consumido</div></div>
+  </div>
+  <p class="note">{{ r.conciliacion.explicacion }}</p>
+</div>
+{% endif %}
+
+{% endwith %}
+{% endif %}
+</div>
+
+<script>
+(function(){
+  var tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);var cur=null;
+  function show(el){cur=el;tip.textContent=el.getAttribute('data-t');tip.style.display='block';
+    var r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    var x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.bottom+8;
+    if(y+h>window.innerHeight-8)y=r.top-h-8;
+    tip.style.left=x+'px';tip.style.top=Math.max(8,y)+'px';el.classList.add('on');}
+  function hide(){tip.style.display='none';if(cur)cur.classList.remove('on');cur=null;}
+  function inf(e){return e.target.closest?e.target.closest('.inf'):null;}
+  document.addEventListener('mouseover',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('mouseout',function(e){if(inf(e))hide();});
+  document.addEventListener('focusin',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('focusout',function(e){if(inf(e))hide();});
+  document.addEventListener('click',function(e){var el=inf(e);if(el){e.preventDefault();e.stopPropagation();show(el);}else hide();},true);
+  window.addEventListener('scroll',hide,true);
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const gLabels = {{ grafico_data.labels|safe }};
-const gSesiones = {{ grafico_data.sesiones|safe }};
-const gRealizadas = {{ grafico_data.realizadas|safe }};
-const gIngresos = {{ grafico_data.ingresos|safe }};
-
-const ctx1 = document.getElementById('chart-sesiones');
-if(ctx1) new Chart(ctx1, {
-  type:'bar',
-  data:{labels:gLabels,datasets:[
-    {label:'Total',data:gSesiones,backgroundColor:'rgba(109,40,217,.5)',borderColor:'#6d28d9',borderWidth:2,borderRadius:5},
-    {label:'Realizadas',data:gRealizadas,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:5}
-  ]},
-  options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},
-    scales:{y:{beginAtZero:true,ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}}}
-});
-
-const ctx2 = document.getElementById('chart-ingresos');
-if(ctx2) new Chart(ctx2, {
-  type:'line',
-  data:{labels:gLabels,datasets:[{
-    label:'Ingresos Bs.',data:gIngresos,
-    backgroundColor:'rgba(109,40,217,.1)',borderColor:'#6d28d9',borderWidth:2,
-    fill:true,tension:.4,pointBackgroundColor:'#6d28d9',pointRadius:4
-  }]},
-  options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:'top',labels:{font:{size:10}}}},
-    scales:{y:{beginAtZero:true,ticks:{font:{size:9},callback:v=>'Bs.'+v}},x:{ticks:{font:{size:9}}}}}
-});
+function setR(v){document.getElementById('f-rango').value=v;
+  ['mes','anio','fecha_desde','fecha_hasta'].forEach(function(n){var e=document.querySelector('[name='+n+']');if(e)e.value='';});
+  document.getElementById('frm').submit();}
+function addGasto(concepto){
+  var c=document.getElementById('gastos-rows');if(!c)return;
+  var d=document.createElement('div');d.className='grow';
+  d.innerHTML='<input type="text" name="g_concepto" list="conceptos" maxlength="60" placeholder="Ej.: Alquiler">'+
+    '<input type="number" name="g_monto" step="0.01" min="0" placeholder="0,00">'+
+    '<select name="g_freq"><option value="mensual">Mensual</option><option value="periodo">Total del período</option></select>'+
+    '<button type="button" class="btn-sm" onclick="delGasto(this)" title="Quitar">✕</button>';
+  c.appendChild(d);
+  if(concepto){d.querySelector('[name=g_concepto]').value=concepto;}
+  d.querySelector(concepto?'[name=g_monto]':'[name=g_concepto]').focus();}
+function delGasto(b){var row=b.parentNode,c=row.parentNode;
+  if(c.children.length>1){c.removeChild(row);}else{row.querySelectorAll('input').forEach(function(i){i.value='';});}}
+function filtrarNinos(){
+  var q=(document.getElementById('qn').value||'').toLowerCase(),f=document.getElementById('fn').value;
+  document.querySelectorAll('#tnin tbody tr[data-s]').forEach(function(tr){
+    var ok=(!q||tr.dataset.s.indexOf(q)>-1)&&(!f||(f==='inact'?tr.dataset.i==='1':tr.dataset.r===f));
+    tr.style.display=ok?'':'none';});}
+var G={% if graf_json %}{{ graf_json|safe }}{% else %}{}{% endif %};
+var chE=null;
+function verGrupo(g){
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.toggle('on',b.dataset.g===g);});
+  var d=G[g]; if(!d||!document.getElementById('chEvol'))return;
+  if(chE)chE.destroy();
+  var ds,sc;
+  if(g==='meses'){
+    ds=[{type:'bar',label:'Ingreso neto (Bs.)',data:d.gen,backgroundColor:'#16a34a'},
+        {type:'bar',label:'Gastos (Bs.)',data:d.gastos,backgroundColor:'#dc2626'},
+        {type:'line',label:'Resultado (Bs.)',data:d.resultado,borderColor:'#4338ca',backgroundColor:'#4338ca',tension:.3},
+        {type:'line',label:'Ocupación efectiva %',data:d.ocup,borderColor:'#d97706',borderDash:[5,4],tension:.3,yAxisID:'y2'}];
+    sc={y:{title:{display:true,text:'Bs.'}},y2:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},display:false}};
+  }else{
+    ds=[{type:'bar',label:'Atendidas',data:d.atend,backgroundColor:'#16a34a',yAxisID:'y'},
+        {type:'bar',label:'Faltas',data:d.faltas,backgroundColor:'#dc2626',yAxisID:'y'},
+        {type:'line',label:'Generó (Bs.)',data:d.gen,borderColor:'#4338ca',backgroundColor:'#4338ca',tension:.3,yAxisID:'y1'},
+        {type:'line',label:'Ocupación efectiva %',data:d.ocup,borderColor:'#d97706',borderDash:[5,4],tension:.3,yAxisID:'y2',spanGaps:true}];
+    sc={y:{beginAtZero:true,title:{display:true,text:'Sesiones'}},y1:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:'Bs.'}},y2:{display:false,min:0,max:100}};
+  }
+  chE=new Chart(document.getElementById('chEvol'),{data:{labels:d.labels,datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:sc,plugins:{legend:{labels:{boxWidth:12,font:{size:11}}}}}});}
+(function(){
+  if(!G.meses)return;
+  var P=['#4338ca','#16a34a','#d97706','#dc2626','#0d9488','#7c3aed','#2563eb','#ea580c','#64748b','#db2777'];
+  var e=document.getElementById('chGastos');
+  if(e&&G.gastos&&G.gastos.labels.length)new Chart(e,{type:'doughnut',data:{labels:G.gastos.labels,datasets:[{data:G.gastos.monto,backgroundColor:P}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:11,font:{size:10}}}}}});
+  e=document.getElementById('chTipos');
+  if(e)new Chart(e,{type:'bar',data:{labels:G.tipos.labels,datasets:[{label:'Generó (Bs.)',data:G.tipos.gen,backgroundColor:['#4338ca','#0d9488','#7c3aed']}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+  e=document.getElementById('chProfes');
+  if(e)new Chart(e,{type:'bar',data:{labels:G.profes.labels,datasets:[{label:'Aporte neto (Bs.)',data:G.profes.neto,backgroundColor:'#16a34a'},{label:'Costo (Bs.)',data:G.profes.costo,backgroundColor:'#dc2626'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{boxWidth:12,font:{size:11}}}}}});
+  e=document.getElementById('chDiaSem');
+  if(e)new Chart(e,{type:'bar',data:{labels:G.semana_dia.labels,datasets:[{label:'Ocupación %',data:G.semana_dia.ocup,backgroundColor:'#4338ca'}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:100}},plugins:{legend:{display:false}}}});
+  if(document.getElementById('chEvol'))verGrupo('meses');
+})();
 </script>
-{% endif %}
 {% endblock %}

@@ -133,11 +133,16 @@ def _foto_path(prof):
 # DOCUMENTO CON PAGINACIÓN AUTOMÁTICA
 # ─────────────────────────────────────────────────────────────────────
 class Doc:
+    # Textos del encabezado/pie: las subclases (p. ej. informe de sucursal) los reemplazan
+    TITULO_DOC = "INFORME DE PROFESIONAL"
+    ETIQUETA = "PROFESIONAL:"
+    NOMBRE_DOC = "Informe de Profesional"
+
     def __init__(self, total, nombre, periodo, fecha):
         self.buf = BytesIO()
         self.c = pdf_canvas.Canvas(self.buf, pagesize=letter)
         self.c.setAuthor(NOMBRE_CENTRO)
-        self.c.setTitle(f"Informe de Profesional - {_t(nombre)}")
+        self.c.setTitle(f"{self.NOMBRE_DOC} - {_t(nombre)}")
         self.total, self.nombre, self.periodo, self.fecha = total, nombre, periodo, fecha
         self.pg = 0
         self.land = False
@@ -189,7 +194,7 @@ class Doc:
         c.setFont("Helvetica", 7)
         c.drawString(tx, self.h - 1.45 * cm, f"{DIRECCION}  |  {TELEFONO}")
         c.setFont("Helvetica-Bold", 8.5)
-        c.drawRightString(self.w - ML, self.h - 0.9 * cm, "INFORME DE PROFESIONAL")
+        c.drawRightString(self.w - ML, self.h - 0.9 * cm, self.TITULO_DOC)
         c.setFont("Helvetica", 7)
         c.drawRightString(self.w - ML, self.h - 1.4 * cm, f"Pág. {self.pg} de {self.total}")
         by = self.h - hh - 0.85 * cm
@@ -200,7 +205,7 @@ class Doc:
         c.roundRect(ML, by, self.cw, 0.72 * cm, 4, fill=0, stroke=1)
         c.setFont("Helvetica-Bold", 7)
         c.setFillColor(C_PRI)
-        c.drawString(ML + 0.3 * cm, by + 0.26 * cm, "PROFESIONAL:")
+        c.drawString(ML + 0.3 * cm, by + 0.26 * cm, self.ETIQUETA)
         c.setFont("Helvetica-Bold", 8)
         c.setFillColor(C_TEXTO)
         c.drawString(ML + 2.4 * cm, by + 0.26 * cm, _recorta(self.nombre, 8, 7.2 * cm, 'Helvetica-Bold'))
@@ -224,7 +229,7 @@ class Doc:
         c.setFont("Helvetica", 6.5)
         c.setFillColor(C_MUTED)
         c.drawString(ML, FOOT_Y + 0.2 * cm,
-                     f"{NOMBRE_CENTRO}  |  Informe de Profesional - {self.fecha}  |  CONFIDENCIAL")
+                     f"{NOMBRE_CENTRO}  |  {self.NOMBRE_DOC} - {self.fecha}  |  CONFIDENCIAL")
         c.drawRightString(self.w - ML, FOOT_Y + 0.2 * cm, f"Pág. {self.pg} / {self.total}")
 
     def ensure(self, h):
