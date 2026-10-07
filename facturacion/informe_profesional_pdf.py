@@ -676,7 +676,7 @@ def _sec_produccion(d, r):
         items += [("Cobrado", bs(k['cobrado']), f"{pc(k['pct_cobrado'])} de lo generado", C_VERDE),
                   ("Generado sin cobrar", bs(k['pendiente_cobro']), "pendiente de pago", C_ROJO)]
     if k.get('costo_periodo'):
-        items.append(("Margen vs. su costo", bs(k['margen']), f"aporta {fm(k['neto_centro'], 0)} / costo {fm(k['costo_periodo'], 0)}",
+        items.append(("Margen vs. su costo", bs(k['margen']), f"aporta {fm(k['neto_centro'], 0)} / costo {fm(k['costo_periodo'], 0)} ({fm(k['costo_meses'])} mes)",
                       C_VERDE if k['rentable'] else C_ROJO))
     if k['tiene_externos']:
         items.append(("Servicios externos", bs(k['ext_centro']), f"retiene el centro | prof. {fm(k['ext_prof'], 0)}", C_AMBER))

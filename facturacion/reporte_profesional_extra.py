@@ -531,7 +531,7 @@ INFO_CRITERIOS = {
     'Ocupación efectiva': "Horas realmente trabajadas con pacientes ÷ horas de su horario ya transcurrido. No cuenta faltas ni sesiones programadas sin registrar. Peso 1,5.",
     'Ingreso por hora vs equipo': "Total generado ÷ horas trabajadas del profesional, comparado con el promedio del resto del equipo en el mismo período. Se mide en % del promedio. Peso 1.",
     'Faltas sin aviso de sus pacientes': "Faltas sin aviso ÷ (atendidas + faltas + permisos). Solo se evalúa con 5 o más sesiones. Una tasa alta puede indicar problemas de adherencia de las familias. Peso 0,75.",
-    'Cobertura de su costo': "Aporte al centro ÷ costo del profesional en el período. Aporte = total generado (menos comisión si es servicio externo). Costo = costo mensual ingresado × días ÷ 30,4. Solo aparece si ingresas el costo mensual. Peso 2.",
+    'Cobertura de su costo': "Aporte al centro ÷ costo del profesional en el período. Aporte = total generado (menos comisión si es servicio externo). Costo = costo mensual ingresado × meses del período, prorrateado por días de cada mes calendario (un mes completo = el costo exacto). Solo aparece si ingresas el costo mensual. Peso 2.",
     'Producción efectivamente cobrada': "Dinero cobrado ÷ dinero generado. Mide si lo que produce se transforma en ingreso real para el centro. Peso 0,75.",
     'Tendencia de producción (6 meses)': "Pendiente de la recta que mejor ajusta el dinero generado por mes en meses completos, como % del promedio mensual. Requiere al menos 3 meses con actividad. Peso 1.",
     'Retención de pacientes': "De los niños atendidos en el período anterior (de igual duración), cuántos también fueron atendidos en este. Se evalúa con 3 o más niños previos. Peso 1.",
@@ -574,7 +574,7 @@ def semaforo(r):
     if k.get('costo_periodo'):
         add('Cobertura de su costo', f"{k['cobertura']}× (margen Bs. {k['margen']:,.0f})",
             nivel(k['cobertura'], 1.3, 1.0), 'Verde ≥ 1,3× · Ámbar 1–1,3× · Rojo < 1×', 2.0,
-            f"Aporta Bs. {k['neto_centro']:,.0f} al centro frente a un costo de Bs. {k['costo_periodo']:,.0f}.")
+            f"Aporta Bs. {k['neto_centro']:,.0f} al centro frente a un costo de Bs. {k['costo_periodo']:,.0f} (Bs. {k['costo_mensual']:,.0f}/mes × {k['costo_meses']:.2f} mes).")
     cb = r.get('cobranza')
     if cb and cb['generado']:
         add('Producción efectivamente cobrada', f"{cb['pct']}%", nivel(cb['pct'], 80, 60),

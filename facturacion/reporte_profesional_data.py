@@ -933,9 +933,19 @@ def analizar(prof, desde, hasta, sucursal_id='', servicio_id='', paciente_id='',
     # Rentabilidad (el sistema no guarda sueldos internos → costo manual opcional)
     costo_mensual = _f(costo_mensual)
     neto_centro = gen_total - ext_prof if tiene_externos else gen_total
-    costo_periodo = costo_mensual * n_dias / 30.4 if costo_mensual else 0.0
+    # Prorrateo por días de cada MES CALENDARIO: un mes completo = el costo mensual exacto.
+    # (ej. 08/09–07/10 = 23/30 de septiembre + 7/31 de octubre ≈ 0,99 mes)
+    import calendar as _cal
+    meses_equiv = 0.0
+    if costo_mensual:
+        d_ = desde
+        while d_ <= hasta:
+            meses_equiv += 1.0 / _cal.monthrange(d_.year, d_.month)[1]
+            d_ += timedelta(days=1)
+    costo_periodo = costo_mensual * meses_equiv
     kpis['costo_mensual'] = costo_mensual
     kpis['costo_periodo'] = round(costo_periodo, 2)
+    kpis['costo_meses'] = round(meses_equiv, 3)
     kpis['neto_centro'] = round(neto_centro, 2)
     kpis['margen'] = round(neto_centro - costo_periodo, 2)
     kpis['cobertura'] = round(neto_centro / costo_periodo, 2) if costo_periodo else 0.0
