@@ -100,3 +100,15 @@ def get_marketing_storage():
         location=str(settings.BASE_DIR / 'media' / 'marketing'),
         base_url=settings.MEDIA_URL + 'marketing/',
     )
+
+
+def estado_almacenamiento():
+    """(configurado: bool, descripcion: str) para mostrar en el panel."""
+    storage = get_marketing_storage()
+    if isinstance(storage, MarketingNoConfiguradoStorage):
+        return False, 'Producción sin almacenamiento configurado'
+    if isinstance(storage, R2MarketingStorage):
+        return True, 'Cloudflare R2'
+    if type(storage).__name__ == 'CloudinaryMarketingStorage':
+        return True, 'Cloudinary'
+    return True, 'Carpeta local (desarrollo)'

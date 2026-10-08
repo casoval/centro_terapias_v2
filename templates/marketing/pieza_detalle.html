@@ -1,0 +1,106 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Pieza #{{ pieza.pk }}{% endblock %}
+
+{% block mk_content %}
+<div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+    <div>
+        <a href="{% url 'marketing:campana_detalle' pieza.campana.pk %}" class="text-xs font-bold text-fuchsia-600 hover:underline">← {{ pieza.campana.titulo }}</a>
+        <h2 class="text-xl font-black text-slate-800 mt-1">{{ pieza.get_tipo_display }} · formato {{ pieza.formato }}</h2>
+        <p class="text-sm text-slate-500">{{ pieza.campana.marca.nombre }} · {{ elementos|length }} diapositiva{{ elementos|length|pluralize }} · sin costo de IA</p>
+    </div>
+    <span class="text-xs font-black rounded-full px-3 py-1 {% if pieza.estado == 'aprobado' or pieza.estado == 'publicada' %}bg-emerald-600 text-white{% elif pieza.estado == 'fallida' %}bg-red-50 text-red-600{% else %}bg-slate-100 text-slate-600{% endif %}">{{ pieza.get_estado_display }}</span>
+</div>
+
+{% if pieza.error %}<div class="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3 mb-4">❌ {{ pieza.error }}</div>{% endif %}
+
+<form method="post" action="{% url 'marketing:pieza_textos' pieza.pk %}" class="mb-5"
+      onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='⏳ Redibujando…';">
+    {% csrf_token %}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for el in elementos %}
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3">
+            <div class="bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[8rem]">
+                {% if el.archivo %}<img src="{{ el.archivo.url }}" alt="Diapositiva {{ el.orden }}" class="w-full" loading="lazy">{% else %}<span class="text-xs text-slate-400 py-10">Sin imagen</span>{% endif %}
+            </div>
+            <label class="block text-xs font-bold text-slate-500 mt-2 mb-1" for="texto_{{ el.pk }}">Diapositiva {{ el.orden }}</label>
+            <textarea id="texto_{{ el.pk }}" name="texto_{{ el.pk }}" rows="3" maxlength="300" {% if not editable %}disabled{% endif %}
+                      class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white">{{ el.texto_pantalla }}</textarea>
+            {% if el.activo_referencia %}<p class="text-[11px] text-slate-400 mt-1">📷 {{ el.activo_referencia.nombre }}</p>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% if editable %}
+    <div class="flex flex-wrap items-center gap-3 mt-4">
+        <button type="submit" class="bg-white border border-fuchsia-300 hover:bg-fuchsia-50 text-fuchsia-700 font-black text-sm px-5 py-2.5 rounded-xl">💾 Guardar textos y redibujar</button>
+        <span class="text-xs text-slate-400">Los textos pasan por las mismas reglas de la marca que el guion.</span>
+    </div>
+    {% endif %}
+</form>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+    <p class="text-sm font-black text-slate-700 mb-3">Acciones</p>
+    <div class="flex flex-wrap items-center gap-3">
+        {% if pieza.estado == 'listo' %}
+        <form method="post" action="{% url 'marketing:pieza_aprobar' pieza.pk %}">{% csrf_token %}<button class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">✅ Aprobar</button></form>
+        {% endif %}
+        {% if pieza.estado == 'listo' or pieza.estado == 'aprobado' or pieza.estado == 'publicada' %}
+        <a href="{% url 'marketing:pieza_descargar' pieza.pk %}" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">⬇️ Descargar {% if pieza.tipo == 'carrusel' %}(.zip){% else %}(.jpg){% endif %}</a>
+        {% endif %}
+        {% if pieza.estado == 'listo' or pieza.estado == 'aprobado' or pieza.estado == 'fallida' %}
+        <form method="post" action="{% url 'marketing:pieza_regenerar' pieza.pk %}" onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='⏳ Generando…';">{% csrf_token %}<button class="bg-white border border-slate-300 hover:border-fuchsia-400 text-slate-700 font-bold text-sm px-4 py-2.5 rounded-xl">🔄 Regenerar</button></form>
+        {% endif %}
+        <form method="post" action="{% url 'marketing:pieza_eliminar' pieza.pk %}" onsubmit="return confirm('¿Eliminar esta pieza y sus imágenes?');">{% csrf_token %}<button class="text-sm font-bold text-red-500 hover:text-red-700 px-2">🗑️ Eliminar</button></form>
+    </div>
+    {% if pieza.estado == 'listo' %}<p class="text-xs text-slate-400 mt-3">Revisa cada diapositiva antes de aprobar. Aprobar confirma que el texto y las fotos son correctos.</p>{% endif %}
+</div>
+
+{% if pieza.estado == 'aprobado' or pieza.estado == 'publicada' %}
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+    <p class="text-sm font-black text-slate-700 mb-1">📤 Publicación manual</p>
+    <p class="text-xs text-slate-400 mb-4">Descarga la pieza, súbela tú a la red y registra aquí cuándo se publicó. La publicación automática llega en una fase posterior.</p>
+
+    {% if redes_libres %}
+    <div class="flex flex-wrap gap-2 mb-4">
+        {% for valor, nombre in redes_libres %}
+        <form method="post" action="{% url 'marketing:publicacion_crear' pieza.pk %}">{% csrf_token %}<input type="hidden" name="red" value="{{ valor }}"><button class="bg-fuchsia-50 hover:bg-fuchsia-100 text-fuchsia-700 font-bold text-sm px-4 py-2 rounded-xl border border-fuchsia-200">➕ Preparar para {{ nombre }}</button></form>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="space-y-4">
+        {% for pub in publicaciones %}
+        <article class="border {% if pub.estado == 'publicada' %}border-emerald-300{% else %}border-slate-200{% endif %} rounded-xl p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="font-black text-slate-800 text-sm">{{ pub.get_red_display }}</p>
+                <span class="text-[11px] font-bold rounded-full px-2.5 py-0.5 {% if pub.estado == 'publicada' %}bg-emerald-50 text-emerald-700{% elif pub.estado == 'descartada' %}bg-slate-100 text-slate-400{% else %}bg-amber-50 text-amber-700{% endif %}">{{ pub.get_estado_display }}</span>
+            </div>
+            {% if pub.estado == 'preparada' %}
+            <form method="post" action="{% url 'marketing:publicacion_accion' pub.pk %}" class="space-y-2">
+                {% csrf_token %}<input type="hidden" name="accion" value="guardar">
+                <textarea id="cap{{ pub.pk }}" name="caption" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white">{{ pub.caption }}</textarea>
+                <input id="hash{{ pub.pk }}" name="hashtags" value="{{ pub.hashtags }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-fuchsia-700 bg-white">
+                <div class="flex flex-wrap gap-2">
+                    <button class="bg-white border border-slate-300 hover:border-fuchsia-400 text-slate-700 font-bold text-xs px-3 py-2 rounded-lg">💾 Guardar texto</button>
+                    <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('cap{{ pub.pk }}').value + '\n\n' + document.getElementById('hash{{ pub.pk }}').value); this.textContent='✅ Copiado';" class="bg-white border border-slate-300 hover:border-fuchsia-400 text-slate-700 font-bold text-xs px-3 py-2 rounded-lg">📋 Copiar texto</button>
+                </div>
+            </form>
+            <form method="post" action="{% url 'marketing:publicacion_accion' pub.pk %}" class="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                {% csrf_token %}<input type="hidden" name="accion" value="publicar">
+                <input name="url_publica" type="url" placeholder="Enlace de la publicación (opcional)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 bg-white">
+                <label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" name="etiqueta_ia" class="mt-0.5"> Revisé si la red pide marcar contenido generado con IA y lo hice si corresponde (el texto del guion puede haberse redactado con IA).</label>
+                <div class="flex gap-2">
+                    <button class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs px-4 py-2 rounded-lg">✅ Ya la publiqué</button>
+                </div>
+            </form>
+            <form method="post" action="{% url 'marketing:publicacion_accion' pub.pk %}" class="mt-2">{% csrf_token %}<input type="hidden" name="accion" value="descartar"><button class="text-xs font-bold text-slate-400 hover:text-red-500">Descartar</button></form>
+            {% elif pub.estado == 'publicada' %}
+            <p class="text-sm text-slate-600">Publicada el {{ pub.publicada_en|date:"d/m/Y H:i" }}{% if pub.url_publica %} · <a class="text-fuchsia-700 font-bold hover:underline" href="{{ pub.url_publica }}" target="_blank" rel="noopener">ver publicación</a>{% endif %}</p>
+            {% endif %}
+        </article>
+        {% empty %}
+        <p class="text-sm text-slate-400">Aún no preparaste ninguna publicación.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

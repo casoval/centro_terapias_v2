@@ -266,3 +266,22 @@ class ConfigForm(EstiloMixin, forms.ModelForm):
             for p in listar_proveedores_texto()
         ]
         self._estilizar()
+
+
+class PiezaCrearForm(EstiloMixin, forms.Form):
+    tipo = forms.ChoiceField(
+        label='Qué crear',
+        choices=[('carrusel', 'Carrusel (varias diapositivas)'), ('imagen', 'Imagen única')],
+    )
+    formato = forms.ChoiceField(
+        label='Formato',
+        choices=[
+            ('4x5', 'Vertical 4:5 · feed de Instagram y Facebook'),
+            ('9x16', 'Vertical 9:16 · Reels, TikTok e Historias'),
+            ('1x1', 'Cuadrado 1:1'),
+        ],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._estilizar()

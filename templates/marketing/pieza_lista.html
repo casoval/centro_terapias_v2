@@ -1,0 +1,32 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Piezas{% endblock %}
+
+{% block mk_content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <form method="get" class="flex flex-wrap gap-2 items-end">
+        <select name="estado" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Todos los estados</option>
+            {% for v, l in estados %}<option value="{{ v }}" {% if estado_sel == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl">Filtrar</button>
+    </form>
+    <p class="text-xs text-slate-400">Las piezas se crean desde un guion aprobado, dentro de cada campaña.</p>
+</div>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {% for p in piezas %}
+    <a href="{% url 'marketing:pieza_detalle' p.pk %}" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:border-fuchsia-300">
+        <div class="bg-slate-100 aspect-square flex items-center justify-center overflow-hidden">
+            {% if p.miniatura %}<img src="{{ p.miniatura.url }}" alt="" class="w-full h-full object-cover" loading="lazy">{% else %}<span class="text-3xl">🖼️</span>{% endif %}
+        </div>
+        <div class="p-3">
+            <p class="text-sm font-bold text-slate-800 truncate">{{ p.campana.titulo }}</p>
+            <p class="text-xs text-slate-400">{{ p.campana.marca.nombre }} · {{ p.get_tipo_display }} {{ p.formato }}</p>
+            <span class="inline-block mt-2 text-[11px] font-bold rounded-full px-2.5 py-0.5 {% if p.estado == 'aprobado' or p.estado == 'publicada' %}bg-emerald-50 text-emerald-700{% elif p.estado == 'fallida' %}bg-red-50 text-red-600{% else %}bg-slate-100 text-slate-500{% endif %}">{{ p.get_estado_display }}</span>
+        </div>
+    </a>
+    {% empty %}
+    <p class="sm:col-span-2 lg:col-span-4 text-sm text-slate-400 bg-white rounded-2xl border border-slate-200 px-5 py-10 text-center">Aún no hay piezas. Aprueba un guion y pulsa “Crear imagen o carrusel” dentro de la campaña.</p>
+    {% endfor %}
+</div>
+{% endblock %}

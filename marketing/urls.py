@@ -17,6 +17,17 @@ urlpatterns = [
     path('guiones/<int:pk>/aprobar/', views.guion_aprobar, name='guion_aprobar'),
     path('guiones/<int:pk>/eliminar/', views.guion_eliminar, name='guion_eliminar'),
 
+    path('piezas/', views.pieza_lista, name='pieza_lista'),
+    path('guiones/<int:pk>/crear-pieza/', views.pieza_crear, name='pieza_crear'),
+    path('piezas/<int:pk>/', views.pieza_detalle, name='pieza_detalle'),
+    path('piezas/<int:pk>/textos/', views.pieza_textos, name='pieza_textos'),
+    path('piezas/<int:pk>/regenerar/', views.pieza_regenerar, name='pieza_regenerar'),
+    path('piezas/<int:pk>/aprobar/', views.pieza_aprobar, name='pieza_aprobar'),
+    path('piezas/<int:pk>/descargar/', views.pieza_descargar, name='pieza_descargar'),
+    path('piezas/<int:pk>/eliminar/', views.pieza_eliminar, name='pieza_eliminar'),
+    path('piezas/<int:pk>/publicacion/', views.publicacion_crear, name='publicacion_crear'),
+    path('publicaciones/<int:pk>/', views.publicacion_accion, name='publicacion_accion'),
+
     path('fichas/', views.ficha_lista, name='ficha_lista'),
     path('fichas/nueva/', views.ficha_crear, name='ficha_crear'),
     path('fichas/sincronizar/', views.ficha_sincronizar, name='ficha_sincronizar'),

@@ -10,18 +10,26 @@ from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.db.models import Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from .forms import (
-    ActivoForm, CampanaForm, ConfigForm, FichaForm, GenerarGuionForm, MarcaForm,
+    ActivoForm, CampanaForm, ConfigForm, FichaForm, GenerarGuionForm, MarcaForm, PiezaCrearForm,
 )
 from .guiones import GuionError, aprobar_guion, crear_guion_manual, generar_guiones
 from .models import (
-    Activo, AuditoriaMarketing, Campana, ConfigMarketing, FichaContenido, Guion, Marca, RegistroGasto,
+    Activo, AuditoriaMarketing, Campana, ConfigMarketing, FichaContenido, Guion, Marca, Pieza, Publicacion,
+    RegistroGasto,
 )
+from .piezas import (
+    PiezaError, actualizar_publicacion, actualizar_textos, aprobar_pieza, crear_pieza,
+    descartar_publicacion, eliminar_pieza, generar_pieza, paquete_descarga, preparar_publicacion,
+    registrar_publicada,
+)
+from .storage_backends import estado_almacenamiento
 from .permissions import superusuario_requerido
 from .proveedores.base import ProveedorError
 from .proveedores.registro import listar_proveedores_texto, obtener_proveedor_texto
@@ -59,11 +67,12 @@ def panel(request):
     avisos = []
     if not any(p['disponible'] for p in proveedores):
         avisos.append('No hay ningún modelo de IA con clave configurada (GEMINI_API_KEY o GROQ_API_KEY en el .env).')
-    if not getattr(settings, 'MARKETING_R2_CONFIGURADO', False):
-        if getattr(settings, 'IS_PRODUCTION', False):
-            avisos.append('El almacenamiento (bucket R2 de marketing) no está configurado: no se podrán subir archivos.')
-        else:
-            avisos.append('Modo desarrollo: los archivos se guardan en una carpeta local, no en R2.')
+    almacen_ok, almacen_nombre = estado_almacenamiento()
+    if not almacen_ok:
+        avisos.append('El almacenamiento de Marketing no está configurado: no se podrán subir archivos. '
+                      'Define MARKETING_STORAGE_BACKEND=cloudinary en el .env.')
+    elif almacen_nombre.startswith('Carpeta local'):
+        avisos.append('Modo desarrollo: los archivos se guardan en una carpeta local, no en la nube.')
     if not Marca.objects.exists():
         avisos.append('Aún no hay marcas. Ejecuta: python manage.py cargar_marcas_iniciales')
     if not FichaContenido.objects.filter(aprobada=True, activa=True).exists():
@@ -146,6 +155,8 @@ def campana_detalle(request, pk):
         'form_generar': GenerarGuionForm(),
         'fichas_aprobadas': campana.fichas.filter(aprobada=True, activa=True).count(),
         'puede_generar': campana.quien_escribe != 'usuario',
+        'piezas': campana.piezas.all(),
+        'form_pieza': PiezaCrearForm(initial={'tipo': 'carrusel', 'formato': '4x5'}),
     })
 
 
@@ -449,3 +460,174 @@ def config_editar(request):
         'volver': 'marketing:panel',
         'ayuda': 'Las claves de los modelos de IA se definen en el archivo .env del servidor, nunca aquí.',
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# PIEZAS (imágenes y carruseles) Y PUBLICACIÓN MANUAL
+# ══════════════════════════════════════════════════════════════════════════
+
+@superusuario_requerido
+def pieza_lista(request):
+    qs = Pieza.objects.select_related('campana', 'campana__marca')
+    estado = request.GET.get('estado', '')
+    if estado in dict(Pieza.ESTADO_CHOICES):
+        qs = qs.filter(estado=estado)
+    return render(request, 'marketing/pieza_lista.html', {
+        'seccion': 'piezas', 'piezas': qs[:60], 'estado_sel': estado, 'estados': Pieza.ESTADO_CHOICES,
+    })
+
+
+@superusuario_requerido
+@require_POST
+def pieza_crear(request, pk):
+    guion = get_object_or_404(Guion.objects.select_related('campana', 'campana__marca'), pk=pk)
+    form = PiezaCrearForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Elige qué crear y el formato.')
+        return redirect('marketing:campana_detalle', pk=guion.campana_id)
+    try:
+        pieza, avisos = crear_pieza(
+            guion.campana, guion, form.cleaned_data['tipo'], form.cleaned_data['formato'], usuario=request.user,
+        )
+    except PiezaError as e:
+        messages.error(request, str(e))
+        return redirect('marketing:campana_detalle', pk=guion.campana_id)
+    for aviso in avisos:
+        messages.warning(request, aviso)
+    generar_pieza(pieza)
+    if pieza.estado == 'listo':
+        messages.success(request, 'Pieza creada. Revísala, edita los textos si quieres y apruébala.')
+    else:
+        messages.error(request, f'No se pudo generar la pieza: {pieza.error}')
+    return redirect('marketing:pieza_detalle', pk=pieza.pk)
+
+
+@superusuario_requerido
+def pieza_detalle(request, pk):
+    pieza = get_object_or_404(Pieza.objects.select_related('campana', 'campana__marca', 'guion'), pk=pk)
+    publicaciones = list(pieza.publicaciones.all())
+    con_red = {p.red for p in publicaciones if p.estado != 'descartada'}
+    nombres = dict(Publicacion._meta.get_field('red').choices)
+    return render(request, 'marketing/pieza_detalle.html', {
+        'seccion': 'piezas', 'pieza': pieza, 'elementos': pieza.elementos.order_by('orden'),
+        'publicaciones': publicaciones,
+        'redes_libres': [(r, nombres.get(r, r)) for r in (pieza.campana.redes or []) if r not in con_red],
+        'editable': pieza.estado in ('listo', 'aprobado', 'fallida'),
+    })
+
+
+@superusuario_requerido
+@require_POST
+def pieza_textos(request, pk):
+    pieza = get_object_or_404(Pieza, pk=pk)
+    textos = {}
+    for el in pieza.elementos.all():
+        clave = f'texto_{el.pk}'
+        if clave in request.POST:
+            textos[el.pk] = request.POST[clave]
+    try:
+        _, cambiadas = actualizar_textos(pieza, textos, usuario=request.user)
+    except (PiezaError, GuionError) as e:
+        messages.error(request, str(e))
+    else:
+        pieza.refresh_from_db()
+        if pieza.estado == 'fallida':
+            messages.error(request, f'No se pudo redibujar: {pieza.error}')
+        elif cambiadas:
+            messages.success(request, f'{cambiadas} diapositiva(s) actualizada(s). Vuelve a aprobar la pieza.')
+        else:
+            messages.info(request, 'No hubo cambios.')
+    return redirect('marketing:pieza_detalle', pk=pk)
+
+
+@superusuario_requerido
+@require_POST
+def pieza_regenerar(request, pk):
+    pieza = get_object_or_404(Pieza, pk=pk)
+    if pieza.estado not in ('listo', 'aprobado', 'fallida', 'pendiente'):
+        messages.error(request, 'La pieza no se puede regenerar en este estado.')
+    else:
+        generar_pieza(pieza)
+        if pieza.estado == 'listo':
+            messages.success(request, 'Pieza regenerada con la marca y las fotos actuales.')
+        else:
+            messages.error(request, f'No se pudo regenerar: {pieza.error}')
+    return redirect('marketing:pieza_detalle', pk=pk)
+
+
+@superusuario_requerido
+@require_POST
+def pieza_aprobar(request, pk):
+    pieza = get_object_or_404(Pieza, pk=pk)
+    try:
+        aprobar_pieza(pieza, request.user)
+        messages.success(request, 'Pieza aprobada. Ya puedes descargarla y preparar su publicación.')
+    except (PiezaError, GuionError) as e:
+        messages.error(request, str(e))
+    return redirect('marketing:pieza_detalle', pk=pk)
+
+
+@superusuario_requerido
+def pieza_descargar(request, pk):
+    pieza = get_object_or_404(Pieza.objects.select_related('guion'), pk=pk)
+    if pieza.estado not in ('listo', 'aprobado', 'publicada'):
+        messages.error(request, 'La pieza todavía no está lista para descargar.')
+        return redirect('marketing:pieza_detalle', pk=pk)
+    try:
+        nombre, contenido, mime = paquete_descarga(pieza)
+    except (PiezaError, OSError) as e:
+        messages.error(request, f'No se pudo preparar la descarga: {e}')
+        return redirect('marketing:pieza_detalle', pk=pk)
+    resp = HttpResponse(contenido, content_type=mime)
+    resp['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    return resp
+
+
+@superusuario_requerido
+@require_POST
+def pieza_eliminar(request, pk):
+    pieza = get_object_or_404(Pieza, pk=pk)
+    campana_id = pieza.campana_id
+    try:
+        eliminar_pieza(pieza, request.user)
+        messages.success(request, 'Pieza eliminada.')
+    except PiezaError as e:
+        messages.error(request, str(e))
+        return redirect('marketing:pieza_detalle', pk=pk)
+    return redirect('marketing:campana_detalle', pk=campana_id)
+
+
+@superusuario_requerido
+@require_POST
+def publicacion_crear(request, pk):
+    pieza = get_object_or_404(Pieza, pk=pk)
+    try:
+        _, nueva = preparar_publicacion(pieza, request.POST.get('red', ''), request.user)
+        messages.success(request, 'Publicación preparada. Copia el texto y súbela a la red.' if nueva
+                         else 'Ya había una publicación preparada para esa red.')
+    except PiezaError as e:
+        messages.error(request, str(e))
+    return redirect('marketing:pieza_detalle', pk=pk)
+
+
+@superusuario_requerido
+@require_POST
+def publicacion_accion(request, pk):
+    pub = get_object_or_404(Publicacion.objects.select_related('pieza', 'pieza__guion', 'pieza__campana'), pk=pk)
+    accion = request.POST.get('accion', '')
+    try:
+        if accion == 'guardar':
+            actualizar_publicacion(pub, request.POST.get('caption', ''), request.POST.get('hashtags', ''), request.user)
+            messages.success(request, 'Texto de la publicación guardado.')
+        elif accion == 'publicar':
+            url = request.POST.get('url_publica', '').strip()
+            registrar_publicada(pub, request.user, url=url, etiqueta_ia=bool(request.POST.get('etiqueta_ia')))
+            messages.success(request, 'Publicación registrada.')
+        elif accion == 'descartar':
+            descartar_publicacion(pub, request.user)
+            messages.success(request, 'Publicación descartada.')
+        else:
+            messages.error(request, 'Acción no válida.')
+    except (PiezaError, GuionError) as e:
+        messages.error(request, str(e))
+    return redirect('marketing:pieza_detalle', pk=pub.pieza_id)
