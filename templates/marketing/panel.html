@@ -1,0 +1,85 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Panel{% endblock %}
+
+{% block mk_content %}
+{% if avisos %}
+<div class="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+    <p class="text-sm font-black text-amber-800 mb-1">⚠️ Antes de empezar</p>
+    <ul class="list-disc ml-5 text-sm text-amber-800 space-y-0.5">{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <a href="{% url 'marketing:campana_lista' %}" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-fuchsia-300">
+        <p class="text-[11px] font-bold text-slate-400 uppercase">Campañas activas</p>
+        <p class="text-3xl font-black text-slate-800">{{ campanas_por_estado.en_curso|default:0 }}</p>
+        <p class="text-xs text-slate-400">{{ campanas_por_estado.borrador|default:0 }} en borrador</p>
+    </a>
+    <a href="{% url 'marketing:ficha_lista' %}" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-fuchsia-300">
+        <p class="text-[11px] font-bold text-slate-400 uppercase">Fichas aprobadas</p>
+        <p class="text-3xl font-black text-emerald-600">{{ fichas_aprobadas }}</p>
+        <p class="text-xs text-slate-400">{{ fichas_pendientes }} por aprobar</p>
+    </a>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <p class="text-[11px] font-bold text-slate-400 uppercase">Guiones</p>
+        <p class="text-3xl font-black text-slate-800">{{ guiones_por_estado.aprobado|default:0 }}</p>
+        <p class="text-xs text-slate-400">aprobados · {{ guiones_por_estado.validado|default:0 }} por revisar</p>
+    </div>
+    <a href="{% url 'marketing:activo_lista' %}" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-fuchsia-300">
+        <p class="text-[11px] font-bold text-slate-400 uppercase">Activos</p>
+        <p class="text-3xl font-black text-slate-800">{{ activos_total }}</p>
+        <p class="text-xs text-slate-400">fotos, videos y audios</p>
+    </a>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 lg:col-span-2">
+        <p class="text-sm font-black text-slate-700 mb-2">💰 Gasto en IA este mes</p>
+        <p class="text-2xl font-black text-slate-800">${{ gasto|floatformat:2 }} <span class="text-sm font-semibold text-slate-400">de ${{ presupuesto|floatformat:2 }}</span></p>
+        <div class="h-2.5 bg-slate-100 rounded-full mt-3 overflow-hidden">
+            <div class="h-full {% if porcentaje >= 90 %}bg-red-500{% elif porcentaje >= 70 %}bg-amber-500{% else %}bg-emerald-500{% endif %}" style="width: {{ porcentaje }}%"></div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Los guiones de texto cuestan centavos; el gasto fuerte llegará con la generación de video e imágenes.</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <p class="text-sm font-black text-slate-700 mb-2">🤖 Modelos de IA</p>
+        <ul class="space-y-1.5">
+            {% for p in proveedores %}
+            <li class="flex items-center justify-between text-sm">
+                <span class="text-slate-700">{{ p.nombre }}</span>
+                {% if p.disponible %}<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Listo</span>
+                {% else %}<span class="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">Falta {{ p.variable_entorno }}</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+            <p class="text-sm font-black text-slate-700">🎯 Campañas recientes</p>
+            <a href="{% url 'marketing:campana_crear' %}" class="text-xs font-bold text-fuchsia-600 hover:underline">➕ Nueva</a>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for c in campanas_recientes %}
+            <a href="{% url 'marketing:campana_detalle' c.pk %}" class="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50">
+                <div><p class="text-sm font-bold text-slate-800">{{ c.titulo }}</p><p class="text-xs text-slate-400">{{ c.marca.nombre }}</p></div>
+                <span class="text-[11px] font-bold text-slate-500">{{ c.get_estado_display }}</span>
+            </a>
+            {% empty %}<p class="text-sm text-slate-400 px-5 py-6 text-center">Aún no hay campañas.</p>{% endfor %}
+        </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <p class="text-sm font-black text-slate-700 px-5 py-3 border-b border-slate-100">📝 Guiones recientes</p>
+        <div class="divide-y divide-slate-100">
+            {% for g in guiones_recientes %}
+            <a href="{% url 'marketing:campana_detalle' g.campana_id %}" class="flex items-center justify-between px-5 py-2.5 hover:bg-slate-50">
+                <div><p class="text-sm font-bold text-slate-800">{{ g.campana.titulo }} · v{{ g.version }}</p><p class="text-xs text-slate-400">{{ g.gancho|truncatechars:60 }}</p></div>
+                <span class="text-[11px] font-bold {% if g.estado == 'aprobado' %}text-emerald-700{% elif g.estado == 'rechazado' %}text-red-600{% else %}text-slate-500{% endif %}">{{ g.get_estado_display }}</span>
+            </a>
+            {% empty %}<p class="text-sm text-slate-400 px-5 py-6 text-center">Aún no hay guiones.</p>{% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

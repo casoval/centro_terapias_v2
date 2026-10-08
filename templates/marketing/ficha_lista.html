@@ -1,0 +1,49 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Fichas de contenido{% endblock %}
+
+{% block mk_content %}
+<p class="text-sm text-slate-500 mb-4 max-w-3xl">Las fichas son el texto verificado que la IA puede usar. <b>Solo las fichas aprobadas</b> se entregan a la IA; si cambias el texto de una ficha, vuelve a quedar sin aprobar.</p>
+
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <form method="get" class="flex flex-wrap gap-2">
+        <select name="marca" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Todas las marcas</option>
+            {% for m in marcas %}<option value="{{ m.pk }}" {% if marca_sel == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.nombre }}</option>{% endfor %}
+        </select>
+        <select name="estado" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Todas</option>
+            <option value="aprobadas" {% if estado_sel == 'aprobadas' %}selected{% endif %}>Aprobadas</option>
+            <option value="pendientes" {% if estado_sel == 'pendientes' %}selected{% endif %}>Por aprobar</option>
+        </select>
+        <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl">Filtrar</button>
+    </form>
+    <div class="flex gap-2">
+        <form method="post" action="{% url 'marketing:ficha_sincronizar' %}" onsubmit="return confirm('Se crearán/actualizarán las fichas de Centro Misael desde las páginas públicas y las sedes. Las nuevas quedan sin aprobar. ¿Continuar?');">{% csrf_token %}
+            <button class="bg-white border border-slate-300 hover:border-fuchsia-400 text-slate-700 font-bold text-sm px-4 py-2 rounded-xl">🔄 Sincronizar Centro Misael</button>
+        </form>
+        <a href="{% url 'marketing:ficha_crear' %}" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-5 py-2 rounded-xl">➕ Nueva ficha</a>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+    {% for f in fichas %}
+    <div class="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
+        <div class="min-w-0 flex-1">
+            <p class="font-bold text-slate-800 text-sm">{{ f.titulo }}
+                {% if not f.activa %}<span class="text-[10px] font-bold text-slate-400">(inactiva)</span>{% endif %}</p>
+            <p class="text-xs text-slate-400">{{ f.marca.nombre }} · {{ f.get_tipo_display }} · {{ f.get_fuente_display }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ f.texto|truncatechars:160 }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-[11px] font-bold rounded-full px-2.5 py-1 {% if f.aprobada %}bg-emerald-50 text-emerald-700{% else %}bg-amber-50 text-amber-700{% endif %}">{% if f.aprobada %}Aprobada{% else %}Por aprobar{% endif %}</span>
+            <form method="post" action="{% url 'marketing:ficha_aprobar' f.pk %}">{% csrf_token %}
+                <button class="text-xs font-bold {% if f.aprobada %}text-slate-500 hover:text-slate-700{% else %}text-emerald-700 hover:underline{% endif %}">{% if f.aprobada %}Quitar aprobación{% else %}✅ Aprobar{% endif %}</button>
+            </form>
+            <a href="{% url 'marketing:ficha_editar' f.pk %}" class="text-xs font-bold text-fuchsia-700 hover:underline">✏️ Editar</a>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-sm text-slate-400 px-5 py-10 text-center">No hay fichas. Usa «Sincronizar Centro Misael» o crea una a mano (para Misael Kids y Misael Toys).</p>
+    {% endfor %}
+</div>
+{% endblock %}

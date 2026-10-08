@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'archivos_centro',   # ← nueva: archivos operativos del centro (no de pacientes)
     'inventario',        # ← nueva: inventario del centro (sucursales, servicios, usuarios)
     'integracion_misael_kids',  # ← nueva: API para vincular pacientes con Misael Kids
+    'marketing',        # ← nueva: publicidad con IA (solo superusuario, independiente de pacientes)
 ]
 
 MIDDLEWARE = [
@@ -497,6 +498,27 @@ R2_CONFIGURADO = all([
 # no cambian: usan CloudinaryField. En desarrollo sigue el disco local.
 if IS_PRODUCTION and R2_CONFIGURADO:
     STORAGES['default'] = {'BACKEND': 'documentos.storage_backends.R2DocumentosStorage'}
+
+# --------------------------------------------------
+# CLOUDFLARE R2 - MARKETING (bucket SEPARADO del de pacientes)
+# --------------------------------------------------
+# Módulo `marketing`: publicidad con IA. Usa su propio bucket privado y su
+# propio token (idealmente limitado a ese bucket). Variables en el .env:
+#   MARKETING_R2_ACCESS_KEY_ID
+#   MARKETING_R2_SECRET_ACCESS_KEY
+#   MARKETING_R2_BUCKET_NAME
+#   MARKETING_R2_ENDPOINT_URL
+# A diferencia de R2 de documentos, aquí NO se aborta el arranque si faltan en
+# producción: solo falla el guardado de archivos de marketing (con un mensaje
+# claro) y el resto del sistema sigue funcionando. Ver marketing/storage_backends.py
+MARKETING_R2_ACCESS_KEY_ID = os.environ.get('MARKETING_R2_ACCESS_KEY_ID', '')
+MARKETING_R2_SECRET_ACCESS_KEY = os.environ.get('MARKETING_R2_SECRET_ACCESS_KEY', '')
+MARKETING_R2_BUCKET_NAME = os.environ.get('MARKETING_R2_BUCKET_NAME', '')
+MARKETING_R2_ENDPOINT_URL = os.environ.get('MARKETING_R2_ENDPOINT_URL', '')
+MARKETING_R2_CONFIGURADO = all([
+    MARKETING_R2_ACCESS_KEY_ID, MARKETING_R2_SECRET_ACCESS_KEY,
+    MARKETING_R2_BUCKET_NAME, MARKETING_R2_ENDPOINT_URL,
+])
 
 # --------------------------------------------------
 # DEBUG TOOLBAR (solo desarrollo)

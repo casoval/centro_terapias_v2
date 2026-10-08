@@ -1,0 +1,104 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}{{ titulo }}{% endblock %}
+
+{% block mk_content %}
+<div class="max-w-4xl">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-black text-slate-800">{{ titulo }}</h2>
+        <a href="{% if campana %}{% url 'marketing:campana_detalle' campana.pk %}{% else %}{% url 'marketing:campana_lista' %}{% endif %}" class="text-xs font-bold text-fuchsia-600 hover:underline">← Volver</a>
+    </div>
+
+    <form method="post" class="space-y-5">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3">{{ form.non_field_errors }}</div>{% endif %}
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 class="text-sm font-black text-slate-700">1 · Datos básicos</h3>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-bold text-slate-600 mb-1">Marca</label>{{ form.marca }}{% for e in form.marca.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}</div>
+                <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.objetivo.label }}</label>{{ form.objetivo }}</div>
+            </div>
+            <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.titulo.label }}</label>{{ form.titulo }}{% for e in form.titulo.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}</div>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.sucursal_id.label }}</label>{{ form.sucursal_id }}</div>
+                <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.profesional_id.label }}</label>{{ form.profesional_id }}</div>
+            </div>
+            <div>
+                <p class="block text-xs font-bold text-slate-600 mb-1">{{ form.redes.label }}</p>
+                <div class="flex flex-wrap gap-4">
+                    {% for ch in form.redes %}<label class="flex items-center gap-2 text-sm text-slate-700">{{ ch.tag }} {{ ch.choice_label }}</label>{% endfor %}
+                </div>
+                {% for e in form.redes.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+            </div>
+            {% if campana %}<div class="max-w-xs"><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.estado.label }}</label>{{ form.estado }}</div>
+            {% else %}<div class="hidden">{{ form.estado }}</div>{% endif %}
+        </section>
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 class="text-sm font-black text-slate-700">2 · Cómo se crea el contenido</h3>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">{{ form.origen_visual.label }}</label>{{ form.origen_visual }}
+                    <p class="text-xs text-slate-400 mt-1"><b>Con mis fotos:</b> se usan tal cual. <b>Inspirado:</b> la IA parte de tus fotos. <b>La IA crea todo:</b> sin fotos (los niños se generan solo como ilustración o 3D).</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">{{ form.quien_escribe.label }}</label>{{ form.quien_escribe }}
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+            <h3 class="text-sm font-black text-slate-700">3 · Fichas de contenido <span class="font-normal text-slate-400">(lo único que la IA podrá afirmar)</span></h3>
+            <div id="lista-fichas" class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 max-h-60 overflow-y-auto border border-slate-100 rounded-xl p-3">
+                {% for ch in form.fichas %}
+                <label class="opt-marca flex items-start gap-2 text-sm text-slate-700" data-marca="{{ ch.data.value.instance.marca_id }}">{{ ch.tag }} <span>{{ ch.choice_label }}</span></label>
+                {% empty %}<p class="text-sm text-slate-400">No hay fichas aprobadas. Apruébalas en la sección Fichas.</p>{% endfor %}
+            </div>
+            {% for e in form.fichas.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </section>
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+            <h3 class="text-sm font-black text-slate-700">4 · Fotos o videos de referencia <span class="font-normal text-slate-400">(solo los usables)</span></h3>
+            <div id="lista-activos" class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 max-h-48 overflow-y-auto border border-slate-100 rounded-xl p-3">
+                {% for ch in form.activos_referencia %}
+                <label class="opt-marca flex items-start gap-2 text-sm text-slate-700" data-marca="{{ ch.data.value.instance.marca_id }}">{{ ch.tag }} <span>{{ ch.choice_label }}</span></label>
+                {% empty %}<p class="text-sm text-slate-400">No hay activos todavía. Súbelos en la sección Activos.</p>{% endfor %}
+            </div>
+            {% for e in form.activos_referencia.errors %}<p class="text-xs text-red-600">{{ e }}</p>{% endfor %}
+        </section>
+
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 class="text-sm font-black text-slate-700">5 · Lineamientos <span class="font-normal text-slate-400">(opcionales)</span></h3>
+            <div class="grid sm:grid-cols-2 gap-4">
+                {% for f in form %}{% if f.name|slice:":4" == "lin_" %}
+                <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ f.label }}</label>{{ f }}</div>
+                {% endif %}{% endfor %}
+            </div>
+            <div><label class="block text-xs font-bold text-slate-600 mb-1">{{ form.notas.label }}</label>{{ form.notas }}</div>
+        </section>
+
+        <div class="flex gap-3">
+            <button type="submit" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-6 py-2.5 rounded-xl">💾 Guardar campaña</button>
+            <a href="{% if campana %}{% url 'marketing:campana_detalle' campana.pk %}{% else %}{% url 'marketing:campana_lista' %}{% endif %}" class="text-sm font-bold text-slate-500 px-4 py-2.5">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var marca = document.getElementById('id_marca');
+    if (!marca) return;
+    function filtrar() {
+        document.querySelectorAll('.opt-marca').forEach(function (el) {
+            var visible = !marca.value || el.dataset.marca === marca.value;
+            el.style.display = visible ? '' : 'none';
+            if (!visible) { var cb = el.querySelector('input'); if (cb) cb.checked = false; }
+        });
+    }
+    marca.addEventListener('change', filtrar);
+    filtrar();
+})();
+</script>
+{% endblock %}

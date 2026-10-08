@@ -1,0 +1,33 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Campañas{% endblock %}
+
+{% block mk_content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <form method="get" class="flex flex-wrap gap-2 items-end">
+        <select name="marca" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Todas las marcas</option>
+            {% for m in marcas %}<option value="{{ m.pk }}" {% if marca_sel == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.nombre }}</option>{% endfor %}
+        </select>
+        <select name="estado" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Activas (sin archivadas)</option>
+            {% for v, l in estados %}<option value="{{ v }}" {% if estado_sel == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl">Filtrar</button>
+    </form>
+    <a href="{% url 'marketing:campana_crear' %}" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">➕ Nueva campaña</a>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100">
+    {% for c in campanas %}
+    <a href="{% url 'marketing:campana_detalle' c.pk %}" class="flex flex-wrap items-center justify-between gap-2 px-5 py-3 hover:bg-slate-50">
+        <div>
+            <p class="font-bold text-slate-800 text-sm">{{ c.titulo }}</p>
+            <p class="text-xs text-slate-400">{{ c.marca.nombre }} · {{ c.get_objetivo_display }} · {{ c.n_guiones }} guion{{ c.n_guiones|pluralize:"es" }}</p>
+        </div>
+        <span class="text-[11px] font-bold rounded-full px-2.5 py-1 {% if c.estado == 'en_curso' %}bg-fuchsia-50 text-fuchsia-700{% elif c.estado == 'completada' %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">{{ c.get_estado_display }}</span>
+    </a>
+    {% empty %}
+    <p class="text-sm text-slate-400 px-5 py-10 text-center">No hay campañas con este filtro. <a class="text-fuchsia-600 font-bold" href="{% url 'marketing:campana_crear' %}">Crea la primera</a>.</p>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Escribir guion{% endblock %}
+
+{% block mk_content %}
+<div class="max-w-4xl">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-black text-slate-800">✍️ Escribir guion · {{ campana.titulo }}</h2>
+        <a href="{% url 'marketing:campana_detalle' campana.pk %}" class="text-xs font-bold text-fuchsia-600 hover:underline">← Volver</a>
+    </div>
+    <p class="text-sm text-slate-500 mb-4">Se valida con las mismas reglas que un guion de IA. Cada guardado crea una versión nueva; las anteriores se conservan.</p>
+
+    <form method="post" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+        {% csrf_token %}
+        <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Gancho (primeros segundos)</label>
+            <input type="text" name="gancho" maxlength="300" value="{{ inicial.gancho }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-fuchsia-500 focus:outline-none">
+        </div>
+
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-600">Escenas</p>
+                <button type="button" id="add-escena" class="text-xs font-bold text-fuchsia-700 hover:underline">➕ Agregar escena</button>
+            </div>
+            <div id="escenas" class="space-y-3">
+                {% for e in inicial.escenas %}
+                <div class="escena rounded-xl border border-slate-200 p-3 grid sm:grid-cols-12 gap-2">
+                    <input type="text" name="texto_pantalla" maxlength="90" value="{{ e.texto_pantalla }}" placeholder="Texto en pantalla (máx. 90)" class="sm:col-span-5 rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                    <input type="text" name="locucion" value="{{ e.locucion }}" placeholder="Locución" class="sm:col-span-5 rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                    <input type="number" step="0.5" min="1" max="15" name="duracion_seg" value="{{ e.duracion_seg|default:4 }}" class="sm:col-span-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm" title="Segundos">
+                    <button type="button" class="quitar sm:col-span-1 text-red-500 hover:text-red-700 text-sm font-bold" title="Quitar">✕</button>
+                    <input type="text" name="prompt_visual" value="{{ e.prompt_visual }}" placeholder="Qué se ve (ej: zoom lento a la sala de terapia)" class="sm:col-span-12 rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Caption de la publicación</label>
+            <textarea name="caption" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-fuchsia-500 focus:outline-none">{{ inicial.caption }}</textarea>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Hashtags (separados por espacio)</label>
+            <input type="text" name="hashtags" value="{{ inicial.hashtags }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-fuchsia-500 focus:outline-none">
+        </div>
+        <div class="flex gap-3">
+            <button type="submit" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-6 py-2.5 rounded-xl">💾 Guardar y validar</button>
+            <a href="{% url 'marketing:campana_detalle' campana.pk %}" class="text-sm font-bold text-slate-500 px-4 py-2.5">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var cont = document.getElementById('escenas');
+    function nueva() {
+        var base = cont.querySelector('.escena');
+        var n = base.cloneNode(true);
+        n.querySelectorAll('input').forEach(function (i) { i.value = i.name === 'duracion_seg' ? 4 : ''; });
+        cont.appendChild(n);
+    }
+    document.getElementById('add-escena').addEventListener('click', nueva);
+    cont.addEventListener('click', function (ev) {
+        if (!ev.target.classList.contains('quitar')) return;
+        if (cont.querySelectorAll('.escena').length > 1) ev.target.closest('.escena').remove();
+    });
+})();
+</script>
+{% endblock %}

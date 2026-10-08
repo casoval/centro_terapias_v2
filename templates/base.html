@@ -1293,6 +1293,29 @@
                     {% endif %}
                     <!-- ══ FIN MENÚ IA ══ -->
 
+                    <!-- ══ MENÚ MARKETING (solo superusuario) ══ -->
+                    {% if user.is_superuser %}
+                    <div class="dropdown group" style="display:flex; align-items:flex-end;">
+                        <button class="inline-flex items-center gap-1 px-4 text-xs font-medium text-slate-500 hover:text-fuchsia-600 transition-colors tab-nav-link focus:outline-none"
+                                style="height:28px; border-radius:6px 6px 0 0;">
+                            📣 Marketing
+                            <svg class="h-3.5 w-3.5 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'marketing:panel' %}" class="dropdown-item text-fuchsia-700 hover:bg-fuchsia-50"><span class="mr-2">📊</span> Panel</a>
+                            <a href="{% url 'marketing:campana_lista' %}" class="dropdown-item text-fuchsia-700 hover:bg-fuchsia-50"><span class="mr-2">🎯</span> Campañas</a>
+                            <a href="{% url 'marketing:ficha_lista' %}" class="dropdown-item text-violet-700 hover:bg-violet-50"><span class="mr-2">📚</span> Fichas de contenido</a>
+                            <a href="{% url 'marketing:activo_lista' %}" class="dropdown-item text-violet-700 hover:bg-violet-50"><span class="mr-2">🖼️</span> Activos</a>
+                            <div class="h-px bg-slate-100 my-1 mx-2"></div>
+                            <a href="{% url 'marketing:marca_lista' %}" class="dropdown-item text-slate-700 hover:bg-slate-50"><span class="mr-2">🏷️</span> Marcas</a>
+                            <a href="{% url 'marketing:config' %}" class="dropdown-item text-slate-700 hover:bg-slate-50"><span class="mr-2">⚙️</span> Configuración</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <!-- ══ FIN MENÚ MARKETING ══ -->
+
                                         <!-- Selector de tema integrado en navbar -->
                     <div id="theme-nav-wrapper">
                         <button id="theme-nav-btn" onclick="toggleThemePanel()" type="button">
@@ -1540,6 +1563,27 @@
                 </div>
                 {% endif %}
                 <!-- ══ FIN MENÚ IA MÓVIL ══ -->
+
+                <!-- ══ MENÚ MARKETING MÓVIL (solo superusuario) ══ -->
+                {% if user.is_superuser %}
+                <div>
+                    <button onclick="toggleMobileMenu('m-marketing')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors focus:outline-none">
+                        <span class="flex items-center gap-2">📣 Marketing</span>
+                        <svg id="m-marketing-icon" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="m-marketing" class="hidden mt-1 ml-3 pl-3 border-l border-fuchsia-700 space-y-1">
+                        <a href="{% url 'marketing:panel' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-fuchsia-400 hover:text-white hover:bg-fuchsia-900">📊 Panel</a>
+                        <a href="{% url 'marketing:campana_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-fuchsia-400 hover:text-white hover:bg-fuchsia-900">🎯 Campañas</a>
+                        <a href="{% url 'marketing:ficha_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-violet-400 hover:text-white hover:bg-violet-900">📚 Fichas de contenido</a>
+                        <a href="{% url 'marketing:activo_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-violet-400 hover:text-white hover:bg-violet-900">🖼️ Activos</a>
+                        <a href="{% url 'marketing:marca_lista' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-700">🏷️ Marcas</a>
+                        <a href="{% url 'marketing:config' %}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-700">⚙️ Configuración</a>
+                    </div>
+                </div>
+                {% endif %}
+                <!-- ══ FIN MENÚ MARKETING MÓVIL ══ -->
 
                 <!-- Botón Landing móvil -->
                 <a href="{% url 'core:landing' %}" class="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors"

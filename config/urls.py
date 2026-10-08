@@ -33,6 +33,7 @@ urlpatterns = [
     path('documentos/', include('documentos.urls', namespace='documentos')),
     path('archivos-centro/', include('archivos_centro.urls', namespace='archivos_centro')),
     path('inventario/', include('inventario.urls', namespace='inventario')),
+    path('marketing/', include('marketing.urls', namespace='marketing')),
 ]
 
 if settings.DEBUG:

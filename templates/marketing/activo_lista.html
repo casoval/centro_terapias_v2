@@ -1,0 +1,42 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Activos{% endblock %}
+
+{% block mk_content %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <form method="get" class="flex gap-2">
+        <select name="marca" class="rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white">
+            <option value="">Todas las marcas</option>
+            {% for m in marcas %}<option value="{{ m.pk }}" {% if marca_sel == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.nombre }}</option>{% endfor %}
+        </select>
+        <button class="bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold px-4 py-2 rounded-xl">Filtrar</button>
+    </form>
+    <a href="{% url 'marketing:activo_subir' %}" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-5 py-2.5 rounded-xl">⬆️ Subir archivo</a>
+</div>
+<p class="text-sm text-slate-500 mb-4 max-w-3xl">Biblioteca de fotos, videos y audios propios. Un archivo con personas o niños queda <b>bloqueado</b> hasta registrar la autorización escrita.</p>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {% for a in activos %}
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col {% if not a.activo %}opacity-60{% endif %}">
+        <div class="h-36 bg-slate-100 flex items-center justify-center overflow-hidden">
+            {% if a.tipo == 'imagen' %}<img src="{{ a.archivo.url }}" alt="{{ a.nombre }}" loading="lazy" class="h-full w-full object-cover">
+            {% elif a.tipo == 'video' %}<span class="text-4xl">🎬</span>{% else %}<span class="text-4xl">🎵</span>{% endif %}
+        </div>
+        <div class="p-3 flex-1 flex flex-col">
+            <p class="font-bold text-slate-800 text-sm truncate" title="{{ a.nombre }}">{{ a.nombre }}</p>
+            <p class="text-xs text-slate-400">{{ a.marca.nombre }} · {{ a.get_origen_display }}</p>
+            <div class="mt-2">
+                {% if not a.activo %}<span class="text-[11px] font-bold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">Inactivo</span>
+                {% elif a.usable_en_publicidad %}<span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Usable</span>
+                {% else %}<span class="text-[11px] font-bold text-red-600 bg-red-50 rounded-full px-2 py-0.5">🔒 Bloqueado: falta autorización</span>{% endif %}
+            </div>
+            {% if a.contiene_menores %}<p class="text-[11px] text-amber-700 mt-1">Aparecen menores</p>{% endif %}
+            <form method="post" action="{% url 'marketing:activo_toggle' a.pk %}" class="mt-auto pt-3">{% csrf_token %}
+                <button class="text-xs font-bold text-slate-500 hover:text-slate-800">{% if a.activo %}Desactivar{% else %}Activar{% endif %}</button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <p class="text-sm text-slate-400 sm:col-span-2 lg:col-span-4 bg-white rounded-2xl border border-slate-200 px-5 py-10 text-center">Aún no hay archivos. Sube las fotos de tu sede, equipo o productos.</p>
+    {% endfor %}
+</div>
+{% endblock %}

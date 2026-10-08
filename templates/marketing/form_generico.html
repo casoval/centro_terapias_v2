@@ -1,0 +1,33 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}{{ titulo }}{% endblock %}
+
+{% block mk_content %}
+<div class="max-w-3xl">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-black text-slate-800">{{ titulo }}</h2>
+        <a href="{% url volver %}" class="text-xs font-bold text-fuchsia-600 hover:underline">← Volver</a>
+    </div>
+    {% if ayuda %}<p class="text-sm text-slate-500 mb-4">{{ ayuda }}</p>{% endif %}
+
+    <form method="post" {% if multipart %}enctype="multipart/form-data"{% endif %} class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm p-3">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+        <div>
+            {% if field.field.widget.input_type == 'checkbox' %}
+            <label class="flex items-start gap-2 text-sm text-slate-700">{{ field }} <span>{{ field.label }}</span></label>
+            {% else %}
+            <label for="{{ field.id_for_label }}" class="block text-xs font-bold text-slate-600 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% endif %}
+            {% if field.help_text %}<p class="text-xs text-slate-400 mt-1">{{ field.help_text }}</p>{% endif %}
+            {% for e in field.errors %}<p class="text-xs text-red-600 mt-1">{{ e }}</p>{% endfor %}
+        </div>
+        {% endfor %}
+        <div class="flex gap-3 pt-2">
+            <button type="submit" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-black text-sm px-6 py-2.5 rounded-xl">💾 Guardar</button>
+            <a href="{% url volver %}" class="text-sm font-bold text-slate-500 px-4 py-2.5">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'marketing/_base.html' %}
+{% block mk_title %}Marcas{% endblock %}
+
+{% block mk_content %}
+<div class="grid md:grid-cols-3 gap-4">
+    {% for m in marcas %}
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
+        <div class="flex items-start justify-between">
+            <h3 class="font-black text-slate-800">{{ m.nombre }}</h3>
+            {% if not m.activa %}<span class="text-[10px] font-bold text-slate-400">inactiva</span>{% endif %}
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5">{{ m.n_fichas }} ficha{{ m.n_fichas|pluralize }} · {{ m.n_campanas }} campaña{{ m.n_campanas|pluralize }}</p>
+        <div class="flex gap-1.5 mt-3">
+            {% if m.color_primario %}<span class="h-5 w-5 rounded-full border border-slate-200" style="background:{{ m.color_primario }}" title="{{ m.color_primario }}"></span>{% endif %}
+            {% if m.color_secundario %}<span class="h-5 w-5 rounded-full border border-slate-200" style="background:{{ m.color_secundario }}" title="{{ m.color_secundario }}"></span>{% endif %}
+            {% if m.color_acento %}<span class="h-5 w-5 rounded-full border border-slate-200" style="background:{{ m.color_acento }}" title="{{ m.color_acento }}"></span>{% endif %}
+            {% if not m.color_primario and not m.color_secundario and not m.color_acento %}<span class="text-xs text-slate-400">Sin colores definidos</span>{% endif %}
+        </div>
+        <dl class="text-xs text-slate-500 mt-3 space-y-1 flex-1">
+            <div><dt class="inline font-bold">Tono:</dt> <dd class="inline">{{ m.tono_voz|truncatechars:90|default:"—" }}</dd></div>
+            <div><dt class="inline font-bold">Cierre:</dt> <dd class="inline">{{ m.cierre_fijo|default:"—" }}</dd></div>
+            <div><dt class="inline font-bold">WhatsApp:</dt> <dd class="inline">{{ m.whatsapp|default:"sin definir" }}</dd></div>
+            <div><dt class="inline font-bold">Precios en guiones:</dt> <dd class="inline">{% if m.permite_precios %}permitidos{% else %}no permitidos{% endif %}</dd></div>
+            <div><dt class="inline font-bold">Palabras prohibidas:</dt> <dd class="inline">{{ m.lista_palabras_prohibidas|length }}</dd></div>
+        </dl>
+        <a href="{% url 'marketing:marca_editar' m.pk %}" class="mt-4 text-center bg-white border border-slate-300 hover:border-fuchsia-400 text-slate-700 font-bold text-sm px-4 py-2 rounded-xl">✏️ Editar marca</a>
+    </div>
+    {% empty %}
+    <p class="text-sm text-slate-400 md:col-span-3 bg-white rounded-2xl border border-slate-200 px-5 py-10 text-center">No hay marcas. Ejecuta <code>python manage.py cargar_marcas_iniciales</code>.</p>
+    {% endfor %}
+</div>
+<p class="text-xs text-slate-400 mt-4">El logo se carga desde el administrador (Admin → Marketing → Marcas) cuando el almacenamiento R2 esté configurado.</p>
+{% endblock %}
