@@ -114,7 +114,7 @@ def _portada(d, suc, r, periodo):
         _wrap(c, _t(sm['msg']), ML + 4.6 * cm, d.y - 1.25 * cm, PW - 2 * ML - 5.2 * cm, "Helvetica", 8, 0.4 * cm)
         d.y -= 2.2 * cm + 0.5 * cm
     items = [
-        ("Ingreso neto", bs(k['neto_centro'], 0), f"generado {fm(k['gen_total'], 0)}", C_VERDE),
+        ("Generado neto", bs(k['neto_centro'], 0), (f"cobrado {pc(k['pct_cobrado'])}" if 'pct_cobrado' in k else "devengado"), C_VERDE),
         ("Gastos", bs(k['gastos'], 0) if k['tiene_gastos'] else "sin gastos", "operativos + personal", C_ROJO),
         ("Resultado", bs(k['resultado'], 0) if k['tiene_gastos'] else "-",
          f"margen {pc(k['margen_pct'])}" if k['tiene_gastos'] else "ingresa gastos",
@@ -157,7 +157,7 @@ def _sec_ejecutivo(d, r):
         d.espacio(0.2 * cm)
         d.subtitulo(f"Comparación con el período anterior ({fd(cmp_['desde'], '%d/%m')} - {fd(cmp_['hasta'])})")
         d.tabla(["Indicador", "Anterior", "Actual", "Variación"], [
-            ["Ingreso neto (Bs.)", fm(cmp_['neto'][0]), fm(k['neto_centro']), (_sg(cmp_['neto'][1]), _col(cmp_['neto'][1]))],
+            ["Generado neto (Bs.)", fm(cmp_['neto'][0]), fm(k['neto_centro']), (_sg(cmp_['neto'][1]), _col(cmp_['neto'][1]))],
             ["Gastos (Bs.)", fm(cmp_['gastos'][0]), fm(k['gastos']), (_sg(cmp_['gastos'][1]), _col(cmp_['gastos'][1], True))],
             ["Resultado (Bs.)", fm(cmp_['resultado'][0]), fm(k['resultado']), (_sg(cmp_['resultado'][1]), _col(cmp_['resultado'][1]))],
             ["Sesiones atendidas", str(cmp_['atendidas'][0]), str(k['atendidas']), (_sg(cmp_['atendidas'][1], 0), _col(cmp_['atendidas'][1]))],
@@ -170,12 +170,12 @@ def _sec_resultado(d, r):
     k, g = r['kpis'], r['gastos']
     d.page(land=False)
     d.titulo("2. Resultado, gastos y punto de equilibrio", C_VERDE)
-    d.parrafo("Ingreso neto = generado por los profesionales menos la comisión de profesionales externos. "
+    d.parrafo("Generado neto (devengado: lo producido, se haya cobrado o no) = generado por los profesionales menos la comisión de profesionales externos. "
               "Los gastos combinan egresos registrados en el sistema, los conceptos ingresados por la dirección y el "
               "costo mensual por profesional, prorrateados por días en meses parciales.")
     d.grilla([
         ("Generado", bs(k['gen_total']), f"{bs(k['ingreso_hora'], 0)} por hora", C_MED),
-        ("Ingreso neto", bs(k['neto_centro']), f"{bs(k['neto_hora'], 0)} netos por hora", C_VERDE),
+        ("Generado neto", bs(k['neto_centro']), f"{bs(k['neto_hora'], 0)} netos por hora", C_VERDE),
         ("Gastos", bs(k['gastos']), f"operativos {fm(k['gastos_oper'], 0)} | personal {fm(k['gastos_pers'], 0)}", C_ROJO),
         ("Resultado", bs(k['resultado']), f"margen {pc(k['margen_pct'])}" if k['tiene_gastos'] else "sin gastos",
          C_VERDE if k['resultado'] >= 0 else C_ROJO),
@@ -191,7 +191,7 @@ def _sec_resultado(d, r):
         ["   Proyectos", f"{fm(k['gen_proy'])}  ({pc(k['pct_proy'])})"],
         ["   Mensualidades", f"{fm(k['gen_mens'])}  ({pc(k['pct_mens'])})"],
         ["(-) Comisión de profesionales externos", fm(k['ext_prof'])],
-        [("= Ingreso neto del centro", C_PRI), (fm(k['neto_centro']), C_PRI)],
+        [("= Generado neto del centro", C_PRI), (fm(k['neto_centro']), C_PRI)],
         ["(-) Gastos operativos", fm(k['gastos_oper'])],
         ["(-) Costo de personal / profesionales", fm(k['gastos_pers'])],
         [("= RESULTADO", C_VERDE if k['resultado'] >= 0 else C_ROJO), (fm(k['resultado']), C_VERDE if k['resultado'] >= 0 else C_ROJO)],
@@ -229,9 +229,69 @@ def _sec_resultado(d, r):
                   7, C_MUTED, "Helvetica-Oblique")
 
 
+def _sec_cobranza(d, r):
+    cb = r.get('cobranza')
+    if not cb:
+        return
+    t, c, pg = cb['tot'], cb['caja'], cb['prog']
+    d.page(land=False)
+    d.titulo("3. Cobranza y flujo de caja: lo generado vs. lo cobrado", C_AMBER)
+    d.parrafo("Generado (devengado) es lo que la sucursal produjo en el período, se haya pagado o no; con eso se mide su rendimiento. "
+              "Cobrado es el dinero recibido. Aquí se ve el desfase entre ambos, la antigüedad de lo pendiente y qué entró a caja.", 7.8, C_TEXTO)
+    d.grilla([
+        ("Generado en el período", bs(t['gen']), "devengado, antes de comisión externa", C_MED),
+        ("Cobrado de eso", bs(t['cobrado']), f"{pc(t['pct'])} de lo generado", C_VERDE),
+        ("Falta cobrar", bs(t['pend']), "de lo ya generado", C_AMBER),
+        ("Mora > 30 días", bs(cb['mora30']), f"{pc(cb['pct_mora30'])} de lo generado", C_ROJO),
+        ("Entró a caja", bs(c['neto']), "neto de devoluciones", C_MED),
+        ("Por generar (agenda)", bs(pg['total']), "sesiones programadas + paquetes", C_TEAL),
+    ], cols=3)
+    d.subtitulo("1. De lo generado en el período, ¿se cobró?")
+    rows = [[f['nombre'], fm(f['gen']), fm(f['antes']), fm(f['durante']), fm(f['despues']), fm(f['pend']), pc(f['pct'])] for f in cb['filas']]
+    rows.append([("TOTAL", C_PRI), (fm(t['gen']), C_PRI), (fm(t['antes']), C_PRI), (fm(t['durante']), C_PRI), (fm(t['despues']), C_PRI),
+                 (fm(t['pend']), C_ROJO), (pc(t['pct']), C_PRI)])
+    d.tabla(["Tipo", "Generado", "Pagado antes", "Pagado durante", "Pagado después", "Falta cobrar", "% cobrado"], rows,
+            [3.8 * cm, 2.4 * cm, 2.4 * cm, 2.6 * cm, 2.6 * cm, 2.4 * cm, 1.9 * cm], ['l', 'r', 'r', 'r', 'r', 'r', 'r'], 7.2)
+    d.parrafo("Los pagos se ubican por su fecha: antes (adelantado), en el período o después (cobro tardío, hasta hoy). El uso de crédito cuenta "
+              "como pagado. En paquetes el cobro se estima proporcional al avance de pago.", 6.8, C_MUTED, "Helvetica-Oblique")
+    d.subtitulo("2. Caja del período: qué se pagó con el dinero que entró")
+    d.tabla(["Concepto", "Bs."], [
+        ["Cobros de lo generado en este período", fm(c['periodo'])],
+        ["Cobros de deudas de períodos anteriores", fm(c['anterior'])],
+        ["Adelantos de sesiones o paquetes aún no consumidos", fm(c['adelanto'])],
+        ["Adelantos de crédito sin asignar", fm(c['credito'])],
+        [("= Dinero que entró a caja", C_PRI), (fm(c['total']), C_PRI)],
+        ["(-) Devoluciones", fm(c['devoluciones'])],
+        [("= Caja neta del período", C_VERDE), (fm(c['neto']), C_VERDE)],
+    ], [11.0 * cm, 6.6 * cm], ['l', 'r'], 7.6)
+    extra = []
+    if c['por_metodo']:
+        extra.append("Por método: " + "; ".join(f"{m['metodo']} {fm(m['monto'], 0)} ({pc(m['pct'])})" for m in c['por_metodo']) + ".")
+    if c['uso_credito']:
+        extra.append(f"Además se saldaron Bs. {fm(c['uso_credito'])} con uso de crédito (no es dinero nuevo).")
+    extra.append("Se ubica por fecha de pago: lo cobrado de períodos anteriores y los adelantos no forman parte de lo generado en este período.")
+    d.parrafo(" ".join(extra), 6.8, C_MUTED, "Helvetica-Oblique")
+    d.subtitulo("3. Antigüedad de lo que falta cobrar")
+    d.tabla(["Antigüedad", "Partidas", "Bs.", "% del pendiente"],
+            [[a['label'], a['n'], fm(a['monto']), pc(a['pct'])] for a in cb['aging']],
+            [5.0 * cm, 2.4 * cm, 3.4 * cm, 3.4 * cm], ['l', 'r', 'r', 'r'], 7.4)
+    d.parrafo(cb['nota_aging'], 6.8, C_MUTED, "Helvetica-Oblique")
+    if cb['deudores']:
+        d.subtitulo("4. Pacientes con más saldo por cobrar")
+        d.tabla(["Paciente", "Pendiente Bs.", "Sesiones", "En paquetes Bs.", "Antigüedad"],
+                [[x['nombre'], fm(x['pend']), x['n_ses'], fm(x['paq_pend']),
+                  (f"{x['dias_max']} días", C_ROJO if x['dias_max'] > 30 else C_VERDE)] for x in cb['deudores']],
+                [6.0 * cm, 3.0 * cm, 2.0 * cm, 3.4 * cm, 2.6 * cm], ['l', 'r', 'r', 'r', 'r'], 7.2)
+    d.subtitulo("Proyección")
+    d.parrafo(f"Ya generado Bs. {fm(t['gen'])} + por generar Bs. {fm(pg['total'])} (sesiones {fm(pg['ind'], 0)}, paquetes {fm(pg['paq'], 0)}) = "
+              f"proyectado del período Bs. {fm(pg['proyectado'])}. Total por cobrar si todo se cumple: Bs. {fm(pg['por_cobrar_total'])}. "
+              f"Con la tasa de cobro actual ({pc(cb['tasa'])}) de lo por generar se esperaría cobrar ~Bs. {fm(pg['cobrar_esperado'])} "
+              f"(estimación orientativa).", 7.6, C_TEXTO)
+
+
 def _sec_ingresos(d, r):
     k = r['kpis']
-    d.titulo("3. De dónde viene el dinero", C_MORADO)
+    d.titulo("4. De dónde viene el dinero", C_MORADO)
     d.subtitulo("Por tipo de atención")
     d.tabla(["Tipo", "Sesiones", "Atend.", "Faltas", "Horas", "Niños", "Generó Bs.", "% total", "Bs/hora"],
             [[t['nombre'], t['n'], t['atend'], t['faltas'], t['horas_txt'], t['pacs'], fm(t['gen']), pc(t['pct_gen']), fm(t['ingreso_hora'], 0)]
@@ -253,7 +313,7 @@ def _sec_ingresos(d, r):
 def _sec_horas(d, r):
     k = r['kpis']
     d.page(land=False)
-    d.titulo("4. Horas, ocupación y horarios vacíos", C_TEAL)
+    d.titulo("5. Horas, ocupación y horarios vacíos", C_TEAL)
     d.parrafo("Horas de reloj de todos los profesionales (suma). La falta sin aviso se cobra pero el profesional queda libre esa hora; "
               "permisos, cancelaciones y reprogramaciones liberan la hora sin ingreso. Se consideran solo los días ya transcurridos.")
     d.grilla([
@@ -296,7 +356,7 @@ def _sec_horas(d, r):
 
 def _sec_profesionales(d, r):
     d.page(land=True)
-    d.titulo(f"5. Profesionales: aporte y rentabilidad ({len(r['profesionales'])})", C_PRI)
+    d.titulo(f"6. Profesionales: aporte y rentabilidad ({len(r['profesionales'])})", C_PRI)
     k = r['kpis']
     rows = []
     for p in r['profesionales']:
@@ -326,7 +386,7 @@ def _sec_profesionales(d, r):
 def _sec_ninos(d, r):
     d.page(land=True)
     k = r['kpis']
-    d.titulo(f"6. Niños atendidos: rentabilidad ({len(r['pacientes'])})", C_MORADO)
+    d.titulo(f"7. Niños atendidos: rentabilidad ({len(r['pacientes'])})", C_MORADO)
     pr = r.get('pac_resumen')
     if pr:
         d.parrafo(f"{pr['rentables']} de {pr['n']} niños cubren el costo que se les asigna; {pr['deficit']} están en déficit por "
@@ -354,7 +414,7 @@ def _sec_ninos(d, r):
 def _sec_paquetes(d, r):
     d.page(land=True)
     pq = r['paq_resumen']
-    d.titulo("7. Proyectos y mensualidades", C_TEAL)
+    d.titulo("8. Proyectos y mensualidades", C_TEAL)
     d.parrafo(f"Proyectos: {pq['proy']['n']} (valor Bs. {fm(pq['proy']['valor'], 0)}, generó {fm(pq['proy']['gen'], 0)}, por generar "
               f"{fm(pq['proy']['por_generar'], 0)}, {pq['proy']['grupales']} grupales).  Mensualidades: {pq['mens']['n']} (valor "
               f"Bs. {fm(pq['mens']['valor'], 0)}, generó {fm(pq['mens']['gen'], 0)}, por generar {fm(pq['mens']['por_generar'], 0)}, "
@@ -375,7 +435,7 @@ def _sec_paquetes(d, r):
 def _sec_comparaciones(d, r):
     k = r['kpis']
     d.page(land=False)
-    d.titulo("8. Comparación entre sucursales y conciliación", C_AMBER)
+    d.titulo("9. Comparación entre sucursales y conciliación", C_AMBER)
     if r['comparativa']:
         d.subtitulo("Contra las demás sucursales activas")
         d.tabla(["Sucursal", "Neto Bs.", "Gastos Bs.", "Resultado", "Ocup.", "Neto/h", "Niños", "Prof."],
@@ -388,15 +448,13 @@ def _sec_comparaciones(d, r):
                   "aplican únicamente a esta sucursal.", 6.8, C_MUTED, "Helvetica-Oblique")
     cc = r.get('conciliacion')
     if cc:
-        d.subtitulo("Conciliación con el reporte financiero")
+        d.subtitulo("Conciliación del generado con el reporte financiero")
         d.tabla(["Concepto", "Bs."], [
             ["Generado (este informe, devengado por sesión)", fm(cc['generado'])],
             ["Consumido (reporte financiero)", fm(cc['consumido'])],
             ["   Sesiones / Mensualidades / Proyectos", f"{fm(cc['consumido_ses'], 0)} / {fm(cc['consumido_mens'], 0)} / {fm(cc['consumido_proy'], 0)}"],
             [("Diferencia", C_VERDE if cc['cuadra'] else C_AMBER), (fm(cc['diferencia']), C_VERDE if cc['cuadra'] else C_AMBER)],
-            ["Cobrado en el período (pagos directos)", fm(cc['pagado'])],
-            ["Devoluciones", fm(cc['devoluciones'])],
-            ["Saldo del período (pagado - consumido)", (fm(cc['saldo']), C_VERDE if cc['saldo'] >= 0 else C_ROJO)],
+            ["Crédito adelantado disponible de pacientes", fm(cc['credito'])],
         ], [11.0 * cm, 6.6 * cm], ['l', 'r'], 7.6)
         d.parrafo(cc['explicacion'], 7, C_MUTED, "Helvetica-Oblique")
 
@@ -435,6 +493,7 @@ def generar_informe_sucursal_pdf(context):
         _portada(d, suc, r, periodo)
         _sec_ejecutivo(d, r)
         _sec_resultado(d, r)
+        _sec_cobranza(d, r)
         _sec_ingresos(d, r)
         _sec_horas(d, r)
         _sec_profesionales(d, r)

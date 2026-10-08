@@ -281,10 +281,11 @@
       {% if sucursal.email %}<span>✉️ <b>{{ sucursal.email }}</b></span>{% endif %}
     </div>
   </div>
-  <div style="min-width:230px;text-align:right">
-    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">{% if k.tiene_gastos %}Resultado del período{% else %}Ingreso neto del período{% endif %} {% ayuda "su_resultado" %}</div>
+  <div style="min-width:250px;text-align:right">
+    <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;opacity:.7">{% if k.tiene_gastos %}Resultado del período (devengado){% else %}Generado neto del período{% endif %} {% ayuda "su_resultado" %}</div>
     <div class="mono" style="font-size:1.9rem;font-weight:900;color:{% if k.tiene_gastos %}{% if k.resultado >= 0 %}#86efac{% else %}#fca5a5{% endif %}{% else %}#fff{% endif %}">Bs. {% if k.tiene_gastos %}{{ k.resultado|bsd }}{% else %}{{ k.neto_centro|bs }}{% endif %}</div>
-    <div style="font-size:.7rem;opacity:.8">{% if k.tiene_gastos %}Neto Bs. {{ k.neto_centro|bs }} − gastos Bs. {{ k.gastos|bs }}{% else %}Sin gastos considerados (completa los cuadros){% endif %}</div>
+    <div style="font-size:.7rem;opacity:.8">{% if k.tiene_gastos %}Generado neto Bs. {{ k.neto_centro|bs }} − gastos Bs. {{ k.gastos|bs }}{% else %}Sin gastos considerados (completa los cuadros){% endif %}</div>
+    {% if r.cobranza %}<div style="font-size:.7rem;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.2)">💳 Cobrado <b>Bs. {{ k.cobrado|bs }}</b> ({{ k.pct_cobrado|floatformat:0 }}%) · Por cobrar <b>Bs. {{ k.pendiente_cobro|bs }}</b><br><span style="opacity:.75">Generado = producido, se haya pagado o no</span></div>{% endif %}
   </div>
 </div>
 {% if r.nota_rango %}<div class="alert nota">{{ r.nota_rango }}</div>{% endif %}
@@ -317,8 +318,11 @@
 <!-- ══ RESUMEN ══ -->
 <div class="sec">📊 Resumen del período</div>
 <div class="grid">
-  <div class="kpi"><div class="bar" style="background:var(--brand)"></div><div class="kl">Generado {% ayuda "su_gen" %}</div><div class="kv">{{ k.gen_total|bs }}</div><div class="ks">Bs. · {{ k.atendidas }} sesiones atendidas</div></div>
-  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Ingreso neto {% ayuda "su_neto" %}</div><div class="kv">{{ k.neto_centro|bs }}</div><div class="ks">Bs. {% if k.ext_prof %}· comisión externa {{ k.ext_prof|bs }}{% else %}· sin comisiones externas{% endif %}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--brand)"></div><div class="kl">Generado (devengado) {% ayuda "su_gen" %}</div><div class="kv">{{ k.gen_total|bs }}</div><div class="ks">Bs. · producido, cobrado o no · {{ k.atendidas }} sesiones</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Generado neto {% ayuda "su_neto" %}</div><div class="kv">{{ k.neto_centro|bs }}</div><div class="ks">Bs. {% if k.ext_prof %}· menos comisión externa {{ k.ext_prof|bs }}{% else %}· sin comisiones externas{% endif %}</div></div>
+  {% if r.cobranza %}<div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Cobrado de lo generado {% ayuda "su_cb_cobrado" %}</div><div class="kv">{{ k.cobrado|bs }}</div><div class="ks">{{ k.pct_cobrado|floatformat:1 }}% de lo generado</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Pendiente de cobro {% ayuda "su_cb_pend" %}</div><div class="kv">{{ k.pendiente_cobro|bs }}</div><div class="ks">Mora &gt; 30 días: {{ r.cobranza.mora30|bs }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Caja del período {% ayuda "su_cb_caja" %}</div><div class="kv">{{ k.caja_periodo|bs }}</div><div class="ks">Dinero recibido (neto de devoluciones)</div></div>{% endif %}
   <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Gastos {% ayuda "su_gastos" %}</div><div class="kv">{{ k.gastos|bs }}</div><div class="ks">{% if k.tiene_gastos %}Operativos {{ k.gastos_oper|bs }} · personal {{ k.gastos_pers|bs }}{% else %}Aún sin gastos{% endif %}</div></div>
   <div class="kpi"><div class="bar" style="background:{% if k.resultado >= 0 %}var(--green){% else %}var(--red){% endif %}"></div><div class="kl">Resultado {% ayuda "su_resultado" %}</div><div class="kv {% if k.tiene_gastos %}{% if k.resultado >= 0 %}up{% else %}down{% endif %}{% endif %}">{{ k.resultado|bsd }}</div><div class="ks">{% if k.tiene_gastos %}Margen {{ k.margen_pct|floatformat:1 }}% {% ayuda "su_margen" %}{% else %}—{% endif %}</div></div>
   <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Cobertura {% ayuda "su_cobertura" %}</div><div class="kv">{% if k.tiene_gastos %}{{ k.cobertura|floatformat:2 }}×{% else %}—{% endif %}</div><div class="ks">Neto ÷ gastos (1,00× = equilibrio)</div></div>
@@ -339,7 +343,7 @@
       <tr><td style="color:var(--muted)">&nbsp;&nbsp;· Proyectos</td><td class="tr mono" style="color:var(--muted)">{{ k.gen_proy|bs }} ({{ k.pct_proy|floatformat:0 }}%)</td></tr>
       <tr><td style="color:var(--muted)">&nbsp;&nbsp;· Mensualidades</td><td class="tr mono" style="color:var(--muted)">{{ k.gen_mens|bs }} ({{ k.pct_mens|floatformat:0 }}%)</td></tr>
       <tr><td>− Comisión de profesionales externos</td><td class="tr mono">{{ k.ext_prof|bs }}</td></tr>
-      <tr class="tot"><td>= Ingreso neto del centro</td><td class="tr mono">{{ k.neto_centro|bs }}</td></tr>
+      <tr class="tot"><td>= Generado neto del centro (devengado)</td><td class="tr mono">{{ k.neto_centro|bs }}</td></tr>
       <tr><td>− Gastos operativos</td><td class="tr mono">{{ k.gastos_oper|bs }}</td></tr>
       <tr><td>− Costo de personal / profesionales</td><td class="tr mono">{{ k.gastos_pers|bs }}</td></tr>
       <tr class="tot"><td>= Resultado</td><td class="tr mono {% if k.resultado >= 0 %}up{% else %}down{% endif %}">{{ k.resultado|bsd }}</td></tr>
@@ -382,6 +386,65 @@
     </details>{% endif %}
   </div>
 </div>
+
+<!-- ══ COBRANZA Y CAJA ══ -->
+{% if r.cobranza %}{% with cb=r.cobranza %}
+<div class="sec">💳 Cobranza y flujo de caja: lo generado vs. lo cobrado {% ayuda "su_sec_cobranza" %}</div>
+<div class="alert"><b>Generado ≠ cobrado.</b> «Generado» es lo que la sucursal produjo en el período (sesiones realizadas, y mensualidades y proyectos devengados), se haya pagado o no: con eso se mide cuánto rinde la sucursal. «Cobrado» es el dinero que realmente entró. Aquí se ven ambos y el desfase entre los dos.</div>
+<div class="grid">
+  <div class="kpi"><div class="bar" style="background:var(--brand)"></div><div class="kl">Generado en el período {% ayuda "su_cb_gen" %}</div><div class="kv">{{ cb.tot.gen|bs }}</div><div class="ks">Bs. devengado (antes de comisión externa)</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--green)"></div><div class="kl">Cobrado de eso {% ayuda "su_cb_cobrado" %}</div><div class="kv">{{ cb.tot.cobrado|bs }}</div><div class="ks">{{ cb.tot.pct|floatformat:1 }}% · antes {{ cb.tot.antes|bs }} · en período {{ cb.tot.durante|bs }} · después {{ cb.tot.despues|bs }}</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--amber)"></div><div class="kl">Falta cobrar {% ayuda "su_cb_pend" %}</div><div class="kv">{{ cb.tot.pend|bs }}</div><div class="ks">de lo ya generado</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--red)"></div><div class="kl">Mora &gt; 30 días {% ayuda "su_cb_mora" %}</div><div class="kv">{{ cb.mora30|bs }}</div><div class="ks">{{ cb.pct_mora30|floatformat:1 }}% de lo generado</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--blue)"></div><div class="kl">Entró a caja en el período {% ayuda "su_cb_caja" %}</div><div class="kv">{{ cb.caja.neto|bs }}</div><div class="ks">Bs. neto de devoluciones</div></div>
+  <div class="kpi"><div class="bar" style="background:var(--teal)"></div><div class="kl">Por generar (agenda) {% ayuda "su_cb_prog" %}</div><div class="kv">{{ cb.prog.total|bs }}</div><div class="ks">sesiones programadas + paquetes</div></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h3>1 · De lo generado en el período, ¿se cobró? {% ayuda "su_cb_tabla1" %}</h3>
+    <div class="scroll"><table class="t"><thead><tr><th>Tipo</th><th class="tr">Generado</th><th class="tr">Pagado antes {% ayuda "su_cb_antes" %}</th><th class="tr">Pagado en el período</th><th class="tr">Pagado después {% ayuda "su_cb_despues" %}</th><th class="tr">Falta cobrar</th><th class="tr">% cobrado</th></tr></thead><tbody>
+    {% for f in cb.filas %}<tr><td><b>{{ f.nombre }}</b></td><td class="tr mono">{{ f.gen|bs }}</td><td class="tr mono">{{ f.antes|bs }}</td><td class="tr mono">{{ f.durante|bs }}</td><td class="tr mono">{{ f.despues|bs }}</td><td class="tr mono"><b>{{ f.pend|bs }}</b></td><td class="tr">{{ f.pct|floatformat:0 }}%<div class="pbar" style="margin-top:3px"><div style="width:{{ f.pct|pw }}%;background:var(--green)"></div></div></td></tr>{% endfor %}
+    <tr class="tot"><td>Total</td><td class="tr mono">{{ cb.tot.gen|bs }}</td><td class="tr mono">{{ cb.tot.antes|bs }}</td><td class="tr mono">{{ cb.tot.durante|bs }}</td><td class="tr mono">{{ cb.tot.despues|bs }}</td><td class="tr mono">{{ cb.tot.pend|bs }}</td><td class="tr">{{ cb.tot.pct|floatformat:0 }}%</td></tr></tbody></table></div>
+    <p class="note">Solo cuenta lo generado dentro del período; los pagos se ubican por su fecha: <b>antes</b> (adelantado), <b>en</b> el período o <b>después</b> (cobro tardío, hasta hoy). El uso de crédito cuenta como pagado. En paquetes el cobro se estima proporcional al avance de pago de cada uno.</p>
+  </div>
+  <div class="card"><h3>2 · Caja del período: ¿qué se pagó con el dinero que entró? {% ayuda "su_cb_tabla2" %}</h3>
+    <table class="t"><tbody>
+      <tr><td>Cobros de lo generado en este período</td><td class="tr mono">{{ cb.caja.periodo|bs }}</td></tr>
+      <tr><td>Cobros de deudas de períodos anteriores {% ayuda "su_cb_anterior" %}</td><td class="tr mono">{{ cb.caja.anterior|bs }}</td></tr>
+      <tr><td>Adelantos de sesiones o paquetes aún no consumidos {% ayuda "su_cb_adelanto" %}</td><td class="tr mono">{{ cb.caja.adelanto|bs }}</td></tr>
+      <tr><td>Adelantos de crédito sin asignar {% ayuda "su_cb_credito" %}</td><td class="tr mono">{{ cb.caja.credito|bs }}</td></tr>
+      <tr class="tot"><td>= Dinero que entró a caja</td><td class="tr mono">{{ cb.caja.total|bs }}</td></tr>
+      <tr><td>− Devoluciones</td><td class="tr mono">{{ cb.caja.devoluciones|bs }}</td></tr>
+      <tr class="tot"><td>= Caja neta del período</td><td class="tr mono">{{ cb.caja.neto|bs }}</td></tr>
+    </tbody></table>
+    {% if cb.caja.por_metodo %}<p class="note"><b>Por método:</b> {% for m in cb.caja.por_metodo %}{{ m.metodo }} {{ m.monto|bs }} ({{ m.pct|floatformat:0 }}%){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if cb.caja.uso_credito %}<p class="note">Además se saldaron Bs. {{ cb.caja.uso_credito|bs }} con uso de crédito {% ayuda "su_cb_uso_credito" %}: no es dinero nuevo (entró cuando se recibió el adelanto).</p>{% endif %}
+    <p class="note">Se ubica por fecha de pago. Lo cobrado de períodos anteriores y los adelantos <b>no</b> forman parte de lo generado en este período.</p>
+  </div>
+</div>
+
+<div class="g2">
+  <div class="card"><h3>3 · Antigüedad de lo que falta cobrar {% ayuda "su_cb_aging" %}</h3>
+    {% for a in cb.aging %}<div style="margin:7px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ a.label }} <span style="color:var(--muted)">({{ a.n }})</span></span><span class="mono"><b>{{ a.monto|bs }}</b> · {{ a.pct|floatformat:0 }}%</span></div><div class="pbar"><div style="width:{{ a.pct|pw }}%;background:{% if a.ini >= 31 %}var(--red){% elif a.ini >= 8 %}var(--amber){% else %}var(--green){% endif %}"></div></div></div>{% endfor %}
+    <p class="note">{{ cb.nota_aging }}</p>
+  </div>
+  <div class="card"><h3>4 · Pacientes con más saldo por cobrar {% ayuda "su_cb_deudores" %}</h3>
+    {% if cb.deudores %}<div class="scroll maxh" style="max-height:300px"><table class="t"><thead><tr><th>Paciente</th><th class="tr">Pendiente</th><th class="tr">Sesiones</th><th class="tr">En paquetes</th><th class="tr">Antigüedad</th></tr></thead><tbody>
+    {% for d in cb.deudores %}<tr><td><b>{{ d.nombre }}</b></td><td class="tr mono"><b>{{ d.pend|bs }}</b></td><td class="tr">{{ d.n_ses }}</td><td class="tr mono">{{ d.paq_pend|bs }}</td><td class="tr"><span class="badge {% if d.dias_max > 30 %}b-no{% else %}b-ok{% endif %}">{{ d.dias_max }} días</span></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="note">No hay saldos pendientes de lo generado en el período. ✔</p>{% endif %}
+  </div>
+</div>
+
+<div class="eq" style="margin-bottom:14px"><h3 style="margin:0 0 8px;font-size:.82rem">🔮 Proyección {% ayuda "su_cb_proy" %}</h3>
+  <div class="grid" style="margin-bottom:6px">
+    <div class="kpi"><div class="kl">Ya generado</div><div class="kv" style="font-size:1.05rem">{{ cb.tot.gen|bs }}</div></div>
+    <div class="kpi"><div class="kl">+ Por generar (agenda)</div><div class="kv" style="font-size:1.05rem">{{ cb.prog.total|bs }}</div><div class="ks">Sesiones {{ cb.prog.ind|bs }} · paquetes {{ cb.prog.paq|bs }}</div></div>
+    <div class="kpi"><div class="kl">= Proyectado del período</div><div class="kv" style="font-size:1.05rem">{{ cb.prog.proyectado|bs }}</div></div>
+    <div class="kpi"><div class="kl">Total por cobrar si todo se cumple</div><div class="kv" style="font-size:1.05rem">{{ cb.prog.por_cobrar_total|bs }}</div><div class="ks">pendiente actual + lo programado aún sin pagar</div></div>
+  </div>
+  <p class="note" style="font-size:.74rem;color:var(--ink2)">Con la tasa de cobro actual ({{ cb.tasa|floatformat:1 }}%) de lo por generar se esperaría cobrar ≈ <b>Bs. {{ cb.prog.cobrar_esperado|bs }}</b>. {% if cb.prog.adelanto_cobrado %}Ya hay Bs. {{ cb.prog.adelanto_cobrado|bs }} cobrados por adelantado de sesiones programadas. {% endif %}Es una estimación orientativa: depende de que se mantenga el comportamiento de pago.</p>
+</div>
+{% endwith %}{% endif %}
 
 <!-- ══ INGRESOS POR TIPO Y SERVICIO ══ -->
 <div class="sec">💵 De dónde viene el dinero {% ayuda "su_sec_tipos" %}</div>
@@ -518,7 +581,7 @@
   {% if r.comparacion %}<div class="card"><h3>Contra el período anterior {% ayuda "su_comp_ant" %}</h3>
     <p class="note">{{ r.comparacion.desde|date:"d/m/Y" }} — {{ r.comparacion.hasta|date:"d/m/Y" }}</p>
     <table class="t"><thead><tr><th>Indicador</th><th class="tr">Anterior</th><th class="tr">Variación</th></tr></thead><tbody>
-      <tr><td>Ingreso neto</td><td class="tr mono">{{ r.comparacion.neto.0|bs }}</td><td class="tr mono {% if r.comparacion.neto.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.neto.1|bsd }}</td></tr>
+      <tr><td>Generado neto</td><td class="tr mono">{{ r.comparacion.neto.0|bs }}</td><td class="tr mono {% if r.comparacion.neto.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.neto.1|bsd }}</td></tr>
       <tr><td>Gastos</td><td class="tr mono">{{ r.comparacion.gastos.0|bs }}</td><td class="tr mono {% if r.comparacion.gastos.1 <= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.gastos.1|bsd }}</td></tr>
       <tr><td>Resultado</td><td class="tr mono">{{ r.comparacion.resultado.0|bs }}</td><td class="tr mono {% if r.comparacion.resultado.1 >= 0 %}up{% else %}down{% endif %}"><b>{{ r.comparacion.resultado.1|bsd }}</b></td></tr>
       <tr><td>Sesiones atendidas</td><td class="tr">{{ r.comparacion.atendidas.0 }}</td><td class="tr {% if r.comparacion.atendidas.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.atendidas.1|signo }}</td></tr>
@@ -533,14 +596,13 @@
 
 <!-- ══ CONCILIACIÓN ══ -->
 {% if r.conciliacion %}
-<div class="sec">🧮 Conciliación con el reporte financiero {% ayuda "su_sec_concil" %}</div>
+<div class="sec">🧮 Conciliación del generado con el reporte financiero {% ayuda "su_sec_concil" %}</div>
 <div class="card">
   <div class="grid" style="margin-bottom:8px">
     <div class="kpi"><div class="kl">Generado (este informe)</div><div class="kv">{{ r.conciliacion.generado|bs }}</div><div class="ks">Devengado por sesión</div></div>
     <div class="kpi"><div class="kl">Consumido (financiero) {% ayuda "su_c_consumido" %}</div><div class="kv">{{ r.conciliacion.consumido|bs }}</div><div class="ks">Ses. {{ r.conciliacion.consumido_ses|bs }} · mens. {{ r.conciliacion.consumido_mens|bs }} · proy. {{ r.conciliacion.consumido_proy|bs }}</div></div>
     <div class="kpi"><div class="kl">Diferencia</div><div class="kv {% if r.conciliacion.cuadra %}up{% endif %}">{{ r.conciliacion.diferencia|bsd }}</div><div class="ks">{% if r.conciliacion.cuadra %}✔ Cuadra{% else %}Ver explicación{% endif %}</div></div>
-    <div class="kpi"><div class="kl">Cobrado en el período {% ayuda "su_c_pagado" %}</div><div class="kv">{{ r.conciliacion.pagado|bs }}</div><div class="ks">{{ r.conciliacion.pct_cobrado|floatformat:0 }}% de lo consumido · devoluciones {{ r.conciliacion.devoluciones|bs }}</div></div>
-    <div class="kpi"><div class="kl">Saldo del período {% ayuda "su_c_saldo" %}</div><div class="kv {% if r.conciliacion.saldo >= 0 %}up{% else %}down{% endif %}">{{ r.conciliacion.saldo|bsd }}</div><div class="ks">Pagado − consumido</div></div>
+        <div class="kpi"><div class="kl">Crédito adelantado disponible</div><div class="kv">{{ r.conciliacion.credito|bs }}</div><div class="ks">saldo a favor de pacientes</div></div>
   </div>
   <p class="note">{{ r.conciliacion.explicacion }}</p>
 </div>
