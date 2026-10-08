@@ -521,6 +521,35 @@ MARKETING_R2_CONFIGURADO = all([
 ])
 
 # --------------------------------------------------
+# CLOUDINARY - MARKETING
+# --------------------------------------------------
+# Marketing usa la MISMA cuenta de Cloudinary del sistema (CLOUDINARY_*) pero
+# guarda todo en su propia carpeta (por defecto `marketing/`), separada de las
+# fotos de pacientes. Para activarlo basta esta línea en el .env:
+#   MARKETING_STORAGE_BACKEND=cloudinary
+# Opcionales:
+#   MARKETING_CLOUDINARY_CARPETA=marketing     (nombre de la carpeta)
+#   MARKETING_CLOUDINARY_TIPO=authenticated    ('authenticated' = privado con URL firmada;
+#                                               'upload' = público)
+#   MARKETING_CLOUDINARY_CLOUD_NAME / _API_KEY / _API_SECRET  (cuenta aparte, si algún día
+#                                               quieres aislarlo por completo)
+MARKETING_STORAGE_BACKEND = os.environ.get('MARKETING_STORAGE_BACKEND', '').strip().lower()
+MARKETING_CLOUDINARY_TIPO = os.environ.get('MARKETING_CLOUDINARY_TIPO', 'authenticated').strip().lower()
+MARKETING_CLOUDINARY_CARPETA = os.environ.get('MARKETING_CLOUDINARY_CARPETA', 'marketing').strip().strip('/') or 'marketing'
+_mk_cred = {
+    'cloud_name': os.environ.get('MARKETING_CLOUDINARY_CLOUD_NAME', ''),
+    'api_key': os.environ.get('MARKETING_CLOUDINARY_API_KEY', ''),
+    'api_secret': os.environ.get('MARKETING_CLOUDINARY_API_SECRET', ''),
+}
+if all(_mk_cred.values()):
+    MARKETING_CLOUDINARY = _mk_cred
+elif MARKETING_STORAGE_BACKEND == 'cloudinary' and all([_cloud_name, _api_key, _api_secret]):
+    MARKETING_CLOUDINARY = {'cloud_name': _cloud_name, 'api_key': _api_key, 'api_secret': _api_secret}
+else:
+    MARKETING_CLOUDINARY = {}
+MARKETING_CLOUDINARY_CONFIGURADO = bool(MARKETING_CLOUDINARY)
+
+# --------------------------------------------------
 # DEBUG TOOLBAR (solo desarrollo)
 # --------------------------------------------------
 

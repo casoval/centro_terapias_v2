@@ -8,6 +8,9 @@ Por qué un bucket aparte:
   - Más adelante (publicación automática en Meta/TikTok) se podrá exponer
     solo este bucket sin abrir nunca el de pacientes.
 
+Opciones: R2 (este archivo) o Cloudinary (storage_cloudinary.py), según
+MARKETING_STORAGE_BACKEND / variables configuradas.
+
 Reglas de seguridad de este archivo:
   1. NUNCA cae al storage por defecto de Django. En producción el default es
      el bucket de documentos de pacientes (ver settings.STORAGES['default']);
@@ -61,9 +64,36 @@ class MarketingNoConfiguradoStorage(FileSystemStorage):
         )
 
 
+def _storage_cloudinary():
+    from .storage_cloudinary import CloudinaryMarketingStorage
+    cred = getattr(settings, 'MARKETING_CLOUDINARY', {})
+    return CloudinaryMarketingStorage(
+        cloud_name=cred['cloud_name'], api_key=cred['api_key'], api_secret=cred['api_secret'],
+        tipo=getattr(settings, 'MARKETING_CLOUDINARY_TIPO', 'authenticated'),
+        carpeta=getattr(settings, 'MARKETING_CLOUDINARY_CARPETA', 'marketing'),
+    )
+
+
 def get_marketing_storage():
-    if getattr(settings, 'MARKETING_R2_CONFIGURADO', False):
-        return R2MarketingStorage()
+    """
+    Elige el almacenamiento. MARKETING_STORAGE_BACKEND ('r2' | 'cloudinary')
+    fuerza uno; vacío = automático (R2 si está configurado, si no Cloudinary).
+    Si el elegido no está configurado NO se cae al storage por defecto.
+    """
+    elegido = getattr(settings, 'MARKETING_STORAGE_BACKEND', '')
+    r2 = getattr(settings, 'MARKETING_R2_CONFIGURADO', False)
+    cl = getattr(settings, 'MARKETING_CLOUDINARY_CONFIGURADO', False)
+    if elegido == 'cloudinary':
+        if cl:
+            return _storage_cloudinary()
+    elif elegido == 'r2':
+        if r2:
+            return R2MarketingStorage()
+    else:
+        if r2:
+            return R2MarketingStorage()
+        if cl:
+            return _storage_cloudinary()
     if getattr(settings, 'IS_PRODUCTION', False):
         return MarketingNoConfiguradoStorage(location=str(settings.BASE_DIR / 'media_marketing_no_usar'))
     return FileSystemStorage(
