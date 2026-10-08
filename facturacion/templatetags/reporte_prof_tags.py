@@ -288,5 +288,7 @@ AYUDA.update({
     'su_cb_aging': "Cuánto falta cobrar según los días transcurridos desde que se generó. Mientras más antiguo, más difícil de recuperar.",
     'su_cb_deudores': "Pacientes con más saldo pendiente de lo generado en el período, con su antigüedad máxima. Sirve para priorizar el cobro.",
     'su_cb_proy': "Suma lo ya generado y lo programado para estimar el cierre del período, y estima cuánto de lo programado se cobraría si se mantiene la tasa de cobro actual. Es una estimación orientativa.",
+    'su_cb_periodo': "Dinero (efectivo, QR, transferencia…) recibido DENTRO del período por sesiones realizadas, mensualidades o proyectos de este período. En paquetes se cuenta el pago completo recibido. No incluye lo pagado antes del período ni el uso de crédito, por eso puede diferir de «Cobrado de lo generado».",
+    'su_cb_puente': "Explica la diferencia entre las dos cifras: se parte de «Cobrado de lo generado», se restan lo pagado antes, lo pagado después y el uso de crédito (no entran a la caja de este período) y la última línea ajusta los paquetes, donde la caja cuenta el pago completo y el generado solo la parte devengada. Siempre cierra exacto.",
 })
 

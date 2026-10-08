@@ -56,6 +56,35 @@ GLOB_OPCIONES = (
 MAX_MANUALES = 12
 
 
+class TodasSucursales:
+    """Pseudo-sucursal para el consolidado de TODAS las sucursales (sin filtro por sucursal)."""
+    es_todas = True
+    id = None
+    pk = None
+    nombre = 'Todas las sucursales'
+    activa = True
+    direccion = ''
+    telefono = ''
+    email = ''
+
+    def __str__(self):
+        return self.nombre
+
+
+def _todas(suc):
+    return getattr(suc, 'es_todas', False)
+
+
+def _kw(suc, campo):
+    """Filtro por sucursal para una consulta: vacío cuando es el consolidado de todas."""
+    return {} if _todas(suc) else {campo: suc}
+
+
+def _q_egr(suc):
+    """Egresos de la sucursal + globales; en el consolidado, todos."""
+    return Q() if _todas(suc) else (Q(sucursal=suc) | Q(sucursal__isnull=True))
+
+
 # ─────────────────────────────────────────────────────────────────────
 # LECTURA DE PARÁMETROS (cuadros del dueño)
 # ─────────────────────────────────────────────────────────────────────
@@ -116,6 +145,8 @@ def _share_global(suc, desde, hasta, modo):
     """Fracción de los egresos globales que se carga a esta sucursal."""
     from agenda.models import Sesion
     from servicios.models import Sucursal
+    if _todas(suc):
+        return 1.0                # consolidado: todos los gastos globales cuentan completos
     if modo == 'no':
         return 0.0
     ids = list(Sucursal.objects.filter(activa=True).values_list('id', flat=True))
@@ -173,12 +204,12 @@ def calcular_gastos(suc, desde, hasta, manuales, cp, nombres_prof, glob='horas',
             share_glob = _share_global(suc, desde, hasta, glob)
         qs = (Egreso.objects.filter(anulado=False,
                                     periodo_anio__gte=desde.year, periodo_anio__lte=hasta.year)
-              .filter(Q(sucursal=suc) | Q(sucursal__isnull=True))
+              .filter(_q_egr(suc))
               .select_related('categoria', 'proveedor'))
         # los que no tienen período se ubican por la fecha de pago
         qs_nulos = (Egreso.objects.filter(anulado=False, periodo_anio__isnull=True,
                                           fecha__gte=desde, fecha__lte=hasta)
-                    .filter(Q(sucursal=suc) | Q(sucursal__isnull=True))
+                    .filter(_q_egr(suc))
                     .select_related('categoria', 'proveedor'))
         cat_acum = {}
         vistos = set()
@@ -250,9 +281,10 @@ def calcular_gastos(suc, desde, hasta, manuales, cp, nombres_prof, glob='horas',
 def _profesionales_de(suc, desde, hasta):
     from agenda.models import Sesion
     from profesionales.models import Profesional
-    ids = set(Sesion.objects.filter(sucursal=suc, fecha__gte=desde, fecha__lte=hasta)
+    ids = set(Sesion.objects.filter(fecha__gte=desde, fecha__lte=hasta, **_kw(suc, 'sucursal'))
               .values_list('profesional_id', flat=True).distinct())
-    return list(Profesional.objects.filter(Q(id__in=ids) | Q(activo=True, sucursales=suc))
+    activos = Q(activo=True) if _todas(suc) else Q(activo=True, sucursales=suc)
+    return list(Profesional.objects.filter(Q(id__in=ids) | activos)
                 .distinct().select_related('user').prefetch_related('servicios')
                 .order_by('apellido', 'nombre'))
 
@@ -262,7 +294,7 @@ def _correr(suc, desde, hasta, cp, manual_cfg, forzar_manual, hoy, profs=None):
     items = []
     for prof in (profs if profs is not None else _profesionales_de(suc, desde, hasta)):
         try:
-            r = analizar(prof, desde, hasta, sucursal_id=str(suc.id), manual_cfg=manual_cfg,
+            r = analizar(prof, desde, hasta, sucursal_id=(None if _todas(suc) else str(suc.id)), manual_cfg=manual_cfg,
                          forzar_manual=forzar_manual, hoy=hoy, comparar=False,
                          costo_mensual=cp.get(prof.id, 0.0), completo=False)
             items.append((prof, r))
@@ -797,8 +829,15 @@ def _conciliar(suc, desde, hasta, k):
     try:
         from pacientes.models import Paciente
         from facturacion.views import _calcular_financiero_sucursal
-        ids = list(Paciente.objects.filter(sucursales__id=suc.id).values_list('id', flat=True).distinct())
-        f = _calcular_financiero_sucursal(suc.id, ids, desde, hasta)
+        from servicios.models import Sucursal
+        sucs = list(Sucursal.objects.filter(activa=True)) if _todas(suc) else [suc]
+        f = defaultdict(float)
+        for s_ in sucs:
+            ids = list(Paciente.objects.filter(sucursales__id=s_.id).values_list('id', flat=True).distinct())
+            fx = _calcular_financiero_sucursal(s_.id, ids, desde, hasta)
+            for kk in ('total_consumido', 'consumido_sesiones', 'consumido_mensualidades', 'consumido_proyectos',
+                       'credito_adelantado_disponible'):
+                f[kk] += _f(fx[kk])
     except Exception:
         logger.error('Reporte sucursal: no se pudo conciliar con el financiero', exc_info=True)
         return None
@@ -871,14 +910,14 @@ def calcular_cobranza(suc, desde, hasta, hoy, k, proyectos, mensualidades):
     from facturacion.models import Pago, DetallePagoMasivo, Devolucion
     from pacientes.models import Paciente
 
-    f_ses = dict(sucursal=suc, proyecto__isnull=True, mensualidad__isnull=True)
+    f_ses = dict(proyecto__isnull=True, mensualidad__isnull=True, **_kw(suc, 'sucursal'))
     # ── A) cobranza de lo generado ─────────────────────────────────
     ses = list(Sesion.objects.filter(fecha__gte=desde, fecha__lte=hasta, estado__in=CONSUMIDAS, **f_ses)
                .values('id', 'fecha', 'paciente_id', 'monto_cobrado', 'paciente__nombre', 'paciente__apellido'))
     pg = defaultdict(list)
     rel = {f'sesion__{kk}': v for kk, v in f_ses.items() if kk != 'sucursal'}
-    base = dict(sesion__sucursal=suc, sesion__fecha__gte=desde, sesion__fecha__lte=hasta,
-                sesion__estado__in=CONSUMIDAS, **rel)
+    base = dict(sesion__fecha__gte=desde, sesion__fecha__lte=hasta,
+                sesion__estado__in=CONSUMIDAS, **_kw(suc, 'sesion__sucursal'), **rel)
     for x in Pago.objects.filter(anulado=False, **base).values('sesion_id', 'fecha_pago', 'monto'):
         pg[x['sesion_id']].append((x['fecha_pago'], float(x['monto'])))
     for x in DetallePagoMasivo.objects.filter(tipo='sesion', pago__anulado=False, **base).values(
@@ -994,52 +1033,47 @@ def calcular_cobranza(suc, desde, hasta, hoy, k, proyectos, mensualidades):
     qf = dict(fecha_pago__gte=desde, fecha_pago__lte=hasta, anulado=False)
     caja = {'periodo': 0.0, 'anterior': 0.0, 'adelanto': 0.0, 'credito': 0.0}
     metodos = defaultdict(float)
-    uso_credito = 0.0
+    uso = defaultdict(float)          # uso de crédito por categoría (no es dinero nuevo)
 
     def _sumar(cat, monto, metodo):
         caja[cat] += monto
         metodos[metodo] += monto
 
-    pago_ses = dict(sesion__sucursal=suc, sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True)
+    def _reg(cat, monto, metodo):
+        if metodo == CREDITO:
+            uso[cat] += monto
+        else:
+            _sumar(cat, monto, metodo)
+
+    pago_ses = dict(sesion__isnull=False, sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True,
+                    **_kw(suc, 'sesion__sucursal'))
     for x in Pago.objects.filter(**qf, **pago_ses).values('monto', 'metodo_pago__nombre', 'sesion__fecha', 'sesion__estado'):
-        m = float(x['monto'])
-        if x['metodo_pago__nombre'] == CREDITO:
-            uso_credito += m
-            continue
-        _sumar(_clasif_caja('ses', (x['sesion__fecha'], x['sesion__estado'] in CONSUMIDAS), desde, hasta), m, x['metodo_pago__nombre'])
+        _reg(_clasif_caja('ses', (x['sesion__fecha'], x['sesion__estado'] in CONSUMIDAS), desde, hasta),
+             float(x['monto']), x['metodo_pago__nombre'])
     for x in DetallePagoMasivo.objects.filter(tipo='sesion', pago__fecha_pago__gte=desde, pago__fecha_pago__lte=hasta,
                                               pago__anulado=False, **pago_ses).values(
             'monto', 'pago__metodo_pago__nombre', 'sesion__fecha', 'sesion__estado'):
-        m = float(x['monto'])
-        if x['pago__metodo_pago__nombre'] == CREDITO:
-            uso_credito += m
-            continue
-        _sumar(_clasif_caja('ses', (x['sesion__fecha'], x['sesion__estado'] in CONSUMIDAS), desde, hasta), m, x['pago__metodo_pago__nombre'])
+        _reg(_clasif_caja('ses', (x['sesion__fecha'], x['sesion__estado'] in CONSUMIDAS), desde, hasta),
+             float(x['monto']), x['pago__metodo_pago__nombre'])
     for campo, tp in (('mensualidad', 'mens'), ('proyecto', 'proy')):
         refs = ('mensualidad__anio', 'mensualidad__mes') if tp == 'mens' else ('proyecto__fecha_inicio',)
-        for x in Pago.objects.filter(**qf, **{f'{campo}__sucursal': suc}).values('monto', 'metodo_pago__nombre', *refs):
-            m = float(x['monto'])
-            if x['metodo_pago__nombre'] == CREDITO:
-                uso_credito += m
-                continue
+        for x in Pago.objects.filter(**qf, **{f'{campo}__isnull': False}, **_kw(suc, f'{campo}__sucursal')).values('monto', 'metodo_pago__nombre', *refs):
             ref = (x['mensualidad__anio'], x['mensualidad__mes']) if tp == 'mens' else x['proyecto__fecha_inicio']
-            _sumar(_clasif_caja(tp, ref, desde, hasta), m, x['metodo_pago__nombre'])
+            _reg(_clasif_caja(tp, ref, desde, hasta), float(x['monto']), x['metodo_pago__nombre'])
         for x in DetallePagoMasivo.objects.filter(tipo=campo, pago__fecha_pago__gte=desde, pago__fecha_pago__lte=hasta,
-                                                  pago__anulado=False, **{f'{campo}__sucursal': suc}).values(
+                                                  pago__anulado=False, **{f'{campo}__isnull': False}, **_kw(suc, f'{campo}__sucursal')).values(
                 'monto', 'pago__metodo_pago__nombre', *refs):
-            m = float(x['monto'])
-            if x['pago__metodo_pago__nombre'] == CREDITO:
-                uso_credito += m
-                continue
             ref = (x['mensualidad__anio'], x['mensualidad__mes']) if tp == 'mens' else x['proyecto__fecha_inicio']
-            _sumar(_clasif_caja(tp, ref, desde, hasta), m, x['pago__metodo_pago__nombre'])
-    # adelantos de crédito sin asignar (solo pacientes cuya sucursal principal es ésta)
+            _reg(_clasif_caja(tp, ref, desde, hasta), float(x['monto']), x['pago__metodo_pago__nombre'])
+    # adelantos de crédito sin asignar (en una sucursal: solo pacientes cuya sucursal principal es ésta)
     try:
-        from facturacion.views import _build_sucursal_map
-        ids_pac = list(Paciente.objects.filter(sucursales=suc).values_list('id', flat=True).distinct())
-        mapa = _build_sucursal_map(ids_pac)
-        principal = [pid for pid in ids_pac if str(mapa.get(pid, suc.id)) == str(suc.id)]
-        for x in (Pago.objects.filter(**qf, paciente_id__in=principal, sesion__isnull=True, mensualidad__isnull=True,
+        filtro_pac = {}
+        if not _todas(suc):
+            from facturacion.views import _build_sucursal_map
+            ids_pac = list(Paciente.objects.filter(sucursales=suc).values_list('id', flat=True).distinct())
+            mapa = _build_sucursal_map(ids_pac)
+            filtro_pac = {'paciente_id__in': [pid for pid in ids_pac if str(mapa.get(pid, suc.id)) == str(suc.id)]}
+        for x in (Pago.objects.filter(**qf, **filtro_pac, sesion__isnull=True, mensualidad__isnull=True,
                                       proyecto__isnull=True)
                   .exclude(metodo_pago__nombre=CREDITO).exclude(detalles_masivos__isnull=False)
                   .values('monto', 'metodo_pago__nombre')):
@@ -1049,20 +1083,27 @@ def calcular_cobranza(suc, desde, hasta, hoy, k, proyectos, mensualidades):
     dev = 0.0
     for campo in ('mensualidad', 'proyecto'):
         dev += float(Devolucion.objects.filter(fecha_devolucion__gte=desde, fecha_devolucion__lte=hasta,
-                                               **{f'{campo}__sucursal': suc}).aggregate(t=Sum('monto'))['t'] or 0)
+                                               **{f'{campo}__isnull': False}, **_kw(suc, f'{campo}__sucursal')).aggregate(t=Sum('monto'))['t'] or 0)
     total_cobros = sum(caja.values())
     por_metodo = [{'metodo': m, 'monto': round(v, 2), 'pct': _pct(v, total_cobros)}
-                  for m, v in sorted(metodos.items(), key=lambda kv: -kv[1])]
+                  for m, v in sorted(metodos.items(), key=lambda kv: -kv[1]) if v > 0.004]
     caja = {kk: round(v, 2) for kk, v in caja.items()}
     caja.update({'total': round(total_cobros, 2), 'devoluciones': round(dev, 2),
                  'neto': round(total_cobros - dev, 2), 'por_metodo': por_metodo,
-                 'uso_credito': round(uso_credito, 2)})
+                 'uso_credito': round(sum(uso.values()), 2)})
+    # Puente exacto entre «Cobrado de lo generado» (cobranza) y «Pagos recibidos por consumos de este período» (caja)
+    esperado = tot['cobrado'] - tot['antes'] - tot['despues'] - uso['periodo']
+    puente = {
+        'cobrado': tot['cobrado'], 'antes': tot['antes'], 'despues': tot['despues'],
+        'credito': round(uso['periodo'], 2), 'caja_periodo': caja['periodo'],
+        'residual': round(caja['periodo'] - esperado, 2),
+    }
 
     # ── C) lo programado (por generar) y proyección ───────────────
     paq_pg = round(sum(x['por_generar'] for x in proyectos) + sum(x['por_generar'] for x in mensualidades), 2)
     ind_pg = round(max(k['por_generar'] - paq_pg, 0.0), 2)
     adel = 0.0
-    bp = dict(sesion__sucursal=suc, sesion__fecha__gte=desde, sesion__fecha__lte=hasta, sesion__estado='programada',
+    bp = dict(**_kw(suc, 'sesion__sucursal'), sesion__fecha__gte=desde, sesion__fecha__lte=hasta, sesion__estado='programada',
               sesion__proyecto__isnull=True, sesion__mensualidad__isnull=True)
     adel += float(Pago.objects.filter(anulado=False, **bp).aggregate(t=Sum('monto'))['t'] or 0)
     adel += float(DetallePagoMasivo.objects.filter(tipo='sesion', pago__anulado=False, **bp).aggregate(t=Sum('monto'))['t'] or 0)
@@ -1077,7 +1118,7 @@ def calcular_cobranza(suc, desde, hasta, hoy, k, proyectos, mensualidades):
     }
     return {
         'filas': filas, 'tot': tot, 'aging': aging, 'pend_tot': round(pend_tot, 2), 'mora30': mora30,
-        'pct_mora30': _pct(mora30, tot['gen']), 'deudores': deudores, 'caja': caja, 'prog': prog,
+        'pct_mora30': _pct(mora30, tot['gen']), 'deudores': deudores, 'caja': caja, 'prog': prog, 'puente': puente,
         'tasa': tasa,
         'nota_aging': 'En proyectos y mensualidades la antigüedad se cuenta desde el inicio del paquete (o desde el inicio '
                       'del período si empezó antes) y el cobro se estima proporcional al avance de pago del paquete.',

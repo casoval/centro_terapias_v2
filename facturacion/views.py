@@ -5940,7 +5940,7 @@ def reporte_sucursal(request):
         resolver_rango, leer_horario_manual, MESES_ES, DIAS_ES,
     )
     from facturacion.reporte_sucursal_data import (
-        analizar_sucursal, leer_gastos_manuales, leer_costos_profesional, GLOB_OPCIONES,
+        analizar_sucursal, leer_gastos_manuales, leer_costos_profesional, GLOB_OPCIONES, TodasSucursales,
     )
 
     g = request.GET
@@ -5971,7 +5971,7 @@ def reporte_sucursal(request):
     r = None
     graf_json = '{}'
     if sucursal_id:
-        sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+        sucursal = TodasSucursales() if sucursal_id == 'todas' else get_object_or_404(Sucursal, id=sucursal_id)
         r = analizar_sucursal(
             sucursal, desde, hasta, manuales=manuales, cp=cp, glob=glob, inc_egr=inc_egr,
             inc_pers=inc_pers, manual_cfg=manual_cfg, forzar_manual=forzar_manual, hoy=hoy,
@@ -5986,7 +5986,7 @@ def reporte_sucursal(request):
             buffer = generar_informe_sucursal_pdf({
                 'sucursal': sucursal, 'r': r, 'desde': desde, 'hasta': hasta})
             response = HttpResponse(buffer, content_type='application/pdf')
-            slug = sucursal.nombre.replace(' ', '_')
+            slug = 'todas_las_sucursales' if sucursal_id == 'todas' else sucursal.nombre.replace(' ', '_')
             response['Content-Disposition'] = (
                 f'inline; filename="informe_sucursal_{slug}_{desde:%Y%m%d}_al_{hasta:%Y%m%d}.pdf"')
             return response

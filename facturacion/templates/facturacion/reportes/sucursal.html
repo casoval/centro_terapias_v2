@@ -130,7 +130,7 @@
     </div>
   </div>
   <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#a5b4fc;margin-bottom:5px">Reporte por Sucursal</div>
-  <h1>🏢 {% if sucursal %}{{ sucursal.nombre }}{% else %}Reporte por Sucursal{% endif %}</h1>
+  <h1>{% if sucursal.es_todas %}🌐{% else %}🏢{% endif %} {% if sucursal %}{{ sucursal.nombre }}{% else %}Reporte por Sucursal{% endif %}</h1>
   <p>Rentabilidad · Gastos · Ocupación y horas libres · Profesionales · Niños · Proyectos y mensualidades · Decisión</p>
   {% if sucursal %}
   <span class="pill">📅 {{ r.desde|date:"d/m/Y" }} — {{ r.hasta|date:"d/m/Y" }} ({{ r.n_dias }} días)</span>
@@ -148,6 +148,7 @@
     <div class="fg"><label>Sucursal {% ayuda "su_f_sucursal" %}</label>
       <select name="sucursal" onchange="document.getElementById('f-rango').value='{{ rango }}';this.form.submit()">
         <option value="">— Seleccionar —</option>
+        <option value="todas" {% if sucursal_id == 'todas' %}selected{% endif %}>🌐 Todas las sucursales (consolidado)</option>
         {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
       </select></div>
     {% if sucursal %}
@@ -163,7 +164,7 @@
     <div class="fg"><label>Hasta {% ayuda "f_hasta" %}</label><input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" onchange="document.getElementById('f-rango').value=''"></div>
     <div class="fg"><label>&nbsp;</label><label class="chk"><input type="checkbox" name="comp_suc" value="1" {% if comp_suc %}checked{% endif %}> Comparar con otras sucursales {% ayuda "su_f_comp" %}</label></div>
     <button type="submit" class="btn-primary">🔍 Ver reporte</button>
-    <a class="btn-clear" href="?sucursal={{ sucursal.id }}">✕ Limpiar</a>
+    <a class="btn-clear" href="?sucursal={{ sucursal_id }}">✕ Limpiar</a>
 
     <div class="quick">
       <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;color:var(--muted)">Rangos: {% ayuda "f_rangos" %}</span>
@@ -185,6 +186,7 @@
         <div class="gbox">
           <h4>1 · Egresos registrados en el sistema</h4>
           <label class="chk"><input type="checkbox" name="inc_egr" value="1" {% if inc_egr %}checked{% endif %}> Incluir egresos de esta sucursal {% ayuda "su_f_egr" %}</label>
+          {% if sucursal.es_todas %}<p class="note" style="margin-top:8px">🌐 Consolidado: se incluyen <b>todos</b> los egresos (de cada sucursal y globales) completos; el reparto de gastos globales no aplica.</p>{% endif %}
           <div class="fg" style="margin-top:8px"><label>Gastos globales (sin sucursal) {% ayuda "su_f_glob" %}</label>
             <select name="glob">{% for k_,t_ in glob_opts %}<option value="{{ k_ }}" {% if glob == k_ %}selected{% endif %}>{{ t_ }}</option>{% endfor %}</select></div>
           <div class="fg" style="margin-top:8px"><label>Personal y honorarios registrados {% ayuda "su_f_pers" %}</label>
@@ -266,11 +268,11 @@
 
 <!-- ══ FICHA ══ -->
 <div class="pcard">
-  <div class="avatar">🏢</div>
+  <div class="avatar">{% if sucursal.es_todas %}🌐{% else %}🏢{% endif %}</div>
   <div style="flex:1;min-width:220px">
     <p class="pname">{{ sucursal.nombre }}</p>
     <div class="chips">
-      <span class="chip {% if sucursal.activa %}green{% else %}red{% endif %}">{% if sucursal.activa %}Activa{% else %}Inactiva{% endif %}</span>
+      {% if sucursal.es_todas %}<span class="chip green">Consolidado · {{ sucursales|length }} sucursales activas</span>{% else %}<span class="chip {% if sucursal.activa %}green{% else %}red{% endif %}">{% if sucursal.activa %}Activa{% else %}Inactiva{% endif %}</span>{% endif %}
       <span class="chip">👨‍⚕️ {{ k.profesionales }} profesionales</span>
       <span class="chip">👶 {{ k.pacientes }} niños atendidos</span>
       <span class="chip">⏱ {{ k.min_reloj_txt }} trabajadas</span>
@@ -402,14 +404,14 @@
 
 <div class="g2">
   <div class="card"><h3>1 · De lo generado en el período, ¿se cobró? {% ayuda "su_cb_tabla1" %}</h3>
-    <div class="scroll"><table class="t"><thead><tr><th>Tipo</th><th class="tr">Generado</th><th class="tr">Pagado antes {% ayuda "su_cb_antes" %}</th><th class="tr">Pagado en el período</th><th class="tr">Pagado después {% ayuda "su_cb_despues" %}</th><th class="tr">Falta cobrar</th><th class="tr">% cobrado</th></tr></thead><tbody>
+    <div class="scroll"><table class="t"><thead><tr><th>Tipo</th><th class="tr">Generado</th><th class="tr">Antes {% ayuda "su_cb_antes" %}</th><th class="tr">En período</th><th class="tr">Después {% ayuda "su_cb_despues" %}</th><th class="tr">Falta</th><th class="tr">% cobr.</th></tr></thead><tbody>
     {% for f in cb.filas %}<tr><td><b>{{ f.nombre }}</b></td><td class="tr mono">{{ f.gen|bs }}</td><td class="tr mono">{{ f.antes|bs }}</td><td class="tr mono">{{ f.durante|bs }}</td><td class="tr mono">{{ f.despues|bs }}</td><td class="tr mono"><b>{{ f.pend|bs }}</b></td><td class="tr">{{ f.pct|floatformat:0 }}%<div class="pbar" style="margin-top:3px"><div style="width:{{ f.pct|pw }}%;background:var(--green)"></div></div></td></tr>{% endfor %}
     <tr class="tot"><td>Total</td><td class="tr mono">{{ cb.tot.gen|bs }}</td><td class="tr mono">{{ cb.tot.antes|bs }}</td><td class="tr mono">{{ cb.tot.durante|bs }}</td><td class="tr mono">{{ cb.tot.despues|bs }}</td><td class="tr mono">{{ cb.tot.pend|bs }}</td><td class="tr">{{ cb.tot.pct|floatformat:0 }}%</td></tr></tbody></table></div>
     <p class="note">Solo cuenta lo generado dentro del período; los pagos se ubican por su fecha: <b>antes</b> (adelantado), <b>en</b> el período o <b>después</b> (cobro tardío, hasta hoy). El uso de crédito cuenta como pagado. En paquetes el cobro se estima proporcional al avance de pago de cada uno.</p>
   </div>
   <div class="card"><h3>2 · Caja del período: ¿qué se pagó con el dinero que entró? {% ayuda "su_cb_tabla2" %}</h3>
     <table class="t"><tbody>
-      <tr><td>Cobros de lo generado en este período</td><td class="tr mono">{{ cb.caja.periodo|bs }}</td></tr>
+      <tr><td>Pagos recibidos por consumos de este período {% ayuda "su_cb_periodo" %}</td><td class="tr mono">{{ cb.caja.periodo|bs }}</td></tr>
       <tr><td>Cobros de deudas de períodos anteriores {% ayuda "su_cb_anterior" %}</td><td class="tr mono">{{ cb.caja.anterior|bs }}</td></tr>
       <tr><td>Adelantos de sesiones o paquetes aún no consumidos {% ayuda "su_cb_adelanto" %}</td><td class="tr mono">{{ cb.caja.adelanto|bs }}</td></tr>
       <tr><td>Adelantos de crédito sin asignar {% ayuda "su_cb_credito" %}</td><td class="tr mono">{{ cb.caja.credito|bs }}</td></tr>
@@ -421,6 +423,18 @@
     {% if cb.caja.uso_credito %}<p class="note">Además se saldaron Bs. {{ cb.caja.uso_credito|bs }} con uso de crédito {% ayuda "su_cb_uso_credito" %}: no es dinero nuevo (entró cuando se recibió el adelanto).</p>{% endif %}
     <p class="note">Se ubica por fecha de pago. Lo cobrado de períodos anteriores y los adelantos <b>no</b> forman parte de lo generado en este período.</p>
   </div>
+</div>
+
+<div class="card"><h3>🔎 ¿Por qué «Cobrado de lo generado» no es igual a «Pagos recibidos por consumos de este período»? {% ayuda "su_cb_puente" %}</h3>
+  <p class="note">No deben ser iguales: miden cosas distintas. El primero mira <b>lo generado</b> y cuánto se pagó (en cualquier fecha). El segundo mira <b>el dinero que entró</b> en el período. Este puente cierra la diferencia:</p>
+  <table class="t" style="max-width:760px"><tbody>
+    <tr><td><b>Cobrado de lo generado</b> (tarjeta «Cobrado de eso»)</td><td class="tr mono"><b>{{ cb.puente.cobrado|bs }}</b></td></tr>
+    <tr><td>(−) Pagado <b>antes</b> del período: adelantos que ya entraron a caja en períodos anteriores</td><td class="tr mono">{{ cb.puente.antes|bs }}</td></tr>
+    <tr><td>(−) Pagado <b>después</b> del período: aún no entra a la caja de este período</td><td class="tr mono">{{ cb.puente.despues|bs }}</td></tr>
+    <tr><td>(−) Saldado con <b>uso de crédito</b>: salda la deuda pero no es dinero nuevo</td><td class="tr mono">{{ cb.puente.credito|bs }}</td></tr>
+    <tr><td>(+/−) <b>Paquetes y otros:</b> en proyectos y mensualidades la caja cuenta el pago completo recibido (aunque cubra sesiones aún no realizadas), mientras que «cobrado de lo generado» solo cuenta la parte proporcional a lo ya devengado</td><td class="tr mono">{{ cb.puente.residual|bsd }}</td></tr>
+    <tr class="tot"><td>= Pagos recibidos por consumos de este período (caja)</td><td class="tr mono">{{ cb.puente.caja_periodo|bs }}</td></tr>
+  </tbody></table>
 </div>
 
 <div class="g2">
@@ -589,7 +603,7 @@
       <tr><td>Ocupación efectiva</td><td class="tr">{{ r.comparacion.ocup.0|floatformat:1 }}%</td><td class="tr {% if r.comparacion.ocup.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.ocup.1|signo }} pts</td></tr>
       <tr><td>Niños atendidos</td><td class="tr">{{ r.comparacion.pacientes.0 }}</td><td class="tr {% if r.comparacion.pacientes.1 >= 0 %}up{% else %}down{% endif %}">{{ r.comparacion.pacientes.1|signo }}</td></tr>
     </tbody></table></div>{% endif %}
-  {% if r.comparativa %}<div class="card"><h3>Contra las demás sucursales {% ayuda "su_comp_suc" %}</h3>
+  {% if r.comparativa %}<div class="card"><h3>{% if sucursal.es_todas %}Resultado por sucursal{% else %}Contra las demás sucursales{% endif %} {% ayuda "su_comp_suc" %}</h3>
     <div class="scroll"><table class="t"><thead><tr><th>Sucursal</th><th class="tr">Neto</th><th class="tr">Gastos</th><th class="tr">Resultado</th><th class="tr">Ocup.</th><th class="tr">Neto/h</th><th class="tr">Niños</th></tr></thead><tbody>
     {% for c in r.comparativa %}<tr {% if c.actual %}style="background:var(--brand-l);font-weight:700"{% endif %}><td>{{ c.nombre }}{% if c.actual %} ◄{% endif %}<div class="note" style="margin:0">{{ c.nota_gastos }}</div></td><td class="tr mono">{{ c.neto|bs }}</td><td class="tr mono">{{ c.gastos|bs }}</td><td class="tr mono {% if c.resultado >= 0 %}up{% else %}down{% endif %}">{{ c.resultado|bsd }}</td><td class="tr">{{ c.ocup_efect|floatformat:0 }}%</td><td class="tr mono">{{ c.neto_hora|bs }}</td><td class="tr">{{ c.pacientes }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
 </div>

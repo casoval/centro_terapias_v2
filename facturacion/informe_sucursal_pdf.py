@@ -69,7 +69,7 @@ def _portada(d, suc, r, periodo):
     c.roundRect(fx, fy, FS, FS, 7, fill=1, stroke=0)
     c.setFillColor(C_PRI)
     c.setFont("Helvetica-Bold", 30)
-    c.drawCentredString(fx + FS / 2, fy + FS / 2 - 0.4 * cm, _t(''.join(w[0] for w in suc.nombre.split()[:2]).upper()))
+    c.drawCentredString(fx + FS / 2, fy + FS / 2 - 0.4 * cm, _t('TOT' if getattr(suc, 'es_todas', False) else ''.join(w[0] for w in suc.nombre.split()[:2]).upper()))
     tx = ML + FS + 0.8 * cm
     c.setFillColor(C_TEXTO)
     c.setFont("Helvetica-Bold", 17)
@@ -77,7 +77,8 @@ def _portada(d, suc, r, periodo):
     c.setFont("Helvetica", 8)
     c.setFillColor(C_TSEC)
     yy = ty - 1.5 * cm
-    for ln in [f"Estado: {'Activa' if suc.activa else 'Inactiva'}",
+    for ln in [("Consolidado de todas las sucursales activas" if getattr(suc, 'es_todas', False)
+                else f"Estado: {'Activa' if suc.activa else 'Inactiva'}"),
                f"Dirección: {suc.direccion}" if suc.direccion else '',
                f"Teléfono: {suc.telefono}" if suc.telefono else '',
                f"Equipo: {k['profesionales']} profesional(es)  |  {k['pacientes']} niño(s) atendido(s)"]:
@@ -256,7 +257,7 @@ def _sec_cobranza(d, r):
               "como pagado. En paquetes el cobro se estima proporcional al avance de pago.", 6.8, C_MUTED, "Helvetica-Oblique")
     d.subtitulo("2. Caja del período: qué se pagó con el dinero que entró")
     d.tabla(["Concepto", "Bs."], [
-        ["Cobros de lo generado en este período", fm(c['periodo'])],
+        ["Pagos recibidos por consumos de este período", fm(c['periodo'])],
         ["Cobros de deudas de períodos anteriores", fm(c['anterior'])],
         ["Adelantos de sesiones o paquetes aún no consumidos", fm(c['adelanto'])],
         ["Adelantos de crédito sin asignar", fm(c['credito'])],
@@ -271,6 +272,16 @@ def _sec_cobranza(d, r):
         extra.append(f"Además se saldaron Bs. {fm(c['uso_credito'])} con uso de crédito (no es dinero nuevo).")
     extra.append("Se ubica por fecha de pago: lo cobrado de períodos anteriores y los adelantos no forman parte de lo generado en este período.")
     d.parrafo(" ".join(extra), 6.8, C_MUTED, "Helvetica-Oblique")
+    pu = cb['puente']
+    d.subtitulo("¿Por qué «Cobrado de lo generado» no es igual a los pagos recibidos del período?")
+    d.tabla(["Concepto", "Bs."], [
+        [("Cobrado de lo generado", C_PRI), (fm(pu['cobrado']), C_PRI)],
+        ["(-) Pagado antes del período (ya entró a caja antes)", fm(pu['antes'])],
+        ["(-) Pagado después del período", fm(pu['despues'])],
+        ["(-) Saldado con uso de crédito (no es dinero nuevo)", fm(pu['credito'])],
+        ["(+/-) Paquetes y otros (la caja cuenta el pago completo; lo generado, solo la parte devengada)", _sg(pu['residual'])],
+        [("= Pagos recibidos por consumos de este período", C_VERDE), (fm(pu['caja_periodo']), C_VERDE)],
+    ], [13.0 * cm, 4.6 * cm], ['l', 'r'], 7.2)
     d.subtitulo("3. Antigüedad de lo que falta cobrar")
     d.tabla(["Antigüedad", "Partidas", "Bs.", "% del pendiente"],
             [[a['label'], a['n'], fm(a['monto']), pc(a['pct'])] for a in cb['aging']],
@@ -437,7 +448,7 @@ def _sec_comparaciones(d, r):
     d.page(land=False)
     d.titulo("9. Comparación entre sucursales y conciliación", C_AMBER)
     if r['comparativa']:
-        d.subtitulo("Contra las demás sucursales activas")
+        d.subtitulo("Resultado por sucursal" if getattr(r["suc"], "es_todas", False) else "Contra las demás sucursales activas")
         d.tabla(["Sucursal", "Neto Bs.", "Gastos Bs.", "Resultado", "Ocup.", "Neto/h", "Niños", "Prof."],
                 [[(c['nombre'] + (' (esta)' if c['actual'] else ''), C_PRI if c['actual'] else C_TEXTO), fm(c['neto'], 0), fm(c['gastos'], 0),
                   (fm(c['resultado'], 0), C_VERDE if c['resultado'] >= 0 else C_ROJO), pc(c['ocup_efect']), fm(c['neto_hora'], 0),
