@@ -1280,6 +1280,8 @@ def analizar_paciente(paciente, desde=None, hasta=None, hoy=None, filtros=None, 
     M = _metricas(S)
     gen = _generado(S, rows, proy, mens, precio)
     cobranza = _cobranza(S, gen, pagos, desde, hasta, hoy)
+    # parte de mensualidades/proyectos ligada a sesiones aún programadas: no es 'generado' del período, pero sí cuenta en la deuda total
+    cobranza['por_devengar'] = round(sum(x['por_generar'] for x in gen['proyectos'] + gen['mensualidades']), 2)
     riesgo = _riesgo(paciente, rows, mens, hoy, umbral_obs, umbral_riesgo)
     valor = _valor(S, rows, gen, proy, mens, M, riesgo, costo_hora, desde, hasta, hoy)
     lista = valor.pop('ranking_lista')

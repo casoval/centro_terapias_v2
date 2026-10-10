@@ -31,6 +31,13 @@ from .informe_profesional_pdf import DIRECCION, TELEFONO, fd, fm, pc as _pc
 
 logger = logging.getLogger(__name__)
 TITULO = "INFORME PARA LA FAMILIA"
+WEB = "neuromisael.com"
+EMAIL = "info@neuromisael.com"
+# (nombre, dirección, teléfono) de todas las sedes del centro
+SEDES = [
+    ("Sede Central", "Calle Japón #28 - Potosí, Bolivia", "76175352"),
+    ("Sucursal Zona Central", "Calle Cochabamba, a lado de ENTEL, casi esquina Bolívar - Potosí, Bolivia", "78633975"),
+]
 
 
 def _portada(c, pac, periodo_txt, fecha, a=None):
@@ -47,11 +54,13 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
     c.setFont("Helvetica-Bold", 15)
     c.drawString(ML + 3.5 * cm, PAGE_H - 2.3 * cm, NOMBRE_CENTRO)
     c.setFont("Helvetica", 8.5)
-    c.drawString(ML + 3.5 * cm, PAGE_H - 2.95 * cm, f"{DIRECCION}  |  {TELEFONO}")
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(ML + 3.5 * cm, PAGE_H - 4.0 * cm, "INFORME DE SEGUIMIENTO PARA LA FAMILIA")
     c.setFont("Helvetica", 8)
-    c.drawString(ML + 3.5 * cm, PAGE_H - 4.6 * cm, "Asistencia, próximas sesiones y estado de cuenta")
+    c.drawString(ML + 3.5 * cm, PAGE_H - 2.85 * cm, f"{SEDES[0][0]}: {SEDES[0][1]}  |  Tel.: {SEDES[0][2]}")
+    c.drawString(ML + 3.5 * cm, PAGE_H - 3.3 * cm, f"{SEDES[1][0]}: Calle Cochabamba, a lado de ENTEL  |  Tel.: {SEDES[1][2]}")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(ML + 3.5 * cm, PAGE_H - 4.1 * cm, "INFORME DE SEGUIMIENTO PARA LA FAMILIA")
+    c.setFont("Helvetica", 8)
+    c.drawString(ML + 3.5 * cm, PAGE_H - 4.65 * cm, "Asistencia, próximas sesiones y estado de cuenta")
     ty = PAGE_H - 7.4 * cm
     c.setFillColor(C_FONDO)
     c.roundRect(ML, ty - 3.2 * cm, CW, 3.2 * cm, 8, fill=1, stroke=0)
@@ -82,6 +91,44 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
                "Ante cualquier consulta, puede comunicarse con recepción."):
         c.drawString(ML + 0.3 * cm, y, ln)
         y -= 0.55 * cm
+    # ── Sedes y contacto ─────────────────────────────────────────────
+    bh = 5.6 * cm
+    by = y - 0.6 * cm
+    c.setFillColor(C_BLANCO)
+    c.roundRect(ML, by - bh, CW, bh, 9, fill=1, stroke=0)
+    c.setStrokeColor(C_MED)
+    c.setLineWidth(0.6)
+    c.roundRect(ML, by - bh, CW, bh, 9, fill=0, stroke=1)
+    c.setFillColor(C_PRI)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(ML + 0.6 * cm, by - 0.8 * cm, "NUESTRAS SEDES Y CONTACTO")
+    yy = by - 1.5 * cm
+    for nom, dire, tel in SEDES:
+        c.setFillColor(C_TEXTO)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(ML + 0.6 * cm, yy, nom)
+        c.setFont("Helvetica", 8.5)
+        c.setFillColor(C_TSEC)
+        c.drawString(ML + 0.6 * cm, yy - 0.45 * cm, dire)
+        c.setFillColor(C_PRI)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawRightString(PAGE_W - ML - 0.6 * cm, yy - 0.2 * cm, f"Tel.: {tel}")
+        yy -= 1.15 * cm
+    c.setStrokeColor(C_GRIS_B)
+    c.setLineWidth(0.4)
+    c.line(ML + 0.6 * cm, yy + 0.35 * cm, PAGE_W - ML - 0.6 * cm, yy + 0.35 * cm)
+    c.setFillColor(C_TEXTO)
+    c.setFont("Helvetica", 8.5)
+    c.drawString(ML + 0.6 * cm, yy - 0.2 * cm, "Para más detalle, visite nuestra página y también revise sus sesiones, pagos y estado de cuenta:")
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(C_PRI)
+    c.drawString(ML + 0.6 * cm, yy - 0.85 * cm, WEB)
+    c.setFont("Helvetica", 8.5)
+    c.setFillColor(C_TEXTO)
+    c.drawString(ML + 0.6 * cm + 3.4 * cm, yy - 0.85 * cm, "o escríbanos a")
+    c.setFont("Helvetica-Bold", 10)
+    c.setFillColor(C_PRI)
+    c.drawString(ML + 0.6 * cm + 6.2 * cm, yy - 0.85 * cm, EMAIL)
     c.setFont("Helvetica-Oblique", 7)
     c.setFillColor(C_MUTED)
     c.drawString(ML, 2.4 * cm, f"Emitido el {fecha}. Documento para uso de la familia del paciente.")
@@ -242,15 +289,7 @@ def _secciones(P, a, paciente):
     dd = a['deuda']
     _caja_deuda(P, a, familia=True)
     _detalle_deuda(P, a, familia=True)
-    _subtitulo(P, 'Del período seleccionado')
-    items = [
-        ('Atenciones del período', BS(t['gen']), 'sesiones, mensualidades y proyectos', C_MED),
-        ('Pagado', BS(t['cobrado']), 'aplicado a lo del período', C_VERDE),
-        ('Saldo por pagar del período', BS(t['pend']), 'solo de este período', C_AMBER_ if t['pend'] > 0 else C_VERDE),
-    ]
-    _grilla_p(P, items, cols=len(items))
-    _parrafo(P, "La deuda total proyectada de arriba no depende del período: incluye todo lo realizado hasta hoy y lo agendado. "
-                "Para regularizar un saldo o resolver dudas sobre un pago, puede acercarse a recepción.", 7.4, C_MUTED, 'Helvetica-Oblique')
+    _parrafo(P, "Para regularizar un saldo o resolver dudas sobre un pago, puede acercarse a recepción.", 7.4, C_MUTED, 'Helvetica-Oblique')
 
     # 6. sugerencias
     _titulo(P, '6. Sugerencias para la familia', C_VERDE)
@@ -274,7 +313,9 @@ def _secciones(P, a, paciente):
     for s_ in sug:
         _parrafo(P, '• ' + s_, 7.8, C_TEXTO, espacio=0.08 * cm)
     P.y -= 0.3 * cm
-    _parrafo(P, f"{NOMBRE_CENTRO}  |  {DIRECCION}  |  Tel.: {TELEFONO}", 7.4, C_MUTED, 'Helvetica-Oblique')
+    for nom, dire, tel in SEDES:
+        _parrafo(P, f"{nom}: {dire}  |  Tel.: {tel}", 7.4, C_MUTED, 'Helvetica-Oblique', espacio=0.05 * cm)
+    _parrafo(P, f"Más información en {WEB}  |  {EMAIL}", 7.4, C_MUTED, 'Helvetica-Bold')
 
 
 def generar_informe_familia_pdf(context):

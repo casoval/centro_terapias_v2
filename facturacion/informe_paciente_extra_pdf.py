@@ -373,6 +373,11 @@ def seccion_B(pages_data, ctx, helpers):
          f"{cb['pct_pago_7d']:.0f}% en ≤ 7 días" if cb['pct_pago_7d'] is not None else 'sin sesiones pagadas', C_MORADO),
     ]
     _grilla_p(P, items, cols=3)
+    _parrafo(P, "Cómo leer estas cifras: las mensualidades y los proyectos se pagan completos, no por sesión. Aquí, solo como referencia de análisis, "
+                "su valor se reparte entre sus sesiones como si fueran sesiones individuales; por eso «generado» puede diferir de lo que el tutor debe."
+                + (f" En este caso {fm(cb['por_devengar'])} de mensualidades/proyectos corresponden a sesiones aún programadas y no se cuentan como generadas."
+                   if cb.get('por_devengar') else "")
+                + " La deuda real es la de la cuenta corriente (deuda total proyectada).", 6.8, C_MUTED, 'Helvetica-Oblique')
     _subtitulo(P, '1. De lo generado, ¿se cobró?')
     rows = [[f['nombre'], fm(f['gen']), fm(f['antes']), fm(f['durante']), fm(f['despues']), fm(f['pend']), _pc(f['pct'])] for f in cb['filas']]
     rows.append(['TOTAL', fm(t['gen']), fm(t['antes']), fm(t['durante']), fm(t['despues']), fm(t['pend']), _pc(t['pct'])])
