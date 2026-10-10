@@ -20,7 +20,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as pdf_canvas
 
 from .informe_paciente_extra_pdf import (
-    BS, _Pag, _calendarios, _caja_deuda, _detalle_deuda, _grilla_p, _parrafo, _subtitulo, _tabla_p, _titulo, C_AMBER_,
+    BS, _Pag, _calendarios, _lineas, _caja_deuda, _detalle_deuda, _grilla_p, _parrafo, _subtitulo, _tabla_p, _titulo, C_AMBER_,
 )
 from .informe_paciente_pdf import (
     CW, ML, PAGE_H, PAGE_W, C_BLANCO, C_FONDO, C_FONDO_PAG, C_MED, C_MORADO, C_MUTED, C_OSC, C_PRI, C_TEAL, C_TEXTO, C_TSEC,
@@ -91,6 +91,24 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
                "Ante cualquier consulta, puede comunicarse con recepción."):
         c.drawString(ML + 0.3 * cm, y, ln)
         y -= 0.55 * cm
+    # ── Mensaje de apoyo ─────────────────────────────────────────────
+    mh = 2.4 * cm
+    my = y - 0.2 * cm
+    c.setFillColor(colors.HexColor('#ecfdf5'))
+    c.roundRect(ML, my - mh, CW, mh, 9, fill=1, stroke=0)
+    c.setFillColor(C_VERDE)
+    c.roundRect(ML, my - mh, 0.28 * cm, mh, 3, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor('#166534'))
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(ML + 0.8 * cm, my - 0.8 * cm, "La constancia y el apoyo de la familia hacen la diferencia")
+    c.setFont("Helvetica", 8.6)
+    c.setFillColor(C_TEXTO)
+    _txt = ("Cada sesión suma en el desarrollo de su niño o niña. La asistencia constante, el acompañamiento de la familia "
+            "y la perseverancia dan frutos con el tiempo. Gracias por confiar en nosotros y por ser parte de este camino.")
+    for i, ln_ in enumerate(_lineas(_txt, "Helvetica", 8.6, CW - 1.6 * cm)[:3]):
+        c.drawString(ML + 0.8 * cm, my - 1.45 * cm - i * 0.45 * cm, ln_)
+    y = my - mh
+
     # ── Sedes y contacto ─────────────────────────────────────────────
     bh = 5.6 * cm
     by = y - 0.6 * cm
@@ -284,7 +302,7 @@ def _secciones(P, a, paciente):
     else:
         _parrafo(P, "Por el momento no hay sesiones agendadas. Consulte en recepción por los próximos horarios.", 7.8, C_AMBER_)
 
-    # 5. estado de cuenta: PRIMERO la deuda total proyectada (sin importar el período), DESPUÉS lo del período
+    # 5. estado de cuenta: PRIMERO la deuda total (sin importar el período), DESPUÉS lo del período
     _titulo(P, '5. Estado de cuenta', C_AMBER_)
     dd = a['deuda']
     _caja_deuda(P, a, familia=True)
@@ -304,7 +322,7 @@ def _secciones(P, a, paciente):
     if M['atendidas'] and M['puntualidad'] < 70:
         sug.append("Llegar unos minutos antes permite aprovechar completo el tiempo de la sesión.")
     if dd['tiene_deuda']:
-        sug.append(f"La deuda total proyectada es de {BS(dd['total'])} (lo realizado hasta hoy y lo agendado). Puede consultarla o regularizarla en recepción.")
+        sug.append(f"La deuda total es de {BS(dd['total'])} (lo realizado hasta hoy y lo agendado). Puede consultarla o regularizarla en recepción.")
     if a['riesgo']['mens_sin_renovar'] and a['riesgo']['nivel'] != 'inactivo':
         sug.append("Recuerde renovar la mensualidad de este mes para mantener la continuidad de las terapias.")
     if a['clinico']['docs_familia']:

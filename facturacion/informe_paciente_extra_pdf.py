@@ -221,12 +221,16 @@ def _caja_deuda(P, a, familia=False):
     c.roundRect(ML, y - 2.7 * cm, CW, 2.7 * cm, 9, fill=1, stroke=0)
     c.setFillColor(colors.white)
     c.setFont('Helvetica-Bold', 8)
-    c.drawString(ML + 0.6 * cm, y - 0.65 * cm, 'DEUDA TOTAL PROYECTADA' if hay else ('SALDO A FAVOR' if dd['a_favor'] else 'SIN DEUDA'))
+    _tit = 'DEUDA TOTAL' if familia else 'DEUDA TOTAL PROYECTADA'
+    c.drawString(ML + 0.6 * cm, y - 0.65 * cm, _tit if hay else ('SALDO A FAVOR' if dd['a_favor'] else 'SIN DEUDA'))
     c.setFont('Helvetica-Bold', 24)
     c.drawString(ML + 0.6 * cm, y - 1.55 * cm, BS(dd['total'] if hay else dd['a_favor']))
     c.setFont('Helvetica', 6.8)
-    ln = _lineas('Incluye lo realizado hasta hoy y lo agendado (sesiones programadas, mensualidades y proyectos), menos lo pagado. '
-                 'No depende del período seleccionado.', 'Helvetica', 6.8, 8.0 * cm)
+    _desc = ('Es el total pendiente de pago: lo realizado hasta hoy y lo agendado (sesiones programadas, mensualidades y proyectos), menos lo que ya se pagó.'
+             if familia else
+             'Incluye lo realizado hasta hoy y lo agendado (sesiones programadas, mensualidades y proyectos), menos lo pagado. '
+             'No depende del período seleccionado.')
+    ln = _lineas(_desc, 'Helvetica', 6.8, 8.0 * cm)
     for i, t in enumerate(ln[:3]):
         c.drawString(ML + 0.6 * cm, y - 2.0 * cm - i * 0.3 * cm, t)
     items = [('Realizado hasta hoy (pendiente)', dd['actual']), ('Agendado por consumir (pendiente)', dd['prog'])]
@@ -257,7 +261,7 @@ def _detalle_deuda(P, a, familia=False):
         filas.append(['(-) Crédito a favor aplicado', '', '', fm(dd['credito_aplicado'])])
     if dd['ajuste']:
         filas.append(['(+/-) Ajustes por sobrepagos, devoluciones u otros', '', '', fm(dd['ajuste'])])
-    filas.append(['= DEUDA TOTAL PROYECTADA', '', '', fm(dd['total'])])
+    filas.append(['= DEUDA TOTAL' if familia else '= DEUDA TOTAL PROYECTADA', '', '', fm(dd['total'])])
     _tabla_p(P, ['Concepto', 'Valor', 'Pagado', 'Pendiente'], filas, [8.2 * cm, 3.2 * cm, 3.2 * cm, 3.4 * cm])
     if not familia:
         _subtitulo(P, 'Antigüedad de lo ya realizado y no pagado')
