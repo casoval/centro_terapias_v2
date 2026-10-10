@@ -51,7 +51,7 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(ML + 3.5 * cm, PAGE_H - 4.0 * cm, "INFORME DE SEGUIMIENTO PARA LA FAMILIA")
     c.setFont("Helvetica", 8)
-    c.drawString(ML + 3.5 * cm, PAGE_H - 4.6 * cm, "Asistencia, próximas sesiones, estado de cuenta y plan de trabajo")
+    c.drawString(ML + 3.5 * cm, PAGE_H - 4.6 * cm, "Asistencia, próximas sesiones y estado de cuenta")
     ty = PAGE_H - 7.4 * cm
     c.setFillColor(C_FONDO)
     c.roundRect(ML, ty - 3.2 * cm, CW, 3.2 * cm, 8, fill=1, stroke=0)
@@ -59,8 +59,13 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
     c.setFont("Helvetica-Bold", 8)
     c.drawString(ML + 0.6 * cm, ty - 0.8 * cm, "PACIENTE")
     c.setFillColor(C_TEXTO)
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(ML + 0.6 * cm, ty - 1.7 * cm, str(pac)[:40])
+    from reportlab.pdfbase.pdfmetrics import stringWidth as _sw
+    _nom = str(pac)
+    _fs = 20
+    while _fs > 11 and _sw(_nom, "Helvetica-Bold", _fs) > CW - 1.2 * cm:
+        _fs -= 0.5
+    c.setFont("Helvetica-Bold", _fs)
+    c.drawString(ML + 0.6 * cm, ty - 1.7 * cm, _nom)
     c.setFillColor(C_PRI)
     c.setFont("Helvetica-Bold", 8)
     c.drawString(ML + 0.6 * cm, ty - 2.3 * cm, "PERÍODO")
@@ -77,19 +82,6 @@ def _portada(c, pac, periodo_txt, fecha, a=None):
                "Ante cualquier consulta, puede comunicarse con recepción."):
         c.drawString(ML + 0.3 * cm, y, ln)
         y -= 0.55 * cm
-    if a and a.get('deuda'):
-        dd = a['deuda']
-        by = y - 0.6 * cm
-        hay = dd['tiene_deuda']
-        c.setFillColor(colors.HexColor('#b91c1c') if hay else colors.HexColor('#15803d'))
-        c.roundRect(ML, by - 2.3 * cm, CW, 2.3 * cm, 9, fill=1, stroke=0)
-        c.setFillColor(C_BLANCO)
-        c.setFont("Helvetica-Bold", 8.5)
-        c.drawString(ML + 0.6 * cm, by - 0.65 * cm, "DEUDA TOTAL PROYECTADA" if hay else ("SALDO A FAVOR" if dd['a_favor'] else "SIN DEUDA"))
-        c.setFont("Helvetica-Bold", 24)
-        c.drawString(ML + 0.6 * cm, by - 1.55 * cm, BS(dd['total'] if hay else dd['a_favor']))
-        c.setFont("Helvetica", 7.2)
-        c.drawString(ML + 0.6 * cm, by - 2.0 * cm, "Incluye lo realizado hasta hoy y lo agendado (sesiones programadas, mensualidades y proyectos). No depende del período.")
     c.setFont("Helvetica-Oblique", 7)
     c.setFillColor(C_MUTED)
     c.drawString(ML, 2.4 * cm, f"Emitido el {fecha}. Documento para uso de la familia del paciente.")
@@ -205,10 +197,9 @@ def _registro_asistencia(P, a):
 
 
 def _secciones(P, a, paciente):
-    M, cb, pl, pr, cu, sv = a['M'], a['cobranza'], a['plan'], a['proximas'], a.get('cuenta'), a['servicios']
+    M, cb, pr, cu, sv = a['M'], a['cobranza'], a['proximas'], a.get('cuenta'), a['servicios']
     t = cb['tot']
     # 1. resumen
-    _caja_deuda(P, a, familia=True)
     _titulo(P, '1. Resumen del período', C_PRI)
     _grilla_p(P, [
         ('Sesiones a las que asistió', str(M['atendidas']), f"de {M['base']} sesiones que debía tener", C_VERDE),
@@ -261,19 +252,8 @@ def _secciones(P, a, paciente):
     _parrafo(P, "La deuda total proyectada de arriba no depende del período: incluye todo lo realizado hasta hoy y lo agendado. "
                 "Para regularizar un saldo o resolver dudas sobre un pago, puede acercarse a recepción.", 7.4, C_MUTED, 'Helvetica-Oblique')
 
-    # 5. plan de trabajo
-    vigentes = [x for x in pl['planes'] if x['vigente']]
-    _titulo(P, '6. Plan de trabajo', C_MORADO)
-    if vigentes:
-        _tabla_p(P, ['Área de intervención', 'Frecuencia', 'Profesional', 'Vigencia', 'Próxima revisión'],
-                 [[x['area'], x['frecuencia'], x['prof'] or '-', f"{fd(x['inicio']) if x['inicio'] else ''} - {fd(x['fin']) if x['fin'] else 'abierto'}",
-                   fd(x['revision']) if x['revision'] else '-'] for x in vigentes],
-                 [3.8 * cm, 3.4 * cm, 4.0 * cm, 3.8 * cm, 3.0 * cm], fsize=6.9)
-    else:
-        _parrafo(P, "Por el momento no hay un plan de trabajo vigente registrado. Consulte en recepción.", 7.6, C_TSEC)
-
     # 6. sugerencias
-    _titulo(P, '7. Sugerencias para la familia', C_VERDE)
+    _titulo(P, '6. Sugerencias para la familia', C_VERDE)
     sug = []
     if pr['items']:
         p0 = pr['items'][0]
@@ -288,9 +268,6 @@ def _secciones(P, a, paciente):
         sug.append(f"La deuda total proyectada es de {BS(dd['total'])} (lo realizado hasta hoy y lo agendado). Puede consultarla o regularizarla en recepción.")
     if a['riesgo']['mens_sin_renovar'] and a['riesgo']['nivel'] != 'inactivo':
         sug.append("Recuerde renovar la mensualidad de este mes para mantener la continuidad de las terapias.")
-    rev = [x for x in vigentes if x['revision'] and 0 <= (x['revision'] - a['hoy']).days <= 30]
-    if rev:
-        sug.append(f"La revisión del plan de trabajo ({rev[0]['area']}) está prevista para el {fd(rev[0]['revision'])}.")
     if a['clinico']['docs_familia']:
         sug.append(f"Hay {a['clinico']['docs_familia']} documento(s) disponible(s) para ustedes. Consulte en recepción o en la plataforma.")
     sug.append("Ante cualquier duda sobre el proceso terapéutico, converse con el profesional a cargo o con recepción.")

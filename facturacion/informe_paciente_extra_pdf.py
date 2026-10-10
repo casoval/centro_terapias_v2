@@ -299,7 +299,6 @@ def seccion_A(pages_data, ctx, helpers):
     P = _Pag(pages_data, helpers).nueva()
     _titulo(P, 'A. Decisión: ¿cómo está este paciente?', C_PRI)
     sm, rg, vl, M = a['semaforo'], a['riesgo'], a['valor'], a['M']
-    _caja_deuda(P, a)
     _veredicto(P, sm)
     for crit in sm['criterios']:
         _fila_criterio(P, crit)

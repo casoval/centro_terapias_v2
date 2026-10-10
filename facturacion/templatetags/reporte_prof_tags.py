@@ -291,7 +291,7 @@ AYUDA.update({
     'su_cb_periodo': "Dinero (efectivo, QR, transferencia…) recibido DENTRO del período por sesiones realizadas, mensualidades o proyectos de este período. En paquetes se cuenta el pago completo recibido. No incluye lo pagado antes del período ni el uso de crédito, por eso puede diferir de «Cobrado de lo generado».",
     'su_cb_puente': "Explica la diferencia entre las dos cifras: se parte de «Cobrado de lo generado», se restan lo pagado antes, lo pagado después y el uso de crédito (no entran a la caja de este período) y la última línea ajusta los paquetes, donde la caja cuenta el pago completo y el generado solo la parte devengada. Siempre cierra exacto.",
     # ══ AYUDA DEL REPORTE POR PACIENTE (claves con prefijo pa_) ══
-    'pa_pdf_familia': "PDF amable para entregar al tutor: asistencia, sesiones, próximas citas, estado de cuenta y plan de trabajo. NO incluye datos internos como riesgo de abandono, rentabilidad, descuentos, mora ni notas clínicas.",
+    'pa_pdf_familia': "PDF amable para entregar al tutor: asistencia, sesiones, próximas citas y estado de cuenta. NO incluye datos internos como riesgo de abandono, rentabilidad, descuentos, mora ni notas clínicas.",
     'pa_f_avanzados': "Filtros por servicio, profesional, sucursal y tipo de atención, costo por hora para calcular la rentabilidad y umbrales del riesgo de abandono.",
     'pa_f_filtros': "Limitan las sesiones (y las estadísticas y el análisis que salen de ellas). Los pagos, proyectos y mensualidades se muestran completos. El riesgo de abandono siempre usa el historial completo.",
     'pa_f_costo': "Opcional. Cuánto le cuesta al centro cada hora de atención (Bs.). Con eso se estima el margen del paciente: generado menos horas atendidas × costo por hora.",
