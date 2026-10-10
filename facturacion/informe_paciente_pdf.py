@@ -486,6 +486,14 @@ def _portada(c, pac, periodo_txt, fecha_emision, ctx):
     c.setFont("Helvetica", 8.5)
     c.setFillColor(C_MUTED)
     c.drawCentredString(PAGE_W / 2, ty - 3.15 * cm, f"Documento generado el {fecha_emision}")
+    if pac is not None and getattr(pac, 'estado', 'activo') != 'activo':
+        tag = "PACIENTE INACTIVO"
+        c.setFont("Helvetica-Bold", 9)
+        tw_ = stringWidth(tag, "Helvetica-Bold", 9) + 0.8 * cm
+        c.setFillColor(C_ROJO)
+        c.roundRect(PAGE_W / 2 - tw_ / 2, ty - 3.85 * cm, tw_, 0.55 * cm, 6, fill=1, stroke=0)
+        c.setFillColor(C_BLANCO)
+        c.drawCentredString(PAGE_W / 2, ty - 3.68 * cm, tag)
 
     # ── Caja KPIs portada ────────────────────────────────────────────
     stats = (ctx.get('datos') or {}).get('stats') or {}
@@ -1611,6 +1619,9 @@ def _seccion_detalle_sesiones(pages_data, ctx, helpers):
 # FUNCIÓN PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────
 
+from . import informe_paciente_extra_pdf as _extra   # noqa: E402  (secciones de análisis A-D)
+
+
 def generar_informe_paciente_pdf(context):
     """
     Genera el informe completo individual de paciente en PDF.
@@ -1625,7 +1636,7 @@ def generar_informe_paciente_pdf(context):
     fecha_desde = str(context.get('fecha_desde', ''))
     fecha_hasta = str(context.get('fecha_hasta', ''))
 
-    nombre_pac  = str(pac) if pac else '—'
+    nombre_pac  = (str(pac) + ('  [INACTIVO]' if getattr(pac, 'estado', 'activo') != 'activo' else '')) if pac else '—'
     titulo      = "INFORME DE PACIENTE"
 
     # Período legible
@@ -1680,14 +1691,19 @@ def generar_informe_paciente_pdf(context):
     _portada(c, pac, periodo_txt, fecha_emision, context)
     pages_data.append(1)
 
+    _extra.seccion_A(pages_data, context, helpers)
     _seccion_perfil(pages_data, context, helpers)
     _seccion_financiero(pages_data, context, helpers)
+    _extra.seccion_B(pages_data, context, helpers)
     _seccion_asistencia(pages_data, context, helpers)
     _seccion_evolucion(pages_data, context, helpers)
+    _extra.seccion_C(pages_data, context, helpers)
     _seccion_proyectos(pages_data, context, helpers)
     _seccion_mensualidades(pages_data, context, helpers)
     _seccion_pagos(pages_data, context, helpers)
     _seccion_devoluciones(pages_data, context, helpers)
+    _extra.seccion_D(pages_data, context, helpers)
+    _extra.seccion_E(pages_data, context, helpers)
     _seccion_detalle_sesiones(pages_data, context, helpers)
 
     total_pages = pc[0]
@@ -1729,14 +1745,19 @@ def generar_informe_paciente_pdf(context):
     _pie(c2, 1, total_pages, fecha_emision)
     pages_data2.append(1)
 
+    _extra.seccion_A(pages_data2, context, helpers2)
     _seccion_perfil(pages_data2, context, helpers2)
     _seccion_financiero(pages_data2, context, helpers2)
+    _extra.seccion_B(pages_data2, context, helpers2)
     _seccion_asistencia(pages_data2, context, helpers2)
     _seccion_evolucion(pages_data2, context, helpers2)
+    _extra.seccion_C(pages_data2, context, helpers2)
     _seccion_proyectos(pages_data2, context, helpers2)
     _seccion_mensualidades(pages_data2, context, helpers2)
     _seccion_pagos(pages_data2, context, helpers2)
     _seccion_devoluciones(pages_data2, context, helpers2)
+    _extra.seccion_D(pages_data2, context, helpers2)
+    _extra.seccion_E(pages_data2, context, helpers2)
     _seccion_detalle_sesiones(pages_data2, context, helpers2)
 
     c2.save()

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load reporte_prof_tags %}
 {% block title %}Reporte Paciente — {{ paciente.nombre_completo|default:"Seleccionar" }}{% endblock %}
 {% block content %}
 <style>
@@ -235,6 +236,69 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 
 /* 📱 móvil: etiquetas/encabezados legibles (antes ~9–10px) */
 @media(max-width:640px){ .pg-lbl,.mc-label,.fi-label,.tbl th,.tbl td{font-size:.7rem} }
+
+/* ══ ANÁLISIS AMPLIADO (decisión, riesgo, cobranza, plan, seguimiento) ══ */
+.pa-verdict{border-radius:var(--r-lg);padding:16px 20px;margin-bottom:12px;color:#fff;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.pa-score{font-size:2.4rem;font-weight:700;font-family:'DM Mono',monospace;line-height:1}
+.pa-crit{display:grid;grid-template-columns:14px 1.3fr 1.2fr 2fr;gap:10px;align-items:start;padding:9px 4px;border-bottom:1px solid var(--border2);font-size:.74rem}
+.pa-crit:last-child{border-bottom:none}
+.pa-dot{width:12px;height:12px;border-radius:50%;margin-top:3px}
+.pa-crit small{display:block;color:var(--muted);font-size:.63rem;margin-top:2px}
+@media(max-width:700px){.pa-crit{grid-template-columns:14px 1fr}.pa-crit>div:nth-child(n+3){grid-column:2}}
+.pa-alert{padding:9px 12px;border-radius:9px;font-size:.76rem;margin-bottom:6px;border-left:4px solid var(--blue);background:var(--blue-ll);color:#1e3a8a}
+.pa-alert.alerta{background:var(--red-ll);border-color:var(--red);color:#7f1d1d}
+.pa-alert.ok{background:var(--green-ll);border-color:var(--green);color:#14532d}
+.pa-alert.nota{background:var(--amber-ll);border-color:var(--amber);color:#78350f}
+.pa-alert .acc{display:block;font-size:.68rem;margin-top:3px;opacity:.85}
+.pa-note{font-size:.69rem;color:var(--muted);margin:4px 0 10px;line-height:1.45}
+.pa-pbar{height:7px;background:var(--border);border-radius:10px;overflow:hidden}.pa-pbar>div{height:100%;border-radius:10px}
+.pa-up{color:var(--green)}.pa-down{color:var(--red)}
+.pa-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.pa-kv>div{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px}
+.pa-kv b{display:block;font-size:1.05rem;font-family:'DM Mono',monospace;color:var(--ink)}
+.pa-kv span{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pa-risk{border-radius:var(--r-lg);padding:14px 16px;border:2px solid;margin-bottom:12px}
+.pa-heat{border-collapse:separate;border-spacing:2px;font-size:.62rem;width:100%}
+.pa-heat td{height:30px;text-align:center;border-radius:5px;font-weight:700}
+.pa-heat th{font-size:.58rem;color:var(--muted);font-weight:600}
+.pa-heat td.off{background:var(--surface2);color:#cbd5e1}
+.pa-cal{border-collapse:separate;border-spacing:3px;width:100%;font-size:.68rem}
+.pa-cal th{font-size:.58rem;color:var(--muted);text-transform:uppercase}
+.pa-cal td{height:34px;text-align:center;border-radius:6px;background:var(--surface);color:var(--ink2);position:relative}
+.pa-cal td.on{color:#fff;font-weight:700}
+.pa-cal td.out{background:transparent}
+.pa-cal td sup{font-size:.5rem;position:absolute;top:2px;right:4px;opacity:.9}
+.pa-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.66rem;color:var(--ink2);margin-top:8px}
+.pa-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.pa-tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.pa-tab{padding:6px 14px;border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-family:inherit}
+.pa-tab.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pa-tl{position:relative;margin:0;padding:0 0 0 22px;list-style:none}
+.pa-tl::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.pa-tl li{position:relative;padding:0 0 12px 8px;font-size:.76rem}
+.pa-tl li::before{content:'';position:absolute;left:-18px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 1px var(--border)}
+.pa-tl li.fut::before{background:#fff;border-color:var(--blue)}
+.pa-tl .d{font-size:.64rem;color:var(--muted);font-family:'DM Mono',monospace}
+.pa-adv{width:100%;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px}
+.pa-adv summary{cursor:pointer;font-size:.74rem;font-weight:700;color:var(--ink2)}
+.pa-fgrid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:flex-end}
+.inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#e0e7ff;color:#3730a3;font:700 9px/1 'DM Mono',monospace;font-style:normal;margin-left:5px;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle;flex-shrink:0;user-select:none;transition:.15s}
+.inf:hover,.inf:focus,.inf.on{background:#4f46e5;color:#fff;outline:none}
+.pa-verdict .inf,.hero .inf{background:rgba(255,255,255,.28);color:#fff}
+#tip{position:fixed;z-index:99999;max-width:340px;background:#0f172a;color:#f8fafc;font:500 .72rem/1.5 'DM Sans',sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;white-space:pre-line;text-transform:none;letter-spacing:0}
+@media print{.pa-tabs{display:none}}
+
+.pa-inactivo{background:linear-gradient(90deg,#fee2e2,#fff);border:1px solid #fca5a5;border-left:6px solid #dc2626;border-radius:12px;padding:10px 16px;margin-bottom:12px;color:#7f1d1d;font-size:.8rem}
+.pa-stack{display:flex;height:22px;border-radius:7px;overflow:hidden;background:var(--border);margin:6px 0}
+.pa-chipw{display:inline-block;background:var(--blue-ll);color:#1e3a8a;border-radius:20px;padding:2px 10px;font-size:.68rem;font-weight:600;margin:2px 3px 2px 0}
+.pa-chipw b{font-family:'DM Mono',monospace;margin-left:4px;color:var(--blue)}
+.pa-nota{border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:9px;padding:8px 11px;margin:6px 0;background:var(--surface);font-size:.76rem}
+.pa-nota.t-favorable{border-left-color:var(--green)}.pa-nota.t-dificultades{border-left-color:var(--red)}.pa-nota.t-mixta{border-left-color:var(--amber)}.pa-nota.t-neutra{border-left-color:#94a3b8}
+.pa-nota .h{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:.64rem;color:var(--muted);margin-bottom:4px;font-family:'DM Mono',monospace}
+.pa-nota .tx{white-space:pre-wrap;color:var(--ink2);line-height:1.5}
+.pa-notas>summary{cursor:pointer;font-size:.76rem;font-weight:700;color:var(--blue);padding:6px 0}
+.pa-search{padding:8px 11px;border:1px solid var(--border);border-radius:9px;font-size:.78rem;min-width:260px;font-family:inherit}
+@media print{.pa-notas{display:block}.pa-search{display:none}}
 </style>
 
 <div class="wrap">
@@ -245,8 +309,10 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
     <a href="{% url 'facturacion:dashboard_reportes' %}" class="back-link">← Reportes</a>
     <div class="hero-actions">
       {% if paciente %}
-      <a href="?paciente={{ paciente.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&export=pdf"
-         target="_blank" class="btn-ghost">📄 Exportar PDF</a>
+      <a href="?paciente={{ paciente.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&servicio={{ f_servicio }}&profesional={{ f_profesional }}&sucursal={{ f_sucursal }}&tipo={{ f_tipo }}&costo_hora={{ costo_hora_ }}&umbral_obs={{ umbral_obs_ }}&umbral_riesgo={{ umbral_riesgo_ }}&export=pdf"
+         target="_blank" class="btn-ghost">📄 PDF interno</a>
+      {% if a %}<a href="?paciente={{ paciente.id }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&servicio={{ f_servicio }}&profesional={{ f_profesional }}&sucursal={{ f_sucursal }}&tipo={{ f_tipo }}&export=pdf&version=familia"
+         target="_blank" class="btn-ghost" title="Resumen amable para el tutor: sin datos internos (riesgo, rentabilidad, descuentos)">👪 PDF para la familia {% ayuda "pa_pdf_familia" %}</a>{% endif %}
       {% endif %}
       <button onclick="window.print()" class="btn-ghost">🖨️ Imprimir</button>
     </div>
@@ -271,31 +337,61 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 
 <!-- ══ FILTER BAR ═════════════════════════════════════════════════════════════ -->
 <div class="filter-bar no-print">
-  <form method="get">
+  <form method="get" id="frm-pac">
+    <input type="hidden" name="f" value="1">
     <div class="fg">
       <label>Paciente</label>
       <select name="paciente" id="sel-paciente" onchange="cambiarPaciente(this.value)">
         <option value="">— Seleccionar paciente —</option>
-        {% for p in pacientes %}
+        {% if pacientes_activos %}<optgroup label="Pacientes activos ({{ pacientes_activos|length }})">
+        {% for p in pacientes_activos %}
         <option value="{{ p.id }}" {% if paciente and paciente.id == p.id %}selected{% endif %}>
           {{ p.apellido }}, {{ p.nombre }}</option>
-        {% endfor %}
+        {% endfor %}</optgroup>{% endif %}
+        {% if pacientes_inactivos %}<optgroup label="⛔ Pacientes INACTIVOS ({{ pacientes_inactivos|length }})">
+        {% for p in pacientes_inactivos %}
+        <option value="{{ p.id }}" style="color:#b91c1c" {% if paciente and paciente.id == p.id %}selected{% endif %}>
+          ⛔ {{ p.apellido }}, {{ p.nombre }} (inactivo)</option>
+        {% endfor %}</optgroup>{% endif %}
       </select>
     </div>
     <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" id="inp-desde" value="{{ fecha_desde }}"></div>
     <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" id="inp-hasta" value="{{ fecha_hasta }}"></div>
     <button type="submit" class="btn-primary">🔍 Ver reporte</button>
-    <a href="?{% if paciente %}paciente={{ paciente.id }}{% endif %}" class="btn-clear" title="Limpiar filtros de fecha">✕ Limpiar filtros</a>
+    <a href="?{% if paciente %}paciente={{ paciente.id }}{% endif %}" class="btn-clear" title="Limpiar filtros">✕ Limpiar filtros</a>
+    {% if a %}
+    <details class="pa-adv" {% if f_servicio or f_profesional or f_sucursal or f_tipo or costo_hora_ %}open{% endif %}>
+      <summary>🎛️ Filtros avanzados y parámetros {% ayuda "pa_f_avanzados" %}</summary>
+      <div class="pa-fgrid">
+        <div class="fg"><label>Servicio {% ayuda "pa_f_filtros" %}</label>
+          <select name="servicio"><option value="">Todos</option>{% for x in opciones_filtro.servicios %}<option value="{{ x.id }}" {% if f_servicio == x.id|stringformat:"s" %}selected{% endif %}>{{ x.nombre }}</option>{% endfor %}</select></div>
+        <div class="fg"><label>Profesional</label>
+          <select name="profesional"><option value="">Todos</option>{% for x in opciones_filtro.profesionales %}<option value="{{ x.id }}" {% if f_profesional == x.id|stringformat:"s" %}selected{% endif %}>{{ x.nombre_completo }}</option>{% endfor %}</select></div>
+        <div class="fg"><label>Sucursal</label>
+          <select name="sucursal"><option value="">Todas</option>{% for x in opciones_filtro.sucursales %}<option value="{{ x.id }}" {% if f_sucursal == x.id|stringformat:"s" %}selected{% endif %}>{{ x.nombre }}</option>{% endfor %}</select></div>
+        <div class="fg"><label>Tipo de atención</label>
+          <select name="tipo"><option value="">Todos</option><option value="individual" {% if f_tipo == 'individual' %}selected{% endif %}>Sesiones individuales</option><option value="proyecto" {% if f_tipo == 'proyecto' %}selected{% endif %}>Proyectos</option><option value="mensualidad" {% if f_tipo == 'mensualidad' %}selected{% endif %}>Mensualidades</option></select></div>
+        <div class="fg"><label>Costo por hora (Bs.) {% ayuda "pa_f_costo" %}</label><input type="number" step="0.01" min="0" name="costo_hora" value="{{ costo_hora_ }}" placeholder="opcional" style="min-width:110px"></div>
+        <div class="fg"><label>Observación desde (días) {% ayuda "pa_f_umbral" %}</label><input type="number" min="1" name="umbral_obs" value="{{ umbral_obs_ }}" style="min-width:90px"></div>
+        <div class="fg"><label>Riesgo desde (días)</label><input type="number" min="1" name="umbral_riesgo" value="{{ umbral_riesgo_ }}" style="min-width:90px"></div>
+        <div class="fg"><label>&nbsp;</label><label style="display:flex;gap:5px;align-items:center;text-transform:none;font-size:.72rem"><input type="checkbox" name="comparar" value="1" {% if comparar_ %}checked{% endif %}> Comparar con período anterior y centro</label></div>
+      </div>
+      <p class="pa-note">Los filtros afectan las sesiones, las estadísticas y el análisis. Los pagos, proyectos y mensualidades se muestran completos. El riesgo de abandono usa siempre el historial completo del paciente.</p>
+    </details>
+    {% endif %}
   </form>
   {% if paciente %}
   <div class="quick-ranges">
     <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);align-self:center">Rangos rápidos:</span>
+    <button class="qbtn" onclick="setRangoSemana()">Esta semana</button>
     <button class="qbtn" onclick="setRango(30)">30 días</button>
     <button class="qbtn" onclick="setRango(90)">3 meses</button>
     <button class="qbtn" onclick="setRango(180)">6 meses</button>
     <button class="qbtn" onclick="setRango(365)">1 año</button>
     <button class="qbtn" onclick="setRangoMes()">Mes actual</button>
+    <button class="qbtn" onclick="setRangoMesAnterior()">Mes anterior</button>
     <button class="qbtn" onclick="setRangoAnio()">Año actual</button>
+    <button class="qbtn" onclick="setTodo()">Todo el historial</button>
   </div>
   {% endif %}
 </div>
@@ -310,6 +406,9 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% else %}
 
 <!-- ══ PATIENT CARD ═══════════════════════════════════════════════════════════ -->
+{% if paciente_inactivo %}
+<div class="pa-inactivo">⛔ <b>PACIENTE INACTIVO</b> — figura como inactivo en el sistema. Este informe es histórico: no se evalúa riesgo de abandono, pero sí se revisa la cobranza pendiente. {% ayuda "pa_inactivo" %}</div>
+{% endif %}
 <div class="pac-card">
   <div class="pac-avatar">
     {% if paciente.foto %}
@@ -320,7 +419,7 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
     <p class="pac-name">{{ paciente.nombre_completo }}</p>
     <div class="pac-chips">
       <span class="chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">
-        {{ paciente.get_estado_display }}</span>
+        {% if paciente.estado == 'activo' %}{{ paciente.get_estado_display }}{% else %}⛔ {{ paciente.get_estado_display|upper }}{% endif %}</span>
       {% if paciente.edad %}<span class="chip">{{ paciente.edad }} años</span>{% endif %}
       {% if paciente.genero %}<span class="chip">{{ paciente.get_genero_display }}</span>{% endif %}
       {% if paciente.ci %}<span class="chip blue">CI: {{ paciente.ci }}</span>{% endif %}
@@ -551,6 +650,68 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% endwith %}
 
 <!-- ══ PERÍODO — KPIs FINANCIEROS ════════════════════════════════════════════ -->
+{% if a %}{% with rg=a.riesgo vl=a.valor cb=a.cobranza M=a.M %}
+<!-- ══ A · DECISIÓN, RIESGO Y VALOR ══ -->
+<div class="sec-hdr"><h2>🚦 Decisión: ¿cómo está este paciente? {% ayuda "pa_sec_decision" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="pa-verdict" style="background:{{ a.semaforo.color }}">
+  <div class="pa-score">{% if a.semaforo.score != None %}{{ a.semaforo.score }}<span style="font-size:1rem">/100</span>{% else %}—{% endif %}</div>
+  <div style="flex:1;min-width:240px"><div style="font-weight:700;font-size:1rem">{{ a.semaforo.msg }} {% ayuda "pa_semaforo" %}</div>
+    <div style="font-size:.72rem;opacity:.9;margin-top:4px">✔ {{ a.semaforo.n_verde }} en verde · ● {{ a.semaforo.n_ambar }} en ámbar · ✖ {{ a.semaforo.n_rojo }} en rojo · {{ a.semaforo.nota }}</div></div>
+</div>
+<div class="card">
+  {% for c in a.semaforo.criterios %}
+  <div class="pa-crit"><div class="pa-dot" style="background:{{ c.color }}"></div>
+    <div><b>{{ c.nombre }}</b><small>{{ c.regla }}</small></div>
+    <div class="mono" style="font-weight:700;color:{{ c.color }}">{{ c.valor }}</div>
+    <div style="color:var(--ink2)">{{ c.detalle }}</div></div>
+  {% empty %}<p class="pa-note">Sin datos suficientes para evaluar criterios.</p>{% endfor %}
+</div>
+
+{% if a.hallazgos %}
+<div class="card"><h3>💡 Hallazgos y acciones sugeridas {% ayuda "pa_hallazgos" %}</h3>
+  {% for h in a.hallazgos %}<div class="pa-alert {% if h.tipo != 'info' %}{{ h.tipo }}{% endif %}">{{ h.txt }}{% if h.accion %}<span class="acc">👉 {{ h.accion }}</span>{% endif %}</div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="pa-risk" style="background:{% if rg.nivel == 'alto' %}var(--red-ll);border-color:#fca5a5{% elif rg.nivel == 'medio' %}var(--amber-ll);border-color:#fcd34d{% elif rg.nivel == 'inactivo' %}var(--surface2);border-color:#94a3b8{% else %}var(--green-ll);border-color:#86efac{% endif %}">
+  <h3 style="margin:0 0 10px;display:flex;align-items:center;gap:8px;font-size:.85rem">{% if rg.nivel == 'inactivo' %}⛔ Estado del paciente{% else %}🧭 Riesgo de abandono{% endif %}
+    <span class="badge {% if rg.nivel == 'alto' %}badge-red{% elif rg.nivel == 'medio' %}badge-amber{% elif rg.nivel == 'inactivo' %}badge-slate{% else %}badge-green{% endif %}">{{ rg.nivel|upper }}</span> {% ayuda "pa_riesgo" %}</h3>
+  <div class="pa-kv">
+    <div><span>Última sesión asistida</span><b>{% if rg.ultima %}{{ rg.ultima|date:"d/m/Y" }}{% else %}—{% endif %}</b><span style="text-transform:none;letter-spacing:0">{% if rg.dias_sin != None %}hace {{ rg.dias_sin }} días{% endif %}</span></div>
+    <div><span>Próxima sesión</span><b>{% if rg.proxima %}{{ rg.proxima|date:"d/m/Y" }}{% else %}Sin agendar{% endif %}</b><span style="text-transform:none;letter-spacing:0">{% if rg.dias_a_proxima != None %}en {{ rg.dias_a_proxima }} días{% endif %}</span></div>
+    <div><span>Sesiones por semana</span><b>{{ rg.sem30|floatformat:1 }}</b><span style="text-transform:none;letter-spacing:0">30 días anteriores: {{ rg.sem30p|floatformat:1 }}{% if rg.variacion != None %} ({{ rg.variacion|signo }}%){% endif %}</span></div>
+    <div><span>Inasistencias seguidas</span><b>{{ rg.seg_faltas }}</b><span style="text-transform:none;letter-spacing:0">falta o permiso</span></div>
+    <div><span>Cancelaciones seguidas</span><b>{{ rg.seg_cancel }}</b><span style="text-transform:none;letter-spacing:0">por parte del centro</span></div>
+    <div><span>Mensualidad del mes</span><b>{% if rg.mens_sin_renovar %}Sin renovar{% else %}Al día{% endif %}</b></div>
+    <div><span>Tiempo de tratamiento</span><b>{{ rg.meses_trat }} meses</b><span style="text-transform:none;letter-spacing:0">{% if rg.primera %}desde {{ rg.primera|date:"d/m/Y" }}{% endif %}</span></div>
+  </div>
+  <ul style="margin:0 0 4px 16px;padding:0;font-size:.76rem;color:var(--ink2)">{% for m in rg.motivos %}<li>{{ m }}</li>{% endfor %}</ul>
+  {% if rg.nivel != 'inactivo' %}<p class="pa-note" style="margin-bottom:0">Umbrales: en observación a los {{ rg.umbral_obs }} días sin asistir y riesgo a los {{ rg.umbral_riesgo }} (sin sesiones agendadas). Se calcula con el historial completo.</p>{% endif %}
+</div>
+
+<div class="sec-hdr"><h2>💎 Valor del paciente y rentabilidad {% ayuda "pa_sec_valor" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="metric-grid">
+  <div class="metric-card"><div class="bar" style="background:var(--blue)"></div><div class="mc-label">Valor histórico {% ayuda "pa_valor_hist" %}</div><div class="mc-val">{{ vl.total_hist|bs }}</div><div class="mc-sub">sesiones {{ vl.ind_hist|bs }} · mensualidades {{ vl.mens_hist|bs }} · proyectos {{ vl.proy_hist|bs }}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--teal)"></div><div class="mc-label">Promedio mensual</div><div class="mc-val">{{ vl.prom_mensual|bs }}</div><div class="mc-sub">en {{ vl.meses }} meses de tratamiento</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--purple)"></div><div class="mc-label">Ingreso por hora {% ayuda "pa_ing_hora" %}</div><div class="mc-val">{{ vl.ing_hora|bs }}</div><div class="mc-sub">{{ vl.horas }} h en el período{% if a.comparacion %} · centro (individual) {{ a.comparacion.centro.ing_hora|bs }}{% endif %}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--amber)"></div><div class="mc-label">Generado en el período</div><div class="mc-val">{{ a.gen.total|bs }}</div><div class="mc-sub">ind. {{ a.gen.ind|bs }} · proy. {{ a.gen.gen_proy|bs }} · mens. {{ a.gen.gen_mens|bs }}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--slate)"></div><div class="mc-label">Posición entre pacientes {% ayuda "pa_ranking" %}</div><div class="mc-val">{% if vl.ranking %}{{ vl.ranking.pos }}°{% else %}—{% endif %}</div><div class="mc-sub">{% if vl.ranking %}de {{ vl.ranking.de }} por ingreso en sesiones individuales{% else %}sin ingreso individual en el período{% endif %}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--red)"></div><div class="mc-label">Dejado de cobrar {% ayuda "pa_descuentos" %}</div><div class="mc-val">{{ vl.dejado|bs }}</div><div class="mc-sub">{{ vl.pct_dejado|floatformat:1 }}% de lo que correspondía</div></div>
+  {% if vl.margen != None %}<div class="metric-card"><div class="bar" style="background:{% if vl.margen >= 0 %}var(--green){% else %}var(--red){% endif %}"></div><div class="mc-label">Margen estimado {% ayuda "pa_rentab" %}</div><div class="mc-val {% if vl.margen >= 0 %}pa-up{% else %}pa-down{% endif %}">{{ vl.margen|bsd }}</div><div class="mc-sub">{{ vl.margen_pct|floatformat:1 }}% · costo Bs. {{ vl.costo|bs }} ({{ vl.horas }} h × {{ vl.costo_hora|bs }})</div></div>{% endif %}
+</div>
+{% if vl.dejado or vl.exen_v %}
+<div class="card"><h3>🏷️ Descuentos, gratuidades y exenciones del período {% ayuda "pa_exenciones" %}</h3>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Concepto</th><th class="money">Sesiones</th><th class="money">Monto Bs.</th></tr></thead><tbody>
+    <tr><td>Descuentos en sesiones cobradas (precio menor al acordado)</td><td class="money">—</td><td class="money">{{ vl.desc_ses|bs }}</td></tr>
+    <tr><td>Sesiones realizadas sin cobro (gratuitas)</td><td class="money">{{ vl.grat_n }}</td><td class="money">{{ vl.grat_v|bs }}</td></tr>
+    <tr><td>Paquetes con descuento (costo menor al original)</td><td class="money">—</td><td class="money">{{ vl.desc_paq|bs }}</td></tr>
+    <tr><td><b>Total dejado de cobrar</b></td><td></td><td class="money"><b>{{ vl.dejado|bs }}</b></td></tr>
+    <tr><td>Exenciones: permisos, cancelaciones o reprogramaciones sin cobro (no suman al total)</td><td class="money">{{ vl.exen_n }}</td><td class="money">{{ vl.exen_v|bs }}</td></tr>
+  </tbody></table></div>
+</div>
+{% endif %}
+{% endwith %}{% endif %}
+
 <div class="sec-hdr"><h2>💰 Financiero del Período</h2><div class="sec-hdr-line"></div></div>
 <div class="metric-grid">
   <div class="metric-card"><div class="bar" style="background:var(--blue)"></div>
@@ -607,6 +768,56 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% endif %}
 
 <!-- ══ KPIs ASISTENCIA ═══════════════════════════════════════════════════════ -->
+{% if a %}{% with cb=a.cobranza pr=a.proximas cu=a.cuenta %}
+<!-- ══ B · CUENTA CORRIENTE Y COBRANZA ══ -->
+<div class="sec-hdr"><h2>💳 Cuenta corriente y cobranza: lo generado vs. lo cobrado {% ayuda "pa_sec_cobranza" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="pa-alert"><b>Generado ≠ cobrado.</b> «Generado» es lo que el paciente consumió en el período (sesiones realizadas y su parte de proyectos y mensualidades), se haya pagado o no. «Cobrado» es el dinero recibido, con su fecha: antes del período (adelantado), durante o después (cobro tardío).</div>
+<div class="metric-grid">
+  <div class="metric-card"><div class="bar" style="background:var(--blue)"></div><div class="mc-label">Generado {% ayuda "pa_gen_cob" %}</div><div class="mc-val">{{ cb.tot.gen|bs }}</div><div class="mc-sub">devengado en el período</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--green)"></div><div class="mc-label">Cobrado de eso</div><div class="mc-val">{{ cb.tot.cobrado|bs }}</div><div class="mc-sub">{{ cb.tot.pct|floatformat:1 }}% · antes {{ cb.tot.antes|bs }} · en período {{ cb.tot.durante|bs }} · después {{ cb.tot.despues|bs }}</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--amber)"></div><div class="mc-label">Falta cobrar</div><div class="mc-val">{{ cb.tot.pend|bs }}</div><div class="mc-sub">{{ cb.n_pend_ses }} sesiones sin pagar por completo</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--red)"></div><div class="mc-label">Mora &gt; 30 días</div><div class="mc-val">{{ cb.mora30|bs }}</div><div class="mc-sub">{{ cb.pct_mora30|floatformat:1 }}% de lo generado</div></div>
+  <div class="metric-card"><div class="bar" style="background:var(--purple)"></div><div class="mc-label">Rapidez de pago {% ayuda "pa_dias_pago" %}</div><div class="mc-val">{% if cb.dias_pago_prom != None %}{{ cb.dias_pago_prom|floatformat:1 }} d{% else %}—{% endif %}</div><div class="mc-sub">{% if cb.pct_pago_7d != None %}{{ cb.pct_pago_7d|floatformat:0 }}% pagado en ≤ 7 días · {{ cb.pct_adelantado|floatformat:0 }}% por adelantado{% else %}sin sesiones pagadas{% endif %}</div></div>
+  {% if cu %}<div class="metric-card"><div class="bar" style="background:{% if cu.saldo_actual >= 0 %}var(--green){% else %}var(--red){% endif %}"></div><div class="mc-label">Cuenta corriente {% ayuda "pa_cuenta" %}</div><div class="mc-val {% if cu.saldo_actual >= 0 %}pa-up{% else %}pa-down{% endif %}">{{ cu.saldo_actual|bsd }}</div><div class="mc-sub">pagado {{ cu.total_pagado|bs }} − consumido {{ cu.consumido|bs }}{% if cu.credito %} · crédito {{ cu.credito|bs }}{% endif %}</div></div>{% endif %}
+</div>
+<div class="g2">
+  <div class="card"><h3>1 · De lo generado, ¿se cobró?</h3>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Tipo</th><th class="money">Generado</th><th class="money">Antes {% ayuda "pa_antes" %}</th><th class="money">En período</th><th class="money">Después {% ayuda "pa_despues" %}</th><th class="money">Falta</th><th class="money">% cobr.</th></tr></thead><tbody>
+    {% for f in cb.filas %}<tr><td><b>{{ f.nombre }}</b></td><td class="money">{{ f.gen|bs }}</td><td class="money">{{ f.antes|bs }}</td><td class="money">{{ f.durante|bs }}</td><td class="money">{{ f.despues|bs }}</td><td class="money"><b>{{ f.pend|bs }}</b></td><td class="money">{{ f.pct|floatformat:0 }}%</td></tr>{% endfor %}
+    <tr><td><b>Total</b></td><td class="money"><b>{{ cb.tot.gen|bs }}</b></td><td class="money">{{ cb.tot.antes|bs }}</td><td class="money">{{ cb.tot.durante|bs }}</td><td class="money">{{ cb.tot.despues|bs }}</td><td class="money"><b>{{ cb.tot.pend|bs }}</b></td><td class="money">{{ cb.tot.pct|floatformat:0 }}%</td></tr></tbody></table></div>
+    <p class="pa-note">El uso de crédito cuenta como pagado. En proyectos y mensualidades el cobro se estima proporcional al avance de pago de cada paquete.</p>
+  </div>
+  <div class="card"><h3>2 · Antigüedad de lo que falta cobrar {% ayuda "pa_aging" %}</h3>
+    {% for x in cb.aging %}<div style="margin:7px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ x.label }} <span style="color:var(--muted)">({{ x.n }})</span></span><span class="mono"><b>{{ x.monto|bs }}</b> · {{ x.pct|floatformat:0 }}%</span></div><div class="pa-pbar"><div style="width:{{ x.pct|pw }}%;background:{% if x.ini >= 31 %}var(--red){% elif x.ini >= 8 %}var(--amber){% else %}var(--green){% endif %}"></div></div></div>{% endfor %}
+    <p class="pa-note">La antigüedad se cuenta desde la fecha de la sesión (en paquetes, desde su inicio o desde el inicio del período).</p>
+  </div>
+</div>
+{% if cb.pend_ses %}
+<div class="card"><h3>3 · Sesiones pendientes de pago {% ayuda "pa_pend_ses" %}</h3>
+  <div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Servicio</th><th>Profesional</th><th class="money">Monto</th><th class="money">Pendiente</th><th>Antigüedad</th></tr></thead><tbody>
+  {% for x in cb.pend_ses %}<tr><td>{{ x.fecha|date:"d/m/Y" }}</td><td>{{ x.servicio }}</td><td>{{ x.prof }}</td><td class="money">{{ x.monto|bs }}</td><td class="money"><b>{{ x.pend|bs }}</b></td><td><span class="badge {% if x.dias > 30 %}badge-red{% elif x.dias > 7 %}badge-amber{% else %}badge-green{% endif %}">{{ x.dias }} días</span></td></tr>{% endfor %}</tbody></table></div>
+  {% if cb.n_pend_ses > 25 %}<p class="pa-note">Se muestran las 25 más antiguas de {{ cb.n_pend_ses }}.</p>{% endif %}
+</div>
+{% endif %}
+{% if a.paq_saldo %}
+<div class="card"><h3>4 · Proyectos y mensualidades con saldo {% ayuda "pa_paq_saldo" %}</h3>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Código</th><th>Detalle</th><th class="money">Valor</th><th class="money">Pagado</th><th class="money">Saldo</th><th>Antigüedad</th></tr></thead><tbody>
+  {% for x in a.paq_saldo %}<tr><td class="mono">{{ x.codigo }}</td><td>{{ x.nombre }} <span class="badge badge-slate">{% if x.clave == 'proyecto' %}Proyecto{% else %}Mensualidad{% endif %}</span></td><td class="money">{{ x.valor|bs }}</td><td class="money">{{ x.pagado|bs }}</td><td class="money"><b>{{ x.saldo|bs }}</b></td><td><span class="badge {% if x.dias > 30 %}badge-red{% else %}badge-amber{% endif %}">{{ x.dias }} días</span></td></tr>{% endfor %}</tbody></table></div>
+</div>
+{% endif %}
+<div class="card"><h3>🔮 Próximo cobro esperado {% ayuda "pa_proximo_cobro" %}</h3>
+  <div class="pa-kv">
+    <div><span>Sesiones agendadas</span><b>{{ pr.total }}</b><span style="text-transform:none;letter-spacing:0">{{ pr.n7 }} en 7 días · {{ pr.n30 }} en 30</span></div>
+    <div><span>Valor de sesiones individuales</span><b>{{ pr.esperado|bs }}</b></div>
+    <div><span>Ya pagado por adelantado</span><b>{{ pr.adelantado|bs }}</b></div>
+    <div><span>Por cobrar de lo agendado</span><b>{{ pr.por_cobrar|bs }}</b></div>
+    {% if pr.mens_prox %}<div><span>Mensualidad del mes</span><b>{{ pr.mens_prox|bs }}</b></div>{% endif %}
+    <div><span>Saldo pendiente de lo ya generado</span><b>{{ cb.tot.pend|bs }}</b></div>
+  </div>
+  <p class="pa-note" style="margin-bottom:0">Las sesiones de proyectos y mensualidades no se suman: ya están cubiertas por el costo fijo del paquete.</p>
+</div>
+{% endwith %}{% endif %}
+
 <div class="sec-hdr"><h2>📊 Estadísticas de Asistencia</h2><div class="sec-hdr-line"></div></div>
 <div class="metric-grid">
   <div class="metric-card"><div class="bar" style="background:var(--blue)"></div>
@@ -757,6 +968,77 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 </div>
 
 <!-- ══ PROYECTOS ══════════════════════════════════════════════════════════════ -->
+{% if a %}{% with M=a.M pt=a.patron pl=a.plan mt=a.motivos cp=a.comparacion %}
+<!-- ══ C · COMPORTAMIENTO, PLAN Y COMPARACIÓN ══ -->
+<div class="sec-hdr"><h2>📈 Comportamiento, comparación y plan {% ayuda "pa_sec_comport" %}</h2><div class="sec-hdr-line"></div></div>
+{% if cp %}
+<div class="card"><h3>⚖️ Comparación con {{ cp.etiqueta }} y con el promedio del centro {% ayuda "pa_comparacion" %}</h3>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Indicador</th><th class="money">Anterior</th><th class="money">Actual</th><th class="money">Variación</th><th class="money">Centro {% ayuda "pa_centro" %}</th></tr></thead><tbody>
+  {% for f in cp.filas %}<tr><td><b>{{ f.k }}</b></td>
+    <td class="money">{% if f.fmt == 'bs' %}{{ f.ant|bs }}{% elif f.fmt == 'pct' %}{{ f.ant|floatformat:1 }}%{% elif f.fmt == 'h' %}{{ f.ant }} h{% else %}{{ f.ant }}{% endif %}</td>
+    <td class="money"><b>{% if f.fmt == 'bs' %}{{ f.act|bs }}{% elif f.fmt == 'pct' %}{{ f.act|floatformat:1 }}%{% elif f.fmt == 'h' %}{{ f.act }} h{% else %}{{ f.act }}{% endif %}</b></td>
+    <td class="money {% if f.delta == 0 %}{% elif f.delta > 0 %}{% if f.sube_bien %}pa-up{% else %}pa-down{% endif %}{% else %}{% if f.sube_bien %}pa-down{% else %}pa-up{% endif %}{% endif %}">{% if f.fmt == 'bs' %}{{ f.delta|bsd }}{% elif f.fmt == 'pct' %}{{ f.delta|signo }} pts{% elif f.fmt == 'h' %}{{ f.delta|signo }} h{% else %}{{ f.delta|signo }}{% endif %}</td>
+    <td class="money">{% if f.centro != None %}{{ f.centro|floatformat:1 }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="pa-note">Verde = mejora, rojo = empeora (en faltas, subir es negativo). Centro: promedio de todos los pacientes en la ventana {{ cp.ventana.0|date:"d/m/Y" }} – {{ cp.ventana.1|date:"d/m/Y" }}. Ingreso por hora del centro (solo sesiones individuales): Bs. {{ cp.centro.ing_hora|bs }}.</p>
+</div>
+{% endif %}
+
+<div class="card"><h3>📉 Evolución {% ayuda "pa_evolucion" %}</h3>
+  <div class="pa-tabs no-print">
+    <button type="button" class="pa-tab" data-g="meses" onclick="paGrupo('meses')">Por mes</button>
+    <button type="button" class="pa-tab" data-g="semanas" onclick="paGrupo('semanas')">Por semana</button>
+    {% if a.series.dias.labels %}<button type="button" class="pa-tab" data-g="dias" onclick="paGrupo('dias')">Por día</button>{% endif %}
+  </div>
+  <div style="height:260px"><canvas id="chPaEvol"></canvas></div>
+</div>
+
+<div class="g2">
+  <div class="card"><h3>🗓️ Cuándo asiste: día × hora {% ayuda "pa_heat" %}</h3>
+    {% if pt.heat %}<div class="tbl-wrap"><table class="pa-heat"><thead><tr><th></th>{% for h in pt.horas %}<th>{{ h }}</th>{% endfor %}</tr></thead><tbody>
+    {% for f in pt.heat %}<tr><th>{{ f.dia_c }}</th>{% for c in f.celdas %}{% if c.n == 0 %}<td class="off">·</td>{% else %}<td title="{{ c.att }} de {{ c.n }} citas ({{ c.tasa }}%)" style="background:{% if c.tasa >= 80 %}rgba(22,163,74,.6){% elif c.tasa >= 50 %}rgba(245,158,11,.6){% else %}rgba(220,38,38,.6){% endif %};color:#052e16">{{ c.att }}/{{ c.n }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody></table></div>
+    <div class="pa-legend"><span><i style="background:rgba(22,163,74,.6)"></i>≥ 80% asiste</span><span><i style="background:rgba(245,158,11,.6)"></i>50–80%</span><span><i style="background:rgba(220,38,38,.6)"></i>&lt; 50%</span></div>
+    <p class="pa-note">Cada celda: asistidas / citas que debía tener (falta, permiso o asistencia).</p>
+    {% else %}<p class="pa-note">Sin sesiones en el período.</p>{% endif %}
+  </div>
+  <div class="card"><h3>🎯 Mejores y peores franjas {% ayuda "pa_mejores" %}</h3>
+    {% if pt.mejores %}<p class="pa-note"><b>Asiste más:</b> {% for x in pt.mejores %}{{ x.dia }} {{ x.hora }} ({{ x.tasa|floatformat:0 }}% en {{ x.n }}){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if pt.peores %}<p class="pa-note"><b>Asiste menos:</b> {% for x in pt.peores %}{{ x.dia }} {{ x.hora }} ({{ x.tasa|floatformat:0 }}% en {{ x.n }}){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Día</th><th class="money">Citas</th><th class="money">Asistió</th><th class="money">% asistencia</th></tr></thead><tbody>
+    {% for x in pt.por_dia %}<tr><td>{{ x.dia }}</td><td class="money">{{ x.n }}</td><td class="money">{{ x.att }}</td><td class="money">{{ x.tasa|floatformat:0 }}%</td></tr>{% empty %}<tr><td colspan="4" class="pa-note">Sin datos.</td></tr>{% endfor %}</tbody></table></div>
+    <p class="pa-note">Franjas con al menos 3 citas. Útil para proponer un cambio de horario.</p>
+  </div>
+</div>
+
+{% if a.calendarios %}
+<div class="card"><h3>📅 Calendario de sesiones {% ayuda "pa_calendario" %}</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+  {% for cal in a.calendarios %}<div><div style="font-weight:700;font-size:.78rem;margin-bottom:4px">{{ cal.label }}</div>
+    <table class="pa-cal"><thead><tr><th>Lu</th><th>Ma</th><th>Mi</th><th>Ju</th><th>Vi</th><th>Sá</th><th>Do</th></tr></thead><tbody>
+    {% for sem in cal.semanas %}<tr>{% for d in sem %}{% if d %}<td class="{% if d.estado %}on{% endif %}" {% if d.estado %}style="background:{{ d.color }}" title="{{ d.tip }}"{% endif %}>{{ d.dia }}{% if d.n > 1 %}<sup>×{{ d.n }}</sup>{% endif %}</td>{% else %}<td class="out"></td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endfor %}
+  </div>
+  <div class="pa-legend"><span><i style="background:#16a34a"></i>Realizada</span><span><i style="background:#f59e0b"></i>Con retraso</span><span><i style="background:#dc2626"></i>Falta sin aviso</span><span><i style="background:#8b5cf6"></i>Permiso</span><span><i style="background:#94a3b8"></i>Cancelada</span><span><i style="background:#0d9488"></i>Reprogramada</span><span><i style="background:#2563eb"></i>Programada</span></div>
+</div>
+{% endif %}
+
+<div class="g2">
+  <div class="card"><h3>🎯 Plan de trabajo y cumplimiento {% ayuda "pa_plan" %}</h3>
+    <div class="pa-kv"><div><span>Frecuencia planificada</span><b>{% if pl.plan_sem %}{{ pl.plan_sem|floatformat:1 }}/sem{% else %}—{% endif %}</b></div><div><span>Frecuencia real {% ayuda "pa_cumpl" %}</span><b>{{ pl.real_sem|floatformat:1 }}/sem</b><span style="text-transform:none;letter-spacing:0">últimas 4 semanas</span></div><div><span>Cumplimiento</span><b>{% if pl.cumplimiento != None %}{{ pl.cumplimiento|floatformat:0 }}%{% else %}—{% endif %}</b></div></div>
+    {% if pl.planes %}<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Área</th><th>Frecuencia</th><th>Vigencia</th><th>Revisión</th><th>Estado</th></tr></thead><tbody>
+    {% for x in pl.planes %}<tr><td><b>{{ x.area }}</b><div class="pa-note" style="margin:0">{{ x.prof }}</div></td><td>{{ x.frecuencia }}</td><td>{% if x.inicio %}{{ x.inicio|date:"d/m/Y" }}{% endif %} – {% if x.fin %}{{ x.fin|date:"d/m/Y" }}{% else %}abierto{% endif %}</td>
+      <td>{% if x.revision %}{{ x.revision|date:"d/m/Y" }} <span class="badge {% if x.estado_rev == 'vencida' %}badge-red{% elif x.estado_rev == 'próxima' %}badge-amber{% else %}badge-green{% endif %}">{{ x.estado_rev }}</span>{% else %}—{% endif %}</td>
+      <td><span class="badge {% if x.estado == 'vigente' %}badge-green{% elif x.estado == 'vencido' %}badge-red{% else %}badge-slate{% endif %}">{{ x.estado }}</span></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="pa-note">No tiene planes de trabajo registrados.</p>{% endif %}
+  </div>
+  <div class="card"><h3>🔁 Inasistencias, permisos y reprogramaciones {% ayuda "pa_motivos" %}</h3>
+    {% for x in mt.por_origen %}<div style="margin:6px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ x.k }}</span><b class="mono">{{ x.n }}</b></div><div class="pa-pbar"><div style="width:{% if M.total %}{% widthratio x.n M.total 100 %}{% else %}0{% endif %}%;background:{{ x.color }}"></div></div></div>{% endfor %}
+    {% if mt.top %}<p class="pa-note"><b>Motivos más repetidos:</b> {% for x in mt.top %}{{ x.texto }} ({{ x.n }}){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if mt.lista %}<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Estado</th><th>Motivo registrado</th></tr></thead><tbody>
+    {% for x in mt.lista %}<tr><td>{{ x.fecha|date:"d/m/Y" }}</td><td>{{ x.estado_txt }}</td><td>{% if x.motivo %}{{ x.motivo }}{% else %}<span style="color:var(--muted)">sin motivo</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    <p class="pa-note">{{ mt.sin_motivo }} de {{ mt.total }} sin motivo registrado: conviene anotarlo para entender el patrón.</p>{% endif %}
+  </div>
+</div>
+{% endwith %}{% endif %}
+
 {% if datos.proyectos_stats.total %}
 <div class="sec-hdr"><h2>📁 Proyectos Terapéuticos</h2><div class="sec-hdr-line"></div></div>
 <div class="g2" style="margin-bottom:14px">
@@ -1031,6 +1313,107 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% endif %}
 
 <!-- ══ SESIONES DEL PERÍODO — TABLA COMPLETA ════════════════════════════════ -->
+{% if a %}{% with sv=a.servicios pr=a.proximas cl=a.clinico %}
+<!-- ══ D · SERVICIOS, PRÓXIMAS SESIONES Y SEGUIMIENTO CLÍNICO ══ -->
+<div class="sec-hdr"><h2>🧩 Servicios y profesionales {% ayuda "pa_sec_serv" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="card">
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Servicio</th><th>Estado</th><th class="money">Sesiones en el período</th><th>Última asistida</th><th>Profesionales {% ayuda "pa_continuidad" %}</th><th class="money">Cambios</th></tr></thead><tbody>
+  {% for x in sv.items %}<tr><td><b>{{ x.nombre }}</b></td>
+    <td>{% if x.activo == False %}<span class="badge badge-slate">Inactivo</span>{% elif x.alerta %}<span class="badge badge-amber">Activo sin uso</span>{% else %}<span class="badge badge-green">Activo</span>{% endif %}</td>
+    <td class="money">{{ x.n_periodo }}</td><td>{% if x.ultima %}{{ x.ultima|date:"d/m/Y" }} <span class="pa-note">({{ x.dias_sin }} d)</span>{% else %}—{% endif %}</td>
+    <td>{% for q in x.profs %}{{ q.nombre }} <span class="mono">{{ q.pct|floatformat:0 }}%</span>{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+    <td class="money">{{ x.cambios }}</td></tr>{% empty %}<tr><td colspan="6" class="pa-note">Sin servicios registrados.</td></tr>{% endfor %}</tbody></table></div>
+  <p class="pa-note">«Activo sin uso»: servicio registrado como activo sin sesiones asistidas en los últimos 30 días. «Cambios»: veces que cambió de profesional dentro del mismo servicio (historial completo).</p>
+</div>
+
+<div class="sec-hdr"><h2>⏭️ Próximas sesiones agendadas {% ayuda "pa_proximas" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="card">
+  {% if pr.items %}<div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Hora</th><th>Servicio</th><th>Profesional</th><th>Sucursal</th><th>Tipo</th><th class="money">Valor</th><th class="money">Pagado</th></tr></thead><tbody>
+  {% for x in pr.items %}<tr><td>{{ x.dia|slice:":3" }} {{ x.fecha|date:"d/m/Y" }} <span class="pa-note">({{ x.dias }} d)</span></td><td class="mono">{{ x.hora }}</td><td>{{ x.servicio }}</td><td>{{ x.prof }}</td><td>{{ x.suc }}</td><td><span class="badge badge-slate">{{ x.tipo }}</span></td><td class="money">{% if x.tipo == 'individual' %}{{ x.valor|bs }}{% else %}—{% endif %}</td><td class="money">{% if x.tipo == 'individual' %}{{ x.pagado|bs }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% if pr.total > 25 %}<p class="pa-note">Se muestran las primeras 25 de {{ pr.total }}.</p>{% endif %}
+  {% else %}<p class="pa-note">No tiene sesiones agendadas a futuro.</p>{% endif %}
+</div>
+
+<div class="sec-hdr"><h2>🩺 Seguimiento clínico y calidad del registro {% ayuda "pa_sec_clin" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="g2">
+  <div class="card"><h3>📝 Notas de evolución {% ayuda "pa_notas" %}</h3>
+    <div class="mono" style="font-size:1.4rem;font-weight:700">{{ cl.pct_nota|floatformat:0 }}% <span style="font-size:.75rem;color:var(--muted);font-family:'DM Sans'">de {{ cl.sesiones }} sesiones realizadas con nota</span></div>
+    <div class="pa-pbar" style="margin:6px 0 10px"><div style="width:{{ cl.pct_nota|pw }}%;background:{% if cl.pct_nota >= 80 %}var(--green){% elif cl.pct_nota >= 60 %}var(--amber){% else %}var(--red){% endif %}"></div></div>
+    {% for x in cl.por_prof %}<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:3px 0"><span>{{ x.prof }}</span><span class="mono">{{ x.con }}/{{ x.n }} · {{ x.pct|floatformat:0 }}%</span></div>{% endfor %}
+    {% if cl.sin_nota %}<p class="pa-note" style="margin-top:8px"><b>Recientes sin nota:</b> {% for x in cl.sin_nota %}{{ x.fecha|date:"d/m" }} {{ x.servicio }} ({{ x.prof }}){% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+  <div class="card"><h3>🧪 Evaluaciones, informes y documentos {% ayuda "pa_eval" %}</h3>
+    <div class="pa-kv"><div><span>Última evaluación</span><b>{% if cl.ult_eval %}{{ cl.ult_eval|date:"d/m/Y" }}{% else %}—{% endif %}</b><span style="text-transform:none;letter-spacing:0">{% if cl.dias_ult_eval != None %}hace {{ cl.dias_ult_eval }} días{% endif %}</span></div><div><span>Informes sin finalizar</span><b>{{ cl.informes_pend }}</b></div><div><span>Documentos</span><b>{{ cl.n_docs }}</b><span style="text-transform:none;letter-spacing:0">{{ cl.docs_familia }} compartidos con la familia</span></div></div>
+    {% if cl.ados or cl.adir %}<p class="pa-note">{% for x in cl.ados %}ADOS-2 (módulo {{ x.modulo }}) {{ x.fecha_evaluacion|date:"d/m/Y" }}{% if not forloop.last %} · {% endif %}{% endfor %}{% if cl.ados and cl.adir %} · {% endif %}{% for x in cl.adir %}ADI-R {{ x.fecha_evaluacion|date:"d/m/Y" }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    {% if cl.proy_sin_informe %}<div class="pa-alert nota">Proyectos finalizados sin informe entregado: {% for x in cl.proy_sin_informe %}{{ x.codigo }} ({{ x.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+    {% if cl.informes %}{% for x in cl.informes %}<div style="font-size:.74rem;padding:2px 0">📄 Informe {{ x.fecha_informe|date:"d/m/Y" }} — <span class="badge {% if x.estado == 'finalizado' %}badge-green{% else %}badge-amber{% endif %}">{{ x.estado }}</span></div>{% endfor %}{% endif %}
+  </div>
+</div>
+
+<div class="sec-hdr"><h2>📝 Evolución clínica por área: notas de los profesionales {% ayuda "pa_sec_evol" %}</h2><div class="sec-hdr-line"></div></div>
+{% with ev=a.evolucion %}
+<div class="pa-alert nota">🔒 {{ ev.aviso }}</div>
+{% if ev.areas %}
+<div class="pa-kv">
+  <div><span>Notas en el período</span><b>{{ ev.total_notas }}</b><span style="text-transform:none;letter-spacing:0">de {{ ev.total_sesiones }} sesiones atendidas ({{ ev.pct|floatformat:0 }}%) {% ayuda "pa_evo_cobertura" %}</span></div>
+  <div><span>Áreas con atención</span><b>{{ ev.n_areas }}</b></div>
+  <div><span>Profesionales</span><b>{{ ev.profs|length }}</b></div>
+  <div><span>Áreas sin notas</span><b>{{ ev.areas_sin_notas|length }}</b><span style="text-transform:none;letter-spacing:0">{{ ev.areas_sin_notas|join:", " }}</span></div>
+</div>
+<div class="card"><h3>👩‍⚕️ Notas que escribe cada profesional {% ayuda "pa_evo_prof" %}</h3>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Profesional</th><th>Áreas</th><th class="money">Sesiones</th><th class="money">Con nota</th><th class="money">% con nota</th><th class="money">Palabras por nota</th><th class="money">% muy breves</th><th>Última nota</th></tr></thead><tbody>
+  {% for x in ev.profs %}<tr><td><b>{{ x.prof }}</b></td><td>{{ x.areas|join:", " }}</td><td class="money">{{ x.ses }}</td><td class="money">{{ x.notas }}</td>
+    <td class="money"><span class="badge {% if x.pct >= 80 %}badge-green{% elif x.pct >= 60 %}badge-amber{% else %}badge-red{% endif %}">{{ x.pct|floatformat:0 }}%</span></td>
+    <td class="money">{{ x.palabras_prom|floatformat:1 }}</td><td class="money">{% if x.notas %}{{ x.pct_breves|floatformat:0 }}%{% else %}—{% endif %}</td><td>{% if x.ultima %}{{ x.ultima|date:"d/m/Y" }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="pa-note">«Muy breve» = menos de 8 palabras. Notas muy breves o escasas dificultan el análisis de la evolución.</p>
+</div>
+<div class="card no-print" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+  <b style="font-size:.78rem">🔎 Buscar en las notas {% ayuda "pa_evo_buscar" %}</b>
+  <input class="pa-search" id="paBuscar" placeholder="Palabra, profesional o área…" oninput="paBuscarNotas(this.value)">
+  <span class="pa-note" id="paBuscarRes" style="margin:0"></span>
+</div>
+{% for ar in ev.areas %}
+<div class="card" style="border-left:5px solid {{ ar.color }}">
+  <h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">{{ ar.nombre }}
+    <span class="badge {% if ar.tendencia == 'mejorando' %}badge-green{% elif ar.tendencia == 'con más dificultades' %}badge-red{% elif ar.tendencia == 'estable' %}badge-blue{% else %}badge-slate{% endif %}">Tendencia: {{ ar.tendencia }}</span> {% ayuda "pa_evo_tendencia" %}</h3>
+  <div class="pa-kv">
+    <div><span>Sesiones atendidas</span><b>{{ ar.sesiones }}</b></div>
+    <div><span>Con nota</span><b>{{ ar.n_notas }}</b><span style="text-transform:none;letter-spacing:0">{{ ar.pct_nota|floatformat:0 }}% de las sesiones</span></div>
+    <div><span>Palabras por nota</span><b>{{ ar.palabras_prom|floatformat:1 }}</b><span style="text-transform:none;letter-spacing:0">{{ ar.pct_breves|floatformat:0 }}% muy breves</span></div>
+    <div><span>Última nota</span><b>{% if ar.ultima %}{{ ar.ultima|date:"d/m/Y" }}{% else %}—{% endif %}</b><span style="text-transform:none;letter-spacing:0">{% if ar.dias_ultima != None %}hace {{ ar.dias_ultima }} días{% endif %}</span></div>
+    {% if ar.neto_ini != None %}<div><span>Balance de las notas {% ayuda "pa_evo_balance" %}</span><b>{{ ar.neto_ini|floatformat:0 }}% → {{ ar.neto_fin|floatformat:0 }}%</b><span style="text-transform:none;letter-spacing:0">mitad antigua → mitad reciente</span></div>{% endif %}
+  </div>
+  {% if ar.n_notas %}
+  <div style="font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--muted)">Tono de las notas {% ayuda "pa_evo_tono" %}</div>
+  <div class="pa-stack">
+    {% if ar.pct_tonos.favorable %}<div title="Favorables: {{ ar.tonos.favorable }}" style="width:{{ ar.pct_tonos.favorable|pw }}%;background:var(--green)"></div>{% endif %}
+    {% if ar.pct_tonos.mixta %}<div title="Mixtas: {{ ar.tonos.mixta }}" style="width:{{ ar.pct_tonos.mixta|pw }}%;background:var(--amber)"></div>{% endif %}
+    {% if ar.pct_tonos.dificultades %}<div title="Con dificultades: {{ ar.tonos.dificultades }}" style="width:{{ ar.pct_tonos.dificultades|pw }}%;background:var(--red)"></div>{% endif %}
+    {% if ar.pct_tonos.neutra %}<div title="Neutras: {{ ar.tonos.neutra }}" style="width:{{ ar.pct_tonos.neutra|pw }}%;background:#cbd5e1"></div>{% endif %}
+  </div>
+  <div class="pa-legend"><span><i style="background:var(--green)"></i>Favorables {{ ar.tonos.favorable }} ({{ ar.pct_tonos.favorable|floatformat:0 }}%)</span><span><i style="background:var(--amber)"></i>Mixtas {{ ar.tonos.mixta }}</span><span><i style="background:var(--red)"></i>Con dificultades {{ ar.tonos.dificultades }} ({{ ar.pct_tonos.dificultades|floatformat:0 }}%)</span><span><i style="background:#cbd5e1"></i>Neutras {{ ar.tonos.neutra }}</span></div>
+  {% if ar.temas %}<div style="margin-top:10px"><div style="font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px">Temas más repetidos {% ayuda "pa_evo_temas" %}</div>{% for t in ar.temas %}<span class="pa-chipw">{{ t.texto }}<b>{{ t.n }}</b></span>{% endfor %}</div>{% endif %}
+  <div class="g2" style="margin-top:10px;margin-bottom:6px">
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mes</th><th class="money">Notas</th><th class="money">% favorables</th><th class="money">% con dificultades</th></tr></thead><tbody>
+      {% for m in ar.meses %}<tr><td>{{ m.label }}</td><td class="money">{{ m.n }}</td><td class="money pa-up">{{ m.fav|floatformat:0 }}%</td><td class="money pa-down">{{ m.dif|floatformat:0 }}%</td></tr>{% endfor %}</tbody></table></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Profesional</th><th class="money">Ses.</th><th class="money">Notas</th><th class="money">%</th><th class="money">Palabras</th></tr></thead><tbody>
+      {% for p in ar.profs %}<tr><td>{{ p.prof }}</td><td class="money">{{ p.ses }}</td><td class="money">{{ p.notas }}</td><td class="money">{{ p.pct|floatformat:0 }}%</td><td class="money">{{ p.palabras_prom|floatformat:1 }}</td></tr>{% endfor %}</tbody></table></div>
+  </div>
+  <details class="pa-notas"><summary>📖 Ver las {{ ar.notas_total }} notas de {{ ar.nombre }} {% ayuda "pa_evo_notas" %}</summary>
+    {% for n in ar.notas %}<div class="pa-nota t-{{ n.tono }}" data-s="{{ n.busqueda }}"><div class="h"><span>{{ n.fecha|date:"d/m/Y" }} {{ n.hora }}</span><span>👩‍⚕️ {{ n.prof }}</span><span class="badge {% if n.tono == 'favorable' %}badge-green{% elif n.tono == 'dificultades' %}badge-red{% elif n.tono == 'mixta' %}badge-amber{% else %}badge-slate{% endif %}">{{ n.tono }}</span>{% if n.tipo != 'individual' %}<span>{{ n.tipo }}</span>{% endif %}<span>{{ n.palabras }} palabras</span></div><div class="tx">{{ n.texto }}</div></div>{% endfor %}
+    {% if ar.recortadas %}<p class="pa-note">Se muestran las 150 notas más recientes de {{ ar.notas_total }}.</p>{% endif %}
+  </details>
+  {% else %}<p class="pa-note" style="color:var(--red)">Ninguna de las {{ ar.sesiones }} sesiones atendidas de esta área tiene nota de evolución.</p>{% endif %}
+</div>
+{% endfor %}
+{% else %}<p class="pa-note">Sin sesiones atendidas en el período: no hay notas para analizar.</p>{% endif %}
+{% endwith %}
+
+<div class="card"><h3>🕒 Línea de tiempo del paciente {% ayuda "pa_timeline" %}</h3>
+  <ul class="pa-tl">{% for e in a.timeline %}<li class="{% if e.futuro %}fut{% endif %}"><span class="d">{{ e.fecha|date:"d/m/Y" }}{% if e.futuro %} · pendiente{% endif %}</span><br>{{ e.icono }} <b>{{ e.titulo }}</b>{% if e.detalle %} <span style="color:var(--muted)">— {{ e.detalle }}</span>{% endif %}</li>{% empty %}<li class="pa-note">Sin eventos.</li>{% endfor %}</ul>
+</div>
+{% endwith %}{% endif %}
+
 <div class="sec-hdr"><h2>📅 Sesiones del Período <span style="font-weight:400;color:var(--muted);font-size:.75rem">({{ datos.stats.total_sesiones|default:0 }} total)</span></h2><div class="sec-hdr-line"></div></div>
 
 <!-- Filtros de estado -->
@@ -1219,6 +1602,7 @@ function cambiarPaciente(id){
   // Al cambiar paciente: limpiar fechas para mostrar todo el historial
   document.getElementById('inp-desde').value = '';
   document.getElementById('inp-hasta').value = '';
+  ['servicio','profesional','sucursal','tipo'].forEach(function(n){var e=document.querySelector('#frm-pac [name='+n+']');if(e)e.value='';});
   document.getElementById('sel-paciente').form.submit();
 }
 
@@ -1249,6 +1633,26 @@ function setRangoMes(){
   url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
   window.location.href = url.toString();
 }
+function _iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function setRangoSemana(){
+  const h = new Date(); const dia = (h.getDay()+6)%7;
+  const ini = new Date(h.getFullYear(), h.getMonth(), h.getDate()-dia);
+  const url = new URL(window.location.href);
+  url.searchParams.set('fecha_desde', _iso(ini)); url.searchParams.set('fecha_hasta', _iso(h));
+  window.location.href = url.toString();
+}
+function setRangoMesAnterior(){
+  const h = new Date();
+  const ini = new Date(h.getFullYear(), h.getMonth()-1, 1), fin = new Date(h.getFullYear(), h.getMonth(), 0);
+  const url = new URL(window.location.href);
+  url.searchParams.set('fecha_desde', _iso(ini)); url.searchParams.set('fecha_hasta', _iso(fin));
+  window.location.href = url.toString();
+}
+function setTodo(){
+  const url = new URL(window.location.href);
+  url.searchParams.delete('fecha_desde'); url.searchParams.delete('fecha_hasta');
+  window.location.href = url.toString();
+}
 function setRangoAnio(){
   const h = new Date();
   const url = new URL(window.location.href);
@@ -1256,5 +1660,51 @@ function setRangoAnio(){
   url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
   window.location.href = url.toString();
 }
+</script>
+
+<script>
+(function(){
+  var tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);var cur=null;
+  function show(el){cur=el;tip.textContent=el.getAttribute('data-t');tip.style.display='block';
+    var r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    var x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.bottom+8;
+    if(y+h>window.innerHeight-8)y=r.top-h-8;
+    tip.style.left=x+'px';tip.style.top=Math.max(8,y)+'px';el.classList.add('on');}
+  function hide(){tip.style.display='none';if(cur)cur.classList.remove('on');cur=null;}
+  function inf(e){return e.target.closest?e.target.closest('.inf'):null;}
+  document.addEventListener('mouseover',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('mouseout',function(e){if(inf(e))hide();});
+  document.addEventListener('focusin',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('focusout',function(e){if(inf(e))hide();});
+  document.addEventListener('click',function(e){var el=inf(e);if(el){e.preventDefault();e.stopPropagation();show(el);}else hide();},true);
+  window.addEventListener('scroll',hide,true);
+})();
+
+function paBuscarNotas(q){
+  var n=(q||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(), visibles=0, total=0;
+  document.querySelectorAll('.pa-nota').forEach(function(e){
+    total++; var ok=!n||(e.dataset.s||'').indexOf(n)>-1; e.style.display=ok?'':'none'; if(ok)visibles++; });
+  document.querySelectorAll('.pa-notas').forEach(function(d){
+    if(n){ d.open=!!d.querySelector('.pa-nota:not([style*="display: none"])'); } });
+  var r=document.getElementById('paBuscarRes'); if(r) r.textContent=n?(visibles+' de '+total+' notas coinciden'):'';
+}
+{% if a %}
+var G2={{ a_graf_json|safe }};
+var chPa=null;
+function paGrupo(g){
+  document.querySelectorAll('.pa-tab').forEach(function(b){b.classList.toggle('on',b.dataset.g===g);});
+  var d=G2.series&&G2.series[g]; var cv=document.getElementById('chPaEvol'); if(!d||!cv||typeof Chart==='undefined')return;
+  if(chPa)chPa.destroy();
+  chPa=new Chart(cv,{data:{labels:d.labels,datasets:[
+    {type:'bar',label:'Asistidas',data:d.atend,backgroundColor:'#16a34a',yAxisID:'y'},
+    {type:'bar',label:'Faltas',data:d.faltas,backgroundColor:'#dc2626',yAxisID:'y'},
+    {type:'bar',label:'Permisos',data:d.permisos,backgroundColor:'#8b5cf6',yAxisID:'y'},
+    {type:'line',label:'% asistencia',data:d.asistencia,borderColor:'#2563eb',backgroundColor:'#2563eb',tension:.3,yAxisID:'y2',spanGaps:true}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Sesiones'},stacked:false},y2:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:'%'}}},
+      plugins:{legend:{labels:{boxWidth:12,font:{size:11}}}}}});
+}
+window.addEventListener('load',function(){ if(document.getElementById('chPaEvol')) paGrupo('meses'); });
+{% endif %}
 </script>
 {% endblock %}

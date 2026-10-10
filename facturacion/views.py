@@ -4420,6 +4420,29 @@ def reporte_paciente(request):
     paciente_id = request.GET.get('paciente')
     fecha_desde = request.GET.get('fecha_desde', '')
     fecha_hasta = request.GET.get('fecha_hasta', '')
+
+    # ── Filtros y opciones del análisis ampliado ────────────────────────────
+    g_ = request.GET
+    f_servicio = g_.get('servicio', '').strip()
+    f_profesional = g_.get('profesional', '').strip()
+    f_sucursal = g_.get('sucursal', '').strip()
+    f_tipo = g_.get('tipo', '').strip()
+    if f_tipo not in ('individual', 'proyecto', 'mensualidad'):
+        f_tipo = ''
+    enviado_ = g_.get('f') == '1'            # distingue «casilla vacía» de «primer ingreso»
+    comparar_ = (g_.get('comparar') == '1') if enviado_ else True
+
+    def _num_(txt, defecto=0.0, minimo=0.0):
+        try:
+            return max(float(str(txt or '').strip().replace(',', '.')), minimo)
+        except (ValueError, TypeError):
+            return defecto
+    costo_hora_ = _num_(g_.get('costo_hora'))
+    umbral_obs_ = int(_num_(g_.get('umbral_obs'), 21, 1)) or 21
+    umbral_riesgo_ = max(int(_num_(g_.get('umbral_riesgo'), 30, 1)) or 30, umbral_obs_)
+    a = None
+    a_graf_json = '{}'
+    opciones_filtro = {'servicios': [], 'profesionales': [], 'sucursales': []}
  
     paciente     = None
     datos        = None
@@ -4454,6 +4477,19 @@ def reporte_paciente(request):
             sesiones = sesiones.filter(fecha__gte=fecha_desde_obj)
         if fecha_hasta_obj:
             sesiones = sesiones.filter(fecha__lte=fecha_hasta_obj)
+        # filtros adicionales (afectan sesiones, estadísticas y el análisis; pagos y paquetes se muestran completos)
+        if f_servicio:
+            sesiones = sesiones.filter(servicio_id=f_servicio)
+        if f_profesional:
+            sesiones = sesiones.filter(profesional_id=f_profesional)
+        if f_sucursal:
+            sesiones = sesiones.filter(sucursal_id=f_sucursal)
+        if f_tipo == 'individual':
+            sesiones = sesiones.filter(proyecto__isnull=True, mensualidad__isnull=True)
+        elif f_tipo == 'proyecto':
+            sesiones = sesiones.filter(proyecto__isnull=False)
+        elif f_tipo == 'mensualidad':
+            sesiones = sesiones.filter(mensualidad__isnull=False)
         sesiones = sesiones.select_related('servicio', 'profesional', 'sucursal',
                          'proyecto', 'mensualidad')
  
@@ -4715,7 +4751,39 @@ def reporte_paciente(request):
             'financiero_por_sucursal': financiero_por_sucursal,
         }
  
-    pacientes = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
+    if paciente:
+        try:
+            from facturacion.reporte_paciente_data import analizar_paciente
+            from servicios.models import Sucursal as _Suc, TipoServicio as _TS
+            from profesionales.models import Profesional as _Prof
+            a = analizar_paciente(
+                paciente, fecha_desde_obj, fecha_hasta_obj, hoy=_d.today(),
+                filtros={'servicio': f_servicio, 'profesional': f_profesional, 'sucursal': f_sucursal, 'tipo': f_tipo},
+                costo_hora=costo_hora_, comparar=comparar_, umbral_obs=umbral_obs_, umbral_riesgo=umbral_riesgo_)
+            a_graf_json = _json.dumps({
+                'series': a['series'],
+                'heat_horas': a['patron']['horas'],
+                'valor': {'labels': ['Sesiones', 'Proyectos', 'Mensualidades'],
+                          'gen': [a['gen']['ind'], a['gen']['gen_proy'], a['gen']['gen_mens']]},
+                'cobranza': {'labels': [x['nombre'] for x in a['cobranza']['filas']],
+                             'cobrado': [x['cobrado'] for x in a['cobranza']['filas']],
+                             'pend': [x['pend'] for x in a['cobranza']['filas']]},
+            }, default=str)
+            ids_ses = Sesion.objects.filter(paciente=paciente)
+            opciones_filtro = {
+                'servicios': list(_TS.objects.filter(id__in=ids_ses.values('servicio_id')).order_by('nombre')),
+                'profesionales': list(_Prof.objects.filter(id__in=ids_ses.values('profesional_id')).order_by('apellido', 'nombre')),
+                'sucursales': list(_Suc.objects.filter(id__in=ids_ses.values('sucursal_id')).order_by('nombre')),
+            }
+        except Exception:
+            import logging
+            logging.getLogger(__name__).error('Error en análisis ampliado del paciente', exc_info=True)
+            a = None
+
+    # Se pueden elegir también pacientes INACTIVOS (se distinguen en el selector y en el informe)
+    pacientes = Paciente.objects.all().order_by('apellido', 'nombre')
+    pacientes_activos = [p_ for p_ in pacientes if p_.estado == 'activo']
+    pacientes_inactivos = [p_ for p_ in pacientes if p_.estado != 'activo']
  
     context = {
         'paciente'          : paciente,
@@ -4724,9 +4792,31 @@ def reporte_paciente(request):
         'pacientes'         : pacientes,
         'fecha_desde'       : fecha_desde,
         'fecha_hasta'       : fecha_hasta,
+        # análisis ampliado
+        'pacientes_activos' : pacientes_activos,
+        'pacientes_inactivos': pacientes_inactivos,
+        'paciente_inactivo' : bool(paciente and paciente.estado != 'activo'),
+        'a'                 : a,
+        'a_graf_json'       : a_graf_json,
+        'opciones_filtro'   : opciones_filtro,
+        'f_servicio': f_servicio, 'f_profesional': f_profesional, 'f_sucursal': f_sucursal, 'f_tipo': f_tipo,
+        'comparar_': comparar_, 'costo_hora_': g_.get('costo_hora', ''),
+        'umbral_obs_': umbral_obs_, 'umbral_riesgo_': umbral_riesgo_,
     }
  
     # ── Exportar PDF ──────────────────────────────────────────────────────────
+    if request.GET.get('export') == 'pdf' and paciente and request.GET.get('version') == 'familia' and a:
+        try:
+            from facturacion.informe_paciente_familia_pdf import generar_informe_familia_pdf
+            buffer = generar_informe_familia_pdf({'paciente': paciente, 'a': a, 'desde': fecha_desde_obj, 'hasta': fecha_hasta_obj})
+            response = HttpResponse(buffer, content_type='application/pdf')
+            pac_slug = f"{paciente.apellido}_{paciente.nombre}".replace(' ', '_')
+            response['Content-Disposition'] = f'inline; filename="informe_familia_{pac_slug}.pdf"'
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error generando PDF familia: {e}", exc_info=True)
+            messages.error(request, f"❌ Error al generar el PDF para la familia: {str(e)}")
     if request.GET.get('export') == 'pdf' and paciente:
         try:
             from facturacion.informe_paciente_pdf import generar_informe_paciente_pdf
@@ -4734,6 +4824,7 @@ def reporte_paciente(request):
             from facturacion.models import Pago
             if datos:
                 context_pdf = dict(context)
+                context_pdf['a'] = a
                 context_pdf['sesiones_completas'] = sesiones_list
                 context_pdf['pagos_recientes']    = list(pagos_recientes)
                 context_pdf['pagos_contado']      = list(pagos_contado)
