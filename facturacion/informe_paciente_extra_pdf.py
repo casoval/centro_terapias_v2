@@ -80,8 +80,8 @@ def _parrafo(P, texto, size=7.6, color=C_TEXTO, font='Helvetica', lh=None, x=Non
     P.y -= espacio
 
 
-def _subtitulo(P, texto, color=C_PRI):
-    P.asegurar(1.2 * cm)
+def _subtitulo(P, texto, color=C_PRI, reserva=2.6 * cm):
+    P.asegurar(reserva)          # el subtítulo nunca queda solo al pie: reserva espacio para encabezado y 2 filas
     P.c.setFont('Helvetica-Bold', 8.6)
     P.c.setFillColor(color)
     P.c.drawString(ML + 0.1 * cm, P.y - 0.4 * cm, texto)
@@ -111,6 +111,8 @@ def _tabla_p(P, headers, rows, col_ws, fsize=7.2, row_h=0.46 * cm):
     while i < len(rows):
         P.asegurar(row_h * 3 + 0.5 * cm)
         cabe = max(int((P.y - Y_BOTTOM - row_h - 0.35 * cm) / row_h), 1)
+        if len(rows) - i > cabe and len(rows) - i - cabe == 1 and cabe > 2:
+            cabe -= 1                # evita dejar una sola fila huérfana en la página siguiente
         trozo = rows[i:i + cabe]
         P.y = _tabla(P.c, P.y, headers, trozo, col_ws, fsize=fsize, row_h=row_h)
         i += len(trozo)
@@ -208,6 +210,86 @@ def _veredicto(P, sm):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# DEUDA TOTAL PROYECTADA (sin importar el período)
+# ─────────────────────────────────────────────────────────────────────
+def _caja_deuda(P, a, familia=False):
+    dd = a['deuda']
+    P.asegurar(3.4 * cm)
+    c, y = P.c, P.y
+    hay = dd['tiene_deuda']
+    c.setFillColor(_hex('#b91c1c') if hay else _hex('#15803d'))
+    c.roundRect(ML, y - 2.7 * cm, CW, 2.7 * cm, 9, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(ML + 0.6 * cm, y - 0.65 * cm, 'DEUDA TOTAL PROYECTADA' if hay else ('SALDO A FAVOR' if dd['a_favor'] else 'SIN DEUDA'))
+    c.setFont('Helvetica-Bold', 24)
+    c.drawString(ML + 0.6 * cm, y - 1.55 * cm, BS(dd['total'] if hay else dd['a_favor']))
+    c.setFont('Helvetica', 6.8)
+    ln = _lineas('Incluye lo realizado hasta hoy y lo agendado (sesiones programadas, mensualidades y proyectos), menos lo pagado. '
+                 'No depende del período seleccionado.', 'Helvetica', 6.8, 8.0 * cm)
+    for i, t in enumerate(ln[:3]):
+        c.drawString(ML + 0.6 * cm, y - 2.0 * cm - i * 0.3 * cm, t)
+    items = [('Realizado hasta hoy (pendiente)', dd['actual']), ('Agendado por consumir (pendiente)', dd['prog'])]
+    if dd['credito_aplicado']:
+        items.append(('(-) Crédito a favor aplicado', dd['credito_aplicado']))
+    if not familia:
+        items.append(('Deuda vencida (> 30 días)', dd['mora30']))
+    x0 = ML + 9.0 * cm
+    for i, (lbl, v) in enumerate(items[:4]):
+        yy = y - 0.75 * cm - i * 0.58 * cm
+        c.setFont('Helvetica', 7)
+        c.drawString(x0, yy, lbl)
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawRightString(ML + CW - 0.5 * cm, yy, BS(v))
+    P.y -= 2.7 * cm + 0.35 * cm
+
+
+def _detalle_deuda(P, a, familia=False):
+    """Composición, antigüedad, deuda por mes y detalle de lo pendiente. familia=True: sin antigüedad ni términos internos."""
+    dd = a['deuda']
+    if not (dd['tiene_deuda'] or dd['items_total']):
+        _parrafo(P, 'No hay montos pendientes de pago.', 7.8, C_VERDE)
+        return
+    _subtitulo(P, 'De qué se compone la deuda')
+    filas = [[f['nombre'] + (' (agendado)' if f['programado'] else ''), fm(f['valor']), fm(f['pagado']), fm(f['pend'])] for f in dd['filas'] if f['valor'] or f['pend']]
+    filas.append(['TOTAL PENDIENTE POR ÍTEM', '', '', fm(dd['items_total'])])
+    if dd['credito_aplicado']:
+        filas.append(['(-) Crédito a favor aplicado', '', '', fm(dd['credito_aplicado'])])
+    if dd['ajuste']:
+        filas.append(['(+/-) Ajustes por sobrepagos, devoluciones u otros', '', '', fm(dd['ajuste'])])
+    filas.append(['= DEUDA TOTAL PROYECTADA', '', '', fm(dd['total'])])
+    _tabla_p(P, ['Concepto', 'Valor', 'Pagado', 'Pendiente'], filas, [8.2 * cm, 3.2 * cm, 3.2 * cm, 3.4 * cm])
+    if not familia:
+        _subtitulo(P, 'Antigüedad de lo ya realizado y no pagado')
+        _barras(P, [(x['label'] + f" ({x['n']})", x['pct'], f"{fm(x['monto'], 0)} · {x['pct']:.0f}%",
+                     C_ROJO if x['ini'] >= 31 else (C_AMBER_ if x['ini'] >= 8 else C_VERDE)) for x in dd['aging']])
+    if dd['por_mes']:
+        _subtitulo(P, 'Deuda por mes')
+        filas = [[m['label'], fm(m['actual']), fm(m['prog']), fm(m['total'])] for m in dd['por_mes']]
+        filas.append(['TOTAL', fm(sum(m['actual'] for m in dd['por_mes'])), fm(sum(m['prog'] for m in dd['por_mes'])), fm(sum(m['total'] for m in dd['por_mes']))])
+        _tabla_p(P, ['Mes', 'Realizado', 'Agendado', 'Total'], filas, [5.4 * cm, 4.0 * cm, 4.0 * cm, 4.6 * cm])
+    if dd['paquetes']:
+        _subtitulo(P, 'Mensualidades y proyectos con saldo')
+        _tabla_p(P, ['Código', 'Detalle', 'Tipo', 'Valor', 'Pagado', 'Saldo', 'Desde'],
+                 [[x['codigo'], x['nombre'] + (' (agendado)' if x['futuro'] else ''), 'Proyecto' if x['clave'] == 'proyecto' else 'Mensualidad',
+                   fm(x['valor']), fm(x['pagado']), fm(x['saldo']), fd(x['ref'])] for x in dd['paquetes']],
+                 [2.0 * cm, 5.0 * cm, 2.3 * cm, 2.1 * cm, 2.1 * cm, 2.1 * cm, 2.3 * cm], fsize=6.8)
+    if dd['sesiones']:
+        _subtitulo(P, f"Sesiones realizadas sin pagar ({dd['n_sesiones']})")
+        hdr = ['Fecha', 'Servicio', 'Profesional', 'Monto', 'Pagado', 'Pendiente'] + ([] if familia else ['Antigüedad'])
+        ws = [2.4 * cm, 4.0 * cm, 4.4 * cm, 2.2 * cm, 2.2 * cm, 2.4 * cm] if familia else [2.2 * cm, 3.4 * cm, 3.9 * cm, 2.0 * cm, 2.0 * cm, 2.1 * cm, 1.9 * cm]
+        _tabla_p(P, hdr, [[fd(x['fecha']), x['servicio'], x['prof'], fm(x['monto']), fm(x['pagado']), fm(x['pend'])] + ([] if familia else [f"{x['dias']} d"])
+                          for x in dd['sesiones']], ws, fsize=6.8)
+        if dd['n_sesiones'] > len(dd['sesiones']):
+            _parrafo(P, f"Se muestran las {len(dd['sesiones'])} más antiguas de {dd['n_sesiones']}.", 6.8, C_MUTED, 'Helvetica-Oblique')
+    if dd['programadas']:
+        _subtitulo(P, f"Sesiones programadas aún sin pagar ({dd['n_programadas']})")
+        _tabla_p(P, ['Fecha', 'Hora', 'Servicio', 'Profesional', 'Valor', 'Pagado', 'Pendiente'],
+                 [[fd(x['fecha']), x['hora'], x['servicio'], x['prof'], fm(x['monto']), fm(x['pagado']), fm(x['pend'])] for x in dd['programadas']],
+                 [2.4 * cm, 1.5 * cm, 3.6 * cm, 4.0 * cm, 2.2 * cm, 2.2 * cm, 2.1 * cm], fsize=6.8)
+
+
+# ─────────────────────────────────────────────────────────────────────
 # A · DECISIÓN, RIESGO Y VALOR
 # ─────────────────────────────────────────────────────────────────────
 def seccion_A(pages_data, ctx, helpers):
@@ -217,6 +299,7 @@ def seccion_A(pages_data, ctx, helpers):
     P = _Pag(pages_data, helpers).nueva()
     _titulo(P, 'A. Decisión: ¿cómo está este paciente?', C_PRI)
     sm, rg, vl, M = a['semaforo'], a['riesgo'], a['valor'], a['M']
+    _caja_deuda(P, a)
     _veredicto(P, sm)
     for crit in sm['criterios']:
         _fila_criterio(P, crit)
@@ -275,7 +358,11 @@ def seccion_B(pages_data, ctx, helpers):
     P = _Pag(pages_data, helpers).nueva()
     cb, cu, pr = a['cobranza'], a.get('cuenta'), a['proximas']
     t = cb['tot']
-    _titulo(P, 'B. Cuenta corriente y cobranza: lo generado vs. lo cobrado', C_AMBER_)
+    _titulo(P, 'B. Deuda total y cobranza del período', C_AMBER_)
+    _subtitulo(P, 'Deuda total del paciente (sin importar el período)')
+    _caja_deuda(P, a)
+    _detalle_deuda(P, a)
+    _subtitulo(P, 'Cobranza del período seleccionado: lo generado vs. lo cobrado')
     _parrafo(P, 'Generado (devengado) es lo que el paciente consumió en el período, se haya pagado o no. Cobrado es el dinero recibido, '
                 'ubicado por su fecha: antes del período (adelantado), durante o después (cobro tardío).', 7.4, C_MUTED, 'Helvetica-Oblique')
     items = [
@@ -286,9 +373,6 @@ def seccion_B(pages_data, ctx, helpers):
         ('Rapidez de pago', f"{fm(cb['dias_pago_prom'], 1)} d" if cb['dias_pago_prom'] is not None else '—',
          f"{cb['pct_pago_7d']:.0f}% en ≤ 7 días" if cb['pct_pago_7d'] is not None else 'sin sesiones pagadas', C_MORADO),
     ]
-    if cu:
-        items.append(('Cuenta corriente', BS(cu['saldo_actual'], 0), f"pagado {fm(cu['total_pagado'], 0)} − consumido {fm(cu['consumido'], 0)}",
-                      C_VERDE if cu['saldo_actual'] >= 0 else C_ROJO))
     _grilla_p(P, items, cols=3)
     _subtitulo(P, '1. De lo generado, ¿se cobró?')
     rows = [[f['nombre'], fm(f['gen']), fm(f['antes']), fm(f['durante']), fm(f['despues']), fm(f['pend']), _pc(f['pct'])] for f in cb['filas']]
@@ -307,12 +391,6 @@ def seccion_B(pages_data, ctx, helpers):
                  [2.3 * cm, 3.8 * cm, 4.2 * cm, 2.4 * cm, 2.6 * cm, 2.2 * cm])
         if cb['n_pend_ses'] > len(cb['pend_ses']):
             _parrafo(P, f"Se muestran las {len(cb['pend_ses'])} más antiguas de {cb['n_pend_ses']}.", 6.8, C_MUTED, 'Helvetica-Oblique')
-    if a['paq_saldo']:
-        _subtitulo(P, '4. Proyectos y mensualidades con saldo')
-        _tabla_p(P, ['Código', 'Detalle', 'Tipo', 'Valor', 'Pagado', 'Saldo', 'Antigüedad'],
-                 [[x['codigo'], x['nombre'], 'Proyecto' if x['clave'] == 'proyecto' else 'Mensualidad', fm(x['valor']), fm(x['pagado']),
-                   fm(x['saldo']), f"{x['dias']} días"] for x in a['paq_saldo']],
-                 [2.0 * cm, 4.4 * cm, 2.4 * cm, 2.3 * cm, 2.3 * cm, 2.3 * cm, 1.8 * cm])
     _subtitulo(P, 'Próximo cobro esperado')
     _parrafo(P, f"{pr['total']} sesiones agendadas ({pr['n7']} en 7 días, {pr['n30']} en 30). Valor de las individuales: {BS(pr['esperado'])}; ya pagado por "
                 f"adelantado {BS(pr['adelantado'])}; por cobrar {BS(pr['por_cobrar'])}." + (f" Mensualidad del mes: {BS(pr['mens_prox'])}." if pr['mens_prox'] else '')
@@ -582,17 +660,13 @@ def seccion_E(pages_data, ctx, helpers):
             _parrafo(P, 'Temas más repetidos: ' + ', '.join(f"{t['texto']} ({t['n']})" for t in ar['temas']) + '.', 7.2, C_TSEC)
         _tabla_p(P, ['Mes', 'Notas', '% favorables', '% con dificultades'],
                  [[m['label'], m['n'], _pc(m['fav']), _pc(m['dif'])] for m in ar['meses']], [3.0 * cm, 2.4 * cm, 3.6 * cm, 4.2 * cm])
-        P.asegurar(1.2 * cm)
-        c0 = P.c
-        c0.setFont('Helvetica-Bold', 7.4)
-        c0.setFillColor(C_PRI)
-        c0.drawString(ML + 0.2 * cm, P.y - 0.4 * cm, f"Últimas notas de {ar['nombre']}")
-        P.y -= 0.6 * cm
-        for n in ar['notas'][:4]:
-            txt = ' '.join(n['texto'].split())
-            txt = txt if len(txt) <= 520 else txt[:517] + '...'
-            _parrafo(P, f"{fd(n['fecha'])}  ·  {n['prof']}  ·  {n['tono']}", 6.9, _hex(_COL_TONO[n['tono']]), 'Helvetica-Bold', espacio=0.0)
-            _parrafo(P, txt, 7.0, C_TEXTO, x=ML + 0.6 * cm, ancho=CW - 1.0 * cm, espacio=0.2 * cm)
-        if ar['notas_total'] > 4:
-            _parrafo(P, f"... y {ar['notas_total'] - 4} notas más (ver la pantalla del informe para leerlas todas).", 6.8, C_MUTED, 'Helvetica-Oblique')
+        _subtitulo(P, f"Notas de evolución de {ar['nombre']} ({ar['notas_total']}), en orden cronológico", _COL_TEND.get(ar['tendencia'], C_PRI))
+        for n in reversed(ar['notas']):
+            P.asegurar(1.5 * cm)
+            _parrafo(P, f"{fd(n['fecha'])} {n['hora']}  ·  {n['prof']}  ·  tono: {n['tono']}  ·  {n['palabras']} palabras", 6.9,
+                     _hex(_COL_TONO[n['tono']]), 'Helvetica-Bold', espacio=0.0)
+            parrafos = [x for x in n['texto'].splitlines() if x.strip()] or [n['texto']]
+            for k, par in enumerate(parrafos):
+                _parrafo(P, ' '.join(par.split()), 7.1, C_TEXTO, x=ML + 0.6 * cm, ancho=CW - 1.0 * cm,
+                         espacio=(0.28 * cm if k == len(parrafos) - 1 else 0.05 * cm))
     P.cerrar()

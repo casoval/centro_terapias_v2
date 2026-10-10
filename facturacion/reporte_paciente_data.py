@@ -765,6 +765,163 @@ def _devoluciones(paciente):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# DEUDA TOTAL PROYECTADA (no depende del período ni de los filtros)
+# Cifra principal = definición OFICIAL de la cuenta corriente del sistema:
+#   deuda total proyectada = consumido_real − total_pagado     (= −saldo_real)
+#   consumido_real = sesiones realizadas + sesiones programadas + TODAS las mensualidades
+#                    + proyectos (en curso, finalizados, cancelados y planificados)
+#   total_pagado   = pagos a sesiones/mensualidades/proyectos + crédito sin asignar − devoluciones
+# Se recalcula aquí en SOLO LECTURA con las mismas fórmulas de facturacion/services.py
+# (AccountService.update_balance), así coincide con el «saldo real» que ya muestra el sistema.
+# El desglose por ítem asigna cada pago a su propia sesión / paquete.
+# ─────────────────────────────────────────────────────────────────────
+def _cuenta_oficial(paciente):
+    from decimal import Decimal
+    from django.db.models.functions import Coalesce
+    from agenda.models import Mensualidad, Proyecto, Sesion
+    from facturacion.models import DetallePagoMasivo, Devolucion, Pago
+    CRED, Z = 'Uso de Crédito', Decimal('0')
+
+    def tot(qs, campo='monto'):
+        return _f(qs.aggregate(t=Coalesce(Sum(campo), Z))['t'])
+    normales = Sesion.objects.filter(paciente=paciente, proyecto__isnull=True, mensualidad__isnull=True)
+    ses_real = tot(normales.filter(estado__in=['realizada', 'realizada_retraso', 'falta']), 'monto_cobrado')
+    ses_prog = tot(normales.filter(estado='programada'), 'monto_cobrado')
+    mens = tot(Mensualidad.objects.filter(paciente=paciente, estado__in=['activa', 'pausada', 'completada', 'cancelada']), 'costo_mensual')
+    proy_real = tot(Proyecto.objects.filter(paciente=paciente, estado__in=['en_progreso', 'finalizado', 'cancelado']), 'costo_total')
+    proy_plan = tot(Proyecto.objects.filter(paciente=paciente, estado='planificado'), 'costo_total')
+    consumido_real = ses_real + ses_prog + mens + proy_real + proy_plan
+    consumido_actual = ses_real + mens + proy_real
+
+    def pagos(campo):
+        d = tot(Pago.objects.filter(paciente=paciente, anulado=False, **{f'{campo}__isnull': False}).exclude(metodo_pago__nombre=CRED))
+        m = tot(DetallePagoMasivo.objects.filter(pago__paciente=paciente, pago__anulado=False, tipo=campo).exclude(pago__metodo_pago__nombre=CRED))
+        return d + m
+    p_ses, p_men, p_pro = pagos('sesion'), pagos('mensualidad'), pagos('proyecto')
+    sin_asignar = tot(Pago.objects.filter(paciente=paciente, sesion__isnull=True, mensualidad__isnull=True, proyecto__isnull=True,
+                                          anulado=False).exclude(metodo_pago__nombre=CRED).exclude(detalles_masivos__isnull=False))
+    uso_credito = tot(Pago.objects.filter(paciente=paciente, metodo_pago__nombre=CRED, anulado=False).exclude(
+        sesion__isnull=True, proyecto__isnull=True, mensualidad__isnull=True, detalles_masivos__isnull=True))
+    dev_total = tot(Devolucion.objects.filter(paciente=paciente))
+    dev_credito = tot(Devolucion.objects.filter(paciente=paciente, proyecto__isnull=True, mensualidad__isnull=True))
+    credito = sin_asignar - uso_credito - dev_credito
+    total_pagado = p_ses + p_men + p_pro + sin_asignar - dev_total
+    return {
+        'consumido_real': round(consumido_real, 2), 'consumido_actual': round(consumido_actual, 2), 'total_pagado': round(total_pagado, 2),
+        'saldo_real': round(total_pagado - consumido_real, 2), 'saldo_actual': round(total_pagado - consumido_actual, 2),
+        'credito': round(max(credito, 0.0), 2), 'sin_asignar': round(sin_asignar, 2), 'uso_credito': round(uso_credito, 2),
+        'devoluciones': round(dev_total, 2),
+    }
+
+
+def _deuda_total(paciente, rows, pagos, proy, mens, hoy):
+    oficial = _cuenta_oficial(paciente)
+    ses_pend, prog_pend, paquetes = [], [], []
+    tipos = {k: {'clave': k, 'valor': 0.0, 'pagado': 0.0, 'pend': 0.0, 'n': 0} for k in ('ses_real', 'mens', 'proy', 'ses_prog', 'paq_prog')}
+    nombres = {'ses_real': 'Sesiones realizadas', 'mens': 'Mensualidades', 'proy': 'Proyectos en curso o finalizados',
+               'ses_prog': 'Sesiones programadas', 'paq_prog': 'Mensualidades y proyectos por iniciar'}
+    for s in rows:
+        if s['tipo'] != 'individual' or s['monto'] <= 0:
+            continue
+        if s['estado'] in CONSUMIDAS:
+            clave = 'ses_real'
+        elif s['estado'] == 'programada':
+            clave = 'ses_prog'
+        else:
+            continue
+        pag = sum(m for _f_, m in _asignar(pagos['sesion'].get(s['id'], []), s['monto']))
+        t = tipos[clave]
+        t['valor'] += s['monto']
+        t['pagado'] += pag
+        pend = s['monto'] - pag
+        if pend > 0.005:
+            t['pend'] += pend
+            t['n'] += 1
+            item = {'fecha': s['fecha'], 'hora': s['hora_txt'], 'servicio': s['servicio'], 'prof': s['prof'], 'monto': round(s['monto'], 2),
+                    'pagado': round(pag, 2), 'pend': round(pend, 2), 'dias': (hoy - s['fecha']).days}
+            (ses_pend if clave == 'ses_real' else prog_pend).append(item)
+    for p in proy + mens:
+        est = p['estado']
+        if p['clave'] == 'proyecto':
+            if est not in ('en_progreso', 'finalizado', 'cancelado', 'planificado'):
+                continue
+            futuro = est == 'planificado'
+        else:
+            if est not in ('activa', 'pausada', 'completada', 'cancelada'):
+                continue
+            futuro = p['ref'] > hoy            # mensualidad de un mes que todavía no empieza
+        clave = 'paq_prog' if futuro else ('proy' if p['clave'] == 'proyecto' else 'mens')
+        pagado = sum(m for _f_, m, _mp in pagos[p['clave']].get(p['id'], []))
+        t = tipos[clave]
+        t['valor'] += p['valor']
+        t['pagado'] += min(pagado, p['valor'])
+        pend = max(p['valor'] - pagado, 0.0)
+        if pend > 0.005:
+            t['pend'] += pend
+            t['n'] += 1
+            paquetes.append({'codigo': p['codigo'], 'nombre': p['nombre'], 'clave': p['clave'], 'estado': est, 'valor': round(p['valor'], 2),
+                             'pagado': round(min(pagado, p['valor']), 2), 'saldo': round(pend, 2), 'ref': p['ref'],
+                             'dias': (hoy - p['ref']).days, 'futuro': futuro})
+    filas = []
+    for k, t in tipos.items():
+        t['nombre'] = nombres[k]
+        t['programado'] = k in ('ses_prog', 'paq_prog')
+        for kk in ('valor', 'pagado', 'pend'):
+            t[kk] = round(t[kk], 2)
+        filas.append(t)
+    actual = round(sum(t['pend'] for t in filas if not t['programado']), 2)
+    prog = round(sum(t['pend'] for t in filas if t['programado']), 2)
+    items_total = actual + prog
+    credito = oficial['credito']
+    credito_aplicado = round(min(credito, items_total), 2)
+    total = round(max(-oficial['saldo_real'], 0.0), 2)
+    a_favor = round(max(oficial['saldo_real'], 0.0), 2)
+    ajuste = round(total - (items_total - credito_aplicado), 2)
+
+    aging = [{'label': l, 'ini': a, 'fin': b, 'monto': 0.0, 'n': 0} for a, b, l in AGING]
+
+    def _ag(dias, monto):
+        for x in aging:
+            if x['ini'] <= max(dias, 0) <= x['fin']:
+                x['monto'] += monto
+                x['n'] += 1
+                return
+    for s in ses_pend:
+        _ag(s['dias'], s['pend'])
+    for p in paquetes:
+        if not p['futuro']:
+            _ag(p['dias'], p['saldo'])
+    base_ag = sum(x['monto'] for x in aging)
+    for x in aging:
+        x['monto'] = round(x['monto'], 2)
+        x['pct'] = _pct(x['monto'], base_ag)
+    mora30 = round(sum(x['monto'] for x in aging if x['ini'] >= 31), 2)
+    # por mes (dónde se acumula la deuda)
+    pm = defaultdict(lambda: [0.0, 0.0])
+    for s in ses_pend:
+        pm[(s['fecha'].year, s['fecha'].month)][0] += s['pend']
+    for s in prog_pend:
+        pm[(s['fecha'].year, s['fecha'].month)][1] += s['pend']
+    for p in paquetes:
+        pm[(p['ref'].year, p['ref'].month)][1 if p['futuro'] else 0] += p['saldo']
+    por_mes = [{'key': k, 'label': f"{MESES_ES[k[1]]} {k[0]}", 'actual': round(v[0], 2), 'prog': round(v[1], 2), 'total': round(v[0] + v[1], 2)}
+               for k, v in sorted(pm.items())]
+    ses_pend.sort(key=lambda x: x['fecha'])
+    prog_pend.sort(key=lambda x: x['fecha'])
+    paquetes.sort(key=lambda x: (x['futuro'], x['ref']))
+    return {
+        'total': total, 'a_favor': a_favor, 'actual': actual, 'prog': prog, 'credito': credito, 'credito_aplicado': credito_aplicado,
+        'ajuste': ajuste, 'items_total': round(items_total, 2), 'oficial': oficial, 'tiene_deuda': total > 0.005,
+        'filas': filas, 'aging': aging, 'mora30': mora30, 'por_mes': por_mes,
+        'sesiones': ses_pend[:300], 'n_sesiones': len(ses_pend), 'programadas': prog_pend[:150], 'n_programadas': len(prog_pend),
+        'paquetes': paquetes,
+        'nota': ('La deuda total proyectada es la definición oficial de la cuenta corriente: todo lo consumido más lo agendado '
+                 '(sesiones programadas, mensualidades y proyectos) menos todo lo pagado, incluyendo adelantos y crédito. '
+                 'No depende del período seleccionado.'),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────
 # EVOLUCIÓN CLÍNICA: análisis de las notas de evolución por área y profesional
 # (Sesion.notas_sesion). El «tono» es un análisis automático por palabras clave:
 # ORIENTATIVO, no reemplaza la lectura clínica de las notas.
@@ -901,7 +1058,7 @@ def _evolucion(S, hoy):
             'pct_tonos': {k: _pct(tonos.get(k, 0), n) for k in ('favorable', 'mixta', 'dificultades', 'neutra')},
             'tendencia': tendencia, 'neto_ini': neto_ini, 'neto_fin': neto_fin,
             'temas': _temas([x['texto'] for x in notas]), 'meses': meses, 'profs': profs,
-            'notas': notas[:150], 'notas_total': n, 'recortadas': n > 150,
+            'notas': notas, 'notas_pantalla': notas[:300], 'notas_total': n, 'recortadas': n > 300,
         })
     areas.sort(key=lambda a_: (-a_['n_notas'], -a_['sesiones']))
     gp = defaultdict(lambda: {'ses': 0, 'n': 0, 'pal': 0, 'breves': 0, 'areas': set(), 'ult': None})
@@ -960,10 +1117,13 @@ def _semaforo(a):
         add('Puntualidad', f"{M['puntualidad']}%", nivel(M['puntualidad'], 80, 60),
             'Verde ≥ 80% · Ámbar 60–80% · Rojo < 60% de las sesiones sin retraso', 0.75,
             f"{M['retrasos']} sesiones con retraso" + (f", promedio {M['retraso_prom']:.0f} min." if M['retrasos'] else '.'))
-    if cb['tot']['gen'] > 0:
-        add('Mora de pago (más de 30 días)', f"{cb['pct_mora30']}% · Bs. {cb['mora30']:,.0f}",
-            nivel(cb['pct_mora30'], 8, 18, mayor=False), 'Verde ≤ 8% · Ámbar 8–18% · Rojo > 18% de lo generado', 1.5,
-            f"Cobrado {cb['tot']['pct']}% de lo generado; pendiente Bs. {cb['tot']['pend']:,.0f}.")
+    dd = a['deuda']
+    hist = a['valor']['total_hist']
+    if dd['tiene_deuda'] or hist > 0:
+        pct_m = round(dd['mora30'] / max(hist, 1.0) * 100, 1)
+        add('Deuda vencida (más de 30 días)', f"Bs. {dd['mora30']:,.0f} · {pct_m}% de lo consumido en su historia",
+            nivel(pct_m, 8, 18, mayor=False), 'Verde ≤ 8% · Ámbar 8–18% · Rojo > 18% de lo consumido en toda su historia', 1.5,
+            f"Deuda total proyectada Bs. {dd['total']:,.0f} (realizado Bs. {dd['actual']:,.0f} + agendado Bs. {dd['prog']:,.0f}); no depende del período.")
     if cb['dias_pago_prom'] is not None and cb['n_pagadas'] >= 3:
         add('Rapidez de pago', f"{cb['dias_pago_prom']} días en promedio", nivel(cb['dias_pago_prom'], 7, 15, mayor=False),
             'Verde ≤ 7 días · Ámbar 8–15 · Rojo > 15 días desde la sesión hasta que se paga', 0.75,
@@ -989,10 +1149,10 @@ def _semaforo(a):
     else:
         ver, msg, color = 'critico', 'Paciente con RIESGO DE ABANDONO: contactar a la familia cuanto antes.', '#dc2626'
     if inactivo:
-        pend = cb['tot']['pend']
+        pend = dd['total']
         ver, color, score = 'inactivo', '#475569', None
-        msg = es_num('Paciente INACTIVO. ' + (f"Tiene Bs. {pend:,.2f} pendientes de cobro de lo generado en el período: gestionar el cobro."
-                                              if pend > 0 else 'No tiene saldos pendientes de lo generado en el período.'))
+        msg = es_num('Paciente INACTIVO. ' + (f"Tiene una deuda total proyectada de Bs. {pend:,.2f}: gestionar el cobro."
+                                              if pend > 0 else 'No tiene deuda.'))
     if rg['nivel'] == 'alto' and ver in ('solido', 'aceptable'):
         ver, msg, color = 'bajo', 'Paciente con RIESGO MEDIO: el riesgo de abandono es alto aunque otros criterios estén bien.', '#ea580c'
     return {'criterios': crit, 'score': round(score * 100) if score is not None else None, 'veredicto': ver, 'msg': msg,
@@ -1008,11 +1168,17 @@ def _hallazgos(a):
 
     def add(tipo, txt, accion=''):
         h.append({'tipo': tipo, 'txt': es_num(txt), 'accion': accion})
+    dd = a['deuda']
+    if dd['tiene_deuda']:
+        add('alerta', f"DEUDA TOTAL PROYECTADA: Bs. {dd['total']:,.2f} (realizado hasta hoy Bs. {dd['actual']:,.2f} + agendado Bs. {dd['prog']:,.2f}"
+                      + (f" − crédito a favor Bs. {dd['credito_aplicado']:,.2f}" if dd['credito_aplicado'] else '') + '). No depende del período.',
+            'Informar a la familia el monto total y acordar cómo regularizarlo.')
+        if dd['mora30'] > 0:
+            add('alerta', f"Deuda vencida: Bs. {dd['mora30']:,.2f} llevan más de 30 días sin pagarse.", 'Priorizar el cobro de lo más antiguo.')
+    elif dd['a_favor'] > 0:
+        add('ok', f"Sin deuda: tiene un saldo a favor de Bs. {dd['a_favor']:,.2f}.")
     if rg['nivel'] == 'inactivo':
         add('nota', rg['motivos'][0], 'Si la familia desea retomar las terapias, reactivar al paciente y agendar sesiones.')
-        if cb['tot']['pend'] > 0:
-            add('alerta', f"Aunque está inactivo, tiene Bs. {cb['tot']['pend']:,.2f} pendientes de cobro de lo generado en el período.",
-                'Gestionar el cobro del saldo pendiente.')
     if rg['nivel'] == 'alto':
         add('alerta', 'Riesgo ALTO de abandono: ' + ' '.join(rg['motivos'][:2]), 'Contactar hoy al tutor, entender el motivo y ofrecer un horario alternativo.')
     elif rg['nivel'] == 'medio':
@@ -1020,18 +1186,10 @@ def _hallazgos(a):
     if rg['mens_sin_renovar']:
         add('alerta', 'No renovó la mensualidad de este mes.', 'Consultar si continuará y ofrecer renovar o ajustar el plan.')
     if cb['tot']['gen'] > 0:
-        add('info', f"Cobranza del período: de Bs. {cb['tot']['gen']:,.2f} generados se cobró Bs. {cb['tot']['cobrado']:,.2f} ({cb['tot']['pct']}%); "
+        add('info', f"Cobranza del período seleccionado: de Bs. {cb['tot']['gen']:,.2f} generados se cobró Bs. {cb['tot']['cobrado']:,.2f} ({cb['tot']['pct']}%); "
                     f"falta Bs. {cb['tot']['pend']:,.2f}.")
-        if cb['mora30'] > 0:
-            add('alerta', f"Mora: Bs. {cb['mora30']:,.2f} llevan más de 30 días sin pagarse ({cb['pct_mora30']}% de lo generado).",
-                'Coordinar un plan de pago con el tutor y priorizar el cobro de lo más antiguo.')
         if cb['dias_pago_prom'] is not None and cb['dias_pago_prom'] > 15 and cb['n_pagadas'] >= 3:
             add('nota', f"Tarda en promedio {cb['dias_pago_prom']} días en pagar cada sesión.", 'Recordarle la fecha de pago o proponer pago por adelantado / mensualidad.')
-    cc = a.get('cuenta')
-    if cc and cc['saldo_actual'] < 0:
-        add('alerta', f"Saldo en contra de la cuenta corriente: Bs. {abs(cc['saldo_actual']):,.2f}.", 'Revisar el estado de cuenta con el tutor.')
-    elif cc and cc['credito'] > 0:
-        add('ok', f"Tiene crédito a favor de Bs. {cc['credito']:,.2f} para próximas sesiones.")
     if M['base'] >= 4 and M['tasa_asistencia'] < 70:
         add('alerta', f"Asistencia baja en el período: {M['tasa_asistencia']}%.", 'Revisar motivos y reforzar la confirmación de citas (recordatorio un día antes).')
     elif M['base'] >= 4 and M['tasa_asistencia'] >= 90:
@@ -1129,15 +1287,10 @@ def analizar_paciente(paciente, desde=None, hasta=None, hoy=None, filtros=None, 
     valor['ranking'] = {'pos': pos, 'de': len(lista)} if pos else None
     plan = _plan(paciente, rows, hoy)
     clinico = _clinico(paciente, S, proy, hoy)
-    cuenta = None
-    try:
-        cc = getattr(paciente, 'cuenta_corriente', None)
-        if cc is not None:
-            cuenta = {'saldo_actual': _f(cc.saldo_actual), 'saldo_real': _f(cc.saldo_real), 'credito': _f(cc.pagos_adelantados),
-                      'total_pagado': _f(cc.total_pagado), 'consumido': _f(cc.total_consumido_actual),
-                      'consumido_real': _f(cc.total_consumido_real), 'uso_credito': _f(cc.uso_credito)}
-    except Exception:
-        cuenta = None
+    deuda = _deuda_total(paciente, rows, pagos, proy, mens, hoy)
+    of = deuda['oficial']
+    cuenta = {'saldo_actual': of['saldo_actual'], 'saldo_real': of['saldo_real'], 'credito': of['credito'], 'total_pagado': of['total_pagado'],
+              'consumido': of['consumido_actual'], 'consumido_real': of['consumido_real'], 'uso_credito': of['uso_credito']}
     proximas = _proximas(rows, pagos, precio, hoy)
     # saldo de paquetes y cobro esperado del próximo mes
     paq_saldo = []
@@ -1154,7 +1307,7 @@ def analizar_paciente(paciente, desde=None, hasta=None, hoy=None, filtros=None, 
     proximas['mens_prox'] = round(activa['valor'], 2) if activa else 0.0
     a = {
         'paciente': paciente, 'desde': desde, 'hasta': hasta, 'hoy': hoy, 'filtros': filtros, 'M': M, 'gen': gen,
-        'cobranza': cobranza, 'riesgo': riesgo, 'valor': valor, 'plan': plan, 'clinico': clinico, 'cuenta': cuenta,
+        'cobranza': cobranza, 'deuda': deuda, 'riesgo': riesgo, 'valor': valor, 'plan': plan, 'clinico': clinico, 'cuenta': cuenta,
         'proximas': proximas, 'paq_saldo': paq_saldo, 'patron': _patron(S), 'calendarios': _calendarios(S, desde, hasta, hoy),
         'servicios': _servicios(paciente, rows, hoy, S), 'motivos': _motivos(S), 'evolucion': _evolucion(S, hoy),
         'comparacion': _comparar(rows, precio, proy, mens, filtros, desde, hasta, hoy, gen, M) if comparar else None,
@@ -1165,6 +1318,11 @@ def analizar_paciente(paciente, desde=None, hasta=None, hoy=None, filtros=None, 
     a['hallazgos'] = _hallazgos(a)
     # serie por mes / semana / día para los gráficos de evolución
     a['series'] = _series(S, precio, proy, mens, rows)
+    # lista de sesiones del período (para el registro de asistencia del PDF familiar)
+    a['sesiones_lista'] = [{
+        'fecha': s['fecha'], 'dia': DIAS_ES[s['fecha'].weekday()], 'hora': s['hora_txt'], 'servicio': s['servicio'], 'prof': s['prof'],
+        'suc': s['suc'], 'estado': s['estado'], 'retraso': s['retraso'], 'tipo': s['tipo'],
+    } for s in sorted(S, key=lambda x: (x['fecha'], x['hora']))]
     return a
 
 

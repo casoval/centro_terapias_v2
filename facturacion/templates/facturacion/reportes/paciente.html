@@ -299,6 +299,19 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 .pa-notas>summary{cursor:pointer;font-size:.76rem;font-weight:700;color:var(--blue);padding:6px 0}
 .pa-search{padding:8px 11px;border:1px solid var(--border);border-radius:9px;font-size:.78rem;min-width:260px;font-family:inherit}
 @media print{.pa-notas{display:block}.pa-search{display:none}}
+
+.pa-deuda{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch;border-radius:16px;padding:18px 22px;margin-bottom:14px;color:#fff}
+.pa-deuda.hay{background:linear-gradient(135deg,#7f1d1d,#b91c1c)}.pa-deuda.no{background:linear-gradient(135deg,#14532d,#16a34a)}
+.pa-deuda-main{flex:1;min-width:260px}
+.pa-deuda-main .lbl{font-size:.68rem;font-weight:700;letter-spacing:.1em;opacity:.9}
+.pa-deuda-main .val{font-size:2.5rem;font-weight:700;line-height:1.1;margin:4px 0}
+.pa-deuda-main .sub{font-size:.74rem;opacity:.92;line-height:1.45}
+.pa-deuda-parts{flex:2;min-width:300px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.pa-deuda-parts>div{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 11px}
+.pa-deuda-parts span{display:block;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
+.pa-deuda-parts b{display:block;font-family:'DM Mono',monospace;font-size:1.05rem;margin-top:2px}
+.pa-deuda .inf{background:rgba(255,255,255,.3);color:#fff}
+.pa-prog-tag{display:inline-block;background:var(--blue-ll);color:var(--blue);border-radius:10px;padding:1px 7px;font-size:.6rem;font-weight:700;margin-left:4px}
 </style>
 
 <div class="wrap">
@@ -420,6 +433,7 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
     <div class="pac-chips">
       <span class="chip {% if paciente.estado == 'activo' %}green{% else %}red{% endif %}">
         {% if paciente.estado == 'activo' %}{{ paciente.get_estado_display }}{% else %}⛔ {{ paciente.get_estado_display|upper }}{% endif %}</span>
+      {% if a %}<span class="chip {% if a.deuda.tiene_deuda %}red{% else %}green{% endif %}" title="Deuda total proyectada: lo realizado hasta hoy más lo agendado, sin importar el período">💰 {% if a.deuda.tiene_deuda %}Deuda proyectada Bs. {{ a.deuda.total|bs }}{% elif a.deuda.a_favor %}Saldo a favor Bs. {{ a.deuda.a_favor|bs }}{% else %}Sin deuda{% endif %}</span>{% endif %}
       {% if paciente.edad %}<span class="chip">{{ paciente.edad }} años</span>{% endif %}
       {% if paciente.genero %}<span class="chip">{{ paciente.get_genero_display }}</span>{% endif %}
       {% if paciente.ci %}<span class="chip blue">CI: {{ paciente.ci }}</span>{% endif %}
@@ -650,6 +664,58 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 {% endwith %}
 
 <!-- ══ PERÍODO — KPIs FINANCIEROS ════════════════════════════════════════════ -->
+{% if a %}{% with dd=a.deuda %}
+<!-- ══ DEUDA TOTAL DEL PACIENTE (no depende del período) ══ -->
+<div class="pa-deuda {% if dd.tiene_deuda %}hay{% else %}no{% endif %}">
+  <div class="pa-deuda-main">
+    <div class="lbl">{% if dd.tiene_deuda %}DEUDA TOTAL PROYECTADA{% elif dd.a_favor %}SALDO A FAVOR{% else %}SIN DEUDA{% endif %} {% ayuda "pa_deuda_total" %}</div>
+    <div class="val mono">Bs. {% if dd.tiene_deuda %}{{ dd.total|bs }}{% elif dd.a_favor %}{{ dd.a_favor|bs }}{% else %}0,00{% endif %}</div>
+    <div class="sub">Incluye lo realizado hasta hoy <b>y lo agendado</b> (sesiones programadas, mensualidades y proyectos), menos todo lo pagado. <b>No depende del período seleccionado.</b></div>
+  </div>
+  <div class="pa-deuda-parts">
+    <div><span>Realizado hasta hoy (pendiente) {% ayuda "pa_deuda_actual" %}</span><b>{{ dd.actual|bs }}</b></div>
+    <div><span>Agendado por consumir (pendiente) {% ayuda "pa_deuda_prog" %}</span><b>{{ dd.prog|bs }}</b></div>
+    {% if dd.credito_aplicado %}<div><span>(−) Crédito a favor aplicado {% ayuda "pa_deuda_credito" %}</span><b>{{ dd.credito_aplicado|bs }}</b></div>{% endif %}
+    {% if dd.ajuste %}<div><span>(±) Ajustes {% ayuda "pa_deuda_ajuste" %}</span><b>{{ dd.ajuste|bsd }}</b></div>{% endif %}
+    <div><span>Deuda vencida (más de 30 días)</span><b>{{ dd.mora30|bs }}</b></div>
+    <div><span>Pagado en total</span><b>{{ dd.oficial.total_pagado|bs }}</b></div>
+  </div>
+</div>
+{% if dd.tiene_deuda or dd.items_total %}
+<div class="g2">
+  <div class="card"><h3>📋 De qué se compone la deuda {% ayuda "pa_deuda_tipo" %}</h3>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Concepto</th><th class="money">Valor</th><th class="money">Pagado</th><th class="money">Pendiente</th></tr></thead><tbody>
+    {% for f in dd.filas %}{% if f.valor or f.pend %}<tr><td><b>{{ f.nombre }}</b>{% if f.programado %}<span class="pa-prog-tag">agendado</span>{% endif %}{% if f.n %}<div class="pa-note" style="margin:0">{{ f.n }} pendiente(s)</div>{% endif %}</td><td class="money">{{ f.valor|bs }}</td><td class="money">{{ f.pagado|bs }}</td><td class="money"><b>{{ f.pend|bs }}</b></td></tr>{% endif %}{% endfor %}
+    <tr><td>Total pendiente por ítem</td><td></td><td></td><td class="money"><b>{{ dd.items_total|bs }}</b></td></tr>
+    {% if dd.credito_aplicado %}<tr><td>(−) Crédito a favor aplicado</td><td></td><td></td><td class="money">{{ dd.credito_aplicado|bs }}</td></tr>{% endif %}
+    {% if dd.ajuste %}<tr><td>(±) Ajustes (sobrepagos, devoluciones, descuentos posteriores)</td><td></td><td></td><td class="money">{{ dd.ajuste|bsd }}</td></tr>{% endif %}
+    <tr style="background:var(--surface2)"><td><b>= Deuda total proyectada</b></td><td></td><td></td><td class="money"><b>{{ dd.total|bs }}</b></td></tr></tbody></table></div>
+    <p class="pa-note">{{ dd.nota }}</p>
+  </div>
+  <div class="card"><h3>⏳ Antigüedad de lo ya realizado y no pagado {% ayuda "pa_deuda_aging" %}</h3>
+    {% for x in dd.aging %}<div style="margin:7px 0;font-size:.74rem"><div style="display:flex;justify-content:space-between"><span>{{ x.label }} <span style="color:var(--muted)">({{ x.n }})</span></span><span class="mono"><b>{{ x.monto|bs }}</b> · {{ x.pct|floatformat:0 }}%</span></div><div class="pa-pbar"><div style="width:{{ x.pct|pw }}%;background:{% if x.ini >= 31 %}var(--red){% elif x.ini >= 8 %}var(--amber){% else %}var(--green){% endif %}"></div></div></div>{% endfor %}
+    {% if dd.por_mes %}<h3 style="margin-top:14px">🗓️ Deuda por mes {% ayuda "pa_deuda_mes" %}</h3>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Mes</th><th class="money">Realizado</th><th class="money">Agendado</th><th class="money">Total</th></tr></thead><tbody>
+      {% for m in dd.por_mes %}<tr><td>{{ m.label }}</td><td class="money">{{ m.actual|bs }}</td><td class="money">{{ m.prog|bs }}</td><td class="money"><b>{{ m.total|bs }}</b></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  </div>
+</div>
+{% if dd.sesiones or dd.programadas or dd.paquetes %}
+<div class="card"><h3>🧾 Detalle de lo pendiente (sin importar el período)</h3>
+  {% if dd.paquetes %}<div style="font-size:.7rem;font-weight:700;color:var(--muted);margin:6px 0 3px">Mensualidades y proyectos con saldo {% ayuda "pa_deuda_paq" %}</div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Código</th><th>Detalle</th><th>Estado</th><th class="money">Valor</th><th class="money">Pagado</th><th class="money">Saldo</th><th>Desde</th></tr></thead><tbody>
+  {% for x in dd.paquetes %}<tr><td class="mono">{{ x.codigo }}</td><td>{{ x.nombre }} <span class="badge badge-slate">{% if x.clave == 'proyecto' %}Proyecto{% else %}Mensualidad{% endif %}</span>{% if x.futuro %}<span class="pa-prog-tag">agendado</span>{% endif %}</td><td>{{ x.estado }}</td><td class="money">{{ x.valor|bs }}</td><td class="money">{{ x.pagado|bs }}</td><td class="money"><b>{{ x.saldo|bs }}</b></td><td>{{ x.ref|date:"d/m/Y" }}{% if not x.futuro %} <span class="badge {% if x.dias > 30 %}badge-red{% else %}badge-amber{% endif %}">{{ x.dias }} d</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  {% if dd.sesiones %}<div style="font-size:.7rem;font-weight:700;color:var(--muted);margin:10px 0 3px">Sesiones realizadas sin pagar ({{ dd.n_sesiones }}) {% ayuda "pa_deuda_ses" %}</div>
+  <div class="tbl-wrap" style="max-height:300px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Servicio</th><th>Profesional</th><th class="money">Monto</th><th class="money">Pagado</th><th class="money">Pendiente</th><th>Antigüedad</th></tr></thead><tbody>
+  {% for x in dd.sesiones %}<tr><td>{{ x.fecha|date:"d/m/Y" }}</td><td>{{ x.servicio }}</td><td>{{ x.prof }}</td><td class="money">{{ x.monto|bs }}</td><td class="money">{{ x.pagado|bs }}</td><td class="money"><b>{{ x.pend|bs }}</b></td><td><span class="badge {% if x.dias > 30 %}badge-red{% elif x.dias > 7 %}badge-amber{% else %}badge-green{% endif %}">{{ x.dias }} días</span></td></tr>{% endfor %}</tbody></table></div>
+  {% if dd.n_sesiones > 300 %}<p class="pa-note">Se muestran las 300 más antiguas de {{ dd.n_sesiones }}.</p>{% endif %}{% endif %}
+  {% if dd.programadas %}<div style="font-size:.7rem;font-weight:700;color:var(--muted);margin:10px 0 3px">Sesiones programadas aún sin pagar ({{ dd.n_programadas }}) {% ayuda "pa_deuda_progses" %}</div>
+  <div class="tbl-wrap" style="max-height:240px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Hora</th><th>Servicio</th><th>Profesional</th><th class="money">Valor</th><th class="money">Pagado</th><th class="money">Pendiente</th></tr></thead><tbody>
+  {% for x in dd.programadas %}<tr><td>{{ x.fecha|date:"d/m/Y" }}</td><td class="mono">{{ x.hora }}</td><td>{{ x.servicio }}</td><td>{{ x.prof }}</td><td class="money">{{ x.monto|bs }}</td><td class="money">{{ x.pagado|bs }}</td><td class="money"><b>{{ x.pend|bs }}</b></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endwith %}{% endif %}
+
 {% if a %}{% with rg=a.riesgo vl=a.valor cb=a.cobranza M=a.M %}
 <!-- ══ A · DECISIÓN, RIESGO Y VALOR ══ -->
 <div class="sec-hdr"><h2>🚦 Decisión: ¿cómo está este paciente? {% ayuda "pa_sec_decision" %}</h2><div class="sec-hdr-line"></div></div>
@@ -770,7 +836,8 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
 <!-- ══ KPIs ASISTENCIA ═══════════════════════════════════════════════════════ -->
 {% if a %}{% with cb=a.cobranza pr=a.proximas cu=a.cuenta %}
 <!-- ══ B · CUENTA CORRIENTE Y COBRANZA ══ -->
-<div class="sec-hdr"><h2>💳 Cuenta corriente y cobranza: lo generado vs. lo cobrado {% ayuda "pa_sec_cobranza" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="sec-hdr"><h2>💳 Cobranza del período seleccionado: lo generado vs. lo cobrado {% ayuda "pa_sec_cobranza" %}</h2><div class="sec-hdr-line"></div></div>
+<div class="pa-alert nota">La <b>deuda total del paciente</b> (proyectada, sin importar el período) está en el recuadro del inicio. Esta sección analiza solo el período seleccionado.</div>
 <div class="pa-alert"><b>Generado ≠ cobrado.</b> «Generado» es lo que el paciente consumió en el período (sesiones realizadas y su parte de proyectos y mensualidades), se haya pagado o no. «Cobrado» es el dinero recibido, con su fecha: antes del período (adelantado), durante o después (cobro tardío).</div>
 <div class="metric-grid">
   <div class="metric-card"><div class="bar" style="background:var(--blue)"></div><div class="mc-label">Generado {% ayuda "pa_gen_cob" %}</div><div class="mc-val">{{ cb.tot.gen|bs }}</div><div class="mc-sub">devengado en el período</div></div>
@@ -778,7 +845,6 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
   <div class="metric-card"><div class="bar" style="background:var(--amber)"></div><div class="mc-label">Falta cobrar</div><div class="mc-val">{{ cb.tot.pend|bs }}</div><div class="mc-sub">{{ cb.n_pend_ses }} sesiones sin pagar por completo</div></div>
   <div class="metric-card"><div class="bar" style="background:var(--red)"></div><div class="mc-label">Mora &gt; 30 días</div><div class="mc-val">{{ cb.mora30|bs }}</div><div class="mc-sub">{{ cb.pct_mora30|floatformat:1 }}% de lo generado</div></div>
   <div class="metric-card"><div class="bar" style="background:var(--purple)"></div><div class="mc-label">Rapidez de pago {% ayuda "pa_dias_pago" %}</div><div class="mc-val">{% if cb.dias_pago_prom != None %}{{ cb.dias_pago_prom|floatformat:1 }} d{% else %}—{% endif %}</div><div class="mc-sub">{% if cb.pct_pago_7d != None %}{{ cb.pct_pago_7d|floatformat:0 }}% pagado en ≤ 7 días · {{ cb.pct_adelantado|floatformat:0 }}% por adelantado{% else %}sin sesiones pagadas{% endif %}</div></div>
-  {% if cu %}<div class="metric-card"><div class="bar" style="background:{% if cu.saldo_actual >= 0 %}var(--green){% else %}var(--red){% endif %}"></div><div class="mc-label">Cuenta corriente {% ayuda "pa_cuenta" %}</div><div class="mc-val {% if cu.saldo_actual >= 0 %}pa-up{% else %}pa-down{% endif %}">{{ cu.saldo_actual|bsd }}</div><div class="mc-sub">pagado {{ cu.total_pagado|bs }} − consumido {{ cu.consumido|bs }}{% if cu.credito %} · crédito {{ cu.credito|bs }}{% endif %}</div></div>{% endif %}
 </div>
 <div class="g2">
   <div class="card"><h3>1 · De lo generado, ¿se cobró?</h3>
@@ -797,12 +863,6 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
   <div class="tbl-wrap" style="max-height:280px;overflow-y:auto"><table class="tbl"><thead><tr><th>Fecha</th><th>Servicio</th><th>Profesional</th><th class="money">Monto</th><th class="money">Pendiente</th><th>Antigüedad</th></tr></thead><tbody>
   {% for x in cb.pend_ses %}<tr><td>{{ x.fecha|date:"d/m/Y" }}</td><td>{{ x.servicio }}</td><td>{{ x.prof }}</td><td class="money">{{ x.monto|bs }}</td><td class="money"><b>{{ x.pend|bs }}</b></td><td><span class="badge {% if x.dias > 30 %}badge-red{% elif x.dias > 7 %}badge-amber{% else %}badge-green{% endif %}">{{ x.dias }} días</span></td></tr>{% endfor %}</tbody></table></div>
   {% if cb.n_pend_ses > 25 %}<p class="pa-note">Se muestran las 25 más antiguas de {{ cb.n_pend_ses }}.</p>{% endif %}
-</div>
-{% endif %}
-{% if a.paq_saldo %}
-<div class="card"><h3>4 · Proyectos y mensualidades con saldo {% ayuda "pa_paq_saldo" %}</h3>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Código</th><th>Detalle</th><th class="money">Valor</th><th class="money">Pagado</th><th class="money">Saldo</th><th>Antigüedad</th></tr></thead><tbody>
-  {% for x in a.paq_saldo %}<tr><td class="mono">{{ x.codigo }}</td><td>{{ x.nombre }} <span class="badge badge-slate">{% if x.clave == 'proyecto' %}Proyecto{% else %}Mensualidad{% endif %}</span></td><td class="money">{{ x.valor|bs }}</td><td class="money">{{ x.pagado|bs }}</td><td class="money"><b>{{ x.saldo|bs }}</b></td><td><span class="badge {% if x.dias > 30 %}badge-red{% else %}badge-amber{% endif %}">{{ x.dias }} días</span></td></tr>{% endfor %}</tbody></table></div>
 </div>
 {% endif %}
 <div class="card"><h3>🔮 Próximo cobro esperado {% ayuda "pa_proximo_cobro" %}</h3>
@@ -1400,8 +1460,8 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
       {% for p in ar.profs %}<tr><td>{{ p.prof }}</td><td class="money">{{ p.ses }}</td><td class="money">{{ p.notas }}</td><td class="money">{{ p.pct|floatformat:0 }}%</td><td class="money">{{ p.palabras_prom|floatformat:1 }}</td></tr>{% endfor %}</tbody></table></div>
   </div>
   <details class="pa-notas"><summary>📖 Ver las {{ ar.notas_total }} notas de {{ ar.nombre }} {% ayuda "pa_evo_notas" %}</summary>
-    {% for n in ar.notas %}<div class="pa-nota t-{{ n.tono }}" data-s="{{ n.busqueda }}"><div class="h"><span>{{ n.fecha|date:"d/m/Y" }} {{ n.hora }}</span><span>👩‍⚕️ {{ n.prof }}</span><span class="badge {% if n.tono == 'favorable' %}badge-green{% elif n.tono == 'dificultades' %}badge-red{% elif n.tono == 'mixta' %}badge-amber{% else %}badge-slate{% endif %}">{{ n.tono }}</span>{% if n.tipo != 'individual' %}<span>{{ n.tipo }}</span>{% endif %}<span>{{ n.palabras }} palabras</span></div><div class="tx">{{ n.texto }}</div></div>{% endfor %}
-    {% if ar.recortadas %}<p class="pa-note">Se muestran las 150 notas más recientes de {{ ar.notas_total }}.</p>{% endif %}
+    {% for n in ar.notas_pantalla %}<div class="pa-nota t-{{ n.tono }}" data-s="{{ n.busqueda }}"><div class="h"><span>{{ n.fecha|date:"d/m/Y" }} {{ n.hora }}</span><span>👩‍⚕️ {{ n.prof }}</span><span class="badge {% if n.tono == 'favorable' %}badge-green{% elif n.tono == 'dificultades' %}badge-red{% elif n.tono == 'mixta' %}badge-amber{% else %}badge-slate{% endif %}">{{ n.tono }}</span>{% if n.tipo != 'individual' %}<span>{{ n.tipo }}</span>{% endif %}<span>{{ n.palabras }} palabras</span></div><div class="tx">{{ n.texto }}</div></div>{% endfor %}
+    {% if ar.recortadas %}<p class="pa-note">Se muestran las 300 notas más recientes de {{ ar.notas_total }}. El PDF interno incluye todas.</p>{% endif %}
   </details>
   {% else %}<p class="pa-note" style="color:var(--red)">Ninguna de las {{ ar.sesiones }} sesiones atendidas de esta área tiene nota de evolución.</p>{% endif %}
 </div>

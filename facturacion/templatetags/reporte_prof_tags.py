@@ -345,5 +345,17 @@ AYUDA.update({
     'pa_evo_tono': "Clasificación automática de cada nota por palabras clave (por ejemplo «logró», «avanzó», «participó» frente a «dificultad», «rechazo», «llanto»), con negaciones simples («sin dificultad», «no logró»). Favorable = predominan palabras de logro; con dificultades = predominan las de dificultad. Orientativo: no reemplaza leer la nota.",
     'pa_evo_temas': "Palabras más repetidas en las notas del área (sin palabras vacías como «de», «la» o «sesión»). Muestran en qué se está trabajando o qué se repite.",
     'pa_evo_notas': "Texto completo de las notas, de la más reciente a la más antigua, con su profesional y el tono detectado.",
+    # ── Deuda total proyectada ──
+    'pa_deuda_total': "Deuda total del paciente SIN IMPORTAR el período: todo lo consumido hasta hoy más lo agendado (sesiones programadas, mensualidades y proyectos), menos todo lo pagado (incluye adelantos y crédito). Es la misma definición de la cuenta corriente del sistema (saldo real negativo).",
+    'pa_deuda_actual': "Lo ya realizado que todavía no está pagado: sesiones realizadas (incluye faltas sin aviso), mensualidades y proyectos en curso o finalizados. Cada pago se asigna a su propia sesión o paquete.",
+    'pa_deuda_prog': "Lo agendado que todavía no se consume y no está pagado: sesiones programadas y proyectos o mensualidades por iniciar. Si el paciente ya pagó por adelantado, eso se descuenta.",
+    'pa_deuda_credito': "Dinero a favor del paciente que no está asignado a ninguna sesión ni paquete (adelantos sin asignar). Se descuenta de la deuda.",
+    'pa_deuda_ajuste': "Diferencia entre la suma por ítem y la cifra oficial de la cuenta: sobrepagos de una sesión, devoluciones o descuentos aplicados después de un pago. Se muestra para que el desglose cierre exacto.",
+    'pa_deuda_tipo': "Cuánto vale cada tipo de servicio del paciente, cuánto se pagó y cuánto falta. Las filas marcadas «agendado» aún no se consumen.",
+    'pa_deuda_aging': "Cuánto de lo ya realizado y no pagado tiene 0–7, 8–30, 31–60 o más de 60 días. En paquetes se cuenta desde su inicio.",
+    'pa_deuda_mes': "En qué mes se acumula la deuda: lo realizado en cada mes que sigue sin pagarse y lo agendado para meses siguientes.",
+    'pa_deuda_paq': "Mensualidades y proyectos con saldo (valor menos lo pagado). Los marcados «agendado» son de meses o proyectos que todavía no empiezan.",
+    'pa_deuda_ses': "Sesiones realizadas (o con falta sin aviso, que se cobra) que no están pagadas por completo, de la más antigua a la más reciente.",
+    'pa_deuda_progses': "Sesiones programadas a futuro cuyo valor todavía no está pagado (descontando lo pagado por adelantado).",
 })
 

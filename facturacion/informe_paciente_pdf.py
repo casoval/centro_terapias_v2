@@ -514,6 +514,8 @@ def _portada(c, pac, periodo_txt, fecha_emision, ctx):
     # Saldo real como principal, saldo_actual como sublabel
     saldo_real   = cc.saldo_real   if cc else 0
     saldo_actual = cc.saldo_actual if cc else 0
+    if (ctx.get('a') or {}).get('cuenta'):          # cifras recalculadas al instante (misma fórmula del sistema)
+        saldo_real, saldo_actual = ctx['a']['cuenta']['saldo_real'], ctx['a']['cuenta']['saldo_actual']
     saldo_color  = C_VERDE if float(saldo_real) >= 0 else C_ROJO
 
     kpis_f1 = [
@@ -526,7 +528,7 @@ def _portada(c, pac, periodo_txt, fecha_emision, ctx):
     kpis_f2 = [
         ("Total Cobrado",   _bs(stats.get('total_cobrado', 0)),                     "Monto generado",     C_MED),
         ("Total Pagado",    _bs(stats.get('total_pagado', 0)),                      "Pagado en período",  C_VERDE),
-        ("Saldo Pendiente", _bs(stats.get('saldo_pendiente', 0)),                   "Por cobrar",         C_AMBER),
+        ("Saldo del período", _bs(stats.get('saldo_pendiente', 0)),                    "Solo este período",  C_AMBER),
         ("Saldo Real Proy.", _bs(saldo_real),
          f"Cuenta: {_bs(saldo_actual)}",                                            saldo_color),
     ]
@@ -541,6 +543,27 @@ def _portada(c, pac, periodo_txt, fecha_emision, ctx):
     for i, (lbl, val, sub, col) in enumerate(kpis_f2):
         _metrica_box(c, ML + 0.5 * cm + i * (bw_p + gap_p),
                      cy - 0.55 * cm - bh_p - 0.3 * cm, bw_p, bh_p, lbl, val, sub, col)
+
+    # ── Deuda total proyectada (sin importar el período) ─────────────
+    a_ = ctx.get('a')
+    if a_ and a_.get('deuda'):
+        dd = a_['deuda']
+        by = cy - box_h_portada - 0.6 * cm
+        hay = dd['tiene_deuda']
+        c.setFillColor(colors.HexColor('#b91c1c') if hay else colors.HexColor('#15803d'))
+        c.roundRect(ML, by - 2.1 * cm, CW, 2.1 * cm, 9, fill=1, stroke=0)
+        c.setFillColor(C_BLANCO)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(ML + 0.6 * cm, by - 0.6 * cm, "DEUDA TOTAL PROYECTADA" if hay else ("SALDO A FAVOR" if dd['a_favor'] else "SIN DEUDA"))
+        c.setFont("Helvetica-Bold", 22)
+        c.drawString(ML + 0.6 * cm, by - 1.45 * cm, _bs(dd['total'] if hay else dd['a_favor']))
+        c.setFont("Helvetica", 7)
+        c.drawString(ML + 0.6 * cm, by - 1.85 * cm, "Sin importar el período: incluye lo realizado hasta hoy y lo agendado.")
+        c.setFont("Helvetica", 7.4)
+        c.drawRightString(PAGE_W - ML - 0.6 * cm, by - 0.75 * cm, f"Realizado hasta hoy: {_bs(dd['actual'])}")
+        c.drawRightString(PAGE_W - ML - 0.6 * cm, by - 1.2 * cm, f"Agendado por consumir: {_bs(dd['prog'])}")
+        if dd['credito_aplicado']:
+            c.drawRightString(PAGE_W - ML - 0.6 * cm, by - 1.65 * cm, f"Crédito a favor aplicado: -{_bs(dd['credito_aplicado'])}")
 
     _pie(c, 1, 999, fecha_emision)
 
