@@ -5022,41 +5022,49 @@ def reporte_asistencia(request):
     ).select_related('paciente', 'servicio', 'profesional', 'sucursal',
                      'mensualidad', 'proyecto')
 
-    # Filtro de sucursal transversal
-    if sucursal_filtro:
-        sesiones = sesiones.filter(sucursal_id=sucursal_filtro)
+    # ── Filtros unificados (la entidad de la vista manda sobre el filtro transversal de su dimensión) ──
+    from facturacion.reporte_asistencia_data import normalizar_filtros as _norm_f
+    serv_filtro = request.GET.get('servicio', '').strip()
+    filtros_n, entidad_id = _norm_f(tipo, entidad_id, sucursal_filtro, prof_filtro, serv_filtro, mensualidad_id, proyecto_id)
 
-    # Filtro de profesional (solo en vista general, para evitar doble filtro)
-    if prof_filtro and tipo != 'profesional':
-        sesiones = sesiones.filter(profesional_id=prof_filtro)
-
-    # Filtros por mensualidad / proyecto
-    if mensualidad_id:
-        sesiones = sesiones.filter(mensualidad_id=mensualidad_id)
-    if proyecto_id:
-        sesiones = sesiones.filter(proyecto_id=proyecto_id)
-
-    # ── 4. Filtro por entidad según tipo ─────────────────────────────────────
     entidad = None
     if entidad_id:
         try:
             eid = int(entidad_id)
             if tipo == 'paciente':
                 entidad = Paciente.objects.get(id=eid)
-                sesiones = sesiones.filter(paciente=entidad)
             elif tipo == 'profesional':
                 entidad = Profesional.objects.get(id=eid)
-                sesiones = sesiones.filter(profesional=entidad)
             elif tipo == 'servicio':
                 entidad = TipoServicio.objects.get(id=eid)
-                sesiones = sesiones.filter(servicio=entidad)
             elif tipo == 'sucursal':
                 entidad = Sucursal.objects.get(id=eid)
-                sesiones = sesiones.filter(sucursal=entidad)
         except (ValueError, Paciente.DoesNotExist, Profesional.DoesNotExist,
                 TipoServicio.DoesNotExist, Sucursal.DoesNotExist):
+            filtros_n[tipo] = ''
             entidad_id = ''
             entidad = None
+
+    # Evita mostrar dos selectores para lo mismo (la entidad ya lo cubre)
+    if tipo == 'sucursal' and entidad_id:
+        sucursal_filtro = ''
+    elif tipo == 'profesional' and entidad_id:
+        prof_filtro = ''
+    elif tipo == 'servicio' and entidad_id:
+        serv_filtro = ''
+
+    if filtros_n['sucursal']:
+        sesiones = sesiones.filter(sucursal_id=filtros_n['sucursal'])
+    if filtros_n['profesional']:
+        sesiones = sesiones.filter(profesional_id=filtros_n['profesional'])
+    if filtros_n['servicio']:
+        sesiones = sesiones.filter(servicio_id=filtros_n['servicio'])
+    if filtros_n['paciente']:
+        sesiones = sesiones.filter(paciente_id=filtros_n['paciente'])
+    if filtros_n['mensualidad']:
+        sesiones = sesiones.filter(mensualidad_id=filtros_n['mensualidad'])
+    if filtros_n['proyecto']:
+        sesiones = sesiones.filter(proyecto_id=filtros_n['proyecto'])
 
     # ── 5. Conteos y estadísticas ─────────────────────────────────────────────
     total   = sesiones.count()
@@ -5349,9 +5357,10 @@ def reporte_asistencia(request):
 
     # ── 15. Listas para dropdowns del formulario ──────────────────────────────
     sucursales    = Sucursal.objects.filter(activa=True).order_by('nombre')
-    profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
-    servicios     = TipoServicio.objects.filter(activo=True).order_by('nombre')
-    pacientes     = Paciente.objects.filter(estado='activo').order_by('apellido', 'nombre')
+    # Incluye inactivos (el historial de quien ya no está también se puede consultar); los activos van primero
+    profesionales = Profesional.objects.all().order_by('-activo', 'apellido', 'nombre')
+    servicios     = TipoServicio.objects.all().order_by('-activo', 'nombre')
+    pacientes     = Paciente.objects.all().order_by('estado', 'apellido', 'nombre')
 
     # ── 16. Lista detallada de sesiones (paginada) ────────────────────────────
     # El usuario puede filtrar adicionalmente por estado desde la tabla.
@@ -5379,8 +5388,19 @@ def reporte_asistencia(request):
     _params.pop('page_lista', None)
     query_string_lista = _params.urlencode()
 
+    # ── Análisis para la dirección (decisiones, comparaciones, riesgo…) ───────
+    from facturacion.reporte_asistencia_data import analizar_asistencia as _analizar_asis
+    try:
+        analisis = _analizar_asis(fecha_desde_obj, fecha_hasta_obj, filtros_n, today)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).error("Error en análisis de asistencia", exc_info=True)
+        analisis = None
+
     # ── 17. Contexto completo ─────────────────────────────────────────────────
     context = {
+        'analisis'         : analisis,
+        'serv_filtro'      : serv_filtro,
         # Datos calculados
         'stats'            : stats,
         'tasas'            : tasas,
@@ -5502,37 +5522,49 @@ def generar_reporte_asistencia_pdf(request):
     ).select_related('paciente', 'servicio', 'profesional', 'sucursal',
                      'mensualidad', 'proyecto')
 
-    if sucursal_filtro:
-        sesiones = sesiones.filter(sucursal_id=sucursal_filtro)
+    # ── Filtros unificados (la entidad de la vista manda sobre el filtro transversal de su dimensión) ──
+    from facturacion.reporte_asistencia_data import normalizar_filtros as _norm_f
+    serv_filtro = request.GET.get('servicio', '').strip()
+    filtros_n, entidad_id = _norm_f(tipo, entidad_id, sucursal_filtro, prof_filtro, serv_filtro, mensualidad_id, proyecto_id)
 
-    if prof_filtro and tipo != 'profesional':
-        sesiones = sesiones.filter(profesional_id=prof_filtro)
-
-    if mensualidad_id:
-        sesiones = sesiones.filter(mensualidad_id=mensualidad_id)
-    if proyecto_id:
-        sesiones = sesiones.filter(proyecto_id=proyecto_id)
-
-    # ── 4. Filtro por entidad ─────────────────────────────────────────────────
     entidad = None
     if entidad_id:
         try:
             eid = int(entidad_id)
             if tipo == 'paciente':
                 entidad = Paciente.objects.get(id=eid)
-                sesiones = sesiones.filter(paciente=entidad)
             elif tipo == 'profesional':
                 entidad = Profesional.objects.get(id=eid)
-                sesiones = sesiones.filter(profesional=entidad)
             elif tipo == 'servicio':
                 entidad = TipoServicio.objects.get(id=eid)
-                sesiones = sesiones.filter(servicio=entidad)
             elif tipo == 'sucursal':
                 entidad = Sucursal.objects.get(id=eid)
-                sesiones = sesiones.filter(sucursal=entidad)
-        except Exception:
+        except (ValueError, Paciente.DoesNotExist, Profesional.DoesNotExist,
+                TipoServicio.DoesNotExist, Sucursal.DoesNotExist):
+            filtros_n[tipo] = ''
             entidad_id = ''
             entidad = None
+
+    # Evita mostrar dos selectores para lo mismo (la entidad ya lo cubre)
+    if tipo == 'sucursal' and entidad_id:
+        sucursal_filtro = ''
+    elif tipo == 'profesional' and entidad_id:
+        prof_filtro = ''
+    elif tipo == 'servicio' and entidad_id:
+        serv_filtro = ''
+
+    if filtros_n['sucursal']:
+        sesiones = sesiones.filter(sucursal_id=filtros_n['sucursal'])
+    if filtros_n['profesional']:
+        sesiones = sesiones.filter(profesional_id=filtros_n['profesional'])
+    if filtros_n['servicio']:
+        sesiones = sesiones.filter(servicio_id=filtros_n['servicio'])
+    if filtros_n['paciente']:
+        sesiones = sesiones.filter(paciente_id=filtros_n['paciente'])
+    if filtros_n['mensualidad']:
+        sesiones = sesiones.filter(mensualidad_id=filtros_n['mensualidad'])
+    if filtros_n['proyecto']:
+        sesiones = sesiones.filter(proyecto_id=filtros_n['proyecto'])
 
     # ── 5. Filtro adicional de estado (respeta estado_lista del template) ─────
     ESTADOS_VALIDOS = {'programada', 'realizada', 'realizada_retraso',
@@ -5736,8 +5768,17 @@ def generar_reporte_asistencia_pdf(request):
         ).order_by('-fecha', '-hora_inicio')
     )
 
+    from facturacion.reporte_asistencia_data import analizar_asistencia as _analizar_asis
+    try:
+        analisis = _analizar_asis(fecha_desde_obj, fecha_hasta_obj, filtros_n, today)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).error("Error en análisis de asistencia (PDF)", exc_info=True)
+        analisis = None
+
     # ── 15. Construir contexto para el PDF ────────────────────────────────────
     context_pdf = {
+        'analisis'         : analisis,
         'stats'            : stats,
         'tasas'            : tasas,
         'por_dia_semana'   : por_dia_semana,
@@ -5755,6 +5796,8 @@ def generar_reporte_asistencia_pdf(request):
         'tipo'             : tipo,
         'entidad'          : entidad,
         'sucursal_filtro'  : sucursal_filtro,
+        'prof_filtro'      : prof_filtro,
+        'serv_filtro'      : serv_filtro,
         'mensualidad_id'   : mensualidad_id,
         'proyecto_id'      : proyecto_id,
     }

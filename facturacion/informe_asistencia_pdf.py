@@ -637,6 +637,190 @@ def _seccion_por_servicio(pages_data, ctx, helpers):
     pages_data.append(pg)
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# PANEL DE DECISIÓN PARA LA DIRECCIÓN (usa reporte_asistencia_data)
+# ─────────────────────────────────────────────────────────────────────
+_NIVEL_COL = {'alerta': (C_ROJO, C_ROJO_L, 'ALERTA'), 'aviso': (C_AMBER, C_AMBER_L, 'AVISO'),
+              'ok': (C_VERDE, C_VERDE_L, 'BIEN'), 'info': (C_SKY, C_SKY_L, 'NOTA')}
+
+
+def _lineas_txt(texto, font, size, ancho):
+    out, linea = [], ''
+    for w in str(texto).split():
+        t = (linea + ' ' + w).strip()
+        if stringWidth(t, font, size) <= ancho:
+            linea = t
+        else:
+            if linea:
+                out.append(linea)
+            linea = w
+    if linea:
+        out.append(linea)
+    return out or ['']
+
+
+def _col_nivel(n):
+    return {'verde': C_VERDE, 'ambar': C_AMBER, 'rojo': C_ROJO}.get(n, C_MUTED)
+
+
+def _seccion_direccion(pages_data, ctx, helpers):
+    an = ctx.get('analisis')
+    if not an:
+        return
+    make_page = helpers['new_page']
+    fecha = helpers['fecha']
+    st = {}
+    st['c'], st['y'], st['pg'] = make_page()
+
+    def nueva():
+        _pie(st['c'], st['pg'], helpers['total_pg'][0], fecha)
+        pages_data.append(st['pg'])
+        st['c'], st['y'], st['pg'] = make_page()
+
+    def asegurar(h):
+        if st['y'] - h < Y_BOTTOM:
+            nueva()
+
+    def titulo(txt, color=None):
+        asegurar(1.8 * cm)
+        st['y'] = _titulo_seccion(st['c'], st['y'], txt, color)
+
+    def nota(txt):
+        asegurar(1.2 * cm)
+        st['y'] = _explicacion(st['c'], st['y'], txt)
+
+    def tabla(headers, rows, ws, fs=7.0):
+        rh = 0.5 * cm
+        i = 0
+        while i < len(rows) or i == 0:
+            asegurar(rh * 3)
+            cabe = max(int((st['y'] - Y_BOTTOM - rh - 0.3 * cm) / rh), 1)
+            st['y'] = _tabla(st['c'], st['y'], headers, rows[i:i + cabe], ws, font_size=fs, row_h=rh)
+            i += cabe
+            if i < len(rows):
+                nueva()
+            else:
+                break
+
+    M, P, C = an['M'], an['P'], an.get('C')
+    st['y'] = _titulo_seccion(st['c'], st['y'], 'Panel de decisión para la dirección', C_PRI)
+    desde, hasta = an['desde'], an['hasta']
+    ant = f"{an['p_desde'].strftime('%d/%m/%Y')} al {an['p_hasta'].strftime('%d/%m/%Y')}"
+    st['y'] = _explicacion(st['c'], st['y'],
+        f"Período {desde.strftime('%d/%m/%Y')} al {hasta.strftime('%d/%m/%Y')}; comparado con el período anterior ({ant}). "
+        "Asistencia = (realizadas + retrasos) / (realizadas + retrasos + faltas + permisos). Objetivo 85%; crítico bajo 70%.")
+
+    # KPIs
+    dl = an.get('delta_asis')
+    sub_as = f"{M['atendidas']} de {M['base']} evaluables"
+    if dl is not None:
+        sub_as += f" · {dl:+.1f} pts vs anterior"
+    items = [
+        ('Asistencia', _pct(M['tasa_asistencia']), sub_as, _col_nivel(an['nivel'])),
+        ('Puntualidad', _pct(M['puntualidad']), f"{M['retrasos']} retrasos · objetivo 80%", C_TEAL),
+        ('Faltas sin aviso', str(M['faltas']), f"{_pct(M['tasa_faltas'])} de lo evaluable", C_ROJO),
+        ('Permisos', str(M['permisos']), 'con aviso previo', C_MORADO),
+        ('Canceladas centro', str(M['canceladas']), 'tolerable hasta 5%', C_MUTED),
+        ('Terapia efectiva', an['perdidas']['aprovechado'], f"{an['perdidas']['total_horas']} no se dieron", C_MED),
+        ('Sin registrar', str(an['vencidas']['total']), 'pasadas aún «Programada»', C_AMBER),
+        ('Pacientes', str(an['pacientes']['n']), 'con sesiones en el período', C_SKY),
+    ]
+    if C and an.get('vs_centro') is not None:
+        items[0] = (items[0][0], items[0][1], items[0][2] + f" · {an['vs_centro']:+.1f} vs centro", items[0][3])
+    asegurar(4.4 * cm)
+    st['y'] = _grilla_metricas(st['c'], st['y'], items, cols=4)
+
+    # Decisiones
+    titulo('Qué decidir ahora', C_MED)
+    for d in an['decisiones']:
+        col, fondo, rot = _NIVEL_COL.get(d['nivel'], _NIVEL_COL['info'])
+        ancho = CW - 1.3 * cm
+        lt = _lineas_txt(d['titulo'], 'Helvetica-Bold', 8.6, ancho)
+        ld = _lineas_txt(d['detalle'], 'Helvetica', 7.6, ancho)
+        la = _lineas_txt('Acción: ' + d['accion'], 'Helvetica-Bold', 7.6, ancho) if d['accion'] else []
+        h = 0.3 * cm + len(lt) * 0.42 * cm + len(ld) * 0.36 * cm + len(la) * 0.36 * cm + 0.25 * cm
+        asegurar(h + 0.2 * cm)
+        c, y = st['c'], st['y']
+        c.setFillColor(fondo)
+        c.roundRect(ML, y - h, CW, h, 5, fill=1, stroke=0)
+        c.setFillColor(col)
+        c.roundRect(ML, y - h, 0.22 * cm, h, 2, fill=1, stroke=0)
+        yy = y - 0.5 * cm
+        c.setFont('Helvetica-Bold', 8.6)
+        c.setFillColor(C_TEXTO)
+        for t in lt:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.42 * cm
+        c.setFont('Helvetica', 7.6)
+        c.setFillColor(C_TSEC)
+        yy += 0.04 * cm
+        for t in ld:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.36 * cm
+        c.setFont('Helvetica-Bold', 7.6)
+        c.setFillColor(col)
+        for t in la:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.36 * cm
+        st['y'] = y - h - 0.2 * cm
+
+    # Rankings
+    hdr = ['Nombre', 'Ses.', 'Eval.', '% Asist.', 'Var.', 'vs prom.', 'Punt.', 'Faltas', 'Perm.', 'Canc.', 'Pac.', 'Sin reg.']
+    ws = [4.2 * cm, 1.0 * cm, 1.1 * cm, 1.5 * cm, 1.2 * cm, 1.4 * cm, 1.3 * cm, 1.1 * cm, 1.1 * cm, 1.1 * cm, 1.0 * cm, 1.3 * cm]
+
+    def filas(tab):
+        out = []
+        for x in tab['filas']:
+            nom = x['nombre'] + (' (inact.)' if not x.get('activo', True) else '') + (' (sel.)' if x.get('sel') else '')
+            out.append([f"{x['rank']}. {nom}" if x.get('rank') else nom, x['sesiones'], x['base'], _pct(x['asistencia']),
+                        '-' if x['delta'] is None else f"{x['delta']:+.1f}", '-' if x['vs_centro'] is None else f"{x['vs_centro']:+.1f}",
+                        _pct(x['puntualidad']), x['faltas'], x['permisos'], f"{x['canceladas']}", x['pacientes'], x['vencidas']])
+        return out
+
+    for clave, ttl, expl in (
+            ('prof', 'Rendimiento por profesional', 'Ordenado por asistencia. Respeta los filtros menos el de profesional. (sel.) = seleccionado.'),
+            ('suc', 'Rendimiento por sucursal', 'Respeta los filtros menos el de sucursal.'),
+            ('serv', 'Rendimiento por servicio', 'Respeta los filtros menos el de servicio.')):
+        tab = an['ranking'][clave]
+        if not tab['filas']:
+            continue
+        titulo(ttl, C_TEAL)
+        nota(expl + ' Var. = puntos frente al período anterior; Sin reg. = sesiones pasadas aún «Programada».')
+        tabla(hdr, filas(tab), ws, fs=6.8)
+
+    # Tiempo no aprovechado
+    titulo('Tiempo de terapia no aprovechado, por causa', C_AMBER)
+    rows = [[x['label'], x['n'], x['horas'], _pct(x['pct'])] for x in an['perdidas']['filas']]
+    rows.append(['TOTAL NO REALIZADO', an['perdidas']['total_n'], an['perdidas']['total_horas'], _pct(an['perdidas']['pct'])])
+    rows.append(['Terapia efectivamente dada', M['atendidas'], an['perdidas']['aprovechado'], ''])
+    tabla(['Causa', 'Sesiones', 'Horas', '% de sesiones'], rows, [7.0 * cm, 2.6 * cm, 3.0 * cm, 3.4 * cm], fs=7.6)
+
+    # Días y franjas
+    titulo('Asistencia por día y franjas problemáticas', C_MED)
+    tabla(['Día', 'Sesiones', 'Evaluables', '% Asist.', 'Faltas', 'Permisos'],
+          [[d['nombre'], d['total'], d['base'], _pct(d['asistencia']), d['faltas'], d['permisos']] for d in an['por_dia'] if d['total']],
+          [4.0 * cm, 2.2 * cm, 2.6 * cm, 2.6 * cm, 2.2 * cm, 2.4 * cm], fs=7.4)
+    if an['calor']['criticas']:
+        nota('Franjas con más inasistencia (faltas + permisos), mínimo 5 sesiones:')
+        tabla(['Día', 'Hora', 'Sesiones', '% Asist.', '% No asiste'],
+              [[c_['dia'], c_['hora'], c_['base'], _pct(c_['asis']), _pct(c_['inas'])] for c_ in an['calor']['criticas']],
+              [4.0 * cm, 2.6 * cm, 2.6 * cm, 3.0 * cm, 3.0 * cm], fs=7.4)
+
+    # Riesgo de abandono
+    titulo('Pacientes en riesgo de abandono', C_ROJO)
+    if an['riesgo']:
+        nota('Racha de inasistencias o 21+ días sin asistir con sesiones agendadas (últimos 120 días). Alto = 3 o más seguidas.')
+        tabla(['Paciente', 'Riesgo', 'Racha', 'Faltas 30d', 'Última asist.', 'Días sin', 'Agendadas'],
+              [[r['nombre'], r['nivel'].capitalize(), r['racha'], r['faltas30'], r['ultima'].strftime('%d/%m/%Y') if r['ultima'] else '-',
+                '-' if r['dias_sin'] is None else r['dias_sin'], r['futuras']] for r in an['riesgo'][:20]],
+              [5.4 * cm, 1.8 * cm, 1.6 * cm, 2.0 * cm, 2.6 * cm, 1.8 * cm, 2.2 * cm], fs=7.2)
+    else:
+        nota('Sin pacientes en riesgo con los filtros elegidos.')
+
+    _pie(st['c'], st['pg'], helpers['total_pg'][0], fecha)
+    pages_data.append(st['pg'])
+
 # ─────────────────────────────────────────────────────────────────────
 # SECCIÓN 4 — POR PROFESIONAL
 # ─────────────────────────────────────────────────────────────────────
@@ -1149,6 +1333,23 @@ def generar_informe_asistencia_pdf(context):
         except Exception:
             pass
 
+    if context.get('prof_filtro'):
+        try:
+            from profesionales.models import Profesional
+            pr = Profesional.objects.filter(id=context['prof_filtro']).first()
+            if pr:
+                filtros_partes.append(f"Profesional: {pr.nombre} {pr.apellido}")
+        except Exception:
+            pass
+    if context.get('serv_filtro'):
+        try:
+            from servicios.models import TipoServicio
+            sv = TipoServicio.objects.filter(id=context['serv_filtro']).first()
+            if sv:
+                filtros_partes.append(f"Servicio: {sv.nombre}")
+        except Exception:
+            pass
+
     mens_id = context.get('mensualidad_id', '')
     proy_id = context.get('proyecto_id', '')
     if mens_id:
@@ -1203,6 +1404,7 @@ def generar_informe_asistencia_pdf(context):
 
     # Secciones de contenido
     _seccion_stats(pages_data, context, helpers, page_counter)
+    _seccion_direccion(pages_data, context, helpers)
     _seccion_por_dia(pages_data, context, helpers)
     _seccion_por_servicio(pages_data, context, helpers)
     _seccion_por_profesional(pages_data, context, helpers)
@@ -1253,6 +1455,7 @@ def generar_informe_asistencia_pdf(context):
     pages_data2.append(1)
 
     _seccion_stats(pages_data2, context, helpers2, pg2)
+    _seccion_direccion(pages_data2, context, helpers2)
     _seccion_por_dia(pages_data2, context, helpers2)
     _seccion_por_servicio(pages_data2, context, helpers2)
     _seccion_por_profesional(pages_data2, context, helpers2)

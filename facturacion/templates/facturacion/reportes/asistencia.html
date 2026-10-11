@@ -349,28 +349,28 @@
 
     {# Construimos el query string de filtros persistentes una sola vez #}
     {% with pf="tipo="|add:tipo %}
-    <a href="?rango=hoy&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=hoy&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'hoy' %}active{% endif %}">📅 Hoy</a>
 
-    <a href="?rango=ayer&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=ayer&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'ayer' %}active{% endif %}">◀ Ayer</a>
 
-    <a href="?rango=semana&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=semana&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'semana' %}active{% endif %}">🗓 Esta Semana</a>
 
-    <a href="?rango=semana_anterior&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=semana_anterior&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'semana_anterior' %}active{% endif %}">Sem. Ant.</a>
 
-    <a href="?rango=mes&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=mes&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'mes' %}active{% endif %}">📅 Este Mes</a>
 
-    <a href="?rango=mes_anterior&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=mes_anterior&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'mes_anterior' %}active{% endif %}">Mes Ant.</a>
 
-    <a href="?rango=trimestre&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=trimestre&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'trimestre' %}active{% endif %}">📊 Trimestre</a>
 
-    <a href="?rango=anio&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
+    <a href="?rango=anio&{{ pf }}{% if sucursal_filtro %}&sucursal={{ sucursal_filtro }}{% endif %}{% if prof_filtro %}&profesional={{ prof_filtro }}{% endif %}{% if serv_filtro %}&servicio={{ serv_filtro }}{% endif %}{% if entidad_id %}&entidad_id={{ entidad_id }}{% endif %}"
        class="ptab {% if rango == 'anio' %}active{% endif %}">📈 Año</a>
     {% endwith %}
   </div>
@@ -403,13 +403,13 @@
           {% if tipo == 'paciente' %}
             {% for p in pacientes %}
               <option value="{{ p.id }}" {% if entidad_id == p.id|stringformat:"s" %}selected{% endif %}>
-                {{ p.apellido }}, {{ p.nombre }}
+                {{ p.apellido }}, {{ p.nombre }}{% if p.estado != 'activo' %} (inactivo){% endif %}
               </option>
             {% endfor %}
           {% elif tipo == 'profesional' %}
             {% for p in profesionales %}
               <option value="{{ p.id }}" {% if entidad_id == p.id|stringformat:"s" %}selected{% endif %}>
-                {{ p.apellido }}, {{ p.nombre }}
+                {{ p.apellido }}, {{ p.nombre }}{% if not p.activo %} (inactivo){% endif %}
               </option>
             {% endfor %}
           {% elif tipo == 'servicio' %}
@@ -437,9 +437,9 @@
         <input type="date" name="fecha_hasta" value="{{ fecha_hasta|date:'Y-m-d' }}">
       </div>
 
-      <div class="fg">
+      <div class="fg" id="fg-sucursal">
         <label>Sucursal</label>
-        <select name="sucursal">
+        <select name="sucursal" id="sel-sucursal">
           <option value="">Todas</option>
           {% for s in sucursales %}
             <option value="{{ s.id }}" {% if sucursal_filtro == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
@@ -447,12 +447,22 @@
         </select>
       </div>
 
-      <div class="fg">
+      <div class="fg" id="fg-profesional">
         <label>Profesional</label>
-        <select name="profesional">
+        <select name="profesional" id="sel-profesional">
           <option value="">Todos</option>
           {% for p in profesionales %}
-            <option value="{{ p.id }}" {% if prof_filtro == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }} {{ p.apellido }}</option>
+            <option value="{{ p.id }}" {% if prof_filtro == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }} {{ p.apellido }}{% if not p.activo %} (inactivo){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="fg" id="fg-servicio">
+        <label>Servicio</label>
+        <select name="servicio" id="sel-servicio">
+          <option value="">Todos</option>
+          {% for s in servicios %}
+            <option value="{{ s.id }}" {% if serv_filtro == s.id|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}{% if not s.activo %} (inactivo){% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -511,8 +521,11 @@
     {% if sucursal_filtro %}
       <span class="pbadge pbadge-amber">🏢 Sucursal filtrada</span>
     {% endif %}
-    {% if prof_filtro and tipo == 'general' %}
+    {% if prof_filtro %}
       <span class="pbadge pbadge-violet">👨‍⚕️ Profesional filtrado</span>
+    {% endif %}
+    {% if serv_filtro %}
+      <span class="pbadge pbadge-green">🩺 Servicio filtrado</span>
     {% endif %}
     {% if mensualidad_id %}
       <span class="pbadge pbadge-violet">💳 Mensualidad específica</span>
@@ -532,31 +545,8 @@
 
   {% if stats %}
 
-  <!-- ══ INSIGHTS AUTOMÁTICOS ════════════════════════════════════════════ -->
-  {% if tasas.asistencia >= 90 %}
-  <div class="insight-box ib-good">
-    <span class="ib-icon">🎯</span>
-    <div>
-      <div class="ib-title">Excelente tasa de asistencia</div>
-      <div class="ib-text">{{ tasas.asistencia|floatformat:1 }}% — El cumplimiento está por encima del umbral óptimo (≥90%). ¡Muy bien!</div>
-    </div>
-  </div>
-  {% elif tasas.asistencia < 70 %}
-  <div class="insight-box ib-warn">
-    <span class="ib-icon">⚠️</span>
-    <div>
-      <div class="ib-title">Tasa de asistencia baja</div>
-      <div class="ib-text">{{ tasas.asistencia|floatformat:1 }}% — Por debajo del umbral mínimo recomendado (70%). Revisar causas de inasistencia.</div>
-    </div>
-  </div>
-  {% else %}
-  <div class="insight-box ib-info">
-    <span class="ib-icon">📊</span>
-    <div>
-      <div class="ib-title">Asistencia dentro del rango aceptable</div>
-      <div class="ib-text">{{ tasas.asistencia|floatformat:1 }}% — Entre 70% y 90%. Hay margen de mejora para alcanzar el objetivo ≥85%.</div>
-    </div>
-  </div>
+  {% if analisis %}
+  {% include 'facturacion/reportes/_asistencia_analisis.html' %}
   {% endif %}
 
   <!-- ══ SEMÁFORO — 8 ESTADOS ════════════════════════════════════════════ -->
@@ -1554,7 +1544,25 @@ function exportCSV() {
 function toggleEntidad(tipo) {
   const fg = document.getElementById('fg-entidad');
   fg.style.display = (tipo === 'general') ? 'none' : 'flex';
+  ajustarDuplicados(tipo);
 }
+
+// Si la vista ya es «Por Profesional / Sucursal / Servicio», el selector de esa misma dimensión
+// del bloque de filtros sobra (era un segundo selector para lo mismo y generaba resultados confusos).
+function ajustarDuplicados(tipo) {
+  [['profesional', 'fg-profesional', 'sel-profesional'],
+   ['sucursal', 'fg-sucursal', 'sel-sucursal'],
+   ['servicio', 'fg-servicio', 'sel-servicio']].forEach(([t, fgId, selId]) => {
+    const fg = document.getElementById(fgId), sel = document.getElementById(selId);
+    if (!fg || !sel) return;
+    const dup = (tipo === t);
+    fg.style.display = dup ? 'none' : 'flex';
+    sel.disabled = dup;
+  });
+  const lbl = document.querySelector('#fg-entidad label');
+  if (lbl) lbl.textContent = ({paciente: 'Paciente', profesional: 'Profesional', servicio: 'Servicio', sucursal: 'Sucursal'})[tipo] || 'Seleccionar';
+}
+document.addEventListener('DOMContentLoaded', () => ajustarDuplicados(document.getElementById('sel-tipo').value));
 
 // BUG 2 CORREGIDO: al cambiar tipo, limpiamos la entidad seleccionada
 // y enviamos el formulario para recargar las opciones correctas del dropdown.

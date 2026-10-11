@@ -1,0 +1,52 @@
+{# Tabla de rendimiento por profesional / sucursal / servicio. Parámetros: tabla, titulo, icono, ayuda, mostrar_pac #}
+<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
+  <div style="padding:14px 18px 8px">
+    <h3 style="margin:0">{{ icono }} {{ titulo }}
+      <span class="sec-tag" style="background:var(--indigo-ll);color:var(--indigo-d);margin-left:auto">{{ tabla.filas|length }}</span>
+    </h3>
+    {% if ayuda %}<p style="font-size:0.66rem;color:var(--muted);margin:4px 0 0">{{ ayuda }}</p>{% endif %}
+  </div>
+  <div style="overflow-x:auto">
+  <table class="svc-table">
+    <thead><tr>
+      <th>#</th><th>Nombre</th><th style="text-align:right">Sesiones</th><th style="text-align:right">Evaluables</th>
+      <th style="min-width:150px">Asistencia</th><th style="text-align:right">Δ período</th><th style="text-align:right">vs promedio</th>
+      <th style="text-align:right">Puntualidad</th><th style="text-align:right">Faltas</th><th style="text-align:right">Permisos</th>
+      <th style="text-align:right">Canc. centro</th>{% if mostrar_pac %}<th style="text-align:right">Pacientes</th>{% endif %}
+      <th style="text-align:right">Horas</th><th style="text-align:right">Sin registrar</th>
+    </tr></thead>
+    <tbody>
+    {% for x in tabla.filas %}
+    <tr {% if x.sel %}style="background:var(--indigo-ll);outline:2px solid var(--indigo);outline-offset:-2px"{% endif %}>
+      <td class="mono" style="color:var(--muted2)">{% if x.rank %}{{ x.rank }}{% else %}–{% endif %}</td>
+      <td><b>{{ x.nombre }}</b>{% if not x.activo %} <span class="svc-badge" style="background:var(--slate-l);color:var(--slate)">inactivo</span>{% endif %}{% if x.sel %} <span class="svc-badge" style="background:var(--indigo);color:#fff">seleccionado</span>{% endif %}</td>
+      <td class="mono" style="text-align:right">{{ x.sesiones }}</td>
+      <td class="mono" style="text-align:right">{{ x.base }}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:9px;height:9px;border-radius:50%;flex:none;background:{% if x.nivel == 'verde' %}#059669{% elif x.nivel == 'ambar' %}#d97706{% elif x.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></span>
+          <div style="flex:1;height:6px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ x.asistencia }}%;background:{% if x.nivel == 'verde' %}#059669{% elif x.nivel == 'ambar' %}#d97706{% elif x.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></div></div>
+          <b class="mono" style="min-width:46px;text-align:right">{{ x.asistencia|floatformat:1 }}%</b>
+        </div>
+      </td>
+      <td class="mono" style="text-align:right;color:{% if x.delta is None %}var(--muted2){% elif x.delta > 0 %}#059669{% elif x.delta < 0 %}#be123c{% else %}var(--muted){% endif %}">{% if x.delta is None %}–{% else %}{% if x.delta > 0 %}+{% endif %}{{ x.delta|floatformat:1 }}{% endif %}</td>
+      <td class="mono" style="text-align:right;color:{% if x.vs_centro is None %}var(--muted2){% elif x.vs_centro >= 0 %}#059669{% else %}#be123c{% endif %}">{% if x.vs_centro is None %}–{% else %}{% if x.vs_centro > 0 %}+{% endif %}{{ x.vs_centro|floatformat:1 }}{% endif %}</td>
+      <td class="mono" style="text-align:right">{{ x.puntualidad|floatformat:1 }}%</td>
+      <td class="mono" style="text-align:right;color:#be123c">{{ x.faltas }}</td>
+      <td class="mono" style="text-align:right;color:#7c3aed">{{ x.permisos }}</td>
+      <td class="mono" style="text-align:right;color:{% if x.cancel_pct >= 10 %}#be123c{% elif x.cancel_pct >= 5 %}#d97706{% else %}var(--slate){% endif %}">{{ x.canceladas }} <span style="font-size:0.6rem;opacity:.7">({{ x.cancel_pct|floatformat:0 }}%)</span></td>
+      {% if mostrar_pac %}<td class="mono" style="text-align:right">{{ x.pacientes }}</td>{% endif %}
+      <td class="mono" style="text-align:right;white-space:nowrap">{{ x.horas }}</td>
+      <td class="mono" style="text-align:right;color:{% if x.vencidas %}#d97706{% else %}var(--muted2){% endif %}">{{ x.vencidas }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="14" style="text-align:center;color:var(--muted);padding:18px">Sin datos para el período y filtros elegidos.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:0.62rem;color:var(--muted);margin:0;padding:8px 18px 12px">
+    Evaluables = realizadas + retrasos + faltas + permisos. Δ período = puntos de asistencia frente al período anterior de igual duración.
+    vs promedio = diferencia con el promedio de esta tabla ({{ tabla.promedio|floatformat:1 }}%). «Sin registrar» = sesiones pasadas que siguen como «Programada». Ordenado por asistencia; gris y sin puesto = menos de 10 sesiones evaluables.
+  </p>
+</div>
