@@ -439,9 +439,9 @@ def _portada(c, titulo, periodo_txt, filtros_txt, fecha_emision, ctx):
     canceladas  = _num(stats.get('canceladas', 0))
     programadas = _num(stats.get('programadas', 0))
 
-    tasa_asis = _pct(tasas.get('tasa_asistencia', 0))
+    tasa_asis = _pct(tasas.get('asistencia', tasas.get('tasa_asistencia', 0)))
     tasa_punt = _pct(tasas.get('puntualidad', 0))
-    tasa_falt = _pct(tasas.get('tasa_faltas', 0))
+    tasa_falt = _pct(tasas.get('faltas', tasas.get('tasa_faltas', 0)))
 
     cy = ty - 3.5 * cm
     c.setStrokeColor(C_GRIS_B)
@@ -533,14 +533,14 @@ def _seccion_stats(pages_data, ctx, helpers, total_pg_ref):
     y -= 0.3 * cm
     y = _titulo_seccion(c, y, "1.2 Tasas de Rendimiento", color=C_VERDE)
 
-    tasa_asis = _pct(tasas.get('tasa_asistencia', 0))
+    tasa_asis = _pct(tasas.get('asistencia', tasas.get('tasa_asistencia', 0)))
     tasa_punt = _pct(tasas.get('puntualidad', 0))
-    tasa_falt = _pct(tasas.get('tasa_faltas', 0))
-    tasa_perm = _pct(tasas.get('tasa_permisos', 0))
+    tasa_falt = _pct(tasas.get('faltas', tasas.get('tasa_faltas', 0)))
+    tasa_perm = _pct(tasas.get('permisos', tasas.get('tasa_permisos', 0)))
 
     items_tasas = [
-        ("Tasa de asistencia",   tasa_asis, "Realizadas / (Real + Faltas + Permisos)", C_VERDE),
-        ("Puntualidad",          tasa_punt, "Sin retraso / (Real + Retrasos)",          C_SKY),
+        ("Tasa de asistencia",   tasa_asis, "(Realizadas + Retrasos) / base", C_VERDE),
+        ("Puntualidad",          tasa_punt, "Realizadas sin retraso / asistidas",          C_SKY),
         ("Tasa de faltas",       tasa_falt, "Faltas / base de asistencia",             C_ROJO),
         ("Tasa de permisos",     tasa_perm, "Permisos / base de asistencia",           C_AMBER),
     ]
@@ -1146,6 +1146,16 @@ def _seccion_detalle_sesiones(pages_data, ctx, helpers):
     filtros_txt = helpers.get('filtros_txt', '')
 
     if not sesiones:
+        if ctx.get('detalle_omitido'):
+            c, y, pg = make_page()
+            y = _titulo_seccion(c, y, "9. Detalle de sesiones")
+            y = _explicacion(c, y,
+                f"El período y los filtros elegidos incluyen {ctx['detalle_omitido']} sesiones; listarlas una por una "
+                "haría el informe de cientos de páginas, así que el detalle no se incluyó. Todas las cifras de este informe "
+                "sí consideran esas sesiones. Para obtener el listado, filtre por profesional, servicio o estado, "
+                "acorte el rango de fechas, o use el botón «PDF con detalle completo» de la pantalla.")
+            _pie(c, pg, helpers["total_pg"][0], fecha)
+            pages_data.append(pg)
         return
 
     total_ses = len(sesiones)

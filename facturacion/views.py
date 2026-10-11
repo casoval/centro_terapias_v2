@@ -5292,7 +5292,8 @@ def reporte_asistencia(request):
         .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
         .annotate(
             total          =Count('id'),
-            realizadas     =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
+            realizadas     =Count(Case(When(estado='realizada', then=1), output_field=IntegerField())),
+            asistidas     =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
             retrasos       =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
             faltas         =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
             permisos       =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
@@ -5303,13 +5304,14 @@ def reporte_asistencia(request):
     ranking           = []
     peores_asistencia = []
     for p in pac_raw:
-        base        = p['realizadas'] + p['faltas'] + p['permisos']
-        tasa        = _pct_a(p['realizadas'], base)
+        base        = p['asistidas'] + p['faltas'] + p['permisos']
+        tasa        = _pct_a(p['asistidas'], base)
         tasa_faltas = _pct_a(p['faltas'], base)
         item = {
             'nombre_completo': f"{p['paciente__nombre']} {p['paciente__apellido']}",
             'total'          : p['total'],
             'realizadas'     : p['realizadas'],
+            'asistidas'     : p['asistidas'],
             'retrasos'       : p['retrasos'],
             'faltas'         : p['faltas'],
             'permisos'       : p['permisos'],  # BUG 12 fix
@@ -5604,7 +5606,7 @@ def generar_reporte_asistencia_pdf(request):
         elif est == 'permiso':           _dia_cnt[wd]['permisos']   += 1
         elif est == 'cancelada':         _dia_cnt[wd]['canceladas'] += 1
 
-    _DIAS = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo']
+    _DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     por_dia_semana = [
         {
             'nombre'    : _DIAS[idx],
@@ -5697,7 +5699,8 @@ def generar_reporte_asistencia_pdf(request):
         .values('paciente__nombre', 'paciente__apellido', 'paciente_id')
         .annotate(
             total         =Count('id'),
-            realizadas    =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
+            realizadas    =Count(Case(When(estado='realizada', then=1), output_field=IntegerField())),
+            asistidas    =Count(Case(When(estado__in=['realizada','realizada_retraso'], then=1), output_field=IntegerField())),
             retrasos      =Count(Case(When(estado='realizada_retraso', then=1), output_field=IntegerField())),
             faltas        =Count(Case(When(estado='falta',             then=1), output_field=IntegerField())),
             permisos      =Count(Case(When(estado='permiso',           then=1), output_field=IntegerField())),
@@ -5708,13 +5711,14 @@ def generar_reporte_asistencia_pdf(request):
     ranking = []
     peores_asistencia = []
     for p in pac_raw:
-        base        = p['realizadas'] + p['faltas'] + p['permisos']
-        tasa        = _v._pct_a(p['realizadas'], base)
+        base        = p['asistidas'] + p['faltas'] + p['permisos']
+        tasa        = _v._pct_a(p['asistidas'], base)
         tasa_faltas = _v._pct_a(p['faltas'], base)
         item = {
             'nombre_completo': f"{p['paciente__nombre']} {p['paciente__apellido']}",
             'total'          : p['total'],
             'realizadas'     : p['realizadas'],
+            'asistidas'     : p['asistidas'],
             'retrasos'       : p['retrasos'],
             'faltas'         : p['faltas'],
             'permisos'       : p['permisos'],
@@ -5761,12 +5765,21 @@ def generar_reporte_asistencia_pdf(request):
     )
 
     # ── 14. QuerySet completo de sesiones para la tabla de detalle ────────────
-    sesiones_qs = list(
-        sesiones.select_related(
-            'paciente', 'servicio', 'profesional', 'sucursal',
-            'mensualidad', 'proyecto'
-        ).order_by('-fecha', '-hora_inicio')
-    )
+    # El detalle sesión por sesión puede tener cientos de páginas: se incluye si el total es manejable,
+    # si se filtró por estado o si se pide expresamente (?detalle=1).
+    LIMITE_DETALLE = 400
+    n_detalle = sesiones.count()
+    detalle_omitido = 0
+    if n_detalle > LIMITE_DETALLE and request.GET.get('detalle', '') != '1' and not estado_lista:
+        detalle_omitido = n_detalle
+        sesiones_qs = []
+    else:
+        sesiones_qs = list(
+            sesiones.select_related(
+                'paciente', 'servicio', 'profesional', 'sucursal',
+                'mensualidad', 'proyecto'
+            ).order_by('-fecha', '-hora_inicio')
+        )
 
     from facturacion.reporte_asistencia_data import analizar_asistencia as _analizar_asis
     try:
@@ -5790,6 +5803,7 @@ def generar_reporte_asistencia_pdf(request):
         'retrasos_detalle' : retrasos_detalle,
         'reprogramaciones' : reprogramaciones,
         'sesiones_qs'      : sesiones_qs,   # ← tabla completa sin paginación web
+        'detalle_omitido'  : detalle_omitido,
         # Filtros para encabezados del PDF
         'fecha_desde'      : fecha_desde,
         'fecha_hasta'      : fecha_hasta,
