@@ -1,3 +1,4 @@
+{% load reporte_prof_tags %}
 {# Panel de decisión para la dirección. Requiere: analisis, tipo, entidad #}
 {% with an=analisis %}
 <style>
@@ -16,8 +17,7 @@
   .an-aviso  { background:var(--amber-ll); border-color:#fde68a; } .an-aviso .a { color:#92400e; }
   .an-ok     { background:var(--emerald-ll); border-color:#a7f3d0; } .an-ok .a { color:#065f46; }
   .an-info   { background:var(--sky-l); border-color:#bae6fd; } .an-info .a { color:#0369a1; }
-  .an-bars { display:flex; align-items:flex-end; gap:5px; height:150px; padding-top:18px; }
-  .an-bar { flex:1; min-width:14px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }
+    .an-bar { flex:1; min-width:14px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }
   .an-bar .b { width:100%; border-radius:5px 5px 0 0; min-height:2px; }
   .an-bar .n { font-size:0.55rem; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--ink3); margin-bottom:2px; }
   .an-bar .x { font-size:0.52rem; color:var(--muted); margin-top:3px; white-space:nowrap; }
@@ -29,7 +29,7 @@
 
 <!-- ══ PANEL DE DECISIÓN ══════════════════════════════════════════════════ -->
 <div class="sec-hdr" style="margin-top:4px">
-  <h2>🧭 Panel de decisión para la dirección</h2>
+  <h2>🧭 Panel de decisión para la dirección {% ayuda 'as_panel' %}</h2>
   <span class="sec-tag" style="background:var(--ruby-l);color:var(--ruby)">{{ an.n_alertas }} alerta{{ an.n_alertas|pluralize }}</span>
   <span class="sec-tag" style="background:var(--amber-l);color:#92400e">{{ an.n_avisos }} aviso{{ an.n_avisos|pluralize }}</span>
 </div>
@@ -60,28 +60,28 @@
 
 <div class="an-kpis">
   <div class="an-kpi"><div class="bar" style="background:{% if an.nivel == 'verde' %}#059669{% elif an.nivel == 'ambar' %}#d97706{% elif an.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></div>
-    <div class="l">Asistencia</div><div class="v" style="color:{% if an.nivel == 'verde' %}#059669{% elif an.nivel == 'ambar' %}#d97706{% elif an.nivel == 'rojo' %}#be123c{% else %}var(--ink){% endif %}">{{ an.M.tasa_asistencia|floatformat:1 }}%</div>
+    <div class="l">Asistencia {% ayuda 'as_k_asistencia' %}</div><div class="v" style="color:{% if an.nivel == 'verde' %}#059669{% elif an.nivel == 'ambar' %}#d97706{% elif an.nivel == 'rojo' %}#be123c{% else %}var(--ink){% endif %}">{{ an.M.tasa_asistencia|floatformat:1 }}%</div>
     <div class="s">{{ an.M.atendidas }} de {{ an.M.base }} evaluables · objetivo ≥85%
       {% if an.delta_asis is not None %}<br><b style="color:{% if an.delta_asis >= 0 %}#059669{% else %}#be123c{% endif %}">{% if an.delta_asis > 0 %}+{% endif %}{{ an.delta_asis|floatformat:1 }} pts</b> vs período anterior ({{ an.P.tasa_asistencia|floatformat:1 }}%){% endif %}
       {% if an.vs_centro is not None %}<br><b style="color:{% if an.vs_centro >= 0 %}#059669{% else %}#be123c{% endif %}">{% if an.vs_centro > 0 %}+{% endif %}{{ an.vs_centro|floatformat:1 }} pts</b> vs todo el centro ({{ an.C.tasa_asistencia|floatformat:1 }}%){% endif %}</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#0d9488"></div><div class="l">Puntualidad</div>
+  <div class="an-kpi"><div class="bar" style="background:#0d9488"></div><div class="l">Puntualidad {% ayuda 'as_k_puntualidad' %}</div>
     <div class="v">{{ an.M.puntualidad|floatformat:1 }}%</div><div class="s">{{ an.M.retrasos }} llegadas con retraso{% if an.M.retraso_prom %} · promedio {{ an.M.retraso_prom|floatformat:0 }} min{% endif %}<br>objetivo ≥80%</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#dc2626"></div><div class="l">Faltas sin aviso</div>
+  <div class="an-kpi"><div class="bar" style="background:#dc2626"></div><div class="l">Faltas sin aviso {% ayuda 'as_k_faltas' %}</div>
     <div class="v" style="color:#be123c">{{ an.M.faltas }}</div><div class="s">{{ an.M.tasa_faltas|floatformat:1 }}% de lo evaluable</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#8b5cf6"></div><div class="l">Permisos (con aviso)</div>
+  <div class="an-kpi"><div class="bar" style="background:#8b5cf6"></div><div class="l">Permisos (con aviso) {% ayuda 'as_k_permisos' %}</div>
     <div class="v" style="color:#7c3aed">{{ an.M.permisos }}</div><div class="s">se avisó, pero el cupo no siempre se recupera</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#64748b"></div><div class="l">Canceladas por el centro</div>
+  <div class="an-kpi"><div class="bar" style="background:#64748b"></div><div class="l">Canceladas por el centro {% ayuda 'as_k_canceladas' %}</div>
     <div class="v">{{ an.M.canceladas }}</div><div class="s">tolerable hasta 5% de las sesiones</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#4338ca"></div><div class="l">Terapia efectiva</div>
+  <div class="an-kpi"><div class="bar" style="background:#4338ca"></div><div class="l">Terapia efectiva {% ayuda 'as_k_efectiva' %}</div>
     <div class="v" style="font-size:1.5rem">{{ an.perdidas.aprovechado }}</div><div class="s">{{ an.perdidas.pct_aprov|floatformat:0 }}% del tiempo agendado se aprovechó · {{ an.perdidas.total_horas }} no se dieron</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#d97706"></div><div class="l">Sin registrar</div>
+  <div class="an-kpi"><div class="bar" style="background:#d97706"></div><div class="l">Sin registrar {% ayuda 'as_k_sinreg' %}</div>
     <div class="v" style="color:{% if an.vencidas.total %}#d97706{% else %}#059669{% endif %}">{{ an.vencidas.total }}</div><div class="s">sesiones pasadas todavía como «Programada»</div></div>
-  <div class="an-kpi"><div class="bar" style="background:#0284c7"></div><div class="l">Pacientes distintos</div>
+  <div class="an-kpi"><div class="bar" style="background:#0284c7"></div><div class="l">Pacientes distintos {% ayuda 'as_k_pacientes' %}</div>
     <div class="v">{{ an.pacientes.n }}</div><div class="s">con sesiones en el período</div></div>
 </div>
 
 <div class="card" style="margin-bottom:14px">
-  <h3>🎯 Qué decidir ahora</h3>
+  <h3>🎯 Qué decidir ahora {% ayuda 'as_decisiones' %}</h3>
   {% for d in an.decisiones %}
   <div class="an-dec an-{{ d.nivel }}">
     <div class="ic">{% if d.nivel == 'alerta' %}🚨{% elif d.nivel == 'aviso' %}⚠️{% elif d.nivel == 'ok' %}✅{% else %}💡{% endif %}</div>
@@ -104,7 +104,7 @@
 {% endif %}
 
 {% if tipo != 'general' %}
-<div class="sec-hdr" style="margin-top:8px"><h2>🔬 Detalle dentro de la selección</h2></div>
+<div class="sec-hdr" style="margin-top:8px"><h2>🔬 Detalle dentro de la selección {% ayuda 'as_desglose' %}</h2></div>
 {% if tipo != 'profesional' %}{% include 'facturacion/reportes/_asistencia_tabla.html' with tabla=an.desglose.prof titulo='Profesionales que intervienen' icono='👨‍⚕️' mostrar_pac=True %}{% endif %}
 {% if tipo != 'sucursal' %}{% include 'facturacion/reportes/_asistencia_tabla.html' with tabla=an.desglose.suc titulo='Sucursales donde se atiende' icono='🏢' mostrar_pac=True %}{% endif %}
 {% if tipo != 'servicio' %}{% include 'facturacion/reportes/_asistencia_tabla.html' with tabla=an.desglose.serv titulo='Servicios incluidos' icono='🩺' mostrar_pac=True %}{% endif %}
@@ -113,25 +113,17 @@
 <!-- ══ EVOLUCIÓN, DÍAS Y HORAS ════════════════════════════════════════════ -->
 <div class="g2 an-two">
   <div class="card">
-    <h3>📈 Evolución de la asistencia (por {{ an.serie.granularidad }})</h3>
-    <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 4px">Cada barra es el % de asistencia; verde ≥85%, ámbar 70–85%, rojo &lt;70%. Período anterior: {{ an.P.tasa_asistencia|floatformat:1 }}%.</p>
-    <div class="an-bars">
-      {% for p in an.serie.puntos %}
-      <div class="an-bar" title="{{ p.label }}: {{ p.asistencia }}% ({{ p.base }} evaluables, {{ p.faltas }} faltas)">
-        <div class="n">{% if p.base %}{{ p.asistencia|floatformat:0 }}{% endif %}</div>
-        <div class="b" style="height:{{ p.asistencia }}%;background:{% if p.base == 0 %}#e2e8f0{% elif p.asistencia >= 85 %}#059669{% elif p.asistencia >= 70 %}#d97706{% else %}#be123c{% endif %}"></div>
-        <div class="x">{{ p.label }}</div>
-      </div>
-      {% endfor %}
-    </div>
+    <h3>📈 Evolución de la asistencia (por {{ an.serie.granularidad }}) {% ayuda 'as_evol' %}</h3>
+    <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 6px">% de asistencia de cada tramo. Verde ≥85 %, ámbar 70–85 %, rojo &lt;70 %.</p>
+    {{ an.svg_evolucion|safe }}
   </div>
   <div class="card">
-    <h3>📅 Asistencia por día de la semana</h3>
+    <h3>📅 Asistencia por día de la semana {% ayuda 'as_dia' %}</h3>
     <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 8px">Para decidir en qué días reforzar la confirmación o ajustar cupos.</p>
     {% for d in an.por_dia %}{% if d.total %}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:0.72rem">
       <span style="width:72px;font-weight:600">{{ d.nombre }}</span>
-      <div style="flex:1;height:9px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ d.asistencia }}%;background:{% if d.base < 10 %}#94a3b8{% elif d.asistencia >= 85 %}#059669{% elif d.asistencia >= 70 %}#d97706{% else %}#be123c{% endif %}"></div></div>
+      <div style="flex:1;height:9px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ d.asistencia|pw }}%;background:{% if d.base < 10 %}#94a3b8{% elif d.asistencia >= 85 %}#059669{% elif d.asistencia >= 70 %}#d97706{% else %}#be123c{% endif %}"></div></div>
       <b class="mono" style="min-width:48px;text-align:right">{{ d.asistencia|floatformat:1 }}%</b>
       <span style="min-width:92px;font-size:0.62rem;color:var(--muted);text-align:right">{{ d.base }} eval. · {{ d.faltas }} faltas</span>
     </div>
@@ -141,7 +133,7 @@
 
 <div class="g2 an-two">
   <div class="card">
-    <h3>🗓️ Mapa de calor: % de inasistencia por día y hora</h3>
+    <h3>🗓️ Mapa de calor: % de inasistencia por día y hora {% ayuda 'as_calor' %}</h3>
     <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 6px">Inasistencia = faltas + permisos sobre sesiones evaluables. Verde &lt;10%, amarillo &lt;20%, naranja &lt;35%, rojo ≥35%. Celdas con menos de 3 sesiones, en gris.</p>
     <div style="overflow-x:auto">
     <table class="an-heat">
@@ -157,7 +149,7 @@
     </div>
   </div>
   <div class="card">
-    <h3>⏱️ Franjas más problemáticas</h3>
+    <h3>⏱️ Franjas más problemáticas {% ayuda 'as_franjas' %}</h3>
     {% for c in an.calor.criticas|slice:":5" %}
     <div style="display:flex;justify-content:space-between;font-size:0.74rem;padding:6px 0;border-bottom:1px solid var(--border2)">
       <span><b>{{ c.dia }} {{ c.hora }}</b> <span style="color:var(--muted);font-size:0.64rem">· {{ c.base }} sesiones</span></span>
@@ -178,7 +170,7 @@
 <!-- ══ PÉRDIDAS Y PUNTUALIDAD ═════════════════════════════════════════════ -->
 <div class="g2 an-two">
   <div class="card">
-    <h3>⌛ Tiempo de terapia no aprovechado, por causa</h3>
+    <h3>⌛ Tiempo de terapia no aprovechado, por causa {% ayuda 'as_perdidas' %}</h3>
     <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 8px">Horas agendadas que no se dieron. Las faltas y permisos dependen de la familia; las cancelaciones, del centro.</p>
     <table class="svc-table">
       <thead><tr><th>Causa</th><th style="text-align:right">Sesiones</th><th style="text-align:right">Horas</th><th style="text-align:right">% de sesiones</th></tr></thead>
@@ -193,12 +185,12 @@
     </table>
   </div>
   <div class="card">
-    <h3>⏰ Puntualidad: ¿cuánto se retrasan?</h3>
+    <h3>⏰ Puntualidad: ¿cuánto se retrasan? {% ayuda 'as_retraso' %}</h3>
     <p style="font-size:0.64rem;color:var(--muted);margin:-6px 0 8px">{{ an.M.retrasos }} llegadas con retraso en total (≈ {{ an.retraso_total_min }} min de terapia perdidos).</p>
     {% for t in an.tramos_retraso %}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:0.72rem">
       <span style="width:100px;font-weight:600">{{ t.label }}</span>
-      <div style="flex:1;height:9px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ t.pct }}%;background:#d97706"></div></div>
+      <div style="flex:1;height:9px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ t.pct|pw }}%;background:#d97706"></div></div>
       <b class="mono" style="min-width:60px;text-align:right">{{ t.n }} ({{ t.pct|floatformat:0 }}%)</b>
     </div>
     {% endfor %}
@@ -213,7 +205,7 @@
 <!-- ══ PACIENTES ══════════════════════════════════════════════════════════ -->
 <div class="sec-hdr"><h2>🧒 Pacientes: a quién llamar y a quién reconocer</h2></div>
 <div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
-  <div style="padding:14px 18px 6px"><h3 style="margin:0">🚨 Riesgo de abandono <span class="sec-tag" style="background:var(--ruby-l);color:var(--ruby);margin-left:auto">{{ an.riesgo|length }}</span></h3>
+  <div style="padding:14px 18px 6px"><h3 style="margin:0">🚨 Riesgo de abandono {% ayuda 'as_riesgo' %} <span class="sec-tag" style="background:var(--ruby-l);color:var(--ruby);margin-left:auto">{{ an.riesgo|length }}</span></h3>
     <p style="font-size:0.66rem;color:var(--muted);margin:4px 0 0">Pacientes activos con racha de inasistencias o 21+ días sin asistir pese a tener sesiones agendadas. Usa los últimos 120 días (no depende del rango). Riesgo alto = 3 o más inasistencias seguidas.</p></div>
   <div style="overflow-x:auto"><table class="svc-table">
     <thead><tr><th>Paciente</th><th>Riesgo</th><th style="text-align:right">Racha sin asistir</th><th style="text-align:right">Faltas (30 d)</th><th>Última asistencia</th><th style="text-align:right">Días sin asistir</th><th style="text-align:right">Sesiones agendadas</th><th>Profesionales</th></tr></thead>
@@ -228,12 +220,12 @@
     </tbody></table></div>
 </div>
 <div class="g2 an-two">
-  <div class="card"><h3>⚠️ Mayor tasa de faltas sin aviso</h3>
+  <div class="card"><h3>⚠️ Mayor tasa de faltas sin aviso {% ayuda 'as_criticos' %}</h3>
     {% for p in an.pacientes.criticos %}
     <div style="display:flex;justify-content:space-between;gap:8px;font-size:0.74rem;padding:6px 0;border-bottom:1px solid var(--border2)"><span><b>{{ p.nombre }}</b> <span style="color:var(--muted);font-size:0.64rem">· {{ p.faltas }} de {{ p.base }}</span></span><b class="mono" style="color:#be123c">{{ p.tasa_faltas|floatformat:0 }}%</b></div>
     {% empty %}<p style="font-size:0.74rem;color:var(--muted)">Nadie supera el 20% de faltas (mínimo 3 sesiones).</p>{% endfor %}
   </div>
-  <div class="card"><h3>🏆 Mejor asistencia (mín. 5 sesiones)</h3>
+  <div class="card"><h3>🏆 Mejor asistencia (mín. 5 sesiones) {% ayuda 'as_mejores' %}</h3>
     {% for p in an.pacientes.mejores %}
     <div style="display:flex;justify-content:space-between;gap:8px;font-size:0.74rem;padding:6px 0;border-bottom:1px solid var(--border2)"><span><b>{{ p.nombre }}</b> <span style="color:var(--muted);font-size:0.64rem">· {{ p.atendidas }} de {{ p.base }}</span></span><b class="mono" style="color:#059669">{{ p.asistencia|floatformat:0 }}%</b></div>
     {% empty %}<p style="font-size:0.74rem;color:var(--muted)">Aún no hay pacientes con 5 sesiones evaluables.</p>{% endfor %}

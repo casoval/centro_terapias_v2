@@ -1,0 +1,27 @@
+{# Estilo y comportamiento de los íconos «i» de ayuda (globo al pasar el mouse, enfocar o tocar) #}
+<style>
+.inf{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#e0e7ff;color:#3730a3;font:700 9px/1 'JetBrains Mono',monospace;font-style:normal;margin-left:5px;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle;flex-shrink:0;user-select:none;transition:.15s}
+.inf:hover,.inf:focus,.inf.on{background:#4f46e5;color:#fff;outline:none}
+.hero .inf,.an-kpi .inf{background:#e0e7ff}
+#tip{position:fixed;z-index:99999;max-width:340px;background:#0f172a;color:#f8fafc;font:500 .72rem/1.5 'Sora',sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4);pointer-events:none;display:none;white-space:pre-line;text-transform:none;letter-spacing:0}
+@media print{.inf{display:none!important}}
+</style>
+<script>
+(function(){
+  if(window.__infTip) return; window.__infTip=true;
+  var tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);var cur=null;
+  function show(el){cur=el;tip.textContent=el.getAttribute('data-t');tip.style.display='block';
+    var r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    var x=Math.min(Math.max(8,r.left+r.width/2-w/2),window.innerWidth-w-8),y=r.bottom+8;
+    if(y+h>window.innerHeight-8)y=r.top-h-8;
+    tip.style.left=x+'px';tip.style.top=Math.max(8,y)+'px';el.classList.add('on');}
+  function hide(){tip.style.display='none';if(cur)cur.classList.remove('on');cur=null;}
+  function inf(e){return e.target.closest?e.target.closest('.inf'):null;}
+  document.addEventListener('mouseover',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('mouseout',function(e){if(inf(e))hide();});
+  document.addEventListener('focusin',function(e){var el=inf(e);if(el)show(el);});
+  document.addEventListener('focusout',function(e){if(inf(e))hide();});
+  document.addEventListener('click',function(e){var el=inf(e);if(el){e.preventDefault();e.stopPropagation();show(el);}else hide();},true);
+  window.addEventListener('scroll',hide,true);
+})();
+</script>

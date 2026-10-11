@@ -176,6 +176,56 @@ AYUDA = {
 AYUDA.update({'sec_concil': 'Sirve para entender por qué las cifras de este informe pueden ser distintas a las del reporte financiero. Compara, para el mismo período, lo que el financiero cuenta como «generado» contra lo que este informe devenga sumando a TODOS los profesionales, y explica la diferencia partida por partida.', 'c_financiero': 'Total «generado real» del reporte financiero para el mismo período. Sesiones: por fecha de sesión (realizadas, con retraso y faltas sin aviso). Proyectos: costo COMPLETO de los iniciados en el período (en progreso, finalizados o cancelados). Mensualidades: costo completo de las del mes/año dentro del rango.', 'c_este': 'Lo que este informe devenga en el período sumando a todos los profesionales. Proyectos y mensualidades se reconocen conforme se realizan las sesiones (repartidas por el valor de cada sesión a precio individual), no de golpe.', 'c_dif': 'Este informe − Financiero. Negativo = el financiero ya contó dinero que este informe aún no devenga (sesiones pendientes o de otras fechas). Se explica en las líneas de ajuste.', 'c_prof': 'Cuánto de la columna «Este informe» corresponde a este profesional, sin considerar los filtros de servicio/niño/tipo/estado. Debe coincidir con «Cuánto genera» cuando no hay filtros.', 'c_ajustes': 'Cada línea explica una causa de la diferencia. Financiero + (ajustes) = Este informe. Si la verificación marca «cuadra», toda la diferencia está explicada.', 'c_check': 'Verificación automática: comprueba que Financiero + ajustes sea igual a Este informe, y que la cifra del profesional coincida con la sección «Cuánto genera». Si algo no cuadra se avisa para revisar los datos.'})
 AYUDA.update({'e_ses': 'Sesiones del profesional en ese período (todas las del filtro, cualquier estado).', 'e_atend': 'Sesiones atendidas: realizadas + realizadas con retraso.', 'e_falta': 'Faltas sin aviso: el niño no vino y no avisó. Se cobran, pero el profesional quedó libre esa hora.', 'e_prog': 'Sesiones todavía en estado «programada» (futuras, o pasadas que no se registraron).', 'n_horas': 'Horas de sesiones atendidas (realizadas + con retraso), sumando cada niño por separado.', 's_ninos': 'Niños distintos atendidos en ese servicio.', 's_pct': 'Parte del total generado que corresponde a ese servicio/sucursal.', 'm_su_parte': 'Costo mensual × su participación. Es lo que le corresponde de la mensualidad completa.', 'm_generado': 'Parte de «su parte» ya devengada en el período por sesiones realizadas o faltas sin aviso.', 'm_cobrado': '% pagado de la mensualidad completa. Se usa para estimar cuánto de lo que generó ya fue cobrado.', 'm_atfp': 'Sus sesiones en el período: atendidas / faltas sin aviso / programadas.', 'r_faltas': '% de faltas sin aviso de sus niños: faltas ÷ (atendidas + faltas + permisos).'})
 
+# ── Ayudas del reporte de ASISTENCIA ──
+AYUDA.update({
+    'as_f_vista': "General: todo el centro. Por Paciente / Profesional / Servicio / Sucursal: arma el perfil de una sola persona o unidad y la compara con el resto. Al elegir una vista, el selector de esa misma dimensión se oculta para no duplicar filtros.",
+    'as_f_desde': "Primer día del período analizado. Si lo dejas vacío se usan los últimos 90 días.",
+    'as_f_hasta': "Último día del período. Las sesiones posteriores a hoy figuran como «programadas» y no entran en las tasas.",
+    'as_f_sucursal': "Limita todo el reporte a una sucursal. Las tablas de profesional y servicio siguen mostrando a los demás dentro de esa sucursal.",
+    'as_f_profesional': "Limita el reporte a un profesional (incluye inactivos, para consultar historial). Las tablas comparativas siguen mostrando a sus colegas, con él resaltado.",
+    'as_f_servicio': "Limita el reporte a un servicio (terapia). Útil para ver si una disciplina tiene baja adherencia.",
+    'as_panel': "Resumen para decidir: indicadores clave, qué hacer ahora, comparativos y pacientes en riesgo. Todo se recalcula con los filtros y el rango elegidos.",
+    'as_k_asistencia': "Asistencia = (realizadas + con retraso) ÷ (realizadas + con retraso + faltas sin aviso + permisos). No cuentan canceladas por el centro, reprogramadas ni programadas, porque no dependen de la familia. Objetivo ≥85 %; rojo <70 %. Se compara con el período anterior de igual duración y con todo el centro.",
+    'as_k_puntualidad': "Realizadas sin retraso ÷ sesiones a las que se asistió. Mide cuántas sesiones empezaron a tiempo. Objetivo ≥80 %.",
+    'as_k_faltas': "Faltas sin aviso: el niño no vino y no avisó. El profesional quedó libre esa hora. El % es sobre las sesiones evaluables (realizadas + retrasos + faltas + permisos).",
+    'as_k_permisos': "Permisos: la familia avisó que no vendría. A diferencia de la falta, hubo oportunidad de reasignar el cupo, pero no siempre se logra.",
+    'as_k_canceladas': "Sesiones canceladas por el centro (ausencia del profesional, sala, feriado, etc.). Son responsabilidad del centro, no de la familia. Se tolera hasta 5 % de las sesiones.",
+    'as_k_efectiva': "Horas de terapia efectivamente dadas (asistidas). Debajo: qué % del tiempo agendado se aprovechó y cuántas horas no se dieron (faltas, permisos, canceladas y reprogramadas).",
+    'as_k_sinreg': "Sesiones cuya fecha ya pasó pero siguen en estado «Programada»: nadie registró si el niño asistió. Distorsionan las tasas y la facturación; conviene regularizarlas.",
+    'as_k_pacientes': "Cantidad de pacientes distintos con al menos una sesión en el período y filtros elegidos.",
+    'as_decisiones': "Lista automática de lo más importante del período, ordenada por urgencia (alerta, aviso, nota, bien). Cada punto trae una acción sugerida. Se calcula con umbrales: asistencia 85 % / 70 %, puntualidad 80 %, cancelaciones del centro 5 %, mínimo 10 sesiones para juzgar.",
+    'as_rank': "Compara a todos dentro del contexto: respeta los filtros menos el de su propia dimensión. El seleccionado aparece resaltado. Punto de color: verde ≥85 %, ámbar 70–85 %, rojo <70 % (o muchas cancelaciones del centro); gris = menos de 10 sesiones evaluables, sin puesto.",
+    'as_c_eval': "Evaluables = realizadas + con retraso + faltas + permisos. Es la base sobre la que se calcula la asistencia.",
+    'as_c_delta': "Variación en puntos de asistencia frente al período anterior de igual duración. Verde = mejoró, rojo = empeoró. Se muestra solo si ambos períodos tienen al menos 5 sesiones evaluables.",
+    'as_c_vs': "Diferencia en puntos contra el promedio de esa tabla (todo el contexto). Positivo = mejor que el promedio.",
+    'as_c_canc': "Sesiones canceladas por el centro y su % sobre el total de sesiones. Ámbar desde 5 %, rojo desde 10 %.",
+    'as_c_sinreg': "Sesiones pasadas que siguen como «Programada» (sin registrar asistencia).",
+    'as_evol': "Cada barra es el % de asistencia de ese tramo (día, semana o mes según la duración del rango). Las líneas punteadas marcan el objetivo (85 %) y el mínimo (70 %). La línea azul es el promedio del período anterior.",
+    'as_dia': "Asistencia por día de la semana. Sirve para decidir en qué días reforzar la confirmación o ajustar cupos. Gris = menos de 10 sesiones evaluables.",
+    'as_calor': "Cada celda es un día y hora de inicio. El número es el % de inasistencia (faltas + permisos) sobre sesiones evaluables. Verde <10 %, amarillo <20 %, naranja <35 %, rojo ≥35 %. Gris: menos de 3 sesiones. Pasa el mouse por una celda para ver su asistencia.",
+    'as_franjas': "Franjas día-hora con más inasistencia (mínimo 5 sesiones) y las más confiables. Úsalo para no agendar pacientes con historial de faltas en las franjas críticas.",
+    'as_perdidas': "Horas agendadas que no se dieron, según la causa. Las faltas y permisos dependen de la familia; las cancelaciones y reprogramaciones, en gran parte del centro. Se calcula con la duración de cada sesión.",
+    'as_retraso': "Cuántos minutos tarde llegan los pacientes que se retrasan, agrupados por tramos. «Minutos perdidos» suma el retraso de todas las llegadas tarde.",
+    'as_riesgo': "Pacientes activos con racha de inasistencias (faltas o permisos seguidos) o 21+ días sin asistir pese a tener sesiones agendadas. Usa los últimos 120 días, sin depender del rango. Riesgo alto = 3 o más inasistencias seguidas. Conviene llamar a la familia.",
+    'as_criticos': "Pacientes con al menos 3 sesiones evaluables y 20 % o más de faltas sin aviso.",
+    'as_mejores': "Pacientes con al menos 5 sesiones evaluables, ordenados por asistencia.",
+    'as_desglose': "Lo mismo que los comparativos, pero solo dentro de la selección: por ejemplo, las sucursales y servicios donde trabaja el profesional elegido.",
+    # secciones previas del reporte
+    'as_estados': "Cantidad de sesiones por estado en el período. Realizada = asistió a tiempo; con retraso = llegó tarde; falta = no vino sin avisar; permiso = avisó; cancelada = la canceló el centro; reprogramada = se movió de fecha; programada = aún pendiente.",
+    'as_evolucion_t': "Cómo cambian las sesiones y las tasas a lo largo del tiempo, y la distribución de estados y tasas del período.",
+    'as_por_dia': "Sesiones y estados por día de la semana. % Asistencia = (realizadas + retrasos) ÷ (realizadas + retrasos + faltas + permisos).",
+    'as_por_servicio': "Desglose por tipo de servicio: sesiones, estados y % de asistencia de cada uno.",
+    'as_horas': "Cantidad de sesiones según la hora de inicio. Muestra en qué franjas se concentra la actividad.",
+    'as_prof': "Rendimiento de cada profesional sobre sus pacientes: sesiones, estados, asistencia y puntualidad. Ojo: una asistencia baja no siempre es culpa del profesional (depende también de la familia y del horario).",
+    'as_sucursal': "Asistencia por sucursal. Compara qué sede logra mejor adherencia de las familias.",
+    'as_top15': "Pacientes con mejor % de asistencia (mínimo 3 sesiones). ✅ realizadas a tiempo · ⏰ con retraso · ❌ faltas · 📝 permisos.",
+    'as_peores': "Pacientes con más del 20 % de faltas sin aviso (mínimo 3 sesiones). Requieren seguimiento.",
+    'as_retrasos_p': "Pacientes que llegan tarde con más frecuencia y cuántos minutos en promedio.",
+    'as_reprog': "Sesiones que se reagendaron: de qué fecha a qué fecha y quién las movió.",
+    'as_detalle_serv': "Estadísticas ampliadas por servicio: estados, tasas y comparación entre servicios.",
+    'as_sesiones': "Listado de las sesiones del período con sus estados. Se puede exportar a CSV.",
+})
+
 
 @register.simple_tag
 def ayuda(clave):

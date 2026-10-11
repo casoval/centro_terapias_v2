@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
+{% load reporte_prof_tags %}
 {% block title %}Reporte de Asistencia{% endblock %}
 {% block content %}
+{% include 'facturacion/reportes/_ayuda_i.html' %}
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
@@ -389,7 +391,7 @@
       {# BUG 3 CORREGIDO: el rango NO se preserva en el form (al usar el form, usas fechas manuales) #}
 
       <div class="fg">
-        <label>Vista</label>
+        <label>Vista {% ayuda 'as_f_vista' %}</label>
         {# BUG 2 CORREGIDO: onchange hace submit para recargar las opciones del dropdown de entidad #}
         <select name="tipo" id="sel-tipo" onchange="cambiarTipo(this.value)">
           <option value="general"     {% if tipo == 'general'     %}selected{% endif %}>Vista General</option>
@@ -435,16 +437,16 @@
       </div>
 
       <div class="fg">
-        <label>Desde</label>
+        <label>Desde {% ayuda 'as_f_desde' %}</label>
         <input type="date" name="fecha_desde" value="{{ fecha_desde|date:'Y-m-d' }}">
       </div>
       <div class="fg">
-        <label>Hasta</label>
+        <label>Hasta {% ayuda 'as_f_hasta' %}</label>
         <input type="date" name="fecha_hasta" value="{{ fecha_hasta|date:'Y-m-d' }}">
       </div>
 
       <div class="fg" id="fg-sucursal">
-        <label>Sucursal</label>
+        <label>Sucursal {% ayuda 'as_f_sucursal' %}</label>
         <select name="sucursal" id="sel-sucursal">
           <option value="">Todas</option>
           {% for s in sucursales %}
@@ -454,7 +456,7 @@
       </div>
 
       <div class="fg" id="fg-profesional">
-        <label>Profesional</label>
+        <label>Profesional {% ayuda 'as_f_profesional' %}</label>
         <select name="profesional" id="sel-profesional">
           <option value="">Todos</option>
           {% for p in profesionales %}
@@ -464,7 +466,7 @@
       </div>
 
       <div class="fg" id="fg-servicio">
-        <label>Servicio</label>
+        <label>Servicio {% ayuda 'as_f_servicio' %}</label>
         <select name="servicio" id="sel-servicio">
           <option value="">Todos</option>
           {% for s in servicios %}
@@ -557,7 +559,7 @@
 
   <!-- ══ SEMÁFORO — 8 ESTADOS ════════════════════════════════════════════ -->
   {# Todos los estados del modelo Sesion representados visualmente #}
-  <div class="sec-hdr"><h2>🚦 Estado de Sesiones del Período</h2></div>
+  <div class="sec-hdr"><h2>🚦 Estado de Sesiones del Período {% ayuda 'as_estados' %}</h2></div>
   <div class="semaforo">
     <div class="sem" style="background:#f8fafc;border-color:var(--border);color:var(--ink3)">
       <div class="sem-icon">📊</div>
@@ -665,7 +667,7 @@
 
   <!-- ══ GRÁFICOS ════════════════════════════════════════════════════════ -->
   {% if grafico_data %}
-  <div class="sec-hdr"><h2>📈 Evolución Temporal</h2></div>
+  <div class="sec-hdr"><h2>📈 Evolución Temporal {% ayuda 'as_evolucion_t' %}</h2></div>
   <div class="g2" style="margin-bottom:14px">
     <div class="chart-card">
       <div class="cc-title">Evolución de Asistencia</div>
@@ -696,7 +698,7 @@
   <div class="sec-hdr"><h2>📅 Distribución por Día y Servicio</h2></div>
   <div class="g2" style="margin-bottom:14px">
     <div class="card">
-      <h3>📅 Por Día de la Semana</h3>
+      <h3>📅 Por Día de la Semana {% ayuda 'as_por_dia' %}</h3>
       <div class="scroll-list">
         {% for dia in por_dia_semana %}
         <div class="hmap-row">
@@ -727,7 +729,7 @@
     </div>
 
     <div class="card">
-      <h3>🩺 Por Servicio</h3>
+      <h3>🩺 Por Servicio {% ayuda 'as_por_servicio' %}</h3>
       <div class="scroll-list">
         {% for s in por_servicio %}
         <div class="hmap-row">
@@ -759,7 +761,7 @@
 
   <!-- ══ POR HORA ════════════════════════════════════════════════════════ -->
   {% if por_hora %}
-  <div class="sec-hdr"><h2>🕐 Distribución por Hora del Día</h2></div>
+  <div class="sec-hdr"><h2>🕐 Distribución por Hora del Día {% ayuda 'as_horas' %}</h2></div>
   <div class="card" style="margin-bottom:14px">
     <h3>Mapa de Calor — Sesiones por Franja Horaria</h3>
     <div class="chart-card" style="border:none;padding:0;box-shadow:none;margin-bottom:0">
@@ -771,7 +773,7 @@
   <!-- ══ PROFESIONALES ═══════════════════════════════════════════════════ -->
   {% if tipo == 'general' and por_profesional %}
   <div class="sec-hdr" style="margin-top:6px">
-    <h2>👨‍⚕️ Rendimiento por Profesional</h2>
+    <h2>👨‍⚕️ Rendimiento por Profesional {% ayuda 'as_prof' %}</h2>
     <span class="sec-tag" style="background:var(--indigo-ll);color:var(--indigo-d)">{{ por_profesional|length }} profesionales</span>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px">
@@ -851,7 +853,7 @@
   <!-- ══ SUCURSALES ══════════════════════════════════════════════════════ -->
   {% if tipo == 'general' and por_sucursal %}
   <div class="sec-hdr">
-    <h2>🏢 Asistencia por Sucursal</h2>
+    <h2>🏢 Asistencia por Sucursal {% ayuda 'as_sucursal' %}</h2>
     <span class="sec-tag" style="background:var(--teal-l);color:#0f766e">{{ por_sucursal|length }} sucursales</span>
   </div>
   <div class="suc-grid">
@@ -904,7 +906,7 @@
   <!-- ══ RANKING TOP 15 ══════════════════════════════════════════════════ -->
   {% if tipo == 'general' and ranking %}
   <div class="sec-hdr" style="margin-top:4px">
-    <h2>🏆 Top 15 — Mejor Asistencia de Pacientes</h2>
+    <h2>🏆 Top 15 — Mejor Asistencia de Pacientes {% ayuda 'as_top15' %}</h2>
     <span class="sec-tag" style="background:var(--emerald-ll);color:#065f46">Pacientes destacados</span>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px;margin-bottom:16px">
@@ -934,7 +936,7 @@
     <div style="background:var(--ruby-ll);border:2px solid #fecdd3;border-radius:var(--r-xl);padding:18px 20px;margin-bottom:16px">
       <div class="sec-hdr">
         <div>
-          <h2 style="color:var(--ruby)">⚠️ Pacientes con Mayor Tasa de Faltas</h2>
+          <h2 style="color:var(--ruby)">⚠️ Pacientes con Mayor Tasa de Faltas {% ayuda 'as_peores' %}</h2>
           <p style="font-size:0.7rem;color:#9f1239;margin:4px 0 0">Requieren seguimiento activo — tasa de faltas superior al 20%</p>
         </div>
         <span class="sec-tag" style="background:var(--ruby);color:white">{{ peores_asistencia|length }} casos</span>
@@ -968,7 +970,7 @@
   <!-- ══ RETRASOS DETALLE ════════════════════════════════════════════════ -->
   {% if retrasos_detalle %}
   <div class="sec-hdr" style="margin-top:4px">
-    <h2>⏰ Pacientes con Mayor Retraso Promedio</h2>
+    <h2>⏰ Pacientes con Mayor Retraso Promedio {% ayuda 'as_retrasos_p' %}</h2>
     <span class="sec-tag" style="background:var(--amber-ll);color:#92400e">{{ retrasos_detalle|length }} pacientes</span>
   </div>
   <div style="margin-bottom:16px">
@@ -990,7 +992,7 @@
   <!-- ══ REPROGRAMACIONES ════════════════════════════════════════════════ -->
   {% if reprogramaciones %}
   <div class="sec-hdr">
-    <h2>🔄 Detalle de Reprogramaciones</h2>
+    <h2>🔄 Detalle de Reprogramaciones {% ayuda 'as_reprog' %}</h2>
     <span class="sec-tag" style="background:var(--sky-l);color:#0369a1">{{ reprogramaciones|length }} reprogramaciones</span>
   </div>
   <div style="margin-bottom:16px">
@@ -1022,7 +1024,7 @@
 
   <!-- ══ TABLA DETALLADA POR SERVICIO ═══════════════════════════════════ -->
   {% if tipo == 'general' %}
-  <div class="sec-hdr"><h2>🩺 Estadísticas Detalladas por Servicio</h2></div>
+  <div class="sec-hdr"><h2>🩺 Estadísticas Detalladas por Servicio {% ayuda 'as_detalle_serv' %}</h2></div>
   <div style="overflow-x:auto;background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:16px;box-shadow:var(--shadow-sm)">
     <table class="svc-table">
       <thead>
@@ -1084,7 +1086,7 @@
   {# Tabla paginada con TODAS las sesiones del período + filtros activos   #}
   {# Permite ver cada sesión individual con su estado, montos y vínculos   #}
   <div class="sec-hdr" style="margin-top:8px">
-    <h2>📋 Sesiones del Período</h2>
+    <h2>📋 Sesiones del Período {% ayuda 'as_sesiones' %}</h2>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span class="sec-tag" style="background:var(--indigo-ll);color:var(--indigo-d)">
         {{ page_obj.paginator.count }} sesión{{ page_obj.paginator.count|pluralize:",es" }}

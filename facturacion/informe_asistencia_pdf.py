@@ -765,6 +765,70 @@ def _seccion_direccion(pages_data, ctx, helpers):
             yy -= 0.36 * cm
         st['y'] = y - h - 0.2 * cm
 
+    # ── Gráficos clave ────────────────────────────────────────────────
+    from . import informe_asistencia_graficos as G
+    titulo('Gráficos clave', C_PRI)
+    gap = 0.4 * cm
+
+    def poner(h, fn):
+        """Dibuja una gráfica de alto h (asegurando espacio) y avanza el cursor."""
+        asegurar(h + 0.3 * cm)
+        fn(st['c'], st['y'])
+        st['y'] -= h + 0.3 * cm
+
+    # 1) Evolución
+    pts = [{'label': p_['label'], 'asistencia': p_['asistencia'], 'base': p_['base']} for p_ in an['serie']['puntos']]
+    poner(6.3 * cm, lambda c_, y_: G.graf_barras(
+        c_, ML, y_, CW, 6.3 * cm, pts, f"Evolución de la asistencia (por {an['serie']['granularidad']})",
+        'Cada barra = % de asistencia del tramo. Verde: objetivo cumplido; ámbar: bajo el objetivo; rojo: crítico.',
+        prev=P['tasa_asistencia'] if P['base'] >= 5 else None))
+
+    # 2) Estados + asistencia por día
+    wl = (CW - gap) * 0.48
+    wr = CW - gap - wl
+    partes = [('Realizadas a tiempo', M['realizadas'], '#16a34a'), ('Con retraso', M['retrasos'], '#d97706'),
+              ('Faltas sin aviso', M['faltas'], '#dc2626'), ('Permisos', M['permisos'], '#8b5cf6'),
+              ('Canceladas por el centro', M['canceladas'], '#64748b'), ('Reprogramadas', M['reprogramadas'], '#0d9488'),
+              ('Programadas', M['programadas'], '#2563eb')]
+    dias_pts = [{'label': d_['corto'], 'asistencia': d_['asistencia'], 'base': d_['base']} for d_ in an['por_dia'] if d_['total']]
+
+    def _fila2(c_, y_):
+        G.graf_dona(c_, ML, y_, wl, 5.4 * cm, partes, 'Estado de las sesiones', 'Cómo se repartieron todas las sesiones del período.')
+        G.graf_barras(c_, ML + wl + gap, y_, wr, 5.4 * cm, dias_pts, 'Asistencia por día de la semana',
+                      'Para ajustar cupos y confirmaciones por día.')
+    poner(5.4 * cm, _fila2)
+
+    # 3) Ranking de profesionales
+    filas_p = an['ranking']['prof']['filas'][:14]
+    if filas_p:
+        items = [{'nombre': (f"{x_['rank']}. " if x_.get('rank') else '') + x_['nombre'], 'valor': x_['asistencia'], 'base': x_['base'],
+                  'extra': f"{x_['base']} eval. · {x_['faltas']} faltas", 'sel': x_.get('sel')} for x_ in filas_p]
+        poner(G.alto_barras_h(len(items)), lambda c_, y_: G.graf_barras_h(
+            c_, ML, y_, CW, items, 'Asistencia por profesional',
+            'Ordenado de mayor a menor. Gris = menos de 10 sesiones evaluables. Las líneas marcan el mínimo (70%) y el objetivo (85%).'))
+
+    # 4) Sucursales y servicios
+    for clave, ttl in (('suc', 'Asistencia por sucursal'), ('serv', 'Asistencia por servicio')):
+        fl = an['ranking'][clave]['filas'][:10]
+        if len(fl) >= 2:
+            it = [{'nombre': (f"{x_['rank']}. " if x_.get('rank') else '') + x_['nombre'], 'valor': x_['asistencia'], 'base': x_['base'],
+                   'extra': f"{x_['base']} eval. · {x_['faltas']} faltas", 'sel': x_.get('sel')} for x_ in fl]
+            poner(G.alto_barras_h(len(it)), lambda c_, y_, it=it, ttl=ttl: G.graf_barras_h(c_, ML, y_, CW, it, ttl,
+                  'Mismo criterio: verde cumple el objetivo, ámbar queda corto, rojo es crítico.'))
+
+    # 5) Mapa de calor
+    if an['calor']['horas']:
+        hc = 1.55 * cm + 7 * 0.5 * cm + 0.75 * cm
+        poner(hc, lambda c_, y_: G.graf_calor(c_, ML, y_, CW, an['calor'], 'Mapa de calor: % de inasistencia por día y hora',
+                                              'Inasistencia = faltas + permisos sobre sesiones evaluables. Más rojo = más inasistencia.'))
+
+    # 6) Uso del tiempo agendado
+    pf = an['perdidas']
+    partes_t = [('Terapia dada', M['min'], '#16a34a', f"{pf['aprovechado']} · {M['atendidas']} ses.")]
+    partes_t += [(x_['label'], x_['min'], x_['color'], f"{x_['horas']} · {x_['n']} ses.") for x_ in pf['filas']]
+    poner(3.15 * cm, lambda c_, y_: G.graf_apilada(c_, ML, y_, CW, partes_t, 'Uso del tiempo agendado',
+          f"De cada 100 minutos agendados, {pf['pct_aprov']:.0f} se aprovecharon; el resto no se dio por faltas, permisos, cancelaciones o reprogramaciones."))
+
     # Rankings
     hdr = ['Nombre', 'Ses.', 'Eval.', '% Asist.', 'Var.', 'vs prom.', 'Punt.', 'Faltas', 'Perm.', 'Canc.', 'Pac.', 'Sin reg.']
     ws = [4.2 * cm, 1.0 * cm, 1.1 * cm, 1.5 * cm, 1.2 * cm, 1.4 * cm, 1.3 * cm, 1.1 * cm, 1.1 * cm, 1.1 * cm, 1.0 * cm, 1.3 * cm]

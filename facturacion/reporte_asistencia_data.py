@@ -450,6 +450,7 @@ def analizar_asistencia(desde, hasta, filtros, hoy=None):
 
     a['serie'] = _serie(sel, desde, hasta)
     a['serie_prev'] = {'asistencia': P['tasa_asistencia']}
+    a['svg_evolucion'] = svg_evolucion(a['serie']['puntos'], P['tasa_asistencia'] if P['base'] >= 5 else None)
     a['por_dia'] = []
     for i in range(7):
         m = _metricas([r for r in sel if r['fecha'].weekday() == i])
@@ -489,3 +490,68 @@ def analizar_asistencia(desde, hasta, filtros, hoy=None):
     a['n_alertas'] = sum(1 for x in a['decisiones'] if x['nivel'] == 'alerta')
     a['n_avisos'] = sum(1 for x in a['decisiones'] if x['nivel'] == 'aviso')
     return a
+
+
+# ─────────────────────────────────────────────────────────────────────
+# GRÁFICO SVG (pantalla): evolución de la asistencia con escala 0-100 %
+# ─────────────────────────────────────────────────────────────────────
+def svg_evolucion(puntos, prev_asis=None):
+    """Barras de % de asistencia por tramo, con eje, cuadrícula, líneas de objetivo/mínimo y promedio previo.
+    Se genera en el servidor: no depende de JavaScript ni del formato numérico regional (coma decimal)."""
+    n = len(puntos)
+    if not n:
+        return ''
+    W, H = 720, 292
+    ml, mr, mt, mb = 42, 16, 22, 62
+    pw_, ph = W - ml - mr, H - mt - mb
+    slot = pw_ / n
+    bw = max(6, min(38, slot * 0.64))
+    Y = lambda v: mt + ph * (1 - max(0.0, min(v, 100.0)) / 100.0)
+    o = [f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" aria-label="Evolución de la asistencia" '
+         f'style="display:block;max-width:100%;height:auto;font-family:\'Sora\',\'DM Sans\',sans-serif">']
+    # cuadrícula y eje Y
+    for v in (0, 25, 50, 75, 100):
+        y = Y(v)
+        o.append(f'<line x1="{ml}" y1="{y:.1f}" x2="{W - mr}" y2="{y:.1f}" stroke="#e2e8f0" stroke-width="1"/>')
+        o.append(f'<text x="{ml - 7}" y="{y + 3.5:.1f}" text-anchor="end" font-size="10" fill="#64748b">{v}%</text>')
+    # franjas de referencia
+    o.append(f'<rect x="{ml}" y="{Y(100):.1f}" width="{pw_}" height="{Y(OBJETIVO) - Y(100):.1f}" fill="#059669" opacity="0.05"/>')
+    o.append(f'<rect x="{ml}" y="{Y(MINIMO):.1f}" width="{pw_}" height="{Y(0) - Y(MINIMO):.1f}" fill="#be123c" opacity="0.05"/>')
+    for v, col, lab in ((OBJETIVO, '#059669', f'Objetivo {OBJETIVO:.0f}%'), (MINIMO, '#be123c', f'Mínimo {MINIMO:.0f}%')):
+        y = Y(v)
+        o.append(f'<line x1="{ml}" y1="{y:.1f}" x2="{W - mr}" y2="{y:.1f}" stroke="{col}" stroke-width="1.2" stroke-dasharray="5 4"/>')
+    # barras
+    paso = 1 if n <= 14 else (2 if n <= 28 else 4)
+    for i, pt in enumerate(puntos):
+        cx = ml + slot * (i + 0.5)
+        x = cx - bw / 2
+        if pt['base'] <= 0:
+            o.append(f'<text x="{cx:.1f}" y="{Y(0) - 6:.1f}" text-anchor="middle" font-size="9" fill="#94a3b8">–</text>')
+        else:
+            v = pt['asistencia']
+            col = '#059669' if v >= OBJETIVO else ('#d97706' if v >= MINIMO else '#be123c')
+            y = Y(v)
+            h = max(Y(0) - y, 2)
+            r = min(5, bw / 2, h)
+            o.append(f'<path d="M{x:.1f},{Y(0):.1f} L{x:.1f},{y + r:.1f} Q{x:.1f},{y:.1f} {x + r:.1f},{y:.1f} L{x + bw - r:.1f},{y:.1f} '
+                     f'Q{x + bw:.1f},{y:.1f} {x + bw:.1f},{y + r:.1f} L{x + bw:.1f},{Y(0):.1f} Z" fill="{col}">'
+                     f'<title>{pt["label"]}: {v:.1f}% · {pt["base"]} evaluables · {pt["faltas"]} faltas · {pt["permisos"]} permisos</title></path>')
+            if n <= 26 or i % paso == 0:
+                o.append(f'<text x="{cx:.1f}" y="{y - 5:.1f}" text-anchor="middle" font-size="{10 if n <= 16 else 9}" font-weight="700" fill="#1e293b">{v:.0f}</text>')
+        if i % paso == 0:
+            o.append(f'<text x="{cx:.1f}" y="{H - mb + 15}" text-anchor="middle" font-size="{10 if n <= 16 else 9}" fill="#475569">{pt["label"]}</text>')
+    # promedio del período anterior
+    if prev_asis:
+        y = Y(prev_asis)
+        o.append(f'<line x1="{ml}" y1="{y:.1f}" x2="{W - mr}" y2="{y:.1f}" stroke="#2563eb" stroke-width="1.6" stroke-dasharray="2 3"/>')
+    # leyenda
+    leyenda = [('#059669', f'Objetivo {OBJETIVO:.0f}%', '5 4'), ('#be123c', f'Mínimo {MINIMO:.0f}%', '5 4')]
+    if prev_asis:
+        leyenda.append(('#2563eb', f'Período anterior {prev_asis:.1f}%', '2 3'))
+    lx = ml + 6
+    for col, txt, dash in leyenda:
+        o.append(f'<line x1="{lx}" y1="{H - 12}" x2="{lx + 22}" y2="{H - 12}" stroke="{col}" stroke-width="1.8" stroke-dasharray="{dash}"/>')
+        o.append(f'<text x="{lx + 28}" y="{H - 8.5}" font-size="10" fill="#475569">{txt}</text>')
+        lx += 28 + len(txt) * 5.6 + 22
+    o.append('</svg>')
+    return ''.join(o)

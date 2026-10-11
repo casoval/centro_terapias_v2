@@ -1,7 +1,8 @@
+{% load reporte_prof_tags %}
 {# Tabla de rendimiento por profesional / sucursal / servicio. Parámetros: tabla, titulo, icono, ayuda, mostrar_pac #}
 <div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
   <div style="padding:14px 18px 8px">
-    <h3 style="margin:0">{{ icono }} {{ titulo }}
+    <h3 style="margin:0">{{ icono }} {{ titulo }} {% ayuda 'as_rank' %}
       <span class="sec-tag" style="background:var(--indigo-ll);color:var(--indigo-d);margin-left:auto">{{ tabla.filas|length }}</span>
     </h3>
     {% if ayuda %}<p style="font-size:0.66rem;color:var(--muted);margin:4px 0 0">{{ ayuda }}</p>{% endif %}
@@ -9,11 +10,11 @@
   <div style="overflow-x:auto">
   <table class="svc-table">
     <thead><tr>
-      <th>#</th><th>Nombre</th><th style="text-align:right">Sesiones</th><th style="text-align:right">Evaluables</th>
-      <th style="min-width:150px">Asistencia</th><th style="text-align:right">Δ período</th><th style="text-align:right">vs promedio</th>
-      <th style="text-align:right">Puntualidad</th><th style="text-align:right">Faltas</th><th style="text-align:right">Permisos</th>
-      <th style="text-align:right">Canc. centro</th>{% if mostrar_pac %}<th style="text-align:right">Pacientes</th>{% endif %}
-      <th style="text-align:right">Horas</th><th style="text-align:right">Sin registrar</th>
+      <th>#</th><th>Nombre</th><th style="text-align:right">Sesiones</th><th style="text-align:right">Evaluables {% ayuda 'as_c_eval' %}</th>
+      <th style="min-width:150px">Asistencia {% ayuda 'as_k_asistencia' %}</th><th style="text-align:right">Δ período {% ayuda 'as_c_delta' %}</th><th style="text-align:right">vs promedio {% ayuda 'as_c_vs' %}</th>
+      <th style="text-align:right">Puntualidad {% ayuda 'as_k_puntualidad' %}</th><th style="text-align:right">Faltas</th><th style="text-align:right">Permisos</th>
+      <th style="text-align:right">Canc. centro {% ayuda 'as_c_canc' %}</th>{% if mostrar_pac %}<th style="text-align:right">Pacientes</th>{% endif %}
+      <th style="text-align:right">Horas</th><th style="text-align:right">Sin registrar {% ayuda 'as_c_sinreg' %}</th>
     </tr></thead>
     <tbody>
     {% for x in tabla.filas %}
@@ -25,7 +26,7 @@
       <td>
         <div style="display:flex;align-items:center;gap:7px">
           <span style="width:9px;height:9px;border-radius:50%;flex:none;background:{% if x.nivel == 'verde' %}#059669{% elif x.nivel == 'ambar' %}#d97706{% elif x.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></span>
-          <div style="flex:1;height:6px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ x.asistencia }}%;background:{% if x.nivel == 'verde' %}#059669{% elif x.nivel == 'ambar' %}#d97706{% elif x.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></div></div>
+          <div style="flex:1;height:6px;background:var(--border);border-radius:10px;overflow:hidden"><div style="height:100%;width:{{ x.asistencia|pw }}%;background:{% if x.nivel == 'verde' %}#059669{% elif x.nivel == 'ambar' %}#d97706{% elif x.nivel == 'rojo' %}#be123c{% else %}#94a3b8{% endif %}"></div></div>
           <b class="mono" style="min-width:46px;text-align:right">{{ x.asistencia|floatformat:1 }}%</b>
         </div>
       </td>
