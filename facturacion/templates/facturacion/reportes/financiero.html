@@ -193,6 +193,10 @@
 
   <!-- View Tabs -->
   <div class="tabs no-print">
+    {% if not es_recepcionista %}
+    <a href="?vista=gerencial&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}"
+       class="tab {% if vista == 'gerencial' %}active{% endif %}">🧠 Panel del Dueño</a>
+    {% endif %}
     <a href="?vista=mensual&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
        class="tab {% if vista == 'mensual' or not vista %}active{% endif %}">📅 Vista Mensual</a>
     <a href="?vista=diaria&fecha_desde={{ fecha_hasta }}&fecha_hasta={{ fecha_hasta }}&sucursal={{ sucursal_id }}&registrado_por={{ registrado_por_id }}"
@@ -300,6 +304,15 @@
   <!-- ══════════════════════════════════════════════════════════════════ -->
   <!-- VISTA: MENSUAL (RESUMEN) -->
   <!-- ══════════════════════════════════════════════════════════════════ -->
+  {% if vista == 'gerencial' %}
+    {% include 'facturacion/reportes/_ayuda_i.html' %}
+    {% if analisis_fin %}
+      {% include 'facturacion/reportes/_financiero_panel.html' %}
+    {% else %}
+      <div class="table-card"><h3>⚠️ No se pudo calcular el Panel del Dueño</h3><p>Ocurrió un error al analizar los datos. Revisa el registro del servidor o prueba con otro rango de fechas.</p></div>
+    {% endif %}
+  {% endif %}
+
   {% if vista == 'mensual' or not vista %}
 
   <!-- Hero Cards -->

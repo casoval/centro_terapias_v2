@@ -6306,6 +6306,19 @@ def _render_o_pdf_financiero(request, context):
     if request.GET.get('export') == 'pdf':
         try:
             from facturacion.informe_financiero_pdf import generar_informe_financiero_pdf
+            # El PDF mensual incluye, como anexo, el Panel del Dueño (decisiones, deudores, etc.).
+            # No se agrega para recepcionistas ni si falla el cálculo (el PDF base no se afecta).
+            if (context.get('vista') or 'mensual') == 'mensual' and 'analisis_fin' not in context and not context.get('es_recepcionista'):
+                try:
+                    from datetime import datetime as _dt
+                    from facturacion.reporte_financiero_data import analizar_financiero as _af
+                    _d = _dt.strptime(str(context.get('fecha_desde')), '%Y-%m-%d').date()
+                    _h = _dt.strptime(str(context.get('fecha_hasta')), '%Y-%m-%d').date()
+                    context = dict(context)
+                    context['analisis_fin'] = _af(_d, _h, context.get('sucursal_id', ''), date.today())
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).error("No se pudo agregar el Panel del Dueño al PDF mensual", exc_info=True)
             buffer = generar_informe_financiero_pdf(context)
             response = HttpResponse(buffer, content_type='application/pdf')
             vista_slug = (context.get('vista') or 'mensual').replace('detalle_', '')
@@ -6642,6 +6655,24 @@ def reporte_financiero(request):
         'es_recepcionista': es_recepcionista,
     }
     
+    # ══════════════════════════════════════════════════════════════════
+    # VISTA: PANEL DEL DUEÑO (decisiones, deudores, pagadores, pacientes que más/menos generan…)
+    # Pestaña nueva: no altera ninguna de las demás. Ver reporte_financiero_data.py.
+    # ══════════════════════════════════════════════════════════════════
+    if vista == 'gerencial' and es_recepcionista:
+        # El panel del dueño es solo para administración: un recepcionista vuelve a la vista mensual
+        vista = context['vista'] = 'mensual'
+    if vista == 'gerencial':
+        from facturacion.reporte_financiero_data import analizar_financiero as _analizar_fin
+        try:
+            analisis_fin = _analizar_fin(fecha_desde_obj, fecha_hasta_obj, sucursal_id, date.today())
+        except Exception:
+            import logging
+            logging.getLogger(__name__).error("Error en el panel del dueño (financiero)", exc_info=True)
+            analisis_fin = None
+        context['analisis_fin'] = analisis_fin
+        return _render_o_pdf_financiero(request, context)
+
     # ══════════════════════════════════════════════════════════════════
     # VISTA: DETALLE PAGOS
     # ══════════════════════════════════════════════════════════════════

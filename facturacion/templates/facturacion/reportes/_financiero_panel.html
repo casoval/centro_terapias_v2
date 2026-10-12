@@ -1,0 +1,271 @@
+{# Panel del Dueño — reporte financiero. Requiere: analisis_fin #}
+{% load reporte_prof_tags reporte_fin_ayudas %}
+{% with an=analisis_fin %}
+<style>
+  .fi-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px;margin-bottom:16px}
+  .fi-kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .fi-kpi .bar{position:absolute;left:0;top:0;bottom:0;width:5px}
+  .fi-kpi .l{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+  .fi-kpi .v{font-size:1.55rem;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.15;margin:4px 0 2px;color:var(--ink)}
+  .fi-kpi .s{font-size:.66rem;color:var(--muted);line-height:1.4}
+  .fi-var{font-weight:800}
+  .fi-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+  .fi-card h3{font-size:.86rem;font-weight:800;color:var(--ink);margin:0 0 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .fi-card .sub{font-size:.68rem;color:var(--muted);margin:0 0 10px}
+  .fi-g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .fi-g2 .fi-card{margin-bottom:0}
+  @media(max-width:980px){.fi-g2{grid-template-columns:1fr}}
+  .fi-dec{display:flex;gap:12px;border-radius:10px;padding:11px 14px;margin-bottom:8px;border:1px solid;align-items:flex-start}
+  .fi-dec .ic{font-size:1.15rem;line-height:1.2}
+  .fi-dec .t{font-size:.84rem;font-weight:800;color:var(--ink)}
+  .fi-dec .d{font-size:.72rem;color:var(--ink2);margin-top:2px}
+  .fi-dec .a{font-size:.72rem;margin-top:5px;font-weight:700}
+  .fi-alerta{background:#fff1f2;border-color:#fecdd3}.fi-alerta .a{color:#9f1239}
+  .fi-aviso{background:#fffbeb;border-color:#fde68a}.fi-aviso .a{color:#92400e}
+  .fi-ok{background:#ecfdf5;border-color:#a7f3d0}.fi-ok .a{color:#065f46}
+  .fi-info{background:#f0f9ff;border-color:#bae6fd}.fi-info .a{color:#0369a1}
+  .fi-tbl{width:100%;border-collapse:collapse;font-size:.76rem}
+  .fi-tbl th{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:7px 8px;border-bottom:2px solid var(--border);white-space:nowrap}
+  .fi-tbl td{padding:7px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  .fi-tbl tr:hover td{background:#f8fafc}
+  .fi-tbl .n{text-align:right;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+  .fi-badge{display:inline-block;font-size:.6rem;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
+  .fi-alto{background:#fee2e2;color:#b91c1c}.fi-medio{background:#fef3c7;color:#92400e}.fi-bajo{background:#dcfce7;color:#166534}.fi-gris{background:#e2e8f0;color:#475569}
+  .fi-bar{height:7px;background:#e2e8f0;border-radius:10px;overflow:hidden;min-width:70px}
+  .fi-bar>div{height:100%;border-radius:10px}
+  .fi-wa{display:inline-flex;align-items:center;gap:3px;font-size:.66rem;font-weight:700;color:#166534;background:#dcfce7;border:1px solid #bbf7d0;border-radius:20px;padding:2px 8px;text-decoration:none}
+  .fi-wa:hover{background:#bbf7d0}
+  .fi-mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+  .fi-mini div{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+  .fi-mini b{display:block;font-family:'JetBrains Mono',monospace;font-size:1.05rem;color:var(--ink)}
+  .fi-mini span{font-size:.62rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.05em}
+  .fi-scroll{overflow-x:auto}
+</style>
+
+<!-- ══ ENCABEZADO ═════════════════════════════════════════════════════════ -->
+<div class="section-hdr" style="margin-top:4px">
+  <h2>🧠 Panel del Dueño — salud económica {% ayuda 'fi_panel' %}</h2>
+  <span style="font-size:.72rem;color:var(--muted)">Período {{ an.desde|date:"d/m/Y" }} al {{ an.hasta|date:"d/m/Y" }} · comparado con {{ an.p_desde|date:"d/m/Y" }} al {{ an.p_hasta|date:"d/m/Y" }}</span>
+  <span class="fi-badge fi-alto">{{ an.n_alertas }} alerta{{ an.n_alertas|pluralize }}</span>
+  <span class="fi-badge fi-medio">{{ an.n_avisos }} aviso{{ an.n_avisos|pluralize }}</span>
+</div>
+
+<!-- ══ INDICADORES ════════════════════════════════════════════════════════ -->
+<div class="fi-kpis">
+  <div class="fi-kpi"><div class="bar" style="background:#6366f1"></div><div class="l">Generado {% ayuda 'fi_generado' %}</div>
+    <div class="v">Bs. {{ an.R.generado|bs0 }}</div>
+    <div class="s">{% if an.var_generado is not None %}<span class="fi-var" style="color:{% if an.var_generado >= 0 %}#059669{% else %}#be123c{% endif %}">{{ an.var_generado|bsd0 }}%</span> vs anterior (Bs. {{ an.P.generado|bs0 }}){% else %}sin período anterior comparable{% endif %}</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:#059669"></div><div class="l">Cobrado neto {% ayuda 'fi_cobrado' %}</div>
+    <div class="v" style="color:#059669">Bs. {{ an.R.neto|bs0 }}</div>
+    <div class="s">{% if an.var_cobrado is not None %}<span class="fi-var" style="color:{% if an.var_cobrado >= 0 %}#059669{% else %}#be123c{% endif %}">{{ an.var_cobrado|bsd0 }}%</span> vs anterior (Bs. {{ an.P.neto|bs0 }}){% endif %}<br>{{ an.R.n_pagos }} pagos · devoluciones Bs. {{ an.R.devoluciones|bs0 }}</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:{% if an.R.cobranza >= 80 %}#059669{% elif an.R.cobranza >= 60 %}#d97706{% else %}#be123c{% endif %}"></div><div class="l">Cobranza {% ayuda 'fi_cobranza' %}</div>
+    <div class="v" style="color:{% if an.R.cobranza >= 80 %}#059669{% elif an.R.cobranza >= 60 %}#d97706{% else %}#be123c{% endif %}">{{ an.R.cobranza|floatformat:0 }}%</div>
+    <div class="s">cobrado ÷ generado · meta 80%<br>anterior: {{ an.P.cobranza|floatformat:0 }}%</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:#be123c"></div><div class="l">Deuda de pacientes {% ayuda 'fi_cartera' %}</div>
+    <div class="v" style="color:#be123c">Bs. {{ an.cartera.total|bs0 }}</div>
+    <div class="s">{{ an.cartera.n }} pacientes · ya consumido Bs. {{ an.cartera.real|bs0 }} {% ayuda 'fi_real' %}<br>agendado Bs. {{ an.cartera.agendado|bs0 }}</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:#dc2626"></div><div class="l">Egresos {% ayuda 'fi_egresos' %}</div>
+    <div class="v">Bs. {{ an.egresos.total|bs0 }}</div>
+    <div class="s">{% if an.egresos.n %}{{ an.egresos.n }} registros{% else %}sin egresos registrados{% endif %}{% if an.resultado.comisiones %}<br>+ comisiones externas Bs. {{ an.resultado.comisiones|bs0 }}{% endif %}</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:{% if an.resultado.valor >= 0 %}#059669{% else %}#be123c{% endif %}"></div><div class="l">Resultado {% ayuda 'fi_resultado' %}</div>
+    <div class="v" style="color:{% if an.resultado.valor >= 0 %}#059669{% else %}#be123c{% endif %}">Bs. {{ an.resultado.valor|bsd0 }}</div>
+    <div class="s">margen {{ an.resultado.margen|floatformat:0 }}% {% ayuda 'fi_margen' %}<br>cobrado − gastos</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:#0284c7"></div><div class="l">Agendado {{ an.agendado.dias }} días {% ayuda 'fi_agendado' %}</div>
+    <div class="v">Bs. {{ an.agendado.monto|bs0 }}</div><div class="s">{{ an.agendado.n }} sesiones programadas</div></div>
+  <div class="fi-kpi"><div class="bar" style="background:#7c3aed"></div><div class="l">Saldos a favor {% ayuda 'fi_creditos' %}</div>
+    <div class="v">Bs. {{ an.cartera.creditos_total|bs0 }}</div><div class="s">{{ an.cartera.creditos_n }} pacientes con crédito (obligación del centro)</div></div>
+</div>
+
+<!-- ══ DECISIONES ═════════════════════════════════════════════════════════ -->
+<div class="fi-card">
+  <h3>🎯 Qué decidir ahora {% ayuda 'fi_decisiones' %}</h3>
+  {% for d in an.decisiones %}
+  <div class="fi-dec fi-{{ d.nivel }}">
+    <div class="ic">{% if d.nivel == 'alerta' %}🚨{% elif d.nivel == 'aviso' %}⚠️{% elif d.nivel == 'ok' %}✅{% else %}💡{% endif %}</div>
+    <div><div class="t">{{ d.titulo }}</div>{% if d.detalle %}<div class="d">{{ d.detalle }}</div>{% endif %}{% if d.accion %}<div class="a">👉 {{ d.accion }}</div>{% endif %}</div>
+  </div>
+  {% empty %}<p class="sub">Sin observaciones para el período.</p>{% endfor %}
+</div>
+
+<!-- ══ FLUJO 12 MESES ═════════════════════════════════════════════════════ -->
+<div class="fi-card">
+  <h3>📈 Flujo de los últimos 12 meses {% ayuda 'fi_flujo' %}</h3>
+  <p class="sub">Generado, cobrado y egresos por mes (barras) y resultado = cobrado − egresos (línea).</p>
+  {{ an.svg_flujo|safe }}
+</div>
+
+<div class="fi-g2">
+  <div class="fi-card"><h3>🧩 De dónde viene lo generado {% ayuda 'fi_composicion' %}</h3><p class="sub">Sesiones sueltas, proyectos y mensualidades del período.</p>{{ an.svg_composicion|safe }}</div>
+  <div class="fi-card"><h3>💳 Cómo pagan las familias {% ayuda 'fi_metodos' %}</h3><p class="sub">Dinero cobrado por método de pago (sin «Uso de Crédito»).</p>{{ an.svg_metodos|safe }}</div>
+</div>
+
+<!-- ══ A QUIÉN COBRAR ═════════════════════════════════════════════════════ -->
+<div class="section-hdr"><h2>💰 Deudas y cobranza</h2></div>
+<div class="fi-g2" style="grid-template-columns:2fr 1fr">
+  <div class="fi-card">
+    <h3>📞 A quién cobrar: mayores deudores {% ayuda 'fi_cobrar' %} <span class="fi-badge fi-gris">{{ an.cartera.n }} con deuda</span></h3>
+    <p class="sub">Ordenados por deuda total. Riesgo alto: inactivo con deuda, más de 60 días o más de 60 días sin pagar {% ayuda 'fi_riesgo' %}</p>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>Paciente / tutor</th><th style="text-align:right">Deuda total</th><th style="text-align:right">Ya consumido</th><th style="text-align:right">Antigüedad</th><th>Último pago</th><th>Riesgo</th><th>Contacto</th></tr></thead>
+      <tbody>
+      {% for x in an.cartera.filas|slice:":15" %}
+      <tr>
+        <td><b>{{ x.nombre }}</b>{% if not x.activo %} <span class="fi-badge fi-gris">inactivo</span>{% endif %}<br><span style="font-size:.66rem;color:var(--muted)">{{ x.tutor }}</span></td>
+        <td class="n"><b>Bs. {{ x.total|bs0 }}</b></td>
+        <td class="n">Bs. {{ x.real|bs0 }}</td>
+        <td class="n">{{ x.edad }} d</td>
+        <td>{% if x.ultimo_pago %}{{ x.ultimo_pago|date:"d/m/Y" }}<br><span style="font-size:.64rem;color:var(--muted)">hace {{ x.dias_sin_pagar }} d</span>{% else %}<span style="color:var(--muted)">nunca</span>{% endif %}</td>
+        <td><span class="fi-badge fi-{{ x.riesgo }}">{{ x.riesgo }}</span></td>
+        <td>{{ x.telefono }}{% if x.wa %}<br><a class="fi-wa" href="https://wa.me/{{ x.wa }}" target="_blank" rel="noopener">💬 WhatsApp</a>{% endif %}</td>
+      </tr>
+      {% empty %}<tr><td colspan="7" style="text-align:center;color:#059669;padding:18px">Sin pacientes con deuda. ✅</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+    {% if an.cartera.filas|length > 15 %}<p class="sub" style="margin-top:8px">Se muestran los 15 mayores de {{ an.cartera.n }}. El resto suma Bs. {{ an.cartera.resto|default:0|bs0 }}.</p>{% endif %}
+  </div>
+  <div class="fi-card">
+    <h3>⏳ Antigüedad de la deuda {% ayuda 'fi_antig' %}</h3>
+    <p class="sub">Deuda ya consumida, por antigüedad estimada (FIFO).</p>
+    {{ an.svg_antig|safe }}
+    <div class="fi-mini" style="margin-top:10px">
+      <div><b>{{ an.cartera.riesgo_alto_n }}</b><span>Riesgo alto</span></div>
+      <div><b>Bs. {{ an.cartera.riesgo_alto_monto|bs0 }}</b><span>En riesgo alto</span></div>
+      <div><b>{{ an.cartera.inactivos_n }}</b><span>Inactivos con deuda</span></div>
+      <div><b>{{ an.cartera.top5_pct|floatformat:0 }}%</b><span>Deuda en 5 mayores</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PACIENTES: QUIÉN GENERA ════════════════════════════════════════════ -->
+<div class="section-hdr"><h2>🧒 Pacientes: quién genera y quién no</h2></div>
+<div class="fi-card">
+  <h3>📊 Concentración de ingresos {% ayuda 'fi_concentracion' %}</h3>
+  <div class="fi-mini" style="margin-bottom:0">
+    <div><b>{{ an.pacientes.n }}</b><span>Pacientes con ingresos</span></div>
+    <div><b>Bs. {{ an.pacientes.ticket|bs0 }}</b><span>Promedio por paciente</span></div>
+    <div><b>Bs. {{ an.pacientes.mediana|bs0 }}</b><span>Mediana</span></div>
+    <div><b>{{ an.pacientes.top5_pct|floatformat:0 }}%</b><span>Generado por los 5 mayores</span></div>
+    <div><b>{{ an.pacientes.top10_pct|floatformat:0 }}%</b><span>Generado por los 10 mayores</span></div>
+    <div><b>{{ an.pacientes.n80 }} ({{ an.pacientes.n80_pct|floatformat:0 }}%)</b><span>Pacientes para el 80%</span></div>
+  </div>
+</div>
+<div class="fi-g2">
+  <div class="fi-card">
+    <h3>🏆 Los que más generan {% ayuda 'fi_mas' %}</h3>
+    <p class="sub">Sesiones + proyectos + mensualidades del período.</p>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>#</th><th>Paciente</th><th style="min-width:110px">Peso</th><th style="text-align:right">Generado</th><th style="text-align:right">Cobrado</th></tr></thead>
+      <tbody>
+      {% for x in an.pacientes.mas %}
+      <tr><td class="n" style="color:var(--muted)">{{ forloop.counter }}</td><td><b>{{ x.nombre }}</b>{% if not x.activo %} <span class="fi-badge fi-gris">inactivo</span>{% endif %}</td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div class="fi-bar" style="flex:1"><div style="width:{{ x.pct|pw }}%;background:#6366f1"></div></div><span class="n" style="font-size:.66rem">{{ x.pct|floatformat:1 }}%</span></div></td>
+        <td class="n"><b>Bs. {{ x.generado|bs0 }}</b></td>
+        <td class="n" style="color:{% if x.cobranza >= 80 %}#059669{% else %}#d97706{% endif %}">Bs. {{ x.cobrado|bs0 }}</td></tr>
+      {% empty %}<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin datos en el período.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+  <div class="fi-card">
+    <h3>🔻 Los que menos generan {% ayuda 'fi_menos' %}</h3>
+    <p class="sub">Pacientes con ingresos en el período, de menor a mayor. Revisar su plan o seguimiento.</p>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>Paciente</th><th style="text-align:right">Sesiones</th><th style="text-align:right">Generado</th><th style="text-align:right">Cobrado</th></tr></thead>
+      <tbody>
+      {% for x in an.pacientes.menos %}
+      <tr><td><b>{{ x.nombre }}</b>{% if not x.activo %} <span class="fi-badge fi-gris">inactivo</span>{% endif %}</td><td class="n">{{ x.sesiones }}</td>
+        <td class="n"><b>Bs. {{ x.generado|bs0 }}</b></td><td class="n">Bs. {{ x.cobrado|bs0 }}</td></tr>
+      {% empty %}<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">Sin datos en el período.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ PUNTUALIDAD DE PAGO ════════════════════════════════════════════════ -->
+<div class="section-hdr"><h2>⏱️ Puntualidad de pago (último año)</h2>
+  <span style="font-size:.72rem;color:var(--muted)">{{ an.puntualidad.pct_global|floatformat:0 }}% de los pagos llega en ≤ {{ an.puntualidad.dias }} días · {{ an.puntualidad.n_evaluados }} pacientes evaluados</span></div>
+<div class="fi-g2">
+  <div class="fi-card">
+    <h3>🌟 Los más cumplidos {% ayuda 'fi_cumplidos' %}</h3>
+    <p class="sub">Pagan a tiempo y no deben. Ideales para reconocer.</p>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>Paciente</th><th style="text-align:right">Pagos</th><th style="text-align:right">A tiempo</th><th style="text-align:right">Demora {% ayuda 'fi_demora' %}</th><th style="text-align:right">Pagó (año)</th></tr></thead>
+      <tbody>
+      {% for x in an.puntualidad.cumplidos %}
+      <tr><td><b>{{ x.nombre }}</b></td><td class="n">{{ x.pagos }}</td><td class="n" style="color:#059669"><b>{{ x.pct_puntual|floatformat:0 }}%</b></td><td class="n">{{ x.demora_prom|floatformat:1 }} d</td><td class="n">Bs. {{ x.monto|bs0 }}</td></tr>
+      {% empty %}<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Aún no hay pacientes que cumplan el criterio.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+  <div class="fi-card">
+    <h3>🐢 Los que pagan con más demora {% ayuda 'fi_lentos' %}</h3>
+    <p class="sub">Menos de la mitad de sus pagos llega a tiempo. Enviar recordatorio temprano.</p>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>Paciente</th><th style="text-align:right">Pagos</th><th style="text-align:right">A tiempo</th><th style="text-align:right">Demora</th><th style="text-align:right">Debe hoy</th></tr></thead>
+      <tbody>
+      {% for x in an.puntualidad.lentos %}
+      <tr><td><b>{{ x.nombre }}</b>{% if not x.activo %} <span class="fi-badge fi-gris">inactivo</span>{% endif %}</td><td class="n">{{ x.pagos }}</td><td class="n" style="color:#be123c"><b>{{ x.pct_puntual|floatformat:0 }}%</b></td><td class="n">{{ x.demora_prom|floatformat:0 }} d</td><td class="n">Bs. {{ x.deuda|bs0 }}</td></tr>
+      {% empty %}<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Nadie con pagos sistemáticamente tardíos.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ EGRESOS Y RESULTADO ════════════════════════════════════════════════ -->
+<div class="section-hdr"><h2>🧾 Egresos y resultado</h2></div>
+<div class="fi-g2">
+  <div class="fi-card">
+    <h3>🧮 Del dinero cobrado, ¿cuánto queda? {% ayuda 'fi_resultado' %}</h3>
+    <table class="fi-tbl">
+      <tbody>
+        <tr><td>Cobrado neto del período</td><td class="n"><b>Bs. {{ an.R.neto|bs0 }}</b></td></tr>
+        <tr><td>(−) Comisiones a profesionales externos</td><td class="n" style="color:#be123c">Bs. {{ an.resultado.comisiones|bs0 }}</td></tr>
+        <tr><td>(−) Egresos registrados {% if an.egresos.honorarios %}<span style="font-size:.64rem;color:var(--muted)">(sin honorarios: Bs. {{ an.egresos.honorarios|bs0 }})</span>{% endif %}</td><td class="n" style="color:#be123c">Bs. {{ an.egresos.total|bs0 }}</td></tr>
+        <tr style="background:#f8fafc"><td><b>Resultado</b></td><td class="n"><b style="color:{% if an.resultado.valor >= 0 %}#059669{% else %}#be123c{% endif %}">Bs. {{ an.resultado.valor|bsd0 }}</b></td></tr>
+        <tr><td>Margen sobre lo cobrado</td><td class="n">{{ an.resultado.margen|floatformat:1 }}%</td></tr>
+        <tr><td>Gastos por mes (punto de equilibrio) {% ayuda 'fi_equilibrio' %}</td><td class="n">Bs. {{ an.resultado.gastos_mes|bs0 }}</td></tr>
+      </tbody>
+    </table>
+    {% if an.egresos.global_excl %}<p class="sub" style="margin-top:8px">No se incluyen Bs. {{ an.egresos.global_excl|bs0 }} de egresos globales (sin sucursal) al filtrar por sucursal.</p>{% endif %}
+  </div>
+  <div class="fi-card">
+    <h3>📂 Egresos por categoría {% ayuda 'fi_egr_cat' %}</h3>
+    <div class="fi-scroll"><table class="fi-tbl">
+      <thead><tr><th>Categoría</th><th style="min-width:110px">Peso</th><th style="text-align:right">Monto</th></tr></thead>
+      <tbody>
+      {% for c in an.egresos.cats|slice:":10" %}
+      <tr><td><b>{{ c.nombre }}</b><br><span style="font-size:.64rem;color:var(--muted)">{{ c.tipo }}</span></td>
+        <td><div style="display:flex;align-items:center;gap:6px"><div class="fi-bar" style="flex:1"><div style="width:{{ c.pct|pw }}%;background:#dc2626"></div></div><span class="n" style="font-size:.66rem">{{ c.pct|floatformat:0 }}%</span></div></td>
+        <td class="n"><b>Bs. {{ c.monto|bs0 }}</b></td></tr>
+      {% empty %}<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">No hay egresos registrados en el período. Regístralos en el módulo Egresos para ver el resultado real.</td></tr>{% endfor %}
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- ══ SUCURSALES Y SERVICIOS ═════════════════════════════════════════════ -->
+{% if an.sucursales %}
+<div class="fi-card">
+  <h3>🏢 Comparación entre sucursales {% ayuda 'fi_sucursales' %}</h3>
+  <div class="fi-scroll"><table class="fi-tbl">
+    <thead><tr><th>Sucursal</th><th style="text-align:right">Generado</th><th style="text-align:right">Cobrado</th><th style="text-align:right">Cobranza</th><th style="text-align:right">Egresos</th><th style="text-align:right">Resultado</th><th style="text-align:right">Deuda actual</th></tr></thead>
+    <tbody>
+    {% for s in an.sucursales %}
+    <tr><td><b>{{ s.nombre }}</b></td><td class="n">Bs. {{ s.generado|bs0 }}</td><td class="n">Bs. {{ s.cobrado|bs0 }}</td>
+      <td class="n" style="color:{% if s.cobranza >= 80 %}#059669{% elif s.cobranza >= 60 %}#d97706{% else %}#be123c{% endif %}">{{ s.cobranza|floatformat:0 }}%</td>
+      <td class="n">Bs. {{ s.egresos|bs0 }}</td><td class="n"><b style="color:{% if s.resultado >= 0 %}#059669{% else %}#be123c{% endif %}">Bs. {{ s.resultado|bsd0 }}</b></td>
+      <td class="n" style="color:#be123c">Bs. {{ s.deuda|bs0 }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+  <p class="sub" style="margin-top:8px">Los egresos sin sucursal (globales) no se reparten entre sucursales; por eso el resultado por sucursal es antes de gastos compartidos (egresos totales del período: Bs. {{ an.egresos.total|bs0 }}).</p>
+</div>
+{% endif %}
+<div class="fi-card">
+  <h3>🩺 Servicios que más generan {% ayuda 'fi_servicios' %}</h3>
+  <div class="fi-scroll"><table class="fi-tbl">
+    <thead><tr><th>Servicio</th><th style="min-width:130px">Peso</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Promedio</th><th style="text-align:right">Generado</th></tr></thead>
+    <tbody>
+    {% for s in an.servicios %}
+    <tr><td><b>{{ s.nombre }}</b></td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div class="fi-bar" style="flex:1"><div style="width:{{ s.pct|pw }}%;background:#0d9488"></div></div><span class="n" style="font-size:.66rem">{{ s.pct|floatformat:0 }}%</span></div></td>
+      <td class="n">{{ s.n }}</td><td class="n">Bs. {{ s.promedio|bs0 }}</td><td class="n"><b>Bs. {{ s.generado|bs0 }}</b></td></tr>
+    {% empty %}<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin datos en el período.</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+
+<p class="sub" style="padding:0 4px 18px">Notas: «Generado» y «cobrado» usan las mismas definiciones de las demás pestañas. La antigüedad de la deuda es una estimación (FIFO). El resultado es una vista de caja basada en los egresos registrados; no sustituye un balance contable.</p>
+{% endwith %}

@@ -81,6 +81,7 @@ VISTA_TITULOS = {
     'detalle_mensualidades':'DETALLE DE MENSUALIDADES',
     'resumen_unificado':   'RESUMEN UNIFICADO (SESIONES + PROYECTOS + MENSUALIDADES)',
     'analisis_creditos':   'ANALISIS DE CREDITOS Y ADELANTOS',
+    'gerencial':           'PANEL DEL DUENO - SALUD ECONOMICA Y DECISIONES',
 }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -694,6 +695,17 @@ def _kpis_portada(vista, ctx):
             ("Creditos usados", _bs(ac.get('total_utilizado', 0)), "Aplicados a servicios", C_AZUL),
             ("Saldo disponible", _bs(ac.get('saldo_disponible', 0) or ac.get('saldo_neto', 0)), "Credito aun sin usar", C_VERDE_MED),
             ("Pacientes con credito", str(len(ac.get('pacientes_con_credito', []))), "Con saldo a favor", C_TEAL),
+        ]
+    elif vista == 'gerencial':
+        an = ctx.get('analisis_fin') or {}
+        R = an.get('R') or {}
+        car = an.get('cartera') or {}
+        res = an.get('resultado') or {}
+        return [
+            ("Generado", _bs(R.get('generado', 0)), "Lo que se gano por servicios", C_VERDE_MED),
+            ("Cobrado neto", _bs(R.get('neto', 0)), f"Cobranza: {_pct(R.get('cobranza', 0))}", C_AZUL),
+            ("Deuda de pacientes", _bs(car.get('total', 0)), f"{car.get('n', 0)} pacientes con deuda", C_ROJO),
+            ("Resultado", _bs(res.get('valor', 0)), f"Margen {_pct(res.get('margen', 0))} (cobrado - gastos)", C_TEAL),
         ]
     elif vista == 'resumen_unificado':
         gt = ctx.get('resumen_gran_total') or {}
@@ -1510,6 +1522,241 @@ def _seccion_creditos(pages_data, ctx, helpers):
     pages_data.append((c, pg))
 
 
+
+# ─────────────────────────────────────────────────────────────────────
+# PANEL DEL DUEÑO (usa reporte_financiero_data + informe_financiero_graficos)
+# ─────────────────────────────────────────────────────────────────────
+def _lineas_txt(texto, font, size, ancho):
+    out, linea = [], ''
+    for w_ in str(texto).split():
+        t = (linea + ' ' + w_).strip()
+        if stringWidth(t, font, size) <= ancho:
+            linea = t
+        else:
+            if linea:
+                out.append(linea)
+            linea = w_
+    if linea:
+        out.append(linea)
+    return out or ['']
+
+
+def _seccion_gerencial(pages_data, ctx, helpers, titulo_inicial="Panel del Dueno: salud economica"):
+    an = ctx.get('analisis_fin')
+    if not an:
+        return
+    from . import informe_financiero_graficos as G
+    make_page = helpers['new_page']
+    st = {}
+    st['c'], st['y'], st['pg'] = make_page()
+
+    def nueva():
+        _pie(st['c'], st['pg'], helpers['total_pg'][0], helpers['fecha'])
+        pages_data.append((st['c'], st['pg']))
+        st['c'], st['y'], st['pg'] = make_page()
+
+    def asegurar(h):
+        if st['y'] - h < Y_BOTTOM:
+            nueva()
+
+    def titulo(txt, color=None, reserva=4.8 * cm):
+        # reserva: espacio mínimo para que el título no quede huérfano al pie de la página
+        asegurar(reserva)
+        st['y'] = _titulo_seccion(st['c'], st['y'], txt, color)
+
+    def nota(txt, reserva=1.3 * cm):
+        asegurar(reserva)
+        st['y'] = _explicacion(st['c'], st['y'], txt)
+
+    def tabla(headers, rows, ws, fs=7.0):
+        rh = 0.5 * cm
+        i = 0
+        while True:
+            asegurar(rh * 3)
+            cabe = max(int((st['y'] - Y_BOTTOM - rh - 0.3 * cm) / rh), 1)
+            st['y'] = _tabla(st['c'], st['y'], headers, rows[i:i + cabe], ws, font_size=fs, row_h=rh)
+            i += cabe
+            if i < len(rows):
+                nueva()
+            else:
+                st['y'] -= 0.35 * cm
+                break
+
+    def poner(h, fn):
+        asegurar(h + 0.3 * cm)
+        fn(st['c'], st['y'])
+        st['y'] -= h + 0.3 * cm
+
+    R, P, car, E, res = an['R'], an['P'], an['cartera'], an['egresos'], an['resultado']
+    pac, pun = an['pacientes'], an['puntualidad']
+    gap = 0.4 * cm
+
+    # ── 1. Resumen y decisiones ────────────────────────────────────
+    st['y'] = _titulo_seccion(st['c'], st['y'], "1. " + titulo_inicial, C_VERDE_PRI)
+    st['y'] = _explicacion(st['c'], st['y'],
+        f"Periodo {an['desde'].strftime('%d/%m/%Y')} al {an['hasta'].strftime('%d/%m/%Y')}, comparado con el periodo anterior "
+        f"({an['p_desde'].strftime('%d/%m/%Y')} al {an['p_hasta'].strftime('%d/%m/%Y')}). Usa las mismas definiciones de generado y cobrado "
+        "que las demas pestanas. Generado = servicios del periodo; cobrado neto = pagos menos devoluciones; deuda = lo realizado mas lo "
+        "agendado menos lo pagado.")
+    vg, vc = an.get('var_generado'), an.get('var_cobrado')
+    items = [
+        ("Generado", _bs(R['generado']), (f"{vg:+.0f}% vs anterior" if vg is not None else "sin periodo comparable"), C_VERDE_MED),
+        ("Cobrado neto", _bs(R['neto']), (f"{vc:+.0f}% vs anterior" if vc is not None else f"{R['n_pagos']} pagos"), C_AZUL),
+        ("Cobranza", f"{R['cobranza']:.0f}%", "cobrado / generado - meta 80%", C_VERDE_MED if R['cobranza'] >= 80 else (C_AMBER if R['cobranza'] >= 60 else C_ROJO)),
+        ("Deuda de pacientes", _bs(car['total']), f"{car['n']} pacientes - consumido {_bs(car['real'])}", C_ROJO),
+        ("Egresos", _bs(E['total']), (f"{E['n']} registros" if E['n'] else "sin egresos registrados"), C_AMBER),
+        ("Resultado", _bs(res['valor']), f"margen {res['margen']:.0f}% (cobrado - gastos)", C_TEAL if res['valor'] >= 0 else C_ROJO),
+        (f"Agendado {an['agendado']['dias']} dias", _bs(an['agendado']['monto']), f"{an['agendado']['n']} sesiones programadas", C_MORADO),
+        ("Saldos a favor", _bs(car['creditos_total']), f"{car['creditos_n']} pacientes (obligacion)", colors.HexColor('#0284c7')),
+    ]
+    asegurar(4.6 * cm)
+    st['y'] = _grilla_metricas(st['c'], st['y'], items, cols=4, box_h=1.7 * cm)
+
+    titulo("2. Que decidir ahora", C_AZUL)
+    pal = {'alerta': (C_ROJO, C_ROJO_L), 'aviso': (C_AMBER, C_AMBER_L), 'ok': (C_VERDE_MED, C_VERDE_L), 'info': (C_AZUL, C_AZUL_L)}
+    for d in an['decisiones']:
+        col, fondo = pal.get(d['nivel'], pal['info'])
+        ancho = CW - 1.3 * cm
+        lt = _lineas_txt(d['titulo'], 'Helvetica-Bold', 8.6, ancho)
+        ld = _lineas_txt(d['detalle'], 'Helvetica', 7.6, ancho) if d['detalle'] else []
+        la = _lineas_txt('Accion: ' + d['accion'], 'Helvetica-Bold', 7.6, ancho) if d['accion'] else []
+        h = 0.3 * cm + len(lt) * 0.42 * cm + len(ld) * 0.36 * cm + len(la) * 0.36 * cm + 0.25 * cm
+        asegurar(h + 0.2 * cm)
+        c, y = st['c'], st['y']
+        c.setFillColor(fondo)
+        c.roundRect(ML, y - h, CW, h, 5, fill=1, stroke=0)
+        c.setFillColor(col)
+        c.roundRect(ML, y - h, 0.22 * cm, h, 2, fill=1, stroke=0)
+        yy = y - 0.5 * cm
+        c.setFont('Helvetica-Bold', 8.6)
+        c.setFillColor(C_TEXTO)
+        for t in lt:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.42 * cm
+        yy += 0.04 * cm
+        c.setFont('Helvetica', 7.6)
+        c.setFillColor(C_TEXTO_SEC)
+        for t in ld:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.36 * cm
+        c.setFont('Helvetica-Bold', 7.6)
+        c.setFillColor(col)
+        for t in la:
+            c.drawString(ML + 0.55 * cm, yy, t)
+            yy -= 0.36 * cm
+        st['y'] = y - h - 0.2 * cm
+
+    # ── 3. Gráficos de flujo ───────────────────────────────────────
+    titulo("3. Flujo de los ultimos 12 meses", C_VERDE_PRI, 7.8 * cm)
+    poner(6.6 * cm, lambda c_, y_: G.graf_flujo(
+        c_, ML, y_, CW, 6.6 * cm, an['serie'], "Generado, cobrado y egresos por mes",
+        "Barras: lo generado, lo cobrado (neto) y los egresos. Linea: resultado = cobrado - egresos; bajo cero se gasto mas de lo que entro."))
+    wl = (CW - gap) / 2
+    gen = R['gen']
+    comp = [('Sesiones sueltas', gen['sesion'], '#6366f1'), ('Proyectos', gen['proyecto'], '#0d9488'), ('Mensualidades', gen['mensualidad'], '#d97706')]
+    cols_m = ('#059669', '#2563eb', '#7c3aed', '#d97706', '#64748b')
+    mets = [(m['nombre'], m['monto'], col) for m, col in zip(an['metodos'][:5], cols_m)]
+
+    def _fila(c_, y_):
+        G.graf_dona(c_, ML, y_, wl, 4.4 * cm, comp, 'De donde viene lo generado', 'Sesiones, proyectos y mensualidades.', centro=G.abrev(R['generado']))
+        G.graf_dona(c_, ML + wl + gap, y_, wl, 4.4 * cm, mets, 'Como pagan las familias', 'Dinero cobrado por metodo de pago.',
+                    centro=G.abrev(sum(m['monto'] for m in an['metodos'])))
+    poner(4.4 * cm, _fila)
+
+    # ── 4. Deudas y cobranza ───────────────────────────────────────
+    titulo("4. Deudas y cobranza: a quien cobrar", C_ROJO, 8.0 * cm)
+    nota("Deuda total = lo realizado + lo agendado - lo pagado (igual al saldo real de la cuenta corriente). La antiguedad es una estimacion por orden de "
+         "llegada (FIFO): se asume que cada pago cancela primero lo mas antiguo. Riesgo alto: paciente inactivo con deuda, mas de 60 dias de deuda o mas de "
+         "60 dias sin pagar; medio: mas de 30 dias.")
+    poner(4.0 * cm, lambda c_, y_: G.graf_antiguedad(
+        c_, ML, y_, CW, 4.0 * cm, car['aging'], 'Antiguedad de la deuda ya consumida',
+        f"Alto riesgo: {car['riesgo_alto_n']} pacientes por {_bs(car['riesgo_alto_monto'])}. Inactivos con deuda: {car['inactivos_n']} ({_bs(car['inactivos_monto'])}). "
+        f"Los 5 mayores deben el {car['top5_pct']:.0f}%."))
+    top = car['filas'][:10]
+    if top:
+        it = [{'nombre': x['nombre'], 'valor': x['total'], 'extra': f"{x['edad']} d - {x['riesgo']}",
+               'color': {'alto': '#be123c', 'medio': '#d97706', 'bajo': '#059669'}[x['riesgo']]} for x in top]
+        poner(G.alto_barras_h(len(it)), lambda c_, y_: G.graf_barras_h(
+            c_, ML, y_, CW, it, 'Los 10 mayores deudores', 'Color por riesgo: rojo alto, ambar medio, verde bajo.'))
+    rows = [[x['nombre'] + (' (inactivo)' if not x['activo'] else ''), f"{x['tutor']} {x['telefono']}".strip(), _bs(x['total']), _bs(x['real']),
+             f"{x['edad']} d", x['ultimo_pago'].strftime('%d/%m/%Y') if x['ultimo_pago'] else 'nunca', x['riesgo'].upper()] for x in car['filas'][:25]]
+    if rows:
+        nota(f"Lista para cobrar ({min(25, car['n'])} de {car['n']} pacientes con deuda).", 2.6 * cm)
+        tabla(['Paciente', 'Tutor / telefono', 'Deuda total', 'Consumido', 'Antig.', 'Ult. pago', 'Riesgo'], rows,
+              [4.2 * cm, 4.2 * cm, 2.1 * cm, 2.1 * cm, 1.3 * cm, 2.0 * cm, 1.5 * cm], fs=6.6)
+
+    # ── 5. Pacientes ───────────────────────────────────────────────
+    titulo("5. Pacientes: quien genera y quien no", C_AZUL, 6.5 * cm)
+    asegurar(3.6 * cm)
+    st['y'] = _grilla_metricas(st['c'], st['y'], [
+        ("Pacientes con ingresos", str(pac['n']), "en el periodo", C_AZUL),
+        ("Promedio por paciente", _bs(pac['ticket']), f"mediana {_bs(pac['mediana'])}", C_TEAL),
+        ("5 mayores generan", f"{pac['top5_pct']:.0f}%", f"10 mayores: {pac['top10_pct']:.0f}%", C_AMBER),
+        ("Para llegar al 80%", f"{pac['n80']} pacientes", f"{pac['n80_pct']:.0f}% de los pacientes", C_MORADO),
+    ], cols=4, box_h=1.6 * cm)
+    mas = pac['mas'][:12]
+    if mas:
+        it = [{'nombre': x['nombre'] + (' (inact.)' if not x['activo'] else ''), 'valor': x['generado'],
+               'extra': f"{x['pct']:.1f}% - cobrado {_bs(x['cobrado'])}"} for x in mas]
+        poner(G.alto_barras_h(len(it)), lambda c_, y_: G.graf_barras_h(
+            c_, ML, y_, CW, it, 'Pacientes que mas generan', 'Sesiones + proyectos + mensualidades del periodo. Peso sobre el total y lo que pagaron en el periodo.'))
+    menos = pac['menos']
+    if menos:
+        nota("Pacientes que menos generan (con ingresos en el periodo): revisar su plan, asistencia o riesgo de abandono.", 2.6 * cm)
+        tabla(['Paciente', 'Sesiones', 'Generado', 'Cobrado'],
+              [[x['nombre'] + (' (inactivo)' if not x['activo'] else ''), x['sesiones'], _bs(x['generado']), _bs(x['cobrado'])] for x in menos],
+              [7.5 * cm, 2.6 * cm, 3.4 * cm, 3.4 * cm], fs=7.0)
+
+    # ── 6. Puntualidad ─────────────────────────────────────────────
+    titulo("6. Puntualidad de pago (ultimo ano)", C_TEAL)
+    nota(f"Puntual = pago dentro de {pun['dias']} dias del consumo. Global: {pun['pct_global']:.0f}% de los pagos llega a tiempo "
+         f"({pun['n_evaluados']} pacientes evaluados, minimo 3 pagos directos).")
+    if pun['cumplidos']:
+        nota("Los mas cumplidos (pagan a tiempo y no deben): reconocer y tomar como modelo.", 2.6 * cm)
+        tabla(['Paciente', 'Pagos', 'A tiempo', 'Demora prom.', 'Pago en el ano'],
+              [[x['nombre'], x['pagos'], f"{x['pct_puntual']:.0f}%", f"{x['demora_prom']:.1f} d", _bs(x['monto'])] for x in pun['cumplidos']],
+              [6.2 * cm, 1.8 * cm, 2.2 * cm, 3.0 * cm, 3.6 * cm], fs=7.0)
+    if pun['lentos']:
+        nota("Los que pagan con mas demora (menos de la mitad a tiempo): recordatorio temprano, cobro adelantado o plan de pago.", 2.6 * cm)
+        tabla(['Paciente', 'Pagos', 'A tiempo', 'Demora prom.', 'Debe hoy'],
+              [[x['nombre'] + (' (inactivo)' if not x['activo'] else ''), x['pagos'], f"{x['pct_puntual']:.0f}%", f"{x['demora_prom']:.0f} d", _bs(x['deuda'])]
+               for x in pun['lentos']],
+              [6.2 * cm, 1.8 * cm, 2.2 * cm, 3.0 * cm, 3.6 * cm], fs=7.0)
+
+    # ── 7. Egresos y resultado ─────────────────────────────────────
+    titulo("7. Egresos y resultado", C_AMBER, 6.0 * cm)
+    asegurar(4.2 * cm)
+    c, y = st['c'], st['y']
+    for lab, val, col in (("Cobrado neto del periodo", _bs(R['neto']), None),
+                          ("(-) Comisiones a profesionales externos", _bs(res['comisiones']), C_ROJO),
+                          ("(-) Egresos registrados (sin honorarios)", _bs(E['total']), C_ROJO),
+                          ("RESULTADO", _bs(res['valor']), C_VERDE_MED if res['valor'] >= 0 else C_ROJO),
+                          ("Margen sobre lo cobrado", _pct(res['margen']), None),
+                          ("Gastos por mes (punto de equilibrio aprox.)", _bs(res['gastos_mes']), None)):
+        y = _fila_kv(c, y, lab, val, col)
+    st['y'] = y - 0.2 * cm
+    if E['cats']:
+        it = [{'nombre': x['nombre'], 'valor': x['monto'], 'extra': f"{x['pct']:.0f}% - {x['tipo']}", 'color': '#dc2626'} for x in E['cats'][:10]]
+        poner(G.alto_barras_h(len(it)), lambda c_, y_: G.graf_barras_h(c_, ML, y_, CW, it, 'Egresos por categoria', 'Sin honorarios profesionales (se ven como comisiones).'))
+    else:
+        nota("No hay egresos registrados en el periodo: registrelos en el modulo Egresos para ver el resultado real del centro.")
+
+    if an['sucursales']:
+        titulo("8. Comparacion entre sucursales", C_VERDE_MED)
+        tabla(['Sucursal', 'Generado', 'Cobrado', 'Cobranza', 'Egresos', 'Resultado', 'Deuda actual'],
+              [[s['nombre'], _bs(s['generado']), _bs(s['cobrado']), f"{s['cobranza']:.0f}%", _bs(s['egresos']), _bs(s['resultado']), _bs(s['deuda'])]
+               for s in an['sucursales']], [3.4 * cm, 2.4 * cm, 2.4 * cm, 1.9 * cm, 2.3 * cm, 2.4 * cm, 2.6 * cm], fs=7.0)
+        nota("Los egresos sin sucursal (globales) no se reparten entre sucursales, por eso el resultado por sucursal es antes de gastos compartidos.")
+    if an['servicios']:
+        titulo("9. Servicios que mas generan", C_TEAL)
+        tabla(['Servicio', 'Cantidad', 'Promedio', 'Generado', 'Peso'],
+              [[s['nombre'], s['n'], _bs(s['promedio']), _bs(s['generado']), f"{s['pct']:.0f}%"] for s in an['servicios']],
+              [6.2 * cm, 2.2 * cm, 2.8 * cm, 3.2 * cm, 2.4 * cm], fs=7.0)
+
+    nota("Notas: el resultado es una vista de caja con los egresos registrados; no sustituye un balance contable. La antiguedad de la deuda es una estimacion (FIFO).")
+    _pie(st['c'], st['pg'], helpers['total_pg'][0], helpers['fecha'])
+    pages_data.append((st['c'], st['pg']))
+
 # ─────────────────────────────────────────────────────────────────────
 # FUNCIÓN PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────
@@ -1601,6 +1848,8 @@ def generar_informe_financiero_pdf(context):
     # ── CONTENIDO según vista ────────────────────────────────────────
     if vista in ('mensual', '', None):
         _seccion_mensual(pages_data, context, helpers)
+        if context.get('analisis_fin'):
+            _seccion_gerencial(pages_data, context, helpers, "Anexo - Panel del Dueno: salud economica")
     elif vista == 'diaria':
         _seccion_diaria(pages_data, context, helpers)
     elif vista == 'detalle_pagos':
@@ -1615,6 +1864,8 @@ def generar_informe_financiero_pdf(context):
         _seccion_resumen_unificado(pages_data, context, helpers)
     elif vista == 'analisis_creditos':
         _seccion_creditos(pages_data, context, helpers)
+    elif vista == 'gerencial':
+        _seccion_gerencial(pages_data, context, helpers)
 
     total_pages = page_counter[0]
     c.save()
@@ -1657,6 +1908,8 @@ def generar_informe_financiero_pdf(context):
 
     if vista in ('mensual', '', None):
         _seccion_mensual(pages_data2, context, helpers2)
+        if context.get('analisis_fin'):
+            _seccion_gerencial(pages_data2, context, helpers2, "Anexo - Panel del Dueno: salud economica")
     elif vista == 'diaria':
         _seccion_diaria(pages_data2, context, helpers2)
     elif vista == 'detalle_pagos':
@@ -1671,6 +1924,8 @@ def generar_informe_financiero_pdf(context):
         _seccion_resumen_unificado(pages_data2, context, helpers2)
     elif vista == 'analisis_creditos':
         _seccion_creditos(pages_data2, context, helpers2)
+    elif vista == 'gerencial':
+        _seccion_gerencial(pages_data2, context, helpers2)
 
     c2.save()
     buffer2.seek(0)
