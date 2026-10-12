@@ -76,6 +76,28 @@
     <div class="v">Bs. {{ an.cartera.creditos_total|bs0 }}</div><div class="s">{{ an.cartera.creditos_n }} pacientes con crédito (obligación del centro)</div></div>
 </div>
 
+<!-- ══ CUADRE ═════════════════════════════════════════════════════════════ -->
+<div class="fi-card">
+  <h3>🔎 ¿Por qué la deuda no es «generado − cobrado»? {% ayuda 'fi_cuadre' %}</h3>
+  <p class="sub">Son dos medidas distintas. La deuda es el saldo de hoy; «generado − cobrado» es lo que pasó en el período.</p>
+  <div class="fi-g2" style="margin-bottom:0">
+    <table class="fi-tbl"><tbody>
+      <tr><td>Generado del período</td><td class="n">Bs. {{ an.cuadre.generado|bs0 }}</td></tr>
+      <tr><td>(−) Cobrado neto del período</td><td class="n">Bs. {{ an.cuadre.cobrado|bs0 }}</td></tr>
+      <tr style="background:#f8fafc"><td><b>= Diferencia del período</b></td><td class="n"><b>Bs. {{ an.cuadre.dif|bsd0 }}</b></td></tr>
+    </tbody></table>
+    <table class="fi-tbl"><tbody>
+      <tr><td>Deuda ya consumida de pacientes (hoy)</td><td class="n">Bs. {{ an.cuadre.real|bs0 }}</td></tr>
+      <tr><td>(−) Saldos a favor (dinero adelantado)</td><td class="n">Bs. {{ an.cuadre.creditos|bs0 }}</td></tr>
+      <tr style="background:#f8fafc"><td><b>= Posición neta de pacientes</b></td><td class="n"><b>Bs. {{ an.cuadre.neta|bsd0 }}</b></td></tr>
+    </tbody></table>
+  </div>
+  <p class="sub" style="margin:10px 0 0">
+    {% if an.cuadre.cuadra %}✅ <b>Cuadra exactamente.</b>{% else %}Diferencia sin explicar en este rango: <b>Bs. {{ an.cuadre.residual|bsd0 }}</b>. Aparece cuando el período no cubre todo el historial (se cobran deudas de períodos anteriores o se paga por adelantado).{% endif %}
+    La <b>deuda total</b> (Bs. {{ an.cuadre.deuda_total|bs0 }}) suma además lo <b>agendado</b> (Bs. {{ an.cuadre.agendado|bs0 }}), que todavía no se generó, y no descuenta los saldos a favor de otros pacientes.
+  </p>
+</div>
+
 <!-- ══ DECISIONES ═════════════════════════════════════════════════════════ -->
 <div class="fi-card">
   <h3>🎯 Qué decidir ahora {% ayuda 'fi_decisiones' %}</h3>

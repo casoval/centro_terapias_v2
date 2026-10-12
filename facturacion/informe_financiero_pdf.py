@@ -121,6 +121,14 @@ def _bs(v):
         return "Bs. 0"
 
 
+def _bs_bo(v):
+    """Formato boliviano para el Panel del Dueño: 'Bs. 1.234' (punto de miles, sin decimales)."""
+    try:
+        return "Bs. " + f"{float(v):,.0f}".replace(",", ".")
+    except Exception:
+        return "Bs. 0"
+
+
 def _pct(v):
     try:
         return f"{float(v):.1f}%"
@@ -702,10 +710,10 @@ def _kpis_portada(vista, ctx):
         car = an.get('cartera') or {}
         res = an.get('resultado') or {}
         return [
-            ("Generado", _bs(R.get('generado', 0)), "Lo que se gano por servicios", C_VERDE_MED),
-            ("Cobrado neto", _bs(R.get('neto', 0)), f"Cobranza: {_pct(R.get('cobranza', 0))}", C_AZUL),
-            ("Deuda de pacientes", _bs(car.get('total', 0)), f"{car.get('n', 0)} pacientes con deuda", C_ROJO),
-            ("Resultado", _bs(res.get('valor', 0)), f"Margen {_pct(res.get('margen', 0))} (cobrado - gastos)", C_TEAL),
+            ("Generado", _bs_bo(R.get('generado', 0)), "Lo que se gano por servicios", C_VERDE_MED),
+            ("Cobrado neto", _bs_bo(R.get('neto', 0)), f"Cobranza: {_pct(R.get('cobranza', 0))}", C_AZUL),
+            ("Deuda de pacientes", _bs_bo(car.get('total', 0)), f"{car.get('n', 0)} pacientes con deuda", C_ROJO),
+            ("Resultado", _bs_bo(res.get('valor', 0)), f"Margen {_pct(res.get('margen', 0))} (cobrado - gastos)", C_TEAL),
         ]
     elif vista == 'resumen_unificado':
         gt = ctx.get('resumen_gran_total') or {}
@@ -1546,6 +1554,7 @@ def _seccion_gerencial(pages_data, ctx, helpers, titulo_inicial="Panel del Dueno
     if not an:
         return
     from . import informe_financiero_graficos as G
+    _bs = _bs_bo   # en esta sección: punto de miles y sin decimales (formato boliviano)
     make_page = helpers['new_page']
     st = {}
     st['c'], st['y'], st['pg'] = make_page()
@@ -1668,6 +1677,15 @@ def _seccion_gerencial(pages_data, ctx, helpers, titulo_inicial="Panel del Dueno
     nota("Deuda total = lo realizado + lo agendado - lo pagado (igual al saldo real de la cuenta corriente). La antiguedad es una estimacion por orden de "
          "llegada (FIFO): se asume que cada pago cancela primero lo mas antiguo. Riesgo alto: paciente inactivo con deuda, mas de 60 dias de deuda o mas de "
          "60 dias sin pagar; medio: mas de 30 dias.")
+    cu = an['cuadre']
+    nota("Cuadre: la deuda NO es 'generado - cobrado'. Esa diferencia mide el periodo; la deuda es el saldo de hoy (suma solo a quienes deben, incluye lo agendado y no "
+         "descuenta los saldos a favor). Si el periodo cubre todo el historial: generado - cobrado = deuda ya consumida - saldos a favor.", 4.2 * cm)
+    tabla(['Concepto', 'Monto'], [
+        ['Generado del periodo', _bs(cu['generado'])], ['(-) Cobrado neto del periodo', _bs(cu['cobrado'])],
+        ['= Diferencia del periodo', _bs(cu['dif'])], ['Deuda ya consumida de pacientes (hoy)', _bs(cu['real'])],
+        ['(-) Saldos a favor (dinero adelantado)', _bs(cu['creditos'])], ['= Posicion neta de pacientes', _bs(cu['neta'])],
+        ['Diferencia sin explicar en este rango', 'cuadra' if cu['cuadra'] else _bs(cu['residual'])],
+        ['Deuda total (consumida + agendada)', _bs(cu['deuda_total'])]], [10.5 * cm, 4.0 * cm], fs=7.2)
     poner(4.0 * cm, lambda c_, y_: G.graf_antiguedad(
         c_, ML, y_, CW, 4.0 * cm, car['aging'], 'Antiguedad de la deuda ya consumida',
         f"Alto riesgo: {car['riesgo_alto_n']} pacientes por {_bs(car['riesgo_alto_monto'])}. Inactivos con deuda: {car['inactivos_n']} ({_bs(car['inactivos_monto'])}). "

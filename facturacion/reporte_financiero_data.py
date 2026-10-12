@@ -295,8 +295,14 @@ def _antiguedad_fifo(consumos, deuda_real, hoy):
 def _cartera(hoy, suc):
     from facturacion.models import CuentaCorriente, Pago
     ccs = list(CuentaCorriente.objects.filter(Q(saldo_real__lt=-0.5) | Q(saldo_actual__lt=-0.5)).select_related('paciente'))
-    cred_total = _f(CuentaCorriente.objects.filter(saldo_actual__gt=0.5).aggregate(t=Sum('saldo_actual'))['t'])
-    cred_n = CuentaCorriente.objects.filter(saldo_actual__gt=0.5).count()
+    cred_qs = CuentaCorriente.objects.filter(saldo_actual__gt=0.5)
+    if suc:
+        from facturacion.views import _build_sucursal_map
+        _ids = list(cred_qs.values_list('paciente_id', flat=True))
+        _mp = _build_sucursal_map(_ids) if _ids else {}
+        cred_qs = cred_qs.filter(paciente_id__in=[i for i in _ids if str(_mp.get(i)) == str(suc)])
+    cred_total = _f(cred_qs.aggregate(t=Sum('saldo_actual'))['t'])
+    cred_n = cred_qs.count()
     pids = [c.paciente_id for c in ccs]
     if suc and pids:
         from facturacion.views import _build_sucursal_map
@@ -624,6 +630,12 @@ def analizar_financiero(desde, hasta, sucursal_id='', hoy=None):
          'egresos': egresos, 'egresos_prev': egresos_prev, 'resultado': resultado, 'cartera': cartera,
          'pacientes': pacientes, 'metodos': metodos, 'servicios': _por_servicio(R['items'], R['generado']),
          'puntualidad': _puntualidad(hasta, suc, deuda_idx), 'agendado': _agendado_futuro(hoy, suc)}
+    # Cuadre: generado − cobrado (flujo del período) frente a la posición de pacientes hoy (deuda consumida − saldos a favor)
+    dif = R['generado'] - R['neto']
+    neta = cartera['real'] - cartera['creditos_total']
+    a['cuadre'] = {'generado': R['generado'], 'cobrado': R['neto'], 'dif': round(dif, 2), 'real': cartera['real'],
+                   'creditos': cartera['creditos_total'], 'neta': round(neta, 2), 'residual': round(dif - neta, 2),
+                   'agendado': cartera['agendado'], 'deuda_total': cartera['total'], 'cuadra': abs(dif - neta) < 1.0}
     a['serie'] = _serie_mensual(hasta, suc)
     a['sucursales'] = _por_sucursal(desde, hasta, hoy) if not suc else []
     gen = a['R']['gen']

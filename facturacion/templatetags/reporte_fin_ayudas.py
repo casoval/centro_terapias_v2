@@ -59,5 +59,6 @@ AYUDA.update({
     'fi_equilibrio': "Gastos del período llevados a un mes. Es lo mínimo que el centro debe cobrar al mes para no perder dinero (punto de equilibrio aproximado).",
     'fi_sucursales': "Comparación entre sucursales con las mismas definiciones. Los egresos globales (sin sucursal) no se reparten aquí, por eso el resultado por sucursal es antes de gastos compartidos.",
     'fi_servicios': "Servicios que más generan en el período (sesiones sueltas y proyectos por servicio base; las mensualidades se agrupan aparte).",
+    'fi_cuadre': "Generado − cobrado mide lo ocurrido en el período. La deuda de pacientes es el saldo de hoy: lo consumido y agendado menos lo pagado, sumando solo a quienes deben. Si el período cubre todo el historial se cumple: generado − cobrado = deuda ya consumida − saldos a favor. La deuda total además incluye lo agendado, que aún no se generó.",
     'fi_antes': "Variación frente al período anterior de igual duración y mismos filtros.",
 })
