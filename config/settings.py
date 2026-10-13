@@ -569,9 +569,6 @@ if DEBUG and not IS_PRODUCTION:
 # ══════════════════════════════════════════════════════
 # AVISOS Y ANUNCIOS (app `avisos`)
 # ══════════════════════════════════════════════════════
-# 'login'   → el pop-up se abre solo una vez por inicio de sesión (luego, chip para reabrirlo)
-# 'siempre' → se abre cada vez que se entra a la página de inicio
-AVISOS_POPUP_MODO = 'login'
 AVISOS_DEUDA_DIAS_ATENCION = 30
 AVISOS_DEUDA_DIAS_URGENTE = 60
 AVISOS_FALTAS_ATENCION = 2

@@ -6,16 +6,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-from django.conf import settings
 
 from .alertas import alertas_para
 from .forms import AnuncioForm
 from .models import Anuncio, AnuncioLectura
 from .visibilidad import (ROL_ADMIN, anuncio_visible_para, anuncios_historial, anuncios_vigentes,
                           rol_de, usuarios_destino)
-
-SESSION_FLAG = 'avisos_popup_mostrado'
-
 
 def solo_admin(view):
     @login_required
@@ -46,10 +42,7 @@ def _serializar_anuncio(a, leidos):
 @require_GET
 @ensure_csrf_cookie
 def popup_data(request):
-    """
-    Datos del pop-up. ?auto=1 → consulta de apertura automática (una vez por sesión de login
-    si AVISOS_POPUP_MODO = 'login'); ?forzar=1 → apertura manual (chip), siempre abre.
-    """
+    """Datos del pop-up de inicio: se muestra cada vez que se entra, si hay algo que mostrar."""
     hoy = timezone.localdate()
     alertas = alertas_para(request.user, hoy)
     anuncios = []
@@ -59,14 +52,8 @@ def popup_data(request):
                  .values_list('anuncio_id', flat=True)) if anuncios else set()
     total = len(alertas) + len(anuncios)
 
-    mostrar_auto = False
-    if total and request.GET.get('auto'):
-        modo = getattr(settings, 'AVISOS_POPUP_MODO', 'login')
-        if modo == 'siempre' or not request.session.get(SESSION_FLAG):
-            mostrar_auto = True
-            request.session[SESSION_FLAG] = True
     return JsonResponse({
-        'total': total, 'mostrar_auto': mostrar_auto,
+        'total': total,
         'alertas': alertas,
         'anuncios': [_serializar_anuncio(a, leidos) for a in anuncios],
         'url_avisos': reverse('avisos:lista'),

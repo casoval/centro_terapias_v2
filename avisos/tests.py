@@ -231,22 +231,18 @@ class AlertasTests(Base):
 
 
 class VistasTests(Base):
-    def test_popup_flujo_una_vez_por_sesion(self):
+    def test_popup_se_muestra_cada_vez(self):
         self.anuncio()
         self.client.force_login(self.user_pac)
-        r = self.client.get(reverse('avisos:popup_data'), {'auto': 1}).json()
-        self.assertTrue(r['mostrar_auto'])
-        self.assertEqual(len(r['anuncios']), 1)
-        r = self.client.get(reverse('avisos:popup_data'), {'auto': 1}).json()
-        self.assertFalse(r['mostrar_auto'])
-        self.assertEqual(r['total'], 1)       # el chip sigue pudiendo reabrir
-        with override_settings(AVISOS_POPUP_MODO='siempre'):
-            self.assertTrue(self.client.get(reverse('avisos:popup_data'), {'auto': 1}).json()['mostrar_auto'])
+        for _ in range(2):
+            r = self.client.get(reverse('avisos:popup_data')).json()
+            self.assertEqual(r['total'], 1)
+            self.assertEqual(len(r['anuncios']), 1)
 
     def test_popup_vacio_no_abre(self):
         self.client.force_login(self.user_pac)
-        r = self.client.get(reverse('avisos:popup_data'), {'auto': 1}).json()
-        self.assertFalse(r['mostrar_auto'])
+        r = self.client.get(reverse('avisos:popup_data')).json()
+        self.assertEqual(r['total'], 0)
 
     def test_solo_admin_gestiona(self):
         a = self.anuncio()
@@ -303,7 +299,7 @@ class VistasTests(Base):
             self.client.force_login(u)
             html = self.client.get(reverse('avisos:lista')).content.decode()
             self.assertIn('Aviso', html)
-            self.assertLess(html.index('📣 Avisos'), html.index('id="theme-nav-btn"'), u.username)
+            self.assertLess(html.index('Avisos (antes de Temas)'), html.index('id="theme-nav-btn"'), u.username)
 
     def test_lista_vigentes_e_historial(self):
         fin = hoy() - timedelta(days=2)

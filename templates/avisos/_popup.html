@@ -1,7 +1,5 @@
 {# Pop-up de avisos: se incluye desde base.html solo en la página de inicio de cada rol. #}
 <style>
-#av-chip{position:fixed;right:14px;bottom:14px;z-index:9990;display:none;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;border:0;background:#4c1d95;color:#fff;font:600 14px 'Inter',system-ui,sans-serif;box-shadow:0 6px 20px rgba(15,23,42,.3);cursor:pointer}
-#av-chip:hover{background:#3b0f7a}
 #av-ov{position:fixed;inset:0;z-index:9995;display:none;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;font-family:'Inter',system-ui,sans-serif}
 #av-dlg{background:#fff;color:#0f172a;width:min(640px,100%);max-height:88vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.35)}
 .avp-top{display:flex;align-items:flex-start;gap:8px;padding:16px 10px 8px 18px}
@@ -35,13 +33,12 @@ a.avp-row:hover{background:#f8fafc}
 .avp-foot{display:flex;flex-direction:column;gap:2px;padding:10px 18px 12px;border-top:1px solid #e2e8f0}
 .avp-foot .avp-close{width:100%;min-height:48px;margin:0}
 .avp-foot a{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:13px;font-weight:600;color:#4c1d95;text-decoration:none}
-#av-chip:focus-visible,#av-ov button:focus-visible,#av-ov a:focus-visible{outline:2px solid #4c1d95;outline-offset:2px}
+#av-ov button:focus-visible,#av-ov a:focus-visible{outline:2px solid #4c1d95;outline-offset:2px}
 @media(max-width:640px){
   #av-ov{align-items:flex-end;padding:0}
   #av-dlg{border-radius:20px 20px 0 0;max-height:88vh}
 }
 </style>
-<button type="button" id="av-chip" aria-haspopup="dialog"></button>
 <div id="av-ov" role="presentation">
   <div id="av-dlg" role="dialog" aria-modal="true" aria-labelledby="av-ttl">
     <div class="avp-top">
@@ -59,7 +56,7 @@ a.avp-row:hover{background:#f8fafc}
 (function(){
   var URL_DATA = "{% url 'avisos:popup_data' %}";
   var ov = document.getElementById('av-ov'), body = document.getElementById('av-body'),
-      chip = document.getElementById('av-chip'), sub = document.getElementById('av-sub'),
+      sub = document.getElementById('av-sub'),
       data = null, prevFocus = null;
   var ICON = {urgente:'⛔', atencion:'⚠️', anuncio:'📣'};
   var LBL  = {urgente:'Urgente', atencion:'Atención', anuncio:'Anuncio'};
@@ -144,17 +141,16 @@ a.avp-row:hover{background:#f8fafc}
   function abrir(){
     if(!data || !data.total) return;
     prevFocus = document.activeElement; render();
-    ov.style.display='flex'; chip.style.display='none';
+    ov.style.display='flex';
     document.getElementById('av-x').focus();
   }
   function cerrar(){
     ov.style.display='none';
-    if (data && data.total){ chip.style.display='inline-flex'; chip.focus(); }
+    if (prevFocus && prevFocus.focus) prevFocus.focus();
   }
   document.getElementById('av-x').addEventListener('click', cerrar);
   document.getElementById('av-close').addEventListener('click', cerrar);
   ov.addEventListener('click', function(e){ if(e.target===ov) cerrar(); });
-  chip.addEventListener('click', abrir);
   document.addEventListener('keydown', function(e){
     if (ov.style.display!=='flex') return;
     if (e.key==='Escape') { cerrar(); return; }
@@ -166,13 +162,12 @@ a.avp-row:hover{background:#f8fafc}
     }
   });
 
-  fetch(URL_DATA+'?auto=1',{credentials:'same-origin',headers:{'Accept':'application/json'}})
+  fetch(URL_DATA,{credentials:'same-origin',headers:{'Accept':'application/json'}})
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
       if(!d || !d.total) return;
       data = d;
-      chip.textContent = '🔔 '+plural(d.total,'aviso','avisos');
-      if (d.mostrar_auto) abrir(); else chip.style.display='inline-flex';
+      abrir();
     }).catch(function(){});
 })();
 </script>
