@@ -1,7 +1,15 @@
 from django.utils import timezone
 
-# Páginas de inicio de cada rol: ahí se muestra el pop-up.
-VISTAS_INICIO = {'core:dashboard', 'agenda:calendario', 'facturacion:mi_cuenta'}
+from .visibilidad import rol_de
+
+# Página de inicio de cada rol: solo ahí se muestra el pop-up (y en ninguna otra).
+INICIO_POR_ROL = {
+    'admin': 'core:dashboard',
+    'gerente': 'core:dashboard',
+    'recepcionista': 'core:dashboard',
+    'profesional': 'agenda:calendario',
+    'paciente': 'facturacion:mi_cuenta',
+}
 
 
 def avisos_inicio(request):
@@ -10,7 +18,7 @@ def avisos_inicio(request):
         return {}
     rm = getattr(request, 'resolver_match', None)
     vista = rm.view_name if rm else ''
-    ctx = {'avisos_es_inicio': vista in VISTAS_INICIO}
+    ctx = {'avisos_es_inicio': bool(vista) and vista == INICIO_POR_ROL.get(rol_de(user))}
     try:
         from .visibilidad import anuncios_vigentes
         ctx['avisos_badge'] = anuncios_vigentes(user, timezone.localdate()).count()

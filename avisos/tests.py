@@ -231,18 +231,50 @@ class AlertasTests(Base):
 
 
 class VistasTests(Base):
-    def test_popup_se_muestra_cada_vez(self):
-        self.anuncio()
-        self.client.force_login(self.user_pac)
-        for _ in range(2):
+    def test_popup_cada_vez_para_admin_gerente_recepcion(self):
+        self.anuncio(dest_recepcionistas=True, dest_pacientes=False)
+        self.client.force_login(self.rec1)
+        for _ in range(3):
             r = self.client.get(reverse('avisos:popup_data')).json()
-            self.assertEqual(r['total'], 1)
+            self.assertTrue(r['mostrar'])
             self.assertEqual(len(r['anuncios']), 1)
+
+    def test_popup_una_vez_por_login_para_profesional_y_paciente(self):
+        self.anuncio(dest_pacientes=True, dest_profesionales=True)
+        for u in (self.user_pac, self.prof):
+            self.client.force_login(u)
+            self.assertTrue(self.client.get(reverse('avisos:popup_data')).json()['mostrar'], u.username)
+            # recargas (filtros, vistas) no lo vuelven a mostrar
+            for _ in range(3):
+                r = self.client.get(reverse('avisos:popup_data')).json()
+                self.assertFalse(r['mostrar'])
+                self.assertEqual(r['total'], 1)
+            # algo nuevo → vuelve a salir una vez
+            self.anuncio(titulo='Nuevo', dest_pacientes=True, dest_profesionales=True)
+            self.assertTrue(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
+            self.assertFalse(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
+            Anuncio.objects.filter(titulo='Nuevo').delete()
+        # al día siguiente, aunque no haya cerrado sesión → vuelve a salir (una vez)
+        from unittest import mock
+        manana = hoy() + timedelta(days=1)
+        self.anuncio(titulo='Largo', dest_profesionales=True, fecha_fin=manana)
+        self.client.force_login(self.prof)
+        self.assertTrue(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
+        self.assertFalse(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])   # mismo día
+        with mock.patch('avisos.views.timezone.localdate', return_value=manana), \
+                mock.patch('avisos.visibilidad.timezone.localdate', return_value=manana):
+            self.assertTrue(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
+            self.assertFalse(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
+        # nuevo inicio de sesión → vuelve a salir
+        self.client.logout()
+        self.client.force_login(self.prof)
+        self.assertTrue(self.client.get(reverse('avisos:popup_data')).json()['mostrar'])
 
     def test_popup_vacio_no_abre(self):
         self.client.force_login(self.user_pac)
         r = self.client.get(reverse('avisos:popup_data')).json()
         self.assertEqual(r['total'], 0)
+        self.assertFalse(r['mostrar'])
 
     def test_solo_admin_gestiona(self):
         a = self.anuncio()
@@ -323,13 +355,25 @@ class VistasTests(Base):
         self.assertFalse(r.context['avisos_es_inicio'])
         self.assertNotIn('id="av-ov"', r.content.decode())
 
-    def test_popup_en_inicio_de_cada_rol(self):
-        for u, nombre in ((self.admin, 'core:dashboard'), (self.gerente, 'core:dashboard'),
-                          (self.rec1, 'core:dashboard'), (self.prof, 'agenda:calendario')):
+    def test_popup_solo_en_la_pagina_de_inicio_de_cada_rol(self):
+        casos = [
+            (self.admin, 'core:dashboard', True), (self.admin, 'agenda:calendario', False),
+            (self.gerente, 'core:dashboard', True), (self.gerente, 'agenda:calendario', False),
+            (self.rec1, 'core:dashboard', True), (self.rec1, 'agenda:calendario', False),
+            (self.prof, 'agenda:calendario', True),
+            (self.user_pac, 'facturacion:mi_cuenta', True), (self.user_pac, 'facturacion:mis_deudas', False),
+        ]
+        for u, nombre, esperado in casos:
             self.client.force_login(u)
             r = self.client.get(reverse(nombre))
-            self.assertEqual(r.status_code, 200, u.username)
-            self.assertTrue(r.context['avisos_es_inicio'], u.username)
+            self.assertEqual(r.status_code, 200, (u.username, nombre))
+            self.assertEqual(r.context['avisos_es_inicio'], esperado, (u.username, nombre))
+            self.assertEqual('id="av-ov"' in r.content.decode(), esperado, (u.username, nombre))
+        # filtros / vistas del calendario del profesional siguen siendo su inicio, pero el servidor
+        # solo lo muestra una vez (ver test anterior)
+        self.client.force_login(self.prof)
+        r = self.client.get(reverse('agenda:calendario') + '?vista=mensual&sucursal=1')
+        self.assertTrue(r.context['avisos_es_inicio'])
 
 
 class RestriccionWhatsappTests(Base):

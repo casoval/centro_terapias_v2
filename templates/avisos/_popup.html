@@ -31,7 +31,6 @@ a.avp-row:hover{background:#f8fafc}
 .avp-btn.sec{background:#f1f5f9;color:#334155}
 .avp-ok{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;color:#166534}
 .avp-foot{display:flex;flex-direction:column;gap:2px;padding:10px 18px 12px;border-top:1px solid #e2e8f0}
-.avp-foot .avp-close{width:100%;min-height:48px;margin:0}
 .avp-foot a{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:13px;font-weight:600;color:#4c1d95;text-decoration:none}
 #av-ov button:focus-visible,#av-ov a:focus-visible{outline:2px solid #4c1d95;outline-offset:2px}
 @media(max-width:640px){
@@ -47,7 +46,6 @@ a.avp-row:hover{background:#f8fafc}
     </div>
     <div class="avp-body" id="av-body"></div>
     <div class="avp-foot">
-      <button type="button" class="avp-btn avp-close" id="av-close">Cerrar</button>
       <a id="av-all" href="{% url 'avisos:lista' %}">Ver todos en Avisos</a>
     </div>
   </div>
@@ -149,7 +147,6 @@ a.avp-row:hover{background:#f8fafc}
     if (prevFocus && prevFocus.focus) prevFocus.focus();
   }
   document.getElementById('av-x').addEventListener('click', cerrar);
-  document.getElementById('av-close').addEventListener('click', cerrar);
   ov.addEventListener('click', function(e){ if(e.target===ov) cerrar(); });
   document.addEventListener('keydown', function(e){
     if (ov.style.display!=='flex') return;
@@ -165,7 +162,7 @@ a.avp-row:hover{background:#f8fafc}
   fetch(URL_DATA,{credentials:'same-origin',headers:{'Accept':'application/json'}})
     .then(function(r){return r.ok?r.json():null;})
     .then(function(d){
-      if(!d || !d.total) return;
+      if(!d || !d.total || !d.mostrar) return;
       data = d;
       abrir();
     }).catch(function(){});

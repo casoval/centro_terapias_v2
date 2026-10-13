@@ -2,6 +2,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+import hashlib
+
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -12,6 +14,9 @@ from .forms import AnuncioForm
 from .models import Anuncio, AnuncioLectura
 from .visibilidad import (ROL_ADMIN, anuncio_visible_para, anuncios_historial, anuncios_vigentes,
                           rol_de, usuarios_destino)
+
+SESSION_FIRMA = 'avisos_popup_firma'
+
 
 def solo_admin(view):
     @login_required
@@ -42,7 +47,7 @@ def _serializar_anuncio(a, leidos):
 @require_GET
 @ensure_csrf_cookie
 def popup_data(request):
-    """Datos del pop-up de inicio: se muestra cada vez que se entra, si hay algo que mostrar."""
+    """Datos del pop-up de inicio (solo se consulta desde la página de inicio del rol)."""
     hoy = timezone.localdate()
     alertas = alertas_para(request.user, hoy)
     anuncios = []
@@ -52,8 +57,19 @@ def popup_data(request):
                  .values_list('anuncio_id', flat=True)) if anuncios else set()
     total = len(alertas) + len(anuncios)
 
+    # Admin/gerente/recepción: se muestra cada vez que entran al panel principal.
+    # Profesional y paciente: una vez por inicio de sesión y una vez por día (sus páginas de inicio
+    # tienen filtros y vistas que recargan la página); vuelve a salir si aparece algo nuevo.
+    mostrar = total > 0
+    if mostrar and rol_de(request.user) in ('profesional', 'paciente'):
+        firma = hashlib.sha1((hoy.isoformat() + '#' + '|'.join(sorted(a['clave'] for a in alertas)) + '#' +
+                              ','.join(str(a.id) for a in anuncios)).encode()).hexdigest()
+        if request.session.get(SESSION_FIRMA) == firma:
+            mostrar = False
+        else:
+            request.session[SESSION_FIRMA] = firma
     return JsonResponse({
-        'total': total,
+        'total': total, 'mostrar': mostrar,
         'alertas': alertas,
         'anuncios': [_serializar_anuncio(a, leidos) for a in anuncios],
         'url_avisos': reverse('avisos:lista'),
