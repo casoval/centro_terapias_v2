@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q
 from datetime import date, timedelta
 import calendar
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 
 
 class Command(BaseCommand):
@@ -121,7 +122,7 @@ class Command(BaseCommand):
             if dry_run:
                 self.stdout.write(
                     f'  🔍 [DRY-RUN] Generaría: {plantilla.concepto} — '
-                    f'Bs. {plantilla.monto_estimado} — Fecha: {fecha_egreso}'
+                    f'Bs. {plantilla.monto_estimado} — Fecha: {fmt_fecha(fecha_egreso)}'
                 )
                 creados += 1
                 continue

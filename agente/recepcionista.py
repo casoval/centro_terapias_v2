@@ -31,6 +31,7 @@ import logging
 import calendar
 from datetime import date, timedelta
 from agente.agente_base import AgenteBase
+from core.fechas import mes_anio  # nombres de mes en español
 
 log = logging.getLogger('agente')
 
@@ -132,7 +133,7 @@ def _periodo_str(desde: date, hasta: date) -> str:
         return desde.strftime('%d/%m/%Y')
     if (desde.day == 1 and hasta.day == calendar.monthrange(hasta.year, hasta.month)[1]
             and desde.month == hasta.month and desde.year == hasta.year):
-        return f"{calendar.month_name[desde.month].capitalize()} {desde.year}"
+        return mes_anio(desde).capitalize()   # "Octubre 2026" en español
     return f"{desde.strftime('%d/%m/%Y')} al {hasta.strftime('%d/%m/%Y')}"
 
 

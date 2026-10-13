@@ -3,6 +3,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Count, Q
 from datetime import date
+from core.fechas import mes_abrev_anio  # 'oct 2026' en español
 from .models import Paciente, PacienteServicio
 from .forms import PacienteForm
 
@@ -1044,7 +1045,7 @@ def detalle_sesiones_completo(request, pk):
     ).order_by('mes')
     
     grafico_asistencia = {
-        'labels': [m['mes'].strftime('%b %Y') for m in por_mes],
+        'labels': [mes_abrev_anio(m['mes']) for m in por_mes],
         'realizadas': [m['realizadas'] for m in por_mes],
         'con_retraso': [m['con_retraso'] for m in por_mes],
         'faltas': [m['faltas'] for m in por_mes],

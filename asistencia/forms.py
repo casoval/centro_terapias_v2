@@ -230,7 +230,7 @@ class FechaEspecialForm(forms.ModelForm):
         fields = ['zona', 'fecha', 'tipo_horario', 'motivo', 'profesionales']
         widgets = {
             'zona':         forms.Select(attrs={'class': INPUT}),
-            'fecha':        forms.DateInput(attrs={'class': INPUT, 'type': 'date'}),
+            'fecha':        forms.DateInput(attrs={'class': INPUT, 'type': 'date'}, format='%Y-%m-%d'),
             'tipo_horario': forms.Select(attrs={'class': INPUT,
                             'onchange': 'toggleHorarioEspecial(this.value)'}),
             'motivo':       forms.TextInput(attrs={'class': INPUT,

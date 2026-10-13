@@ -480,7 +480,8 @@ REGLAS GENERALES:
 - Responde en español, de forma clara y estructurada.
 - Si no encuentras datos, dilo claramente y sugiere cómo reformular la búsqueda.
 - Sé conciso: evita párrafos innecesarios, prioriza la información útil.
-- No uses markdown con asteriscos — el chat los muestra como texto plano."""
+- No uses markdown con asteriscos — el chat los muestra como texto plano.
+- FECHAS: muéstralas SIEMPRE como dia/mes/año (dd/mm/aaaa, ej. 11/10/2026). Nunca uses aaaa-mm-dd ni mm/dd/aaaa en tus respuestas (las herramientas pueden devolver fechas en aaaa-mm-dd: conviértelas al responder)."""
 
     if not hasattr(usuario, 'perfil') and not usuario.is_superuser:
         return base + "\n\nResponde de forma general. No tienes acceso a datos sensibles."

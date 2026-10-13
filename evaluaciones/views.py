@@ -449,7 +449,7 @@ def informe_pdf(request, pk):
 
     html_string = render_to_string('evaluaciones/reports/pdf_template.html', context)
     nombre_paciente = informe.paciente.nombre_completo.replace(' ', '_')
-    filename = f'Informe_ADOS2_ADIR_{nombre_paciente}_{informe.fecha_informe}.pdf'
+    filename = f'Informe_ADOS2_ADIR_{nombre_paciente}_{informe.fecha_informe:%d-%m-%Y}.pdf'
 
     # ── Opción 1: xhtml2pdf (funciona en Windows sin dependencias del sistema) ──
     try:

@@ -18,6 +18,7 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from django.conf import settings
+from core.fechas import fmt_periodo, fmt_fecha   # dd/mm/aaaa (formato único del sistema)
 
 logger = logging.getLogger(__name__)
 
@@ -1027,7 +1028,7 @@ def _seccion_diaria(pages_data, ctx, helpers):
         col_ws_7  = [1.8*cm, 2.5*cm, 2.8*cm, 2.8*cm, 2.2*cm, 2.5*cm, 2.9*cm]
         rows_7 = [
             [str(d.get('dia_semana', '')),
-             str(d.get('fecha', '')).split(' ')[0] if d.get('fecha') else '',
+             fmt_fecha(d.get('fecha')),
              _bs(d.get('ingresos', 0)),
              _bs(d.get('efectivo', 0)),
              _bs(d.get('qr', 0)),
@@ -1801,19 +1802,8 @@ def generar_informe_financiero_pdf(context):
     sucursal_txt = sucursal_obj.nombre if sucursal_obj else ''
     titulo_vista = VISTA_TITULOS.get(vista, 'INFORME FINANCIERO')
 
-    # Período legible
-    if fecha_desde and fecha_hasta:
-        if fecha_desde == fecha_hasta:
-            try:
-                from datetime import datetime
-                fd = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-                periodo_txt = fd.strftime('%d de ') + MESES_FULL[fd.month] + fd.strftime(' de %Y')
-            except Exception:
-                periodo_txt = fecha_desde
-        else:
-            periodo_txt = f"{fecha_desde}  al  {fecha_hasta}"
-    else:
-        periodo_txt = 'Periodo no especificado'
+    # Período legible (siempre dd/mm/aaaa; el contexto trae fechas ISO internas)
+    periodo_txt = fmt_periodo(fecha_desde, fecha_hasta)
 
     fecha_emision = _date_cls.today().strftime('%d/%m/%Y')
 

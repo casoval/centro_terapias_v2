@@ -134,7 +134,7 @@ class PacienteForm(forms.ModelForm):
             'fecha_nacimiento': forms.DateInput(attrs={
                 'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold',
                 'type': 'date'
-            }),
+            }, format='%Y-%m-%d'),
             'genero': forms.Select(attrs={
                 'class': 'w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 font-bold'
             }),

@@ -344,7 +344,7 @@
   <!-- Print Header -->
   <div class="print-only" style="margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #e2e8f0;">
     <h1 style="font-size:1.3rem;font-weight:800;margin:0 0 4px;">Reporte de Asistencia</h1>
-    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }} · Generado: {% now "d/m/Y H:i" %} · {{ request.user.get_full_name|default:request.user.username }}</p>
+    <p style="color:#64748b;font-size:0.78rem;margin:0">Período: {{ fecha_desde|fecha }} — {{ fecha_hasta|fecha }} · Generado: {% now "d/m/Y H:i" %} · {{ request.user.get_full_name|default:request.user.username }}</p>
   </div>
 
   <!-- ══ PERIOD TABS — BUG 1 CORREGIDO ════════════════════════════════════ -->
@@ -438,11 +438,11 @@
 
       <div class="fg">
         <label>Desde {% ayuda 'as_f_desde' %}</label>
-        <input type="date" name="fecha_desde" value="{{ fecha_desde|date:'Y-m-d' }}">
+        <input type="date" name="fecha_desde" value="{{ fecha_desde|fecha_iso }}">
       </div>
       <div class="fg">
         <label>Hasta {% ayuda 'as_f_hasta' %}</label>
-        <input type="date" name="fecha_hasta" value="{{ fecha_hasta|date:'Y-m-d' }}">
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta|fecha_iso }}">
       </div>
 
       <div class="fg" id="fg-sucursal">
@@ -522,7 +522,7 @@
   {# Muestra un resumen visual de todos los filtros que están aplicados #}
   {% if stats %}
   <div class="active-filters no-print" style="margin-bottom:14px">
-    <span class="pbadge pbadge-indigo">📅 {{ fecha_desde|date:"d/m/Y" }} — {{ fecha_hasta|date:"d/m/Y" }}</span>
+    <span class="pbadge pbadge-indigo">📅 {{ fecha_desde|fecha }} — {{ fecha_hasta|fecha }}</span>
     {% if tipo != 'general' %}
       <span class="pbadge pbadge-green">🔎 Vista: {{ tipo|capfirst }}{% if entidad %} — {{ entidad.nombre_completo|default:entidad.nombre }}{% endif %}</span>
     {% endif %}
@@ -547,7 +547,7 @@
   <!-- Period info (siempre visible si hay datos) -->
   {% if stats %}
   <div class="period-info" style="margin-bottom:14px">
-    <span class="pbadge pbadge-indigo">📅 {{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</span>
+    <span class="pbadge pbadge-indigo">📅 {{ fecha_desde|fecha }} → {{ fecha_hasta|fecha }}</span>
   </div>
   {% endif %}
 
@@ -1060,7 +1060,7 @@
   <div class="total-bar">
     <div>
       <div class="tb-label">Período analizado</div>
-      <div class="tb-val" style="color:#a5b4fc;font-size:1rem">{{ fecha_desde|date:"d/m/Y" }} → {{ fecha_hasta|date:"d/m/Y" }}</div>
+      <div class="tb-val" style="color:#a5b4fc;font-size:1rem">{{ fecha_desde|fecha }} → {{ fecha_hasta|fecha }}</div>
     </div>
     <div style="text-align:center">
       <div class="tb-label">Total Sesiones</div>
@@ -1275,8 +1275,8 @@
                   {{ ses.notas_sesion|truncatechars:50 }}
                 </span>
               {% elif ses.observaciones %}
-                <span style="font-size:0.65rem;color:var(--muted)" title="{{ ses.observaciones }}">
-                  {{ ses.observaciones|truncatechars:50 }}
+                <span style="font-size:0.65rem;color:var(--muted)" title="{{ ses.observaciones|texto_fechas }}">
+                  {{ ses.observaciones|texto_fechas|truncatechars:50 }}
                 </span>
               {% elif ses.motivo_reprogramacion %}
                 <span style="font-size:0.65rem;color:var(--violet)" title="{{ ses.motivo_reprogramacion }}">
@@ -1518,7 +1518,7 @@ if(ctxS) {
 function exportCSV() {
   const rows = [
     ['Reporte de Asistencia'],
-    ['Período','{{ fecha_desde }}','{{ fecha_hasta }}'],
+    ['Período','{{ fecha_desde|fecha }}','{{ fecha_hasta|fecha }}'],
     ['',''],
     ['RESUMEN',''],
     ['Total Sesiones','{{ stats.total|default:0 }}'],
@@ -1541,7 +1541,7 @@ function exportCSV() {
   const csv = rows.map(r => r.join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = 'reporte_asistencia_{{ fecha_desde }}_{{ fecha_hasta }}.csv';
+  a.download = 'reporte_asistencia_{{ fecha_desde|fecha|cut:"/" }}_{{ fecha_hasta|fecha|cut:"/" }}.csv';
   a.click();
 }
 </script>
@@ -1584,25 +1584,27 @@ function cambiarTipo(tipo) {
 
 // BUG 8 CORREGIDO: los rangos rápidos ahora también envían el formulario.
 // Así el usuario ve los datos inmediatamente sin tener que hacer clic en "Generar Reporte".
+// Fecha LOCAL aaaa-mm-dd. (toISOString() usa UTC: en La Paz, de 20:00 a 23:59 devolvía el día siguiente.)
+function _iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function aplicarRango(rango) {
   const hoy = new Date();
-  let desde, hasta = hoy.toISOString().split('T')[0];
+  let desde, hasta = _iso(hoy);
 
   if(rango === 'semana') {
     const d = new Date(hoy);
     d.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));  // lunes
-    desde = d.toISOString().split('T')[0];
+    desde = _iso(d);
   } else if(rango === 'mes') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+    desde = _iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
   } else if(rango === 'mes_anterior') {
     const i = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
     const f = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
-    desde = i.toISOString().split('T')[0];
-    hasta = f.toISOString().split('T')[0];
+    desde = _iso(i);
+    hasta = _iso(f);
   } else if(rango === 'trimestre') {
     const d = new Date(hoy);
     d.setMonth(hoy.getMonth() - 3);
-    desde = d.toISOString().split('T')[0];
+    desde = _iso(d);
   } else {
     return;
   }

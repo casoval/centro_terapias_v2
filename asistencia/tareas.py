@@ -60,6 +60,6 @@ def enviar_reporte_diario(fecha=None):
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[getattr(settings, 'EMAIL_RRHH', settings.DEFAULT_FROM_EMAIL)],
     )
-    email.attach(f"asistencia_{fecha:%Y%m%d}.csv", buffer.getvalue(), 'text/csv')
+    email.attach(f"asistencia_{fecha:%d-%m-%Y}.csv", buffer.getvalue(), 'text/csv')
     email.send(fail_silently=True)
     return "Reporte enviado"

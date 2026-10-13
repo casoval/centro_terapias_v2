@@ -16,6 +16,7 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from django.conf import settings
+from core.fechas import fecha_larga  # dd/mm/aaaa y nombres en español
 
 logger = logging.getLogger(__name__)
 
@@ -364,8 +365,7 @@ def _tarjeta(c, sesion, y):
     c.roundRect(bx, y - hdr_h, bw, hdr_h, 5, fill=1, stroke=0)
     c.rect(bx, y - hdr_h, bw, hdr_h / 2, fill=1, stroke=0)
 
-    fecha_str = sesion.fecha.strftime("%d de %B de %Y").replace(
-        sesion.fecha.strftime("%B"), MESES[sesion.fecha.month])
+    fecha_str = fecha_larga(sesion.fecha)   # dd de <mes en español> de aaaa
     c.setFillColor(colors.white)
     c.setFont("Helvetica-Bold", 8)
     c.drawString(bx + 0.45 * cm, y - hdr_h + 0.22 * cm, fecha_str)

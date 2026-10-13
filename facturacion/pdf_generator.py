@@ -9,7 +9,7 @@
 # 5. Eliminado texto "CORTAR AQUÍ" del centro
 # 6. Diseño limpio y profesional
 # 7. Tabla con 3 columnas: #, CONCEPTO, MONTO
-# 8. Concepto detallado (ej: "Pago sesión 2026-02-23 - Servicio 1")
+# 8. Concepto detallado (ej: "Pago sesión 23/02/2026 - Servicio 1")
 # =====================================================
 
 import os
@@ -24,6 +24,7 @@ from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.utils import ImageReader
 from reportlab.graphics.shapes import Drawing
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics import renderPDF
 from django.conf import settings 
@@ -1256,11 +1257,11 @@ def extraer_detalles_enriquecidos(obj):
                     concepto_detallado = f"Pago mensualidad {det.mensualidad.mes:02d}/{det.mensualidad.anio}"
                     
                 elif det.sesion:
-                    # Sesión: "Pago sesión 2026-02-23 - Servicio 1 (09:00)"
+                    # Sesión: "Pago sesión 23/02/2026 - Servicio 1 (09:00)"
                     nom_servicio = det.sesion.servicio.nombre if det.sesion.servicio else "Sesión"
                     fecha = det.sesion.fecha
                     
-                    concepto_detallado = f"Pago sesión {fecha} - {nom_servicio}"
+                    concepto_detallado = f"Pago sesión {fmt_fecha(fecha)} - {nom_servicio}"
                     
                     # Agregar hora si existe
                     hora = getattr(det.sesion, 'hora_inicio', '')
@@ -1285,10 +1286,10 @@ def extraer_detalles_enriquecidos(obj):
                 concepto_detallado = f"Pago mensualidad {obj.mensualidad.mes:02d}/{obj.mensualidad.anio}"
                 
             elif hasattr(obj, 'sesion') and obj.sesion:
-                # Sesión: "Pago sesión 2026-02-23 - Servicio 1"
+                # Sesión: "Pago sesión 23/02/2026 - Servicio 1"
                 srv = obj.sesion.servicio.nombre if obj.sesion.servicio else "Sesión"
                 fecha = obj.sesion.fecha
-                concepto_detallado = f"Pago sesión {fecha} - {srv}"
+                concepto_detallado = f"Pago sesión {fmt_fecha(fecha)} - {srv}"
                 
             elif hasattr(obj, 'proyecto') and obj.proyecto:
                 # Proyecto

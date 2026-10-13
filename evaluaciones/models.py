@@ -8,6 +8,7 @@ from profesionales.models import Profesional
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from decimal import Decimal
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 
 
 # ─────────────────────────────────────────────
@@ -237,7 +238,7 @@ class EvaluacionADOS2(models.Model):
         ordering = ['-fecha_evaluacion']
 
     def __str__(self):
-        return f'ADOS-2 Módulo {self.modulo} — {self.paciente} ({self.fecha_evaluacion})'
+        return f'ADOS-2 Módulo {self.modulo} — {self.paciente} ({fmt_fecha(self.fecha_evaluacion)})'
 
     # ── Lógica de cálculo ────────────────────────────────────────
 
@@ -546,7 +547,7 @@ class EvaluacionADIR(models.Model):
         ordering = ['-fecha_evaluacion']
 
     def __str__(self):
-        return f'ADI-R — {self.paciente} ({self.fecha_evaluacion})'
+        return f'ADI-R — {self.paciente} ({fmt_fecha(self.fecha_evaluacion)})'
 
     # ── Algoritmo diagnóstico ─────────────────────────────────────
 
@@ -729,7 +730,7 @@ class InformeEvaluacion(models.Model):
         ordering = ['-fecha_informe']
 
     def __str__(self):
-        return f'Informe — {self.paciente} ({self.fecha_informe}) [{self.get_estado_display()}]'
+        return f'Informe — {self.paciente} ({fmt_fecha(self.fecha_informe)}) [{self.get_estado_display()}]'
 
     def get_estado_color(self):
         return {

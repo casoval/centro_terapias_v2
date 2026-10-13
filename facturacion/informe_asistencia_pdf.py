@@ -18,6 +18,7 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from django.conf import settings
+from core.fechas import fmt_periodo, fmt_fecha   # dd/mm/aaaa (formato único del sistema)
 
 logger = logging.getLogger(__name__)
 
@@ -1371,21 +1372,8 @@ def generar_informe_asistencia_pdf(context):
     entidad         = context.get('entidad')
     sucursal_filtro = context.get('sucursal_filtro', '')
 
-    # Período legible
-    if fecha_desde_str and fecha_hasta_str:
-        if fecha_desde_str == fecha_hasta_str:
-            try:
-                from datetime import datetime
-                fd = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
-                periodo_txt = (fd.strftime('%d de ') +
-                               MESES_FULL[fd.month] +
-                               fd.strftime(' de %Y'))
-            except Exception:
-                periodo_txt = fecha_desde_str
-        else:
-            periodo_txt = f"{fecha_desde_str}  al  {fecha_hasta_str}"
-    else:
-        periodo_txt = 'Periodo no especificado'
+    # Período legible (siempre dd/mm/aaaa; el contexto trae fechas ISO internas)
+    periodo_txt = fmt_periodo(fecha_desde_str, fecha_hasta_str)
 
     # Texto de filtros activos para el encabezado
     filtros_partes = []

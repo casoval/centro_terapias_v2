@@ -249,11 +249,11 @@
       {% endif %}
       <div style="display:flex;flex-direction:column;gap:4px">
         <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Desde</label>
-        <input type="date" name="fecha_desde" value="{{ fecha_desde }}">
+        <input type="date" name="fecha_desde" value="{{ fecha_desde|fecha_iso }}">
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
         <label style="font-size:.68rem;font-weight:700;color:var(--muted)">Hasta</label>
-        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}">
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta|fecha_iso }}">
       </div>
       <button type="submit" class="btn-primary" style="margin-top:20px">🔍 Filtrar</button>
       <button type="button" onclick="resetFiltros()" 
@@ -1056,7 +1056,7 @@
               <span class="tag amber">ADELANTADO</span> Crédito
             {% endif %}
             {% if pago.concepto %}
-            <br><small style="color:var(--muted)">{{ pago.concepto|truncatewords:6 }}</small>
+            <br><small style="color:var(--muted)">{{ pago.concepto|texto_fechas|truncatewords:6 }}</small>
             {% endif %}
           </td>
           <td>
@@ -1536,7 +1536,7 @@
   {% if vista == 'resumen_unificado' %}
   <p style="font-size:.72rem;color:var(--muted);margin:-6px 0 14px">
     Consolida <strong>Detalle Sesiones + Detalle Proyectos + Detalle Mensualidades</strong> para el período
-    <strong>{{ fecha_desde }}</strong> a <strong>{{ fecha_hasta }}</strong>.
+    <strong>{{ fecha_desde|fecha }}</strong> a <strong>{{ fecha_hasta|fecha }}</strong>.
     En mensualidades con varios servicios, el monto se reparte en partes iguales entre los servicios asignados
     únicamente para el desglose "por servicio" (el desglose por sucursal y por mes usa el monto completo).
   </p>
@@ -1761,7 +1761,7 @@
           </td>
           <td class="td-right td-mono" style="color:var(--purple);font-weight:800">Bs. {{ pago.monto|floatformat:2 }}</td>
           <td><small style="color:var(--muted)">{{ pago.registrado_por.username }}</small></td>
-          <td><small style="color:var(--muted)">{{ pago.concepto|default:"-" }}</small></td>
+          <td><small style="color:var(--muted)">{{ pago.concepto|texto_fechas|default:"-" }}</small></td>
         </tr>
         {% empty %}
         <tr>

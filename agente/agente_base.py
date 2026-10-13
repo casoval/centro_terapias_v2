@@ -84,6 +84,14 @@ def get_client():
     return genai
 
 
+# Regla global de formato de fechas para TODOS los agentes (se añade al prompt)
+REGLA_FECHAS = (
+    "\n\nFORMATO DE FECHAS: muestra siempre las fechas como dia/mes/año (dd/mm/aaaa, "
+    "ej. 11/10/2026). Nunca uses aaaa-mm-dd ni mm/dd/aaaa; si un dato llega en aaaa-mm-dd, "
+    "conviértelo antes de responder."
+)
+
+
 class AgenteBase:
     """
     Clase base para todos los agentes del Centro Misael.
@@ -200,7 +208,7 @@ class AgenteBase:
 
         model = genai.GenerativeModel(
             model_name        = modelo,
-            system_instruction = system_prompt,
+            system_instruction = system_prompt + REGLA_FECHAS,
             safety_settings   = SAFETY_SETTINGS,
             generation_config = generation_config,
         )

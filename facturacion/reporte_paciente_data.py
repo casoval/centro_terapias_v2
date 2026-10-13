@@ -28,6 +28,7 @@ from .reporte_profesional_data import (
     ATENDIDAS, CONSUMIDAS, DIAS_CORTO, DIAS_ES, MESES_ES, es_num, hm, _f, _pct,
 )
 from .reporte_profesional_extra import AMBAR, COLOR, PUNTOS, ROJO, VERDE
+from core.fechas import fmt_texto_fechas  # fechas aaaa-mm-dd de textos guardados → dd/mm/aaaa (solo al mostrar)
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ def _cargar_sesiones(paciente):
             'tipo': 'proyecto' if x['proyecto_id'] else ('mensualidad' if x['mensualidad_id'] else 'individual'),
             'monto': _f(x['monto_cobrado']), 'monto_orig': _f(x['monto_original']),
             'monto_exen': _f(x['monto_previo_exencion']), 'dur': x['duracion_minutos'] or 0,
-            'retraso': x['minutos_retraso'] or 0, 'obs': (x['observaciones'] or '').strip(),
+            'retraso': x['minutos_retraso'] or 0, 'obs': fmt_texto_fechas((x['observaciones'] or '').strip()),
             'nota': (x['notas_sesion'] or '').strip(), 'motivo': (x['motivo_reprogramacion'] or '').strip(),
         })
     return rows

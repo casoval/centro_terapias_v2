@@ -10,6 +10,8 @@ from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Exists, Case,
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
+from core.fechas import fmt_fecha, fmt_fecha_corta, fecha_larga, mes_anio, nombre_dia  # dd/mm/aaaa y nombres en español
+from core.fechas import fmt_texto_fechas
 from calendar import monthrange, Calendar
 from decimal import Decimal
 from itertools import groupby
@@ -1372,7 +1374,7 @@ def imprimir_horario(request):
         mostrar_domingo=mostrar_domingo,
     )
 
-    nombre_archivo = f"horario_{vista}_{fecha_inicio.strftime('%Y-%m-%d')}.pdf"
+    nombre_archivo = f"horario_{vista}_{fecha_inicio.strftime('%d-%m-%Y')}.pdf"
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
     return response
@@ -2719,7 +2721,7 @@ def editar_sesion(request, sesion_id):
                     pagos_data = [
                         {
                             'numero_recibo': p.numero_recibo,
-                            'concepto': p.concepto[:40],
+                            'concepto': fmt_texto_fechas(p.concepto)[:40],
                             'fecha': p.fecha_pago.strftime('%d/%m/%Y'),
                             'metodo': p.metodo_pago.nombre,
                             'monto': str(p.monto),
@@ -3608,7 +3610,7 @@ def modal_confirmar_cambio_estado(request, sesion_id):
     pagos_data = [
         {
             'numero_recibo': p.numero_recibo,
-            'concepto': p.concepto[:40],
+            'concepto': fmt_texto_fechas(p.concepto)[:40],
             'fecha': p.fecha_pago.strftime('%d/%m/%Y'),
             'metodo': p.metodo_pago.nombre,
             'monto': str(p.monto),
@@ -3699,7 +3701,7 @@ def procesar_cambio_estado(request, sesion_id):
                     # día del pago original).
                     pago.sesion = None
                     pago.concepto = (
-                        f"Crédito por cambio de estado - sesión {sesion.fecha} "
+                        f"Crédito por cambio de estado - sesión {fmt_fecha(sesion.fecha)} "
                         f"({estado_anterior} → {estado_nuevo})"
                     )
                     if observaciones_cambio:
@@ -3713,7 +3715,7 @@ def procesar_cambio_estado(request, sesion_id):
                     pago.anular(
                         usuario=request.user,
                         motivo=(
-                            f"Cambio de estado sesión {sesion.fecha} "
+                            f"Cambio de estado sesión {fmt_fecha(sesion.fecha)} "
                             f"({estado_anterior} → {estado_nuevo}). "
                             f"Motivo: {motivo_anulacion}"
                         )
@@ -3928,7 +3930,7 @@ def generar_pdf_informe_evolucion(request, paciente_id):
 
     nombre_archivo = (
         f"informe_evolucion_{paciente.apellido}_{paciente.nombre}_"
-        f"{date.today().strftime('%Y%m%d')}.pdf"
+        f"{date.today().strftime('%d-%m-%Y')}.pdf"
     ).replace(' ', '_')
 
     response = HttpResponse(buffer, content_type='application/pdf')

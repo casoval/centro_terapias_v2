@@ -337,7 +337,7 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
     {% if paciente %}
     <div class="hero-pills">
       {% if fecha_desde and fecha_hasta %}
-      <span class="hero-pill on">📅 {{ fecha_desde }} — {{ fecha_hasta }}</span>
+      <span class="hero-pill on">📅 {{ fecha_desde|fecha }} — {{ fecha_hasta|fecha }}</span>
       {% else %}
       <span class="hero-pill on">📅 Todo el historial</span>
       {% endif %}
@@ -368,8 +368,8 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
         {% endfor %}</optgroup>{% endif %}
       </select>
     </div>
-    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" id="inp-desde" value="{{ fecha_desde }}"></div>
-    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" id="inp-hasta" value="{{ fecha_hasta }}"></div>
+    <div class="fg"><label>Desde</label><input type="date" name="fecha_desde" id="inp-desde" value="{{ fecha_desde|fecha_iso }}"></div>
+    <div class="fg"><label>Hasta</label><input type="date" name="fecha_hasta" id="inp-hasta" value="{{ fecha_hasta|fecha_iso }}"></div>
     <button type="submit" class="btn-primary">🔍 Ver reporte</button>
     <a href="?{% if paciente %}paciente={{ paciente.id }}{% endif %}" class="btn-clear" title="Limpiar filtros">✕ Limpiar filtros</a>
     {% if a %}
@@ -1130,8 +1130,8 @@ body{font-family:'DM Sans',sans-serif;background:transparent;color:var(--ink)}
       <div class="proj-grid">
         <div class="pg-item"><div class="pg-lbl">Costo</div><div class="pg-val">Bs.{{ proy.costo_total|floatformat:0 }}</div></div>
         <div class="pg-item"><div class="pg-lbl">Sesiones</div><div class="pg-val">{{ proy.num_sesiones|default:"—" }}</div></div>
-        <div class="pg-item"><div class="pg-lbl">Inicio</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_inicio|date:"d/m/y" }}</div></div>
-        {% if proy.fecha_fin %}<div class="pg-item"><div class="pg-lbl">Fin</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_fin|date:"d/m/y" }}</div></div>{% endif %}
+        <div class="pg-item"><div class="pg-lbl">Inicio</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_inicio|date:"d/m/Y" }}</div></div>
+        {% if proy.fecha_fin %}<div class="pg-item"><div class="pg-lbl">Fin</div><div class="pg-val" style="font-size:.65rem">{{ proy.fecha_fin|date:"d/m/Y" }}</div></div>{% endif %}
       </div>
     </div>
     {% endfor %}
@@ -1680,8 +1680,8 @@ function filtrarTabla(estado, btn){
 
 function setRango(dias){
   const hoy = new Date();
-  const desde = new Date(hoy - dias*86400000);
-  const fmt = d => d.toISOString().split('T')[0];
+  const desde = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - dias);
+  const fmt = _iso;   // fecha LOCAL (toISOString usa UTC y de 20:00 a 23:59 daba el día siguiente)
   const url = new URL(window.location.href);
   url.searchParams.set('fecha_desde', fmt(desde));
   url.searchParams.set('fecha_hasta', fmt(hoy));
@@ -1690,8 +1690,8 @@ function setRango(dias){
 function setRangoMes(){
   const h = new Date();
   const url = new URL(window.location.href);
-  url.searchParams.set('fecha_desde', new Date(h.getFullYear(),h.getMonth(),1).toISOString().split('T')[0]);
-  url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
+  url.searchParams.set('fecha_desde', _iso(new Date(h.getFullYear(),h.getMonth(),1)));
+  url.searchParams.set('fecha_hasta', _iso(h));
   window.location.href = url.toString();
 }
 function _iso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1717,8 +1717,8 @@ function setTodo(){
 function setRangoAnio(){
   const h = new Date();
   const url = new URL(window.location.href);
-  url.searchParams.set('fecha_desde', new Date(h.getFullYear(),0,1).toISOString().split('T')[0]);
-  url.searchParams.set('fecha_hasta', h.toISOString().split('T')[0]);
+  url.searchParams.set('fecha_desde', _iso(new Date(h.getFullYear(),0,1)));
+  url.searchParams.set('fecha_hasta', _iso(h));
   window.location.href = url.toString();
 }
 </script>

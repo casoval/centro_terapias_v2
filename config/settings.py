@@ -137,6 +137,8 @@ TEMPLATES = [
                 'core.context_processors.perf_flags',
                 'avisos.context_processors.avisos_inicio',
             ],
+            # Filtros |fecha, |fecha_hora, |periodo... disponibles sin {% load %}
+            'builtins': ['core.templatetags.fechas_tags'],
         },
     },
 ]
@@ -219,9 +221,15 @@ USE_TZ = True
 
 LOCALE_PATHS = [BASE_DIR / 'locale']
 
+# Formato de fechas: dia/mes/año (dd/mm/aaaa) en TODA la app.
+# ⚠️ Desde Django 5 la localización siempre está activa y los DATE_FORMAT de
+# settings se ignoran: el formato real lo define config/formats/es/formats.py
+# (se carga mediante FORMAT_MODULE_PATH). Ver también core/fechas.py.
+FORMAT_MODULE_PATH = ['config.formats']
 DATE_FORMAT = 'd/m/Y'
 DATETIME_FORMAT = 'd/m/Y H:i'
 SHORT_DATE_FORMAT = 'd/m/Y'
+SHORT_DATETIME_FORMAT = 'd/m/Y H:i'
 
 # --------------------------------------------------
 # STATIC FILES

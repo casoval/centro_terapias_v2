@@ -8,6 +8,7 @@ from servicios.models import TipoServicio, Sucursal
 from profesionales.models import Profesional
 from datetime import datetime, timedelta
 from decimal import Decimal
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 
 
 class Proyecto(models.Model):
@@ -438,7 +439,7 @@ class Sesion(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.fecha} {self.hora_inicio} - {self.paciente} - {self.servicio}"
+        return f"{fmt_fecha(self.fecha)} {self.hora_inicio} - {self.paciente} - {self.servicio}"
     
     # 🆕 NUEVAS PROPIEDADES CALCULADAS
     @property
@@ -1280,6 +1281,6 @@ class PermisoEdicionSesion(models.Model):
     def __str__(self):
         return (
             f"{self.profesional} | "
-            f"{self.fecha_sesion_desde}→{self.fecha_sesion_hasta} | "
+            f"{fmt_fecha(self.fecha_sesion_desde)}→{fmt_fecha(self.fecha_sesion_hasta)} | "
             f"válido hasta {self.valido_hasta:%d/%m/%Y %H:%M}"
         )

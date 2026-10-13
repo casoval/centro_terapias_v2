@@ -5,6 +5,7 @@ from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Case, When, V
 from django.db.models.functions import Coalesce
 from django.db import transaction
 import logging
+from core.fechas import nombre_dia, mes_anio  # nombres en español (no dependen del locale)
 
 from .models import Sesion
 from pacientes.models import Paciente
@@ -156,7 +157,7 @@ class CalendarService:
             'es_hoy': fecha == date.today(),
             'sesiones': sesiones_dia,
             'sesiones_agrupadas': sesiones_agrupadas,  # ✅ NUEVO
-            'dia_nombre': fecha.strftime('%A'),
+            'dia_nombre': nombre_dia(fecha),
             'tiene_sesiones_manana': tiene_manana,  # ✅ NUEVO
             'tiene_sesiones_tarde': tiene_tarde,  # ✅ NUEVO
             'tipo': 'diaria'
@@ -201,7 +202,7 @@ class CalendarService:
                 'es_hoy': dia == date.today(),
                 'sesiones': sesiones_dia,
                 'sesiones_agrupadas': sesiones_agrupadas,
-                'dia_nombre': dia.strftime('%A'),
+                'dia_nombre': nombre_dia(dia),
                 'dia_numero': dia.day,
                 'tiene_sesiones_manana': tiene_manana,
                 'tiene_sesiones_tarde': tiene_tarde,
@@ -310,7 +311,7 @@ class CalendarService:
         return {
             'semanas': semanas,
             'tipo': 'mensual',
-            'mes_nombre': fecha_base.strftime('%B %Y'),
+            'mes_nombre': mes_anio(fecha_base).capitalize(),
         }
 
     @staticmethod

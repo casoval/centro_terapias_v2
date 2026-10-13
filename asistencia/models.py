@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 
 DIAS_SEMANA = [
     ('LUN', 'Lunes'), ('MAR', 'Martes'), ('MIE', 'Miércoles'),
@@ -156,7 +157,7 @@ class FechaEspecial(models.Model):
         unique_together = ['zona', 'fecha']
 
     def __str__(self):
-        return f"{self.zona.nombre} — {self.fecha} ({self.get_tipo_horario_display()})"
+        return f"{self.zona.nombre} — {fmt_fecha(self.fecha)} ({self.get_tipo_horario_display()})"
 
     def bloques_ordenados(self):
         return ordenar_bloques(self.bloques.all())

@@ -8,6 +8,8 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django.utils import timezone
+from core.fechas import fmt_fecha, fmt_fecha_corta, fecha_larga, fmt_periodo  # dd/mm/aaaa y nombres en español
+from core.fechas import fmt_texto_fechas
 from io import BytesIO
 
 import base64
@@ -3158,7 +3160,7 @@ def procesar_pagos_masivos(request):
                             if obj.monto_original is None:
                                 obj.monto_original = precio_previo
                             obj.monto_cobrado = nuevo_monto_cobrado
-                            nota_ajuste = f"\n[{fecha_pago}] Monto ajustado de Bs. {precio_previo} a Bs. {nuevo_monto_cobrado} en pago masivo"
+                            nota_ajuste = f"\n[{fmt_fecha(fecha_pago)}] Monto ajustado de Bs. {precio_previo} a Bs. {nuevo_monto_cobrado} en pago masivo"
                             obj.observaciones = (obj.observaciones or "") + nota_ajuste
                             obj.save()
                 elif tipo == 'proyecto':
@@ -6034,7 +6036,7 @@ def reporte_profesional(request):
             response = HttpResponse(buffer, content_type='application/pdf')
             slug = f"{profesional.apellido}_{profesional.nombre}".replace(' ', '_')
             response['Content-Disposition'] = (
-                f'inline; filename="informe_profesional_{slug}_{desde:%Y%m%d}_al_{hasta:%Y%m%d}.pdf"')
+                f'inline; filename="informe_profesional_{slug}_{desde:%d-%m-%Y}_al_{hasta:%d-%m-%Y}.pdf"')
             return response
         except Exception as e:
             import logging
@@ -6136,7 +6138,7 @@ def reporte_sucursal(request):
             response = HttpResponse(buffer, content_type='application/pdf')
             slug = 'todas_las_sucursales' if sucursal_id == 'todas' else sucursal.nombre.replace(' ', '_')
             response['Content-Disposition'] = (
-                f'inline; filename="informe_sucursal_{slug}_{desde:%Y%m%d}_al_{hasta:%Y%m%d}.pdf"')
+                f'inline; filename="informe_sucursal_{slug}_{desde:%d-%m-%Y}_al_{hasta:%d-%m-%Y}.pdf"')
             return response
         except Exception as e:
             import logging
@@ -7451,7 +7453,7 @@ def reporte_financiero(request):
         
         cierre_diario = {
             'fecha': fecha_desde_obj,
-            'fecha_formato': fecha_desde_obj.strftime('%d de %B de %Y'),
+            'fecha_formato': fecha_larga(fecha_desde_obj),   # '11 de octubre de 2026' (español)
             'dia_semana': ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'][fecha_desde_obj.weekday()],
             
             # Pagos totales
@@ -7886,7 +7888,7 @@ def exportar_excel(request):
                     pago.numero_recibo,
                     pago.fecha_pago.strftime('%d/%m/%Y'),
                     pago.paciente.nombre_completo,
-                    pago.concepto[:50],
+                    fmt_texto_fechas(pago.concepto)[:50],
                     pago.metodo_pago.nombre,
                     float(pago.monto)
                 ])
@@ -7913,7 +7915,7 @@ def exportar_excel(request):
             output.read(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="reporte_{tipo}_{date.today()}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="reporte_{tipo}_{date.today():%d-%m-%Y}.xlsx"'
         
         return response
         

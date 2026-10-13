@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.db.models import Count, Q
+from core.fechas import fmt_texto_fechas  # fechas aaaa-mm-dd de textos guardados → dd/mm/aaaa (solo al mostrar)
 
 CONSUMIDAS = ('realizada', 'realizada_retraso', 'falta')
 ATENDIDAS = ('realizada', 'realizada_retraso')
@@ -615,7 +616,7 @@ def analizar(prof, desde, hasta, sucursal_id='', servicio_id='', paciente_id='',
             'ref': round(_precio(s.paciente_id, s.servicio_id), 2),
             'comision_prof': _f(com.monto_profesional) if (com and s.estado in ATENDIDAS) else None,
             'comision_centro': _f(com.monto_centro) if (com and s.estado in ATENDIDAS) else None,
-            'obs': (s.observaciones or '').strip(),
+            'obs': fmt_texto_fechas((s.observaciones or '').strip()),
             'tiene_nota': bool((s.notas_sesion or '').strip()),
         }
 

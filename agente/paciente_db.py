@@ -13,6 +13,7 @@ CAMPOS EXCLUIDOS INTENCIONALMENTE (información interna/clínica):
 
 import logging
 from datetime import date, timedelta
+from core.fechas import fmt_texto_fechas  # muestra fechas aaaa-mm-dd de textos como dd/mm/aaaa
 
 log = logging.getLogger('agente')
 
@@ -465,7 +466,7 @@ def get_pagos_detalle(paciente, mes: int = None, anio: int = None, todos: bool =
                 'fecha':          p.fecha_pago.strftime('%d/%m/%Y') if p.fecha_pago else '—',
                 'recibo':         p.numero_recibo or '—',
                 'metodo':         p.metodo_pago.nombre if p.metodo_pago else '—',
-                'concepto':       p.concepto or '—',
+                'concepto':       fmt_texto_fechas(p.concepto) or '—',
                 'monto':          float(abs(monto)),
                 'es_devolucion':  es_devolucion,
             })
@@ -736,7 +737,7 @@ def get_pagos_recientes(paciente, limite: int = 5) -> list:
             'fecha':    p.fecha_pago.strftime('%d/%m/%Y') if p.fecha_pago else '—',
             'monto':    float(p.monto or 0),
             'metodo':   p.metodo_pago.nombre if p.metodo_pago else '—',
-            'concepto': p.concepto or '—',
+            'concepto': fmt_texto_fechas(p.concepto) or '—',
             'recibo':   p.numero_recibo or '—',
         } for p in pagos]
     except Exception as e:

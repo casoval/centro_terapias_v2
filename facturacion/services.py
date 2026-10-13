@@ -7,6 +7,7 @@ from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.core.exceptions import ValidationError
 import logging
+from core.fechas import fmt_fecha  # dd/mm/aaaa
 
 logger = logging.getLogger(__name__)
 
@@ -669,7 +670,7 @@ class AccountService:
         if monto_efectivo > 0 or (monto_efectivo == 0 and es_pago_completo and monto_total == 0):
             concepto = f"Pago {tipo_pago}"
             if sesion:
-                concepto = f"Pago sesión {sesion.fecha}" if monto_efectivo > 0 else f"Sesión sin cobro - {sesion.fecha}"
+                concepto = f"Pago sesión {fmt_fecha(sesion.fecha)}" if monto_efectivo > 0 else f"Sesión sin cobro - {fmt_fecha(sesion.fecha)}"
             elif proyecto:
                 concepto = f"Pago proyecto {proyecto.nombre}" if monto_efectivo > 0 else f"Proyecto sin cobro - {proyecto.nombre}"
             elif mensualidad:
@@ -716,7 +717,7 @@ class AccountService:
             
             concepto_credito = f"Uso de crédito - {tipo_pago}"
             if sesion:
-                concepto_credito = f"Uso de crédito - sesión {sesion.fecha}"
+                concepto_credito = f"Uso de crédito - sesión {fmt_fecha(sesion.fecha)}"
             elif proyecto:
                 concepto_credito = f"Uso de crédito - proyecto {proyecto.nombre}"
             elif mensualidad:

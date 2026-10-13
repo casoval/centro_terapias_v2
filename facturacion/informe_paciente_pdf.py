@@ -27,6 +27,7 @@ from reportlab.lib import colors
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from django.conf import settings
+from core.fechas import fmt_periodo, fmt_fecha   # dd/mm/aaaa (formato único del sistema)
 
 logger = logging.getLogger(__name__)
 
@@ -1662,19 +1663,9 @@ def generar_informe_paciente_pdf(context):
     nombre_pac  = (str(pac) + ('  [INACTIVO]' if getattr(pac, 'estado', 'activo') != 'activo' else '')) if pac else '—'
     titulo      = "INFORME DE PACIENTE"
 
-    # Período legible
-    if fecha_desde and fecha_hasta:
-        if fecha_desde == fecha_hasta:
-            try:
-                from datetime import datetime as _dt
-                fd = _dt.strptime(fecha_desde, '%Y-%m-%d').date()
-                periodo_txt = f"{fd.day} de {MESES_FULL[fd.month]} de {fd.year}"
-            except Exception:
-                periodo_txt = fecha_desde
-        else:
-            periodo_txt = f"{fecha_desde}  al  {fecha_hasta}"
-    else:
-        periodo_txt = 'Todo el historial del paciente'
+    # Período legible (siempre dd/mm/aaaa; el contexto trae fechas ISO internas)
+    periodo_txt = (fmt_periodo(fecha_desde, fecha_hasta)
+                   if (fecha_desde and fecha_hasta) else 'Todo el historial del paciente')
 
     fecha_emision = _date_cls.today().strftime('%d/%m/%Y')
 

@@ -141,7 +141,7 @@
                 <input type="date" 
                        id="filtro-fecha-desde"
                        name="fecha_desde" 
-                       value="{{ fecha_desde }}"
+                       value="{{ fecha_desde|fecha_iso }}"
                        class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
             </div>
             
@@ -150,7 +150,7 @@
                 <input type="date" 
                        id="filtro-fecha-hasta"
                        name="fecha_hasta" 
-                       value="{{ fecha_hasta }}"
+                       value="{{ fecha_hasta|fecha_iso }}"
                        class="w-full px-2 py-1 sm:px-2.5 sm:py-1.5 text-xs sm:text-sm border rounded-lg">
             </div>
             
@@ -231,7 +231,7 @@
             <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ item.objeto.motivo|truncatewords:10 }}</p>
             {% else %}
                 {% if item.objeto.concepto %}
-                <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ item.objeto.concepto }}</p>
+                <p class="text-[10px] text-gray-600 mb-1.5 truncate">{{ item.objeto.concepto|texto_fechas }}</p>
                 {% endif %}
                 {% if item.objeto.sesion and item.objeto.sesion.servicio.es_servicio_externo %}
                 {% with comision=item.objeto.sesion.comision %}
@@ -487,7 +487,7 @@
                             {% if item.objeto.es_pago_masivo %}
                                 <span class="text-xs text-blue-700 font-semibold">Pago masivo de {{ item.objeto.cantidad_detalles }} ítems</span>
                             {% else %}
-                                {{ item.objeto.concepto|truncatewords:8 }}
+                                {{ item.objeto.concepto|texto_fechas|truncatewords:8 }}
                             {% endif %}
                         </div>
                     </td>
@@ -618,7 +618,7 @@
                                                     {% endif %}
                                                 </td>
                                                 <td class="px-2 py-1.5 text-gray-900 text-[11px]">
-                                                    {{ detalle.concepto }}
+                                                    {{ detalle.concepto|texto_fechas }}
                                                 </td>
                                                 <td class="px-2 py-1.5 text-right font-bold text-green-600 text-xs">
                                                     Bs. {{ detalle.monto|floatformat:2 }}

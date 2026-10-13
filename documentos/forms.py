@@ -95,13 +95,13 @@ class PlanTrabajoForm(forms.ModelForm):
             }),
             'fecha_inicio': forms.DateInput(attrs={
                 'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
-            }),
+            }, format='%Y-%m-%d'),
             'fecha_fin': forms.DateInput(attrs={
                 'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
-            }),
+            }, format='%Y-%m-%d'),
             'proxima_revision': forms.DateInput(attrs={
                 'type': 'date', 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500',
-            }),
+            }, format='%Y-%m-%d'),
             'descripcion': forms.Textarea(attrs={
                 'class': 'w-full rounded-lg border-slate-300 focus:ring-indigo-500', 'rows': 3,
                 'placeholder': 'Objetivos y lineamientos del plan',
