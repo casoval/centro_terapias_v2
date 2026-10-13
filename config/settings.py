@@ -89,6 +89,7 @@ INSTALLED_APPS = [
     'inventario',        # ← nueva: inventario del centro (sucursales, servicios, usuarios)
     'integracion_misael_kids',  # ← nueva: API para vincular pacientes con Misael Kids
     'marketing',        # ← nueva: publicidad con IA (solo superusuario, independiente de pacientes)
+    'avisos',           # ← nueva: alertas automáticas + anuncios del administrador
 ]
 
 MIDDLEWARE = [
@@ -134,6 +135,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.perf_flags',
+                'avisos.context_processors.avisos_inicio',
             ],
         },
     },
@@ -563,3 +565,25 @@ if DEBUG and not IS_PRODUCTION:
         print("✅ Django Debug Toolbar habilitado")
     except ImportError:
         pass
+
+# ══════════════════════════════════════════════════════
+# AVISOS Y ANUNCIOS (app `avisos`)
+# ══════════════════════════════════════════════════════
+# 'login'   → el pop-up se abre solo una vez por inicio de sesión (luego, chip para reabrirlo)
+# 'siempre' → se abre cada vez que se entra a la página de inicio
+AVISOS_POPUP_MODO = 'login'
+AVISOS_DEUDA_DIAS_ATENCION = 30
+AVISOS_DEUDA_DIAS_URGENTE = 60
+AVISOS_FALTAS_ATENCION = 2
+AVISOS_FALTAS_URGENTE = 3
+AVISOS_FALTAS_VENTANA_DIAS = 120
+AVISOS_ABANDONO_DIAS = 21
+AVISOS_SIN_ESTADO_DIAS = 60
+AVISOS_RESPALDO_DIAS = 2
+# Los chequeos de bots y respaldos solo tienen sentido en el servidor real.
+AVISOS_CHEQUEAR_BOTS = not DEBUG
+AVISOS_CHEQUEAR_RESPALDOS = not DEBUG
+AVISOS_BOTS = {
+    'japon':   {'nombre': 'Japón',   'sucursal_id': 3, 'puerto': 3000},
+    'camacho': {'nombre': 'Camacho', 'sucursal_id': 4, 'puerto': 3001},
+}

@@ -1,0 +1,178 @@
+{# Pop-up de avisos: se incluye desde base.html solo en la página de inicio de cada rol. #}
+<style>
+#av-chip{position:fixed;right:14px;bottom:14px;z-index:9990;display:none;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;border:0;background:#4c1d95;color:#fff;font:600 14px 'Inter',system-ui,sans-serif;box-shadow:0 6px 20px rgba(15,23,42,.3);cursor:pointer}
+#av-chip:hover{background:#3b0f7a}
+#av-ov{position:fixed;inset:0;z-index:9995;display:none;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;font-family:'Inter',system-ui,sans-serif}
+#av-dlg{background:#fff;color:#0f172a;width:min(640px,100%);max-height:88vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.35)}
+.avp-top{display:flex;align-items:flex-start;gap:8px;padding:16px 10px 8px 18px}
+.avp-top h2{margin:0;font-size:19px;font-weight:700}
+.avp-top p{margin:3px 0 0;font-size:12px;color:#475569}
+.avp-x{width:48px;height:48px;border:0;border-radius:12px;background:#f1f5f9;color:#334155;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+.avp-x:hover{background:#e2e8f0;color:#0f172a}
+.avp-body{flex:1;min-height:0;overflow-y:auto;padding:4px 18px 14px;display:flex;flex-direction:column;gap:14px}
+.avp-h3{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#475569}
+.avp-list{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+.avp-row{display:flex;align-items:flex-start;gap:12px;padding:12px;border-bottom:1px solid #e2e8f0;text-decoration:none;color:inherit;background:#fff}
+.avp-row:last-child{border-bottom:0}
+a.avp-row:hover{background:#f8fafc}
+.avp-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;font-size:18px}
+.avp-ico.urgente{background:#fee2e2}.avp-ico.atencion{background:#fef3c7}.avp-ico.anuncio{background:#ede9fe}
+.avp-lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.avp-lbl.urgente{color:#b91c1c}.avp-lbl.atencion{color:#92400e}.avp-lbl.anuncio{color:#5b21b6}
+.avp-t{display:block;font-size:15px;font-weight:600;margin-top:1px;line-height:1.3}
+.avp-d{display:block;font-size:13px;color:#475569;margin-top:3px;line-height:1.45;white-space:pre-line}
+.avp-link{display:inline-block;margin-top:6px;font-size:13px;font-weight:600;color:#4c1d95}
+.avp-more{width:100%;min-height:44px;border:0;background:#f8fafc;color:#4c1d95;font:600 13px 'Inter',system-ui,sans-serif;cursor:pointer}
+.avp-card{border:1px solid #e2e8f0;border-radius:12px;display:flex;align-items:flex-start;margin-bottom:10px}
+.avp-card.urgente{border-left:5px solid #b91c1c}
+.avp-card .avp-row{flex:1;min-width:0;border:0;border-radius:12px}
+.avp-card .avp-x{width:44px;height:44px;background:transparent;margin:2px 4px 0 0;color:#64748b}
+.avp-thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;background:#e2e8f0;flex:none}
+.avp-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#4c1d95;color:#fff;font:600 14px 'Inter',system-ui,sans-serif;cursor:pointer;text-decoration:none;margin-top:8px}
+.avp-btn:hover{background:#3b0f7a}
+.avp-btn.sec{background:#f1f5f9;color:#334155}
+.avp-ok{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;color:#166534}
+.avp-foot{display:flex;flex-direction:column;gap:2px;padding:10px 18px 12px;border-top:1px solid #e2e8f0}
+.avp-foot .avp-close{width:100%;min-height:48px;margin:0}
+.avp-foot a{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:13px;font-weight:600;color:#4c1d95;text-decoration:none}
+#av-chip:focus-visible,#av-ov button:focus-visible,#av-ov a:focus-visible{outline:2px solid #4c1d95;outline-offset:2px}
+@media(max-width:640px){
+  #av-ov{align-items:flex-end;padding:0}
+  #av-dlg{border-radius:20px 20px 0 0;max-height:88vh}
+}
+</style>
+<button type="button" id="av-chip" aria-haspopup="dialog"></button>
+<div id="av-ov" role="presentation">
+  <div id="av-dlg" role="dialog" aria-modal="true" aria-labelledby="av-ttl">
+    <div class="avp-top">
+      <div style="flex:1;min-width:0"><h2 id="av-ttl">Avisos para ti</h2><p id="av-sub"></p></div>
+      <button type="button" class="avp-x" id="av-x" aria-label="Cerrar avisos"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="avp-body" id="av-body"></div>
+    <div class="avp-foot">
+      <button type="button" class="avp-btn avp-close" id="av-close">Cerrar</button>
+      <a id="av-all" href="{% url 'avisos:lista' %}">Ver todos en Avisos</a>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var URL_DATA = "{% url 'avisos:popup_data' %}";
+  var ov = document.getElementById('av-ov'), body = document.getElementById('av-body'),
+      chip = document.getElementById('av-chip'), sub = document.getElementById('av-sub'),
+      data = null, prevFocus = null;
+  var ICON = {urgente:'⛔', atencion:'⚠️', anuncio:'📣'};
+  var LBL  = {urgente:'Urgente', atencion:'Atención', anuncio:'Anuncio'};
+
+  function el(tag, cls, text){var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e;}
+  function csrf(){var m=document.cookie.match(/csrftoken=([^;]+)/); return m?m[1]:'';}
+  function plural(n,a,b){return n+' '+(n===1?a:b);}
+  function safeUrl(u){return typeof u==='string' && (u.charAt(0)==='/' || /^https?:\/\//i.test(u)) ? u : '#';}
+
+  function alertaRow(a){
+    var row = el('a','avp-row'); row.href = safeUrl(a.url);
+    var ico = el('span','avp-ico '+a.nivel, ICON[a.nivel]); ico.setAttribute('aria-hidden','true');
+    var box = el('span'); box.style.cssText='flex:1;min-width:0;display:block';
+    box.appendChild(el('span','avp-lbl '+a.nivel, LBL[a.nivel]));
+    box.appendChild(el('span','avp-t', a.titulo));
+    box.appendChild(el('span','avp-d', a.detalle));
+    box.appendChild(el('span','avp-link', a.etiqueta_link+' →'));
+    row.appendChild(ico); row.appendChild(box); return row;
+  }
+
+  function anuncioCard(a){
+    var card = el('article','avp-card'+(a.urgente?' urgente':''));
+    var main = el('div','avp-row'); main.style.background='#fff';
+    if (a.adjunto_tipo==='imagen' && a.adjunto_url){
+      var im = el('img','avp-thumb'); im.src = safeUrl(a.adjunto_url); im.alt='Imagen del anuncio'; im.loading='lazy'; main.appendChild(im);
+    } else {
+      var ico = el('span','avp-ico anuncio', a.adjunto_tipo==='pdf'?'📄':'📣'); ico.setAttribute('aria-hidden','true'); main.appendChild(ico);
+    }
+    var box = el('span'); box.style.cssText='flex:1;min-width:0;display:block';
+    var k = a.urgente ? 'urgente' : 'anuncio';
+    box.appendChild(el('span','avp-lbl '+k, a.urgente?'Urgente':'Anuncio'));
+    box.appendChild(el('span','avp-t', a.titulo));
+    if (a.mensaje) box.appendChild(el('span','avp-d', a.mensaje));
+    box.appendChild(el('span','avp-d','Hasta '+a.hasta+' · '+a.destinatarios));
+    if (a.adjunto_url){
+      var l = el('a','avp-link', a.adjunto_tipo==='pdf'?'Abrir PDF →':'Ver imagen →');
+      l.href = safeUrl(a.adjunto_url); l.target='_blank'; l.rel='noopener'; box.appendChild(l);
+    }
+    if (a.pedir_confirmacion){
+      if (a.leido){ box.appendChild(el('span','avp-ok','✓ Lectura confirmada')); }
+      else {
+        var b = el('button','avp-btn','Entendido'); b.type='button'; b.style.display='block';
+        b.addEventListener('click', function(){
+          fetch('/avisos/'+a.id+'/leido/',{method:'POST',headers:{'X-CSRFToken':csrf()},credentials:'same-origin'})
+            .then(function(r){ if(r.ok){ a.leido=true; var ok=el('span','avp-ok','✓ Lectura confirmada'); b.replaceWith(ok);} });
+        });
+        box.appendChild(b);
+      }
+    }
+    main.appendChild(box);
+    var x = el('button','avp-x'); x.type='button'; x.setAttribute('aria-label','Quitar este anuncio por ahora');
+    x.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    x.addEventListener('click', function(){ card.remove(); });   // solo se oculta ahora; vuelve en la próxima entrada
+    card.appendChild(main); card.appendChild(x); return card;
+  }
+
+  function render(){
+    body.textContent='';
+    var nA = data.alertas.length, nN = data.anuncios.length;
+    var partes=[]; if(nA) partes.push(plural(nA,'aviso','avisos')+' del sistema'); if(nN) partes.push(plural(nN,'anuncio','anuncios'));
+    sub.textContent = partes.join(' · ');
+    if (nA){
+      var sec = el('section'); sec.appendChild(el('h3','avp-h3','Requiere tu atención'));
+      var list = el('div','avp-list');
+      var max = window.matchMedia('(max-width:640px)').matches ? 2 : 3;
+      var rows = data.alertas.map(alertaRow);
+      rows.forEach(function(r,i){ if(i>=max) r.hidden=true; list.appendChild(r); });
+      if (nA>max){
+        var more = el('button','avp-more','Ver '+(nA-max)+' más'); more.type='button';
+        more.addEventListener('click', function(){ rows.forEach(function(r){r.hidden=false;}); more.remove(); });
+        list.appendChild(more);
+      }
+      sec.appendChild(list); body.appendChild(sec);
+    }
+    if (nN){
+      var s2 = el('section'); s2.appendChild(el('h3','avp-h3','Anuncios'));
+      data.anuncios.forEach(function(a){ s2.appendChild(anuncioCard(a)); });
+      body.appendChild(s2);
+    }
+  }
+
+  function abrir(){
+    if(!data || !data.total) return;
+    prevFocus = document.activeElement; render();
+    ov.style.display='flex'; chip.style.display='none';
+    document.getElementById('av-x').focus();
+  }
+  function cerrar(){
+    ov.style.display='none';
+    if (data && data.total){ chip.style.display='inline-flex'; chip.focus(); }
+  }
+  document.getElementById('av-x').addEventListener('click', cerrar);
+  document.getElementById('av-close').addEventListener('click', cerrar);
+  ov.addEventListener('click', function(e){ if(e.target===ov) cerrar(); });
+  chip.addEventListener('click', abrir);
+  document.addEventListener('keydown', function(e){
+    if (ov.style.display!=='flex') return;
+    if (e.key==='Escape') { cerrar(); return; }
+    if (e.key==='Tab'){
+      var f = ov.querySelectorAll('a[href],button:not([hidden])'); f = Array.prototype.filter.call(f,function(n){return n.offsetParent!==null;});
+      if(!f.length) return; var first=f[0], last=f[f.length-1];
+      if (e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  });
+
+  fetch(URL_DATA+'?auto=1',{credentials:'same-origin',headers:{'Accept':'application/json'}})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(d){
+      if(!d || !d.total) return;
+      data = d;
+      chip.textContent = '🔔 '+plural(d.total,'aviso','avisos');
+      if (d.mostrar_auto) abrir(); else chip.style.display='inline-flex';
+    }).catch(function(){});
+})();
+</script>

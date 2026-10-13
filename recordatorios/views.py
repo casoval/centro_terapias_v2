@@ -4,6 +4,7 @@ import logging
 import subprocess
 import platform
 import requests
+from functools import wraps
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
@@ -13,6 +14,48 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 
 log = logging.getLogger(__name__)
+
+
+# ══════════════════════════════════════════════════════
+# CONTROL DE ACCESO (mismo público que el menú «IA» de la barra superior)
+# ══════════════════════════════════════════════════════
+
+def _es_personal_whatsapp(user):
+    """Superusuario, gerente o recepcionista. Profesionales y pacientes NO."""
+    if user.is_superuser:
+        return True
+    perfil = getattr(user, 'perfil', None)
+    return bool(perfil and perfil.rol in ('gerente', 'recepcionista'))
+
+
+def personal_whatsapp_requerido(view):
+    """Restringe las vistas de WhatsApp/bots al personal autorizado.
+    Las respuestas JSON/API devuelven 403 JSON; las páginas redirigen al inicio."""
+    @wraps(view)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if _es_personal_whatsapp(request.user):
+            return view(request, *args, **kwargs)
+        log.warning(f'Acceso denegado a {request.path} para {request.user}')
+        es_api = view.__name__ not in ('logs_whatsapp', 'bots_monitor')   # esas dos son páginas HTML
+        if es_api:
+            return JsonResponse({'ok': False, 'error': 'No tienes permiso para esta acción.'}, status=403)
+        messages.error(request, 'No tienes permiso para ver esta sección.')
+        return redirect('core:dashboard')
+    return wrapper
+
+
+def superusuario_requerido(view):
+    """Respaldos: solo el administrador (superusuario)."""
+    @wraps(view)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            log.warning(f'Acceso denegado a {request.path} para {request.user}')
+            messages.error(request, 'Solo el administrador puede ver los respaldos.')
+            return redirect('core:dashboard')
+        return view(request, *args, **kwargs)
+    return wrapper
 
 # Entorno mínimo para que pm2 encuentre su socket en /root/.pm2
 PM2_ENV = {
@@ -26,18 +69,18 @@ PM2_ENV = {
 # WHATSAPP
 # ══════════════════════════════════════════════════════
 
-@login_required
+@personal_whatsapp_requerido
 def logs_whatsapp(request):
     return render(request, 'recordatorios/logs_whatsapp.html')
 
 
-@login_required
+@personal_whatsapp_requerido
 def bots_monitor(request):
     """Vista del panel de monitorización de bots WhatsApp."""
     return render(request, 'recordatorios/bots_monitor.html')
 
 
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_logs_stream(request):
     """
     Devuelve las últimas N líneas de los logs reales de PM2.
@@ -113,7 +156,7 @@ def whatsapp_logs_stream(request):
     return JsonResponse({'ok': True, 'lineas': resultados})
 
 
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_status(request):
     """
     Devuelve el estado del bot Node.js enriquecido con datos de PM2.
@@ -164,7 +207,7 @@ def whatsapp_status(request):
     return JsonResponse(datos)
 
 
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_qr(request):
     bot = request.GET.get('bot', 'japon')
     puerto = 3000 if bot == 'japon' else 3001
@@ -175,8 +218,7 @@ def whatsapp_qr(request):
         return JsonResponse({'qr': None, 'status': 'desconectado'})
 
 
-@csrf_exempt
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_reconectar(request):
     if request.method == 'POST':
         data = json.loads(request.body)
@@ -194,8 +236,7 @@ _PAUSA_FILES = {
 }
 
 
-@csrf_exempt
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_pausa(request):
     """
     GET  ?bot=japon|camacho  → devuelve {bot, pausado: true|false}
@@ -249,7 +290,7 @@ def whatsapp_pausa(request):
         return JsonResponse({'ok': True, 'bot': bot, 'pausado': pausar})
 
 
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_historial(request):
     historial_japon = []
     historial_camacho = []
@@ -344,8 +385,7 @@ def get_sucursal_principal(paciente):
     return 3, 'Suc. Japon'
 
 
-@csrf_exempt
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_envio_masivo(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False})
@@ -677,8 +717,7 @@ def whatsapp_envio_masivo(request):
     return JsonResponse({'ok': True, 'enviados': enviados, 'errores': errores})
 
 
-@csrf_exempt
-@login_required
+@personal_whatsapp_requerido
 def whatsapp_horario_mensual_pdf(request):
     """
     Horario mensual en PDF por WhatsApp.
@@ -851,7 +890,7 @@ def whatsapp_horario_mensual_pdf(request):
 # BACKUP
 # ══════════════════════════════════════════════════════
 
-@login_required
+@superusuario_requerido
 def backup_monitor(request):
     """Vista principal del monitor de respaldos."""
     from recordatorios.models import RegistroBackup
@@ -880,7 +919,7 @@ def backup_monitor(request):
     })
 
 
-@login_required
+@superusuario_requerido
 def backup_ejecutar(request):
     """Lanza un backup manual y registra el resultado."""
     if request.method != 'POST':

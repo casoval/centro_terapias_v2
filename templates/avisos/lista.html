@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Avisos{% endblock %}
+{% block content %}
+{% include 'avisos/_css.html' %}
+<div class="av-wrap">
+  <div class="av-head">
+    <h1 class="av-h1">📣 Avisos</h1>
+    {% if es_admin %}<a class="av-btn" href="{% url 'avisos:crear' %}">+ Nuevo anuncio</a>{% endif %}
+  </div>
+
+  <div class="av-tabs" role="tablist">
+    <button class="av-tab" role="tab" id="av-t-vig" aria-selected="true" aria-controls="av-p-vig" type="button">Vigentes ({{ vigentes|length }})</button>
+    <button class="av-tab" role="tab" id="av-t-his" aria-selected="false" aria-controls="av-p-his" type="button">Historial ({{ historial|length }})</button>
+  </div>
+
+  <section id="av-p-vig" role="tabpanel" aria-labelledby="av-t-vig">
+    {% for a in vigentes %}{% include 'avisos/_tarjeta.html' with vigente=True %}
+    {% empty %}<div class="av-empty">No hay anuncios vigentes.</div>{% endfor %}
+  </section>
+  <section id="av-p-his" role="tabpanel" aria-labelledby="av-t-his" hidden>
+    {% for a in historial %}{% include 'avisos/_tarjeta.html' with vigente=False %}
+    {% empty %}<div class="av-empty">El historial está vacío.</div>{% endfor %}
+  </section>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function(){
+  var tabs=document.querySelectorAll('.av-tab');
+  tabs.forEach(function(t){t.addEventListener('click',function(){
+    tabs.forEach(function(o){
+      var on=o===t; o.setAttribute('aria-selected',on);
+      document.getElementById(o.getAttribute('aria-controls')).hidden=!on;
+    });
+  });});
+  function csrf(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:'';}
+  document.querySelectorAll('[data-leido]').forEach(function(b){
+    b.addEventListener('click',function(){
+      fetch(b.getAttribute('data-leido'),{method:'POST',headers:{'X-CSRFToken':csrf()},credentials:'same-origin'})
+        .then(function(r){if(r.ok){var s=document.createElement('span');s.className='av-ok';s.textContent='✓ Lectura confirmada';b.replaceWith(s);}});
+    });
+  });
+})();
+</script>
+{% endblock %}

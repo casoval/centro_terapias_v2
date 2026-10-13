@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo_pagina }}{% endblock %}
+{% block content %}
+{% include 'avisos/_css.html' %}
+<div class="av-wrap">
+  <div class="av-head"><h1 class="av-h1">{{ titulo_pagina }}</h1><a class="av-btn av-btn-sec" href="{% url 'avisos:lista' %}">Volver</a></div>
+  <form method="post" enctype="multipart/form-data" class="av-box">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="av-err" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="av-field"><label for="{{ form.titulo.id_for_label }}">Título</label>{{ form.titulo }}{% if form.titulo.errors %}<div class="av-err">{{ form.titulo.errors|join:" " }}</div>{% endif %}</div>
+    <div class="av-field"><label for="{{ form.mensaje.id_for_label }}">Mensaje (opcional si adjuntas un archivo)</label>{{ form.mensaje }}</div>
+    <div class="av-field">
+      <label for="{{ form.adjunto.id_for_label }}">Imagen o PDF (opcional, máx. 10 MB)</label>
+      {% if anuncio and anuncio.adjunto %}<div class="av-help">Archivo actual: <a href="{{ anuncio.adjunto.url }}" target="_blank" rel="noopener">abrir</a></div>
+      <label style="font-weight:500">{{ form.quitar_adjunto }} Quitar el archivo actual</label>{% endif %}
+      <input type="file" name="adjunto" id="{{ form.adjunto.id_for_label }}" accept=".jpg,.jpeg,.png,.webp,.pdf">
+      {% if form.adjunto.errors %}<div class="av-err">{{ form.adjunto.errors|join:" " }}</div>{% endif %}
+    </div>
+    <div class="av-field"><label for="{{ form.importancia.id_for_label }}">Importancia</label>{{ form.importancia }}</div>
+    <div class="av-field">
+      <label>¿A quién se muestra?</label>
+      <ul>
+        <li><label>{{ form.dest_gerentes }} Gerentes</label></li>
+        <li><label>{{ form.dest_recepcionistas }} Recepcionistas</label></li>
+        <li><label>{{ form.dest_profesionales }} Profesionales</label></li>
+        <li><label>{{ form.dest_pacientes }} Pacientes</label></li>
+      </ul>
+    </div>
+    <div class="av-field"><label>Sucursales</label>{{ form.sucursales }}<div class="av-help">Sin marcar = todas las sucursales.</div></div>
+    <div class="av-grid2">
+      <div class="av-field"><label for="{{ form.fecha_inicio.id_for_label }}">Mostrar desde</label>{{ form.fecha_inicio }}{% if form.fecha_inicio.errors %}<div class="av-err">{{ form.fecha_inicio.errors|join:" " }}</div>{% endif %}</div>
+      <div class="av-field"><label for="{{ form.fecha_fin.id_for_label }}">Mostrar hasta (inclusive)</label>{{ form.fecha_fin }}{% if form.fecha_fin.errors %}<div class="av-err">{{ form.fecha_fin.errors|join:" " }}</div>{% endif %}</div>
+    </div>
+    <div class="av-field"><label style="font-weight:500">{{ form.guardar_en_historial }} Guardar en el historial al terminar</label><div class="av-help">Si lo desmarcas, el anuncio se elimina por completo cuando termine su vigencia.</div></div>
+    <div class="av-field"><label style="font-weight:500">{{ form.pedir_confirmacion }} Pedir confirmación de lectura («Entendido»)</label><div class="av-help">Podrás ver quién confirmó y quién falta. El botón no oculta el anuncio.</div></div>
+    <button class="av-btn" type="submit">Guardar anuncio</button>
+  </form>
+</div>
+{% endblock %}

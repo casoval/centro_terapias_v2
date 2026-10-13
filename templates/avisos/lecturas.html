@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Confirmaciones{% endblock %}
+{% block content %}
+{% include 'avisos/_css.html' %}
+<div class="av-wrap">
+  <div class="av-head"><h1 class="av-h1">Confirmaciones: {{ anuncio.titulo }}</h1><a class="av-btn av-btn-sec" href="{% url 'avisos:lista' %}">Volver</a></div>
+  <p class="av-msg">{{ n_confirmaron }} de {{ n_total }} confirmaron.</p>
+  <div class="av-box">
+    <table class="av-table">
+      <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th></tr></thead>
+      <tbody>
+      {% for f in filas %}
+        <tr><td>{{ f.user.get_full_name|default:f.user.username }}</td><td>{{ f.user.perfil.get_rol_display }}</td>
+        <td>{% if f.fecha %}<span class="av-ok">✓ {{ f.fecha|date:"d/m/Y H:i" }}</span>{% else %}Pendiente{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="3">No hay destinatarios.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

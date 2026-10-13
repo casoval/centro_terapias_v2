@@ -34,6 +34,7 @@ urlpatterns = [
     path('archivos-centro/', include('archivos_centro.urls', namespace='archivos_centro')),
     path('inventario/', include('inventario.urls', namespace='inventario')),
     path('marketing/', include('marketing.urls', namespace='marketing')),
+    path('avisos/', include('avisos.urls', namespace='avisos')),
 ]
 
 if settings.DEBUG:

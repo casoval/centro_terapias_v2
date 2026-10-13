@@ -1,0 +1,29 @@
+<article class="av-card{% if a.importancia == 'urgente' %} urg{% endif %}">
+  {% if a.adjunto and a.adjunto_tipo == 'imagen' %}
+    <a href="{{ a.adjunto.url }}" target="_blank" rel="noopener"><img class="av-thumb" src="{{ a.adjunto.url }}" alt="Imagen del anuncio" loading="lazy"></a>
+  {% endif %}
+  <div class="av-body">
+    <span class="av-tag{% if a.importancia == 'urgente' %} urg{% endif %}">{% if a.importancia == 'urgente' %}Urgente{% else %}Anuncio{% endif %}</span>
+    <h3 class="av-title">{{ a.titulo }}</h3>
+    {% if a.mensaje %}<p class="av-msg">{{ a.mensaje }}</p>{% endif %}
+    {% if a.adjunto and a.adjunto_tipo == 'pdf' %}
+      <a class="av-btn av-btn-sec av-btn-sm" href="{{ a.adjunto.url }}" target="_blank" rel="noopener">📄 Abrir PDF</a>
+    {% endif %}
+    <div class="av-meta">
+      {% if vigente %}Hasta el {{ a.fecha_fin|date:"d/m/Y" }}{% else %}{{ a.fecha_inicio|date:"d/m/Y" }} al {{ a.fecha_fin|date:"d/m/Y" }}{% endif %}
+      · {{ a.destinatarios_texto }}{% if a.sucursales.all %} · {% for s in a.sucursales.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+      {% if es_admin %}· {% if a.guardar_en_historial %}Se guarda en historial{% else %}No se guarda en historial{% endif %}{% endif %}
+    </div>
+    <div class="av-actions">
+      {% if a.pedir_confirmacion and not es_admin and vigente %}
+        {% if a.leido %}<span class="av-ok">✓ Lectura confirmada</span>
+        {% else %}<button type="button" class="av-btn av-btn-sm" data-leido="{% url 'avisos:leido' a.pk %}">Entendido</button>{% endif %}
+      {% endif %}
+      {% if es_admin %}
+        {% if a.pedir_confirmacion %}<a class="av-btn av-btn-sec av-btn-sm" href="{% url 'avisos:lecturas' a.pk %}">Confirmaciones ({{ a.n_lecturas }})</a>{% endif %}
+        <a class="av-btn av-btn-sec av-btn-sm" href="{% url 'avisos:editar' a.pk %}">Editar</a>
+        <a class="av-btn av-btn-sec av-btn-sm" href="{% url 'avisos:eliminar' a.pk %}">Eliminar</a>
+      {% endif %}
+    </div>
+  </div>
+</article>
