@@ -1,7 +1,7 @@
 {# Pop-up de avisos: se incluye desde base.html solo en la página de inicio de cada rol. #}
 <style>
-#av-ov{position:fixed;inset:0;z-index:9995;display:none;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;font-family:'Inter',system-ui,sans-serif}
-#av-dlg{background:#fff;color:#0f172a;width:min(640px,100%);max-height:88vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.35)}
+#av-ov{position:fixed;inset:0;z-index:9995;display:none;background:rgba(15,23,42,.35);align-items:center;justify-content:center;padding:16px;font-family:'Inter',system-ui,sans-serif}
+#av-dlg{background:#fff;border:1px solid rgba(255,255,255,.6);color:#0f172a;width:min(640px,100%);max-height:88vh;border-radius:18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.35)}
 .avp-top{display:flex;align-items:flex-start;gap:8px;padding:16px 10px 8px 18px}
 .avp-top h2{margin:0;font-size:19px;font-weight:700}
 .avp-top p{margin:3px 0 0;font-size:12px;color:#475569}
@@ -33,6 +33,14 @@ a.avp-row:hover{background:#f8fafc}
 .avp-foot{display:flex;flex-direction:column;gap:2px;padding:10px 18px 12px;border-top:1px solid #e2e8f0}
 .avp-foot a{display:flex;align-items:center;justify-content:center;min-height:44px;font-size:13px;font-weight:600;color:#4c1d95;text-decoration:none}
 #av-ov button:focus-visible,#av-ov a:focus-visible{outline:2px solid #4c1d95;outline-offset:2px}
+/* Efecto cristal: se ve la página detrás, desenfocada; el texto queda sobre un panel casi opaco. */
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  #av-ov{-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+  #av-dlg{background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2)}
+  .avp-row,.avp-card .avp-row{background:rgba(255,255,255,.55)}
+  a.avp-row:hover{background:rgba(248,250,252,.9)}
+  .avp-foot{background:rgba(255,255,255,.7)}
+}
 @media(max-width:640px){
   #av-ov{align-items:flex-end;padding:0}
   #av-dlg{border-radius:20px 20px 0 0;max-height:88vh}
@@ -77,7 +85,7 @@ a.avp-row:hover{background:#f8fafc}
 
   function anuncioCard(a){
     var card = el('article','avp-card'+(a.urgente?' urgente':''));
-    var main = el('div','avp-row'); main.style.background='#fff';
+    var main = el('div','avp-row');
     if (a.adjunto_tipo==='imagen' && a.adjunto_url){
       var im = el('img','avp-thumb'); im.src = safeUrl(a.adjunto_url); im.alt='Imagen del anuncio'; im.loading='lazy'; main.appendChild(im);
     } else {
