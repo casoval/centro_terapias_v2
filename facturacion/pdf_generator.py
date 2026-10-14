@@ -13,6 +13,7 @@
 # =====================================================
 
 import os
+import re
 import logging
 from io import BytesIO
 from decimal import Decimal
@@ -23,6 +24,7 @@ from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.graphics.shapes import Drawing
 from core.fechas import fmt_fecha  # dd/mm/aaaa
 from reportlab.graphics.barcode.qr import QrCodeWidget
@@ -302,13 +304,15 @@ def dibujar_pagina_detalle_completo(c, obj, es_devolucion, filas_datos):
 
     # --- Tabla completa ---
     headers = [["#", "CONCEPTO / DETALLE DE SESIÓN", "MONTO (Bs.)"]]
-    filas_formateadas = []
-    for i, (concepto, monto) in enumerate(filas_datos, start=1):
-        filas_formateadas.append([str(i), concepto, monto])
-
-    tabla_data = headers + filas_formateadas
     ancho_tabla = pw - 2 * margen
     col_widths = [ancho_tabla * 0.06, ancho_tabla * 0.76, ancho_tabla * 0.18]
+    ancho_texto_concepto = col_widths[1] - 13   # menos LEFTPADDING+RIGHTPADDING (6+6) y 1 pt de holgura
+
+    filas_formateadas = []
+    for i, (concepto, monto) in enumerate(filas_datos, start=1):
+        filas_formateadas.append([str(i), ajustar_concepto(concepto, ancho_texto_concepto, "Helvetica", 9), monto])
+
+    tabla_data = headers + filas_formateadas
 
     tabla = Table(tabla_data, colWidths=col_widths, repeatRows=1)
 
@@ -842,8 +846,13 @@ def dibujar_panel_resumen_desborde(c, x, y_base, obj, es_devolucion):
     for i, (concepto, monto_fila) in enumerate(filas[:3]):
         c.setFont("Helvetica", 7)
         c.setFillColor(COLOR_TEXTO_PRINCIPAL)
-        c.drawString(panel_x + 0.4*cm, cy, f"  {i+1}. {concepto[:55]}{'...' if len(concepto)>55 else ''}")
-        c.drawRightString(panel_x + ancho_panel - 0.3*cm, cy, f"Bs. {monto_fila}")
+        prefijo   = f"  {i+1}. "
+        monto_txt = f"Bs. {monto_fila}"
+        ancho_concepto = (ancho_panel - 0.4*cm - 0.3*cm
+                          - stringWidth(prefijo, "Helvetica", 7)
+                          - stringWidth(monto_txt, "Helvetica", 7) - 6)
+        c.drawString(panel_x + 0.4*cm, cy, prefijo + ajustar_concepto(concepto, ancho_concepto, "Helvetica", 7))
+        c.drawRightString(panel_x + ancho_panel - 0.3*cm, cy, monto_txt)
         cy -= 0.32*cm
 
     if total_sesiones > 3:
@@ -866,22 +875,23 @@ def dibujar_tabla_detalles_optimizada(c, x, y_base, obj, es_devolucion):
     ]]
     
     # Filas de datos - CON NUMERACIÓN
+    # Anchos - 3 COLUMNAS: 7% contador, 75% concepto, 18% monto
+    ancho_tabla = ANCHO_RECIBO - 0.8*cm
+    col_widths = [ancho_tabla * 0.07, ancho_tabla * 0.75, ancho_tabla * 0.18]
+    ancho_texto_concepto = col_widths[1] - 13   # menos LEFTPADDING+RIGHTPADDING (6+6) y 1 pt de holgura
+
     filas_formateadas = []
     contador = 1
     for concepto, monto in filas_datos:
         filas_formateadas.append([
             str(contador),
-            concepto,
+            ajustar_concepto(concepto, ancho_texto_concepto, "Helvetica", 9),
             monto
         ])
         contador += 1
     
     # Combinar
     tabla_data = headers + filas_formateadas
-    
-    # Anchos - 3 COLUMNAS: 7% contador, 70% concepto, 23% monto
-    ancho_tabla = ANCHO_RECIBO - 0.8*cm
-    col_widths = [ancho_tabla * 0.07, ancho_tabla * 0.75, ancho_tabla * 0.18]
     
     # Crear tabla
     tabla = Table(tabla_data, colWidths=col_widths, repeatRows=1)
@@ -1231,6 +1241,35 @@ def safe_decimal(val):
         return Decimal(val)
     except:
         return Decimal(0)
+
+def ajustar_concepto(texto, ancho_max, fuente="Helvetica", tamano=9):
+    """
+    Recorta `texto` con puntos suspensivos ("...") para que quepa en `ancho_max`
+    (puntos de PDF). ReportLab NO recorta ni parte las cadenas de una celda, así
+    que sin esto un concepto largo se dibuja encima de la columna MONTO.
+
+    Si el texto termina con un grupo entre paréntesis (p. ej. la hora "(09:45:00)"),
+    ese final se conserva y se recorta la parte central:
+        "Pago sesión 06/10/2026 - FISIOTERAPIA Y REHABI... (09:45:00)"
+    """
+    texto = " ".join(safe_str(texto).split())          # sin saltos de línea ni espacios dobles
+    if stringWidth(texto, fuente, tamano) <= ancho_max:
+        return texto
+
+    puntos = "..."
+    m = re.match(r"^(.*?)(\s*\([^()]*\))$", texto)
+    cabeza, cola = (m.group(1), m.group(2)) if m else (texto, "")
+
+    # Si conservar el final deja muy poco espacio para el resto, se recorta todo junto.
+    if cola and (ancho_max - stringWidth(cola, fuente, tamano)) < ancho_max * 0.4:
+        cabeza, cola = texto, ""
+
+    disponible = ancho_max - stringWidth(puntos + cola, fuente, tamano)
+    n = len(cabeza)
+    while n > 0 and stringWidth(cabeza[:n].rstrip(), fuente, tamano) > disponible:
+        n -= 1
+    return cabeza[:n].rstrip() + puntos + cola
+
 
 def encontrar_logo_misael():
     base_dir = settings.BASE_DIR
