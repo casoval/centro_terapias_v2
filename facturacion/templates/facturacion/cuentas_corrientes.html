@@ -1116,9 +1116,9 @@ function abrirModalDetalleAlertaCuenta(tipo, pacienteNombre, mensajes) {
     document.getElementById('modal-detalle-alerta-cuenta-titulo').textContent = config.titulo;
     document.getElementById('modal-detalle-alerta-cuenta-paciente').textContent = pacienteNombre;
     document.getElementById('modal-detalle-alerta-cuenta-header').className =
-        'px-4 py-3 flex items-center justify-between ' + config.header;
+        'modal-alerta-cuenta-header px-4 py-3 flex items-center justify-between ' + config.header;
     document.getElementById('modal-detalle-alerta-cuenta-box').className =
-        'bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border-2 ' + config.border;
+        'modal-alerta-cuenta-box bg-white rounded-xl shadow-2xl max-w-md w-full border-2 ' + config.border;
 
     const lista = document.getElementById('modal-detalle-alerta-cuenta-lista');
     lista.innerHTML = '';
@@ -1139,12 +1139,16 @@ function abrirModalDetalleAlertaCuenta(tipo, pacienteNombre, mensajes) {
     const modal = document.getElementById('modal-detalle-alerta-cuenta');
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';   // evita scroll del fondo
+    const cuerpo = document.getElementById('modal-detalle-alerta-cuenta-cuerpo');
+    if (cuerpo) cuerpo.scrollTop = 0;
 }
 
 function cerrarModalDetalleAlertaCuenta() {
     const modal = document.getElementById('modal-detalle-alerta-cuenta');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    document.body.style.overflow = '';
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1169,19 +1173,19 @@ document.addEventListener('keydown', function (e) {
 <div id="modal-detalle-alerta-cuenta"
      class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
     <div id="modal-detalle-alerta-cuenta-box"
-         class="bg-white rounded-xl shadow-2xl max-w-md w-full border-2 border-gray-400 overflow-hidden">
-        <div id="modal-detalle-alerta-cuenta-header" class="px-4 py-3 flex items-center justify-between bg-gray-700">
+         class="modal-alerta-cuenta-box bg-white rounded-xl shadow-2xl max-w-md w-full border-2 border-gray-400">
+        <div id="modal-detalle-alerta-cuenta-header" class="modal-alerta-cuenta-header px-4 py-3 flex items-center justify-between bg-gray-700">
             <h3 id="modal-detalle-alerta-cuenta-titulo" class="text-white font-black text-sm"></h3>
             <button type="button" onclick="cerrarModalDetalleAlertaCuenta()"
                     class="text-white hover:text-gray-200 transition text-xl leading-none" aria-label="Cerrar">
                 &times;
             </button>
         </div>
-        <div class="p-4">
+        <div id="modal-detalle-alerta-cuenta-cuerpo" class="modal-alerta-cuenta-cuerpo p-4">
             <p id="modal-detalle-alerta-cuenta-paciente" class="text-xs font-semibold text-gray-600 mb-2"></p>
             <ul id="modal-detalle-alerta-cuenta-lista" class="space-y-2"></ul>
         </div>
-        <div class="px-4 pb-4 flex justify-end">
+        <div class="modal-alerta-cuenta-footer px-4 py-3 flex justify-end">
             <button type="button" onclick="cerrarModalDetalleAlertaCuenta()"
                     class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
                 Cerrar
@@ -1191,6 +1195,28 @@ document.addEventListener('keydown', function (e) {
 </div>
 
 <style>
+/* Modal de alertas: nunca más alto que la pantalla; solo el cuerpo hace scroll */
+#modal-detalle-alerta-cuenta { overflow-y: auto; }
+.modal-alerta-cuenta-box {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+}
+.modal-alerta-cuenta-header,
+.modal-alerta-cuenta-footer { flex: 0 0 auto; }
+.modal-alerta-cuenta-footer { border-top: 1px solid #e5e7eb; background: #fff; }
+.modal-alerta-cuenta-cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+#modal-detalle-alerta-cuenta-paciente {
+    position: sticky; top: -1rem; background: #fff; padding: .25rem 0; z-index: 1;
+}
 @media (min-width: 475px) {
     .xs\:inline { display: inline; }
 }
