@@ -10,9 +10,9 @@ from servicios.models import Sucursal
 
 @login_required
 def lista_profesionales(request):
-    """Lista de profesionales activos con filtros"""
-    # 1. Ordenar por apellido y nombre
-    profesionales = Profesional.objects.filter(activo=True).order_by('nombre', 'apellido')
+    """Lista de profesionales con pestañas Activos / Inactivos y filtros"""
+    # 1. Base SIN filtro de estado (se separa en activos/inactivos más abajo)
+    profesionales = Profesional.objects.all().order_by('nombre', 'apellido')
     
     # ✅ FILTRO POR SUCURSALES DEL RECEPCIONISTA
     sucursales_usuario = None
@@ -42,7 +42,7 @@ def lista_profesionales(request):
     if sucursal_id:
         try:
             sucursal_id = int(sucursal_id)
-            profesionales = profesionales.filter(sucursales__id=sucursal_id)
+            profesionales = profesionales.filter(sucursales__id=sucursal_id).distinct()
         except ValueError:
             pass
 
@@ -59,20 +59,28 @@ def lista_profesionales(request):
     ).update(user=None)
 
     # select_related('user') para datos frescos en template
-    profesionales = profesionales.select_related('user')
+    profesionales = profesionales.select_related('user').prefetch_related('sucursales', 'servicios')
 
-    # Agregar estadísticas (se mantiene igual)
+    # ✅ Pestaña activa + totales de ambas pestañas (con los mismos filtros)
+    tab_activo = request.GET.get('tab', 'activos')
+    if tab_activo not in ('activos', 'inactivos'):
+        tab_activo = 'activos'
+    total_activos = profesionales.filter(activo=True).count()
+    total_inactivos = profesionales.filter(activo=False).count()
+    profesionales = list(profesionales.filter(activo=(tab_activo == 'activos')))
+
+    # Estadísticas solo de los profesionales que se muestran
     hoy = date.today()
     inicio_semana = hoy - timedelta(days=hoy.weekday())
     fin_semana = inicio_semana + timedelta(days=6)
-    
+
     for profesional in profesionales:
         profesional.sesiones_semana = profesional.sesiones.filter(
             fecha__gte=inicio_semana,
             fecha__lte=fin_semana
         ).count()
         profesional.total_pacientes = profesional.get_pacientes().count()
-    
+
     # ✅ Obtener sucursales para el select (solo las del usuario si es recepcionista)
     if sucursales_usuario and sucursales_usuario.exists():
         sucursales = sucursales_usuario.filter(activa=True).order_by('nombre')
@@ -84,8 +92,27 @@ def lista_profesionales(request):
         'buscar': buscar,
         'sucursales': sucursales,
         'sucursal_id': sucursal_id,
+        'tab_activo': tab_activo,
+        'total_activos': total_activos,
+        'total_inactivos': total_inactivos,
     }
     return render(request, 'profesionales/lista.html', context)
+
+
+@login_required
+def reactivar_profesional(request, pk):
+    """Reactiva un profesional inactivo (solo POST, no recepcionistas)"""
+    if request.method != 'POST':
+        return redirect('profesionales:lista')
+    perfil = getattr(request.user, 'perfil', None)
+    if not request.user.is_superuser and perfil is not None and perfil.es_recepcionista():
+        messages.error(request, '⚠️ No tienes permiso para reactivar profesionales.')
+        return redirect('profesionales:lista')
+    profesional = get_object_or_404(Profesional, pk=pk)
+    profesional.activo = True
+    profesional.save()
+    messages.success(request, f'✅ Profesional "{profesional.nombre_completo}" reactivado correctamente.')
+    return redirect('profesionales:lista')
 
 @login_required
 def detalle_profesional(request, pk):

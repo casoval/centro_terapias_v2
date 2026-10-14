@@ -15,6 +15,20 @@
     .view-hidden { display: none !important; }
     .btn-view-active { background-color: #059669; color: white; border-color: #059669; }
     .btn-view-inactive { background-color: white; color: #6b7280; border-color: #e5e7eb; }
+    .prof-tabs { display: flex; gap: .4rem; margin-bottom: .9rem; flex-wrap: wrap; }
+    .prof-tab {
+        display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .9rem;
+        border-radius: .6rem; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+        background: #fff; color: #64748b; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,.05);
+        transition: all .2s;
+    }
+    .prof-tab:hover { background: #f8fafc; }
+    .prof-tab .prof-tab-n { padding: 0 .45rem; border-radius: 9999px; font-size: 10px; background: #f1f5f9; color: #64748b; }
+    .prof-tab.sel-activos  { background: #059669; color: #fff; border-color: #059669; }
+    .prof-tab.sel-activos .prof-tab-n  { background: rgba(255,255,255,.25); color: #fff; }
+    .prof-tab.sel-inactivos { background: #475569; color: #fff; border-color: #475569; }
+    .prof-tab.sel-inactivos .prof-tab-n { background: rgba(255,255,255,.25); color: #fff; }
+    .profesional-card.es-inactivo .foto-prof, .profesional-card.es-inactivo > div:nth-child(2) { filter: grayscale(1); opacity: .75; }
 </style>
 
 <div class="max-w-7xl mx-auto px-2 py-2">
@@ -47,6 +61,7 @@
 
     <div class="mb-4">
         <form method="get" class="relative mx-auto flex flex-col md:flex-row gap-2 items-center">
+            <input type="hidden" name="tab" value="{{ tab_activo }}">
             
             <div class="flex-1 flex flex-col sm:flex-row gap-2 w-full">
                 <div class="relative group flex-1">
@@ -95,14 +110,33 @@
     </div>
 </div>
 
+<div class="max-w-7xl mx-auto px-2">
+    <div class="prof-tabs">
+        <a href="?tab=activos{% if buscar %}&q={{ buscar|urlencode }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+           class="prof-tab {% if tab_activo == 'activos' %}sel-activos{% endif %}">
+            ✅ Activos <span class="prof-tab-n">{{ total_activos }}</span>
+        </a>
+        <a href="?tab=inactivos{% if buscar %}&q={{ buscar|urlencode }}{% endif %}{% if sucursal_id %}&sucursal={{ sucursal_id }}{% endif %}"
+           class="prof-tab {% if tab_activo == 'inactivos' %}sel-inactivos{% endif %}">
+            🚫 Inactivos <span class="prof-tab-n">{{ total_inactivos }}</span>
+        </a>
+    </div>
+</div>
+
 <div id="view-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 pb-10">
     {% for profesional in profesionales %}
-    <div class="profesional-card bg-white rounded-3xl shadow-md border border-gray-100 flex flex-col h-full relative group">
+    <div class="profesional-card bg-white rounded-3xl shadow-md border border-gray-100 flex flex-col h-full relative group {% if not profesional.activo %}es-inactivo{% endif %}">
         
         <div class="absolute top-3 right-3 z-10">
+            {% if profesional.activo %}
             <span class="px-2 py-0.5 text-[9px] font-bold tracking-wider rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm backdrop-blur-md bg-opacity-90">
                 ACTIVO
             </span>
+            {% else %}
+            <span class="px-2 py-0.5 text-[9px] font-bold tracking-wider rounded-full bg-slate-200 text-slate-600 border border-slate-300 shadow-sm">
+                👻 INACTIVO
+            </span>
+            {% endif %}
         </div>
 
         <div class="h-20 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-t-3xl border-b border-gray-100 relative overflow-hidden">
@@ -203,13 +237,26 @@
                title="Editar">
                 ✏️
             </a>
+            {% if profesional.activo %}
             <a href="{% url 'profesionales:eliminar' profesional.id %}" 
                class="col-span-1 flex items-center justify-center bg-white border border-gray-200 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors text-sm"
-               title="Eliminar">
+               title="Eliminar / Desactivar">
                 🗑️
             </a>
+            {% else %}
+            <form method="post" action="{% url 'profesionales:reactivar' profesional.id %}" class="col-span-4 order-last">
+                {% csrf_token %}
+                <button type="submit" class="w-full flex items-center justify-center gap-1 bg-green-100 hover:bg-green-200 text-green-700 border border-green-300 py-1.5 rounded-lg font-bold text-[10px] transition-colors">
+                    ✅ Reactivar profesional
+                </button>
+            </form>
+            {% endif %}
             {% endif %}
         </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full text-center py-12 text-slate-500 text-sm font-bold">
+        No se encontraron profesionales {% if tab_activo == 'inactivos' %}inactivos{% else %}activos{% endif %}.
     </div>
     {% endfor %}
 </div>
@@ -231,7 +278,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for profesional in profesionales %}
-                    <tr class="hover:bg-emerald-50/30 transition-colors group">
+                    <tr class="hover:bg-emerald-50/30 transition-colors group {% if not profesional.activo %}bg-slate-50 text-slate-500{% endif %}">
                         <td data-label="#" data-ficha="oculto" class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
                         <td data-label="Foto" data-ficha="avatar" class="p-4">
                             {% if profesional.tiene_foto %}
@@ -288,9 +335,18 @@
                                 <a href="{% url 'profesionales:editar' profesional.id %}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center hover:bg-blue-500 hover:text-white transition-colors" title="Editar">
                                     ✏️
                                 </a>
-                                <a href="{% url 'profesionales:eliminar' profesional.id %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors" title="Eliminar">
+                                {% if profesional.activo %}
+                                <a href="{% url 'profesionales:eliminar' profesional.id %}" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 border border-rose-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors" title="Eliminar / Desactivar">
                                     🗑️
                                 </a>
+                                {% else %}
+                                <form method="post" action="{% url 'profesionales:reactivar' profesional.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="h-8 px-2 rounded-lg bg-green-100 text-green-700 border border-green-300 text-[10px] font-bold hover:bg-green-200 transition-colors whitespace-nowrap">
+                                        ✅ Reactivar
+                                    </button>
+                                </form>
+                                {% endif %}
                                 {% endif %}
                             </div>
                         </td>
@@ -298,7 +354,7 @@
                     {% empty %}
                     <tr>
                         <td colspan="7" class="p-8 text-center text-gray-500">
-                            No se encontraron resultados
+                            No se encontraron profesionales {% if tab_activo == 'inactivos' %}inactivos{% else %}activos{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -308,40 +364,6 @@
     </div>
 </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const gridView = document.getElementById('view-grid');
-        const listView = document.getElementById('view-list');
-        const btnGrid = document.getElementById('btn-grid');
-        const btnList = document.getElementById('btn-list');
-        
-        // Clave única para guardar preferencia de profesionales
-        const currentView = localStorage.getItem('profesionalesViewMode') || 'grid';
-        applyView(currentView);
-
-        window.switchView = function(mode) {
-            localStorage.setItem('profesionalesViewMode', mode);
-            applyView(mode);
-        }
-
-        function applyView(mode) {
-            if (mode === 'list') {
-                gridView.classList.add('view-hidden');
-                listView.classList.remove('view-hidden');
-                btnList.classList.remove('btn-view-inactive');
-                btnList.classList.add('btn-view-active');
-                btnGrid.classList.remove('btn-view-active');
-                btnGrid.classList.add('btn-view-inactive');
-            } else {
-                listView.classList.add('view-hidden');
-                gridView.classList.remove('view-hidden');
-                btnGrid.classList.remove('btn-view-inactive');
-                btnGrid.classList.add('btn-view-active');
-                btnList.classList.remove('btn-view-active');
-                btnList.classList.add('btn-view-inactive');
-            }
-        }
-    });
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {

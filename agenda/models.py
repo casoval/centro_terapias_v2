@@ -566,6 +566,50 @@ class Sesion(models.Model):
         return True
     
     @property
+    def pago_global_info(self):
+        """
+        Si la sesión pertenece a un PROYECTO o a una MENSUALIDAD, el cobro no es
+        por sesión sino GLOBAL (del proyecto / de la mensualidad). Devuelve un
+        dict con el estado de ese pago global para mostrarlo en el detalle de la
+        sesión; None si la sesión se cobra de forma individual.
+        (Mismo orden de prioridad que requiere_pago: proyecto, luego mensualidad.)
+        """
+        from decimal import Decimal
+        if self.proyecto_id:
+            obj = self.proyecto
+            tipo = 'proyecto'
+            etiqueta = f"Proyecto: {obj.nombre}"
+            costo = obj.costo_total
+        elif self.mensualidad_id:
+            obj = self.mensualidad
+            tipo = 'mensualidad'
+            etiqueta = f"Mensualidad {obj.periodo_display}"
+            costo = obj.costo_mensual
+        else:
+            return None
+
+        pagado = obj.pagado_neto
+        saldo = costo - pagado
+        if costo <= 0:
+            estado = 'sin_costo'
+        elif saldo <= 0:
+            estado = 'completado'
+        elif pagado > 0:
+            estado = 'parcial'
+        else:
+            estado = 'pendiente'
+        return {
+            'tipo': tipo,
+            'id': obj.pk,
+            'codigo': getattr(obj, 'codigo', ''),
+            'etiqueta': etiqueta,
+            'costo': costo,
+            'pagado': pagado,
+            'saldo': saldo if saldo > 0 else Decimal('0.00'),
+            'estado': estado,
+        }
+
+    @property
     def estado_pago(self):
         """
         Retorna el estado del pago como string

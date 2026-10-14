@@ -322,13 +322,48 @@ def lista_usuarios(request):
     if rol_filtro:
         usuarios = usuarios.filter(perfil__rol=rol_filtro)
 
+    # Pestañas Activos / Inactivos (inactivo = usuario o perfil desactivado)
+    cond_inactivo = Q(is_active=False) | Q(perfil__activo=False)
+    total_activos = usuarios.exclude(cond_inactivo).count()
+    total_inactivos = usuarios.filter(cond_inactivo).count()
+    tab_activo = request.GET.get('tab', 'activos')
+    if tab_activo not in ('activos', 'inactivos'):
+        tab_activo = 'activos'
+    if tab_activo == 'inactivos':
+        usuarios = usuarios.filter(cond_inactivo)
+    else:
+        usuarios = usuarios.exclude(cond_inactivo)
+
     context = {
         'usuarios': usuarios,
         'buscar': buscar,
         'rol_filtro': rol_filtro,
         'roles': PerfilUsuario.ROL_CHOICES,
+        'tab_activo': tab_activo,
+        'total_activos': total_activos,
+        'total_inactivos': total_inactivos,
     }
     return render(request, 'core/usuarios/lista.html', context)
+
+
+@login_required
+def reactivar_usuario(request, pk):
+    """Reactiva un usuario inactivo (solo POST, no recepcionistas)"""
+    from django.contrib.auth.models import User
+    if request.method != 'POST':
+        return redirect('core:lista_usuarios')
+    mi_perfil = getattr(request.user, 'perfil', None)
+    if not request.user.is_superuser and mi_perfil is not None and mi_perfil.es_recepcionista():
+        messages.error(request, '⚠️ No tienes permiso para reactivar usuarios.')
+        return redirect('core:lista_usuarios')
+    usuario = get_object_or_404(User, pk=pk, is_superuser=False)
+    usuario.is_active = True
+    usuario.save(update_fields=['is_active'])
+    if hasattr(usuario, 'perfil'):
+        usuario.perfil.activo = True
+        usuario.perfil.save(update_fields=['activo'])
+    messages.success(request, f'✅ Usuario "{usuario.username}" reactivado correctamente.')
+    return redirect('core:lista_usuarios')
 
 
 @login_required

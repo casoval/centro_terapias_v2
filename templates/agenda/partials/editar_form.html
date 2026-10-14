@@ -394,12 +394,21 @@
 
             {% else %}
                 <div class="space-y-4">
-                    <div class="rounded-lg border overflow-hidden {% if sesion.pagado %}border-emerald-200 bg-emerald-50/30{% elif sesion.requiere_pago %}border-amber-200 bg-amber-50/30{% else %}border-gray-200 bg-gray-50/50{% endif %}">
-                        <div class="px-3 py-1.5 border-b flex justify-between items-center {% if sesion.pagado %}border-emerald-100 bg-emerald-100/50{% elif sesion.requiere_pago %}border-amber-100 bg-amber-100/50{% else %}border-gray-200 bg-gray-100/50{% endif %}">
+                    {% with g=sesion.pago_global_info %}
+                    <div class="rounded-lg border overflow-hidden {% if g %}{% if g.estado == 'completado' %}border-emerald-200 bg-emerald-50/30{% elif g.estado == 'parcial' %}border-sky-200 bg-sky-50/30{% elif g.estado == 'pendiente' %}border-amber-200 bg-amber-50/30{% else %}border-gray-200 bg-gray-50/50{% endif %}{% elif sesion.pagado %}border-emerald-200 bg-emerald-50/30{% elif sesion.requiere_pago %}border-amber-200 bg-amber-50/30{% else %}border-gray-200 bg-gray-50/50{% endif %}">
+                        <div class="px-3 py-1.5 border-b flex justify-between items-center {% if g %}{% if g.estado == 'completado' %}border-emerald-100 bg-emerald-100/50{% elif g.estado == 'parcial' %}border-sky-100 bg-sky-100/50{% elif g.estado == 'pendiente' %}border-amber-100 bg-amber-100/50{% else %}border-gray-200 bg-gray-100/50{% endif %}{% elif sesion.pagado %}border-emerald-100 bg-emerald-100/50{% elif sesion.requiere_pago %}border-amber-100 bg-amber-100/50{% else %}border-gray-200 bg-gray-100/50{% endif %}">
                             <h4 class="font-bold text-gray-800 text-xs flex items-center gap-1.5">
-                                <span>💰</span> Info Pago
+                                {% if g %}<span>{% if g.tipo == 'mensualidad' %}💳{% else %}📦{% endif %}</span> Pago Global{% else %}<span>💰</span> Info Pago{% endif %}
                             </h4>
-                            {% if sesion.pagado %}
+                            {% if g %}
+                                {% if g.estado == 'completado' %}
+                                    <span class="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PAGADO</span>
+                                {% elif g.estado == 'parcial' %}
+                                    <span class="bg-sky-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PAGO PARCIAL</span>
+                                {% elif g.estado == 'pendiente' %}
+                                    <span class="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PENDIENTE</span>
+                                {% endif %}
+                            {% elif sesion.pagado %}
                                 <span class="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COMPLETADO</span>
                             {% elif sesion.requiere_pago %}
                                 <span class="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">PENDIENTE</span>
@@ -407,7 +416,50 @@
                         </div>
                         
                         <div class="p-3">
-                            {% if not sesion.requiere_pago and not es_recepcionista %}
+                            {% if g %}
+                                {# ✅ Sesión de MENSUALIDAD / PROYECTO: el cobro es GLOBAL, no por sesión #}
+                                <div class="mb-2 px-2 py-1 bg-indigo-50 rounded border border-indigo-100 flex items-start gap-1.5">
+                                    <span class="text-[9px] text-indigo-600 mt-px">ℹ️</span>
+                                    <span class="text-[9px] font-semibold text-indigo-700 leading-snug">
+                                        {{ g.etiqueta }}{% if g.codigo %} ({{ g.codigo }}){% endif %}.
+                                        Esta sesión no se cobra por separado: se paga dentro del {% if g.tipo == 'mensualidad' %}pago global de la mensualidad{% else %}costo total del proyecto{% endif %}.
+                                    </span>
+                                </div>
+
+                                {% if g.estado == 'sin_costo' %}
+                                    <p class="text-center text-[10px] text-gray-500 py-1">
+                                        {% if g.tipo == 'mensualidad' %}La mensualidad{% else %}El proyecto{% endif %} no tiene costo registrado.
+                                    </p>
+                                {% else %}
+                                <div class="grid grid-cols-3 gap-2 mb-2 text-center">
+                                    <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[9px] text-gray-400 font-bold uppercase">Total</span>
+                                        <span class="font-bold text-blue-700 text-xs">Bs.{{ g.costo }}</span>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded border border-gray-100 shadow-sm">
+                                        <span class="block text-[9px] text-gray-400 font-bold uppercase">Pagado</span>
+                                        <span class="font-bold text-emerald-600 text-xs">Bs.{{ g.pagado }}</span>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded border {% if g.saldo > 0 %}border-red-100 ring-1 ring-red-50{% else %}border-emerald-100{% endif %} shadow-sm">
+                                        <span class="block text-[9px] {% if g.saldo > 0 %}text-red-400{% else %}text-emerald-500{% endif %} font-bold uppercase">Saldo</span>
+                                        <span class="font-bold {% if g.saldo > 0 %}text-red-600{% else %}text-emerald-600{% endif %} text-xs">Bs.{{ g.saldo }}</span>
+                                    </div>
+                                </div>
+
+                                {% if g.saldo > 0 %}
+                                <a href="{% url 'facturacion:registrar_pago' %}?{{ g.tipo }}={{ g.id }}"
+                                   class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-center font-bold text-xs py-2 px-3 rounded shadow hover:shadow-md transition-all">
+                                    💵 Registrar Pago (Bs. {{ g.saldo }})
+                                </a>
+                                {% endif %}
+                                {% endif %}
+
+                                <a href="{% if g.tipo == 'mensualidad' %}{% url 'agenda:detalle_mensualidad' g.id %}{% else %}{% url 'agenda:detalle_proyecto' g.id %}{% endif %}"
+                                   class="block text-center text-[10px] font-bold text-indigo-600 hover:text-indigo-800 mt-2">
+                                    Ver {% if g.tipo == 'mensualidad' %}mensualidad{% else %}proyecto{% endif %} →
+                                </a>
+
+                            {% elif not sesion.requiere_pago and not es_recepcionista %}
                                 {# Solo mostrar "Exento" a roles que NO son recepcionistas #}
                                 <div class="text-center py-1">
                                     <p class="text-xs font-bold text-gray-700 flex items-center justify-center gap-1">🎁 Exento de Pago</p>
@@ -536,6 +588,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    {% endwith %}
 
                     <div class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm relative">
                         <div class="flex items-center justify-between mb-1.5">

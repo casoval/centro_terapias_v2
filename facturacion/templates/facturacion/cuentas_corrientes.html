@@ -421,7 +421,7 @@
     <!-- Vista Desktop: Tabla con 6 columnas -->
     <div class="hidden sm:block bg-white border rounded-lg overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-xs">
+            <table class="tabla-cuentas min-w-full divide-y divide-gray-200 text-xs">
                 <thead class="bg-gray-50">
                     <tr>
                         <th rowspan="2" class="px-2 py-2 text-left font-bold text-gray-700 uppercase tracking-wider border-r-2 border-gray-300">
@@ -445,7 +445,7 @@
                         <th rowspan="2" class="px-2 py-2 text-center font-bold text-amber-700 uppercase tracking-wider bg-amber-50 border-r-2 border-gray-300">
                             🗓️ Agenda
                         </th>
-                        <th rowspan="2" class="px-2 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">
+                        <th rowspan="2" class="col-acciones px-2 py-2 text-center font-bold text-gray-700 uppercase tracking-wider">
                             Acciones
                         </th>
                     </tr>
@@ -462,7 +462,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for paciente in page_obj %}
-                    <tr class="hover:bg-gray-50 {% if paciente.estado == 'inactivo' %}opacity-40 bg-slate-50 grayscale{% endif %}">
+                    <tr class="hover:bg-gray-50 {% if paciente.estado == 'inactivo' %}fila-inactiva bg-slate-50{% endif %}">
                         <!-- Paciente -->
                         <td class="px-2 py-2 border-r-2 border-gray-200">
                             <script type="application/json" id="alertas-paciente-{{ paciente.id }}">{{ paciente.alertas_json|safe }}</script>
@@ -573,22 +573,19 @@
                         </td>
                         
                         <!-- Acciones -->
-                        <td class="px-2 py-2 text-center">
-                            {% if paciente.estado == 'inactivo' %}
-                                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-                                   class="block text-slate-500 hover:text-slate-700 font-medium text-xs mb-1">
-                                    Ver Detalle →
+                        <td class="col-acciones px-2 py-2 text-center">
+                            <div class="acciones-cuenta">
+                                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}"
+                                   class="btn-accion-detalle">
+                                    Detalle →
                                 </a>
-                                <a href="{% url 'pacientes:editar' paciente.pk %}" 
-                                   class="inline-block bg-green-100 hover:bg-green-200 text-green-700 font-bold text-[10px] px-2 py-1 rounded border border-green-300">
-                                    ✅ Activar Paciente
+                                {% if paciente.estado == 'inactivo' %}
+                                <a href="{% url 'pacientes:editar' paciente.pk %}"
+                                   class="btn-accion-activar" title="Activar paciente">
+                                    ✅ Activar
                                 </a>
-                            {% else %}
-                                <a href="{% url 'facturacion:detalle_cuenta' paciente.id %}" 
-                                   class="text-blue-600 hover:text-blue-800 font-medium text-xs">
-                                    Ver Detalle →
-                                </a>
-                            {% endif %}
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
@@ -1195,6 +1192,39 @@ document.addEventListener('keydown', function (e) {
 </div>
 
 <style>
+/* ===== Tabla de cuentas: compacta en pantallas de escritorio ===== */
+@media (min-width: 640px) {
+    body .overflow-x-auto table.tabla-cuentas { min-width: 1040px; font-size: 11px; }
+    .tabla-cuentas th, .tabla-cuentas td { padding: .35rem .4rem !important; white-space: nowrap; }
+    .tabla-cuentas thead th { font-size: 10px; letter-spacing: 0; }
+    .tabla-cuentas thead tr:nth-child(2) th { font-size: 9px; padding-top: .15rem !important; padding-bottom: .15rem !important; }
+    /* Paciente: puede partir en varias líneas, ancho acotado */
+    .tabla-cuentas td:first-child { white-space: normal; min-width: 150px; max-width: 200px; }
+    .tabla-cuentas td:first-child p { line-height: 1.15; }
+    /* Badges de alerta más pequeños */
+    .tabla-cuentas td button { padding: .15rem .4rem !important; font-size: 9px !important; white-space: nowrap; }
+    .tabla-cuentas .block { line-height: 1.1; }
+}
+/* Acciones siempre visibles (fija a la derecha al hacer scroll horizontal) */
+.tabla-cuentas .col-acciones {
+    position: sticky; right: 0; z-index: 2; width: 1%;
+    background: #fff; box-shadow: -4px 0 6px -4px rgba(0,0,0,.15);
+}
+.tabla-cuentas thead .col-acciones { background: #f9fafb; z-index: 3; }
+.tabla-cuentas tr.fila-inactiva .col-acciones { background: #f8fafc; }
+.acciones-cuenta { display: flex; flex-direction: column; align-items: stretch; gap: .2rem; min-width: 74px; }
+.btn-accion-detalle {
+    display: block; text-align: center; font-weight: 700; font-size: 10px; color: #1d4ed8;
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .375rem; padding: .2rem .4rem;
+}
+.btn-accion-detalle:hover { background: #dbeafe; }
+.btn-accion-activar {
+    display: block; text-align: center; font-weight: 700; font-size: 10px; color: #15803d;
+    background: #dcfce7; border: 1px solid #86efac; border-radius: .375rem; padding: .2rem .4rem;
+}
+.btn-accion-activar:hover { background: #bbf7d0; }
+/* Inactivos: se atenúan los datos, NO los botones de acción */
+.tabla-cuentas tr.fila-inactiva > td:not(.col-acciones) { opacity: .5; filter: grayscale(1); }
 /* Modal de alertas: nunca más alto que la pantalla; solo el cuerpo hace scroll */
 #modal-detalle-alerta-cuenta { overflow-y: auto; }
 .modal-alerta-cuenta-box {
