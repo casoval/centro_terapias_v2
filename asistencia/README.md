@@ -86,3 +86,21 @@ especiales, etiquetas de bloque; los enrolamientos con el vector simulado antigu
   Una regla sin valores queda sin descuento.
 - Los retrasos ya registrados se **recalculan con el criterio nuevo** (solo el excedente de la tolerancia), tomando la tolerancia
   del bloque del horario que regía ese día (10 min si no se encuentra). Haz un respaldo antes de migrar.
+
+## Asuetos (tiempo libre concedido)
+Día de la Mujer, cumpleaños, vacaciones... **no son falta, ni permiso, ni asistencia: son neutros.**
+No hay nada precargado: el administrador decide todo en Admin → Asistencia → Asuetos.
+- **Otorgar**: motivo + medio día / día completo / varios días + a quiénes afecta (todos, sucursales, zonas o profesionales elegidos).
+  Crea un saldo (`DerechoAsueto`) por persona, con vencimiento opcional.
+- **Usar**: el admin registra la fecha (y el bloque) en que la persona lo toma (`UsoAsueto`), sin pasarse del saldo ni del vencimiento.
+  Cada bloque pesa 1/N del día (partido: medio día = un bloque; continuo: día completo). Varios días = una fecha por vez.
+- **Efecto**: el bloque en asueto no genera AUSENTE, no es falta ni descuento, no cuenta como día con horario ni horas esperadas;
+  aparece como «Asueto» en el panel, el informe mensual (PDF) y «Mi asistencia». El reporte del profesional lo descuenta de su capacidad.
+
+## Reglas por alcance
+Regla **general** + excepciones por **sucursal** o **profesional** (Admin → Reglas). Gana la más específica
+(profesional > sucursal > general). Cada alcance tiene sus propias versiones por mes (no retroactivas);
+«Terminar excepción» devuelve a esa persona/sucursal a la regla más general desde el mes elegido.
+
+## Migración
+`0015` agrega los asuetos (DerechoAsueto, UsoAsueto) y el alcance de las reglas (alcance, sucursal, user, hereda).
