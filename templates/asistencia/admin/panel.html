@@ -33,6 +33,7 @@
     <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'permisos' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Permisos</a>
     <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'reglas' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Reglas</a>
     <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'justificaciones' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Justificaciones</a>
+    <a href="{% url 'asistencia:asuetos' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'asuetos' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Asuetos</a>
     <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'informe' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Informe mensual</a>
   </nav>
 
@@ -50,6 +51,12 @@
       <div class="text-3xl font-bold text-red-700">{{ resumen.ausentes }}</div>
       <div class="text-xs text-red-600 mt-1 font-medium">Ausentes</div>
     </div>
+    {% if resumen.asuetos %}
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+      <div class="text-3xl font-bold text-purple-700">{{ resumen.asuetos }}</div>
+      <div class="text-xs text-purple-600 mt-1 font-medium">En asueto</div>
+    </div>
+    {% endif %}
     <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
       <div class="text-3xl font-bold text-gray-500">{{ resumen.sin_enrolar }}</div>
       <div class="text-xs text-gray-400 mt-1 font-medium">Sin enrolar</div>
@@ -148,12 +155,17 @@
                 <span class="bg-red-100 text-red-800 text-xs font-semibold px-3 py-1 rounded-full">Ausente</span>
               {% elif d.estado_dia == 'pendiente' %}
                 <span class="bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">Por llegar</span>
+              {% elif d.estado_dia == 'asueto' %}
+                <span class="bg-purple-100 text-purple-800 text-xs font-semibold px-3 py-1 rounded-full" title="Asueto concedido: no es falta ni descuento">Asueto</span>
               {% elif d.estado_dia == 'libre' %}
                 <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Día libre</span>
               {% elif d.estado_dia == 'sin_horario' %}
                 <span class="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full">Sin horario</span>
               {% else %}
                 <span class="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">Sin enrolar</span>
+              {% endif %}
+              {% if d.asuetos %}
+              <div class="text-[11px] text-purple-600 mt-1">🏖️ {% for a in d.asuetos %}{{ a.derecho.motivo }}{% if a.bloque %} (bloque {{ a.bloque }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
               {% endif %}
               {% if d.intentos_fallidos %}
               <div class="text-[11px] text-red-500 mt-1">{{ d.intentos_fallidos }} intento{{ d.intentos_fallidos|pluralize }} denegado{{ d.intentos_fallidos|pluralize }}</div>

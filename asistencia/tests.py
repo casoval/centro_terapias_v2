@@ -452,7 +452,7 @@ class PanelTests(BaseAsistencia):
         self.marcar(listo, 'SALIDA', local(LUNES, 13, 0))
         self.marcar(User.objects.get(username='p1'), 'ENTRADA', local(LUNES, 8, 0))
 
-        with self.assertNumQueries(9):                 # fijo, no crece con la cantidad de profesionales
+        with self.assertNumQueries(11):                # (asuetos + sucursales para las reglas por alcance) fijo, no crece con la cantidad de profesionales
             filas, resumen = construir_panel(LUNES, local(LUNES, 13, 30))
         por_user = {f['user'].username: f for f in filas}
         self.assertEqual(por_user['p0']['estado_dia'], 'TARDANZA')
@@ -2433,3 +2433,344 @@ class MigracionRetrasoTests(BaseAsistencia):
         self.convertir(); self.convertir()
         r.refresh_from_db()
         self.assertEqual(r.segundos_acumulables, 1200)               # tolerancia 0 de su horario propio: 20 min completos
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ASUETOS (saldo, uso, efecto neutro) y REGLAS POR ALCANCE
+# ══════════════════════════════════════════════════════════════════════════════
+
+from decimal import Decimal
+from . import asuetos as asu
+from .models import DerechoAsueto, UsoAsueto
+from .services import ResolvedorReglas
+
+
+class AsuetosBase(BaseAsistencia):
+    AHORA = local(OCT(20), 10, 0)
+
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_superuser('root_asu', password='x')
+        self.p = crear_prof('ana', self.zona, control=OCT(1))
+
+    def derecho(self, dias='0.5', **kw):
+        return DerechoAsueto.objects.create(user=self.p.user, motivo='Día de la Mujer 2026',
+                                            dias=Decimal(dias), **kw)
+
+    def informe(self):
+        return construir_informes_mensuales([self.p], 2026, 10, self.AHORA)[0]
+
+    def dia(self, n):
+        return {d.fecha.day: d for d in self.informe().dias}[n]
+
+
+class AsuetoNeutroTests(AsuetosBase):
+    def test_medio_dia_de_asueto_no_es_falta_ni_descuento(self):
+        # martes 6: marca solo la mañana; la tarde (bloque 2) la toma como asueto
+        jornada(self.p.user, OCT(6), ent2=None, sal2=None)
+        asu.registrar_uso(self.derecho(), OCT(6), '2', self.admin)
+        d = self.dia(6)
+        self.assertEqual(d.falta_dias, 0.0)
+        self.assertEqual(d.bloques_falta, [])
+        self.assertAlmostEqual(d.asueto_dias, 0.5)
+        self.assertIn('Día de la Mujer', d.asueto_texto)
+        self.assertEqual(d.estado, 'puntual')
+
+    def test_sin_asueto_esa_tarde_si_es_falta(self):
+        jornada(self.p.user, OCT(6), ent2=None, sal2=None)
+        self.assertEqual(self.dia(6).bloques_falta, [2])
+
+    def test_dia_completo_en_asueto_es_neutro_y_no_cuenta_como_dia_con_horario(self):
+        base = self.informe().resumen['dias_con_horario']
+        asu.registrar_uso(self.derecho('1'), OCT(7), '', self.admin)
+        inf = self.informe()
+        d = {x.fecha.day: x for x in inf.dias}[7]
+        self.assertEqual((d.estado, d.falta_dias, d.asueto_dias), ('asueto', 0.0, 1.0))
+        self.assertEqual(inf.resumen['dias_con_horario'], base - 1)
+        self.assertEqual(inf.resumen['dias_con_asueto'], 1)
+        self.assertEqual(inf.resumen['asueto_dias'], 1.0)
+
+    def test_horas_esperadas_no_incluyen_el_bloque_en_asueto(self):
+        antes = self.informe().resumen['esperado_min']
+        asu.registrar_uso(self.derecho(), OCT(7), '1', self.admin)         # bloque 1: 08-13 = 300 min
+        self.assertEqual(self.informe().resumen['esperado_min'], antes - 300)
+
+    def test_generar_ausentes_no_crea_ausencia_en_bloque_con_asueto(self):
+        self.derecho('1')
+        asu.registrar_uso(DerechoAsueto.objects.get(), OCT(6), '', self.admin)
+        generar_ausentes(OCT(6), ahora=local(OCT(6), 23, 0))
+        self.assertFalse(RegistroAsistencia.objects.filter(user=self.p.user, estado='AUSENTE').exists())
+
+    def test_registrar_asueto_borra_el_ausente_ya_generado(self):
+        generar_ausentes(OCT(6), ahora=local(OCT(6), 23, 0))
+        self.assertEqual(RegistroAsistencia.objects.filter(user=self.p.user, estado='AUSENTE').count(), 2)
+        asu.registrar_uso(self.derecho('1'), OCT(6), '', self.admin)
+        self.assertFalse(RegistroAsistencia.objects.filter(user=self.p.user, estado='AUSENTE').exists())
+
+    def test_panel_muestra_asueto(self):
+        asu.registrar_uso(self.derecho('1'), OCT(6), '', self.admin)
+        filas, resumen = construir_panel(OCT(6), ahora=local(OCT(6), 20, 0))
+        fila = next(f for f in filas if f['user'] == self.p.user)
+        self.assertEqual(fila['estado_dia'], 'asueto')
+        self.assertEqual(resumen['asuetos'], 1)
+        self.assertEqual(resumen['ausentes'], 0)
+
+    def test_anular_el_uso_devuelve_saldo_y_vuelve_la_falta(self):
+        d = self.derecho('1')
+        uso = asu.registrar_uso(d, OCT(7), '', self.admin)
+        self.assertEqual(DerechoAsueto.objects.get(pk=d.pk).saldo, 0)
+        uso.delete()
+        self.assertEqual(DerechoAsueto.objects.get(pk=d.pk).saldo, 1)
+        self.assertEqual(self.dia(7).bloques_falta, [1, 2])
+
+
+class AsuetoSaldoTests(AsuetosBase):
+    def test_no_permite_pasarse_del_saldo(self):
+        d = self.derecho('0.5')
+        asu.registrar_uso(d, OCT(6), '1', self.admin)
+        with self.assertRaisesMessage(asu.AsuetoError, 'saldo'):
+            asu.registrar_uso(DerechoAsueto.objects.get(pk=d.pk), OCT(7), '1', self.admin)
+
+    def test_dia_completo_necesita_un_dia_de_saldo(self):
+        with self.assertRaises(asu.AsuetoError):
+            asu.registrar_uso(self.derecho('0.5'), OCT(6), '', self.admin)
+
+    def test_varios_dias_se_registran_fecha_por_fecha(self):
+        d = self.derecho('2')
+        asu.registrar_uso(d, OCT(6), '', self.admin)
+        asu.registrar_uso(DerechoAsueto.objects.get(pk=d.pk), OCT(7), '', self.admin)
+        self.assertEqual(DerechoAsueto.objects.get(pk=d.pk).saldo, 0)
+
+    def test_respeta_el_vencimiento(self):
+        d = self.derecho('1', vence_el=OCT(5))
+        with self.assertRaisesMessage(asu.AsuetoError, 'vence'):
+            asu.registrar_uso(d, OCT(6), '', self.admin)
+
+    def test_no_se_puede_en_un_domingo_sin_horario(self):
+        with self.assertRaisesMessage(asu.AsuetoError, 'no es un día con horario'):
+            asu.registrar_uso(self.derecho('1'), DOMINGO, '', self.admin)
+
+    def test_no_se_solapan_dos_asuetos_el_mismo_dia(self):
+        d = self.derecho('2')
+        asu.registrar_uso(d, OCT(6), '', self.admin)
+        with self.assertRaisesMessage(asu.AsuetoError, 'solapa'):
+            asu.registrar_uso(DerechoAsueto.objects.get(pk=d.pk), OCT(6), '1', self.admin)
+
+    def test_bloque_inexistente(self):
+        with self.assertRaisesMessage(asu.AsuetoError, 'bloque 3'):
+            asu.registrar_uso(self.derecho('1'), OCT(6), '3', self.admin)
+
+    def test_sabado_con_un_solo_bloque_usa_el_dia_completo(self):
+        uso = asu.registrar_uso(self.derecho('1'), SABADO, '1', self.admin)
+        self.assertEqual((uso.bloque, uso.dias), ('', Decimal(1)))
+
+
+class OtorgarAsuetoTests(AsuetosBase):
+    def setUp(self):
+        super().setUp()
+        self.b = crear_prof('beto', self.zona, apellido='Ruiz', control=OCT(1))
+        self.c = crear_prof('carla', self.zona, apellido='Soto', control=OCT(1))
+
+    def test_todos(self):
+        self.assertEqual({u.username for u in asu.destinatarios('todos')}, {'ana', 'beto', 'carla'})
+
+    def test_elegidos(self):
+        users = asu.destinatarios('elegidos', user_ids=[self.b.user.pk])
+        self.assertEqual([u.username for u in users], ['beto'])
+
+    def test_por_sucursal(self):
+        from servicios.models import Sucursal
+        suc = Sucursal.objects.create(nombre='Norte')
+        self.c.sucursales.add(suc)
+        self.assertEqual([u.username for u in asu.destinatarios('sucursal', sucursal_ids=[suc.pk])], ['carla'])
+
+    def test_por_zona(self):
+        self.assertEqual(len(asu.destinatarios('zona', zona_ids=[self.zona.pk])), 3)
+
+    def test_otorgar_no_duplica(self):
+        users = asu.destinatarios('elegidos', user_ids=[self.p.user.pk, self.c.user.pk])
+        self.assertEqual(asu.otorgar(users, 0.5, 'Día de la Mujer', OCT(8)), (2, 0))
+        self.assertEqual(asu.otorgar(users, 0.5, 'Día de la Mujer', OCT(8)), (0, 2))
+        self.assertEqual(DerechoAsueto.objects.count(), 2)
+
+    def test_motivo_obligatorio_y_dias_positivos(self):
+        with self.assertRaises(asu.AsuetoError):
+            asu.otorgar([self.p.user], 1, '  ')
+        with self.assertRaises(asu.AsuetoError):
+            asu.otorgar([self.p.user], 0, 'x')
+
+    def test_saldos_por_usuario_ignora_vencidos(self):
+        asu.otorgar([self.p.user], 1, 'a', OCT(1), vence_el=OCT(2))
+        asu.otorgar([self.p.user], 1, 'b', OCT(1))
+        s = asu.saldos_por_usuario([self.p.user.pk], hoy=OCT(10))
+        self.assertEqual(s[self.p.user.pk]['disponible'], 1)
+
+
+class AsuetosVistasTests(AsuetosBase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+        self.url = reverse('asistencia:asuetos')
+
+    def test_pantalla_carga(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Otorgar asueto')
+
+    def test_otorgar_medio_dia_a_todos(self):
+        r = self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'Día de la Mujer', 'duracion': '0.5',
+            'otorgado_el': '2026-10-13', 'destino': 'todos'}, follow=True)
+        self.assertEqual(DerechoAsueto.objects.get().dias, Decimal('0.5'))
+        self.assertContains(r, 'Asueto otorgado a 1 profesional')
+
+    def test_otorgar_varios_dias_a_elegidos(self):
+        self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'Vacaciones', 'duracion': 'varios', 'dias_varios': '3',
+            'otorgado_el': '2026-10-13', 'destino': 'elegidos', 'profesionales': [self.p.user.pk]})
+        self.assertEqual(DerechoAsueto.objects.get().dias, Decimal('3'))
+
+    def test_varios_dias_exige_cantidad(self):
+        r = self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'Vacaciones', 'duracion': 'varios',
+            'otorgado_el': '2026-10-13', 'destino': 'todos'})
+        self.assertContains(r, 'Indica cuántos días')
+        self.assertEqual(DerechoAsueto.objects.count(), 0)
+
+    def test_otorgar_a_elegidos_sin_elegir_da_error(self):
+        r = self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'x', 'duracion': '1', 'otorgado_el': '2026-10-13',
+            'destino': 'elegidos'})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Elige al menos un profesional')
+        self.assertEqual(DerechoAsueto.objects.count(), 0)
+
+    def test_usar_desde_la_pantalla_y_error_de_saldo(self):
+        d = self.derecho('0.5')
+        r = self.client.post(self.url, {'accion': 'usar', 'derecho': d.pk, 'fecha': '2026-10-06', 'bloque': '1'}, follow=True)
+        self.assertEqual(UsoAsueto.objects.count(), 1)
+        r = self.client.post(self.url, {'accion': 'usar', 'derecho': d.pk, 'fecha': '2026-10-07', 'bloque': '1'})
+        self.assertEqual(UsoAsueto.objects.count(), 1)           # el derecho ya no tiene saldo: no aparece / no se usa
+
+    def test_anular_uso_y_eliminar_derecho(self):
+        d = self.derecho('1')
+        uso = asu.registrar_uso(d, OCT(6), '', self.admin)
+        self.client.post(reverse('asistencia:eliminar_derecho_asueto', args=[d.pk]))
+        self.assertTrue(DerechoAsueto.objects.filter(pk=d.pk).exists())          # tiene usos: no se borra
+        self.client.post(reverse('asistencia:quitar_uso_asueto', args=[uso.pk]))
+        self.client.post(reverse('asistencia:eliminar_derecho_asueto', args=[d.pk]))
+        self.assertFalse(DerechoAsueto.objects.filter(pk=d.pk).exists())
+
+    def test_solo_admin(self):
+        self.client.logout()
+        self.client.force_login(self.p.user)
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_mi_asistencia_muestra_el_saldo(self):
+        self.derecho('0.5')
+        self.client.logout(); self.client.force_login(self.p.user)
+        r = self.client.get(reverse('asistencia:mi_asistencia'))
+        self.assertContains(r, 'Mis asuetos')
+
+    def test_pdf_con_asueto_se_genera(self):
+        asu.registrar_uso(self.derecho('1'), OCT(6), '', self.admin)
+        pdf = generar_informe_mensual_pdf([self.informe()], 'Test')
+        self.assertTrue(pdf.startswith(b'%PDF'))
+
+
+class ReglasPorAlcanceTests(BaseAsistencia):
+    """Regla general + excepciones: gana profesional > sucursal > general; cada alcance con sus versiones."""
+
+    def setUp(self):
+        super().setUp()
+        from servicios.models import Sucursal
+        self.suc = Sucursal.objects.create(nombre='Norte')
+        self.a = crear_prof('ana', self.zona, sucursal=self.suc)
+        self.b = crear_prof('beto', self.zona)
+
+    def regla(self, alcance='global', desde=None, tramos=((30, 0),), resto=1, hereda=False, **kw):
+        r = ReglasAsistencia(vigente_desde=desde or dt.date(2000, 1, 1), alcance=alcance, hereda=hereda, **kw)
+        r.save()
+        r.tramos.all().delete()
+        if not hereda:
+            for h, d in tramos:
+                TramoDescuento.objects.create(regla=r, hasta_minutos=h, dias=d)
+            TramoDescuento.objects.create(regla=r, hasta_minutos=None, dias=resto)
+        return r
+
+    def tramos(self, prof, mes=10, anio=2026):
+        return ResolvedorReglas(anio, mes).tramos(prof.user.pk, [s.pk for s in prof.sucursales.all()])
+
+    def test_solo_general(self):
+        self.regla()
+        self.assertEqual(self.tramos(self.a), self.tramos(self.b))
+        self.assertTrue(self.tramos(self.a))
+
+    def test_sin_reglas_no_hay_descuento(self):
+        self.assertEqual(self.tramos(self.a), [])
+
+    def test_excepcion_de_sucursal(self):
+        self.regla()
+        self.regla('sucursal', sucursal=self.suc, tramos=((60, 0),), resto=2)
+        self.assertEqual(self.tramos(self.a)[0][0], 3600)       # Ana (sucursal Norte) → 60 min
+        self.assertEqual(self.tramos(self.b)[0][0], 1800)       # Beto sin sucursal → general
+
+    def test_profesional_gana_a_sucursal(self):
+        self.regla()
+        self.regla('sucursal', sucursal=self.suc, tramos=((60, 0),), resto=2)
+        self.regla('profesional', user=self.a.user, tramos=((90, 0),), resto=3)
+        self.assertEqual(self.tramos(self.a)[0][0], 5400)
+
+    def test_excepcion_sin_descuento(self):
+        self.regla()
+        self.regla('profesional', user=self.b.user, tramos=((0, 0),), resto=0)
+        self.assertEqual(dias_descuento(7200, self.tramos(self.b)), 0)
+        self.assertEqual(dias_descuento(7200, self.tramos(self.a)), 1)
+
+    def test_excepcion_no_es_retroactiva(self):
+        self.regla()
+        self.regla('profesional', desde=OCT(1) + dt.timedelta(days=31), user=self.a.user, tramos=((90, 0),), resto=3)
+        self.assertEqual(self.tramos(self.a, 10)[0][0], 1800)    # octubre sigue con la general
+        self.assertEqual(self.tramos(self.a, 11)[0][0], 5400)    # desde noviembre rige la excepción
+
+    def test_terminar_excepcion_vuelve_a_la_general(self):
+        self.regla()
+        self.regla('profesional', user=self.a.user, tramos=((90, 0),), resto=3)
+        self.regla('profesional', desde=dt.date(2026, 11, 1), user=self.a.user, hereda=True)
+        self.assertEqual(self.tramos(self.a, 10)[0][0], 5400)
+        self.assertEqual(self.tramos(self.a, 11)[0][0], 1800)
+
+    def test_informe_usa_la_regla_de_cada_profesional(self):
+        self.regla()                                                    # general: >30 min → 1 día
+        self.regla('profesional', user=self.b.user, tramos=((0, 0),), resto=0)
+        for p in (self.a, self.b):                                      # 40 min de retraso acumulado cada uno
+            marca(p.user, OCT(6), 8, 50, 'ENTRADA', 'TARDANZA', '1', 50, acum_seg=2400)
+        inf = {i.profesional.pk: i for i in construir_informes_mensuales([self.a, self.b], 2026, 10, local(OCT(20), 10))}
+        self.assertEqual(inf[self.a.pk].resumen['desc_retraso'], 1)
+        self.assertEqual(inf[self.b.pk].resumen['desc_retraso'], 0)
+
+    def test_pantalla_de_excepcion_guarda_en_su_alcance(self):
+        admin = User.objects.create_superuser('root_reg', password='x')
+        self.client.force_login(admin)
+        self.regla()
+        datos = datos_reglas([(60, 0)], 2, 11, 2026)
+        datos.update({'alcance': 'profesional', 'profesional': self.a.user.pk})
+        r = self.client.post(reverse('asistencia:reglas'), datos)
+        self.assertEqual(r.status_code, 302)
+        exc = ReglasAsistencia.objects.get(alcance='profesional')
+        self.assertEqual((exc.user, exc.vigente_desde), (self.a.user, dt.date(2026, 11, 1)))
+        self.assertEqual(ReglasAsistencia.objects.filter(alcance='global').count(), 1)     # la general no se tocó
+        r = self.client.get(reverse('asistencia:reglas'), {'alcance': 'profesional', 'profesional': self.a.user.pk})
+        self.assertContains(r, 'Estás editando la excepción')
+        # terminar la excepción
+        datos = datos_reglas([], 0, 12, 2026); datos.update({'alcance': 'profesional', 'profesional': self.a.user.pk, 'hereda': 'on'})
+        self.client.post(reverse('asistencia:reglas'), datos)
+        self.assertTrue(ReglasAsistencia.objects.get(alcance='profesional', vigente_desde=dt.date(2026, 12, 1)).hereda)
+
+    def test_mi_asistencia_usa_su_regla(self):
+        self.regla()
+        self.regla('profesional', user=self.b.user, tramos=((90, 0),), resto=3)
+        self.client.force_login(self.b.user)
+        r = self.client.get(reverse('asistencia:mi_asistencia'))
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('90', r.context['texto_regla'])

@@ -32,7 +32,7 @@ from django.utils import timezone
 
 from .models import (
     ConfigAsistencia, EnrolamientoFacial, FechaEspecial, RegistroAsistencia, ReglasAsistencia,
-    ordenar_bloques,
+    UsoAsueto, ordenar_bloques,
 )
 
 logger = logging.getLogger(__name__)
@@ -745,7 +745,7 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
     profesional no marcó entrada. Es idempotente: puede ejecutarse cada hora.
 
     No genera ausencias en días libres, fechas especiales libres, días sin horario,
-    ni (por defecto) para profesionales que aún no enrolaron su rostro.
+    bloques cubiertos por un asueto (ver asuetos.py), ni (por defecto) para profesionales que aún no enrolaron su rostro.
     Retorna la cantidad de ausencias creadas.
     """
     ahora = timezone.localtime(ahora or timezone.now())
@@ -758,6 +758,10 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
     for r in RegistroAsistencia.objects.filter(fecha_hora__date=fecha, tipo='ENTRADA',
                                                estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE']):
         regs.setdefault(r.user_id, []).append(r)
+
+    asuetos = {}
+    for a in UsoAsueto.objects.filter(fecha=fecha):
+        asuetos.setdefault(a.user_id, []).append(a)
 
     creadas = 0
     for user in profesionales:
@@ -774,6 +778,8 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
             fin = b.cierre_marcado(fecha)          # fin del bloque o límite de retraso, lo que ocurra antes
             if ahora < fin or str(b.numero) in cubiertos:
                 continue
+            if any(a.cubre(b.numero) for a in asuetos.get(user.pk, [])):
+                continue                              # asueto concedido: no es ausencia
             RegistroAsistencia.objects.create(
                 user=user, zona=config.zona, tipo='ENTRADA', estado='AUSENTE',
                 bloque=str(b.numero), fecha_hora=fin,
@@ -800,6 +806,47 @@ def segundos_acumulados_mes(fecha_ref: date, user_ids=None):
         qs = qs.filter(user_id__in=user_ids)
     return {r['user_id']: r['total'] or 0
             for r in qs.values('user_id').annotate(total=Sum('segundos_acumulables'))}
+
+
+class ResolvedorReglas:
+    """
+    Reglas de descuento por retraso de UN mes para cualquier profesional (consulta la BD una sola vez).
+    La más específica gana: regla del profesional > regla de su sucursal > regla general. Cada alcance usa la
+    versión vigente el día 1 del mes, así que cambiar las reglas no es retroactivo.
+    """
+
+    def __init__(self, anio: int, mes: int):
+        dia1 = date(anio, mes, 1)
+        self.general = None
+        self.por_sucursal = {}
+        self.por_user = {}
+        vigentes = (ReglasAsistencia.objects.filter(vigente_desde__lte=dia1)
+                    .order_by('vigente_desde', 'pk').prefetch_related('tramos'))
+        for r in vigentes:                      # orden ascendente: la última versión de cada alcance pisa a las anteriores
+            if r.alcance == 'sucursal':
+                destino, clave = self.por_sucursal, r.sucursal_id
+            elif r.alcance == 'profesional':
+                destino, clave = self.por_user, r.user_id
+            else:
+                self.general = r
+                continue
+            if r.hereda:                        # la excepción terminó: se usa la regla más general
+                destino.pop(clave, None)
+            else:
+                destino[clave] = r
+
+    def para(self, user_id, sucursal_ids=()):
+        """Regla aplicable (ReglasAsistencia | None = sin descuento por retraso)."""
+        if user_id in self.por_user:
+            return self.por_user[user_id]
+        for sid in sorted(sucursal_ids):
+            if sid in self.por_sucursal:
+                return self.por_sucursal[sid]
+        return self.general
+
+    def tramos(self, user_id, sucursal_ids=()):
+        regla = self.para(user_id, sucursal_ids)
+        return regla.tramos_lista() if regla else []
 
 
 def fmt_min_seg(segundos) -> str:
@@ -868,6 +915,15 @@ def texto_tramos(tramos):
     return ' · '.join(partes)
 
 
+def _sucursal_ids(user):
+    """Ids de las sucursales donde trabaja el profesional (para las reglas por sucursal)."""
+    try:
+        prof = user.profesional                       # Profesional.user (vínculo que usan los informes)
+    except Exception:
+        prof = getattr(getattr(user, 'perfil', None), 'profesional', None)
+    return [s.pk for s in prof.sucursales.all()] if prof else []
+
+
 def construir_panel(fecha: date, ahora=None):
     """
     Una fila por profesional con su día completo. Usa un número fijo de consultas
@@ -878,14 +934,17 @@ def construir_panel(fecha: date, ahora=None):
     profesionales = list(
         User.objects.filter(perfil__rol='profesional', is_active=True)
         .select_related('perfil__profesional', 'enrolamiento')
+        .prefetch_related('profesional__sucursales')
         .order_by('last_name', 'first_name')
     )
     fechas_por_zona = _fechas_especiales_por_zona(fecha)
     configs_por_user = _configs_por_usuario()
 
     acumulados = segundos_acumulados_mes(fecha, [u.pk for u in profesionales])
-    reglas = ReglasAsistencia.para_mes(fecha.year, fecha.month)   # versión vigente ese mes (None = sin descuento)
-    tramos = reglas.tramos_lista() if reglas else []
+    resolvedor = ResolvedorReglas(fecha.year, fecha.month)        # reglas del mes: profesional > sucursal > general
+    asuetos = {}
+    for a in UsoAsueto.objects.filter(fecha=fecha).select_related('derecho'):
+        asuetos.setdefault(a.user_id, []).append(a)
     por_user = {}
     for r in (RegistroAsistencia.objects.filter(fecha_hora__date=fecha)
               .select_related('zona').order_by('fecha_hora', 'pk')):
@@ -905,9 +964,15 @@ def construir_panel(fecha: date, ahora=None):
         enrol = getattr(user, 'enrolamiento', None)
         enrolado = enrol is not None and enrol.estado == 'enrolado'
         entradas = [r for r in validos if r.tipo == 'ENTRADA']
+        tramos = resolvedor.tramos(user.pk, _sucursal_ids(user))
+        usos_asueto = asuetos.get(user.pk, [])
+        activos = [b for b in horario.bloques if not any(a.cubre(b.numero) for a in usos_asueto)]
+        en_asueto = bool(horario.bloques) and not activos
 
         if entradas:
             estado = 'TARDANZA' if any(r.estado == 'TARDANZA' for r in entradas) else 'PUNTUAL'
+        elif en_asueto:
+            estado = 'asueto'                                   # todo el día cubierto por un asueto: neutro
         elif not enrolado:
             estado = 'sin_enrolar'
         elif ausencias:
@@ -917,7 +982,7 @@ def construir_panel(fecha: date, ahora=None):
         elif not horario.es_laborable:
             estado = 'sin_horario'
         else:
-            primer_fin = horario.bloques[0].cierre_marcado(fecha)
+            primer_fin = activos[0].cierre_marcado(fecha)
             estado = 'ausente' if (fecha < ahora.date() or ahora >= primer_fin) else 'pendiente'
 
         filas.append({
@@ -928,6 +993,7 @@ def construir_panel(fecha: date, ahora=None):
             'pares': estado_dia_obj.pares,
             'entradas': entradas,
             'ausencias': ausencias,
+            'asuetos': usos_asueto,
             'segundos_dia': sum(r.segundos_acumulables for r in entradas),
             'acum_seg': acumulados.get(user.pk, 0),
             'descuento_dias': dias_descuento(acumulados.get(user.pk, 0), tramos),
@@ -941,6 +1007,7 @@ def construir_panel(fecha: date, ahora=None):
         'presentes': sum(1 for f in filas if f['estado_dia'] in ('PUNTUAL', 'TARDANZA')),
         'tardanzas': sum(1 for f in filas if f['estado_dia'] == 'TARDANZA'),
         'ausentes': sum(1 for f in filas if f['estado_dia'] == 'ausente'),
+        'asuetos': sum(1 for f in filas if f['estado_dia'] == 'asueto'),
         'sin_enrolar': sum(1 for f in filas if f['estado_dia'] == 'sin_enrolar'),
     }
     return filas, resumen

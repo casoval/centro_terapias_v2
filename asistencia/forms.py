@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
@@ -320,6 +321,10 @@ class ReglasAsistenciaForm(forms.Form):
         help_text='Días de descuento cuando el retraso supera el último tope, sin importar cuánto.',
     )
 
+    hereda = forms.BooleanField(
+        required=False, label='Terminar esta excepción: desde ese mes se usa la regla más general',
+        widget=forms.CheckboxInput(attrs={'class': CHECK}))
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         hoy = timezone.localdate()
@@ -391,3 +396,83 @@ class PermisoAsistenciaForm(forms.ModelForm):
         if len(detalle) < 5:
             raise forms.ValidationError('Describe el justificativo que se presentó.')
         return detalle
+
+
+# ── Asuetos ──────────────────────────────────────────────────────────────────
+
+class OtorgarAsuetoForm(forms.Form):
+    """Otorga un derecho de asueto a un grupo de profesionales."""
+    DESTINOS = [('todos', 'Todo el personal'), ('sucursal', 'Una o varias sucursales'),
+                ('zona', 'Una o varias zonas'), ('elegidos', 'Profesionales elegidos')]
+    motivo = forms.CharField(max_length=200, label='Motivo',
+                             widget=forms.TextInput(attrs={'class': INPUT, 'placeholder': 'Ej: Día de la Mujer, Cumpleaños, Vacaciones'}))
+    duracion = forms.ChoiceField(
+        choices=[('0.5', 'Medio día'), ('1', 'Día completo'), ('varios', 'Varios días')], label='Duración',
+        widget=forms.Select(attrs={'class': INPUT}))
+    dias_varios = forms.DecimalField(
+        required=False, min_value=1, max_digits=4, decimal_places=2, label='¿Cuántos días?',
+        widget=forms.NumberInput(attrs={'class': INPUT, 'min': '1', 'step': '0.5'}))
+    otorgado_el = forms.DateField(label='Fecha del evento / otorgamiento', widget=forms.DateInput(
+        format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}))
+    vence_el = forms.DateField(required=False, label='Vence el (opcional)', widget=forms.DateInput(
+        format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}),
+        help_text='Vacío = usa el plazo del tipo, o no vence.')
+    destino = forms.ChoiceField(choices=DESTINOS, label='¿A quiénes?', widget=forms.Select(attrs={'class': INPUT}))
+    sucursales = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Sucursales')
+    zonas = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Zonas')
+    profesionales = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Profesionales')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.contrib.auth.models import User as DjangoUser
+        from servicios.models import Sucursal
+        self.fields['sucursales'].queryset = Sucursal.objects.all().order_by('nombre')
+        self.fields['zonas'].queryset = ZonaAsistencia.objects.filter(activa=True).order_by('nombre')
+        self.fields['profesionales'].queryset = DjangoUser.objects.filter(
+            perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name')
+        self.fields['profesionales'].label_from_instance = lambda u: u.get_full_name() or u.username
+        for f in ('sucursales', 'zonas', 'profesionales'):
+            self.fields[f].widget = forms.SelectMultiple(attrs={'class': INPUT, 'size': '5'})
+        self.initial.setdefault('otorgado_el', timezone.localdate())
+
+    def clean(self):
+        c = super().clean()
+        if c.get('duracion') == 'varios':
+            if not c.get('dias_varios'):
+                self.add_error('dias_varios', 'Indica cuántos días.')
+            c['dias'] = c.get('dias_varios')
+        elif c.get('duracion'):
+            c['dias'] = Decimal(c['duracion'])
+        destino = c.get('destino')
+        if destino == 'sucursal' and not c.get('sucursales'):
+            self.add_error('sucursales', 'Elige al menos una sucursal.')
+        if destino == 'zona' and not c.get('zonas'):
+            self.add_error('zonas', 'Elige al menos una zona.')
+        if destino == 'elegidos' and not c.get('profesionales'):
+            self.add_error('profesionales', 'Elige al menos un profesional.')
+        return c
+
+
+class UsarAsuetoForm(forms.Form):
+    """Registra la fecha (y bloque) en la que un profesional toma su asueto."""
+    derecho = forms.ModelChoiceField(queryset=None, label='Asueto a usar', widget=forms.Select(attrs={'class': INPUT}))
+    fecha = forms.DateField(label='Fecha en que lo toma', widget=forms.DateInput(
+        format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}))
+    bloque = forms.ChoiceField(
+        choices=[('', 'Todo el día'), ('1', 'Solo el bloque 1 (mañana)'), ('2', 'Solo el bloque 2 (tarde)'),
+                 ('3', 'Solo el bloque 3'), ('4', 'Solo el bloque 4')],
+        required=False, label='Qué parte', widget=forms.Select(attrs={'class': INPUT}))
+    nota = forms.CharField(max_length=200, required=False, label='Nota (opcional)',
+                           widget=forms.TextInput(attrs={'class': INPUT}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import DerechoAsueto
+        hoy = timezone.localdate()
+        disponibles = [d.pk for d in DerechoAsueto.objects.select_related('user').prefetch_related('usos')
+                       if d.estado(hoy) == 'disponible']
+        self.fields['derecho'].queryset = (DerechoAsueto.objects.filter(pk__in=disponibles)
+                                           .select_related('user').prefetch_related('usos')
+                                           .order_by('user__last_name', 'user__first_name'))
+        self.fields['derecho'].label_from_instance = lambda d: (
+            f"{d.user.get_full_name() or d.user.username} — {d.motivo} (saldo {d.saldo:g} d)")
