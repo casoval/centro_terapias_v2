@@ -1,8 +1,11 @@
+import datetime
+
 from django import forms
+from django.utils import timezone
 from django.forms import BaseInlineFormSet, inlineformset_factory
 from .models import (
     ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
-    FechaEspecial, BloqueFechaEspecial, RegistroAsistencia,
+    FechaEspecial, BloqueFechaEspecial, PermisoAsistencia, RegistroAsistencia,
     DIAS_SEMANA_ORDEN,
 )
 
@@ -83,6 +86,13 @@ class PlantillaHorarioForm(forms.ModelForm):
         error_messages={'required': 'Marca al menos un día.'},
     )
 
+    # No es un campo del modelo: la vista decide si edita en el lugar o crea una versión nueva.
+    vigente_desde = forms.DateField(
+        label='Aplicar desde',
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}),
+        help_text='Los días anteriores a esta fecha conservan el horario que regía.',
+    )
+
     class Meta:
         model = PlantillaHorario
         fields = ['nombre', 'dias']
@@ -95,6 +105,7 @@ class PlantillaHorarioForm(forms.ModelForm):
         self.fields['nombre'].required = False
         if self.instance and self.instance.pk:
             self.initial['dias'] = self.instance.dias or []
+        self.initial.setdefault('vigente_desde', timezone.localdate())
 
     def clean_dias(self):
         # Orden de semana estable (LUN..DOM) sin importar como llegaron
@@ -104,18 +115,25 @@ class PlantillaHorarioForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         dias = set(cleaned.get('dias') or [])
+        desde = cleaned.get('vigente_desde')
         inst = self.instance
-        if dias and inst.zona_id:
+        if dias and desde and inst.zona_id:
+            # rango que ocuparía el horario editado: desde la fecha elegida hasta el fin de esta versión
+            hasta_nuevo = inst.vigente_hasta if inst.pk else None
             otras = PlantillaHorario.objects.filter(zona_id=inst.zona_id, user_id=inst.user_id)
             if inst.pk:
                 otras = otras.exclude(pk=inst.pk)
             nombres = dict(DIAS_CHOICES)
             for otra in otras:
+                se_cruzan = ((hasta_nuevo is None or otra.vigente_desde <= hasta_nuevo)
+                             and (otra.vigente_hasta is None or desde <= otra.vigente_hasta))
                 comunes = [d for d in DIAS_SEMANA_ORDEN if d in dias and d in (otra.dias or [])]
-                if comunes:
+                if comunes and se_cruzan:
+                    cuando = f" ({otra.vigencia_texto})" if otra.vigencia_texto else ''
                     raise forms.ValidationError(
                         f"{', '.join(nombres[d] for d in comunes)} ya está en el horario "
-                        f"«{otra.nombre or otra.dias_display}». Quita esos días de uno de los dos."
+                        f"«{otra.nombre or otra.dias_display}»{cuando} en esas fechas. "
+                        "Quita esos días de uno de los dos o cambia la fecha."
                     )
         return cleaned
 
@@ -129,17 +147,22 @@ class PlantillaHorarioForm(forms.ModelForm):
 
 class BloqueForm(forms.ModelForm):
     class Meta:
-        fields = ['hora_entrada', 'hora_salida', 'tolerancia_minutos']
+        fields = ['hora_entrada', 'hora_salida', 'tolerancia_minutos', 'max_retraso_minutos']
         widgets = {
             'hora_entrada': forms.TimeInput(format=TIME_FMT, attrs={'class': TIME, 'type': 'time'}),
             'hora_salida': forms.TimeInput(format=TIME_FMT, attrs={'class': TIME, 'type': 'time'}),
             'tolerancia_minutos': forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'max': '120'}),
+            'max_retraso_minutos': forms.NumberInput(attrs={
+                'class': INPUT, 'min': '0', 'max': '600', 'placeholder': 'sin límite'}),
         }
-        labels = {'hora_entrada': 'Entrada', 'hora_salida': 'Salida', 'tolerancia_minutos': 'Tolerancia (min)'}
+        labels = {'hora_entrada': 'Entrada', 'hora_salida': 'Salida',
+                  'tolerancia_minutos': 'Tolerancia (min)',
+                  'max_retraso_minutos': 'Límite para marcar (min)'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['tolerancia_minutos'].initial = 10
+        self.fields['max_retraso_minutos'].required = False
 
 
 class BloqueHorarioForm(BloqueForm):
@@ -200,9 +223,16 @@ def bloque_formset(padre_model, bloque_model, form_class, instance=None, data=No
 
 
 class ConfigAsistenciaForm(forms.ModelForm):
+    aplicar_desde = forms.DateField(
+        required=False, label='Aplicar el cambio de horario propio desde',
+        widget=forms.DateInput(format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}),
+        help_text='Solo cuenta al activar o desactivar «Horario propio». Los días anteriores conservan el horario que regía.',
+    )
+
     class Meta:
         model = ConfigAsistencia
         fields = ['user', 'zona', 'personalizado', 'device_id']
+        # (aplicar_desde se declara abajo: no es un campo del modelo)
         widgets = {
             'user':  forms.Select(attrs={'class': INPUT}),
             'zona':  forms.Select(attrs={'class': INPUT}),
@@ -222,6 +252,7 @@ class ConfigAsistenciaForm(forms.ModelForm):
             perfil__rol='profesional', is_active=True
         ).order_by('last_name', 'first_name')
         self.fields['device_id'].required = False
+        self.initial.setdefault('aplicar_desde', timezone.localdate())
 
 
 class FechaEspecialForm(forms.ModelForm):
@@ -261,3 +292,102 @@ class PermisoReenrolamientoForm(forms.Form):
         widget=forms.TextInput(attrs={'class': INPUT,
             'placeholder': 'Ej: Problema con iluminación en consulta'})
     )
+
+
+MESES_CHOICES = [(1, 'Enero'), (2, 'Febrero'), (3, 'Marzo'), (4, 'Abril'), (5, 'Mayo'), (6, 'Junio'),
+                 (7, 'Julio'), (8, 'Agosto'), (9, 'Septiembre'), (10, 'Octubre'), (11, 'Noviembre'), (12, 'Diciembre')]
+
+
+def primer_dia_mes_siguiente(hoy=None):
+    hoy = hoy or timezone.localdate()
+    return (hoy.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+
+
+# Valores sugeridos cuando todavía no hay reglas guardadas: (hasta minutos, días de descuento) y días para el resto.
+TRAMOS_SUGERIDOS = [(30, 0), (45, 0.5), (60, 1), (90, 2)]
+DIAS_RESTO_SUGERIDO = 3
+
+
+class ReglasAsistenciaForm(forms.Form):
+    """Una nueva versión de las reglas que rige desde el día 1 del mes elegido (no es retroactiva)."""
+    mes = forms.TypedChoiceField(choices=MESES_CHOICES, coerce=int, label='Aplicar desde el mes de',
+                                 widget=forms.Select(attrs={'class': INPUT}))
+    anio = forms.TypedChoiceField(choices=[], coerce=int, label='del año',
+                                  widget=forms.Select(attrs={'class': INPUT}))
+    dias_resto = forms.DecimalField(
+        min_value=0, max_digits=4, decimal_places=2, label='Más allá del último tope',
+        widget=forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'step': '0.5'}),
+        help_text='Días de descuento cuando el retraso supera el último tope, sin importar cuánto.',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        hoy = timezone.localdate()
+        self.fields['anio'].choices = [(a, str(a)) for a in range(2024, hoy.year + 3)]
+        siguiente = primer_dia_mes_siguiente(hoy)
+        self.initial.setdefault('mes', siguiente.month)
+        self.initial.setdefault('anio', siguiente.year)
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('mes') and cleaned.get('anio'):
+            cleaned['vigente_desde'] = datetime.date(cleaned['anio'], cleaned['mes'], 1)
+        return cleaned
+
+
+class TramoForm(forms.Form):
+    hasta = forms.DecimalField(
+        required=False, min_value=0, max_digits=6, decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'step': '0.01', 'placeholder': 'minutos'}))
+    dias = forms.DecimalField(
+        required=False, min_value=0, max_digits=4, decimal_places=2,
+        widget=forms.NumberInput(attrs={'class': INPUT, 'min': '0', 'step': '0.5', 'placeholder': 'días'}))
+
+
+class BaseTramoFormSet(forms.BaseFormSet):
+    """Filas «hasta N minutos -> X días»: topes crecientes y descuentos que no bajan. Filas vacías se ignoran."""
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        filas = []
+        for form in self.forms:
+            h, d = form.cleaned_data.get('hasta'), form.cleaned_data.get('dias')
+            if h is None and d is None:
+                continue
+            if h is None or d is None:
+                raise forms.ValidationError('Cada fila necesita los dos datos: hasta cuántos minutos y cuántos días.')
+            filas.append((h, d))
+        topes = [h for h, _d in filas]
+        if len(set(topes)) != len(topes):
+            raise forms.ValidationError('No repitas el mismo tope de minutos en dos filas.')
+        filas.sort()
+        for (h1, d1), (h2, d2) in zip(filas, filas[1:]):
+            if d2 < d1:
+                raise forms.ValidationError(
+                    f'Hasta {h2} min no puede descontar menos ({d2} días) que hasta {h1} min ({d1} días).')
+        self.filas_validas = filas
+
+
+TramoFormSet = forms.formset_factory(TramoForm, formset=BaseTramoFormSet, extra=2, max_num=10, validate_max=True)
+
+
+class PermisoAsistenciaForm(forms.ModelForm):
+    """Datos del justificativo (quién, qué día y qué bloque vienen de la fila que se justifica)."""
+    class Meta:
+        model = PermisoAsistencia
+        fields = ['tipo', 'detalle', 'comprobante']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': INPUT}),
+            'detalle': forms.Textarea(attrs={'class': INPUT, 'rows': 2,
+                                             'placeholder': 'Ej: Certificado médico del Dr. Pérez, reposo 2 días'}),
+        }
+        labels = {'tipo': 'Tipo de justificativo', 'detalle': 'Detalle del justificativo escrito',
+                  'comprobante': 'Comprobante (opcional)'}
+
+    def clean_detalle(self):
+        detalle = (self.cleaned_data.get('detalle') or '').strip()
+        if len(detalle) < 5:
+            raise forms.ValidationError('Describe el justificativo que se presentó.')
+        return detalle

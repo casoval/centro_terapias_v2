@@ -13,6 +13,9 @@
     <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Asignaciones</a>
     <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Enrolamiento</a>
     <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
+    <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Reglas</a>
+    <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Justificaciones</a>
+    <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Informe mensual</a>
   </nav>
 
   <!-- Nueva asignación — dividida en dos filas -->
@@ -44,6 +47,11 @@
           </label>
           <p class="text-xs text-gray-400 mt-1">Podrás editar sus días y bloques después de guardar</p>
         </div>
+      </div>
+      <div class="mt-4 max-w-xs">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">{{ form.aplicar_desde.label }}</label>
+        {{ form.aplicar_desde }}
+        <p class="text-xs text-gray-400 mt-1">Solo si activas horario propio. Antes de esa fecha rige el horario de la zona.</p>
       </div>
     </div>
 
@@ -113,7 +121,7 @@
             <td data-label="Horario vigente" class="px-4 py-3">
               <div class="space-y-1.5">
                 {% for p in config.plantillas_vigentes %}
-                  {% include "asistencia/admin/_plantilla_resumen.html" with p=p %}
+                  {% include "asistencia/admin/_plantilla_resumen.html" with p=p hoy=hoy %}
                 {% empty %}
                   <span class="text-gray-300 text-xs">Sin horario configurado</span>
                 {% endfor %}

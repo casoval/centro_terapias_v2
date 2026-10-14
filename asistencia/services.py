@@ -27,10 +27,11 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from .models import (
-    ConfigAsistencia, EnrolamientoFacial, FechaEspecial, RegistroAsistencia,
+    ConfigAsistencia, EnrolamientoFacial, FechaEspecial, RegistroAsistencia, ReglasAsistencia,
     ordenar_bloques,
 )
 
@@ -60,9 +61,23 @@ class BloqueResuelto:
     entrada: time
     salida: time
     tolerancia: int = 10
+    max_retraso: Optional[int] = None      # minutos de retraso hasta los que se puede marcar
 
     def etiqueta(self):
         return f"{self.entrada:%H:%M}–{self.salida:%H:%M}"
+
+    def cierre_marcado(self, fecha):
+        """
+        Instante desde el cual ya NO se puede marcar el ingreso de este bloque (y, si no se
+        marcó, cuenta como falta): fin del bloque, o antes si hay límite de retraso.
+        Se puede marcar hasta `max_retraso` minutos con 0 segundos, inclusive; un segundo
+        después ya no.
+        """
+        fin = _aware(fecha, self.salida)
+        if self.max_retraso is None:
+            return fin
+        limite = _aware(fecha, self.entrada) + timedelta(minutes=self.max_retraso, seconds=1)
+        return min(fin, limite)
 
 
 @dataclass
@@ -92,7 +107,7 @@ class HorarioDia:
 
 def _bloques_resueltos(objs) -> List[BloqueResuelto]:
     return [
-        BloqueResuelto(i, b.hora_entrada, b.hora_salida, b.tolerancia_minutos)
+        BloqueResuelto(i, b.hora_entrada, b.hora_salida, b.tolerancia_minutos, b.max_retraso_minutos)
         for i, b in enumerate(ordenar_bloques(objs), start=1)
     ]
 
@@ -196,17 +211,52 @@ class CalculadorEstado:
                 break
         return elegido
 
-    def calcular(self):
-        bloque = self.bloque_correspondiente()
-        if bloque is None:
-            return 'PUNTUAL', '', 0                     # sin horario: se registra igual
-        if bloque.numero in self.usados:
-            return 'PUNTUAL', '', 0                     # re-entrada dentro de un bloque ya cubierto
+    def segundos_retraso(self, bloque: BloqueResuelto) -> int:
+        """Segundos de diferencia respecto al inicio del bloque (negativo si llegó antes)."""
         entrada = _aware(self.fecha, bloque.entrada)
-        if self.ahora <= entrada + timedelta(minutes=bloque.tolerancia):
-            return 'PUNTUAL', str(bloque.numero), 0
-        minutos = int((self.ahora - entrada).total_seconds() // 60)
-        return 'TARDANZA', str(bloque.numero), minutos
+        return int((self.ahora.replace(microsecond=0) - entrada).total_seconds())
+
+    def minutos_retraso(self, bloque: BloqueResuelto) -> int:
+        """Minutos completos de retraso (los segundos sueltos no suman). 0 si llegó antes."""
+        return max(self.segundos_retraso(bloque), 0) // 60
+
+    def exceso_limite(self):
+        """
+        (bloque, minutos) si este ingreso supera el límite para marcar de su bloque
+        (no se puede marcar, queda como falta). None si puede marcar normalmente.
+        Una re-entrada en un bloque ya cubierto nunca se bloquea.
+        """
+        bloque = self.bloque_correspondiente()
+        if bloque is None or bloque.numero in self.usados or bloque.max_retraso is None:
+            return None
+        if self.segundos_retraso(bloque) > bloque.max_retraso * 60:
+            return bloque, self.minutos_retraso(bloque)
+        return None
+
+    def detalle(self):
+        """
+        Todo lo que se guarda de un ingreso:
+          estado, bloque, minutos (completos desde la hora de entrada, informativo),
+          segundos_tarde (segundos después de la hora de entrada; también dentro de la tolerancia) y
+          segundos_acumulables (SOLO lo que excede la tolerancia: es lo que se suma en el mes).
+        Con tolerancia de 10 min y entrada a las 08:00: 08:10:00 -> puntual (600 s tarde, 0 acumulables);
+        08:11:00 -> retraso de 660 s tarde y 60 s acumulables (1 minuto).
+        """
+        vacio = dict(estado='PUNTUAL', bloque='', minutos=0, segundos_tarde=0, segundos_acumulables=0)
+        bloque = self.bloque_correspondiente()
+        if bloque is None or bloque.numero in self.usados:
+            return vacio                                # sin horario o re-entrada: no se calcula retraso
+        tarde = max(self.segundos_retraso(bloque), 0)
+        exceso = max(tarde - bloque.tolerancia * 60, 0)
+        return dict(
+            estado='TARDANZA' if exceso else 'PUNTUAL', bloque=str(bloque.numero),
+            minutos=(tarde // 60) if exceso else 0,
+            segundos_tarde=tarde, segundos_acumulables=exceso,
+        )
+
+    def calcular(self):
+        d = self.detalle()
+        return d['estado'], d['bloque'], d['minutos']
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -272,7 +322,7 @@ def calcular_estado_dia(registros, horario: HorarioDia, ahora=None) -> EstadoDia
             return EstadoDia(registros, None, usados, ultima_entrada)   # sin horario: un par por día
         pendientes = [
             b for b in horario.bloques
-            if b.numero not in usados and ahora < _aware(ahora.date(), b.salida)
+            if b.numero not in usados and ahora < b.cierre_marcado(ahora.date())
         ]
         if not pendientes:
             return EstadoDia(registros, None, usados, ultima_entrada)
@@ -434,7 +484,7 @@ class ValidadorAsistencia:
         configs = list(
             ConfigAsistencia.objects.filter(user=self.user, zona__activa=True)
             .select_related('zona')
-            .prefetch_related('zona__plantillas__bloques')
+            .prefetch_related('zona__plantillas__bloques', 'periodos_propios')
         )
         if not configs:
             self.errores.append("No tienes zonas de asistencia asignadas.")
@@ -545,6 +595,20 @@ class ValidadorAsistencia:
             self.errores.append(f"Ya registraste {ya}. Lo siguiente que debes marcar es la {falta}.")
             return False, None, self.errores
 
+        # 2b — Límite de retraso para marcar el ingreso (opcional, por bloque)
+        calculador = CalculadorEstado(horario, ahora, estado_dia.bloques_usados)
+        if self.tipo == 'ENTRADA':
+            exceso = calculador.exceso_limite()
+            if exceso:
+                bloque, minutos = exceso
+                hasta = timezone.localtime(bloque.cierre_marcado(fecha) - timedelta(seconds=1))
+                self.errores.append(
+                    f"Ya no puedes marcar el ingreso de las {bloque.entrada:%H:%M}: el límite era de "
+                    f"{bloque.max_retraso} min de retraso (hasta las {hasta:%H:%M}) y llevas {minutos}. "
+                    "Este bloque se toma como falta. Si corresponde, pide al administrador que lo registre."
+                )
+                return False, None, self.errores
+
         # 3 — Biométrico
         if not self.validar_facial():
             registro = RegistroAsistencia.objects.create(**self._datos_base(
@@ -563,13 +627,15 @@ class ValidadorAsistencia:
 
         # 4 — Estado (puntual / tardanza)
         if self.tipo == 'ENTRADA':
-            estado, bloque, minutos = CalculadorEstado(horario, ahora, estado_dia.bloques_usados).calcular()
+            det = calculador.detalle()
         else:
-            estado, minutos = 'PUNTUAL', 0
-            bloque = estado_dia.ultima_entrada.bloque if estado_dia.ultima_entrada else ''
+            det = dict(estado='PUNTUAL', minutos=0, segundos_tarde=0, segundos_acumulables=0,
+                       bloque=estado_dia.ultima_entrada.bloque if estado_dia.ultima_entrada else '')
+        estado, bloque, minutos = det['estado'], det['bloque'], det['minutos']
 
         registro = self._guardar_registro(
             estado=estado, bloque=bloque, minutos_tardanza=minutos,
+            segundos_tarde=det['segundos_tarde'], segundos_acumulables=det['segundos_acumulables'],
             zona=self.zona_valida, biometrico_score=self.score_facial,
             observacion=self.observacion, fecha_hora=ahora,
         )
@@ -598,7 +664,7 @@ class ValidadorAsistencia:
 def _configs_usuario(user):
     return list(
         ConfigAsistencia.objects.filter(user=user, zona__activa=True)
-        .select_related('zona').prefetch_related('zona__plantillas__bloques')
+        .select_related('zona').prefetch_related('zona__plantillas__bloques', 'periodos_propios')
     )
 
 
@@ -625,10 +691,11 @@ def registrar_manual(user, tipo, admin, observacion='', ahora=None):
             )
 
         if tipo == 'ENTRADA':
-            estado, bloque, minutos = CalculadorEstado(horario, ahora, estado_dia.bloques_usados).calcular()
+            det = CalculadorEstado(horario, ahora, estado_dia.bloques_usados).detalle()
         else:
-            estado, minutos = 'PUNTUAL', 0
-            bloque = estado_dia.ultima_entrada.bloque if estado_dia.ultima_entrada else ''
+            det = dict(estado='PUNTUAL', minutos=0, segundos_tarde=0, segundos_acumulables=0,
+                       bloque=estado_dia.ultima_entrada.bloque if estado_dia.ultima_entrada else '')
+        estado, bloque, minutos = det['estado'], det['bloque'], det['minutos']
 
         nota = f"Registrado manualmente por {admin.get_full_name() or admin.username}."
         if observacion:
@@ -637,6 +704,7 @@ def registrar_manual(user, tipo, admin, observacion='', ahora=None):
         registro = RegistroAsistencia.objects.create(
             user=user, zona=config.zona if config else None, tipo=tipo,
             estado=estado, bloque=bloque, minutos_tardanza=minutos,
+            segundos_tarde=det['segundos_tarde'], segundos_acumulables=det['segundos_acumulables'],
             observacion=nota, registrado_por=admin, fecha_hora=ahora,
         )
         if tipo == 'ENTRADA' and bloque:
@@ -665,7 +733,7 @@ def _fechas_especiales_por_zona(fecha):
 def _configs_por_usuario():
     por_user = {}
     qs = (ConfigAsistencia.objects.filter(zona__activa=True)
-          .select_related('zona').prefetch_related('zona__plantillas__bloques').order_by('pk'))
+          .select_related('zona').prefetch_related('zona__plantillas__bloques', 'periodos_propios').order_by('pk'))
     for c in qs:
         por_user.setdefault(c.user_id, []).append(c)
     return por_user
@@ -703,7 +771,7 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
 
         cubiertos = {r.bloque for r in regs.get(user.pk, []) if r.bloque}
         for b in horario.bloques:
-            fin = _aware(fecha, b.salida)
+            fin = b.cierre_marcado(fecha)          # fin del bloque o límite de retraso, lo que ocurra antes
             if ahora < fin or str(b.numero) in cubiertos:
                 continue
             RegistroAsistencia.objects.create(
@@ -718,6 +786,87 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
 # ══════════════════════════════════════════════════════════════════════════════
 # PANEL DEL ADMINISTRADOR (resumen diario)
 # ══════════════════════════════════════════════════════════════════════════════
+
+def segundos_acumulados_mes(fecha_ref: date, user_ids=None):
+    """
+    Segundos de retraso acumulados en el mes de `fecha_ref`, hasta ese día inclusive. Solo suma lo que
+    excede la tolerancia de cada ingreso. Devuelve {user_id: segundos}.
+    """
+    qs = RegistroAsistencia.objects.filter(
+        tipo='ENTRADA', estado='TARDANZA',
+        fecha_hora__date__gte=fecha_ref.replace(day=1), fecha_hora__date__lte=fecha_ref,
+    )
+    if user_ids is not None:
+        qs = qs.filter(user_id__in=user_ids)
+    return {r['user_id']: r['total'] or 0
+            for r in qs.values('user_id').annotate(total=Sum('segundos_acumulables'))}
+
+
+def fmt_min_seg(segundos) -> str:
+    """90 -> '1:30', 1620 -> '27:00' (minutos:segundos)."""
+    m, sg = divmod(max(int(segundos), 0), 60)
+    return f"{m}:{sg:02d}"
+
+
+def dias_descuento(segundos, tramos):
+    """
+    Días de descuento para un retraso acumulado. `tramos` = [(tope_en_segundos | None, días)] ordenado
+    (ReglasAsistencia.tramos_lista()). Los topes son inclusivos: con 30/45/60/90 min, de 30:01 a 45:00
+    cae en el tramo de 45. El tramo sin tope vale para todo lo que lo supere. Sin tramos: 0.
+    """
+    if not tramos:
+        return 0.0
+    s = max(int(segundos), 0)
+    for tope, dias in tramos:
+        if tope is None or s <= tope:
+            return dias
+    return tramos[-1][1]
+
+
+def segundos_para_proximo_tramo(segundos, tramos):
+    """Segundos de retraso que faltan para que el descuento aumente. None si ya está en el máximo."""
+    if not tramos:
+        return None
+    s = max(int(segundos), 0)
+    actual = dias_descuento(s, tramos)
+    for tope in sorted({t for t, _d in tramos if t is not None}):
+        primero_del_siguiente = tope + 1
+        if primero_del_siguiente > s and dias_descuento(primero_del_siguiente, tramos) > actual:
+            return primero_del_siguiente - s
+    return None
+
+
+def segundos_sin_descuento(tramos):
+    """Mayor retraso acumulado que todavía NO genera descuento (None si no hay tramo gratuito o nunca hay descuento)."""
+    if not tramos or dias_descuento(0, tramos) > 0:
+        return None
+    for tope in sorted({t for t, _d in tramos if t is not None}):
+        if dias_descuento(tope + 1, tramos) > 0:
+            return tope
+    return None
+
+
+def texto_tramos(tramos):
+    """'hasta 30 min: sin descuento · 30–45 min: ½ día · ... · más de 90 min: 3 días' (para informes)."""
+    def dias_txt(d):
+        if d == 0:
+            return 'sin descuento'
+        if d == 0.5:
+            return 'medio día'
+        n = int(d) if d == int(d) else d
+        return f"{n} día" + ('' if d == 1 else 's')
+
+    partes, previo = [], None
+    for tope, dias in tramos:
+        if tope is None:
+            partes.append(f"más de {previo // 60 if previo is not None else 0} min: {dias_txt(dias)}")
+        elif previo is None:
+            partes.append(f"hasta {tope / 60:g} min: {dias_txt(dias)}")
+        else:
+            partes.append(f"{previo / 60:g}–{tope / 60:g} min: {dias_txt(dias)}")
+        previo = tope
+    return ' · '.join(partes)
+
 
 def construir_panel(fecha: date, ahora=None):
     """
@@ -734,6 +883,9 @@ def construir_panel(fecha: date, ahora=None):
     fechas_por_zona = _fechas_especiales_por_zona(fecha)
     configs_por_user = _configs_por_usuario()
 
+    acumulados = segundos_acumulados_mes(fecha, [u.pk for u in profesionales])
+    reglas = ReglasAsistencia.para_mes(fecha.year, fecha.month)   # versión vigente ese mes (None = sin descuento)
+    tramos = reglas.tramos_lista() if reglas else []
     por_user = {}
     for r in (RegistroAsistencia.objects.filter(fecha_hora__date=fecha)
               .select_related('zona').order_by('fecha_hora', 'pk')):
@@ -765,7 +917,7 @@ def construir_panel(fecha: date, ahora=None):
         elif not horario.es_laborable:
             estado = 'sin_horario'
         else:
-            primer_fin = _aware(fecha, horario.bloques[0].salida)
+            primer_fin = horario.bloques[0].cierre_marcado(fecha)
             estado = 'ausente' if (fecha < ahora.date() or ahora >= primer_fin) else 'pendiente'
 
         filas.append({
@@ -776,7 +928,9 @@ def construir_panel(fecha: date, ahora=None):
             'pares': estado_dia_obj.pares,
             'entradas': entradas,
             'ausencias': ausencias,
-            'minutos_tardanza': sum(r.minutos_tardanza for r in entradas),
+            'segundos_dia': sum(r.segundos_acumulables for r in entradas),
+            'acum_seg': acumulados.get(user.pk, 0),
+            'descuento_dias': dias_descuento(acumulados.get(user.pk, 0), tramos),
             'siguiente': estado_dia_obj.siguiente,
             'estado_dia': estado,
             'estado_enrolamiento': enrol.estado if enrol else 'pendiente',

@@ -1,3 +1,4 @@
+import datetime
 import math
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -10,6 +11,10 @@ DIAS_SEMANA = [
     ('JUE', 'Jueves'), ('VIE', 'Viernes'), ('SAB', 'Sábado'), ('DOM', 'Domingo'),
 ]
 WEEKDAY_MAP = {0: 'LUN', 1: 'MAR', 2: 'MIE', 3: 'JUE', 4: 'VIE', 5: 'SAB', 6: 'DOM'}
+
+
+# Fecha de inicio de todo lo configurado antes de existir las vigencias: "rige desde siempre".
+DESDE_SIEMPRE = datetime.date(2000, 1, 1)
 
 
 class ZonaAsistencia(models.Model):
@@ -49,7 +54,13 @@ class BloqueBase(models.Model):
     orden = models.PositiveSmallIntegerField(default=1)
     hora_entrada = models.TimeField()
     hora_salida = models.TimeField()
+    # Minutos de retraso que NO cuentan como tardanza (hasta el minuto N inclusive).
     tolerancia_minutos = models.PositiveIntegerField(default=10)
+    # Opcional: pasado este retraso ya no se puede marcar el ingreso y el bloque cuenta como falta.
+    max_retraso_minutos = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Minutos de retraso hasta los que se puede marcar. Vacío = sin límite.'
+    )
 
     class Meta:
         abstract = True
@@ -58,6 +69,9 @@ class BloqueBase(models.Model):
     def clean(self):
         if self.hora_entrada and self.hora_salida and self.hora_salida <= self.hora_entrada:
             raise ValidationError('La hora de salida debe ser posterior a la de entrada.')
+        if self.max_retraso_minutos is not None and self.tolerancia_minutos is not None \
+                and self.max_retraso_minutos < self.tolerancia_minutos:
+            raise ValidationError('El límite para marcar no puede ser menor que la tolerancia.')
 
     def __str__(self):
         return f"{self.hora_entrada:%H:%M}-{self.hora_salida:%H:%M}"
@@ -88,6 +102,10 @@ class PlantillaHorario(models.Model):
     )
     nombre = models.CharField(max_length=100, blank=True)
     dias = models.JSONField(default=list, help_text='Ej: ["LUN","MAR","MIE","JUE","VIE"]')
+    # Vigencia: un cambio de horario NO es retroactivo. Al editar con una fecha de inicio, la versión
+    # anterior se cierra el día previo y se crea una nueva; los meses pasados conservan la que regía.
+    vigente_desde = models.DateField(default=DESDE_SIEMPRE, help_text='Primer día en que rige este horario')
+    vigente_hasta = models.DateField(null=True, blank=True, help_text='Último día en que rige (vacío = sin fin)')
     creada_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -112,8 +130,32 @@ class PlantillaHorario(models.Model):
     def bloques_ordenados(self):
         return ordenar_bloques(self.bloques.all())
 
+    def vigente_en(self, fecha):
+        return self.vigente_desde <= fecha and (self.vigente_hasta is None or fecha <= self.vigente_hasta)
+
     def aplica_en(self, fecha):
-        return WEEKDAY_MAP.get(fecha.weekday()) in (self.dias or [])
+        return self.vigente_en(fecha) and WEEKDAY_MAP.get(fecha.weekday()) in (self.dias or [])
+
+    def estado_vigencia(self, hoy=None):
+        """'programado' (aún no empieza), 'finalizado' (ya terminó) o 'vigente'."""
+        hoy = hoy or timezone.localdate()
+        if self.vigente_desde > hoy:
+            return 'programado'
+        if self.vigente_hasta is not None and self.vigente_hasta < hoy:
+            return 'finalizado'
+        return 'vigente'
+
+    @property
+    def vigencia_texto(self):
+        desde = None if self.vigente_desde <= DESDE_SIEMPRE else self.vigente_desde.strftime('%d/%m/%Y')
+        hasta = self.vigente_hasta.strftime('%d/%m/%Y') if self.vigente_hasta else None
+        if desde and hasta:
+            return f"del {desde} al {hasta}"
+        if desde:
+            return f"desde el {desde}"
+        if hasta:
+            return f"hasta el {hasta}"
+        return ''
 
 
 DIAS_SEMANA_ORDEN = [d for d, _ in DIAS_SEMANA]
@@ -176,6 +218,143 @@ class BloqueFechaEspecial(BloqueBase):
         verbose_name_plural = 'Bloques de fecha especial'
 
 
+class ReglasAsistencia(models.Model):
+    """
+    Descuento por retraso acumulado, por TRAMOS (ver TramoDescuento). Hay una versión por fecha de inicio
+    (siempre el día 1 de un mes): un mes se evalúa completo con la versión que regía el día 1, así que
+    cambiar las reglas NO es retroactivo. Ver services.dias_descuento() y ReglasAsistencia.para_mes().
+
+    Los segundos de retraso de cada ingreso (solo lo que excede la tolerancia) se acumulan durante el mes
+    y el total cae en un tramo que fija los días de descuento. Ejemplo sugerido:
+        hasta 30 min -> 0 días · hasta 45 -> ½ día · hasta 60 -> 1 día · hasta 90 -> 2 días · más de 90 -> 3 días
+    La tolerancia y el límite para marcar no están aquí: son por bloque de horario (BloqueBase).
+    """
+    vigente_desde = models.DateField(
+        default=DESDE_SIEMPRE, unique=True,
+        help_text='Primer día del mes desde el cual rige esta versión de las reglas.'
+    )
+    modificado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
+    )
+    fecha_modificacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Reglas de asistencia'
+        verbose_name_plural = 'Reglas de asistencia'
+        ordering = ['-vigente_desde']
+
+    def __str__(self):
+        return 'Reglas de asistencia' + ('' if self.vigente_desde <= DESDE_SIEMPRE
+                                         else f" desde {self.vigente_desde:%m/%Y}")
+
+    def save(self, *args, **kwargs):
+        # Guardar con una fecha que ya existe actualiza esa versión (no duplica).
+        if self.pk is None:
+            existente = type(self).objects.filter(vigente_desde=self.vigente_desde).first()
+            if existente:
+                self.pk = existente.pk
+        super().save(*args, **kwargs)
+
+    def tramos_lista(self):
+        """[(tope_en_segundos | None, días)] ordenado; None = «más allá del último tope»."""
+        if self.pk is None:                      # instancia vacía (todavía no hay reglas guardadas)
+            return []
+        ordenados = sorted(self.tramos.all(), key=lambda t: (t.hasta_minutos is None, t.hasta_minutos or 0))
+        return [(None if t.hasta_minutos is None else int(round(float(t.hasta_minutos) * 60)), float(t.dias))
+                for t in ordenados]
+
+    @property
+    def hay_descuento(self):
+        return any(dias > 0 for _tope, dias in self.tramos_lista())
+
+    @classmethod
+    def para_fecha(cls, fecha):
+        """Versión que rige en `fecha` (None si todavía no hay reglas)."""
+        return (cls.objects.filter(vigente_desde__lte=fecha).order_by('-vigente_desde')
+                .prefetch_related('tramos').first())
+
+    @classmethod
+    def para_mes(cls, anio, mes):
+        """Versión con la que se evalúa un mes completo: la vigente el día 1."""
+        return cls.para_fecha(datetime.date(anio, mes, 1))
+
+    @classmethod
+    def obtener(cls):
+        """Versión vigente hoy; si no hay ninguna, una instancia vacía (sin guardar)."""
+        return cls.para_fecha(timezone.localdate()) or cls()
+
+    def estado_vigencia(self, vigente_actual_pk=None, hoy=None):
+        hoy = hoy or timezone.localdate()
+        if self.vigente_desde > hoy:
+            return 'programada'
+        return 'vigente' if self.pk == vigente_actual_pk else 'anterior'
+
+
+class TramoDescuento(models.Model):
+    """
+    Un escalón de la regla de descuento: «hasta N minutos acumulados en el mes -> X días de descuento».
+    El tramo sin tope (hasta_minutos vacío) vale para todo lo que supere al último tope.
+    Los topes son INCLUSIVOS: con 30 / 45 / 60 / 90, de 30:01 a 45:00 cae en el tramo de 45.
+    """
+    regla = models.ForeignKey(ReglasAsistencia, on_delete=models.CASCADE, related_name='tramos')
+    hasta_minutos = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text='Hasta cuántos minutos acumulados (inclusive). Vacío = sin tope.'
+    )
+    dias = models.DecimalField(max_digits=4, decimal_places=2, default=0,
+                               help_text='Días de descuento (0, 0.5, 1, 2, 3...).')
+
+    class Meta:
+        verbose_name = 'Tramo de descuento'
+        verbose_name_plural = 'Tramos de descuento'
+        ordering = ['hasta_minutos']
+
+    def __str__(self):
+        tope = 'más allá del último tope' if self.hasta_minutos is None else f'hasta {self.hasta_minutos} min'
+        return f"{tope}: {self.dias} día(s)"
+
+
+class PermisoAsistencia(models.Model):
+    """
+    Justificación de una falta. Solo la registra el administrador, después de revisar el comprobante o el
+    justificativo escrito (certificado médico, nota, etc.). Mientras no exista, el bloque sigue siendo falta
+    con descuento. Se puede justificar hasta el último día del mes de la falta.
+    """
+    TIPO_CHOICES = [
+        ('medico', 'Certificado médico'),
+        ('autorizado', 'Permiso autorizado por escrito'),
+        ('otro', 'Otro justificativo escrito'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='permisos_asistencia')
+    fecha = models.DateField()
+    bloque = models.CharField(max_length=2, blank=True, help_text='Vacío = todo el día; "1", "2"... = solo ese bloque')
+    tipo = models.CharField(max_length=12, choices=TIPO_CHOICES, default='medico')
+    detalle = models.TextField(help_text='Qué justificativo se presentó (certificado de..., nota firmada por..., etc.)')
+    comprobante = models.FileField(upload_to='asistencia/justificativos/%Y/%m/', null=True, blank=True)
+    registrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                       related_name='permisos_asistencia_registrados')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Permiso de asistencia'
+        verbose_name_plural = 'Permisos de asistencia'
+        unique_together = ['user', 'fecha', 'bloque']
+        ordering = ['-fecha', 'user_id']
+
+    def __str__(self):
+        alcance = 'todo el día' if not self.bloque else f'bloque {self.bloque}'
+        return f"{self.user.get_full_name()} — {self.fecha:%d/%m/%Y} ({alcance}, {self.get_tipo_display()})"
+
+    def cubre(self, bloque_numero):
+        return self.bloque == '' or self.bloque == str(bloque_numero)
+
+    @property
+    def plazo_hasta(self):
+        """Último día en que se puede registrar o quitar este permiso (fin del mes de la falta)."""
+        siguiente = (self.fecha.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+        return siguiente - datetime.timedelta(days=1)
+
+
 class ConfigAsistencia(models.Model):
     """
     Asignacion usuario + zona.
@@ -201,22 +380,69 @@ class ConfigAsistencia(models.Model):
         tipo = "personalizado" if self.personalizado else "predeterminado"
         return f"{self.user.get_full_name()} — {self.zona.nombre} ({tipo})"
 
-    def plantillas_efectivas(self):
-        """Plantillas que rigen para este usuario (usa prefetch si existe)."""
+    def _periodos(self):
+        """Periodos en que rige el horario propio (se cargan una sola vez por instancia)."""
+        if self.pk is None:
+            return []
+        if not hasattr(self, '_periodos_cache'):
+            self._periodos_cache = list(self.periodos_propios.all())
+        return self._periodos_cache
+
+    def usa_horario_propio(self, fecha=None):
+        """
+        ¿Rige el horario propio del profesional en esa fecha? Sin fecha: según la marca actual.
+        Si todavía no hay periodos registrados se respeta la marca `personalizado` (siempre).
+        """
+        if fecha is None:
+            return self.personalizado
+        periodos = self._periodos()
+        if not periodos:
+            return self.personalizado
+        return any(p.cubre(fecha) for p in periodos)
+
+    def plantillas_efectivas(self, fecha=None):
+        """
+        Plantillas que rigen para este usuario (usa prefetch si existe). Con `fecha` solo las vigentes
+        ese día, del horario propio o del de la zona según corresponda; sin fecha, todas las versiones.
+        """
         todas = list(self.zona.plantillas.all())
-        if self.personalizado:
-            return [p for p in todas if p.user_id == self.user_id]
-        return [p for p in todas if p.user_id is None]
+        if self.usa_horario_propio(fecha):
+            elegidas = [p for p in todas if p.user_id == self.user_id]
+        else:
+            elegidas = [p for p in todas if p.user_id is None]
+        if fecha is not None:
+            elegidas = [p for p in elegidas if p.vigente_en(fecha)]
+        return elegidas
 
     def plantilla_para_dia(self, fecha):
-        for p in self.plantillas_efectivas():
-            if p.aplica_en(fecha):
-                return p
-        return None
+        candidatas = [p for p in self.plantillas_efectivas(fecha) if p.aplica_en(fecha)]
+        return max(candidatas, key=lambda p: p.vigente_desde) if candidatas else None
 
     def bloques_para_dia(self, fecha):
         p = self.plantilla_para_dia(fecha)
         return p.bloques_ordenados() if p else []
+
+
+class PeriodoHorarioPropio(models.Model):
+    """
+    Periodo en que rige el horario propio de un profesional (ConfigAsistencia). Permite activar o
+    desactivar el horario propio desde una fecha sin cambiar lo ocurrido antes.
+    Fuera de estos periodos rige el horario de la zona.
+    """
+    config = models.ForeignKey(ConfigAsistencia, on_delete=models.CASCADE, related_name='periodos_propios')
+    desde = models.DateField(default=DESDE_SIEMPRE)
+    hasta = models.DateField(null=True, blank=True, help_text='Último día (vacío = sin fin)')
+
+    class Meta:
+        verbose_name = 'Periodo de horario propio'
+        verbose_name_plural = 'Periodos de horario propio'
+        ordering = ['desde']
+
+    def __str__(self):
+        return f"{self.config} [{self.desde} → {self.hasta or 'sin fin'}]"
+
+    def cubre(self, fecha):
+        return self.desde <= fecha and (self.hasta is None or fecha <= self.hasta)
 
 
 class EnrolamientoFacial(models.Model):
@@ -314,7 +540,14 @@ class RegistroAsistencia(models.Model):
     # Distancia euclidiana entre descriptores faciales (menor = mas parecido)
     biometrico_score = models.FloatField(null=True, blank=True)
     foto_captura = models.ImageField(upload_to='asistencia/capturas/%Y/%m/%d/', null=True, blank=True)
+    # Minutos completos transcurridos desde la hora de entrada del bloque (informativo).
     minutos_tardanza = models.IntegerField(default=0)
+    # Segundos después de la hora de entrada (0 si llegó a tiempo o antes). Dentro de la tolerancia
+    # sigue siendo > 0: sirve para saber si el profesional "usó" su tolerancia.
+    segundos_tarde = models.PositiveIntegerField(default=0)
+    # Segundos de retraso que SE ACUMULAN: solo lo que excede la tolerancia (10 min de tolerancia y
+    # marca a los 11:00 -> 60 s acumulables).
+    segundos_acumulables = models.PositiveIntegerField(default=0)
     device_id = models.CharField(max_length=255, blank=True)
     observacion = models.TextField(blank=True)
     registrado_por = models.ForeignKey(

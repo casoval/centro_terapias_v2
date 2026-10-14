@@ -28,6 +28,22 @@
         {{ form.nombre }}
       </div>
 
+      <div class="mb-5 bg-blue-50 border border-blue-100 rounded-xl p-4">
+        <label class="block text-xs font-semibold text-blue-800 mb-1">{{ form.vigente_desde.label }}</label>
+        <div class="max-w-[200px]">{{ form.vigente_desde }}</div>
+        {% for error in form.vigente_desde.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}
+        <p class="text-xs text-blue-700 mt-2">
+          {% if es_nueva %}
+          El horario rige desde esta fecha; antes de ella no se aplica.
+          {% else %}
+          <b>Los cambios no son retroactivos.</b> Con una fecha posterior a {{ plantilla.vigente_desde|date:"d/m/Y" }} se crea una
+          <b>versión nueva</b> desde ese día y el horario actual queda vigente hasta el día anterior (los meses pasados no cambian).
+          Con una fecha igual o anterior se corrige este mismo horario.
+          {% endif %}
+          {% if plantilla.vigencia_texto %}<br/>Vigencia actual: <b>{{ plantilla.vigencia_texto }}</b>.{% endif %}
+        </p>
+      </div>
+
       <div class="mb-5">
         <label class="block text-xs font-semibold text-gray-600 mb-2">{{ form.dias.label }}</label>
         <p class="text-xs text-gray-400 mb-2">Los días en los que rige este horario. Cada día solo puede estar en un horario.</p>
@@ -50,6 +66,10 @@
         <b>Horario continuo</b>: llena solo el bloque 1. <b>Horario partido</b>: llena 2 bloques (mañana y tarde).
         Deja vacíos los que no uses.
       </p>
+      <p class="text-xs text-gray-400 mb-4">
+        <b>Tolerancia</b>: minutos de retraso que no cuentan (con 10, hasta el minuto 10 es puntual; desde el 11 es retraso).
+        <b>Límite para marcar</b> (opcional): pasados esos minutos ya no se puede marcar y el bloque cuenta como falta.
+      </p>
 
       {{ formset.management_form }}
       {% for e in formset.non_form_errors %}
@@ -68,7 +88,7 @@
             </label>
             {% endif %}
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
               <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.hora_entrada.label }}</label>
               {{ f.hora_entrada }}
@@ -80,6 +100,10 @@
             <div>
               <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.tolerancia_minutos.label }}</label>
               {{ f.tolerancia_minutos }}
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-600 mb-1">{{ f.max_retraso_minutos.label }}</label>
+              {{ f.max_retraso_minutos }}
             </div>
           </div>
           {% for field in f.visible_fields %}{% for error in field.errors %}<p class="text-xs text-red-500 mt-1">{{ error }}</p>{% endfor %}{% endfor %}

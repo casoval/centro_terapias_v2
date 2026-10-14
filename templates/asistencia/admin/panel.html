@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load asistencia_tags %}
 {% block title %}Panel de Asistencia — Admin{% endblock %}
 
 {% block content %}
@@ -30,6 +31,9 @@
     <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'asignaciones' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Asignaciones</a>
     <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'enrolamiento' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Enrolamiento</a>
     <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'permisos' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Permisos</a>
+    <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'reglas' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Reglas</a>
+    <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'justificaciones' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Justificaciones</a>
+    <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium {% if seccion == 'informe' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Informe mensual</a>
   </nav>
 
   <!-- Métricas -->
@@ -52,6 +56,26 @@
     </div>
   </div>
 
+  {% if alertas %}
+  <div class="bg-orange-50 border border-orange-200 rounded-2xl p-5 mb-5">
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+      <h2 class="text-sm font-bold text-orange-900">Conviene conversar con {{ alertas|length }} profesional{{ alertas|length|pluralize:"es" }} este mes</h2>
+      <a href="{% url 'asistencia:informe_mensual' %}" class="text-xs text-orange-800 hover:underline font-semibold">Ver informe mensual →</a>
+    </div>
+    <p class="text-xs text-orange-700 mb-3">Puntualidad en 2 estrellas o menos, o faltas sin justificar: se puede hablar a tiempo, antes de que el descuento sea fuerte.</p>
+    <div class="space-y-2">
+      {% for a in alertas %}
+      <div class="bg-white border border-orange-100 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span class="font-semibold text-sm text-gray-800 min-w-[160px]">{{ a.user.get_full_name|default:a.user.username }}</span>
+        {% estrellas a.eval.puntualidad %}
+        {% semaforo a.eval.asistencia %}
+        <span class="text-xs text-gray-500 flex-1 min-w-[220px]">{{ a.eval.puntualidad.motivo }}{% if a.eval.asistencia.nivel == 'rojo' %} {{ a.eval.asistencia.motivo }}{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Tabla de profesionales -->
   <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100">
@@ -65,7 +89,9 @@
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Horario del día</th>
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Marcados (entrada → salida)</th>
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Estado</th>
-            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Tardanza</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3" title="Retraso del día que se acumula (solo lo que excede la tolerancia), en minutos:segundos">Retraso del día</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3" title="Retraso acumulado en el mes, hasta la fecha mostrada (minutos:segundos)">Retraso acum. mes</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3" title="Cómo va el mes: estrellas de puntualidad y semáforo de asistencia (pasa el cursor para ver el motivo)">Evaluación del mes</th>
             <th class="text-left text-xs font-semibold text-gray-500 px-4 py-3" title="Distancia facial: menor = más parecido">Rostro</th>
             {% if es_hoy %}<th class="text-left text-xs font-semibold text-gray-500 px-4 py-3">Marcar</th>{% endif %}
           </tr>
@@ -135,7 +161,21 @@
             </td>
 
             <td class="px-4 py-3 text-sm text-gray-600">
-              {% if d.minutos_tardanza > 0 %}<span class="text-yellow-700 font-semibold">{{ d.minutos_tardanza }} min</span>{% else %}—{% endif %}
+              {% if d.segundos_dia > 0 %}<span class="text-yellow-700 font-semibold">{{ d.segundos_dia|min_seg }}</span>{% else %}—{% endif %}
+            </td>
+
+            <td class="px-4 py-3 text-sm">
+              {% if d.acum_seg %}
+                <span class="font-semibold {% if d.descuento_dias %}text-red-600{% else %}text-yellow-700{% endif %}">{{ d.acum_seg|min_seg }}</span>
+                {% if d.descuento_dias %}<div class="text-[11px] text-red-500 font-semibold">→ {{ d.descuento_dias|dias }} día{{ d.descuento_dias|pluralize }} de descuento</div>{% endif %}
+              {% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+
+            <td class="px-4 py-3">
+              {% if d.eval %}
+                <div>{% estrellas d.eval.puntualidad %}</div>
+                <div class="mt-1">{% semaforo d.eval.asistencia %}</div>
+              {% else %}<span class="text-gray-300 text-xs">—</span>{% endif %}
             </td>
 
             <td class="px-4 py-3 text-sm text-gray-500 font-mono">
@@ -163,7 +203,7 @@
             {% endif %}
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="px-6 py-8 text-center text-gray-400 text-sm">No hay profesionales registrados.</td></tr>
+          <tr><td colspan="9" class="px-6 py-8 text-center text-gray-400 text-sm">No hay profesionales registrados.</td></tr>
           {% endfor %}
         </tbody>
       </table>
