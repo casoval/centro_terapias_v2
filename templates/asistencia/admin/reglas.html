@@ -158,19 +158,33 @@
           {{ form.hereda }}<span>{{ form.hereda.label }}<br><span class="text-xs text-gray-400">Si la marcas, se ignoran los tramos de abajo.</span></span>
         </label>
         {% endif %}
+        <style>
+          /* Grilla propia: el tailwind.css compilado no incluye clases arbitrarias como grid-cols-[...] */
+          .tramos { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .5rem .75rem; align-items: center; }
+          .tramos-cab { font-size: .75rem; font-weight: 600; color: #4b5563; }
+          .tramos-celda { display: flex; align-items: center; gap: .5rem; min-width: 0; font-size: .75rem; color: #6b7280; }
+          .tramos-celda input { flex: 1 1 auto; min-width: 0; }
+          .tramos-celda span { flex: none; white-space: nowrap; }
+          .tramos-err { grid-column: 1 / -1; font-size: .75rem; color: #ef4444; }
+          .tramos-resto { grid-column: 1 / -1; display: flex; align-items: center; gap: .75rem; padding-top: .75rem; margin-top: .25rem; border-top: 1px solid #f3f4f6; font-size: .75rem; color: #374151; }
+          .tramos-resto label { flex: 1 1 auto; font-weight: 600; }
+          .tramos-resto .tramos-celda { flex: 0 0 48%; }
+        </style>
         <div class="text-xs font-semibold text-gray-600 mb-2">Tramos de retraso acumulado en el mes</div>
         {{ formset.management_form }}
-        <div class="space-y-2 mb-2">
+        <div class="tramos mb-2">
+          <div class="tramos-cab">Retraso acumulado hasta</div>
+          <div class="tramos-cab">Se descuenta</div>
           {% for f in formset %}
-          <div class="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-2 text-sm text-gray-600">
-            <span class="text-xs">Hasta</span>{{ f.hasta }}<span class="text-xs">min →</span>{{ f.dias }}<span class="text-xs">día(s)</span>
-          </div>
-          {% for field in f %}{% for e in field.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}{% endfor %}
+          <div class="tramos-celda">{{ f.hasta }}<span>min</span></div>
+          <div class="tramos-celda">{{ f.dias }}<span>día(s)</span></div>
+          {% for field in f %}{% for e in field.errors %}<p class="tramos-err">{{ e }}</p>{% endfor %}{% endfor %}
           {% endfor %}
-          <div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-sm text-gray-700 pt-1 border-t border-gray-100">
-            <span class="text-xs font-semibold">Más allá del último tope →</span>{{ form.dias_resto }}<span class="text-xs">día(s)</span>
+          <div class="tramos-resto">
+            <label>Más allá del último tope</label>
+            <div class="tramos-celda">{{ form.dias_resto }}<span>día(s)</span></div>
           </div>
-          {% for e in form.dias_resto.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}
+          {% for e in form.dias_resto.errors %}<p class="tramos-err">{{ e }}</p>{% endfor %}
         </div>
         <p class="text-xs text-gray-400 mb-4">
           Los topes son inclusivos: con «hasta 30 min → 0 días» y «hasta 45 min → 0,5 días», de 30:01 a 45:00 se descuenta

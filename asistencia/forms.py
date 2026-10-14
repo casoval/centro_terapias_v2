@@ -460,7 +460,8 @@ class UsarAsuetoForm(forms.Form):
         format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}))
     bloque = forms.ChoiceField(
         choices=[('', 'Todo el día'), ('1', 'Solo el bloque 1 (mañana)'), ('2', 'Solo el bloque 2 (tarde)'),
-                 ('3', 'Solo el bloque 3'), ('4', 'Solo el bloque 4')],
+                 ('3', 'Solo el bloque 3 (si el horario tiene 3 turnos)'),
+                 ('4', 'Solo el bloque 4 (si el horario tiene 4 turnos)')],
         required=False, label='Qué parte', widget=forms.Select(attrs={'class': INPUT}))
     nota = forms.CharField(max_length=200, required=False, label='Nota (opcional)',
                            widget=forms.TextInput(attrs={'class': INPUT}))
