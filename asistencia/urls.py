@@ -21,11 +21,19 @@ urlpatterns = [
     path('admin/horarios/fechas/<int:pk>/eliminar/', views.eliminar_fecha_especial, name='eliminar_fecha_especial'),
     path('admin/enrolamiento/', views.enrolamiento, name='enrolamiento'),
     path('admin/enrolamiento/<int:enrolamiento_pk>/desbloquear/', views.desbloquear_enrolamiento, name='desbloquear'),
+    path('admin/reglas/', views.reglas_asistencia, name='reglas'),
+    path('admin/reglas/<int:pk>/eliminar/', views.eliminar_reglas, name='eliminar_reglas'),
+    path('admin/justificaciones/', views.justificaciones, name='justificaciones'),
+    path('admin/justificaciones/guardar/', views.justificar_falta, name='justificar_falta'),
+    path('admin/justificaciones/<int:pk>/quitar/', views.quitar_permiso, name='quitar_permiso'),
+    path('admin/informe-mensual/', views.informe_mensual, name='informe_mensual'),
+    path('admin/informe-mensual/pdf/', views.informe_mensual_pdf, name='informe_mensual_pdf'),
     path('admin/permisos/', views.permisos, name='permisos'),
 
     # ── Panel profesional ────────────────────────────────────────────────────
     path('marcar/', views.marcar_asistencia, name='marcar'),
     path('mi-asistencia/', views.mi_asistencia, name='mi_asistencia'),
+    path('mi-informe/pdf/', views.mi_informe_pdf, name='mi_informe_pdf'),
     path('enrolamiento/', views.enrolamiento_facial, name='enrolamiento_facial'),
     path('mi-asistencia/<int:pk>/observacion/', views.editar_observacion, name='editar_observacion'),
 ]

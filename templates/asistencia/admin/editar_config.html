@@ -72,16 +72,26 @@
       {% endif %}
     </div>
 
+    {% if periodos %}
+    <div class="px-6 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-500">
+      Periodos con horario propio:
+      {% for per in periodos %}<b>{% if per.desde.year <= 2000 %}desde siempre{% else %}desde el {{ per.desde|date:"d/m/Y" }}{% endif %}{% if per.hasta %} hasta el {{ per.hasta|date:"d/m/Y" }}{% else %} (vigente){% endif %}</b>{% if not forloop.last %}; {% endif %}{% endfor %}.
+      Fuera de esos periodos rige el horario de la zona.
+    </div>
+    {% endif %}
     <div class="divide-y divide-gray-50">
       {% if config.personalizado %}
         {% for p in plantillas_personales %}
         <div class="px-6 py-3 flex items-center justify-between gap-3">
-          {% include "asistencia/admin/_plantilla_resumen.html" with p=p %}
+          {% include "asistencia/admin/_plantilla_resumen.html" with p=p hoy=hoy %}
           <div class="flex items-center gap-3 flex-shrink-0">
             <a href="{% url 'asistencia:editar_plantilla' p.pk %}" class="text-xs text-blue-600 hover:underline font-medium">Editar</a>
-            <form method="post" action="{% url 'asistencia:eliminar_plantilla' p.pk %}" class="inline" onsubmit="return confirm('¿Eliminar este horario?')">
+            <form method="post" action="{% url 'asistencia:eliminar_plantilla' p.pk %}" class="inline-flex items-center gap-1"
+                  onsubmit="return confirm('¿Dejar de aplicar este horario desde la fecha indicada? Los días anteriores se conservan.')">
               {% csrf_token %}
-              <button type="submit" class="text-xs text-red-500 hover:underline font-medium">Eliminar</button>
+              <input type="date" name="desde" value="{{ hoy|date:'Y-m-d' }}" title="Deja de regir desde"
+                     class="text-xs border border-gray-200 rounded-md px-1.5 py-0.5 w-[120px]"/>
+              <button type="submit" class="text-xs text-red-500 hover:underline font-medium">Finalizar</button>
             </form>
           </div>
         </div>
@@ -90,7 +100,7 @@
         {% endfor %}
       {% else %}
         {% for p in plantillas_zona %}
-        <div class="px-6 py-3">{% include "asistencia/admin/_plantilla_resumen.html" with p=p %}</div>
+        <div class="px-6 py-3">{% include "asistencia/admin/_plantilla_resumen.html" with p=p hoy=hoy %}</div>
         {% empty %}
         <div class="px-6 py-4 text-sm text-gray-400">La zona aún no tiene horarios.</div>
         {% endfor %}

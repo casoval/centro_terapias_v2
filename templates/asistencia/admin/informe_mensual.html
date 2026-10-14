@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load asistencia_tags %}
+{% block title %}Informe mensual de asistencia{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Informe mensual de asistencia</h1>
+  <p class="text-sm text-gray-500 mb-6">
+    Día por día de cada profesional: asistencia, horas de marcado, retraso, faltas y descuento expresado en
+    <b>días</b>. No incluye montos de pago: el monto lo decide el administrador.
+  </p>
+
+  <nav class="flex gap-2 flex-wrap mb-6">
+    <a href="{% url 'asistencia:panel_admin' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Resumen</a>
+    <a href="{% url 'asistencia:zonas_gps' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Zonas GPS</a>
+    <a href="{% url 'asistencia:horarios' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Horarios</a>
+    <a href="{% url 'asistencia:fechas_especiales' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Fechas especiales</a>
+    <a href="{% url 'asistencia:asignaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Asignaciones</a>
+    <a href="{% url 'asistencia:enrolamiento' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Enrolamiento</a>
+    <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
+    <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Reglas</a>
+    <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Justificaciones</a>
+    <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Informe mensual</a>
+  </nav>
+
+  <!-- Filtros -->
+  <form method="get" class="bg-white border border-gray-200 rounded-2xl p-5 mb-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Mes</label>
+      <select name="mes" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white">
+        {% for n, nombre in meses %}<option value="{{ n }}" {% if n == mes %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Año</label>
+      <select name="anio" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white">
+        {% for a in anios %}<option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Sucursal</label>
+      <select name="sucursal" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white">
+        <option value="">Todas</option>
+        {% for s in sucursales %}<option value="{{ s.pk }}" {% if sucursal and sucursal.pk == s.pk %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-600 mb-1">Profesional</label>
+      <select name="profesional" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white">
+        <option value="">Todos</option>
+        {% for p in profesionales %}<option value="{{ p.pk }}" {% if profesional and profesional.pk == p.pk %}selected{% endif %}>{{ p.apellido }} {{ p.nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">Ver resumen</button>
+  </form>
+
+  <!-- Descargas -->
+  <div class="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
+    <h2 class="text-sm font-bold text-gray-700 mb-3">Descargar PDF de {{ periodo }}</h2>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'asistencia:informe_mensual_pdf' %}?mes={{ mes }}&anio={{ anio }}{% if sucursal %}&sucursal={{ sucursal.pk }}{% endif %}{% if profesional %}&profesional={{ profesional.pk }}{% endif %}"
+         class="bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm hover:bg-blue-800">
+        Del filtro actual ({{ informes|length }} profesional{{ informes|length|pluralize:"es" }})
+      </a>
+      <a href="{% url 'asistencia:informe_mensual_pdf' %}?mes={{ mes }}&anio={{ anio }}"
+         class="bg-gray-100 text-gray-700 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-gray-200">Global (todos)</a>
+      {% for s in sucursales %}
+      <a href="{% url 'asistencia:informe_mensual_pdf' %}?mes={{ mes }}&anio={{ anio }}&sucursal={{ s.pk }}"
+         class="bg-gray-100 text-gray-700 font-semibold px-4 py-2 rounded-xl text-sm hover:bg-gray-200">Sucursal {{ s.nombre }}</a>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-400 mt-3">
+      Cada profesional va en su propia hoja. Los PDF de sucursal o globales empiezan con una hoja de resumen.
+      Para un solo profesional usa el botón «PDF» de su fila.
+    </p>
+  </div>
+
+  <!-- Resumen -->
+  <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-5">
+    <div class="px-5 py-3 border-b border-gray-100 text-sm font-bold text-gray-700">Resumen de {{ periodo }}</div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50">
+            <th class="text-left text-xs font-semibold text-gray-500 px-5 py-3">Profesional</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3">Días con horario</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3">Tardanzas</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3" title="Solo lo que excede la tolerancia (minutos:segundos)">Retraso acum.</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3">Faltas (días)</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3">Desc. por retraso</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-3 py-3">Puntualidad</th>
+            <th class="text-left text-xs font-semibold text-gray-500 px-3 py-3">Asistencia</th>
+            <th class="text-center text-xs font-semibold text-gray-500 px-3 py-3">Descuento total</th>
+            <th class="px-3 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inf in informes %}
+          {% with r=inf.resumen %}
+          <tr class="border-t border-gray-50 hover:bg-gray-50 {% if r.desc_total %}bg-red-50/40{% endif %}">
+            <td class="px-5 py-3">
+              <div class="font-semibold text-gray-800">{{ inf.nombre }}</div>
+              <div class="text-xs text-gray-400">{{ inf.profesional.especialidad }}{% if inf.sucursales %} · {{ inf.sucursales|join:", " }}{% endif %}</div>
+              {% if not r.hay_control %}<div class="text-xs text-orange-600">Sin control de asistencia (sin enrolar ni marcaciones)</div>
+              {% elif inf.control_desde.month == inf.mes and inf.control_desde.year == inf.anio and inf.control_desde.day > 1 %}
+              <div class="text-xs text-gray-400">Control desde el {{ inf.control_desde|date:"d/m" }}</div>{% endif %}
+            </td>
+            <td class="px-3 py-3 text-center">{{ r.dias_con_horario }}</td>
+            <td class="px-3 py-3 text-center {% if r.tardanzas %}text-red-600 font-semibold{% endif %}">{{ r.tardanzas }}</td>
+            <td class="px-3 py-3 text-center {% if r.retraso_seg %}text-red-600 font-semibold{% endif %}">{{ r.retraso_seg|min_seg }}</td>
+            <td class="px-3 py-3 text-center {% if r.desc_faltas %}text-red-600 font-semibold{% endif %}">{{ r.desc_faltas|dias }}</td>
+            <td class="px-3 py-3 text-center">{{ r.desc_retraso|dias }}</td>
+            <td class="px-3 py-3 align-top max-w-[260px]">
+              {% estrellas r.puntualidad %}
+              {% if r.puntualidad %}<div class="text-[11px] text-gray-500 mt-1 leading-snug">{{ r.puntualidad.motivo }}</div>{% endif %}
+            </td>
+            <td class="px-3 py-3 align-top max-w-[260px]">
+              {% semaforo r.asistencia %}
+              {% if r.asistencia %}<div class="text-[11px] text-gray-500 mt-1 leading-snug">{{ r.asistencia.motivo }}</div>{% endif %}
+            </td>
+            <td class="px-3 py-3 text-center">
+              {% if r.desc_total %}<span class="bg-red-100 text-red-800 font-bold px-2.5 py-1 rounded-full text-xs">{{ r.desc_total|dias }} día{{ r.desc_total|pluralize }}</span>
+              {% else %}<span class="text-gray-300">—</span>{% endif %}
+            </td>
+            <td class="px-3 py-3 text-right">
+              <a href="{% url 'asistencia:informe_mensual_pdf' %}?mes={{ mes }}&anio={{ anio }}&profesional={{ inf.profesional.pk }}"
+                 class="text-xs bg-blue-100 text-blue-800 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-200">PDF</a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="10" class="px-5 py-8 text-center text-gray-400 text-sm">No hay profesionales para este filtro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Cómo se cuenta -->
+  <div class="bg-white border border-gray-200 rounded-2xl p-5 text-xs text-gray-500 space-y-1.5">
+    <h2 class="text-sm font-bold text-gray-700 mb-1">Cómo se cuenta</h2>
+    <p><b>Retraso:</b> solo se acumula lo que pasa de la tolerancia (con 10 min de tolerancia, marcar a los 11 min acumula 1 minuto). Se suma en el mes y el total cae en un tramo de las <a href="{% url 'asistencia:reglas' %}" class="text-blue-600 hover:underline">Reglas</a> que fija los días de descuento.</p>
+    <p><b>Falta:</b> cada bloque del horario sin ingreso marcado. En horario partido, faltar a un bloque es <b>medio día</b> y a los dos <b>un día completo</b>; en horario continuo (p. ej. el sábado) faltar es <b>un día completo</b>. Se puede <a href="{% url 'asistencia:justificaciones' %}" class="text-blue-600 hover:underline">justificar</a> hasta el último día del mes.</p>
+    <p><b>Puntualidad (estrellas):</b> 5★ siempre a la hora o antes · 4★ usó la tolerancia pero no acumuló retraso · 3★ acumula retraso sin descuento · 2½★ medio día de descuento · 2★ un día · 1★ dos días · 0★ pésima (3 o más). <b>Asistencia (semáforo):</b> verde sin faltas · amarillo faltas con permiso · rojo faltas sin justificar.</p>
+    <p><b>Control:</b> las faltas se cuentan desde que el profesional empezó a marcar o se enroló; los días anteriores figuran «Sin control».</p>
+    <p><b>Registro manual:</b> si registraste una entrada a mano en el Panel, ese bloque deja de ser falta.</p>
+    {% if sin_usuario %}<p class="text-orange-600"><b>{{ sin_usuario }}</b> profesional(es) activo(s) no tienen usuario vinculado y no aparecen aquí.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

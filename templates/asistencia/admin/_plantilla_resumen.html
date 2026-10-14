@@ -7,10 +7,12 @@
   </span>
   <span class="text-sm font-semibold text-gray-800">{{ p.dias_display }}</span>
   {% if p.nombre %}<span class="text-xs text-gray-400">({{ p.nombre }})</span>{% endif %}
+  {% if p.vigencia_texto %}<span class="text-xs {% if p.vigente_desde > hoy %}text-blue-600 font-semibold{% else %}text-gray-400{% endif %}">
+    {% if p.vigente_desde > hoy %}Programado · {% endif %}{{ p.vigencia_texto }}</span>{% endif %}
   {% for b in bloques %}
   <span class="font-mono text-xs bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-gray-700">
     {{ b.hora_entrada|time:"H:i" }} — {{ b.hora_salida|time:"H:i" }}
-    <span class="text-gray-400">±{{ b.tolerancia_minutos }}m</span>
+    <span class="text-gray-400">±{{ b.tolerancia_minutos }}m</span>{% if b.max_retraso_minutos is not None %}<span class="text-red-400" title="Límite para marcar"> · límite +{{ b.max_retraso_minutos }}m</span>{% endif %}
   </span>
   {% endfor %}
   {% endwith %}

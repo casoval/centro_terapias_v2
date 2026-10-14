@@ -3,7 +3,8 @@ from django.utils.html import format_html
 from .models import (
     ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
     FechaEspecial, BloqueFechaEspecial, EnrolamientoFacial,
-    PermisoReenrolamiento, RegistroAsistencia
+    PermisoReenrolamiento, RegistroAsistencia, ReglasAsistencia, PeriodoHorarioPropio,
+    TramoDescuento, PermisoAsistencia
 )
 
 
@@ -21,7 +22,7 @@ class BloqueHorarioInline(admin.TabularInline):
 
 @admin.register(PlantillaHorario)
 class PlantillaHorarioAdmin(admin.ModelAdmin):
-    list_display = ['zona', 'user', 'nombre', 'dias_display', 'tipo_display']
+    list_display = ['zona', 'user', 'nombre', 'dias_display', 'tipo_display', 'vigente_desde', 'vigente_hasta']
     list_filter = ['zona']
     search_fields = ['nombre', 'user__first_name', 'user__last_name']
     inlines = [BloqueHorarioInline]
@@ -100,3 +101,29 @@ class RegistroAsistenciaAdmin(admin.ModelAdmin):
         color = colores.get(obj.estado, '#6B7280')
         return format_html('<span style="color:{}; font-weight:600">{}</span>', color, obj.estado)
     estado_coloreado.short_description = 'Estado'
+
+
+class TramoDescuentoInline(admin.TabularInline):
+    model = TramoDescuento
+    extra = 1
+
+
+@admin.register(ReglasAsistencia)
+class ReglasAsistenciaAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'vigente_desde', 'fecha_modificacion']
+    inlines = [TramoDescuentoInline]
+
+    ordering = ['-vigente_desde']
+
+
+@admin.register(PeriodoHorarioPropio)
+class PeriodoHorarioPropioAdmin(admin.ModelAdmin):
+    list_display = ['config', 'desde', 'hasta']
+    list_filter = ['config__zona']
+
+
+@admin.register(PermisoAsistencia)
+class PermisoAsistenciaAdmin(admin.ModelAdmin):
+    list_display = ['user', 'fecha', 'bloque', 'tipo', 'registrado_por', 'creado_en']
+    list_filter = ['tipo']
+    date_hierarchy = 'fecha'
