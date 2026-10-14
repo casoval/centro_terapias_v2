@@ -256,6 +256,10 @@
   .bot-card.desconectado::before { background: linear-gradient(90deg, transparent, #f87171, transparent); opacity:1; }
   .bot-card.esperando_qr { border-color: rgba(251,191,36,0.4); box-shadow: 0 0 20px rgba(251,191,36,0.08); }
   .bot-card.esperando_qr::before { background: linear-gradient(90deg, transparent, #fbbf24, transparent); opacity:1; }
+  .bot-card.reconectando { border-color: rgba(251,191,36,0.4); box-shadow: 0 0 20px rgba(251,191,36,0.08); }
+  .bot-card.reconectando::before { background: linear-gradient(90deg, transparent, #fbbf24, transparent); opacity:1; }
+  .bot-card.error_auth   { border-color: rgba(248,113,113,0.4); box-shadow: 0 0 20px rgba(248,113,113,0.08); }
+  .bot-card.error_auth::before { background: linear-gradient(90deg, transparent, #f87171, transparent); opacity:1; }
 
   /* ── BOT STATUS BADGES ── */
   .bot-status-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 999px; letter-spacing: .5px; white-space: nowrap; }
@@ -753,6 +757,29 @@
 const CSRF = '{{ csrf_token }}';
 
 const estadoBots   = { japon: 'desconocido', camacho: 'desconocido' };
+
+// ── Escalamiento a soporte técnico ──
+// Acciones que el usuario SÍ puede hacer: escanear el QR y pulsar «Reconectar».
+// Si el problema es de otro tipo, o no se recupera tras intentarlo, se indica contactar a soporte.
+const ESPERA_TRAS_INTENTO  = 3  * 60 * 1000;  // sin conectar 3 min después de pulsar «Reconectar»
+const ESPERA_SIN_INTENTO   = 10 * 60 * 1000;  // sin conectar 10 min aunque nadie haya pulsado nada
+const ESTADOS_CONOCIDOS    = ['conectado', 'esperando_qr', 'desconectado', 'reconectando', 'error_auth'];
+const sinConectarDesde     = { japon: null, camacho: null };   // desde cuándo no está conectado
+const intentoReconectar    = { japon: null, camacho: null };   // cuándo se pulsó «Reconectar»
+
+function requiereSoporte(bot) {
+  const st = estadoBots[bot];
+  if (st === 'desconocido') return false;                       // aún sin primera respuesta
+  if (st === 'conectado' || st === 'esperando_qr') return false; // el usuario puede resolverlo (o está bien)
+  if (st === 'error_auth' || !ESTADOS_CONOCIDOS.includes(st)) return true;  // no se arregla desde el panel
+  // desconectado / reconectando: primero que lo intente el usuario
+  const desde = sinConectarDesde[bot];
+  if (!desde) return false;
+  const ahora = Date.now();
+  const intento = intentoReconectar[bot];
+  if (intento && ahora - Math.max(desde, intento) >= ESPERA_TRAS_INTENTO) return true;
+  return ahora - desde >= ESPERA_SIN_INTENTO;
+}
 const estadoPausa  = { japon: false, camacho: false };
 let   historialData = [];
 let   histFiltro    = 'todos';
@@ -934,8 +961,13 @@ function updateBannerGlobal() {
   const japOk = estadoBots.japon   === 'conectado';
   const camOk = estadoBots.camacho === 'conectado';
   const allOk = japOk && camOk;
-  const anyErr = estadoBots.japon === 'desconectado' || estadoBots.camacho === 'desconectado';
+  const esFallo = (e) => e === 'desconectado' || e === 'error_auth';
+  const anyErr = esFallo(estadoBots.japon) || esFallo(estadoBots.camacho);
   const anyQr  = estadoBots.japon === 'esperando_qr'  || estadoBots.camacho === 'esperando_qr';
+  const anyReconn = estadoBots.japon === 'reconectando' || estadoBots.camacho === 'reconectando';
+  const botsSoporte = ['japon', 'camacho'].filter(requiereSoporte)
+    .map(b => b === 'japon' ? 'Japón' : 'Camacho').join(' y ');
+  const anySoporte = botsSoporte !== '';
 
   // Actualizar pills de cada bot
   ['japon','camacho'].forEach(b => {
@@ -944,12 +976,15 @@ function updateBannerGlobal() {
     if (s === 'conectado') {
       pill.className = 'sbg-pill ok-pill';
       pill.innerHTML = `<span class="sbg-dot ok-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} ✓</span>`;
-    } else if (s === 'desconectado') {
+    } else if (s === 'desconectado' || s === 'error_auth') {
       pill.className = 'sbg-pill err-pill';
       pill.innerHTML = `<span class="sbg-dot err-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} ✗</span>`;
     } else if (s === 'esperando_qr') {
       pill.className = 'sbg-pill warn-pill';
       pill.innerHTML = `<span class="sbg-dot warn-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} QR</span>`;
+    } else if (s === 'reconectando') {
+      pill.className = 'sbg-pill warn-pill';
+      pill.innerHTML = `<span class="sbg-dot warn-dot"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'} …</span>`;
     } else {
       pill.className = 'sbg-pill gray-pill';
       pill.innerHTML = `<span class="sbg-dot" style="background:rgba(255,255,255,.2);"></span><span>${b === 'japon' ? 'Japón' : 'Camacho'}</span>`;
@@ -970,11 +1005,27 @@ function updateBannerGlobal() {
     alertBox.innerHTML = '';
     setAiMode('ok');
 
+  } else if (anySoporte) {
+    banner.className = 'status-banner-global estado-error';
+    icon.className    = 'sbg-icon err-icon';
+    icon.textContent  = '🆘';
+    title.textContent = `Bot ${botsSoporte}: no se puede resolver desde el panel`;
+    sub.className     = 'sbg-sub err-sub';
+    sub.textContent   = 'COMUNÍCATE URGENTE CON SOPORTE TÉCNICO';
+    scanline.style.display = 'none';
+    alertBox.innerHTML = `
+      <div class="alert-strip err-strip">
+        <span class="alert-strip-icon">🆘</span>
+        <span>El bot ${botsSoporte} no se recuperó con las acciones disponibles en este panel (escanear QR o Reconectar).
+        <strong>Comunícate urgentemente con soporte técnico</strong> para solucionarlo; mientras tanto no está enviando mensajes ni respondiendo.</span>
+      </div>`;
+    setAiMode('err');
+
   } else if (anyErr) {
     banner.className = 'status-banner-global estado-error';
     const botsFallidos = [
-      estadoBots.japon   === 'desconectado' ? 'Japón'   : null,
-      estadoBots.camacho === 'desconectado' ? 'Camacho' : null,
+      esFallo(estadoBots.japon)   ? 'Japón'   : null,
+      esFallo(estadoBots.camacho) ? 'Camacho' : null,
     ].filter(Boolean).join(' y ');
     icon.className    = 'sbg-icon err-icon';
     icon.textContent  = '🔴';
@@ -988,6 +1039,25 @@ function updateBannerGlobal() {
         El bot ${botsFallidos} no está enviando mensajes ni respondiendo. Usa el botón <strong>Reconectar</strong> en la tarjeta correspondiente para reiniciarlo.
       </div>`;
     setAiMode('err');
+
+  } else if (anyReconn) {
+    const botsReconn = [
+      estadoBots.japon   === 'reconectando' ? 'Japón'   : null,
+      estadoBots.camacho === 'reconectando' ? 'Camacho' : null,
+    ].filter(Boolean).join(' y ');
+    banner.className = 'status-banner-global estado-warn';
+    icon.className   = 'sbg-icon warn-icon';
+    icon.textContent = '🔄';
+    title.textContent = `Reconectando bot ${botsReconn}...`;
+    sub.className     = 'sbg-sub warn-sub';
+    sub.textContent   = 'EL BOT ESTÁ REINICIANDO SU SESIÓN DE WHATSAPP — ESPERA UNOS SEGUNDOS';
+    scanline.style.display = 'none';
+    alertBox.innerHTML = `
+      <div class="alert-strip warn-strip">
+        <span class="alert-strip-icon">⏳</span>
+        El bot ${botsReconn} se está reconectando. Si se queda así más de 2 minutos, revisa los logs o usa <strong>Reconectar</strong>.
+      </div>`;
+    setAiMode('warn');
 
   } else if (anyQr) {
     banner.className = 'status-banner-global estado-warn';
@@ -1028,8 +1098,10 @@ function addSbgMsg(texto, tipo) {
 
 // ── Estado de bots ──
 async function checkStatus(bot) {
+  const ctrl = new AbortController();
+  const tmo  = setTimeout(() => ctrl.abort(), 15000);   // evita quedar esperando indefinidamente
   try {
-    const res  = await fetch(`/api/whatsapp-status/?bot=${bot}`);
+    const res  = await fetch(`/api/whatsapp-status/?bot=${bot}`, { signal: ctrl.signal });
     const data = await res.json();
     aplicarEstado(bot, data.status || 'desconectado');
     actualizarPM2(bot, data);
@@ -1041,11 +1113,19 @@ async function checkStatus(bot) {
     }
   } catch(e) {
     aplicarEstado(bot, 'desconectado');
+  } finally {
+    clearTimeout(tmo);
   }
 }
 
 function aplicarEstado(bot, status) {
   estadoBots[bot] = status;
+  if (status === 'conectado' || status === 'esperando_qr') {
+    sinConectarDesde[bot]  = null;
+    intentoReconectar[bot] = null;
+  } else if (!sinConectarDesde[bot]) {
+    sinConectarDesde[bot] = Date.now();
+  }
   const card  = document.getElementById(`card-${bot}`);
   const icon  = document.getElementById(`icon-${bot}`);
   const badge = document.getElementById(`badge-${bot}`);
@@ -1054,11 +1134,18 @@ function aplicarEstado(bot, status) {
     conectado:    { icon: '🟢', text: '● Conectado',    cls: 'badge-green' },
     esperando_qr: { icon: '📱', text: '◌ Esperando QR', cls: 'badge-yellow' },
     desconectado: { icon: '🔴', text: '○ Desconectado', cls: 'badge-red' },
+    reconectando: { icon: '🔄', text: '◌ Reconectando', cls: 'badge-yellow' },
+    error_auth:   { icon: '🔴', text: '✗ Error de autenticación', cls: 'badge-red' },
   };
-  const cfg = configs[status] || { icon: '⚪', text: '? Desconocido', cls: 'badge-gray' };
+  const cfg = configs[status] || { icon: '⚪', text: `? ${status}`, cls: 'badge-gray' };
   icon.textContent  = cfg.icon;
   badge.textContent = cfg.text;
   badge.className   = `bot-status-badge ${cfg.cls}`;
+  if (requiereSoporte(bot)) {
+    icon.textContent  = '🆘';
+    badge.textContent = '⚠ Contactar a soporte';
+    badge.className   = 'bot-status-badge badge-red';
+  }
   updateBannerGlobal();
 }
 
@@ -1098,6 +1185,9 @@ function actualizarPM2(bot, data) {
   if (s === 'conectado') {
     pmBadge.textContent = '● online';
     pmBadge.className   = 'bot-status-badge badge-green';
+  } else if (s === 'reconectando') {
+    pmBadge.textContent = '◌ reconectando';
+    pmBadge.className   = 'bot-status-badge badge-yellow';
   } else {
     pmBadge.textContent = '○ offline';
     pmBadge.className   = 'bot-status-badge badge-red';
@@ -1117,6 +1207,7 @@ async function reconectar(bot) {
   const btn = document.getElementById(`btn-reconect-${bot}`);
   btn.classList.add('btn-disabled');
   btn.textContent = '⏳ Reiniciando...';
+  intentoReconectar[bot] = Date.now();
   try {
     await fetch('/api/whatsapp-reconectar/', {
       method: 'POST',
