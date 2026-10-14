@@ -35,26 +35,21 @@
     <!-- Otorgar -->
     <div class="bg-white border border-gray-200 rounded-2xl p-6">
       <h2 class="text-base font-bold text-gray-800 mb-1">1. Otorgar asueto</h2>
-      <p class="text-xs text-gray-400 mb-4">Crea el saldo para quienes corresponda. Ejemplo: «Día de la Mujer» · medio día · todo el personal · solo mujeres.</p>
+      <p class="text-xs text-gray-400 mb-4">Crea el saldo para quienes corresponda. Eliges el motivo, si es medio día, día completo o varios días, y a quiénes afecta (todos, sucursales, zonas o profesionales concretos).</p>
       <form method="post" class="space-y-3">
         {% csrf_token %}<input type="hidden" name="accion" value="otorgar">
         {% for e in otorgar_form.non_field_errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}
-        <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.tipo.label }}</label>{{ otorgar_form.tipo }}{% for e in otorgar_form.tipo.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}
-          {% if not tipos %}<p class="text-xs text-orange-600 mt-1">Primero crea un tipo de asueto (panel de abajo).</p>{% endif %}</div>
-        <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.motivo.label }}</label>{{ otorgar_form.motivo }}</div>
+        <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.motivo.label }}</label>{{ otorgar_form.motivo }}{% for e in otorgar_form.motivo.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.dias.label }}</label>{{ otorgar_form.dias }}{% for e in otorgar_form.dias.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
-          <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.otorgado_el.label }}</label>{{ otorgar_form.otorgado_el }}</div>
+          <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.duracion.label }}</label>{{ otorgar_form.duracion }}</div>
+          <div id="caja-varios" style="display:none"><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.dias_varios.label }}</label>{{ otorgar_form.dias_varios }}{% for e in otorgar_form.dias_varios.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
         </div>
+        <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.otorgado_el.label }}</label>{{ otorgar_form.otorgado_el }}</div>
         <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.vence_el.label }}</label>{{ otorgar_form.vence_el }}<p class="text-xs text-gray-400 mt-1">{{ otorgar_form.vence_el.help_text }}</p></div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.destino.label }}</label>{{ otorgar_form.destino }}</div>
-          <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.sexo.label }}</label>{{ otorgar_form.sexo }}</div>
-        </div>
+        <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.destino.label }}</label>{{ otorgar_form.destino }}</div>
         <div data-destino="sucursal"><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.sucursales.label }}</label>{{ otorgar_form.sucursales }}{% for e in otorgar_form.sucursales.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
         <div data-destino="zona"><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.zonas.label }}</label>{{ otorgar_form.zonas }}{% for e in otorgar_form.zonas.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
         <div data-destino="elegidos"><label class="block text-xs font-semibold text-gray-600 mb-1">{{ otorgar_form.profesionales.label }} <span class="font-normal text-gray-400">(Ctrl/⌘ para varios)</span></label>{{ otorgar_form.profesionales }}{% for e in otorgar_form.profesionales.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
-        <p class="text-xs text-gray-400">El filtro por sexo usa el dato de la ficha del profesional (Profesionales → editar).</p>
         <button type="submit" class="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm hover:bg-blue-800">Otorgar asueto</button>
       </form>
     </div>
@@ -110,7 +105,7 @@
       {% for d in derechos %}
       <tr class="border-t border-gray-50 align-top">
         <td class="px-6 py-2.5 font-semibold text-gray-800">{{ d.user.get_full_name|default:d.user.username }}</td>
-        <td class="px-3 py-2.5 text-gray-700">{{ d.motivo|default:d.tipo }}<div class="text-xs text-gray-400">{{ d.tipo }} · {{ d.otorgado_el|date:"d/m/Y" }}</div></td>
+        <td class="px-3 py-2.5 text-gray-700">{{ d.motivo }}<div class="text-xs text-gray-400">otorgado el {{ d.otorgado_el|date:"d/m/Y" }}</div></td>
         <td class="px-3 py-2.5 text-center">{{ d.dias|floatformat:"-2" }}</td>
         <td class="px-3 py-2.5 text-center">
           {% if d.estado_calc == 'disponible' %}<span class="bg-green-100 text-green-800 text-xs font-semibold px-2 py-0.5 rounded-full">{{ d.saldo|floatformat:"-2" }}</span>
@@ -141,30 +136,6 @@
     <p class="px-6 py-5 text-sm text-gray-400">Todavía no hay asuetos otorgados.</p>
     {% endif %}
   </div>
-
-  <!-- Tipos -->
-  <div class="bg-white border border-gray-200 rounded-2xl p-6">
-    <h2 class="text-base font-bold text-gray-800 mb-3">Tipos de asueto</h2>
-    <div class="flex flex-wrap gap-2 mb-4">
-      {% for t in tipos %}
-      <form method="post" action="{% url 'asistencia:alternar_tipo_asueto' t.pk %}" class="inline">{% csrf_token %}
-        <button class="text-xs px-3 py-1.5 rounded-full border {% if t.activo %}border-purple-200 bg-purple-50 text-purple-800{% else %}border-gray-200 bg-gray-50 text-gray-400 line-through{% endif %}"
-                title="Clic para {% if t.activo %}desactivar{% else %}activar{% endif %}">
-          {{ t.nombre }} · {{ t.dias|floatformat:"-2" }} d{% if t.vence_dias %} · vence a {{ t.vence_dias }} d{% endif %}{% if t.cumpleanos_auto %} · 🎂 automático{% endif %}
-        </button>
-      </form>
-      {% empty %}<span class="text-sm text-gray-400">Aún no hay tipos. Crea el primero aquí abajo (por ejemplo «Día de la Mujer» y «Cumpleaños»).</span>{% endfor %}
-    </div>
-    <form method="post" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-      {% csrf_token %}<input type="hidden" name="accion" value="tipo">
-      <div class="md:col-span-2"><label class="block text-xs font-semibold text-gray-600 mb-1">{{ tipo_form.nombre.label }}</label>{{ tipo_form.nombre }}{% for e in tipo_form.nombre.errors %}<p class="text-xs text-red-500">{{ e }}</p>{% endfor %}</div>
-      <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ tipo_form.dias.label }}</label>{{ tipo_form.dias }}</div>
-      <div><label class="block text-xs font-semibold text-gray-600 mb-1">{{ tipo_form.vence_dias.label }}</label>{{ tipo_form.vence_dias }}</div>
-      <div class="flex items-center gap-2 pb-2">{{ tipo_form.cumpleanos_auto }}<span class="text-xs text-gray-600">{{ tipo_form.cumpleanos_auto.label }}</span></div>
-      <div class="md:col-span-5"><button type="submit" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-xl text-sm hover:bg-gray-900">Crear tipo</button>
-        <span class="text-xs text-gray-400 ml-2">Los de cumpleaños se otorgan solos cada día con el comando <code>otorgar_asuetos_cumpleanos</code> (cron diario).</span></div>
-    </form>
-  </div>
 </div>
 <script>
 (function () {
@@ -175,6 +146,9 @@
     });
   }
   if (sel) { sel.addEventListener('change', mostrar); mostrar(); }
+  var dur = document.getElementById('id_duracion'), caja = document.getElementById('caja-varios');
+  function varios() { if (dur && caja) caja.style.display = dur.value === 'varios' ? '' : 'none'; }
+  if (dur) { dur.addEventListener('change', varios); varios(); }
 })();
 </script>
 {% endblock %}

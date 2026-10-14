@@ -89,14 +89,13 @@ especiales, etiquetas de bloque; los enrolamientos con el vector simulado antigu
 
 ## Asuetos (tiempo libre concedido)
 Día de la Mujer, cumpleaños, vacaciones... **no son falta, ni permiso, ni asistencia: son neutros.**
-- **Tipos** (Admin → Asistencia → Asuetos): nombre, días por defecto (0,5 = medio día), plazo para usarlo y si se otorga solo en el cumpleaños.
-- **Otorgar**: crea un saldo (`DerechoAsueto`) para todo el personal, sucursales, zonas o profesionales elegidos, con filtro por sexo.
-  El sexo y la fecha de nacimiento se cargan en la ficha del profesional.
+No hay nada precargado: el administrador decide todo en Admin → Asistencia → Asuetos.
+- **Otorgar**: motivo + medio día / día completo / varios días + a quiénes afecta (todos, sucursales, zonas o profesionales elegidos).
+  Crea un saldo (`DerechoAsueto`) por persona, con vencimiento opcional.
 - **Usar**: el admin registra la fecha (y el bloque) en que la persona lo toma (`UsoAsueto`), sin pasarse del saldo ni del vencimiento.
   Cada bloque pesa 1/N del día (partido: medio día = un bloque; continuo: día completo). Varios días = una fecha por vez.
 - **Efecto**: el bloque en asueto no genera AUSENTE, no es falta ni descuento, no cuenta como día con horario ni horas esperadas;
   aparece como «Asueto» en el panel, el informe mensual (PDF) y «Mi asistencia». El reporte del profesional lo descuenta de su capacidad.
-- **Cumpleaños automáticos**: `python manage.py otorgar_asuetos_cumpleanos` (cron diario, idempotente).
 
 ## Reglas por alcance
 Regla **general** + excepciones por **sucursal** o **profesional** (Admin → Reglas). Gana la más específica
@@ -104,4 +103,4 @@ Regla **general** + excepciones por **sucursal** o **profesional** (Admin → Re
 «Terminar excepción» devuelve a esa persona/sucursal a la regla más general desde el mes elegido.
 
 ## Migración
-`0015` agrega asuetos y el alcance de las reglas; `profesionales 0003` agrega sexo y fecha de nacimiento (opcionales).
+`0015` agrega asuetos y el alcance de las reglas; `0016` simplifica los asuetos (sin tipos). `profesionales 0003/0004` agregan y quitan sexo y fecha de nacimiento (ya no se usan).

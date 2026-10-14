@@ -4,7 +4,7 @@ Asuetos: tiempo libre CONCEDIDO por el centro (Día de la Mujer, cumpleaños, va
 * No es falta, no es permiso (justificación de una falta) ni asistencia: es neutro. El bloque cubierto por un
   asueto no genera AUSENTE, no descuenta, no cuenta como día con horario ni como horas esperadas.
 * Funciona con SALDO: el administrador OTORGA un derecho (DerechoAsueto: ½ día, 1 día, varios...) a quien
-  corresponda (todos, una sucursal, una zona, profesionales elegidos, por sexo, por cumpleaños) y cada
+  elija (todos, sucursales, zonas o profesionales concretos) y cada
   profesional lo USA (UsoAsueto) en la fecha y el bloque que elija, sin pasarse del saldo ni del vencimiento.
 * Cada bloque del horario pesa 1/N del día (igual que las faltas): en un horario partido, medio día = un bloque.
 """
@@ -16,7 +16,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from .models import ConfigAsistencia, DerechoAsueto, RegistroAsistencia, TipoAsueto, UsoAsueto
+from .models import ConfigAsistencia, DerechoAsueto, RegistroAsistencia, UsoAsueto
 
 TOLERANCIA_SALDO = Decimal('0.02')       # evita que 3 × 0,33 deje un saldo «fantasma» de 0,01
 
@@ -40,13 +40,10 @@ def profesionales_activos():
     return User.objects.filter(perfil__rol='profesional', is_active=True)
 
 
-def destinatarios(destino='todos', sucursal_ids=(), zona_ids=(), user_ids=(), sexo='', cumple_mes=None,
-                  cumple_dia=None):
+def destinatarios(destino='todos', sucursal_ids=(), zona_ids=(), user_ids=()):
     """
     Profesionales que recibirán el asueto.
       destino: 'todos' | 'sucursal' | 'zona' | 'elegidos'
-      sexo:    'F' | 'M' | '' (filtro adicional; requiere el dato en la ficha del profesional)
-      cumple_mes / cumple_dia: filtro adicional por cumpleaños (mes, o mes y día)
     """
     qs = profesionales_activos()
     if destino == 'sucursal':
@@ -55,68 +52,36 @@ def destinatarios(destino='todos', sucursal_ids=(), zona_ids=(), user_ids=(), se
         qs = qs.filter(configs_asistencia__zona__in=list(zona_ids))
     elif destino == 'elegidos':
         qs = qs.filter(pk__in=list(user_ids))
-    if sexo:
-        qs = qs.filter(profesional__sexo=sexo)
-    if cumple_mes:
-        qs = qs.filter(profesional__fecha_nacimiento__month=cumple_mes)
-        if cumple_dia:
-            qs = qs.filter(profesional__fecha_nacimiento__day=cumple_dia)
     return qs.distinct().order_by('last_name', 'first_name')
 
 
 # ── Otorgar ──────────────────────────────────────────────────────────────────
 
-def otorgar(tipo: TipoAsueto, users: Iterable, dias, motivo='', otorgado_el: Optional[date] = None,
-            vence_el: Optional[date] = None, creado_por=None, referencia=''):
+def otorgar(users: Iterable, dias, motivo, otorgado_el: Optional[date] = None,
+            vence_el: Optional[date] = None, creado_por=None):
     """
-    Crea un DerechoAsueto por usuario. No duplica: si el usuario ya tiene el mismo tipo + motivo + fecha de
+    Crea un DerechoAsueto por usuario. No duplica: si el usuario ya tiene el mismo motivo + fecha de
     otorgamiento (p. ej. se envió dos veces el formulario) lo omite. Devuelve (creados, omitidos).
     """
     dias = Decimal(str(dias))
+    motivo = (motivo or '').strip()
+    if not motivo:
+        raise AsuetoError('Escribe el motivo del asueto (por ejemplo: Día de la Mujer).')
     if dias <= 0:
         raise AsuetoError('Los días del asueto deben ser mayores que cero.')
     otorgado_el = otorgado_el or timezone.localdate()
-    if vence_el is None and tipo.vence_dias:
-        vence_el = otorgado_el + timedelta(days=tipo.vence_dias)
     if vence_el is not None and vence_el < otorgado_el:
         raise AsuetoError('La fecha de vencimiento no puede ser anterior a la de otorgamiento.')
     creados = omitidos = 0
     with transaction.atomic():
         for u in users:
-            existe = DerechoAsueto.objects.filter(user=u, tipo=tipo, motivo=motivo, otorgado_el=otorgado_el)
-            if referencia:
-                existe = existe | DerechoAsueto.objects.filter(user=u, tipo=tipo, referencia=referencia)
-            if existe.exists():
+            if DerechoAsueto.objects.filter(user=u, motivo=motivo, otorgado_el=otorgado_el).exists():
                 omitidos += 1
                 continue
-            DerechoAsueto.objects.create(
-                user=u, tipo=tipo, motivo=motivo, dias=dias, otorgado_el=otorgado_el, vence_el=vence_el,
-                creado_por=creado_por, referencia=referencia)
+            DerechoAsueto.objects.create(user=u, motivo=motivo, dias=dias, otorgado_el=otorgado_el,
+                                         vence_el=vence_el, creado_por=creado_por)
             creados += 1
     return creados, omitidos
-
-
-def otorgar_cumpleanos(fecha: Optional[date] = None):
-    """
-    Otorga el asueto de cumpleaños (tipos con cumpleanos_auto) a quienes cumplen años en `fecha`
-    (29/02 se celebra el 28/02 en años no bisiestos). Idempotente. Devuelve cuántos derechos creó.
-    """
-    fecha = fecha or timezone.localdate()
-    dias_cumple = [(fecha.month, fecha.day)]
-    if fecha.month == 2 and fecha.day == 28 and not _bisiesto(fecha.year):
-        dias_cumple.append((2, 29))
-    total = 0
-    for tipo in TipoAsueto.objects.filter(cumpleanos_auto=True, activo=True):
-        for mes, dia in dias_cumple:
-            users = destinatarios(cumple_mes=mes, cumple_dia=dia)
-            c, _o = otorgar(tipo, users, tipo.dias, motivo=f"{tipo.nombre} {fecha.year}", otorgado_el=fecha,
-                            referencia=f"cumple-{fecha.year}")
-            total += c
-    return total
-
-
-def _bisiesto(anio):
-    return anio % 4 == 0 and (anio % 100 != 0 or anio % 400 == 0)
 
 
 # ── Usar ─────────────────────────────────────────────────────────────────────
@@ -171,7 +136,7 @@ def registrar_uso(derecho: DerechoAsueto, fecha: date, bloque='', admin=None, no
 
 def usos_por_usuario_fecha(inicio: date, fin: date, user_ids=None):
     """{(user_id, fecha): [UsoAsueto]} del rango."""
-    qs = UsoAsueto.objects.filter(fecha__gte=inicio, fecha__lte=fin).select_related('derecho__tipo')
+    qs = UsoAsueto.objects.filter(fecha__gte=inicio, fecha__lte=fin).select_related('derecho')
     if user_ids is not None:
         qs = qs.filter(user_id__in=user_ids)
     out = {}
@@ -188,7 +153,7 @@ def bloques_en_asueto(usos, numeros_bloque):
 def saldos_por_usuario(user_ids=None, hoy=None):
     """{user_id: {'disponible': Decimal, 'derechos': [DerechoAsueto]}} solo con derechos vigentes y con saldo."""
     hoy = hoy or timezone.localdate()
-    qs = DerechoAsueto.objects.select_related('tipo').prefetch_related('usos')
+    qs = DerechoAsueto.objects.prefetch_related('usos')
     if user_ids is not None:
         qs = qs.filter(user_id__in=user_ids)
     out = {}

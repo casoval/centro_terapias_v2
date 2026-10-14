@@ -44,10 +44,6 @@ class Profesional(models.Model):
     especialidad = models.CharField(max_length=100)
     telefono = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
-    # Datos opcionales: permiten otorgar asuetos por sexo (p. ej. Día de la Mujer) o por cumpleaños
-    SEXO_CHOICES = [('F', 'Femenino'), ('M', 'Masculino')]
-    sexo = models.CharField(max_length=1, choices=SEXO_CHOICES, blank=True)
-    fecha_nacimiento = models.DateField(null=True, blank=True)
     
     # Servicios que puede ofrecer
     servicios = models.ManyToManyField(

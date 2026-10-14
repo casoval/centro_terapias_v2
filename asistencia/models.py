@@ -398,41 +398,13 @@ class PermisoAsistencia(models.Model):
         return siguiente - datetime.timedelta(days=1)
 
 
-class TipoAsueto(models.Model):
-    """
-    Catálogo de asuetos: tiempo libre CONCEDIDO por el centro (Día de la Mujer, cumpleaños, vacaciones...).
-    No es falta, ni permiso, ni asistencia: es neutro (no descuenta ni cuenta como día trabajado).
-    """
-    nombre = models.CharField(max_length=100, unique=True)
-    dias = models.DecimalField(max_digits=4, decimal_places=2, default=0.5,
-                               help_text='Días que otorga por defecto (0.5 = medio día, 1, 2...).')
-    vence_dias = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text='Plazo en días para usarlo desde que se otorga. Vacío = no vence.')
-    cumpleanos_auto = models.BooleanField(
-        default=False,
-        help_text='Se otorga solo a cada profesional en su cumpleaños (comando otorgar_asuetos_cumpleanos).')
-    activo = models.BooleanField(default=True)
-
-    class Meta:
-        verbose_name = 'Tipo de asueto'
-        verbose_name_plural = 'Tipos de asueto'
-        ordering = ['nombre']
-
-    def __str__(self):
-        return self.nombre
-
-
 class DerechoAsueto(models.Model):
     """Saldo de asueto otorgado a un profesional. Se consume con UsoAsueto en las fechas que elija."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='derechos_asueto')
-    tipo = models.ForeignKey(TipoAsueto, on_delete=models.PROTECT, related_name='derechos')
-    motivo = models.CharField(max_length=200, blank=True, help_text='Ej: Día de la Mujer 2026')
+    motivo = models.CharField(max_length=200, help_text='Ej: Día de la Mujer 2026, Cumpleaños, Vacaciones')
     dias = models.DecimalField(max_digits=4, decimal_places=2, default=0.5)
     otorgado_el = models.DateField(default=timezone.localdate)
     vence_el = models.DateField(null=True, blank=True, help_text='Último día para usarlo. Vacío = no vence.')
-    referencia = models.CharField(max_length=60, blank=True,
-                                  help_text='Uso interno: evita duplicar otorgamientos automáticos.')
     creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     creado_en = models.DateTimeField(auto_now_add=True)
 
@@ -440,12 +412,9 @@ class DerechoAsueto(models.Model):
         verbose_name = 'Derecho de asueto'
         verbose_name_plural = 'Derechos de asueto'
         ordering = ['-otorgado_el', 'user_id']
-        constraints = [models.UniqueConstraint(
-            fields=['user', 'tipo', 'referencia'], condition=~models.Q(referencia=''),
-            name='uniq_derecho_asueto_referencia')]
 
     def __str__(self):
-        return f"{self.user.get_full_name() or self.user.username} — {self.motivo or self.tipo} ({self.dias} d)"
+        return f"{self.user.get_full_name() or self.user.username} — {self.motivo} ({self.dias} d)"
 
     @property
     def usados(self):

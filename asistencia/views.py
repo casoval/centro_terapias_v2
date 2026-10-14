@@ -17,14 +17,14 @@ from .forms import (
     BloqueFechaEspecialForm, BloqueHorarioForm, ConfigAsistenciaForm, EditarObservacionForm,
     FechaEspecialForm, MarcarAsistenciaForm, PermisoReenrolamientoForm, PlantillaHorarioForm,
     DIAS_RESTO_SUGERIDO, OtorgarAsuetoForm, PermisoAsistenciaForm, ReglasAsistenciaForm, TRAMOS_SUGERIDOS,
-    TipoAsuetoForm, TramoFormSet, UsarAsuetoForm, ZonaAsistenciaForm, bloque_formset,
+    TramoFormSet, UsarAsuetoForm, ZonaAsistenciaForm, bloque_formset,
 )
 from . import asuetos as asuetos_svc
 from .informe_mensual import MESES, construir_informes_mensuales
 from .models import (
     BloqueFechaEspecial, BloqueHorario, ConfigAsistencia, DIAS_SEMANA, DIAS_SEMANA_ORDEN, EnrolamientoFacial,
     FechaEspecial, PermisoAsistencia, PermisoReenrolamiento, PlantillaHorario, RegistroAsistencia, ReglasAsistencia,
-    DerechoAsueto, TipoAsueto, TramoDescuento, UsoAsueto, ZonaAsistencia,
+    DerechoAsueto, TramoDescuento, UsoAsueto, ZonaAsistencia,
 )
 from .services import (
     ErrorEnrolamiento, ValidadorAsistencia, calcular_estado_dia, construir_panel, dias_descuento,
@@ -892,7 +892,7 @@ def mi_asistencia(request):
     from .asuetos import saldos_por_usuario
     saldo_asueto = saldos_por_usuario([user.pk], hoy).get(user.pk)
     usos_asueto = list(user.usos_asueto.filter(fecha__gte=inicio_mes, fecha__lte=fin_mes)
-                       .select_related('derecho__tipo').order_by('fecha'))
+                       .select_related('derecho').order_by('fecha'))
 
     return render(request, 'asistencia/profesional/mi_asistencia.html', {
         'saldo_asueto': saldo_asueto, 'usos_asueto': usos_asueto,
@@ -1196,22 +1196,20 @@ def asuetos(request):
     otorgar_form = OtorgarAsuetoForm(request.POST if accion == 'otorgar' else None)
     usar_form = UsarAsuetoForm(request.POST if accion == 'usar' else None,
                                initial={'derecho': request.GET.get('derecho'), 'fecha': hoy})
-    tipo_form = TipoAsuetoForm(request.POST if accion == 'tipo' else None)
 
     if accion == 'otorgar' and otorgar_form.is_valid():
         c = otorgar_form.cleaned_data
         users = asuetos_svc.destinatarios(
             c['destino'], [x.pk for x in c['sucursales']], [x.pk for x in c['zonas']],
-            [x.pk for x in c['profesionales']], c['sexo'])
+            [x.pk for x in c['profesionales']])
         try:
             creados, omitidos = asuetos_svc.otorgar(
-                c['tipo'], users, c['dias'], c['motivo'], c['otorgado_el'], c['vence_el'], request.user)
+                users, c['dias'], c['motivo'], c['otorgado_el'], c['vence_el'], request.user)
         except asuetos_svc.AsuetoError as e:
             messages.error(request, str(e))
         else:
             if not creados and not omitidos:
-                messages.warning(request, 'Ningún profesional cumple esas condiciones (revisa sexo, sucursal o zona; '
-                                          'el sexo se registra en la ficha del profesional).')
+                messages.warning(request, 'Ningún profesional cumple esas condiciones (revisa la sucursal, la zona o los profesionales elegidos).')
             else:
                 msg = f'Asueto otorgado a {creados} profesional(es).'
                 if omitidos:
@@ -1227,12 +1225,8 @@ def asuetos(request):
         else:
             messages.success(request, f'Asueto registrado: {uso}. No cuenta como falta ni como descuento.')
             return redirect('asistencia:asuetos')
-    elif accion == 'tipo' and tipo_form.is_valid():
-        tipo_form.save()
-        messages.success(request, 'Tipo de asueto creado.')
-        return redirect('asistencia:asuetos')
 
-    derechos = (DerechoAsueto.objects.select_related('user', 'tipo').prefetch_related('usos')
+    derechos = (DerechoAsueto.objects.select_related('user').prefetch_related('usos')
                 .order_by('-otorgado_el', 'user__last_name'))
     filtro_user = request.GET.get('profesional') or ''
     filtro_estado = request.GET.get('estado') or ''
@@ -1245,8 +1239,8 @@ def asuetos(request):
             continue
         filas.append(d)
     return render(request, 'asistencia/admin/asuetos.html', {
-        'otorgar_form': otorgar_form, 'usar_form': usar_form, 'tipo_form': tipo_form,
-        'derechos': filas[:300], 'tipos': TipoAsueto.objects.all(),
+        'otorgar_form': otorgar_form, 'usar_form': usar_form,
+        'derechos': filas[:300],
         'profesionales': User.objects.filter(perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name'),
         'filtro_user': filtro_user, 'filtro_estado': filtro_estado, 'accion_activa': accion,
         'seccion': 'asuetos', 'hoy': hoy,
@@ -1273,14 +1267,4 @@ def eliminar_derecho_asueto(request, pk):
     else:
         d.delete()
         messages.success(request, 'Asueto eliminado.')
-    return redirect('asistencia:asuetos')
-
-
-@solo_admin
-@require_POST
-def alternar_tipo_asueto(request, pk):
-    tipo = get_object_or_404(TipoAsueto, pk=pk)
-    tipo.activo = not tipo.activo
-    tipo.save(update_fields=['activo'])
-    messages.success(request, f'Tipo «{tipo.nombre}» {"activado" if tipo.activo else "desactivado"}.')
     return redirect('asistencia:asuetos')

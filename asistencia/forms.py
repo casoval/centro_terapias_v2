@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
@@ -6,7 +7,7 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 from .models import (
     ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
     FechaEspecial, BloqueFechaEspecial, PermisoAsistencia, RegistroAsistencia,
-    DIAS_SEMANA_ORDEN, TipoAsueto,
+    DIAS_SEMANA_ORDEN,
 )
 
 INPUT = 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold bg-white'
@@ -399,29 +400,18 @@ class PermisoAsistenciaForm(forms.ModelForm):
 
 # ── Asuetos ──────────────────────────────────────────────────────────────────
 
-class TipoAsuetoForm(forms.ModelForm):
-    class Meta:
-        model = TipoAsueto
-        fields = ['nombre', 'dias', 'vence_dias', 'cumpleanos_auto']
-        widgets = {
-            'nombre': forms.TextInput(attrs={'class': INPUT, 'placeholder': 'Ej: Día de la Mujer, Cumpleaños'}),
-            'dias': forms.NumberInput(attrs={'class': INPUT, 'min': '0.5', 'step': '0.5'}),
-            'vence_dias': forms.NumberInput(attrs={'class': INPUT, 'min': '1', 'placeholder': 'sin vencimiento'}),
-            'cumpleanos_auto': forms.CheckboxInput(attrs={'class': CHECK}),
-        }
-        labels = {'nombre': 'Nombre', 'dias': 'Días por defecto', 'vence_dias': 'Plazo para usarlo (días)',
-                  'cumpleanos_auto': 'Otorgar solo en el cumpleaños'}
-
-
 class OtorgarAsuetoForm(forms.Form):
     """Otorga un derecho de asueto a un grupo de profesionales."""
     DESTINOS = [('todos', 'Todo el personal'), ('sucursal', 'Una o varias sucursales'),
                 ('zona', 'Una o varias zonas'), ('elegidos', 'Profesionales elegidos')]
-    tipo = forms.ModelChoiceField(queryset=None, label='Tipo de asueto', widget=forms.Select(attrs={'class': INPUT}))
-    motivo = forms.CharField(max_length=200, required=False, label='Motivo',
-                             widget=forms.TextInput(attrs={'class': INPUT, 'placeholder': 'Ej: Día de la Mujer 2026'}))
-    dias = forms.DecimalField(min_value=0.01, max_digits=4, decimal_places=2, label='Días que se otorgan',
-                              widget=forms.NumberInput(attrs={'class': INPUT, 'min': '0.5', 'step': '0.5'}))
+    motivo = forms.CharField(max_length=200, label='Motivo',
+                             widget=forms.TextInput(attrs={'class': INPUT, 'placeholder': 'Ej: Día de la Mujer, Cumpleaños, Vacaciones'}))
+    duracion = forms.ChoiceField(
+        choices=[('0.5', 'Medio día'), ('1', 'Día completo'), ('varios', 'Varios días')], label='Duración',
+        widget=forms.Select(attrs={'class': INPUT}))
+    dias_varios = forms.DecimalField(
+        required=False, min_value=1, max_digits=4, decimal_places=2, label='¿Cuántos días?',
+        widget=forms.NumberInput(attrs={'class': INPUT, 'min': '1', 'step': '0.5'}))
     otorgado_el = forms.DateField(label='Fecha del evento / otorgamiento', widget=forms.DateInput(
         format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}))
     vence_el = forms.DateField(required=False, label='Vence el (opcional)', widget=forms.DateInput(
@@ -431,14 +421,11 @@ class OtorgarAsuetoForm(forms.Form):
     sucursales = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Sucursales')
     zonas = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Zonas')
     profesionales = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Profesionales')
-    sexo = forms.ChoiceField(choices=[('', 'Cualquiera'), ('F', 'Solo mujeres'), ('M', 'Solo hombres')],
-                             required=False, label='Filtrar por sexo', widget=forms.Select(attrs={'class': INPUT}))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from django.contrib.auth.models import User as DjangoUser
         from servicios.models import Sucursal
-        self.fields['tipo'].queryset = TipoAsueto.objects.filter(activo=True)
         self.fields['sucursales'].queryset = Sucursal.objects.all().order_by('nombre')
         self.fields['zonas'].queryset = ZonaAsistencia.objects.filter(activa=True).order_by('nombre')
         self.fields['profesionales'].queryset = DjangoUser.objects.filter(
@@ -450,6 +437,12 @@ class OtorgarAsuetoForm(forms.Form):
 
     def clean(self):
         c = super().clean()
+        if c.get('duracion') == 'varios':
+            if not c.get('dias_varios'):
+                self.add_error('dias_varios', 'Indica cuántos días.')
+            c['dias'] = c.get('dias_varios')
+        elif c.get('duracion'):
+            c['dias'] = Decimal(c['duracion'])
         destino = c.get('destino')
         if destino == 'sucursal' and not c.get('sucursales'):
             self.add_error('sucursales', 'Elige al menos una sucursal.')
@@ -476,10 +469,10 @@ class UsarAsuetoForm(forms.Form):
         super().__init__(*args, **kwargs)
         from .models import DerechoAsueto
         hoy = timezone.localdate()
-        disponibles = [d.pk for d in DerechoAsueto.objects.select_related('user', 'tipo').prefetch_related('usos')
+        disponibles = [d.pk for d in DerechoAsueto.objects.select_related('user').prefetch_related('usos')
                        if d.estado(hoy) == 'disponible']
         self.fields['derecho'].queryset = (DerechoAsueto.objects.filter(pk__in=disponibles)
-                                           .select_related('user', 'tipo').prefetch_related('usos')
+                                           .select_related('user').prefetch_related('usos')
                                            .order_by('user__last_name', 'user__first_name'))
         self.fields['derecho'].label_from_instance = lambda d: (
-            f"{d.user.get_full_name() or d.user.username} — {d.motivo or d.tipo} (saldo {d.saldo:g} d)")
+            f"{d.user.get_full_name() or d.user.username} — {d.motivo} (saldo {d.saldo:g} d)")

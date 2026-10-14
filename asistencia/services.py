@@ -943,7 +943,7 @@ def construir_panel(fecha: date, ahora=None):
     acumulados = segundos_acumulados_mes(fecha, [u.pk for u in profesionales])
     resolvedor = ResolvedorReglas(fecha.year, fecha.month)        # reglas del mes: profesional > sucursal > general
     asuetos = {}
-    for a in UsoAsueto.objects.filter(fecha=fecha).select_related('derecho__tipo'):
+    for a in UsoAsueto.objects.filter(fecha=fecha).select_related('derecho'):
         asuetos.setdefault(a.user_id, []).append(a)
     por_user = {}
     for r in (RegistroAsistencia.objects.filter(fecha_hora__date=fecha)

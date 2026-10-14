@@ -29,7 +29,6 @@ urlpatterns = [
     path('admin/asuetos/', views.asuetos, name='asuetos'),
     path('admin/asuetos/uso/<int:pk>/quitar/', views.quitar_uso_asueto, name='quitar_uso_asueto'),
     path('admin/asuetos/<int:pk>/eliminar/', views.eliminar_derecho_asueto, name='eliminar_derecho_asueto'),
-    path('admin/asuetos/tipo/<int:pk>/alternar/', views.alternar_tipo_asueto, name='alternar_tipo_asueto'),
     path('admin/informe-mensual/', views.informe_mensual, name='informe_mensual'),
     path('admin/informe-mensual/pdf/', views.informe_mensual_pdf, name='informe_mensual_pdf'),
     path('admin/permisos/', views.permisos, name='permisos'),

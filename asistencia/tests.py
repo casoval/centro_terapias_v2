@@ -2441,7 +2441,7 @@ class MigracionRetrasoTests(BaseAsistencia):
 
 from decimal import Decimal
 from . import asuetos as asu
-from .models import DerechoAsueto, TipoAsueto, UsoAsueto
+from .models import DerechoAsueto, UsoAsueto
 from .services import ResolvedorReglas
 
 
@@ -2452,10 +2452,9 @@ class AsuetosBase(BaseAsistencia):
         super().setUp()
         self.admin = User.objects.create_superuser('root_asu', password='x')
         self.p = crear_prof('ana', self.zona, control=OCT(1))
-        self.tipo = TipoAsueto.objects.create(nombre='Día de la Mujer', dias='0.5')
 
     def derecho(self, dias='0.5', **kw):
-        return DerechoAsueto.objects.create(user=self.p.user, tipo=self.tipo, motivo='Día de la Mujer 2026',
+        return DerechoAsueto.objects.create(user=self.p.user, motivo='Día de la Mujer 2026',
                                             dias=Decimal(dias), **kw)
 
     def informe(self):
@@ -2569,16 +2568,11 @@ class AsuetoSaldoTests(AsuetosBase):
 class OtorgarAsuetoTests(AsuetosBase):
     def setUp(self):
         super().setUp()
-        from profesionales.models import Profesional
-        self.p.sexo = 'F'; self.p.save()
         self.b = crear_prof('beto', self.zona, apellido='Ruiz', control=OCT(1))
-        self.b.sexo = 'M'; self.b.save()
         self.c = crear_prof('carla', self.zona, apellido='Soto', control=OCT(1))
-        self.c.sexo = 'F'; self.c.save()
 
-    def test_todos_solo_mujeres(self):
-        users = asu.destinatarios('todos', sexo='F')
-        self.assertEqual({u.username for u in users}, {'ana', 'carla'})
+    def test_todos(self):
+        self.assertEqual({u.username for u in asu.destinatarios('todos')}, {'ana', 'beto', 'carla'})
 
     def test_elegidos(self):
         users = asu.destinatarios('elegidos', user_ids=[self.b.user.pk])
@@ -2590,28 +2584,24 @@ class OtorgarAsuetoTests(AsuetosBase):
         self.c.sucursales.add(suc)
         self.assertEqual([u.username for u in asu.destinatarios('sucursal', sucursal_ids=[suc.pk])], ['carla'])
 
+    def test_por_zona(self):
+        self.assertEqual(len(asu.destinatarios('zona', zona_ids=[self.zona.pk])), 3)
+
     def test_otorgar_no_duplica(self):
-        users = asu.destinatarios('todos', sexo='F')
-        self.assertEqual(asu.otorgar(self.tipo, users, 0.5, 'Día de la Mujer 2026', OCT(8)), (2, 0))
-        self.assertEqual(asu.otorgar(self.tipo, users, 0.5, 'Día de la Mujer 2026', OCT(8)), (0, 2))
+        users = asu.destinatarios('elegidos', user_ids=[self.p.user.pk, self.c.user.pk])
+        self.assertEqual(asu.otorgar(users, 0.5, 'Día de la Mujer', OCT(8)), (2, 0))
+        self.assertEqual(asu.otorgar(users, 0.5, 'Día de la Mujer', OCT(8)), (0, 2))
         self.assertEqual(DerechoAsueto.objects.count(), 2)
 
-    def test_vencimiento_por_plazo_del_tipo(self):
-        self.tipo.vence_dias = 30; self.tipo.save()
-        asu.otorgar(self.tipo, [self.p.user], 0.5, 'x', OCT(8))
-        self.assertEqual(DerechoAsueto.objects.get().vence_el, OCT(8) + dt.timedelta(days=30))
+    def test_motivo_obligatorio_y_dias_positivos(self):
+        with self.assertRaises(asu.AsuetoError):
+            asu.otorgar([self.p.user], 1, '  ')
+        with self.assertRaises(asu.AsuetoError):
+            asu.otorgar([self.p.user], 0, 'x')
 
-    def test_cumpleanos_automatico_e_idempotente(self):
-        tipo = TipoAsueto.objects.create(nombre='Cumpleaños', dias='0.5', cumpleanos_auto=True)
-        self.p.fecha_nacimiento = dt.date(1990, 10, 14); self.p.save()
-        self.assertEqual(asu.otorgar_cumpleanos(OCT(14)), 1)
-        self.assertEqual(asu.otorgar_cumpleanos(OCT(14)), 0)
-        self.assertEqual(DerechoAsueto.objects.get(tipo=tipo).user, self.p.user)
-        self.assertEqual(asu.otorgar_cumpleanos(OCT(15)), 0)
-
-    def test_saldos_por_usuario_ignora_vencidos_y_usados(self):
-        asu.otorgar(self.tipo, [self.p.user], 1, 'a', OCT(1), vence_el=OCT(2))
-        asu.otorgar(self.tipo, [self.p.user], 1, 'b', OCT(1))
+    def test_saldos_por_usuario_ignora_vencidos(self):
+        asu.otorgar([self.p.user], 1, 'a', OCT(1), vence_el=OCT(2))
+        asu.otorgar([self.p.user], 1, 'b', OCT(1))
         s = asu.saldos_por_usuario([self.p.user.pk], hoy=OCT(10))
         self.assertEqual(s[self.p.user.pk]['disponible'], 1)
 
@@ -2627,17 +2617,29 @@ class AsuetosVistasTests(AsuetosBase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Otorgar asueto')
 
-    def test_otorgar_desde_la_pantalla_a_todas_las_mujeres(self):
-        self.p.sexo = 'F'; self.p.save()
+    def test_otorgar_medio_dia_a_todos(self):
         r = self.client.post(self.url, {
-            'accion': 'otorgar', 'tipo': self.tipo.pk, 'motivo': 'Día de la Mujer 2026', 'dias': '0.5',
-            'otorgado_el': '2026-10-13', 'destino': 'todos', 'sexo': 'F'}, follow=True)
-        self.assertEqual(DerechoAsueto.objects.count(), 1)
+            'accion': 'otorgar', 'motivo': 'Día de la Mujer', 'duracion': '0.5',
+            'otorgado_el': '2026-10-13', 'destino': 'todos'}, follow=True)
+        self.assertEqual(DerechoAsueto.objects.get().dias, Decimal('0.5'))
         self.assertContains(r, 'Asueto otorgado a 1 profesional')
+
+    def test_otorgar_varios_dias_a_elegidos(self):
+        self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'Vacaciones', 'duracion': 'varios', 'dias_varios': '3',
+            'otorgado_el': '2026-10-13', 'destino': 'elegidos', 'profesionales': [self.p.user.pk]})
+        self.assertEqual(DerechoAsueto.objects.get().dias, Decimal('3'))
+
+    def test_varios_dias_exige_cantidad(self):
+        r = self.client.post(self.url, {
+            'accion': 'otorgar', 'motivo': 'Vacaciones', 'duracion': 'varios',
+            'otorgado_el': '2026-10-13', 'destino': 'todos'})
+        self.assertContains(r, 'Indica cuántos días')
+        self.assertEqual(DerechoAsueto.objects.count(), 0)
 
     def test_otorgar_a_elegidos_sin_elegir_da_error(self):
         r = self.client.post(self.url, {
-            'accion': 'otorgar', 'tipo': self.tipo.pk, 'dias': '0.5', 'otorgado_el': '2026-10-13',
+            'accion': 'otorgar', 'motivo': 'x', 'duracion': '1', 'otorgado_el': '2026-10-13',
             'destino': 'elegidos'})
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Elige al menos un profesional')
@@ -2663,10 +2665,6 @@ class AsuetosVistasTests(AsuetosBase):
         self.client.logout()
         self.client.force_login(self.p.user)
         self.assertEqual(self.client.get(self.url).status_code, 302)
-
-    def test_crear_tipo(self):
-        self.client.post(self.url, {'accion': 'tipo', 'nombre': 'Cumpleaños', 'dias': '0.5', 'cumpleanos_auto': 'on'})
-        self.assertTrue(TipoAsueto.objects.get(nombre='Cumpleaños').cumpleanos_auto)
 
     def test_mi_asistencia_muestra_el_saldo(self):
         self.derecho('0.5')

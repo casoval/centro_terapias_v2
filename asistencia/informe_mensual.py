@@ -272,7 +272,7 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
             falta_texto = permiso_texto = asueto_texto = ''
             asueto_dias = (en_asueto / n) if n else 0.0
             if en_asueto:
-                motivo = usos_asueto[0].derecho.motivo or str(usos_asueto[0].derecho.tipo)
+                motivo = usos_asueto[0].derecho.motivo
                 asueto_texto = f"Asueto: {motivo} ({fmt_dias_asueto(asueto_dias)})"
             if faltas:
                 falta_texto = ('Falta día completo' if faltas == n else
