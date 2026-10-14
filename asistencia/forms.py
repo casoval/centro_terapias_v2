@@ -416,7 +416,7 @@ class OtorgarAsuetoForm(forms.Form):
         format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}))
     vence_el = forms.DateField(required=False, label='Vence el (opcional)', widget=forms.DateInput(
         format='%Y-%m-%d', attrs={'class': INPUT, 'type': 'date'}),
-        help_text='Vacío = usa el plazo del tipo, o no vence.')
+        help_text='Vacío = no vence.')
     destino = forms.ChoiceField(choices=DESTINOS, label='¿A quiénes?', widget=forms.Select(attrs={'class': INPUT}))
     sucursales = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Sucursales')
     zonas = forms.ModelMultipleChoiceField(queryset=None, required=False, label='Zonas')
