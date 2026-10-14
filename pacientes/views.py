@@ -7,6 +7,21 @@ from core.fechas import mes_abrev_anio  # 'oct 2026' en español
 from .models import Paciente, PacienteServicio
 from .forms import PacienteForm
 
+
+def _es_personal_administrativo(user):
+    """Admin (superuser), gerente o recepcionista: los únicos roles que
+    pueden crear, editar o eliminar pacientes (incluida su foto)."""
+    if user.is_superuser:
+        return True
+    perfil = getattr(user, 'perfil', None)
+    return bool(perfil and (perfil.es_gerente() or perfil.es_recepcionista()))
+
+
+def _denegar_gestion_pacientes(request):
+    messages.error(request, '⚠️ No tienes permiso para realizar esta acción.')
+    return redirect('core:dashboard')
+
+
 @login_required
 def lista_pacientes(request):
     """
@@ -123,6 +138,9 @@ def agregar_paciente(request):
     ✅ LIMITADO A SUCURSALES DEL RECEPCIONISTA
     ✅ MANEJO DE SERVICIOS EN LA VISTA (no en el formulario)
     """
+    if not _es_personal_administrativo(request.user):
+        return _denegar_gestion_pacientes(request)
+
     # ✅ Verificar si viene con user_id (desde crear usuario)
     user_id = request.GET.get('user_id')
     usuario_seleccionado = None
@@ -260,6 +278,9 @@ def editar_paciente(request, pk):
     ✅ VALIDAR QUE RECEPCIONISTA SOLO EDITE PACIENTES DE SUS SUCURSALES
     ✅ CORREGIDO: Mejor manejo de servicios y sus estados
     """
+    if not _es_personal_administrativo(request.user):
+        return _denegar_gestion_pacientes(request)
+
     paciente = get_object_or_404(Paciente, pk=pk)
     
     # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
@@ -448,6 +469,9 @@ def eliminar_paciente(request, pk):
     ✅ Vista para eliminar o desactivar paciente
     ✅ VALIDAR PERMISOS DE RECEPCIONISTA
     """
+    if not _es_personal_administrativo(request.user):
+        return _denegar_gestion_pacientes(request)
+
     paciente = get_object_or_404(Paciente, pk=pk)
     
     # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
@@ -529,6 +553,22 @@ def detalle_paciente(request, pk):
     ✅ VALIDAR ACCESO PARA RECEPCIONISTAS
     """
     paciente = get_object_or_404(Paciente, pk=pk)
+
+    # ✅ PROFESIONAL: solo pacientes con los que tiene sesiones.
+    #    PACIENTE: solo su propia ficha.
+    if not _es_personal_administrativo(request.user):
+        perfil = getattr(request.user, 'perfil', None)
+        permitido = False
+        if perfil and perfil.es_profesional():
+            from agenda.models import Sesion as _Sesion
+            permitido = _Sesion.objects.filter(
+                paciente=paciente, profesional__user=request.user
+            ).exists()
+        elif perfil and perfil.es_paciente():
+            permitido = (paciente.user_id == request.user.id)
+        if not permitido:
+            messages.error(request, '⚠️ No tienes permiso para ver este paciente.')
+            return redirect('core:dashboard')
     
     # ✅ VALIDACIÓN DE ACCESO PARA RECEPCIONISTAS
     if not request.user.is_superuser and hasattr(request.user, 'perfil'):

@@ -68,6 +68,29 @@
                             <div class="w-20 h-20 rounded-full bg-white flex items-center justify-center text-4xl border-4 border-white shadow-lg">
                                 👶
                             </div>
+                            <!-- Solo si NO tiene foto: el profesional puede subirla (una sola vez),
+                                 tomándola con la cámara o eligiéndola de la galería -->
+                            <form method="post" enctype="multipart/form-data"
+                                  action="{% url 'profesionales:subir_foto_paciente' item.paciente.id %}"
+                                  class="mt-2 flex flex-col items-center gap-1">
+                                {% csrf_token %}
+                                <!-- Cámara (en celular abre la cámara directamente) -->
+                                <input type="file" name="foto" id="foto-cam-{{ item.paciente.id }}"
+                                       accept="image/*" capture="environment" class="hidden"
+                                       onchange="subirFotoPaciente(this)">
+                                <!-- Galería / archivos -->
+                                <input type="file" name="foto" id="foto-gal-{{ item.paciente.id }}"
+                                       accept="image/jpeg,image/png,image/webp" class="hidden"
+                                       onchange="subirFotoPaciente(this)">
+                                <label for="foto-cam-{{ item.paciente.id }}"
+                                       class="cursor-pointer inline-block text-xs bg-white text-blue-700 font-semibold px-2 py-1 rounded-full shadow hover:bg-blue-50 whitespace-nowrap">
+                                    📷 Tomar foto
+                                </label>
+                                <label for="foto-gal-{{ item.paciente.id }}"
+                                       class="cursor-pointer inline-block text-xs bg-white text-blue-700 font-semibold px-2 py-1 rounded-full shadow hover:bg-blue-50 whitespace-nowrap">
+                                    🖼️ Galería
+                                </label>
+                            </form>
                         {% endif %}
                     </div>
                     
@@ -379,4 +402,26 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+function subirFotoPaciente(input) {
+    var form = input.closest('form');
+    if (!input.files || !input.files.length) { return; }
+    var f = input.files[0];
+    if (f.size > 5 * 1024 * 1024) {
+        alert('La imagen no debe superar los 5 MB.');
+        input.value = '';
+        return;
+    }
+    if (confirm('¿Subir esta foto? Después no podrás modificarla.')) {
+        // Solo se envía el input elegido (el otro se vacía)
+        form.querySelectorAll('input[type=file]').forEach(function (el) {
+            if (el !== input) { el.value = ''; }
+        });
+        form.submit();
+    } else {
+        input.value = '';
+    }
+}
+</script>
 {% endblock %}

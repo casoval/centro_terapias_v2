@@ -282,7 +282,7 @@ def mis_pacientes(request):
     ✅ Muestra todos los pacientes que ha atendido el profesional
     """
     # ✅ Verificar que el usuario sea profesional
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_profesional:
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_profesional():
         messages.error(request, '⚠️ Esta sección es solo para profesionales.')
         return redirect('core:dashboard')
     
@@ -369,3 +369,77 @@ def mis_pacientes(request):
     }
     
     return render(request, 'profesionales/mis_pacientes.html', context)
+
+
+@login_required
+def subir_foto_paciente(request, paciente_id):
+    """
+    El profesional puede SUBIR la foto de un paciente suyo únicamente si el
+    paciente todavía NO tiene foto. Si ya tiene, no puede cambiarla ni
+    borrarla (eso queda solo para admin/gerente/recepcionista desde el
+    catálogo de pacientes).
+    """
+    from agenda.models import Sesion
+    from pacientes.models import Paciente
+
+    if request.method != 'POST':
+        return redirect('profesionales:mis_pacientes')
+
+    # Solo profesionales
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_profesional():
+        messages.error(request, '⚠️ Solo los profesionales pueden usar esta opción.')
+        return redirect('core:dashboard')
+
+    try:
+        profesional = Profesional.objects.get(user=request.user)
+    except Profesional.DoesNotExist:
+        messages.error(request, '❌ No hay un profesional vinculado a tu cuenta.')
+        return redirect('core:dashboard')
+
+    paciente = get_object_or_404(Paciente, pk=paciente_id)
+
+    # Debe ser paciente de este profesional (tiene sesiones con él)
+    if not Sesion.objects.filter(paciente=paciente, profesional=profesional).exists():
+        messages.error(request, '⚠️ Este paciente no está asignado a ti.')
+        return redirect('profesionales:mis_pacientes')
+
+    # Solo si NO tiene foto (aunque envíen el POST a mano)
+    if paciente.tiene_foto():
+        messages.warning(
+            request,
+            f'ℹ️ {paciente.nombre_completo} ya tiene foto. '
+            'Solo administración puede modificarla.'
+        )
+        return redirect('profesionales:mis_pacientes')
+
+    archivo = request.FILES.get('foto')
+    if not archivo:
+        messages.error(request, '❌ No seleccionaste ninguna imagen.')
+        return redirect('profesionales:mis_pacientes')
+
+    # Validaciones del archivo
+    if archivo.size > 5 * 1024 * 1024:
+        messages.error(request, '❌ La imagen no debe superar los 5 MB.')
+        return redirect('profesionales:mis_pacientes')
+
+    if archivo.content_type not in ('image/jpeg', 'image/png', 'image/webp'):
+        messages.error(request, '❌ Formato no permitido. Usa JPG, PNG o WEBP.')
+        return redirect('profesionales:mis_pacientes')
+
+    try:
+        from PIL import Image
+        Image.open(archivo).verify()  # confirma que realmente es una imagen
+        archivo.seek(0)
+    except Exception:
+        messages.error(request, '❌ El archivo no es una imagen válida.')
+        return redirect('profesionales:mis_pacientes')
+
+    try:
+        # Guarda solo el campo foto (no toca el resto de datos del paciente)
+        paciente.foto = archivo
+        paciente.save(update_fields=['foto'])
+        messages.success(request, f'✅ Foto de {paciente.nombre_completo} guardada correctamente.')
+    except Exception:
+        messages.error(request, '❌ No se pudo subir la foto. Intenta nuevamente.')
+
+    return redirect('profesionales:mis_pacientes')
