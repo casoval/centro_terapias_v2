@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from cloudinary.models import CloudinaryField
 
 # ✅ Variable de control para signals
 _disable_signals = False
@@ -101,6 +102,24 @@ class PerfilUsuario(models.Model):
         help_text='Número de teléfono (opcional, principalmente para Recepcionistas y Gerentes)'
     )
     
+    # Foto de perfil (principalmente para Recepcionistas y Gerentes; los
+    # profesionales y pacientes usan la foto de su ficha si no tienen una propia)
+    foto = CloudinaryField(
+        'foto',
+        blank=True,
+        null=True,
+        folder='usuarios',
+        transformation={
+            'width': 400,
+            'height': 400,
+            'crop': 'fill',
+            'gravity': 'face',
+            'quality': 'auto',
+            'fetch_format': 'auto'
+        },
+        help_text='Foto del usuario (opcional, se optimizará automáticamente)'
+    )
+
     # Relación con Profesional (si aplica)
     profesional = models.OneToOneField(
         'profesionales.Profesional',
@@ -144,6 +163,38 @@ class PerfilUsuario(models.Model):
     
     # ==================== MÉTODOS DE PERMISOS ====================
     
+    # ==================== FOTO PARA IDENTIFICACIÓN ====================
+
+    def _foto_origen(self):
+        """Devuelve el objeto que aporta la foto: el propio perfil o, si no
+        tiene, la ficha de profesional / paciente vinculada (si tiene foto)."""
+        if self.foto:
+            return self
+        for ficha in (self.profesional, self.paciente):
+            if ficha is not None and getattr(ficha, 'foto', None):
+                return ficha
+        return None
+
+    @property
+    def tiene_foto(self):
+        return self._foto_origen() is not None
+
+    def get_foto_url(self, width=400, height=400):
+        """URL de la foto (propia o de la ficha vinculada); None si no hay."""
+        origen = self._foto_origen()
+        if origen is None:
+            return None
+        try:
+            return origen.foto.build_url(
+                width=width, height=height, crop='fill',
+                gravity='face', quality='auto', fetch_format='auto'
+            )
+        except Exception:
+            return origen.foto.url if hasattr(origen.foto, 'url') else None
+
+    def get_foto_thumbnail(self):
+        return self.get_foto_url(width=100, height=100)
+
     def es_superadmin(self):
         """Verifica si es superusuario"""
         return self.user.is_superuser

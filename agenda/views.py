@@ -1058,6 +1058,10 @@ def calendario(request):
 
         sesiones_lista.append(sesion)
 
+    # 💳📦 Marcar sesiones de mensualidad/proyecto cuyo pago global tiene saldo
+    # pendiente (cálculo masivo: unas pocas consultas, no una por sesión)
+    CalendarService.anotar_deuda_global(sesiones_lista)
+
     # 3. Generar estructura del calendario
     calendario_data = CalendarService.get_calendar_data(vista, fecha_base, sesiones_lista)
     

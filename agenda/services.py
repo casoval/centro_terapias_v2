@@ -66,6 +66,58 @@ class CalendarService:
         )
 
     @staticmethod
+    def anotar_deuda_global(sesiones):
+        """
+        Marca cada sesión de MENSUALIDAD o PROYECTO con el saldo pendiente del
+        pago GLOBAL al que pertenece (mensualidades y proyectos se pagan por
+        adelantado, pero el cobro no es por sesión).
+
+        Agrega a cada sesión:
+          deuda_global      : Decimal (> 0) si la mensualidad/proyecto tiene saldo
+                              pendiente; None si está al día o es sesión individual.
+          deuda_global_tipo : 'mensualidad' | 'proyecto' | None
+
+        ⚡ Eficiente: calcula los pagos de TODAS las mensualidades/proyectos
+        visibles en pocas consultas (reutiliza cachear_pagos_en_lista), sin
+        golpear la base de datos una vez por sesión.
+        Las mensualidades canceladas y proyectos cancelados no se marcan.
+        """
+        from .models import Mensualidad, Proyecto
+
+        sesiones = list(sesiones)
+        # Misma prioridad que Sesion.requiere_pago: proyecto, luego mensualidad
+        ids_pro = {s.proyecto_id for s in sesiones if s.proyecto_id}
+        ids_men = {s.mensualidad_id for s in sesiones if s.mensualidad_id and not s.proyecto_id}
+
+        deudas = {'proyecto': {}, 'mensualidad': {}}
+        config = (
+            ('proyecto', Proyecto, ids_pro, 'costo_total', 'cancelado'),
+            ('mensualidad', Mensualidad, ids_men, 'costo_mensual', 'cancelada'),
+        )
+        for tipo, modelo, ids, campo_costo, estado_cancelado in config:
+            if not ids:
+                continue
+            objs = modelo.objects.filter(id__in=ids).exclude(estado=estado_cancelado)
+            objs = ProyectoMensualidadService.cachear_pagos_en_lista(objs, tipo=tipo)
+            for obj in objs:
+                saldo = getattr(obj, campo_costo) - obj.pagado_neto
+                if saldo > 0:
+                    deudas[tipo][obj.id] = saldo
+
+        for sesion in sesiones:
+            if sesion.proyecto_id:
+                tipo, ref = 'proyecto', sesion.proyecto_id
+            elif sesion.mensualidad_id:
+                tipo, ref = 'mensualidad', sesion.mensualidad_id
+            else:
+                sesion.deuda_global = None
+                sesion.deuda_global_tipo = None
+                continue
+            sesion.deuda_global = deudas[tipo].get(ref)
+            sesion.deuda_global_tipo = tipo
+        return sesiones
+
+    @staticmethod
     def _marcar_sesiones_grupales(sesiones_lista):
         """
         Marca las sesiones que comparten exactamente la misma

@@ -47,7 +47,7 @@
     </div>
 </div>
 
-<form method="post" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<form method="post" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {% csrf_token %}
     
     {% if usuario_form.non_field_errors or perfil_form.non_field_errors %}
@@ -187,6 +187,19 @@
                 <div class="sm:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">{{ usuario_form.email.label }}</label>
                     {{ usuario_form.email }}
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">
+                        📷 {{ perfil_form.foto.label }}
+                        <span class="text-gray-400 font-normal text-xs">(opcional — ayuda a identificar al usuario)</span>
+                    </label>
+                    {% if perfil_form.instance.tiene_foto %}
+                    <img loading="lazy" decoding="async" src="{{ perfil_form.instance.get_foto_url }}" alt="Foto" class="w-20 h-20 rounded-full object-cover border-4 border-violet-50 shadow-sm mb-3">
+                    {% endif %}
+                    {{ perfil_form.foto }}
+                    {% if perfil_form.foto.errors %}
+                    <p class="text-red-500 text-xs font-bold mt-2 ml-1">{{ perfil_form.foto.errors.0 }}</p>
+                    {% endif %}
                 </div>
                 <div class="sm:col-span-2">
                     <label class="block text-sm font-bold text-gray-700 mb-2">

@@ -167,6 +167,7 @@ class PerfilUsuarioForm(forms.ModelForm):
         self.fields['profesional'].required = False
         self.fields['paciente'].required = False
         self.fields['rol'].required = False
+        self.fields['foto'].required = False
         
         # Agregar opción vacía
         self.fields['profesional'].empty_label = "Ninguno"
@@ -174,7 +175,7 @@ class PerfilUsuarioForm(forms.ModelForm):
     
     class Meta:
         model = PerfilUsuario
-        fields = ['rol', 'profesional', 'paciente', 'sucursales', 'activo', 'telefono']
+        fields = ['rol', 'profesional', 'paciente', 'sucursales', 'activo', 'telefono', 'foto']
         widgets = {
             'rol': forms.Select(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 text-sm font-bold'
@@ -195,6 +196,11 @@ class PerfilUsuarioForm(forms.ModelForm):
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 text-sm font-bold',
                 'placeholder': '+591 7XXXXXXX'
             }),
+            'foto': forms.FileInput(attrs={
+                'class': 'w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100',
+                'accept': 'image/*',
+                'id': 'id_foto'
+            }),
         }
         labels = {
             'rol': 'Rol del Usuario',
@@ -203,6 +209,7 @@ class PerfilUsuarioForm(forms.ModelForm):
             'sucursales': 'Sucursales Asignadas',
             'activo': 'Perfil Activo',
             'telefono': 'Teléfono de Contacto',
+            'foto': 'Foto del Usuario',
         }
     
     def clean(self):

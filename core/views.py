@@ -305,7 +305,7 @@ def lista_usuarios(request):
     usuarios = User.objects.filter(
         is_superuser=False,
         perfil__isnull=False
-    ).select_related('perfil').order_by('-is_active', 'username')
+    ).select_related('perfil', 'perfil__profesional', 'perfil__paciente').order_by('-is_active', 'username')
 
     # Busqueda
     buscar = request.GET.get('q', '')
@@ -380,7 +380,7 @@ def agregar_usuario(request):
     
     if request.method == 'POST':
         usuario_form = UsuarioForm(request.POST)
-        perfil_form = PerfilUsuarioForm(request.POST)
+        perfil_form = PerfilUsuarioForm(request.POST, request.FILES)
         
         if usuario_form.is_valid() and perfil_form.is_valid():
             # Desactivar signals temporalmente
@@ -478,7 +478,7 @@ def editar_usuario(request, pk):
 
     if request.method == 'POST':
         usuario_form = UsuarioForm(request.POST, instance=usuario)
-        perfil_form = PerfilUsuarioForm(request.POST, instance=perfil)
+        perfil_form = PerfilUsuarioForm(request.POST, request.FILES, instance=perfil)
         
         if usuario_form.is_valid() and perfil_form.is_valid():
             # Desactivar signals temporalmente

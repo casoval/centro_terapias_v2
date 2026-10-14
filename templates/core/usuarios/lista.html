@@ -154,8 +154,10 @@
         <div class="h-20 bg-gradient-to-br from-violet-50 to-indigo-100 rounded-t-3xl border-b border-gray-100"></div>
         
         <div class="px-4 -mt-10 mb-2 flex flex-col items-center text-center">
-            <div class="w-20 h-20 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-3xl group-hover:scale-105 transition-transform z-10">
-                {% if usuario.perfil.es_profesional %}👨‍⚕️
+            <div class="w-20 h-20 rounded-full bg-white border-4 border-white shadow-md flex items-center justify-center text-3xl group-hover:scale-105 transition-transform z-10 overflow-hidden">
+                {% if usuario.perfil.tiene_foto %}
+                    <img loading="lazy" decoding="async" src="{{ usuario.perfil.get_foto_thumbnail }}" alt="{{ usuario.username }}" class="w-full h-full object-cover">
+                {% elif usuario.perfil.es_profesional %}👨‍⚕️
                 {% elif usuario.perfil.es_paciente %}👶
                 {% elif usuario.perfil.es_recepcionista %}📋
                 {% elif usuario.perfil.es_gerente %}👔
@@ -289,8 +291,10 @@
                         <td data-label="#" data-ficha="oculto" class="p-4 text-center font-bold text-gray-400 text-sm">{{ forloop.counter }}</td>
                         <td data-label="Usuario" data-ficha="titulo" class="p-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl border-2 border-white shadow-sm">
-                                    {% if usuario.perfil.es_profesional %}👨‍⚕️
+                                <div class="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
+                                    {% if usuario.perfil.tiene_foto %}
+                                    <img loading="lazy" decoding="async" src="{{ usuario.perfil.get_foto_thumbnail }}" alt="{{ usuario.username }}" class="w-full h-full object-cover">
+                                    {% elif usuario.perfil.es_profesional %}👨‍⚕️
                                     {% elif usuario.perfil.es_paciente %}👶
                                     {% elif usuario.perfil.es_recepcionista %}📋
                                     {% elif usuario.perfil.es_gerente %}👔
