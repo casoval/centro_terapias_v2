@@ -22,8 +22,54 @@
     <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
     <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Reglas</a>
     <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Justificaciones</a>
+    <a href="{% url 'asistencia:asuetos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Asuetos</a>
     <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Informe mensual</a>
   </nav>
+
+  <!-- A quién se aplica: regla general + excepciones -->
+  <div class="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
+    <h2 class="text-base font-bold text-gray-800 mb-1">¿A quién se aplica?</h2>
+    <p class="text-xs text-gray-400 mb-3">
+      La <b>regla general</b> vale para todo el personal. Puedes crear <b>excepciones</b> para una sucursal o para un
+      profesional: gana la más específica (profesional &gt; sucursal &gt; general).
+    </p>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <a href="{{ general_url }}" class="px-4 py-2 rounded-full text-sm font-medium {% if alcance == 'global' %}bg-blue-700 text-white{% else %}border border-gray-200 text-gray-500 hover:bg-gray-50{% endif %}">Regla general</a>
+    </div>
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Excepción para una sucursal</label>
+        <select name="sucursal" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white" onchange="this.form.alcance.value='sucursal'; this.form.profesional.value=''; this.form.submit()">
+          <option value="">— elegir —</option>
+          {% for s in sucursales %}<option value="{{ s.pk }}" {% if sucursal_sel and sucursal_sel.pk == s.pk %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 mb-1">Excepción para un profesional</label>
+        <select name="profesional" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm bg-white" onchange="this.form.alcance.value='profesional'; this.form.sucursal.value=''; this.form.submit()">
+          <option value="">— elegir —</option>
+          {% for p in profesionales %}<option value="{{ p.pk }}" {% if usuario_sel and usuario_sel.pk == p.pk %}selected{% endif %}>{{ p.get_full_name|default:p.username }}</option>{% endfor %}
+        </select>
+      </div>
+      <input type="hidden" name="alcance" value="{{ alcance }}">
+    </form>
+    {% if excepciones %}
+    <div class="mt-4 border-t border-gray-100 pt-3">
+      <div class="text-xs font-semibold text-gray-600 mb-2">Excepciones configuradas</div>
+      <ul class="space-y-1 text-sm">
+        {% for e in excepciones %}
+        <li><a href="{{ e.url }}" class="text-blue-600 hover:underline font-medium">{{ e.regla.alcance_texto|capfirst }}</a>
+          <span class="text-xs text-gray-500">— {{ e.texto }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if es_excepcion %}
+    <div class="mt-4 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2 text-sm text-purple-900">
+      Estás editando la excepción de <b>{{ alcance_texto }}</b>. Los demás profesionales siguen con su regla.
+    </div>
+    {% endif %}
+  </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
@@ -79,12 +125,15 @@
     <div class="bg-white border border-gray-200 rounded-2xl p-6">
       <h2 class="text-base font-bold text-gray-800 mb-1">Descuento por retraso acumulado <span class="text-xs font-normal text-gray-400">(mensual, por tramos)</span></h2>
       <p class="text-xs text-gray-400 mb-4">
-        Vale para todo el centro. Cada cambio crea una <b>versión nueva desde el mes que elijas</b>:
+        {% if es_excepcion %}Vale solo para <b>{{ alcance_texto }}</b>.{% else %}Vale para todo el centro, salvo las excepciones.{% endif %} Cada cambio crea una <b>versión nueva desde el mes que elijas</b>:
         los meses anteriores conservan las reglas que tenían.
       </p>
 
       <form method="post">
         {% csrf_token %}
+        <input type="hidden" name="alcance" value="{{ alcance }}">
+        {% if sucursal_sel %}<input type="hidden" name="sucursal" value="{{ sucursal_sel.pk }}">{% endif %}
+        {% if usuario_sel %}<input type="hidden" name="profesional" value="{{ usuario_sel.pk }}">{% endif %}
         {% if form.non_field_errors or formset.non_form_errors %}
         <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
           {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
@@ -104,6 +153,11 @@
           </p>
         </div>
 
+        {% if es_excepcion %}
+        <label class="flex items-start gap-2 text-sm text-gray-700 mb-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+          {{ form.hereda }}<span>{{ form.hereda.label }}<br><span class="text-xs text-gray-400">Si la marcas, se ignoran los tramos de abajo.</span></span>
+        </label>
+        {% endif %}
         <div class="text-xs font-semibold text-gray-600 mb-2">Tramos de retraso acumulado en el mes</div>
         {{ formset.management_form }}
         <div class="space-y-2 mb-2">
@@ -132,7 +186,7 @@
 
   <!-- Ejemplo con lo vigente -->
   <div class="bg-white border border-gray-200 rounded-2xl p-6 mt-5">
-    <h2 class="text-base font-bold text-gray-800 mb-1">Cómo queda con las reglas vigentes hoy</h2>
+    <h2 class="text-base font-bold text-gray-800 mb-1">Cómo queda con las reglas vigentes hoy <span class="text-xs font-normal text-gray-400">({{ alcance_texto }})</span></h2>
     {% if hay_reglas %}
     <p class="text-xs text-gray-400 mb-3">Descuento según el retraso acumulado en el mes (minutos:segundos).</p>
     <div class="flex flex-wrap gap-2">
@@ -152,7 +206,7 @@
 
   <!-- Historial de versiones -->
   <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mt-5">
-    <div class="px-6 py-3 border-b border-gray-100 text-sm font-bold text-gray-800">Versiones de las reglas</div>
+    <div class="px-6 py-3 border-b border-gray-100 text-sm font-bold text-gray-800">Versiones de las reglas <span class="text-xs font-normal text-gray-400">({{ alcance_texto }})</span></div>
     {% if versiones %}
     <table class="w-full text-sm">
       <thead>

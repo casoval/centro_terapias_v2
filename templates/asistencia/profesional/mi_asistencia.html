@@ -101,6 +101,21 @@
   </div>
   {% endif %}
 
+  {% if saldo_asueto or usos_asueto %}
+  <!-- Asuetos -->
+  <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
+    <div class="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">🏖️ Mis asuetos</div>
+    {% if saldo_asueto %}
+    <p class="text-sm text-purple-900">Tienes <b>{{ saldo_asueto.disponible|floatformat:"-2" }} día(s)</b> de asueto disponible(s):
+      {% for d in saldo_asueto.derechos %}{{ d.motivo|default:d.tipo }} ({{ d.saldo|floatformat:"-2" }} d{% if d.vence_el %}, hasta el {{ d.vence_el|date:"d/m/Y" }}{% endif %}){% if not forloop.last %}; {% endif %}{% endfor %}.
+      Pide a administración la fecha en que quieres tomarlos.</p>
+    {% endif %}
+    {% if usos_asueto %}
+    <p class="text-xs text-purple-700 mt-1">Este mes: {% for u in usos_asueto %}{{ u.fecha|date:"d/m" }}{% if u.bloque %} (bloque {{ u.bloque }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}. No cuenta como falta ni como descuento.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Métricas del mes -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
     <div class="bg-green-50 border border-green-200 rounded-xl p-4">

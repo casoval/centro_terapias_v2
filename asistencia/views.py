@@ -16,18 +16,19 @@ from django.views.decorators.http import require_POST
 from .forms import (
     BloqueFechaEspecialForm, BloqueHorarioForm, ConfigAsistenciaForm, EditarObservacionForm,
     FechaEspecialForm, MarcarAsistenciaForm, PermisoReenrolamientoForm, PlantillaHorarioForm,
-    DIAS_RESTO_SUGERIDO, PermisoAsistenciaForm, ReglasAsistenciaForm, TRAMOS_SUGERIDOS, TramoFormSet,
-    ZonaAsistenciaForm, bloque_formset,
+    DIAS_RESTO_SUGERIDO, OtorgarAsuetoForm, PermisoAsistenciaForm, ReglasAsistenciaForm, TRAMOS_SUGERIDOS,
+    TipoAsuetoForm, TramoFormSet, UsarAsuetoForm, ZonaAsistenciaForm, bloque_formset,
 )
+from . import asuetos as asuetos_svc
 from .informe_mensual import MESES, construir_informes_mensuales
 from .models import (
     BloqueFechaEspecial, BloqueHorario, ConfigAsistencia, DIAS_SEMANA, DIAS_SEMANA_ORDEN, EnrolamientoFacial,
     FechaEspecial, PermisoAsistencia, PermisoReenrolamiento, PlantillaHorario, RegistroAsistencia, ReglasAsistencia,
-    TramoDescuento, ZonaAsistencia,
+    DerechoAsueto, TipoAsueto, TramoDescuento, UsoAsueto, ZonaAsistencia,
 )
 from .services import (
     ErrorEnrolamiento, ValidadorAsistencia, calcular_estado_dia, construir_panel, dias_descuento,
-    elegir_config_y_horario, fmt_min_seg, procesar_enrolamiento, registrar_manual,
+    ResolvedorReglas, _sucursal_ids, elegir_config_y_horario, fmt_min_seg, procesar_enrolamiento, registrar_manual,
     registros_validos_del_dia, segundos_para_proximo_tramo, texto_tramos,
 )
 
@@ -388,41 +389,70 @@ def eliminar_plantilla(request, pk):
 
 # ── Reglas de retraso ────────────────────────────────────────────────────────
 
+def _alcance_reglas(request):
+    """Alcance que se está editando: ('global', None, None) | ('sucursal', Sucursal, None) | ('profesional', None, User)."""
+    from servicios.models import Sucursal
+    datos = request.POST if request.method == 'POST' else request.GET
+    alcance = datos.get('alcance', 'global')
+    if alcance == 'sucursal':
+        suc = Sucursal.objects.filter(pk=datos.get('sucursal') or 0).first()
+        if suc:
+            return 'sucursal', suc, None
+    elif alcance == 'profesional':
+        usr = User.objects.filter(pk=datos.get('profesional') or 0, perfil__rol='profesional').first()
+        if usr:
+            return 'profesional', None, usr
+    return 'global', None, None
+
+
 @solo_admin
 def reglas_asistencia(request):
     """
     Descuento por retraso acumulado, por TRAMOS («hasta N minutos acumulados -> X días»), en versiones: cada
     cambio rige DESDE el mes elegido y los meses anteriores conservan las reglas que tenían.
-    (Tolerancia y límite para marcar: en Horarios.)
+    Hay una regla GENERAL y excepciones por sucursal o por profesional: gana la más específica
+    (profesional > sucursal > general). (Tolerancia y límite para marcar: en Horarios.)
     """
     from decimal import Decimal
+    from servicios.models import Sucursal
 
     hoy = timezone.localdate()
-    actual = ReglasAsistencia.para_fecha(hoy)
-    tramos_actuales = actual.tramos_lista() if actual else []
-    if tramos_actuales:
-        filas_base = [(h / 60, d) for h, d in tramos_actuales if h is not None]
-        dias_resto = next((d for h, d in tramos_actuales if h is None), 0)
+    alcance, sucursal, usuario = _alcance_reglas(request)
+    actual = ReglasAsistencia.para_fecha(hoy, alcance, sucursal, usuario)
+    vigente_pk = actual.pk if actual else None
+    if actual is not None and actual.hereda:
+        actual = None
+    es_excepcion = alcance != 'global'
+    # Una excepción sin versión propia parte de lo que hoy le aplica (regla general) como sugerencia
+    base = actual or (ReglasAsistencia.para_fecha(hoy) if es_excepcion else None)
+    tramos_base = base.tramos_lista() if base else []
+    if tramos_base:
+        filas_base = [(h / 60, d) for h, d in tramos_base if h is not None]
+        dias_resto = next((d for h, d in tramos_base if h is None), 0)
     else:
         filas_base, dias_resto = TRAMOS_SUGERIDOS, DIAS_RESTO_SUGERIDO     # sugerencia inicial editable
+    tramos_actuales = actual.tramos_lista() if actual else []
 
     if request.method == 'POST':
         form = ReglasAsistenciaForm(request.POST)
         formset = TramoFormSet(request.POST, prefix='tramos')
         if form.is_valid() and formset.is_valid():
-            filas = formset.filas_validas
-            resto = form.cleaned_data['dias_resto']
+            termina = es_excepcion and form.cleaned_data.get('hereda')
+            filas = [] if termina else formset.filas_validas
+            resto = 0 if termina else form.cleaned_data['dias_resto']
             if filas and resto < filas[-1][1]:
                 form.add_error('dias_resto', f'No puede ser menor que el último tramo ({filas[-1][1]} días).')
             else:
                 desde = form.cleaned_data['vigente_desde']
                 with transaction.atomic():
-                    regla = ReglasAsistencia(vigente_desde=desde, modificado_por=request.user)
-                    regla.save()                          # misma fecha = actualiza esa versión
+                    regla = ReglasAsistencia(vigente_desde=desde, modificado_por=request.user, alcance=alcance,
+                                             sucursal=sucursal, user=usuario, hereda=bool(termina))
+                    regla.save()                          # misma fecha y alcance = actualiza esa versión
                     regla.tramos.all().delete()
-                    for hasta, dias in filas:
-                        TramoDescuento.objects.create(regla=regla, hasta_minutos=hasta, dias=dias)
-                    TramoDescuento.objects.create(regla=regla, hasta_minutos=None, dias=resto)
+                    if not termina:
+                        for hasta, dias in filas:
+                            TramoDescuento.objects.create(regla=regla, hasta_minutos=hasta, dias=dias)
+                        TramoDescuento.objects.create(regla=regla, hasta_minutos=None, dias=resto)
                 primero_mes_actual = hoy.replace(day=1)
                 if desde < primero_mes_actual:
                     messages.warning(request, f'Reglas guardadas desde {desde:%m/%Y}. Atención: cambian el cálculo de '
@@ -432,22 +462,55 @@ def reglas_asistencia(request):
                                               'también a los días que ya pasaron.')
                 else:
                     messages.success(request, f'Reglas guardadas. Rigen desde el 1/{desde:%m/%Y}; los meses anteriores no cambian.')
-                return redirect('asistencia:reglas')
+                return redirect(_url_reglas(alcance, sucursal, usuario))
     else:
         form = ReglasAsistenciaForm(initial={'dias_resto': dias_resto})
         formset = TramoFormSet(prefix='tramos', initial=[
             {'hasta': Decimal(str(round(h, 2))), 'dias': Decimal(str(d))} for h, d in filas_base])
 
-    versiones = list(ReglasAsistencia.objects.select_related('modificado_por').prefetch_related('tramos'))
+    versiones = list(
+        ReglasAsistencia.objects.filter(alcance=alcance, sucursal=sucursal, user=usuario)
+        .select_related('modificado_por').prefetch_related('tramos'))
     for v in versiones:
-        v.estado = v.estado_vigencia(actual.pk if actual else None, hoy)
-        v.texto = texto_tramos(v.tramos_lista()) or 'sin descuento'
+        v.estado = v.estado_vigencia(vigente_pk, hoy)
+        v.texto = v.texto_resumen() or texto_tramos(v.tramos_lista()) or 'sin descuento'
     ejemplos = [(fmt_min_seg(seg), dias_descuento(seg, tramos_actuales))
                 for seg in (900, 1800, 1801, 2700, 2701, 3600, 3601, 5400, 5401, 7200)]
+
+    # Excepciones existentes (su versión vigente hoy) para consultarlas y entrar a editarlas
+    excepciones = []
+    vistos = set()
+    for r in (ReglasAsistencia.objects.exclude(alcance='global').select_related('sucursal', 'user')
+              .order_by('alcance', 'sucursal_id', 'user_id', '-vigente_desde')):
+        clave = (r.alcance, r.sucursal_id, r.user_id)
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        vigente = ReglasAsistencia.para_fecha(hoy, r.alcance, r.sucursal, r.user)
+        excepciones.append({
+            'regla': r, 'url': _url_reglas(r.alcance, r.sucursal, r.user),
+            'texto': ('sin excepción vigente (usa la regla más general)' if vigente is None or vigente.hereda
+                      else (texto_tramos(vigente.tramos_lista()) or 'sin descuento')),
+        })
     return render(request, 'asistencia/admin/reglas.html', {
         'form': form, 'formset': formset, 'actual': actual, 'versiones': versiones, 'ejemplos': ejemplos,
         'hay_reglas': bool(actual and actual.hay_descuento), 'seccion': 'reglas',
+        'alcance': alcance, 'sucursal_sel': sucursal, 'usuario_sel': usuario, 'es_excepcion': es_excepcion,
+        'alcance_texto': ReglasAsistencia(alcance=alcance, sucursal=sucursal, user=usuario).alcance_texto,
+        'sucursales': Sucursal.objects.all().order_by('nombre'),
+        'profesionales': User.objects.filter(perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name'),
+        'excepciones': excepciones,
+        'general_url': reverse('asistencia:reglas'),
     })
+
+
+def _url_reglas(alcance, sucursal, usuario):
+    base = reverse('asistencia:reglas')
+    if alcance == 'sucursal' and sucursal:
+        return f"{base}?alcance=sucursal&sucursal={sucursal.pk}"
+    if alcance == 'profesional' and usuario:
+        return f"{base}?alcance=profesional&profesional={usuario.pk}"
+    return base
 
 
 @solo_admin
@@ -455,13 +518,14 @@ def reglas_asistencia(request):
 def eliminar_reglas(request, pk):
     """Solo se pueden borrar versiones programadas (futuras); las demás forman el historial."""
     version = get_object_or_404(ReglasAsistencia, pk=pk)
+    destino = _url_reglas(version.alcance, version.sucursal, version.user)
     if version.vigente_desde > timezone.localdate():
         version.delete()
         messages.success(request, 'Versión programada eliminada.')
     else:
         messages.error(request, 'Solo se pueden eliminar versiones programadas (futuras): '
                                 'las anteriores forman parte del historial.')
-    return redirect('asistencia:reglas')
+    return redirect(destino)
 
 
 # ── Asignaciones ─────────────────────────────────────────────────────────────
@@ -796,9 +860,10 @@ def mi_asistencia(request):
     prof = (Profesional.objects.filter(user=user, activo=True)
             .select_related('user').prefetch_related('sucursales').first())
     informe = construir_informes_mensuales([prof], anio, mes)[0] if prof else None
-    reglas = ReglasAsistencia.para_mes(anio, mes)
-    tramos = reglas.tramos_lista() if reglas else []
-    hay_reglas = bool(reglas and reglas.hay_descuento)
+    # Reglas de SU mes y de SU alcance (profesional > sucursal > general)
+    tramos = (informe.tramos if informe
+              else ResolvedorReglas(anio, mes).tramos(user.pk, _sucursal_ids(user)))
+    hay_reglas = any(d > 0 for _t, d in tramos)
     acum_seg = (informe.resumen['retraso_seg'] if informe else
                 entradas.filter(estado='TARDANZA').aggregate(total=Sum('segundos_acumulables'))['total'] or 0)
 
@@ -824,7 +889,13 @@ def mi_asistencia(request):
     anio_ini = timezone.localtime(primer).year if primer else hoy.year
     anios_disponibles = list(range(min(anio_ini, hoy.year), hoy.year + 1))
 
+    from .asuetos import saldos_por_usuario
+    saldo_asueto = saldos_por_usuario([user.pk], hoy).get(user.pk)
+    usos_asueto = list(user.usos_asueto.filter(fecha__gte=inicio_mes, fecha__lte=fin_mes)
+                       .select_related('derecho__tipo').order_by('fecha'))
+
     return render(request, 'asistencia/profesional/mi_asistencia.html', {
+        'saldo_asueto': saldo_asueto, 'usos_asueto': usos_asueto,
         'registros_listado': registros_listado,
         'presentes': presentes,
         'tardanzas': tardanzas,
@@ -1110,3 +1181,106 @@ def quitar_permiso(request, pk):
     permiso.delete()
     messages.success(request, 'Permiso quitado: la falta vuelve a tener descuento.')
     return volver
+
+
+# ── Asuetos ──────────────────────────────────────────────────────────────────
+
+@solo_admin
+def asuetos(request):
+    """
+    Asuetos: tiempo libre concedido (Día de la Mujer, cumpleaños, vacaciones...). Se OTORGA un saldo a quien
+    corresponda y se registra la fecha en que cada persona lo USA. No es falta ni permiso: es neutro.
+    """
+    hoy = timezone.localdate()
+    accion = request.POST.get('accion') if request.method == 'POST' else None
+    otorgar_form = OtorgarAsuetoForm(request.POST if accion == 'otorgar' else None)
+    usar_form = UsarAsuetoForm(request.POST if accion == 'usar' else None,
+                               initial={'derecho': request.GET.get('derecho'), 'fecha': hoy})
+    tipo_form = TipoAsuetoForm(request.POST if accion == 'tipo' else None)
+
+    if accion == 'otorgar' and otorgar_form.is_valid():
+        c = otorgar_form.cleaned_data
+        users = asuetos_svc.destinatarios(
+            c['destino'], [x.pk for x in c['sucursales']], [x.pk for x in c['zonas']],
+            [x.pk for x in c['profesionales']], c['sexo'])
+        try:
+            creados, omitidos = asuetos_svc.otorgar(
+                c['tipo'], users, c['dias'], c['motivo'], c['otorgado_el'], c['vence_el'], request.user)
+        except asuetos_svc.AsuetoError as e:
+            messages.error(request, str(e))
+        else:
+            if not creados and not omitidos:
+                messages.warning(request, 'Ningún profesional cumple esas condiciones (revisa sexo, sucursal o zona; '
+                                          'el sexo se registra en la ficha del profesional).')
+            else:
+                msg = f'Asueto otorgado a {creados} profesional(es).'
+                if omitidos:
+                    msg += f' {omitidos} ya lo tenía(n) y se omitieron.'
+                messages.success(request, msg)
+            return redirect('asistencia:asuetos')
+    elif accion == 'usar' and usar_form.is_valid():
+        c = usar_form.cleaned_data
+        try:
+            uso = asuetos_svc.registrar_uso(c['derecho'], c['fecha'], c['bloque'], request.user, c['nota'])
+        except asuetos_svc.AsuetoError as e:
+            usar_form.add_error(None, str(e))
+        else:
+            messages.success(request, f'Asueto registrado: {uso}. No cuenta como falta ni como descuento.')
+            return redirect('asistencia:asuetos')
+    elif accion == 'tipo' and tipo_form.is_valid():
+        tipo_form.save()
+        messages.success(request, 'Tipo de asueto creado.')
+        return redirect('asistencia:asuetos')
+
+    derechos = (DerechoAsueto.objects.select_related('user', 'tipo').prefetch_related('usos')
+                .order_by('-otorgado_el', 'user__last_name'))
+    filtro_user = request.GET.get('profesional') or ''
+    filtro_estado = request.GET.get('estado') or ''
+    if filtro_user.isdigit():
+        derechos = derechos.filter(user_id=int(filtro_user))
+    filas = []
+    for d in derechos:
+        d.estado_calc = d.estado(hoy)
+        if filtro_estado and d.estado_calc != filtro_estado:
+            continue
+        filas.append(d)
+    return render(request, 'asistencia/admin/asuetos.html', {
+        'otorgar_form': otorgar_form, 'usar_form': usar_form, 'tipo_form': tipo_form,
+        'derechos': filas[:300], 'tipos': TipoAsueto.objects.all(),
+        'profesionales': User.objects.filter(perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name'),
+        'filtro_user': filtro_user, 'filtro_estado': filtro_estado, 'accion_activa': accion,
+        'seccion': 'asuetos', 'hoy': hoy,
+    })
+
+
+@solo_admin
+@require_POST
+def quitar_uso_asueto(request, pk):
+    """Anula el uso de un asueto: devuelve el saldo y el día vuelve a evaluarse con normalidad."""
+    uso = get_object_or_404(UsoAsueto, pk=pk)
+    uso.delete()
+    messages.success(request, 'Uso de asueto anulado: el saldo se devolvió.')
+    return redirect('asistencia:asuetos')
+
+
+@solo_admin
+@require_POST
+def eliminar_derecho_asueto(request, pk):
+    """Elimina un derecho otorgado por error (solo si todavía no se usó)."""
+    d = get_object_or_404(DerechoAsueto, pk=pk)
+    if d.usos.exists():
+        messages.error(request, 'Ese asueto ya tiene usos: anúlalos primero.')
+    else:
+        d.delete()
+        messages.success(request, 'Asueto eliminado.')
+    return redirect('asistencia:asuetos')
+
+
+@solo_admin
+@require_POST
+def alternar_tipo_asueto(request, pk):
+    tipo = get_object_or_404(TipoAsueto, pk=pk)
+    tipo.activo = not tipo.activo
+    tipo.save(update_fields=['activo'])
+    messages.success(request, f'Tipo «{tipo.nombre}» {"activado" if tipo.activo else "desactivado"}.')
+    return redirect('asistencia:asuetos')

@@ -41,6 +41,10 @@ class ProfesionalForm(forms.ModelForm):
         self.fields['email'].required = False
         self.fields['user'].required = False
         self.fields['foto'].required = False
+        self.fields['sexo'].required = False
+        self.fields['sexo'].label = 'Sexo'
+        self.fields['fecha_nacimiento'].required = False
+        self.fields['fecha_nacimiento'].label = 'Fecha de nacimiento'
         
         # Personalizar labels
         self.fields['foto'].label = 'Foto del Profesional'
@@ -56,7 +60,7 @@ class ProfesionalForm(forms.ModelForm):
         
     class Meta:
         model = Profesional
-        fields = ['foto', 'nombre', 'apellido', 'especialidad', 'telefono', 'email', 
+        fields = ['foto', 'nombre', 'apellido', 'especialidad', 'sexo', 'fecha_nacimiento', 'telefono', 'email', 
                   'servicios', 'sucursales', 'activo', 'user']
         widgets = {
             'foto': forms.FileInput(attrs={
@@ -79,6 +83,8 @@ class ProfesionalForm(forms.ModelForm):
                 'placeholder': 'Ej: Terapia del Lenguaje',
                 'id': 'id_especialidad'
             }),
+            'sexo': forms.Select(attrs={'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-400 text-sm font-bold'}),
+            'fecha_nacimiento': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-400 text-sm font-bold', 'type': 'date'}),
             'telefono': forms.TextInput(attrs={
                 'class': 'w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 text-sm font-bold',
                 'placeholder': '7XXXXXXX',

@@ -17,6 +17,10 @@ Reglas
   falta con descuento sino «permiso». Se puede justificar hasta el último día del mes de la falta.
 * Las faltas se calculan comparando horario y marcaciones (no dependen del comando generar_ausentes). Si el
   admin registró la entrada a mano, el bloque cuenta como cubierto.
+* Asueto: tiempo libre concedido por el centro (asuetos.py). El bloque cubierto por un asueto y sin marcar no es
+  falta, ni permiso, ni descuento: es neutro (no cuenta como día con horario ni como horas esperadas).
+* Reglas de descuento por retraso: cada profesional usa la regla más específica (profesional > sucursal >
+  general) vigente el día 1 del mes (services.ResolvedorReglas).
 * Control de asistencia: solo se evalúan los días desde que el profesional empezó a ser controlado
   (primera marcación o enrolamiento, lo que ocurra antes). Antes figuran «Sin control» y no generan faltas.
 """
@@ -28,12 +32,13 @@ from typing import List, Optional
 from django.db.models import Min, prefetch_related_objects
 from django.utils import timezone
 
+from .asuetos import fmt_dias_asueto, usos_por_usuario_fecha
 from .evaluacion import es_alerta, evaluar_asistencia, evaluar_puntualidad
 from .models import (
-    EnrolamientoFacial, FechaEspecial, PermisoAsistencia, RegistroAsistencia, ReglasAsistencia,
+    EnrolamientoFacial, FechaEspecial, PermisoAsistencia, RegistroAsistencia,
 )
 from .services import (
-    _aware, _configs_por_usuario, calcular_estado_dia, dias_descuento, elegir_config_y_horario,
+    ResolvedorReglas, _sucursal_ids, _aware, _configs_por_usuario, calcular_estado_dia, dias_descuento, elegir_config_y_horario,
     fmt_min_seg, segundos_sin_descuento, texto_tramos,
 )
 
@@ -58,7 +63,7 @@ def fmt_horas(minutos: int) -> str:
 @dataclass
 class DiaInforme:
     fecha: date
-    # puntual | tolerancia | retraso | falta | permiso | libre | sin_horario | sin_control | futuro | pendiente
+    # puntual | tolerancia | retraso | falta | permiso | asueto | libre | sin_horario | sin_control | futuro | pendiente
     estado: str
     horario: str = ''               # texto del horario del día
     nota: str = ''                  # p. ej. motivo de una fecha especial
@@ -69,6 +74,8 @@ class DiaInforme:
     falta_texto: str = ''           # 'Falta medio día' | 'Falta día completo' ...
     permiso_dias: float = 0.0       # parte del día cubierta por un permiso
     permiso_texto: str = ''         # 'Permiso: Certificado médico'
+    asueto_dias: float = 0.0        # parte del día cubierta por un asueto (neutro: ni falta ni descuento)
+    asueto_texto: str = ''          # 'Asueto: Día de la Mujer (medio día)'
     descuento_acum: float = 0.0     # descuento total (faltas + retraso) acumulado hasta este día
     sin_salida: bool = False        # entrada sin salida en un día ya terminado
     bloques_falta: list = field(default_factory=list)   # números de bloque en falta SIN justificar
@@ -140,10 +147,7 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
     provisional = fin_mes > hoy
     ids = [p.user_id for p in profesionales]
 
-    reglas = ReglasAsistencia.para_mes(anio, mes)      # las reglas vigentes ese mes (los meses pasados no cambian)
-    tramos = reglas.tramos_lista() if reglas else []
-    hay_reglas = any(d > 0 for _t, d in tramos)
-    sin_descuento_seg = segundos_sin_descuento(tramos)
+    resolvedor = ResolvedorReglas(anio, mes)           # reglas vigentes ese mes (los meses pasados no cambian)
 
     # Marcaciones válidas del mes agrupadas por usuario y día local
     por_user = {}
@@ -173,21 +177,26 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
 
     configs = _configs_por_usuario()
     fechas_por_zona = _fechas_especiales_mes(inicio_mes, fin_mes)
+    asuetos = usos_por_usuario_fecha(inicio_mes, fin_mes, ids)
 
     informes = []
     for prof in profesionales:
         user = prof.user
+        tramos = resolvedor.tramos(user.pk, [s.pk for s in prof.sucursales.all()])   # profesional > sucursal > general
+        hay_reglas = any(d > 0 for _t, d in tramos)
+        sin_descuento_seg = segundos_sin_descuento(tramos)
         control = inicio_control.get(user.pk)
         marcas = por_user.get(user.pk, {})
         dias = []
         acum = 0                         # segundos de retraso acumulados
         falta_acum = 0.0                 # días de falta SIN justificar
         justificada_acum = 0.0           # días de falta justificada con permiso
+        asueto_acum = 0.0                # días cubiertos por asuetos (neutro)
         fechas_falta, lista_permisos = [], []
 
         tot = dict(dias_con_horario=0, dias_completos=0, dias_con_falta=0, dias_con_permiso=0,
                    faltas_completas=0, faltas_medias=0, tardanzas=0, sin_salida=0,
-                   trabajado_min=0, esperado_min=0, entradas=0, usos_tolerancia=0, max_tarde_tolerancia=0)
+                   dias_con_asueto=0, trabajado_min=0, esperado_min=0, entradas=0, usos_tolerancia=0, max_tarde_tolerancia=0)
 
         for n_dia in range(1, ultimo + 1):
             d = date(anio, mes, n_dia)
@@ -235,10 +244,14 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
 
             n = len(horario.bloques)
             permisos_dia = permisos.get((user.pk, d), [])
-            faltas = justificadas = pendientes = 0
+            faltas = justificadas = pendientes = en_asueto = 0
             permiso_usado = None
             bloques_falta = []
+            usos_asueto = asuetos.get((user.pk, d), [])
             for b in horario.bloques:
+                if str(b.numero) not in cubiertos and any(u.cubre(b.numero) for u in usos_asueto):
+                    en_asueto += 1                              # asueto: ni falta ni horas esperadas
+                    continue
                 if d < hoy or ahora >= _aware(d, b.salida):
                     tot['esperado_min'] += _bloque_dt_minutos(d, b)
                 if str(b.numero) in cubiertos:
@@ -256,7 +269,11 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
 
             falta_dias = (faltas / n) if n else 0.0
             permiso_dias = (justificadas / n) if n else 0.0
-            falta_texto = permiso_texto = ''
+            falta_texto = permiso_texto = asueto_texto = ''
+            asueto_dias = (en_asueto / n) if n else 0.0
+            if en_asueto:
+                motivo = usos_asueto[0].derecho.motivo or str(usos_asueto[0].derecho.tipo)
+                asueto_texto = f"Asueto: {motivo} ({fmt_dias_asueto(asueto_dias)})"
             if faltas:
                 falta_texto = ('Falta día completo' if faltas == n else
                                'Falta medio día' if n == 2 else f'Falta {faltas} de {n} bloques')
@@ -266,8 +283,12 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
             if n == 0:
                 estado = 'libre' if horario.tipo == 'libre' else 'sin_horario'
             else:
-                if not (pendientes and not entradas):          # un día que aún no terminó no se cuenta
+                if en_asueto == n:
+                    tot['dias_con_asueto'] += 1                # día entero en asueto: no se evalúa
+                elif not (pendientes and not entradas):        # un día que aún no terminó no se cuenta
                     tot['dias_con_horario'] += 1
+                    if en_asueto:
+                        tot['dias_con_asueto'] += 1
                 if faltas:
                     estado = 'falta'
                     tot['dias_con_falta'] += 1
@@ -279,11 +300,13 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
                     estado = 'retraso'
                 elif uso_tolerancia:
                     estado = 'tolerancia'
+                elif en_asueto == n:
+                    estado = 'asueto'
                 elif pendientes and not entradas:
                     estado = 'pendiente'
                 else:
                     estado = 'puntual'
-                if not faltas and not justificadas and not pendientes:
+                if not faltas and not justificadas and not pendientes and en_asueto < n:
                     tot['dias_completos'] += 1
 
             if faltas:
@@ -293,10 +316,12 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
             acum += retraso_seg
             falta_acum += falta_dias
             justificada_acum += permiso_dias
+            asueto_acum += asueto_dias
             dias.append(DiaInforme(
                 estado=estado, pares=pares, retraso_seg=retraso_seg, acum_seg=acum,
                 falta_dias=falta_dias, falta_texto=falta_texto,
                 permiso_dias=permiso_dias, permiso_texto=permiso_texto, sin_salida=sin_salida,
+                asueto_dias=asueto_dias, asueto_texto=asueto_texto,
                 bloques_falta=bloques_falta,
                 descuento_acum=falta_acum + dias_descuento(acum, tramos), **base
             ))
@@ -312,7 +337,7 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
             tot,
             retraso_seg=acum, retraso_txt=fmt_min_seg(acum),
             desc_retraso=desc_retraso,
-            desc_faltas=falta_acum, faltas_justificadas=justificada_acum,
+            desc_faltas=falta_acum, faltas_justificadas=justificada_acum, asueto_dias=asueto_acum,
             desc_total=falta_acum + desc_retraso,
             hay_control=control is not None, hay_reglas=hay_reglas,
             puntualidad=punt, asistencia=asist, alerta=es_alerta(punt, asist),

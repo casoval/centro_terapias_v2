@@ -38,6 +38,7 @@ FOOT_Y = 1.1 * cm
 C_FALTA_BG = colors.HexColor('#fecaca')       # rojo más fuerte que C_ROJO_L (falta vs. retraso)
 C_TOLERANCIA_BG = colors.HexColor('#ecfccb')  # verde-amarillo suave: llegó tarde pero dentro de la tolerancia
 C_PERMISO_BG = colors.HexColor('#fef9c3')     # amarillo suave: falta con permiso
+C_ASUETO_BG = colors.HexColor('#ede9fe')      # violeta suave: asueto concedido (neutro)
 GRIS_ESTRELLA = colors.HexColor('#d1d5db')
 
 # Columnas de la tabla diaria (pt, se escalan al ancho útil)
@@ -251,6 +252,8 @@ def _fila_estilo(dia):
         return C_ROJO_L, C_ROJO, False
     if e == 'permiso':
         return C_PERMISO_BG, colors.HexColor('#854d0e'), False
+    if e == 'asueto':
+        return C_ASUETO_BG, colors.HexColor('#5b21b6'), False
     if e == 'tolerancia':
         return C_TOLERANCIA_BG, colors.HexColor('#3f6212'), False
     if e == 'puntual':
@@ -264,7 +267,7 @@ def _textos_fila(dia):
     marc = ' | '.join(f"{e}-{s or '?'}" for e, s, _r in dia.pares) if dia.pares else ''
     est = {
         'puntual': 'Puntual', 'tolerancia': 'En tolerancia', 'retraso': 'Retraso', 'falta': dia.falta_texto,
-        'permiso': 'Permiso', 'libre': 'Libre', 'sin_horario': '-', 'pendiente': 'Por llegar',
+        'permiso': 'Permiso', 'asueto': 'Asueto', 'libre': 'Libre', 'sin_horario': '-', 'pendiente': 'Por llegar',
         'sin_control': 'Sin control', 'futuro': '',
     }[dia.estado]
     horario = dia.horario or '-'
@@ -276,6 +279,8 @@ def _textos_fila(dia):
         marc = f"{marc} | {dia.permiso_texto}" if marc else dia.permiso_texto
     elif dia.estado in ('puntual', 'tolerancia', 'retraso', 'falta') and not marc:
         marc = '-'
+    if dia.asueto_texto:                                     # «Asueto: Día de la Mujer (medio día)»
+        marc = f"{marc} | {dia.asueto_texto}" if marc else dia.asueto_texto
     ev = dia.evaluado
     return [
         f"{dia.fecha.day:02d} {dia.dia_abrev}",
@@ -355,7 +360,7 @@ def _tabla_dias(c, inf, y_top, y_bottom):
 
 
 def _leyenda(c, y):
-    items = [(C_ROJO_L, 'Retraso'), (C_FALTA_BG, 'Falta'), (C_PERMISO_BG, 'Permiso'),
+    items = [(C_ROJO_L, 'Retraso'), (C_FALTA_BG, 'Falta'), (C_PERMISO_BG, 'Permiso'), (C_ASUETO_BG, 'Asueto'),
              (C_TOLERANCIA_BG, 'En tolerancia'), (C_GRIS_T, 'Libre / sin horario / sin control'),
              (C_FONDO, 'Por llegar')]
     x = ML
@@ -472,6 +477,9 @@ def _hoja_profesional(c, inf, foto_path, pg, total, emitido, sucursal_filtro=Non
         f"{fmt_dias(r['desc_faltas'])} {_plural_dias(r['desc_faltas'])} de descuento. "
         f"Con permiso (sin descuento): {fmt_dias(r['faltas_justificadas'])} {_plural_dias(r['faltas_justificadas'])}.",
     ]
+    if r.get('asueto_dias'):
+        notas.append(f"Asueto concedido: {fmt_dias(r['asueto_dias'])} {_plural_dias(r['asueto_dias'])} "
+                     '(no cuenta como falta ni como día con horario, y no genera descuento).')
     if inf.control_desde is None:
         notas.append('Este profesional aún no tiene control de asistencia (sin enrolar ni marcaciones): no se calcularon faltas.')
     elif inf.control_desde > date(inf.anio, inf.mes, 1):

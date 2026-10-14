@@ -22,7 +22,7 @@ class ProfesionalAdmin(admin.ModelAdmin):
             'fields': ('sucursales',)
         }),
         ('Información Personal', {
-            'fields': ('nombre', 'apellido', 'especialidad')
+            'fields': ('nombre', 'apellido', 'especialidad', 'sexo', 'fecha_nacimiento')
         }),
         ('Contacto', {
             'fields': ('telefono', 'email')

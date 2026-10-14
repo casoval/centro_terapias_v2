@@ -229,10 +229,24 @@ class ReglasAsistencia(models.Model):
         hasta 30 min -> 0 días · hasta 45 -> ½ día · hasta 60 -> 1 día · hasta 90 -> 2 días · más de 90 -> 3 días
     La tolerancia y el límite para marcar no están aquí: son por bloque de horario (BloqueBase).
     """
+    ALCANCE_CHOICES = [
+        ('global', 'Todo el personal'),
+        ('sucursal', 'Una sucursal'),
+        ('profesional', 'Un profesional'),
+    ]
+    # Alcance: la regla más específica gana (profesional > sucursal > global). Cada alcance tiene su propio
+    # historial de versiones por fecha de inicio.
+    alcance = models.CharField(max_length=12, choices=ALCANCE_CHOICES, default='global')
+    sucursal = models.ForeignKey('servicios.Sucursal', null=True, blank=True, on_delete=models.CASCADE,
+                                 related_name='+')
+    user = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE, related_name='+')
     vigente_desde = models.DateField(
-        default=DESDE_SIEMPRE, unique=True,
+        default=DESDE_SIEMPRE,
         help_text='Primer día del mes desde el cual rige esta versión de las reglas.'
     )
+    hereda = models.BooleanField(
+        default=False,
+        help_text='Solo en excepciones: desde esta fecha la excepción termina y se usa la regla más general.')
     modificado_por = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+'
     )
@@ -245,12 +259,33 @@ class ReglasAsistencia(models.Model):
 
     def __str__(self):
         return 'Reglas de asistencia' + ('' if self.vigente_desde <= DESDE_SIEMPRE
-                                         else f" desde {self.vigente_desde:%m/%Y}")
+                                         else f" desde {self.vigente_desde:%m/%Y}") + f" · {self.alcance_texto}"
+
+    @property
+    def alcance_texto(self):
+        if self.alcance == 'sucursal' and self.sucursal_id:
+            return f"sucursal {self.sucursal.nombre}"
+        if self.alcance == 'profesional' and self.user_id:
+            return f"profesional {self.user.get_full_name() or self.user.username}"
+        return 'todo el personal'
+
+    def clean(self):
+        if self.alcance == 'sucursal' and not self.sucursal_id:
+            raise ValidationError('Elige la sucursal.')
+        if self.alcance == 'profesional' and not self.user_id:
+            raise ValidationError('Elige el profesional.')
 
     def save(self, *args, **kwargs):
-        # Guardar con una fecha que ya existe actualiza esa versión (no duplica).
+        # Cada alcance guarda solo su propia referencia
+        if self.alcance != 'sucursal':
+            self.sucursal = None
+        if self.alcance != 'profesional':
+            self.user = None
+        # Guardar con una fecha que ya existe (en el mismo alcance) actualiza esa versión (no duplica).
         if self.pk is None:
-            existente = type(self).objects.filter(vigente_desde=self.vigente_desde).first()
+            existente = type(self).objects.filter(
+                vigente_desde=self.vigente_desde, alcance=self.alcance,
+                sucursal=self.sucursal, user=self.user).first()
             if existente:
                 self.pk = existente.pk
         super().save(*args, **kwargs)
@@ -263,24 +298,32 @@ class ReglasAsistencia(models.Model):
         return [(None if t.hasta_minutos is None else int(round(float(t.hasta_minutos) * 60)), float(t.dias))
                 for t in ordenados]
 
+    def texto_resumen(self):
+        return 'vuelve a la regla general' if self.hereda else None
+
     @property
     def hay_descuento(self):
         return any(dias > 0 for _tope, dias in self.tramos_lista())
 
     @classmethod
-    def para_fecha(cls, fecha):
-        """Versión que rige en `fecha` (None si todavía no hay reglas)."""
-        return (cls.objects.filter(vigente_desde__lte=fecha).order_by('-vigente_desde')
-                .prefetch_related('tramos').first())
+    def para_fecha(cls, fecha, alcance='global', sucursal=None, user=None):
+        """Versión que rige en `fecha` dentro de ese alcance exacto (None si todavía no hay reglas)."""
+        qs = cls.objects.filter(vigente_desde__lte=fecha, alcance=alcance)
+        if alcance == 'sucursal':
+            qs = qs.filter(sucursal=sucursal)
+        elif alcance == 'profesional':
+            qs = qs.filter(user=user)
+        return qs.order_by('-vigente_desde').prefetch_related('tramos').first()
 
     @classmethod
     def para_mes(cls, anio, mes):
-        """Versión con la que se evalúa un mes completo: la vigente el día 1."""
+        """Versión GENERAL con la que se evalúa un mes completo: la vigente el día 1.
+        Para un profesional concreto (con excepciones) ver services.ResolvedorReglas."""
         return cls.para_fecha(datetime.date(anio, mes, 1))
 
     @classmethod
     def obtener(cls):
-        """Versión vigente hoy; si no hay ninguna, una instancia vacía (sin guardar)."""
+        """Versión general vigente hoy; si no hay ninguna, una instancia vacía (sin guardar)."""
         return cls.para_fecha(timezone.localdate()) or cls()
 
     def estado_vigencia(self, vigente_actual_pk=None, hoy=None):
@@ -353,6 +396,101 @@ class PermisoAsistencia(models.Model):
         """Último día en que se puede registrar o quitar este permiso (fin del mes de la falta)."""
         siguiente = (self.fecha.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
         return siguiente - datetime.timedelta(days=1)
+
+
+class TipoAsueto(models.Model):
+    """
+    Catálogo de asuetos: tiempo libre CONCEDIDO por el centro (Día de la Mujer, cumpleaños, vacaciones...).
+    No es falta, ni permiso, ni asistencia: es neutro (no descuenta ni cuenta como día trabajado).
+    """
+    nombre = models.CharField(max_length=100, unique=True)
+    dias = models.DecimalField(max_digits=4, decimal_places=2, default=0.5,
+                               help_text='Días que otorga por defecto (0.5 = medio día, 1, 2...).')
+    vence_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Plazo en días para usarlo desde que se otorga. Vacío = no vence.')
+    cumpleanos_auto = models.BooleanField(
+        default=False,
+        help_text='Se otorga solo a cada profesional en su cumpleaños (comando otorgar_asuetos_cumpleanos).')
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Tipo de asueto'
+        verbose_name_plural = 'Tipos de asueto'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class DerechoAsueto(models.Model):
+    """Saldo de asueto otorgado a un profesional. Se consume con UsoAsueto en las fechas que elija."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='derechos_asueto')
+    tipo = models.ForeignKey(TipoAsueto, on_delete=models.PROTECT, related_name='derechos')
+    motivo = models.CharField(max_length=200, blank=True, help_text='Ej: Día de la Mujer 2026')
+    dias = models.DecimalField(max_digits=4, decimal_places=2, default=0.5)
+    otorgado_el = models.DateField(default=timezone.localdate)
+    vence_el = models.DateField(null=True, blank=True, help_text='Último día para usarlo. Vacío = no vence.')
+    referencia = models.CharField(max_length=60, blank=True,
+                                  help_text='Uso interno: evita duplicar otorgamientos automáticos.')
+    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Derecho de asueto'
+        verbose_name_plural = 'Derechos de asueto'
+        ordering = ['-otorgado_el', 'user_id']
+        constraints = [models.UniqueConstraint(
+            fields=['user', 'tipo', 'referencia'], condition=~models.Q(referencia=''),
+            name='uniq_derecho_asueto_referencia')]
+
+    def __str__(self):
+        return f"{self.user.get_full_name() or self.user.username} — {self.motivo or self.tipo} ({self.dias} d)"
+
+    @property
+    def usados(self):
+        # .all() para aprovechar prefetch_related('usos')
+        return sum((u.dias for u in self.usos.all()), 0)
+
+    @property
+    def saldo(self):
+        return self.dias - self.usados
+
+    def vencido(self, hoy=None):
+        hoy = hoy or timezone.localdate()
+        return self.vence_el is not None and self.vence_el < hoy
+
+    def estado(self, hoy=None):
+        if self.saldo <= 0:
+            return 'usado'
+        return 'vencido' if self.vencido(hoy) else 'disponible'
+
+
+class UsoAsueto(models.Model):
+    """Una fecha (o un bloque de esa fecha) en la que el profesional toma su asueto."""
+    derecho = models.ForeignKey(DerechoAsueto, on_delete=models.CASCADE, related_name='usos')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='usos_asueto')
+    fecha = models.DateField()
+    bloque = models.CharField(max_length=2, blank=True,
+                              help_text='Vacío = todo el día; "1", "2"... = solo ese bloque')
+    dias = models.DecimalField(max_digits=4, decimal_places=2,
+                               help_text='Días que descuenta del saldo (cada bloque pesa 1/N del día).')
+    nota = models.CharField(max_length=200, blank=True)
+    registrado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Uso de asueto'
+        verbose_name_plural = 'Usos de asueto'
+        unique_together = ['user', 'fecha', 'bloque']
+        ordering = ['-fecha', 'user_id']
+
+    def __str__(self):
+        alcance = 'todo el día' if not self.bloque else f'bloque {self.bloque}'
+        return f"{self.user.get_full_name()} — {self.fecha:%d/%m/%Y} ({alcance})"
+
+    def cubre(self, bloque_numero):
+        return self.bloque == '' or self.bloque == str(bloque_numero)
 
 
 class ConfigAsistencia(models.Model):

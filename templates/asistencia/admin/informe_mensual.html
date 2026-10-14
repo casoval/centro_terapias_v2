@@ -19,6 +19,7 @@
     <a href="{% url 'asistencia:permisos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Permisos</a>
     <a href="{% url 'asistencia:reglas' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Reglas</a>
     <a href="{% url 'asistencia:justificaciones' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Justificaciones</a>
+    <a href="{% url 'asistencia:asuetos' %}" class="px-4 py-2 rounded-full text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-50">Asuetos</a>
     <a href="{% url 'asistencia:informe_mensual' %}" class="px-4 py-2 rounded-full text-sm font-medium bg-blue-700 text-white">Informe mensual</a>
   </nav>
 
@@ -103,6 +104,7 @@
               {% if not r.hay_control %}<div class="text-xs text-orange-600">Sin control de asistencia (sin enrolar ni marcaciones)</div>
               {% elif inf.control_desde.month == inf.mes and inf.control_desde.year == inf.anio and inf.control_desde.day > 1 %}
               <div class="text-xs text-gray-400">Control desde el {{ inf.control_desde|date:"d/m" }}</div>{% endif %}
+              {% if r.asueto_dias %}<div class="text-xs text-purple-600" title="Asueto concedido: no es falta ni descuento">🏖️ Asueto: {{ r.asueto_dias|dias }} día(s)</div>{% endif %}
             </td>
             <td class="px-3 py-3 text-center">{{ r.dias_con_horario }}</td>
             <td class="px-3 py-3 text-center {% if r.tardanzas %}text-red-600 font-semibold{% endif %}">{{ r.tardanzas }}</td>

@@ -346,11 +346,17 @@ def preparar_horario(prof, sucursal_id, desde, hasta, manual_cfg, forzar_manual)
                     'motivo': fe.motivo,
                 })
 
+        # Asuetos concedidos en el rango: ese bloque no es capacidad de trabajo (ni hueco por inasistencia)
+        from asistencia.asuetos import usos_por_usuario_fecha
+        asuetos = usos_por_usuario_fecha(desde, hasta, [user.pk] if user else [])
+
         def bloques(d):
             # Asistencia devuelve los bloques reales del día (1 = continuo, 2 = partido, ...),
             # cada día de la semana puede tener su propio horario (p. ej. sábado solo mañana).
             h = ResolvedorHorario(user, zona, cfg, d, fechas_especiales=especiales).resolver()
-            out = [(_t2m(b.entrada), _t2m(b.salida)) for b in h.bloques]
+            usos = asuetos.get((user.pk, d), []) if user else []
+            out = [(_t2m(b.entrada), _t2m(b.salida)) for b in h.bloques
+                   if not any(u.cubre(b.numero) for u in usos)]
             return [(i, f) for i, f in out if f > i]
 
     # Resumen semanal tipo (usa una semana de referencia)
