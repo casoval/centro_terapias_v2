@@ -169,6 +169,7 @@
         };
         window.__THEME_MODES__ = MODES;
         document.documentElement.setAttribute('data-mode', MODES[t] || 'dark');
+        document.documentElement.setAttribute('data-theme-id', t);
     })();
     </script>
 
@@ -949,8 +950,35 @@
         /* Tarjetas semitransparentes (bg-white/60–80): más opacas en fondos oscuros/medios */
         html:is([data-mode="dark"],[data-mode="mid"]) main :is(.bg-white\/60, .bg-white\/70, .bg-white\/80) { background-color: rgba(255,255,255,.94); }
 
+        /* ---------- FASE 2 ---------- */
+        /* Placa de encabezado: fondo translúcido uniforme detrás del título y sus acciones.
+           El script la pone automáticamente (.oc-hd); en páginas sin patrón reconocible se puede usar
+           la clase manual .page-header. Se dibuja con box-shadow: NO cambia medidas ni posición. */
+        html[data-mode] :is(.oc-hd, .page-header) {
+            background-color: var(--oc-glass);
+            box-shadow: 0 0 0 .5rem var(--oc-glass);
+            border-radius: 1rem;
+        }
+
+        /* Atardecer: su franja inferior es marrón; un velo crema en el 38 % inferior mantiene legible el texto oscuro */
+        html[data-theme-id="atardecer"] body::after {
+            content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 38vh;
+            z-index: -1; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,236,200,0), rgba(255,236,200,.55));
+        }
+
+        /* Estados coherentes en botones (el script añade .ui-btn a enlaces/botones con fondo, padding y radio).
+           No cambia colores, tamaños ni radios: cada botón conserva su identidad. */
+        html[data-mode] .ui-btn:not([class*="transition"]) { transition: filter .15s ease, transform .15s ease, box-shadow .15s ease; }
+        html[data-mode] .ui-btn-nh:hover:not(:disabled):not([aria-disabled="true"]) { filter: brightness(1.1); }
+        html[data-mode] .ui-btn:not([class*="active:"]):active:not(:disabled):not([aria-disabled="true"]) { transform: translateY(1px); }
+        html[data-mode] .ui-btn:disabled, html[data-mode] .ui-btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; filter: saturate(.75); }
+        @media (prefers-reduced-motion: reduce) { html[data-mode] .ui-btn { transition: none !important; transform: none !important; } }
+
         /* Depuración visual */
         html[data-oc-debug] :is(.oc-t, .oc-s, .oc-m, .oc-w, .oc-wa, .oc-c, .oc-bd, .oc-gl) { outline: 1px dashed rgba(255,0,128,.85); outline-offset: 1px; }
+        html[data-oc-debug] .oc-hd { outline: 2px dashed rgba(0,200,255,.9); outline-offset: 6px; }
+        html[data-ui-debug] .ui-btn { outline: 1px dotted rgba(0,200,120,.95); outline-offset: 1px; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -3542,6 +3570,7 @@ function filterPacientes() {
 
         // Modo claro/oscuro para el CSS de adaptación del contenido (solo visual)
         document.documentElement.setAttribute('data-mode', (window.__THEME_MODES__ && window.__THEME_MODES__[id]) || 'dark');
+        document.documentElement.setAttribute('data-theme-id', id);
         // Guardar con clave específica del usuario actual
         localStorage.setItem(_LS_KEY, id);
         if(animId) cancelAnimationFrame(animId);
@@ -4034,8 +4063,9 @@ function filterPacientes() {
     var SKIP = /^(SCRIPT|STYLE|NOSCRIPT|OPTION|OPTGROUP|INPUT|SELECT|TEXTAREA|CANVAS|TEMPLATE)$/;
     var RX_BORDER = /(?:^|\s)border(?:-[trbl])?-(?:(?:gray|slate|zinc|neutral|stone)-[123]00|white\/\d+)(?:\s|$)/;
     var RX_GLASS  = /(?:^|\s)bg-white\/(?:5|10|15|20|30)(?:\s|$)/;
+    var RX_BTN_BG = /(?:^|\s)bg-(?!white\/|black\/|transparent(?:\s|$)|opacity)[a-z]+(?:-\d{2,3})?(?:\s|$)|(?:^|\s)bg-gradient-to-/;
     var OPT_OUT   = !!document.querySelector('[data-no-adapt]');
-    var CLS   = ['oc-t', 'oc-s', 'oc-m', 'oc-w', 'oc-wa', 'oc-c', 'oc-bd', 'oc-gl', 'oc-bt', 'oc-br', 'oc-bb', 'oc-bl'];
+    var CLS   = ['oc-t', 'oc-s', 'oc-m', 'oc-w', 'oc-wa', 'oc-c', 'oc-bd', 'oc-gl', 'oc-bt', 'oc-br', 'oc-bb', 'oc-bl', 'oc-hd', 'ui-btn', 'ui-btn-nh'];
     var PROPS = ['--oc-c-dark', '--oc-c-light', '--oc-c-mid'];
     var SIDES = ['Top', 'Right', 'Bottom', 'Left'];
     // Luminancia objetivo para texto de color: claro sobre fondos oscuros, oscuro sobre claros/medios
@@ -4112,7 +4142,7 @@ function filterPacientes() {
         while (n && n !== document.body && n !== document.documentElement) {
             if (cache.has(n)) { res = cache.get(n); break; }
             chain.push(n);
-            if (!n.classList.contains('oc-gl')) {
+            if (!n.classList.contains('oc-gl') && !n.classList.contains('oc-hd') && !n.classList.contains('page-header')) {
                 var cs = getComputedStyle(n);
                 if (alphaOf(cs.backgroundColor) >= 0.5 || (cs.backgroundImage && cs.backgroundImage !== 'none')) { res = true; break; }
             }
@@ -4127,6 +4157,22 @@ function filterPacientes() {
         if (el.style && el.style.getPropertyValue(PROPS[0])) for (var j = 0; j < PROPS.length; j++) el.style.removeProperty(PROPS[j]);
     }
 
+    // Fila de encabezado = contenedor flex con espacio entre título y acciones (hasta 3 niveles sobre el h1).
+    // Se detecta por estilo calculado (sirve también con CSS propio de cada página) o por clase responsive (sm:justify-between).
+    function plate(h1) {
+        var a = h1.parentElement, d = 0;
+        while (a && a !== ROOT && d < 3) {
+            var c = a.getAttribute('class') || '', cs = getComputedStyle(a);
+            if ((cs.display.indexOf('flex') > -1 && cs.justifyContent === 'space-between') ||
+                (/(?:^|\s)flex(?:\s|$)/.test(c) && /(?:^|\s)(?:[a-z]+:)?justify-between(?:\s|$)/.test(c))) {
+                if (alphaOf(cs.backgroundColor) < 0.5 && (!cs.backgroundImage || cs.backgroundImage === 'none') &&
+                    !a.hasAttribute('data-no-plate') && a.textContent.length < 500 &&
+                    a.querySelectorAll('h1').length === 1 && !a.querySelector('table,form,input,select,textarea,canvas')) a.classList.add('oc-hd');
+                return;
+            }
+            a = a.parentElement; d++;
+        }
+    }
     // doReset = true → se re-evalúa un elemento que ya había sido marcado (cambió de estado)
     function scan(node, doReset) {
         if (!node || node.nodeType !== 1) return;
@@ -4140,9 +4186,12 @@ function filterPacientes() {
             if (SKIP.test(el.tagName)) continue;
             if (OPT_OUT && el.closest('[data-no-adapt]')) continue;
             var add = [], vars = null, cls = el.getAttribute('class') || '';
+            if ((el.tagName === 'A' || el.tagName === 'BUTTON') && /(?:^|\s)px-\d/.test(cls) && /(?:^|\s)rounded/.test(cls) && RX_BTN_BG.test(cls)) {
+                add.push('ui-btn'); if (!/(?:^|\s)hover:/.test(cls)) add.push('ui-btn-nh');     // botón con fondo: estados coherentes
+            }
             var isText = ownText(el), isBorder = RX_BORDER.test(cls), isGlass = RX_GLASS.test(cls);
-            if (!isText && !isBorder && !isGlass) continue;
-            if (covered(el, cache)) continue;
+            if (!isText && !isBorder && !isGlass) { if (add.length) todo.push([el, add, null]); continue; }
+            if (covered(el, cache)) { if (add.length) todo.push([el, add, null]); continue; }
             if (isText) {
                 var cs = getComputedStyle(el), p = nums(cs.color);
                 if (p) {
@@ -4170,6 +4219,8 @@ function filterPacientes() {
             for (k = 0; k < todo[i][1].length; k++) todo[i][0].classList.add(todo[i][1][k]);
             if (todo[i][2]) for (k = 0; k < 3; k++) todo[i][0].style.setProperty(PROPS[k], todo[i][2][k]);
         }
+        // Placa de encabezado para los <h1> que quedaron sobre el canvas
+        for (i = 0; i < todo.length; i++) if (todo[i][0].tagName === 'H1' && /(?:^|\s)oc-[tsmwc]\b/.test(todo[i][0].getAttribute('class') || '')) plate(todo[i][0]);
     }
 
     /* ---------- arranque ---------- */
@@ -4192,7 +4243,7 @@ function filterPacientes() {
     /* ---------- elementos que cambian de estado (pestañas, chips activos, aria-selected…) ---------- */
     var ATTRS = ['class', 'aria-selected', 'aria-pressed', 'aria-current', 'aria-checked', 'aria-expanded', 'hidden', 'disabled'];
     var attrQ = new Set(), attrTimer = null;
-    function noOc(v) { return (v || '').replace(/(?:^|\s)oc-[a-z]+(?=\s|$)/g, '').replace(/\s+/g, ' ').trim(); }
+    function noOc(v) { return (v || '').replace(/(?:^|\s)(?:oc-[a-z]+|ui-btn(?:-nh)?)(?=\s|$)/g, '').replace(/\s+/g, ' ').trim(); }
     function flushAttrs() {
         attrTimer = null;
         var q = Array.from(attrQ); attrQ.clear();
