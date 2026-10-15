@@ -10,6 +10,7 @@ from django.db.models import Q, Count, Sum, F, OuterRef, Subquery, Exists, Case,
 from django.db.models.functions import Coalesce
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date
+from django.utils.timezone import now as _tz_ahora
 from core.fechas import fmt_fecha, fmt_fecha_corta, fecha_larga, mes_anio, nombre_dia  # dd/mm/aaaa y nombres en español
 from core.fechas import fmt_texto_fechas
 from calendar import monthrange, Calendar
@@ -1254,8 +1255,8 @@ def calendario(request):
         'por_pagina': request.GET.get('por_pagina', '50'),
         'es_profesional': es_profesional,
         'permisos_activos_count': PermisoEdicionSesion.objects.filter(
-            valido_desde__lte=date.today(),
-            valido_hasta__gte=date.today(),
+            valido_desde__lte=_tz_ahora(),
+            valido_hasta__gte=_tz_ahora(),
             usado=False,
         ).count() if (request.user.is_staff or request.user.is_superuser) else 0,
         # ✅ Se calcula acá (no en el template) porque el tag {% if %} de Django
@@ -2676,16 +2677,19 @@ def editar_sesion(request, sesion_id):
                 'mensaje': f'❌ {mensaje_bloqueo}. No tienes permisos para editar esta sesión.'
             }, status=403)
         
-        # ✅ Registrar uso del permiso si el profesional editó con permiso
-        if puede_editar and es_profesional and profesional_actual and sesion.fecha != hoy:
-            registrar_uso_permiso(profesional_actual, sesion)
-        
         try:
             # ✅ NUEVO: Importar aquí para evitar errores de importación circular
             from django.db import transaction
             from django.core.exceptions import ValidationError
             
             estado_nuevo = request.POST.get('estado', '').strip()
+
+            # 🔒 Respetar lo que autoriza el permiso de edición: si no incluye
+            # el estado (o las notas), el servidor ignora lo que llegue en el POST.
+            estado_editable = 'estado' in campos_permitidos
+            notas_editables = 'notas_sesion' in campos_permitidos
+            if not estado_editable:
+                estado_nuevo = sesion.estado
             
             # ✅ VALIDACIÓN: Estado debe ser válido
             if not estado_nuevo:
@@ -2702,7 +2706,7 @@ def editar_sesion(request, sesion_id):
                 }, status=400)
             
             # 🆕 VALIDACIÓN: Si cambia a estado sin cobro y tiene pagos
-            if puede_editar and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+            if puede_editar and estado_editable and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                 pagos_activos = sesion.pagos.filter(anulado=False)
                 
                 if pagos_activos.exists():
@@ -2751,11 +2755,12 @@ def editar_sesion(request, sesion_id):
                     estado_anterior = sesion.estado
                     
                     # Actualizar estado
-                    sesion.estado = estado_nuevo
+                    if estado_editable:
+                        sesion.estado = estado_nuevo
                     
                     # Aplicar políticas de cobro según estado (todos los roles)
                     # Si llegó aquí con es_profesional=True, ya se validó que NO hay pagos activos
-                    if estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
+                    if estado_editable and estado_nuevo in ['permiso', 'cancelada', 'reprogramada']:
                         sesion.monto_cobrado = Decimal('0.00')
                     
                     # Observaciones y notas
@@ -2764,12 +2769,12 @@ def editar_sesion(request, sesion_id):
                         sesion.observaciones = observaciones_nuevas
                     
                     # Notas de sesión (profesionales y admins)
-                    if es_profesional or es_admin:
+                    if (es_profesional or es_admin) and notas_editables:
                         notas_nuevas = request.POST.get('notas_sesion', '').strip()
                         sesion.notas_sesion = notas_nuevas
                     
                     # ✅ CAMPOS ESPECÍFICOS SEGÚN ESTADO
-                    if estado_nuevo == 'realizada_retraso':
+                    if estado_editable and estado_nuevo == 'realizada_retraso':
                         hora_real = request.POST.get('hora_real_inicio', '').strip()
                         if hora_real:
                             try:
@@ -2783,7 +2788,7 @@ def editar_sesion(request, sesion_id):
                                     'mensaje': '❌ Formato de hora inválido'
                                 }, status=400)
                     
-                    if estado_nuevo == 'reprogramada':
+                    if estado_editable and estado_nuevo == 'reprogramada':
                         fecha_nueva = request.POST.get('fecha_reprogramada', '').strip()
                         hora_nueva = request.POST.get('hora_reprogramada', '').strip()
                         
@@ -2825,10 +2830,10 @@ def editar_sesion(request, sesion_id):
                         'modificada_por', 'fecha_modificacion'
                     ]
                     
-                    if estado_nuevo == 'realizada_retraso' and sesion.hora_real_inicio:
+                    if estado_editable and estado_nuevo == 'realizada_retraso' and sesion.hora_real_inicio:
                         campos_actualizar.extend(['hora_real_inicio', 'minutos_retraso'])
                     
-                    if estado_nuevo == 'reprogramada':
+                    if estado_editable and estado_nuevo == 'reprogramada':
                         campos_actualizar.extend([
                             'fecha_reprogramada', 'hora_reprogramada',
                             'motivo_reprogramacion', 'reprogramacion_realizada'
@@ -2852,6 +2857,10 @@ def editar_sesion(request, sesion_id):
                     
                     sesion.save(update_fields=['observaciones', 'modificada_por', 'fecha_modificacion'])
             
+            # ✅ Registrar uso del permiso solo si el guardado fue exitoso
+            if puede_editar and es_profesional and profesional_actual and sesion.fecha != hoy:
+                registrar_uso_permiso(profesional_actual, sesion)
+
             # ✅ ÉXITO
             return JsonResponse({
                 'success': True,
@@ -2891,6 +2900,8 @@ def editar_sesion(request, sesion_id):
         'estadisticas': json.dumps(estadisticas),
         'puede_editar': puede_editar,
         'puede_editar_pago': puede_editar_pago,
+        'puede_estado': 'estado' in campos_permitidos,
+        'puede_notas': 'notas_sesion' in campos_permitidos,
         'mensaje_bloqueo': mensaje_bloqueo,
         'es_profesional': es_profesional,
         'es_recepcionista': es_recepcionista,
@@ -3585,6 +3596,14 @@ def procesar_agendar_mensualidad(request, servicio_profesional_id):
 ESTADOS_SIN_COBRO = ['permiso', 'cancelada', 'reprogramada']
 
 
+def _puede_gestionar_pagos_sesion(user):
+    """Cambiar estado con pagos / anular pagos: solo administración y recepción."""
+    if user.is_superuser:
+        return True
+    perfil = getattr(user, 'perfil', None)
+    return bool(perfil and perfil.rol in ('administrador', 'gerente', 'recepcionista'))
+
+
 @login_required
 def modal_confirmar_cambio_estado(request, sesion_id):
     """
@@ -3593,6 +3612,9 @@ def modal_confirmar_cambio_estado(request, sesion_id):
     GET  ?estado_nuevo=permiso&formato=html → HTML  del partial con los datos del modal
     """
     from facturacion.models import Pago
+
+    if not _puede_gestionar_pagos_sesion(request.user):
+        return JsonResponse({'error': True, 'mensaje': 'No tienes permiso para esta acción.'}, status=403)
 
     sesion = get_object_or_404(Sesion, id=sesion_id)
     estado_nuevo = request.GET.get('estado_nuevo', '')
@@ -3648,6 +3670,9 @@ def procesar_cambio_estado(request, sesion_id):
 
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    if not _puede_gestionar_pagos_sesion(request.user):
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para esta acción.'}, status=403)
 
     sesion = get_object_or_404(Sesion, id=sesion_id)
 
@@ -5885,56 +5910,68 @@ def revocar_permiso_edicion(request, permiso_id):
 
 # ── Funciones de servicio reutilizables ──
 
+def _permisos_vigentes(profesional, sesion):
+    """Permisos de edición vigentes de este profesional que cubren esta sesión.
+    Solo aplican a sesiones del propio profesional."""
+    from django.utils import timezone as tz
+
+    if sesion.profesional_id != profesional.id:
+        return PermisoEdicionSesion.objects.none()
+
+    ahora = tz.now()
+    return PermisoEdicionSesion.objects.filter(
+        profesional=profesional,
+        fecha_sesion_desde__lte=sesion.fecha,
+        fecha_sesion_hasta__gte=sesion.fecha,
+        valido_desde__lte=ahora,
+        valido_hasta__gte=ahora,
+        usado=False,
+    ).select_related('otorgado_por')
+
+
 def profesional_puede_editar_sesion(profesional, sesion):
     """
     Verifica si un profesional puede editar una sesión específica.
     Retorna: (puede: bool, campos_permitidos: list, motivo: str)
-    """
-    from django.utils import timezone as tz
 
+    - Sesiones del día actual: siempre.
+    - Otras fechas: solo sesiones PROPIAS y con un permiso vigente. Si hay
+      varios permisos vigentes que cubren la sesión, se suman sus campos.
+    """
     hoy = date.today()
 
     # Siempre puede editar sesiones del día actual
     if sesion.fecha == hoy:
         return True, ['estado', 'notas_sesion', 'observaciones', 'hora_inicio', 'hora_fin'], "Sesión del día actual"
 
-    permiso = PermisoEdicionSesion.objects.filter(
-        profesional=profesional,
-        fecha_sesion_desde__lte=sesion.fecha,
-        fecha_sesion_hasta__gte=sesion.fecha,
-        valido_desde__lte=tz.now(),
-        valido_hasta__gte=tz.now(),
-        usado=False,
-    ).first()
+    permisos = list(_permisos_vigentes(profesional, sesion))
 
-    if not permiso:
+    if not permisos:
         return False, [], "Sin permiso para editar sesiones de otra fecha"
 
     campos = []
-    if permiso.puede_editar_estado: campos.append('estado')
-    if permiso.puede_editar_notas:  campos.append('notas_sesion')
-    if permiso.puede_editar_otros_campos:
+    if any(p.puede_editar_estado for p in permisos):
+        campos.append('estado')
+    if any(p.puede_editar_notas for p in permisos):
+        campos.append('notas_sesion')
+    if any(p.puede_editar_otros_campos for p in permisos):
         campos += ['observaciones', 'hora_inicio', 'hora_fin']
 
-    return True, campos, f"Permiso otorgado por {permiso.otorgado_por}"
+    if not campos:
+        return False, [], "El permiso no habilita ningún campo"
+
+    return True, campos, f"Permiso otorgado por {permisos[0].otorgado_por}"
+
 
 def registrar_uso_permiso(profesional, sesion):
-    """Registra la primera vez que se usa el permiso, sin cerrarlo."""
+    """Registra la primera vez que se usa cada permiso vigente, sin cerrarlo."""
     from django.utils import timezone as tz
 
-    permiso = PermisoEdicionSesion.objects.filter(
-        profesional=profesional,
-        fecha_sesion_desde__lte=sesion.fecha,
-        fecha_sesion_hasta__gte=sesion.fecha,
-        valido_desde__lte=tz.now(),
-        valido_hasta__gte=tz.now(),
-        usado=False,
-    ).first()
-
-    if permiso and not permiso.fecha_uso:
+    for permiso in _permisos_vigentes(profesional, sesion).filter(fecha_uso__isnull=True):
         # Solo registra la fecha del primer uso, el permiso sigue activo
         permiso.fecha_uso = tz.now()
         permiso.save(update_fields=['fecha_uso'])
+
 
 def cerrar_permisos_vencidos():
     """

@@ -1,4 +1,5 @@
 from django import forms
+from django.utils import timezone
 from .models import PermisoEdicionSesion
 
 
@@ -56,4 +57,10 @@ class PermisoEdicionForm(forms.ModelForm):
             raise forms.ValidationError(
                 "La fecha 'Válido hasta' debe ser posterior a 'Válido desde'."
             )
+        # No permitir crear/mover un permiso que ya nace vencido
+        if valido_hasta and ('valido_hasta' in self.changed_data or not self.instance.pk):
+            if valido_hasta <= timezone.now():
+                raise forms.ValidationError(
+                    "La fecha 'Válido hasta' debe ser futura: ese permiso ya estaría vencido."
+                )
         return cleaned

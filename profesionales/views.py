@@ -404,7 +404,7 @@ def subir_foto_paciente(request, paciente_id):
         return redirect('profesionales:mis_pacientes')
 
     # Solo si NO tiene foto (aunque envíen el POST a mano)
-    if paciente.tiene_foto():
+    if paciente.tiene_foto:
         messages.warning(
             request,
             f'ℹ️ {paciente.nombre_completo} ya tiene foto. '

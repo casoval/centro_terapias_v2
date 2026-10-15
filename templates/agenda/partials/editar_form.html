@@ -278,7 +278,7 @@
                         </div>
                         <select name="estado" id="estado-{{ sesion.id }}"
                                 class="w-full text-xs px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-transparent cursor-pointer"
-                                onchange="cambiarEstado{{ sesion.id }}()" required>
+                                onchange="cambiarEstado{{ sesion.id }}()" required{% if not puede_estado %} disabled title="Tu permiso no incluye cambiar el estado"{% endif %}>
                             <option value="programada" {% if sesion.estado == 'programada' %}selected{% endif %}>📅 Programada</option>
                             <option value="realizada" {% if sesion.estado == 'realizada' %}selected{% endif %}>✅ Realizada</option>
                             <option value="realizada_retraso" {% if sesion.estado == 'realizada_retraso' %}selected{% endif %}>🕐 Realizada (Retraso)</option>
@@ -373,7 +373,7 @@
                             </div>
                         </label>
                         <div class="relative">
-                            <textarea name="notas_sesion" id="notas-sesion-{{ sesion.id }}" rows="6"
+                            <textarea name="notas_sesion" id="notas-sesion-{{ sesion.id }}" rows="6"{% if not puede_notas %} readonly title="Tu permiso no incluye editar las notas"{% endif %}
                                       class="w-full text-xs px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none shadow-sm transition-all placeholder-gray-400"
                                       placeholder="Registre aquí la evolución del paciente, observaciones clínicas, progreso... ">{{ sesion.notas_sesion }}</textarea>
                             <!-- Botón micrófono dentro del textarea -->

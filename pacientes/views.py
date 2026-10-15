@@ -565,7 +565,10 @@ def detalle_paciente(request, pk):
                 paciente=paciente, profesional__user=request.user
             ).exists()
         elif perfil and perfil.es_paciente():
-            permitido = (paciente.user_id == request.user.id)
+            permitido = (
+                paciente.user_id == request.user.id
+                or perfil.paciente_id == paciente.id
+            )
         if not permitido:
             messages.error(request, '⚠️ No tienes permiso para ver este paciente.')
             return redirect('core:dashboard')
@@ -682,7 +685,7 @@ def mis_sesiones(request):
     ✅ Nadie más puede acceder aquí
     """
     # ✅ Verificar que el usuario sea paciente
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente:
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
         messages.error(request, '⚠️ Esta sección es solo para pacientes.')
         return redirect('core:dashboard')
     
@@ -744,7 +747,7 @@ def mis_profesionales(request):
     ✅ Muestra todos los profesionales que han atendido al paciente
     """
     # ✅ Verificar que el usuario sea paciente
-    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente:
+    if not hasattr(request.user, 'perfil') or not request.user.perfil.es_paciente():
         messages.error(request, '⚠️ Esta sección es solo para pacientes.')
         return redirect('core:dashboard')
     
