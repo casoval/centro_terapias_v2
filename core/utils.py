@@ -220,6 +220,24 @@ def solo_sus_sucursales(view_func):
     return wrapper
 
 
+def bloquear_profesional(view_func):
+    """
+    Impide que un usuario con rol profesional (que no sea superusuario) abra
+    pantallas con datos económicos (montos, precios, deudas). Se usa en las
+    vistas financieras para que tampoco se pueda entrar escribiendo la URL.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        perfil = getattr(user, 'perfil', None)
+        if (user.is_authenticated and not user.is_superuser
+                and perfil is not None and perfil.es_profesional()):
+            messages.error(request, 'No tienes acceso a esta sección.')
+            return redirect('agenda:calendario')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 # Decoradores específicos para acciones comunes
 puede_crear_pacientes = lambda f: requiere_permiso('puede_crear_pacientes')(f)
 puede_crear_sesiones = lambda f: requiere_permiso('puede_crear_sesiones')(f)

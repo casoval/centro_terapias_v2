@@ -5,11 +5,13 @@ from django.db.models import Count, Q
 from .models import TipoServicio, Sucursal
 from .forms import TipoServicioForm, SucursalForm
 from datetime import date, timedelta
+from core.utils import bloquear_profesional
 
 
 # ==================== SERVICIOS/TIPOS ====================
 
 @login_required
+@bloquear_profesional
 def lista_servicios(request):
     """Lista de tipos de servicios activos"""
     servicios = TipoServicio.objects.filter(activo=True).order_by('nombre')
@@ -51,6 +53,7 @@ def lista_servicios(request):
     return render(request, 'servicios/lista_servicios.html', context)
 
 @login_required
+@bloquear_profesional
 def detalle_servicio(request, pk):
     """Detalle de un tipo de servicio"""
     servicio = get_object_or_404(TipoServicio, pk=pk)

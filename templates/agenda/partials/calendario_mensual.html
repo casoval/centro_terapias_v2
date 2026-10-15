@@ -145,7 +145,7 @@
                                          hx-get="{% url 'agenda:editar_sesion' sesion.id %}"
                                          hx-target="#modal-content"
                                          hx-swap="innerHTML"
-                                         data-sesion-info='{"hora_inicio":"{{ sesion.hora_inicio|time:"g:i A" }}","hora_fin":"{{ sesion.hora_fin|time:"g:i A" }}","paciente":"{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}","servicio":"{{ sesion.servicio.nombre }}","profesional":"{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}","sucursal":"{{ sesion.sucursal.nombre }}","estado":"{{ sesion.get_estado_display }}","monto":"{{ sesion.monto_cobrado }}"{% if sesion.proyecto %},"proyecto":"{{ sesion.proyecto.codigo }}"{% endif %}{% if sesion.mensualidad %},"mensualidad":"{{ sesion.mensualidad.codigo }}"{% endif %}}'>
+                                         data-sesion-info='{"hora_inicio":"{{ sesion.hora_inicio|time:"g:i A" }}","hora_fin":"{{ sesion.hora_fin|time:"g:i A" }}","paciente":"{{ sesion.paciente.nombre }} {{ sesion.paciente.apellido }}","servicio":"{{ sesion.servicio.nombre }}","profesional":"{{ sesion.profesional.nombre }} {{ sesion.profesional.apellido }}","sucursal":"{{ sesion.sucursal.nombre }}","estado":"{{ sesion.get_estado_display }}"{% if not es_profesional %},"monto":"{{ sesion.monto_cobrado }}"{% endif %}{% if sesion.proyecto %},"proyecto":"{{ sesion.proyecto.codigo }}"{% endif %}{% if sesion.mensualidad %},"mensualidad":"{{ sesion.mensualidad.codigo }}"{% endif %}}'>
 
                                         <div class="flex items-center justify-between leading-none mb-1 pb-1 border-b border-black/5">
                                             <div class="flex items-center gap-1">
@@ -158,7 +158,7 @@
                                             </div>
 
                                             <div class="flex items-center gap-0.5">
-                                                {% if sesion.monto_cobrado > 0 %}
+                                                {% if sesion.monto_cobrado > 0 and not es_profesional %}
                                                     {% if sesion.pagado %}
                                                     <span class="text-[9px] text-emerald-600" title="Pagado">✅</span>
                                                     {% else %}
@@ -249,6 +249,7 @@
                     <span class="text-indigo-600">💳</span>
                     <span class="text-indigo-700 font-bold">Mensualidad</span>
                 </div>
+                {% if not es_profesional %}
                 <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-emerald-200 shadow-sm">
                     <span class="text-emerald-600">✅</span>
                     <span class="text-emerald-700 font-bold">Pagado</span>
@@ -257,6 +258,7 @@
                     <span class="text-rose-600 font-bold">💰</span>
                     <span class="text-rose-700 font-bold">Pendiente</span>
                 </div>
+                {% endif %}
                 <div class="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-amber-200 shadow-sm">
                     <span class="text-amber-600">⚠️</span>
                     <span class="text-amber-700 font-bold">Última Sesión</span>
@@ -483,10 +485,12 @@
                     <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Estado:</span>
                     <span class="text-[10px] font-semibold" id="tooltip-estado"></span>
                 </div>
+                {% if not es_profesional %}
                 <div class="flex items-start gap-2">
                     <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Monto:</span>
                     <span class="text-[10px] text-emerald-300" id="tooltip-monto"></span>
                 </div>
+                {% endif %}
                 <div id="tooltip-proyecto-container" class="hidden flex items-start gap-2">
                     <span class="text-[10px] text-gray-400 w-14 flex-shrink-0 font-medium">Proyecto:</span>
                     <span class="text-[10px] text-purple-300" id="tooltip-proyecto"></span>
@@ -1002,7 +1006,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('tooltip-profesional').textContent = info.profesional;
                 document.getElementById('tooltip-sucursal').textContent   = info.sucursal;
                 document.getElementById('tooltip-estado').textContent     = info.estado;
-                document.getElementById('tooltip-monto').textContent      = 'Bs. ' + info.monto;
+                var _tm = document.getElementById('tooltip-monto');
+                if (_tm && info.monto !== undefined) { _tm.textContent = 'Bs. ' + info.monto; }
 
                 document.getElementById('tooltip-extra-info').classList.remove('hidden');
 

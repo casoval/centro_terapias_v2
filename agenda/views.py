@@ -26,14 +26,15 @@ from core.utils import (
     get_sucursales_usuario, 
     get_profesional_usuario, 
     filtrar_por_sucursales,
-    solo_sus_sucursales
+    solo_sus_sucursales,
+    bloquear_profesional
 )
 import json
 
 
 @login_required
 @solo_sus_sucursales
-
+@bloquear_profesional
 def lista_proyectos(request):
     """Lista de proyectos con filtros"""
     
@@ -138,6 +139,7 @@ def lista_proyectos(request):
 
 @login_required
 @solo_sus_sucursales
+@bloquear_profesional
 def detalle_proyecto(request, proyecto_id):
     """Detalle completo de un proyecto"""
     
@@ -547,6 +549,7 @@ def crear_mensualidad(request):
 
 @login_required
 @solo_sus_sucursales
+@bloquear_profesional
 def lista_mensualidades(request):
     """Lista de mensualidades con filtros - ✅ CORREGIDO: ManyToMany"""
     
@@ -662,6 +665,7 @@ def lista_mensualidades(request):
 
 @login_required
 @solo_sus_sucursales
+@bloquear_profesional
 def detalle_mensualidad(request, mensualidad_id):
     """Detalle completo de una mensualidad - ✅ CORREGIDO"""
     
@@ -1239,9 +1243,10 @@ def calendario(request):
         'sucursal_id': sucursal_id or '',
         'tipo_sesion': tipo_sesion or '',
         'sucursales_usuario': sucursales_usuario,
-        'total_monto': estadisticas['total_monto'] or 0,
-        'total_pagado': estadisticas['total_pagado'] or 0,
-        'total_pendiente': estadisticas['total_pendiente'] or 0,
+        # 🔒 El profesional no ve montos económicos: no se envían al template.
+        'total_monto': None if es_profesional else (estadisticas['total_monto'] or 0),
+        'total_pagado': None if es_profesional else (estadisticas['total_pagado'] or 0),
+        'total_pendiente': None if es_profesional else (estadisticas['total_pendiente'] or 0),
         'count_programadas': estadisticas['count_programadas'],
         'count_realizadas': estadisticas['count_realizadas'],
         'count_retraso': estadisticas['count_retraso'],
@@ -2712,11 +2717,10 @@ def editar_sesion(request, sesion_id):
                 if pagos_activos.exists():
                     # 🔒 PROFESIONALES: No pueden gestionar pagos — derivar a recepción/admin
                     if es_profesional:
-                        total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum'] or Decimal('0.00')
                         return JsonResponse({
                             'error': True,
                             'mensaje': (
-                                f'❌ Esta sesión tiene un pago registrado de Bs. {total_pagado}. '
+                                '❌ Esta sesión tiene un pago registrado. '
                                 f'Para cambiar el estado a "{estado_nuevo}" debes comunicarte '
                                 f'con recepción o administración para que gestionen el pago.'
                             )
@@ -3172,10 +3176,9 @@ def eliminar_sesion(request, sesion_id):
         # ✅ VALIDACIÓN 2: No debe tener pagos
         pagos_activos = sesion.pagos.filter(anulado=False)
         if pagos_activos.exists():
-            total_pagado = pagos_activos.aggregate(Sum('monto'))['monto__sum']
             return JsonResponse({
                 'error': True,
-                'mensaje': f'❌ No se puede eliminar. La sesión tiene {pagos_activos.count()} pago(s) por Bs. {total_pagado}'
+                'mensaje': f'❌ No se puede eliminar. La sesión tiene {pagos_activos.count()} pago(s) registrado(s)'
             }, status=400)
         
         # ✅ GUARDAR INFO PARA MENSAJE
