@@ -3,9 +3,8 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils import timezone
 
-from documentos.storage_backends import get_documentos_storage
+from documentos.storage_backends import documentos_storage
 
-_STORAGE = get_documentos_storage()  # R2 si está configurado; si no, storage local
 
 EXT_IMAGEN = ('jpg', 'jpeg', 'png', 'webp')
 EXT_PERMITIDAS = EXT_IMAGEN + ('pdf',)
@@ -26,7 +25,7 @@ class Anuncio(models.Model):
     titulo = models.CharField('Título', max_length=150)
     mensaje = models.TextField('Mensaje', blank=True)
     adjunto = models.FileField(
-        'Imagen o PDF', upload_to='avisos/%Y/%m/', storage=_STORAGE, blank=True,
+        'Imagen o PDF', upload_to='avisos/%Y/%m/', storage=documentos_storage, blank=True,
         validators=[FileExtensionValidator(allowed_extensions=EXT_PERMITIDAS), validar_tamano_adjunto],
     )
     importancia = models.CharField(max_length=10, choices=IMPORTANCIA_CHOICES, default='normal')

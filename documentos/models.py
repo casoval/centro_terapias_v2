@@ -2,9 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
-from .storage_backends import get_documentos_storage
+from .storage_backends import documentos_storage
 
-_DOCUMENTOS_STORAGE = get_documentos_storage()
 
 
 EXTENSIONES_PERMITIDAS = [
@@ -68,7 +67,7 @@ class DocumentoPaciente(models.Model):
 
     archivo = models.FileField(
         upload_to='documentos_pacientes/%Y/%m/',
-        storage=_DOCUMENTOS_STORAGE,  # Cloudflare R2, o local si no está configurado (dev)
+        storage=documentos_storage,  # Cloudflare R2, o local si no está configurado (dev)
         validators=[
             FileExtensionValidator(allowed_extensions=EXTENSIONES_PERMITIDAS),
             validar_tamano_archivo,
@@ -206,7 +205,7 @@ class PlanTrabajo(models.Model):
 
     archivo = models.FileField(
         upload_to='planes_trabajo/%Y/%m/',
-        storage=_DOCUMENTOS_STORAGE,
+        storage=documentos_storage,
         validators=[
             FileExtensionValidator(allowed_extensions=EXTENSIONES_PERMITIDAS),
             validar_tamano_archivo,

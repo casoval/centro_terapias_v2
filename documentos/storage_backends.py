@@ -50,3 +50,15 @@ def get_documentos_storage():
     if not getattr(settings, 'R2_CONFIGURADO', False):
         return None
     return R2DocumentosStorage()
+
+
+def documentos_storage():
+    """
+    Para usar como `FileField(storage=documentos_storage)` (pasando la función,
+    SIN llamarla). Django la guarda en las migraciones como referencia a esta
+    función y no como una instancia concreta, así el estado de las migraciones
+    es idéntico en desarrollo (disco local) y en producción (R2) y
+    `migrate` deja de avisar de "cambios sin migración" por el storage.
+    """
+    from django.core.files.storage import default_storage
+    return get_documentos_storage() or default_storage
