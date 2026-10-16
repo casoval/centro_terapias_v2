@@ -45,44 +45,7 @@ VERDICTO_COL = {'solido': C_VERDE, 'aceptable': C_AMBER, 'bajo': colors.HexColor
 # ─────────────────────────────────────────────────────────────────────
 # FORMATO
 # ─────────────────────────────────────────────────────────────────────
-_REEMPLAZOS = {'≥': '>=', '≤': '<=', '×': 'x', '→': '->', '✔': 'OK', '✖': 'X', '●': '*',
-               '′': "'", '’': "'", '“': '"', '”': '"', '\u00a0': ' ', '…': '...',
-               '⚠': '(!)', '≈': '~', '💡': '', '·': '-', '—': '-', '–': '-'}
-
-
-def _t(s):
-    """Limpia caracteres fuera de WinAnsi (Helvetica estándar de ReportLab)."""
-    s = '' if s is None else str(s)
-    for a, b in _REEMPLAZOS.items():
-        s = s.replace(a, b)
-    return s.encode('latin-1', 'replace').decode('latin-1')
-
-
-def fm(v, d=2):
-    """1234.5 -> 1.234,50"""
-    try:
-        s = f"{float(v or 0):,.{d}f}"
-    except Exception:
-        return "0"
-    return s.replace(',', '\x00').replace('.', ',').replace('\x00', '.')
-
-
-def bs(v, d=2):
-    return f"Bs. {fm(v, d)}"
-
-
-def pc(v):
-    try:
-        return f"{float(v):.1f}%".replace('.', ',')
-    except Exception:
-        return "0,0%"
-
-
-def fd(d, fmt='%d/%m/%Y'):
-    try:
-        return d.strftime(fmt)
-    except Exception:
-        return '-'
+from ._pdf_formato import _REEMPLAZOS, _t, fm, bs, pc, fd   # noqa: E402,F401  (reexportadas)
 
 
 def _recorta(txt, fsize, max_w, font='Helvetica'):

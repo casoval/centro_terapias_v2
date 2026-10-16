@@ -1463,10 +1463,19 @@ class InformeMensualVistasTests(BaseAsistencia):
         r = self.client.get(self.url, {'profesional': self.b.pk})
         self.assertEqual([i.profesional.pk for i in r.context['informes']], [self.b.pk])
 
+    def test_enlaces_pdf_abren_en_otra_pestana(self):
+        import re
+        html = self.client.get(self.url).content.decode()
+        enlaces = re.findall(r'<a [^>]*href="%s[^"]*"[^>]*>' % re.escape(reverse('asistencia:informe_mensual_pdf')), html)
+        self.assertGreaterEqual(len(enlaces), 5)          # filtro, global, 2 sucursales, 1+ por profesional
+        for e in enlaces:
+            self.assertIn('target="_blank"', e)
+            self.assertIn('rel="noopener"', e)
+
     def test_descarga_global_por_sucursal_y_por_profesional(self):
         r = self.client.get(self.pdf)
         self.assertEqual(r.status_code, 200); self.assertEqual(r['Content-Type'], 'application/pdf')
-        self.assertIn('attachment', r['Content-Disposition']); self.assertIn('global', r['Content-Disposition'])
+        self.assertIn('inline', r['Content-Disposition']); self.assertNotIn('attachment', r['Content-Disposition']); self.assertIn('global', r['Content-Disposition'])
         self.assertEqual(paginas_pdf(r.content), 1 + 2)                          # resumen + 2 profesionales
         r = self.client.get(self.pdf, {'sucursal': self.s1.pk})
         self.assertIn('sucursal-central', r['Content-Disposition']); self.assertEqual(paginas_pdf(r.content), 1)
@@ -1494,7 +1503,7 @@ class InformeMensualVistasTests(BaseAsistencia):
         self.assertEqual(r.status_code, 200); self.assertEqual(r['Content-Type'], 'application/pdf')
         self.assertEqual(paginas_pdf(r.content), 1)
         self.assertIn('mi_asistencia_', r['Content-Disposition'])
-        self.assertContains(self.client.get(reverse('asistencia:mi_asistencia')), 'Descargar mi informe del mes')
+        self.assertContains(self.client.get(reverse('asistencia:mi_asistencia')), 'Ver mi informe del mes')
 
     def test_un_usuario_sin_profesional_vinculado_no_puede_descargar(self):
         u = crear_profesional('huerfano', zona=self.zona)                         # profesional (rol) sin ficha Profesional

@@ -1047,8 +1047,9 @@ def _alcance_informe(sucursal, profesional):
 
 
 def _respuesta_pdf(pdf_bytes, nombre_archivo):
+    # inline: el navegador lo abre en su visor (los enlaces usan target="_blank"); el nombre se conserva al guardarlo
     resp = HttpResponse(pdf_bytes, content_type='application/pdf')
-    resp['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+    resp['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
     return resp
 
 

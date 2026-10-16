@@ -17,7 +17,7 @@ from .informe_paciente_pdf import (
     CW, ML, PAGE_W, Y_BOTTOM, C_AMBER, C_BLANCO, C_FONDO_PAG, C_GRIS_B, C_GRIS_H, C_GRIS_T, C_MED, C_MORADO, C_MUTED,
     C_PRI, C_ROJO, C_TEAL, C_TEXTO, C_TSEC, C_VERDE, _grilla, _pie, _tabla, _tabla_header, _titulo_seccion,
 )
-from .informe_profesional_pdf import fd, fm, pc as _pc
+from ._pdf_formato import fd, fm, pc as _pc
 from reportlab.lib import colors
 
 logger = logging.getLogger(__name__)

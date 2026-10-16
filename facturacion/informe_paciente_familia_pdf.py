@@ -27,7 +27,8 @@ from .informe_paciente_pdf import (
     C_VERDE, MESES_FULL, NOMBRE_CENTRO, _encabezado, _grad, _logo, _pie, C_GRIS_B, C_GRIS_H, C_GRIS_T,
 )
 from .informe_paciente_extra_pdf import Y_BOTTOM
-from .informe_profesional_pdf import DIRECCION, TELEFONO, fd, fm, pc as _pc
+from .informe_paciente_pdf import DIRECCION, TELEFONO
+from ._pdf_formato import fd, fm, pc as _pc
 
 logger = logging.getLogger(__name__)
 TITULO = "INFORME PARA LA FAMILIA"
