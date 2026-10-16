@@ -16,6 +16,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
+from .personal import profesionales_activos as _activos
 from .models import ConfigAsistencia, DerechoAsueto, RegistroAsistencia, UsoAsueto
 
 TOLERANCIA_SALDO = Decimal('0.02')       # evita que 3 × 0,33 deje un saldo «fantasma» de 0,01
@@ -37,7 +38,7 @@ def fmt_dias_asueto(valor) -> str:
 # ── Destinatarios ────────────────────────────────────────────────────────────
 
 def profesionales_activos():
-    return User.objects.filter(perfil__rol='profesional', is_active=True)
+    return _activos()
 
 
 def destinatarios(destino='todos', sucursal_ids=(), zona_ids=(), user_ids=()):

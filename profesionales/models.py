@@ -53,6 +53,10 @@ class Profesional(models.Model):
     )
     
     activo = models.BooleanField(default=True)
+    fecha_baja = models.DateField(
+        null=True, blank=True,
+        help_text="Día en que se desactivó. La baja no es retroactiva: los informes de asistencia "
+                  "anteriores a esta fecha siguen mostrando al profesional. Se completa sola.")
     fecha_ingreso = models.DateField(auto_now_add=True)
     
     class Meta:
@@ -64,6 +68,19 @@ class Profesional(models.Model):
             models.Index(fields=['apellido', 'nombre']),
         ]
     
+    def save(self, *args, **kwargs):
+        # La fecha de baja se mantiene sola: se marca al desactivar y se limpia al reactivar
+        # (así también funciona desde el admin de Django y desde cualquier vista).
+        from django.utils import timezone
+        if not self.activo and self.fecha_baja is None:
+            self.fecha_baja = timezone.localdate()
+        elif self.activo and self.fecha_baja is not None:
+            self.fecha_baja = None
+        uf = kwargs.get('update_fields')
+        if uf is not None and 'activo' in uf and 'fecha_baja' not in uf:
+            kwargs['update_fields'] = list(uf) + ['fecha_baja']
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.apellido}, {self.nombre}"
     

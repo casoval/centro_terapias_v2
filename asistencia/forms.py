@@ -4,6 +4,7 @@ from decimal import Decimal
 from django import forms
 from django.utils import timezone
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from .personal import profesionales_activos
 from .models import (
     ZonaAsistencia, PlantillaHorario, BloqueHorario, ConfigAsistencia,
     FechaEspecial, BloqueFechaEspecial, PermisoAsistencia, RegistroAsistencia,
@@ -249,9 +250,7 @@ class ConfigAsistenciaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from django.contrib.auth.models import User as DjangoUser
-        self.fields['user'].queryset = DjangoUser.objects.filter(
-            perfil__rol='profesional', is_active=True
-        ).order_by('last_name', 'first_name')
+        self.fields['user'].queryset = profesionales_activos().order_by('last_name', 'first_name')
         self.fields['device_id'].required = False
         self.initial.setdefault('aplicar_desde', timezone.localdate())
 
@@ -279,9 +278,7 @@ class FechaEspecialForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from django.contrib.auth.models import User as DjangoUser
-        self.fields['profesionales'].queryset = DjangoUser.objects.filter(
-            perfil__rol='profesional', is_active=True
-        ).order_by('last_name', 'first_name')
+        self.fields['profesionales'].queryset = profesionales_activos().order_by('last_name', 'first_name')
         self.fields['profesionales'].required = False
         self.fields['motivo'].required = False
 
@@ -428,8 +425,7 @@ class OtorgarAsuetoForm(forms.Form):
         from servicios.models import Sucursal
         self.fields['sucursales'].queryset = Sucursal.objects.all().order_by('nombre')
         self.fields['zonas'].queryset = ZonaAsistencia.objects.filter(activa=True).order_by('nombre')
-        self.fields['profesionales'].queryset = DjangoUser.objects.filter(
-            perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name')
+        self.fields['profesionales'].queryset = profesionales_activos().order_by('last_name', 'first_name')
         self.fields['profesionales'].label_from_instance = lambda u: u.get_full_name() or u.username
         for f in ('sucursales', 'zonas', 'profesionales'):
             self.fields[f].widget = forms.SelectMultiple(attrs={'class': INPUT, 'size': '5'})

@@ -452,7 +452,7 @@ class PanelTests(BaseAsistencia):
         self.marcar(listo, 'SALIDA', local(LUNES, 13, 0))
         self.marcar(User.objects.get(username='p1'), 'ENTRADA', local(LUNES, 8, 0))
 
-        with self.assertNumQueries(11):                # (asuetos + sucursales para las reglas por alcance) fijo, no crece con la cantidad de profesionales
+        with self.assertNumQueries(12):                # (asuetos + sucursales para las reglas por alcance + bajas del período) fijo, no crece con la cantidad de profesionales
             filas, resumen = construir_panel(LUNES, local(LUNES, 13, 30))
         por_user = {f['user'].username: f for f in filas}
         self.assertEqual(por_user['p0']['estado_dia'], 'TARDANZA')
@@ -2774,3 +2774,177 @@ class ReglasPorAlcanceTests(BaseAsistencia):
         r = self.client.get(reverse('asistencia:mi_asistencia'))
         self.assertEqual(r.status_code, 200)
         self.assertIn('90', r.context['texto_regla'])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PERSONAL ACTIVO / INACTIVO
+# ══════════════════════════════════════════════════════════════════════════════
+
+class PersonalInactivoTests(AsuetosBase):
+    """Un profesional dado de baja (Profesional.activo=False) sale de toda la asistencia y aparece en Inactivos."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.admin)
+        self.baja = crear_prof('beto', self.zona, control=OCT(1))
+        self.baja.activo = False
+        self.baja.save()
+
+    def test_helper_separa_activos_e_inactivos(self):
+        from .personal import profesionales_activos, profesionales_inactivos
+        self.assertIn(self.p.user, profesionales_activos())
+        self.assertNotIn(self.baja.user, profesionales_activos())
+        self.assertIn(self.baja.user, profesionales_inactivos())
+        self.assertNotIn(self.p.user, profesionales_inactivos())
+
+    def test_usuario_desactivado_tambien_es_inactivo(self):
+        from .personal import profesionales_activos, profesionales_inactivos
+        self.p.user.is_active = False
+        self.p.user.save()
+        self.assertNotIn(self.p.user, profesionales_activos())
+        self.assertIn(self.p.user, profesionales_inactivos())
+
+    def test_panel_y_enrolamiento_solo_muestran_activos(self):
+        for name in ('asistencia:panel_admin', 'asistencia:enrolamiento'):
+            r = self.client.get(reverse(name))
+            self.assertEqual(r.status_code, 200)
+            self.assertContains(r, self.p.user.get_full_name())
+            self.assertNotContains(r, self.baja.user.get_full_name())
+
+    def test_pestana_inactivos_lista_al_de_baja(self):
+        r = self.client.get(reverse('asistencia:inactivos'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, self.baja.user.get_full_name())
+        self.assertNotContains(r, self.p.user.get_full_name())
+
+    def test_todas_las_pantallas_traen_la_pestana_inactivos(self):
+        for name in ('panel_admin', 'zonas_gps', 'horarios', 'fechas_especiales', 'asignaciones',
+                     'enrolamiento', 'permisos', 'reglas', 'justificaciones', 'asuetos', 'informe_mensual'):
+            r = self.client.get(reverse(f'asistencia:{name}'))
+            self.assertEqual(r.status_code, 200, name)
+            self.assertContains(r, reverse('asistencia:inactivos'), msg_prefix=name)
+
+    def test_asueto_a_todos_no_alcanza_a_inactivos(self):
+        self.client.post(reverse('asistencia:asuetos'), {
+            'accion': 'otorgar', 'motivo': 'Feriado', 'duracion': '0.5',
+            'otorgado_el': '2026-10-13', 'destino': 'todos'})
+        self.assertTrue(DerechoAsueto.objects.filter(user=self.p.user).exists())
+        self.assertFalse(DerechoAsueto.objects.filter(user=self.baja.user).exists())
+
+    def test_boton_registrar_asueto_tiene_fondo_propio(self):
+        r = self.client.get(reverse('asistencia:asuetos'))
+        self.assertContains(r, 'btn-registrar-asueto')
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LA BAJA NO ES RETROACTIVA
+# ══════════════════════════════════════════════════════════════════════════════
+
+class BajaNoRetroactivaTests(AsuetosBase):
+    """
+    Dar de baja a un profesional no reescribe el pasado: sus informes y el panel de los días en que estuvo
+    activo siguen mostrándolo y se le evalúa hasta su baja. Nunca se oculta una marcación.
+    Octubre 2026: lunes 5, martes 6, miércoles 7, jueves 8, viernes 9.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from profesionales.models import Profesional
+        self.client.force_login(self.admin)
+        # Beto trabaja 5, 6 y 7 de octubre y se le da de baja el 9 (rige hasta el 8)
+        self.beto = crear_prof('beto', self.zona, apellido='Bravo', control=OCT(1))
+        for d in (5, 6, 7):
+            jornada(self.beto.user, OCT(d))
+        Profesional.objects.filter(pk=self.beto.pk).update(activo=False, fecha_baja=OCT(9))
+        self.beto.refresh_from_db()
+        # Carla trabajó en septiembre y se le dio de baja el 23/09
+        self.carla = crear_prof('carla', self.zona, apellido='Cortez', control=dt.date(2026, 9, 1))
+        jornada(self.carla.user, dt.date(2026, 9, 22))
+        Profesional.objects.filter(pk=self.carla.pk).update(activo=False, fecha_baja=dt.date(2026, 9, 23))
+        self.carla.refresh_from_db()
+
+    def informe_beto(self):
+        return construir_informes_mensuales([self.beto], 2026, 10, self.AHORA)[0]
+
+    def test_informe_conserva_el_pasado_y_corta_en_la_baja(self):
+        inf = self.informe_beto()
+        dias = {d.fecha.day: d.estado for d in inf.dias}
+        self.assertEqual(inf.control_hasta, OCT(8))
+        for n in (5, 6, 7):
+            self.assertNotEqual(dias[n], 'sin_control', f'día {n}: sus marcaciones deben verse')
+        self.assertNotIn(dias[8], ('sin_control', 'futuro'))      # el día previo a la baja sí se evalúa
+        for n in (9, 12, 15, 20, 30):
+            self.assertEqual(dias[n], 'sin_control', f'día {n}: ya estaba de baja, no genera faltas')
+
+    def test_despues_de_la_baja_no_hay_faltas(self):
+        faltas = [d.fecha.day for d in self.informe_beto().dias if d.bloques_falta]
+        self.assertTrue(faltas, 'las faltas anteriores a la baja se conservan')
+        self.assertTrue(all(n <= 8 for n in faltas), f'faltas después de la baja: {faltas}')
+
+    def test_nunca_se_oculta_una_marcacion_posterior_a_la_baja(self):
+        from profesionales.models import Profesional
+        jornada(self.beto.user, OCT(12))                          # marcó el 12 aunque la baja es del 9
+        Profesional.objects.filter(pk=self.beto.pk).update(fecha_baja=OCT(9))
+        from .personal import fin_control_por_usuario
+        self.assertEqual(fin_control_por_usuario([self.beto.user.pk])[self.beto.user.pk], OCT(12))
+        dias = {d.fecha.day: d.estado for d in self.informe_beto().dias}
+        self.assertNotEqual(dias[12], 'sin_control')
+
+    def test_baja_sin_fecha_rige_la_ultima_marcacion(self):
+        from profesionales.models import Profesional
+        from .personal import fin_control_por_usuario
+        Profesional.objects.filter(pk=self.beto.pk).update(fecha_baja=None)
+        self.assertEqual(fin_control_por_usuario([self.beto.user.pk])[self.beto.user.pk], OCT(7))
+
+    def test_baja_sin_fecha_ni_marcaciones_no_tiene_control(self):
+        from profesionales.models import Profesional
+        from .personal import fin_control_por_usuario
+        nuevo = crear_prof('dora', self.zona, control=OCT(1))
+        Profesional.objects.filter(pk=nuevo.pk).update(activo=False, fecha_baja=None)
+        self.assertIsNone(fin_control_por_usuario([nuevo.user.pk])[nuevo.user.pk])
+
+    def test_fecha_baja_se_completa_y_se_limpia_sola(self):
+        from profesionales.models import Profesional
+        p = Profesional.objects.get(pk=self.p.pk)
+        p.activo = False
+        p.save()
+        self.assertEqual(p.fecha_baja, timezone.localdate())
+        p.activo = True
+        p.save()
+        p.refresh_from_db()
+        self.assertIsNone(p.fecha_baja)
+
+    def test_periodo_incluye_a_quien_estaba_activo(self):
+        from .personal import profesionales_en_periodo
+        octubre = profesionales_en_periodo(OCT(1), OCT(31))
+        septiembre = profesionales_en_periodo(dt.date(2026, 9, 1), dt.date(2026, 9, 30))
+        self.assertIn(self.beto.user, octubre)
+        self.assertNotIn(self.carla.user, octubre)                # su control terminó en septiembre
+        self.assertIn(self.carla.user, septiembre)
+        self.assertIn(self.beto.user, septiembre)                 # estuvo activo todo septiembre
+        self.assertIn(self.p.user, octubre)
+
+    def test_pantalla_informe_mensual_por_mes(self):
+        url = reverse('asistencia:informe_mensual')
+        octubre = self.client.get(url, {'mes': 10, 'anio': 2026})
+        self.assertContains(octubre, self.beto.nombre_completo)
+        self.assertNotContains(octubre, self.carla.nombre_completo)
+        septiembre = self.client.get(url, {'mes': 9, 'anio': 2026})
+        self.assertContains(septiembre, self.carla.nombre_completo)
+
+    def test_pdf_del_informe_de_un_mes_pasado_incluye_al_inactivo(self):
+        r = self.client.get(reverse('asistencia:informe_mensual_pdf'), {'mes': 9, 'anio': 2026})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+
+    def test_panel_de_un_dia_pasado_muestra_a_quien_estaba_activo(self):
+        url = reverse('asistencia:panel_admin')
+        antes = self.client.get(url, {'fecha': '2026-10-06'})
+        self.assertContains(antes, self.beto.user.get_full_name())
+        hoy = self.client.get(url)
+        self.assertNotContains(hoy, self.beto.user.get_full_name())
+
+    def test_selector_de_justificaciones_lista_al_que_estuvo_activo_ese_mes(self):
+        url = reverse('asistencia:justificaciones')
+        self.assertContains(self.client.get(url, {'mes': 9, 'anio': 2026}), self.carla.apellido)
+        self.assertNotContains(self.client.get(url, {'mes': 10, 'anio': 2026}), self.carla.apellido)

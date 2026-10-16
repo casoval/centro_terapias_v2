@@ -30,6 +30,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from .personal import profesionales_activos, profesionales_en_periodo
 from .models import (
     ConfigAsistencia, EnrolamientoFacial, FechaEspecial, RegistroAsistencia, ReglasAsistencia,
     UsoAsueto, ordenar_bloques,
@@ -753,7 +754,7 @@ def generar_ausentes(fecha: Optional[date] = None, ahora=None, incluir_sin_enrol
     fechas_por_zona = _fechas_especiales_por_zona(fecha)
     configs_por_user = _configs_por_usuario()
 
-    profesionales = User.objects.filter(perfil__rol='profesional', is_active=True).select_related('enrolamiento')
+    profesionales = profesionales_activos().select_related('enrolamiento')
     regs = {}
     for r in RegistroAsistencia.objects.filter(fecha_hora__date=fecha, tipo='ENTRADA',
                                                estado__in=['PUNTUAL', 'TARDANZA', 'AUSENTE']):
@@ -932,7 +933,7 @@ def construir_panel(fecha: date, ahora=None):
     ahora = timezone.localtime(ahora or timezone.now())
     es_hoy = fecha == ahora.date()
     profesionales = list(
-        User.objects.filter(perfil__rol='profesional', is_active=True)
+        profesionales_en_periodo(fecha, fecha)          # quien estaba activo ese día (la baja no es retroactiva)
         .select_related('perfil__profesional', 'enrolamiento')
         .prefetch_related('profesional__sucursales')
         .order_by('last_name', 'first_name')

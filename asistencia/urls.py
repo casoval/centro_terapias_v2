@@ -20,6 +20,7 @@ urlpatterns = [
     path('admin/horarios/fechas/', views.fechas_especiales, name='fechas_especiales'),
     path('admin/horarios/fechas/<int:pk>/eliminar/', views.eliminar_fecha_especial, name='eliminar_fecha_especial'),
     path('admin/enrolamiento/', views.enrolamiento, name='enrolamiento'),
+    path('admin/inactivos/', views.inactivos, name='inactivos'),
     path('admin/enrolamiento/<int:enrolamiento_pk>/desbloquear/', views.desbloquear_enrolamiento, name='desbloquear'),
     path('admin/reglas/', views.reglas_asistencia, name='reglas'),
     path('admin/reglas/<int:pk>/eliminar/', views.eliminar_reglas, name='eliminar_reglas'),

@@ -484,6 +484,8 @@ def _hoja_profesional(c, inf, foto_path, pg, total, emitido, sucursal_filtro=Non
         notas.append('Este profesional aún no tiene control de asistencia (sin enrolar ni marcaciones): no se calcularon faltas.')
     elif inf.control_desde > date(inf.anio, inf.mes, 1):
         notas.append(f"Control de asistencia desde el {inf.control_desde:%d/%m/%Y}: los días anteriores no generan faltas.")
+    if inf.control_hasta and (inf.control_hasta.year, inf.control_hasta.month) == (inf.anio, inf.mes):
+        notas.append(f"Profesional dado de baja: control de asistencia hasta el {inf.control_hasta:%d/%m/%Y}; los días posteriores no generan faltas.")
     notas.append('Este informe no incluye montos de pago; el descuento se expresa en días y lo aplica el administrador.')
     c.setFont('Helvetica', 6.6)
     for i, t in enumerate(notas):

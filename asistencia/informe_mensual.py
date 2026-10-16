@@ -34,6 +34,7 @@ from django.utils import timezone
 
 from .asuetos import fmt_dias_asueto, usos_por_usuario_fecha
 from .evaluacion import es_alerta, evaluar_asistencia, evaluar_puntualidad
+from .personal import fin_control_por_usuario
 from .models import (
     EnrolamientoFacial, FechaEspecial, PermisoAsistencia, RegistroAsistencia,
 )
@@ -100,6 +101,7 @@ class InformeMensual:
     control_desde: Optional[date]
     tramos: list                    # [(tope_seg | None, días)] de la regla de ese mes
     resumen: dict
+    control_hasta: Optional[date] = None   # último día evaluado si el profesional fue dado de baja
 
     @property
     def nombre(self):
@@ -175,6 +177,9 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
         d = timezone.localtime(fecha_enrol).date()
         inicio_control[uid] = min(d, inicio_control.get(uid, d))
 
+    # Hasta cuándo se controla a quien fue dado de baja (la baja no es retroactiva ni oculta marcaciones)
+    fin_control = fin_control_por_usuario(ids)
+
     configs = _configs_por_usuario()
     fechas_por_zona = _fechas_especiales_mes(inicio_mes, fin_mes)
     asuetos = usos_por_usuario_fecha(inicio_mes, fin_mes, ids)
@@ -186,6 +191,8 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
         hay_reglas = any(d > 0 for _t, d in tramos)
         sin_descuento_seg = segundos_sin_descuento(tramos)
         control = inicio_control.get(user.pk)
+        dado_de_baja = user.pk in fin_control
+        control_hasta = fin_control.get(user.pk)
         marcas = por_user.get(user.pk, {})
         dias = []
         acum = 0                         # segundos de retraso acumulados
@@ -206,7 +213,7 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
             if not horario.es_laborable:
                 base['horario'] = 'Libre' if horario.tipo == 'libre' else ''
 
-            if control is None or d < control:
+            if control is None or d < control or (dado_de_baja and (control_hasta is None or d > control_hasta)):
                 dias.append(DiaInforme(estado='sin_control', **base))
                 continue
             if d > hoy:
@@ -346,6 +353,6 @@ def construir_informes_mensuales(profesionales, anio: int, mes: int, ahora=None)
         informes.append(InformeMensual(
             profesional=prof, user=user, anio=anio, mes=mes,
             sucursales=[s.nombre for s in prof.sucursales.all()],
-            dias=dias, control_desde=control, tramos=tramos, resumen=resumen,
+            dias=dias, control_desde=control, tramos=tramos, resumen=resumen, control_hasta=control_hasta,
         ))
     return informes

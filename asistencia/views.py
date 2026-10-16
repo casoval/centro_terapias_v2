@@ -20,6 +20,7 @@ from .forms import (
     TramoFormSet, UsarAsuetoForm, ZonaAsistenciaForm, bloque_formset,
 )
 from . import asuetos as asuetos_svc
+from .personal import profesionales_activos, profesionales_en_periodo, profesionales_inactivos
 from .informe_mensual import MESES, construir_informes_mensuales
 from .models import (
     BloqueFechaEspecial, BloqueHorario, ConfigAsistencia, DIAS_SEMANA, DIAS_SEMANA_ORDEN, EnrolamientoFacial,
@@ -130,9 +131,7 @@ def _cambiar_horario_propio(config, activar, desde):
 @require_POST
 def marcar_admin(request, user_pk):
     """El admin marca entrada/salida de un profesional. Sin GPS ni rostro; queda anotado."""
-    profesional_user = get_object_or_404(
-        User, pk=user_pk, perfil__rol='profesional', is_active=True
-    )
+    profesional_user = get_object_or_404(profesionales_activos(), pk=user_pk)
     tipo = request.POST.get('tipo')
     if tipo not in ('ENTRADA', 'SALIDA'):
         messages.error(request, 'Tipo inválido.')
@@ -166,7 +165,7 @@ def panel_admin(request):
 
     # Cómo va el mes de cada profesional (estrellas + semáforo), para actuar antes de que haya descuentos fuertes
     from profesionales.models import Profesional
-    profs = (Profesional.objects.filter(activo=True, user__isnull=False)
+    profs = (Profesional.objects.filter(user_id__in=[f['user'].pk for f in datos])
              .select_related('user').prefetch_related('sucursales'))
     evaluaciones = {i.user.pk: i for i in construir_informes_mensuales(profs, fecha.year, fecha.month)}
     for fila in datos:
@@ -498,7 +497,7 @@ def reglas_asistencia(request):
         'alcance': alcance, 'sucursal_sel': sucursal, 'usuario_sel': usuario, 'es_excepcion': es_excepcion,
         'alcance_texto': ReglasAsistencia(alcance=alcance, sucursal=sucursal, user=usuario).alcance_texto,
         'sucursales': Sucursal.objects.all().order_by('nombre'),
-        'profesionales': User.objects.filter(perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name'),
+        'profesionales': profesionales_activos().order_by('last_name', 'first_name'),
         'excepciones': excepciones,
         'general_url': reverse('asistencia:reglas'),
     })
@@ -541,9 +540,7 @@ def asignaciones(request):
     for c in configs:
         c.plantillas_vigentes = [p for p in c.plantillas_efectivas(hoy)]
 
-    profesionales_sin_config = User.objects.filter(
-        perfil__rol='profesional', is_active=True
-    ).exclude(configs_asistencia__isnull=False)
+    profesionales_sin_config = profesionales_activos().exclude(configs_asistencia__isnull=False)
 
     if request.method == 'POST':
         form = ConfigAsistenciaForm(request.POST)
@@ -667,14 +664,32 @@ def eliminar_fecha_especial(request, pk):
 @solo_admin
 def enrolamiento(request):
     """Estado del enrolamiento facial de cada profesional."""
-    profesionales = User.objects.filter(
-        perfil__rol='profesional', is_active=True
-    ).select_related('perfil__profesional', 'enrolamiento').prefetch_related('enrolamiento__permisos')
+    profesionales = profesionales_activos().select_related('perfil__profesional', 'enrolamiento').prefetch_related('enrolamiento__permisos')
 
     datos = [{'user': u, 'enrolamiento': getattr(u, 'enrolamiento', None)} for u in profesionales]
     return render(request, 'asistencia/admin/enrolamiento.html', {
         'datos': datos, 'seccion': 'enrolamiento',
     })
+
+
+# ── Inactivos ────────────────────────────────────────────────────────────────
+
+@solo_admin
+def inactivos(request):
+    """Personal dado de baja. No entra al panel, enrolamiento, horarios ni informes, pero su historial se conserva."""
+    from django.db.models import Count, Max
+    usuarios = (profesionales_inactivos()
+                .select_related('perfil__profesional', 'enrolamiento')
+                .annotate(total_marcas=Count('registros_asistencia', distinct=True),
+                          ultima_marca=Max('registros_asistencia__fecha_hora'))
+                .order_by('last_name', 'first_name'))
+    datos = []
+    for u in usuarios:
+        ficha = getattr(u, 'profesional', None) or getattr(getattr(u, 'perfil', None), 'profesional', None)
+        datos.append({'user': u, 'ficha': ficha,
+                      'usuario_desactivado': not u.is_active,
+                      'total_marcas': u.total_marcas, 'ultima_marca': u.ultima_marca})
+    return render(request, 'asistencia/admin/inactivos.html', {'datos': datos, 'seccion': 'inactivos'})
 
 
 def _otorgar_permiso(enrol, admin, motivo):
@@ -990,12 +1005,17 @@ def _periodo_informe(request):
     return anio, mes
 
 
-def _profesionales_informe(request):
-    """Profesionales activos con usuario, filtrados por ?sucursal= y ?profesional= (ids)."""
+def _profesionales_informe(request, anio, mes):
+    """
+    Profesionales con usuario que estuvieron activos en el período (anio, mes), filtrados por ?sucursal= y
+    ?profesional= (ids). La baja no es retroactiva: quien fue dado de baja sigue figurando en los meses en que
+    estuvo activo o marcó, y sale de los siguientes.
+    """
     from profesionales.models import Profesional
     from servicios.models import Sucursal
 
-    qs = (Profesional.objects.filter(activo=True, user__isnull=False)
+    ultimo = (date(anio, mes, 28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    qs = (Profesional.objects.filter(user__in=profesionales_en_periodo(date(anio, mes, 1), ultimo))
           .select_related('user').prefetch_related('sucursales').order_by('apellido', 'nombre'))
     sucursal = profesional = None
     sid, pid = request.GET.get('sucursal', ''), request.GET.get('profesional', '')
@@ -1007,6 +1027,14 @@ def _profesionales_informe(request):
         qs = qs.filter(pk=int(pid))
         profesional = qs.first()
     return qs, sucursal, profesional
+
+
+def _profesionales_informe_selector(anio, mes):
+    """Profesionales para el desplegable: los que estuvieron activos en ese mes (incluye bajas posteriores)."""
+    from profesionales.models import Profesional
+    ultimo = (date(anio, mes, 28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    return (Profesional.objects.filter(user__in=profesionales_en_periodo(date(anio, mes, 1), ultimo))
+            .order_by('apellido', 'nombre'))
 
 
 def _alcance_informe(sucursal, profesional):
@@ -1031,7 +1059,7 @@ def informe_mensual(request):
     from servicios.models import Sucursal
 
     anio, mes = _periodo_informe(request)
-    qs, sucursal, profesional = _profesionales_informe(request)
+    qs, sucursal, profesional = _profesionales_informe(request, anio, mes)
     informes = construir_informes_mensuales(qs, anio, mes)
     hoy = timezone.localdate()
     return render(request, 'asistencia/admin/informe_mensual.html', {
@@ -1039,7 +1067,7 @@ def informe_mensual(request):
         'anio': anio, 'mes': mes, 'periodo': f"{MESES[mes]} {anio}",
         'sucursal': sucursal, 'profesional': profesional,
         'sucursales': Sucursal.objects.filter(activa=True),
-        'profesionales': Profesional.objects.filter(activo=True, user__isnull=False).order_by('apellido', 'nombre'),
+        'profesionales': _profesionales_informe_selector(anio, mes),
         'meses': [(m, MESES[m]) for m in range(1, 13)],
         'anios': list(range(max(2024, hoy.year - 3), hoy.year + 1)),
         'sin_usuario': Profesional.objects.filter(activo=True, user__isnull=True).count(),
@@ -1053,7 +1081,7 @@ def informe_mensual_pdf(request):
     from .informe_mensual_pdf import generar_informe_mensual_pdf
 
     anio, mes = _periodo_informe(request)
-    qs, sucursal, profesional = _profesionales_informe(request)
+    qs, sucursal, profesional = _profesionales_informe(request, anio, mes)
     informes = construir_informes_mensuales(qs, anio, mes)
     alcance, slug = _alcance_informe(sucursal, profesional)
     pdf = generar_informe_mensual_pdf(informes, alcance, sucursal_filtro=sucursal.nombre if sucursal else None)
@@ -1089,7 +1117,7 @@ def _ultimo_dia_del_mes(fecha):
 def justificaciones(request):
     """Faltas del mes pendientes de justificar y permisos ya registrados. Plazo: último día del mes de la falta."""
     anio, mes = _periodo_informe(request)
-    qs, sucursal, profesional = _profesionales_informe(request)
+    qs, sucursal, profesional = _profesionales_informe(request, anio, mes)
     informes = construir_informes_mensuales(qs, anio, mes)
     hoy = timezone.localdate()
     plazo = _ultimo_dia_del_mes(date(anio, mes, 1))
@@ -1109,7 +1137,7 @@ def justificaciones(request):
         'plazo': plazo, 'en_plazo': hoy <= plazo,
         'sucursal': sucursal, 'profesional': profesional,
         'sucursales': Sucursal.objects.filter(activa=True),
-        'profesionales': Profesional.objects.filter(activo=True, user__isnull=False).order_by('apellido', 'nombre'),
+        'profesionales': _profesionales_informe_selector(anio, mes),
         'meses': [(m, MESES[m]) for m in range(1, 13)],
         'anios': list(range(max(2024, hoy.year - 3), hoy.year + 1)),
         'seccion': 'justificaciones',
@@ -1241,7 +1269,7 @@ def asuetos(request):
     return render(request, 'asistencia/admin/asuetos.html', {
         'otorgar_form': otorgar_form, 'usar_form': usar_form,
         'derechos': filas[:300],
-        'profesionales': User.objects.filter(perfil__rol='profesional', is_active=True).order_by('last_name', 'first_name'),
+        'profesionales': profesionales_activos().order_by('last_name', 'first_name'),
         'filtro_user': filtro_user, 'filtro_estado': filtro_estado, 'accion_activa': accion,
         'seccion': 'asuetos', 'hoy': hoy,
     })
